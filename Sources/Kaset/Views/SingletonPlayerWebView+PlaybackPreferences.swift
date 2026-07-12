@@ -140,11 +140,19 @@ extension SingletonPlayerWebView {
                     ms.setActionHandler('seekbackward', null);
                     ms.setActionHandler('nexttrack', function() {
                         window.webkit.messageHandlers.singletonPlayer
-                            .postMessage({ type: 'REMOTE_NEXT' });
+                            .postMessage({
+                                type: 'REMOTE_NEXT',
+                                documentGeneration: window.__kasetDocumentGeneration,
+                                commandIssuedAtMilliseconds: Date.now()
+                            });
                     });
                     ms.setActionHandler('previoustrack', function() {
                         window.webkit.messageHandlers.singletonPlayer
-                            .postMessage({ type: 'REMOTE_PREVIOUS' });
+                            .postMessage({
+                                type: 'REMOTE_PREVIOUS',
+                                documentGeneration: window.__kasetDocumentGeneration,
+                                commandIssuedAtMilliseconds: Date.now()
+                            });
                     });
                 } catch (e) {}
             }

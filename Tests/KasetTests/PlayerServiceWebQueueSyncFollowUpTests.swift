@@ -3,6 +3,65 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Near-end queue correction owns a late ended callback")
+    func nearEndQueueCorrectionThenLateEndedDoesNotDoubleAdvance() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.songNearingEnd = true
+        let outgoingOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        self.playerService.updateTrackMetadata(
+            title: "Unexpected autoplay",
+            artist: "Someone else",
+            thumbnailUrl: "",
+            videoId: "unexpected",
+            playbackOccurrence: outgoingOccurrence
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(self.playerService.currentIndex == 1)
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: outgoingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("In-place repeat-one replay clears the terminal pause fence")
+    func repeatOneReplayClearsPauseFence() async {
+        let song = Song(
+            id: "1",
+            title: "Song 1",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "v1"
+        )
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.markUserInteractedThisSession()
+        self.playerService.currentWebPlaybackVideoId = { "v1" }
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: self.playerService.currentMusicPlaybackOccurrence
+        )
+
+        #expect(!self.playerService.isExplicitPauseIntentActive)
+        #expect(self.playerService.isAwaitingPlaybackConfirmation)
+        #expect(self.playerService.shouldResumeAfterInterruption)
+    }
+
     // MARK: - Play From Queue Tests
 
     @Test("Play from queue valid index")
@@ -257,6 +316,37 @@ extension PlayerServiceWebQueueSyncTests {
 
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Resuming a pre-bind terminal occurrence starts a fresh native occurrence")
+    func resumeAfterPreBindTerminalStartsFreshOccurrence() async throws {
+        let song = Song(
+            id: "1",
+            title: "Song 1",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "v1"
+        )
+        await self.playerService.play(song: song)
+        let endedOccurrence = self.playerService.beginNativeMusicPlaybackOccurrence(videoId: "v1")
+
+        await self.playerService.seek(to: 180)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == endedOccurrence)
+
+        await self.playerService.resume()
+        let replayOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        #expect(replayOccurrence.nativeGeneration > endedOccurrence.nativeGeneration)
+
+        let firstWebOccurrence = try #require(self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: replayOccurrence.nativeGeneration,
+            videoId: "v1"
+        ))
+        #expect(self.playerService.acceptsWebMusicPlaybackOccurrence(firstWebOccurrence))
     }
 
     @Test("Manual seek to mid-track does not advance queue")

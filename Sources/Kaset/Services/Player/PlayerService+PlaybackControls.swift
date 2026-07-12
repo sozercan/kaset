@@ -82,10 +82,29 @@ extension PlayerService {
     /// Plays a track by video ID.
     func play(videoId: String) async {
         self.logger.debug("play() called with videoId: \(videoId)")
+        let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
+            videoId: videoId,
+            strategy: .standard
+        )
+        guard acceptsPlaybackRequest else {
+            self.logger.debug("Video \(videoId) already loaded; resuming existing playback")
+            await self.resume()
+            return
+        }
+        self.beginNativeMusicPlaybackOccurrence(videoId: videoId)
+        self.activePlaybackQueueEntryID = nil
+        self.isStoppingPlayback = false
         self.logger.info("Playing video: \(videoId)")
         self.clearRestoredPlaybackSessionState()
         self.currentEpisode = nil
         self.state = .loading
+        self.shouldResumeAfterInterruption = true
+        self.isAwaitingPlaybackConfirmation = true
+        self.isExplicitPauseIntentActive = false
+        self.resetAdPlaybackState()
+        self.progress = 0
+        self.currentTimeMs = 0
+        self.duration = 0
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
 
@@ -130,11 +149,41 @@ extension PlayerService {
         episode: ArtistEpisode? = nil
     ) async {
         self.logger.info("Playing song: \(song.title)")
-        self.logger.debug("Web load strategy: \(String(describing: webLoadStrategy))")
+        let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
+            videoId: song.videoId,
+            strategy: webLoadStrategy
+        )
+        let targetQueueEntryID = self.queueEntries[safe: self.currentIndex].flatMap { entry in
+            entry.song.id == song.id && entry.song.videoId == song.videoId ? entry.id : nil
+        }
+        let isSameLogicalPlayback = targetQueueEntryID == self.activePlaybackQueueEntryID
+            && self.currentTrack?.id == song.id
+            && self.currentEpisode?.id == episode?.id
+        guard acceptsPlaybackRequest || !isSameLogicalPlayback else {
+            self.logger.debug("Song \(song.videoId) already loaded; resuming existing playback")
+            await self.resume()
+            return
+        }
+        let effectiveLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy = acceptsPlaybackRequest
+            ? webLoadStrategy
+            : SingletonPlayerWebView.freshSameIDPlaybackStrategy(
+                isShowingAd: self.isShowingAd
+            )
+        self.beginNativeMusicPlaybackOccurrence(videoId: song.videoId)
+        self.activePlaybackQueueEntryID = targetQueueEntryID
+        self.isStoppingPlayback = false
+        self.logger.debug("Web load strategy: \(String(describing: effectiveLoadStrategy))")
         self.clearRestoredPlaybackSessionState()
         self.currentEpisode = episode
         // Brief `.loading` until the observer reports playback; in-place restarts may flash loading briefly.
         self.state = .loading
+        self.shouldResumeAfterInterruption = true
+        self.isAwaitingPlaybackConfirmation = true
+        self.isExplicitPauseIntentActive = false
+        self.resetAdPlaybackState()
+        self.progress = 0
+        self.currentTimeMs = 0
+        self.duration = song.duration ?? 0
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
@@ -165,7 +214,10 @@ extension PlayerService {
         // create it from `pendingPlayVideoId` and autoload in `PersistentPlayerView`.
         self.showMiniPlayer = false
         if SingletonPlayerWebView.shared.webView != nil {
-            SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId, strategy: webLoadStrategy)
+            SingletonPlayerWebView.shared.loadVideo(
+                videoId: song.videoId,
+                strategy: effectiveLoadStrategy
+            )
         }
 
         // Fetch full song metadata if we don't have feedbackTokens
@@ -205,6 +257,9 @@ extension PlayerService {
 
     func markPlaybackEnded() {
         self.state = .ended
+        self.shouldResumeAfterInterruption = false
+        self.isAwaitingPlaybackConfirmation = false
+        self.isExplicitPauseIntentActive = true
     }
 
     /// Updates whether the current track has video available.
@@ -248,16 +303,36 @@ extension PlayerService {
     func playPause() async {
         self.logger.debug("Toggle play/pause")
 
-        if self.isPendingRestoredLoadDeferred || self.pendingPlayVideoId != nil && self.shouldLoadPendingVideoBeforePlayback {
+        // `resume()` owns restored-session transitions. Never clear these flags
+        // here: a failed navigation may have deferred a still-authoritative seek.
+        if self.isRestoringPlaybackSession {
+            if self.shouldAutoResumeAfterRestoredLoad {
+                await self.pause()
+            } else {
+                await self.resume()
+            }
+            return
+        }
+
+        if self.isPendingRestoredLoadDeferred || self.pendingRestoredSeek != nil {
             await self.resume()
+            return
+        }
+
+        if self.pendingPlayVideoId != nil, self.shouldLoadPendingVideoBeforePlayback {
+            if self.shouldResumeAfterInterruption {
+                await self.pause()
+            } else {
+                await self.resume()
+            }
             return
         }
 
         self.clearRestoredPlaybackSessionState()
 
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.playPause()
-        } else if self.isPlaying {
+        if self.state == .paused, !self.isAwaitingPlaybackConfirmation {
+            await self.resume()
+        } else if self.shouldResumeAfterInterruption || self.isAwaitingPlaybackConfirmation {
             await self.pause()
         } else {
             await self.resume()
@@ -267,6 +342,9 @@ extension PlayerService {
     /// Pauses playback.
     func pause() async {
         self.logger.debug("Pausing playback")
+        self.shouldResumeAfterInterruption = false
+        self.isAwaitingPlaybackConfirmation = false
+        self.isExplicitPauseIntentActive = true
 
         if self.isPendingRestoredLoadDeferred {
             self.state = .paused
@@ -300,6 +378,20 @@ extension PlayerService {
     /// Resumes playback.
     func resume() async {
         self.logger.debug("Resuming playback")
+        self.isStoppingPlayback = false
+        self.shouldResumeAfterInterruption = true
+        self.isAwaitingPlaybackConfirmation = true
+        self.isExplicitPauseIntentActive = false
+        if self.currentTrack != nil || self.pendingPlayVideoId != nil,
+           self.beginNativeMusicPlaybackReplayIfNeeded() != nil
+        {
+            self.state = .loading
+            self.progress = 0
+            self.currentTimeMs = 0
+            self.songNearingEnd = false
+            self.shouldSuppressAutoplayAfterQueueEnd = false
+            self.resetAdPlaybackState()
+        }
 
         guard let pendingPlayVideoId = self.pendingPlayVideoId else {
             self.clearRestoredPlaybackSessionState()
@@ -310,6 +402,13 @@ extension PlayerService {
         let shouldLoadPendingVideo = self.shouldLoadPendingVideoBeforePlayback
         if self.isPendingRestoredLoadDeferred {
             self.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
+        } else if self.isRestoringPlaybackSession {
+            self.shouldAutoResumeAfterRestoredLoad = true
+            self.state = .loading
+            if !shouldLoadPendingVideo {
+                SingletonPlayerWebView.shared.resumeReadyAdvertisementIfPresent()
+                return
+            }
         } else {
             self.clearRestoredPlaybackSessionState()
         }
@@ -588,11 +687,16 @@ extension PlayerService {
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.tearDown()
         self.state = .idle
+        self.shouldResumeAfterInterruption = false
+        self.isAwaitingPlaybackConfirmation = false
+        self.isExplicitPauseIntentActive = true
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentEpisode = nil
         self.currentTrack = nil
+        self.activePlaybackQueueEntryID = nil
+        self.resetMusicPlaybackOccurrenceState()
         self.pendingPlayVideoId = nil
         self.progress = 0
         self.currentTimeMs = 0
@@ -621,16 +725,26 @@ extension PlayerService {
     /// Stops playback and clears state.
     func stop() async {
         self.logger.debug("Stopping playback")
+        self.isStoppingPlayback = true
+        self.shouldResumeAfterInterruption = false
+        self.isAwaitingPlaybackConfirmation = false
+        self.isExplicitPauseIntentActive = true
         self.clearRestoredPlaybackSessionState()
-        await self.evaluatePlayerCommand("pauseVideo()")
         self.state = .idle
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentEpisode = nil
         self.currentTrack = nil
+        self.activePlaybackQueueEntryID = nil
+        self.resetMusicPlaybackOccurrenceState()
+        self.pendingPlayVideoId = nil
         self.progress = 0
+        self.currentTimeMs = 0
         self.duration = 0
+        self.resetAdPlaybackState()
+        await SingletonPlayerWebView.shared.cancelPendingPlayback()
+        self.isStoppingPlayback = false
     }
 
     /// Show the AirPlay picker for selecting audio output devices.

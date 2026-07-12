@@ -8,6 +8,21 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
+    @ObservationIgnored var currentWebPlaybackVideoId: @MainActor () -> String? = {
+        SingletonPlayerWebView.shared.currentVideoId
+    }
+
+    /// Latest media occurrence observed or initiated for Music playback.
+    @ObservationIgnored private(set) var currentMusicPlaybackOccurrence: MusicPlaybackOccurrence?
+
+    @ObservationIgnored private var nativeMusicPlaybackGeneration: UInt64 = 0
+    @ObservationIgnored private var lastClaimedNativeMusicPlaybackGeneration: UInt64 = 0
+    @ObservationIgnored private var lastClaimedWebMusicPlaybackOccurrence: MusicPlaybackOccurrence?
+
+    var currentNativeMusicPlaybackGeneration: UInt64 {
+        self.currentMusicPlaybackOccurrence?.nativeGeneration ?? self.nativeMusicPlaybackGeneration
+    }
+
     /// Shared instance for AppleScript access.
     ///
     /// **Safety Invariant:** This property is set exactly once during app initialization
@@ -67,6 +82,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Current playback state.
     var state: PlaybackState = .idle
 
+    /// Native play/pause intent survives transient ad buffering/pauses where
+    /// observable transport state is not authoritative for recovery.
+    var shouldResumeAfterInterruption = false
+    var isStoppingPlayback = false
+
+    var isAwaitingPlaybackConfirmation = false
+    var isExplicitPauseIntentActive = false
+
     /// Currently playing track.
     var currentTrack: Song?
 
@@ -86,6 +109,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Total duration of current track in seconds.
     var duration: TimeInterval = 0
+
+    /// Whether the music playback WebView currently reports an advertisement.
+    var isShowingAd = false
+
+    /// Last clock sample known to belong to the requested music content.
+    var lastNonAdContentProgress: TimeInterval = 0
+
+    /// Video identity owning `lastNonAdContentProgress`.
+    var lastNonAdContentVideoId: String?
 
     /// Current volume (0.0 - 1.0).
     var volume: Double = 1.0
@@ -154,6 +186,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     private(set) var currentQueueEntryID: UUID?
+
+    /// Queue occurrence currently represented by active Web media.
+    var activePlaybackQueueEntryID: UUID?
 
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
@@ -576,4 +611,246 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Debounces repeat-one recovery `play()` when YouTube sends bursty metadata (safety net in `PlayerService+WebQueueSync`).
     /// Internal so the WebQueueSync extension can throttle; not part of the public API.
     var lastRepeatOneRecoveryInstant: ContinuousClock.Instant?
+
+    /// Starts a native fallback occurrence until the Web observer binds the
+    /// corresponding document/media occurrence.
+    @discardableResult
+    func beginNativeMusicPlaybackOccurrence(
+        videoId: String? = nil,
+        synchronizeCurrentDocument: Bool = false
+    ) -> MusicPlaybackOccurrence {
+        self.nativeMusicPlaybackGeneration = max(
+            self.nativeMusicPlaybackGeneration,
+            self.currentMusicPlaybackOccurrence?.nativeGeneration ?? 0
+        )
+        self.nativeMusicPlaybackGeneration &+= 1
+        let occurrence = MusicPlaybackOccurrence.native(
+            generation: self.nativeMusicPlaybackGeneration,
+            videoId: videoId
+        )
+        self.currentMusicPlaybackOccurrence = occurrence
+        if synchronizeCurrentDocument {
+            SingletonPlayerWebView.shared.setNativePlaybackGeneration(
+                occurrence.nativeGeneration
+            )
+        }
+        return occurrence
+    }
+
+    /// A terminal transition can be claimed before the Web observer binds its
+    /// document/media occurrence. Resuming that media is a new playback, so it
+    /// needs a fresh native generation and the active document must publish it.
+    @discardableResult
+    func beginNativeMusicPlaybackReplayIfNeeded() -> MusicPlaybackOccurrence? {
+        guard let currentMusicPlaybackOccurrence else { return nil }
+        let wasConsumed = if currentMusicPlaybackOccurrence.documentGeneration == nil {
+            currentMusicPlaybackOccurrence.mediaGeneration
+                <= self.lastClaimedNativeMusicPlaybackGeneration
+        } else if let lastClaimedWebMusicPlaybackOccurrence {
+            !Self.isWebMusicPlaybackOccurrence(
+                currentMusicPlaybackOccurrence,
+                newerThan: lastClaimedWebMusicPlaybackOccurrence
+            )
+        } else {
+            false
+        }
+        guard wasConsumed else { return nil }
+
+        return self.beginNativeMusicPlaybackOccurrence(
+            videoId: self.currentTrack?.videoId
+                ?? self.pendingPlayVideoId
+                ?? currentMusicPlaybackOccurrence.videoId,
+            synchronizeCurrentDocument: true
+        )
+    }
+
+    func resetMusicPlaybackOccurrenceState() {
+        self.currentMusicPlaybackOccurrence = nil
+        self.lastClaimedWebMusicPlaybackOccurrence = nil
+    }
+
+    /// Binds the active native playback state to an observer-issued occurrence.
+    /// Older or already-terminal Web occurrences cannot replace a newer replay.
+    @discardableResult
+    func bindWebMusicPlaybackOccurrence(
+        documentGeneration: UInt64,
+        mediaGeneration: UInt64,
+        nativeGeneration: UInt64 = 0,
+        videoId: String? = nil
+    ) -> MusicPlaybackOccurrence? {
+        guard mediaGeneration > 0 else { return self.currentMusicPlaybackOccurrence }
+        let occurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: documentGeneration,
+            mediaGeneration: mediaGeneration,
+            nativeGeneration: nativeGeneration,
+            videoId: videoId
+        )
+        let nativeOccurrence = self.currentMusicPlaybackOccurrence.flatMap {
+            $0.documentGeneration == nil ? $0 : nil
+        }
+        if self.songNearingEnd,
+           let currentMusicPlaybackOccurrence,
+           currentMusicPlaybackOccurrence.documentGeneration != nil,
+           Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: currentMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+        if let nativeOccurrence,
+           occurrence.nativeGeneration < nativeOccurrence.nativeGeneration
+        {
+            return nil
+        }
+        let hasConfirmedVideoMismatch = if let nativeVideoId = nativeOccurrence?.videoId,
+                                           let videoId
+        {
+            nativeVideoId != videoId
+        } else {
+            false
+        }
+        let inheritsConsumedNativeOccurrence = if let nativeOccurrence {
+            occurrence.nativeGeneration == nativeOccurrence.nativeGeneration
+                && !hasConfirmedVideoMismatch
+                && nativeOccurrence.mediaGeneration
+                <= self.lastClaimedNativeMusicPlaybackGeneration
+        } else {
+            false
+        }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+
+        if let currentMusicPlaybackOccurrence,
+           currentMusicPlaybackOccurrence.documentGeneration != nil,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThanOrEqualTo: currentMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+
+        self.currentMusicPlaybackOccurrence = occurrence
+        if inheritsConsumedNativeOccurrence {
+            self.lastClaimedWebMusicPlaybackOccurrence = occurrence
+        }
+        return occurrence
+    }
+
+    func acceptsWebMusicPlaybackOccurrence(_ occurrence: MusicPlaybackOccurrence) -> Bool {
+        if let currentMusicPlaybackOccurrence {
+            if currentMusicPlaybackOccurrence.documentGeneration == nil {
+                guard occurrence.nativeGeneration >= currentMusicPlaybackOccurrence.nativeGeneration else {
+                    return false
+                }
+                if occurrence.nativeGeneration == currentMusicPlaybackOccurrence.nativeGeneration,
+                   currentMusicPlaybackOccurrence.mediaGeneration
+                   <= self.lastClaimedNativeMusicPlaybackGeneration
+                {
+                    return false
+                }
+            } else if !Self.isWebMusicPlaybackOccurrence(
+                occurrence,
+                newerThanOrEqualTo: currentMusicPlaybackOccurrence
+            ) {
+                return false
+            }
+        }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return false
+        }
+        return true
+    }
+
+    /// Atomically consumes one terminal transition for one playback occurrence.
+    /// Main-actor isolation makes the check-and-record indivisible with respect
+    /// to near-end, natural-ended, and manual-ended callers.
+    func claimTerminalMusicPlaybackOccurrence(_ occurrence: MusicPlaybackOccurrence?) -> Bool {
+        let resolvedOccurrence = occurrence
+            ?? self.currentMusicPlaybackOccurrence
+            ?? self.beginNativeMusicPlaybackOccurrence(
+                videoId: self.currentTrack?.videoId ?? self.pendingPlayVideoId
+            )
+
+        if resolvedOccurrence.documentGeneration == nil {
+            guard resolvedOccurrence.mediaGeneration > self.lastClaimedNativeMusicPlaybackGeneration else {
+                return false
+            }
+            self.lastClaimedNativeMusicPlaybackGeneration = resolvedOccurrence.mediaGeneration
+            return true
+        }
+
+        if let currentNativeOccurrence = self.currentMusicPlaybackOccurrence,
+           currentNativeOccurrence.documentGeneration == nil
+        {
+            guard resolvedOccurrence.nativeGeneration >= currentNativeOccurrence.nativeGeneration else {
+                return false
+            }
+            if resolvedOccurrence.nativeGeneration == currentNativeOccurrence.nativeGeneration,
+               currentNativeOccurrence.mediaGeneration <= self.lastClaimedNativeMusicPlaybackGeneration
+            {
+                return false
+            }
+        }
+
+        if let currentWebOccurrence = self.currentMusicPlaybackOccurrence,
+           currentWebOccurrence.documentGeneration != nil,
+           !Self.isWebMusicPlaybackOccurrence(
+               resolvedOccurrence,
+               newerThanOrEqualTo: currentWebOccurrence
+           )
+        {
+            return false
+        }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               resolvedOccurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return false
+        }
+        self.lastClaimedWebMusicPlaybackOccurrence = resolvedOccurrence
+        return true
+    }
+
+    private static func isWebMusicPlaybackOccurrence(
+        _ occurrence: MusicPlaybackOccurrence,
+        newerThan other: MusicPlaybackOccurrence
+    ) -> Bool {
+        guard let documentGeneration = occurrence.documentGeneration,
+              let otherDocumentGeneration = other.documentGeneration
+        else {
+            return false
+        }
+        if documentGeneration != otherDocumentGeneration {
+            return documentGeneration > otherDocumentGeneration
+        }
+        if occurrence.mediaGeneration != other.mediaGeneration {
+            return occurrence.mediaGeneration > other.mediaGeneration
+        }
+        return occurrence.nativeGeneration > other.nativeGeneration
+    }
+
+    private static func isWebMusicPlaybackOccurrence(
+        _ occurrence: MusicPlaybackOccurrence,
+        newerThanOrEqualTo other: MusicPlaybackOccurrence
+    ) -> Bool {
+        occurrence == other || self.isWebMusicPlaybackOccurrence(occurrence, newerThan: other)
+    }
 }

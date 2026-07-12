@@ -13,6 +13,10 @@ extension PlayerService {
     /// repeat / queue / autoplay-suppression rules apply consistently with a natural end.
     func handleManualSeekToEnd() async {
         self.logger.info("Manual seek reached end of track; routing through track-ended path")
+        guard self.claimTerminalMusicPlaybackOccurrence(self.currentMusicPlaybackOccurrence) else {
+            self.logger.debug("Ignoring duplicate manual track-end transition for consumed playback occurrence")
+            return
+        }
         self.clearRestoredPlaybackSessionState()
         self.progress = self.duration
 
@@ -20,7 +24,7 @@ extension PlayerService {
             SingletonPlayerWebView.shared.seekAndPause(to: self.duration)
         }
 
-        await self.handleTrackEnded(observedVideoId: self.currentTrack?.videoId)
+        await self.finishTrackEnded(observedVideoId: self.currentTrack?.videoId)
     }
 
     private var shouldSynchronizeWebViewForTerminalManualSeekToEnd: Bool {
@@ -201,15 +205,27 @@ extension PlayerService {
         return true
     }
 
+    // The occurrence token joins the existing observed metadata so the near-end
+    // transition can be claimed atomically instead of advancing twice.
+    // swiftlint:disable:next function_parameter_count
     private func handleNearEndTrackChangeIfNeeded(
         observedVideoId: String?,
         title: String,
         artist: String,
         thumbnailUrl: String,
-        trackChanged: Bool
+        trackChanged: Bool,
+        playbackOccurrence: MusicPlaybackOccurrence?
     ) -> Bool {
         guard trackChanged, !self.queue.isEmpty, self.songNearingEnd else {
             return false
+        }
+        // Claim before scheduling either corrective branch below. Those branches
+        // deliberately own this terminal transition even when YouTube's observed
+        // successor is not the queue's expected song; otherwise a queued `ended`
+        // callback can race the unstructured corrective task and advance twice.
+        guard self.claimTerminalMusicPlaybackOccurrence(playbackOccurrence) else {
+            self.logger.debug("Ignoring duplicate near-end transition for consumed playback occurrence")
+            return true
         }
 
         self.songNearingEnd = false
@@ -240,6 +256,11 @@ extension PlayerService {
             }
 
             self.currentIndex = expectedNextIndex
+            self.beginNativeMusicPlaybackOccurrence(
+                videoId: expectedNextTrack.videoId,
+                synchronizeCurrentDocument: true
+            )
+            self.activePlaybackQueueEntryID = self.currentQueueEntryID
             self.logger.info("Track advanced to queue index \(expectedNextIndex)")
             self.saveQueueForPersistence()
 
@@ -361,6 +382,7 @@ extension PlayerService {
             let queueIndexChanged = matchingIndex != self.currentIndex
             if queueIndexChanged {
                 self.currentIndex = matchingIndex
+                self.activePlaybackQueueEntryID = self.currentQueueEntryID
                 self.logger.info("Observed playback moved to queue index \(matchingIndex), realigning native queue")
                 self.saveQueueForPersistence()
             }
@@ -393,8 +415,19 @@ extension PlayerService {
         guard let currentSong = self.queue[safe: self.currentIndex] else { return }
         self.songNearingEnd = false
         let kasetAlignedWithQueue = self.pendingPlayVideoId == currentSong.videoId
-            && SingletonPlayerWebView.shared.currentVideoId == currentSong.videoId
+            && self.currentWebPlaybackVideoId() == currentSong.videoId
         if self.hasUserInteractedThisSession, kasetAlignedWithQueue {
+            self.beginNativeMusicPlaybackOccurrence(
+                videoId: currentSong.videoId,
+                synchronizeCurrentDocument: true
+            )
+            self.activePlaybackQueueEntryID = self.currentQueueEntryID
+            self.resetAdPlaybackState()
+            self.progress = 0
+            self.currentTimeMs = 0
+            self.shouldResumeAfterInterruption = true
+            self.isAwaitingPlaybackConfirmation = true
+            self.isExplicitPauseIntentActive = false
             SingletonPlayerWebView.shared.restartInPlaceFromBeginning()
             if self.state == .ended || self.state == .loading {
                 self.state = .playing
@@ -421,8 +454,19 @@ extension PlayerService {
     }
 
     /// Handles a natural track completion reported directly by the WebView.
-    func handleTrackEnded(observedVideoId: String?) async {
+    func handleTrackEnded(
+        observedVideoId: String?,
+        playbackOccurrence: MusicPlaybackOccurrence? = nil
+    ) async {
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
+        guard self.claimTerminalMusicPlaybackOccurrence(playbackOccurrence) else {
+            self.logger.debug("Ignoring duplicate track-ended transition for consumed playback occurrence")
+            return
+        }
+        await self.finishTrackEnded(observedVideoId: observedVideoId)
+    }
+
+    private func finishTrackEnded(observedVideoId: String?) async {
         self.songNearingEnd = false
         guard !self.queue.isEmpty else {
             if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {
@@ -477,6 +521,22 @@ extension PlayerService {
 
     /// Updates track metadata and enforces Kaset's queue when YouTube tries to diverge.
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {
+        self.updateTrackMetadata(
+            title: title,
+            artist: artist,
+            thumbnailUrl: thumbnailUrl,
+            videoId: observedVideoId,
+            playbackOccurrence: self.currentMusicPlaybackOccurrence
+        )
+    }
+
+    func updateTrackMetadata(
+        title: String,
+        artist: String,
+        thumbnailUrl: String,
+        videoId observedVideoId: String?,
+        playbackOccurrence: MusicPlaybackOccurrence?
+    ) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
         let thumbnailURL = URL(string: thumbnailUrl)
         let artistObj = Artist(id: "unknown", name: artist)
@@ -510,7 +570,8 @@ extension PlayerService {
             title: title,
             artist: artist,
             thumbnailUrl: thumbnailUrl,
-            trackChanged: trackChanged
+            trackChanged: trackChanged,
+            playbackOccurrence: playbackOccurrence
         ) {
             return
         }

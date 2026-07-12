@@ -7,7 +7,7 @@ import Testing
 
 /// Records playback commands without touching a real WebView.
 @MainActor
-private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling {
+final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling {
     private(set) var loadedVideoIds: [String] = []
     private(set) var reloadedVideoIds: [String] = []
     private(set) var reloadResumeSeconds: [Double?] = []
@@ -15,10 +15,17 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     private(set) var playCount = 0
     private(set) var pauseCount = 0
     private(set) var seeks: [Double] = []
+    private(set) var pendingRecoverySeeks: [Double] = []
+    private(set) var cancelPendingRecoverySeekCount = 0
+    private(set) var markCurrentPlaybackOccurrenceEndedCount = 0
+    private(set) var commandLog: [String] = []
     private(set) var volumes: [Double] = []
     private(set) var tearDownCount = 0
     private(set) var prepareCount = 0
     private(set) var cancelPendingLoadCount = 0
+    var cancelPendingLoadResult = false
+    var onLoadVideo: ((String) -> Void)?
+    var onSeek: ((Double) -> Void)?
 
     func prepare(webKitManager _: WebKitManager, playerService _: YouTubePlayerService, usesCookieFreeDataStore _: Bool) {
         self.prepareCount += 1
@@ -26,6 +33,7 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
 
     func loadVideo(videoId: String) {
         self.loadedVideoIds.append(videoId)
+        self.onLoadVideo?(videoId)
     }
 
     func reloadVideo(videoId: String, resumeAt seconds: Double?) {
@@ -33,8 +41,9 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
         self.reloadResumeSeconds.append(seconds)
     }
 
-    func cancelPendingLoad() {
+    func cancelPendingLoad() -> Bool {
         self.cancelPendingLoadCount += 1
+        return self.cancelPendingLoadResult
     }
 
     func playPause() {
@@ -42,15 +51,43 @@ private final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackCont
     }
 
     func play() {
+        self.commandLog.append("play")
         self.playCount += 1
     }
 
     func pause() {
+        self.commandLog.append("pause")
         self.pauseCount += 1
     }
 
     func seek(to time: Double) {
+        self.commandLog.append("seek")
         self.seeks.append(time)
+        self.onSeek?(time)
+    }
+
+    func replacePendingRecoverySeek(with seconds: Double) {
+        self.commandLog.append("replacePendingRecoverySeek")
+        self.pendingRecoverySeeks.append(seconds)
+    }
+
+    func seekWithRecovery(to seconds: Double) {
+        self.replacePendingRecoverySeek(with: seconds)
+        self.seek(to: seconds)
+    }
+
+    func cancelPendingRecoverySeek() {
+        self.commandLog.append("cancelPendingRecoverySeek")
+        self.cancelPendingRecoverySeekCount += 1
+    }
+
+    func markCurrentPlaybackOccurrenceEnded() {
+        self.commandLog.append("markCurrentPlaybackOccurrenceEnded")
+        self.markCurrentPlaybackOccurrenceEndedCount += 1
+    }
+
+    func resetCommandLog() {
+        self.commandLog.removeAll()
     }
 
     func setVolume(_ volume: Double) {
@@ -173,7 +210,14 @@ struct YouTubePlayerServiceTests {
     func reloadDuringAdUsesContentProgress() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         // Content reaches 600s...
-        self.sut.updatePlaybackState(.init(isPlaying: true, progress: 600, duration: 1200, videoId: "abc"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 600,
+            duration: 1200,
+            hasReadyMedia: true,
+            videoId: "abc",
+            boundVideoId: "abc"
+        ))
         // ...then a midroll ad starts, dragging self.progress down to the ad time.
         self.sut.updatePlaybackState(.init(isPlaying: true, progress: 8, duration: 30, videoId: "abc", isAd: true))
         #expect(self.sut.progress == 8)
@@ -187,7 +231,9 @@ struct YouTubePlayerServiceTests {
     func pausedReloadDefersUntilResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         self.sut.updatePlaybackState(.init(isPlaying: false, progress: 12, duration: 60, videoId: "abc"))
+        self.sut.pause()
         #expect(self.sut.isPlaying == false)
+        let pausesBefore = self.controller.pauseCount
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
@@ -195,7 +241,7 @@ struct YouTubePlayerServiceTests {
 
         // No autoplaying watch page is loaded while the user left the video paused.
         #expect(self.controller.reloadedVideoIds.isEmpty)
-        #expect(self.controller.pauseCount == 0)
+        #expect(self.controller.pauseCount == pausesBefore)
         #expect(self.sut.isPlaying == false)
         #expect(willStartCount == 0)
 
@@ -243,6 +289,16 @@ struct YouTubePlayerServiceTests {
     func relativeSeekToEndConcludesWithoutExactDurationSeek() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         self.sut.updatePlaybackState(.init(isPlaying: true, progress: 90, duration: 100, videoId: "abc"))
+        self.controller.replacePendingRecoverySeek(with: 12)
+        self.controller.resetCommandLog()
+        self.controller.onSeek = { _ in
+            self.sut.updatePlaybackState(.init(
+                isPlaying: true,
+                progress: 100,
+                duration: 100,
+                videoId: "abc"
+            ))
+        }
         var endedVideoId: String?
         self.sut.onVideoEnded = { endedVideoId = $0 }
         let activityBefore = self.sut.watchActivityGeneration
@@ -255,7 +311,14 @@ struct YouTubePlayerServiceTests {
         #expect(endedVideoId == "abc")
         #expect(self.sut.watchActivityGeneration == activityBefore + 1)
         #expect(self.sut.watchConclusionGeneration == conclusionBefore + 1)
-        #expect(self.controller.pauseCount == 1)
+        #expect(self.controller.cancelPendingRecoverySeekCount == 1)
+        #expect(self.controller.markCurrentPlaybackOccurrenceEndedCount == 1)
+        #expect(self.controller.commandLog.first == "cancelPendingRecoverySeek")
+        #expect(self.controller.commandLog.dropFirst().first == "markCurrentPlaybackOccurrenceEnded")
+        #expect(self.controller.commandLog.dropFirst(2).first == "seek")
+        // The re-entrant playing update emitted from seek() is suppressed before
+        // the terminal command's own pause, proving the native fence was active.
+        #expect(self.controller.pauseCount == 2)
         #expect(self.controller.seeks.count == 1)
         #expect(self.controller.seeks[0] < 100)
         #expect(self.controller.seeks[0] >= 99)
@@ -265,6 +328,7 @@ struct YouTubePlayerServiceTests {
     func deferredPausedReloadSurvivesObserverUpdatesBeforeResume() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        self.sut.pause()
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
@@ -282,6 +346,72 @@ struct YouTubePlayerServiceTests {
         #expect(willStartCount == 1)
     }
 
+    @Test("The first accepted update completes an identity reload")
+    func acceptedUpdateCompletesIdentityReload() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 12,
+            duration: 60,
+            videoId: "abc"
+        ))
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 12,
+            duration: 60,
+            videoId: "abc"
+        ))
+        self.sut.pause()
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.playCount == 1)
+    }
+
+    @Test("A paused completed identity reload does not reload again on resume")
+    func pausedCompletedIdentityReloadDoesNotRepeat() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 12,
+            duration: 60,
+            videoId: "abc"
+        ))
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+        self.sut.pause()
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 12,
+            duration: 60,
+            hasReadyMedia: true,
+            videoId: "abc"
+        ))
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.playCount == 1)
+    }
+
+    @Test("An explicit pause at zero defers identity recovery until resume")
+    func pauseAtZeroDefersIdentityRecovery() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.pause()
+
+        self.sut.reloadCurrentVideoForIdentitySwitch()
+
+        #expect(self.controller.reloadedVideoIds.isEmpty)
+        #expect(self.sut.pendingPausedIdentityReloadVideoId == "abc")
+        #expect(self.sut.pendingPausedIdentityReloadResumeAt == nil)
+
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+        #expect(self.controller.reloadResumeSeconds == [nil])
+    }
+
     @Test("Loading video identity reload happens immediately")
     func loadingIdentityReloadHappensImmediately() {
         // A just-requested video has not reported playing yet, so isPlaying is
@@ -289,6 +419,12 @@ struct YouTubePlayerServiceTests {
         // in that loading window, the reload must happen immediately before the
         // old-identity page can start and emit watch-history pings.
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 60,
+            videoId: "abc"
+        ))
         var willStartCount = 0
         self.sut.playbackWillStart = { willStartCount += 1 }
 
@@ -303,6 +439,7 @@ struct YouTubePlayerServiceTests {
     func deferredPausedReloadClearsOnNewVideo() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
         self.sut.updatePlaybackState(.init(isPlaying: false, progress: 3, duration: 60, videoId: "abc"))
+        self.sut.pause()
         self.sut.reloadCurrentVideoForIdentitySwitch()
 
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "def"))
@@ -500,10 +637,213 @@ struct YouTubePlayerServiceTests {
         var endedVideoId: String?
         self.sut.onVideoEnded = { endedVideoId = $0 }
 
-        self.sut.handleVideoEnded(videoId: "abc")
+        let didAcceptEnd = self.sut.handleVideoEnded(videoId: "abc")
 
         #expect(self.sut.isPlaying == false)
         #expect(endedVideoId == "abc")
+        #expect(didAcceptEnd)
+    }
+
+    @Test("Duplicate ended callbacks run one-shot effects once and later autoplay can end")
+    func duplicateEndedCallbacksAreIdempotentPerWatch() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 59, duration: 60,
+            videoId: "a", title: nil, isAd: false
+        ))
+        var endedVideoIds: [String?] = []
+        self.sut.onVideoEnded = { endedVideoIds.append($0) }
+
+        self.sut.handleVideoEnded(videoId: "a")
+        self.sut.handleVideoEnded(videoId: "a")
+
+        #expect(endedVideoIds == ["a"])
+
+        // A genuine same-document autoplay drift starts a new watch occurrence.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 1, duration: 80,
+            hasReadyMedia: true, videoId: "b", boundVideoId: "b",
+            title: "Autoplay", isAd: false
+        ))
+        self.sut.handleVideoEnded(videoId: "b")
+
+        #expect(endedVideoIds == ["a", "b"])
+    }
+
+    @Test("A queued ended occurrence cannot conclude a newer same-document replay")
+    func staleEndedOccurrenceCannotConcludeReplay() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let firstOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        let replayOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 2
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 9,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: firstOccurrence
+        ))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: replayOccurrence
+        ))
+        var endedCount = 0
+        self.sut.onVideoEnded = { _ in endedCount += 1 }
+
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: firstOccurrence
+        )
+
+        #expect(self.sut.isPlaying)
+        #expect(endedCount == 0)
+
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: replayOccurrence
+        )
+
+        #expect(!self.sut.isPlaying)
+        #expect(endedCount == 1)
+    }
+
+    @Test("A native terminal transition consumes the current bridge occurrence")
+    func nativeEndConsumesCurrentBridgeOccurrence() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let occurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 9,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: occurrence
+        ))
+
+        #expect(self.sut.handleVideoEnded(videoId: "a"))
+        #expect(!self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: occurrence
+        ))
+    }
+
+    @Test("A delayed end cannot overwrite a newer resume intent")
+    func delayedEndDoesNotOverwriteResume() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let endedOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 9.8,
+            duration: 10,
+            hasReadyMedia: true,
+            videoId: "a",
+            playbackOccurrence: endedOccurrence
+        ))
+
+        self.sut.resume()
+        #expect(!self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: endedOccurrence,
+            eventIssuedAtMilliseconds: 0
+        ))
+
+        let replayOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 2
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 0,
+            duration: 10,
+            hasReadyMedia: true,
+            videoId: "a",
+            playbackOccurrence: replayOccurrence
+        ))
+        #expect(self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: replayOccurrence
+        ))
+    }
+
+    @Test("A normal pause and resume still accepts the eventual end")
+    func normalResumeDoesNotSuppressEnd() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let occurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 5,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: occurrence
+        ))
+        self.sut.pause()
+        self.sut.resume()
+
+        #expect(self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: occurrence
+        ))
+    }
+
+    @Test("A newer ended occurrence can bind before its first state update")
+    func newerEndedOccurrenceCanBindFirst() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let firstOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        let replacementOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 8,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 9,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: firstOccurrence
+        ))
+        var endedCount = 0
+        self.sut.onVideoEnded = { _ in endedCount += 1 }
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: firstOccurrence
+        )
+        #expect(endedCount == 1)
+
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: replacementOccurrence
+        )
+
+        #expect(!self.sut.isPlaying)
+        #expect(endedCount == 2)
+        #expect(self.sut.currentPlaybackOccurrence == replacementOccurrence)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 10,
+            videoId: "a",
+            playbackOccurrence: replacementOccurrence
+        ))
+        #expect(!self.sut.isPlaying)
     }
 
     @Test("A stale ended event for a no-longer-current video does not conclude the new watch")
@@ -519,8 +859,9 @@ struct YouTubePlayerServiceTests {
 
         // A late VIDEO_ENDED for the previous video "a" arrives — it must be
         // ignored so it doesn't conclude (and dedupe) the current watch of "b".
-        self.sut.handleVideoEnded(videoId: "a")
+        let didAcceptStaleEnd = self.sut.handleVideoEnded(videoId: "a")
         #expect(self.sut.watchConclusionGeneration == conclusionBefore)
+        #expect(!didAcceptStaleEnd)
 
         // The real end of "b" still concludes it.
         self.sut.handleVideoEnded(videoId: "b")
@@ -549,6 +890,344 @@ struct YouTubePlayerServiceTests {
         ))
         self.sut.handleVideoEnded(videoId: "a")
         #expect(self.sut.watchConclusionGeneration == conclusionBefore + 1)
+    }
+
+    @Test("A post-roll ad cannot revive a concluded watch")
+    func postRollAdDoesNotReviveConcludedWatch() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let contentOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 59,
+            duration: 60,
+            videoId: "a",
+            playbackOccurrence: contentOccurrence
+        ))
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: contentOccurrence
+        )
+        var playbackStartCount = 0
+        self.sut.playbackWillStart = { playbackStartCount += 1 }
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 15,
+            hasReadyMedia: true,
+            videoId: "a",
+            isAd: true,
+            playbackOccurrence: YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 2
+            )
+        ))
+
+        #expect(self.sut.isPlaying)
+        #expect(self.controller.pauseCount == 0)
+        #expect(playbackStartCount == 1)
+
+        self.sut.playPause()
+        #expect(self.controller.pauseCount == 1)
+        #expect(self.controller.playCount == 0)
+    }
+
+    @Test("An end before resume confirmation replays on the first toggle")
+    func endClearsResumeConfirmation() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.resume()
+        self.sut.handleVideoEnded(videoId: "a")
+
+        self.sut.playPause()
+
+        #expect(self.controller.pauseCount == 0)
+        #expect(self.controller.playCount == 2)
+    }
+
+    @Test("A newer video's preroll ad can establish autoplay intent")
+    func nextVideoPrerollCanStart() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        let firstOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 59,
+            duration: 60,
+            videoId: "a",
+            boundVideoId: "a",
+            playbackOccurrence: firstOccurrence
+        ))
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: firstOccurrence
+        )
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 0,
+            duration: 15,
+            hasReadyMedia: true,
+            videoId: "b",
+            boundVideoId: "b",
+            title: "B",
+            isAd: true,
+            playbackOccurrence: YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 2
+            )
+        ))
+
+        #expect(self.sut.isPlaying)
+        #expect(self.sut.currentVideo?.videoId == "a")
+        #expect(self.controller.pauseCount == 0)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 80,
+            hasReadyMedia: true,
+            videoId: "b",
+            boundVideoId: "b",
+            title: "B",
+            isAd: false,
+            playbackOccurrence: YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 2
+            )
+        ))
+        #expect(self.sut.currentVideo?.videoId == "b")
+    }
+}
+
+extension YouTubePlayerServiceTests {
+    @Test("Non-authoritative post-roll placeholders survive process termination")
+    func loadingPostRollPlaceholderTerminationRecoversNextVideo() {
+        for isAd in [true, false] {
+            let controller = MockYouTubeWatchPlaybackController()
+            let sut = YouTubePlayerService(playbackController: controller)
+            let nextVideo = MockYouTubeClient.makeVideo(videoId: "b")
+            sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+            sut.setUpNext([nextVideo])
+            let contentOccurrence = YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 1
+            )
+            sut.updatePlaybackState(.init(
+                isPlaying: true,
+                progress: 59,
+                duration: 60,
+                hasReadyMedia: true,
+                videoId: "a",
+                boundVideoId: "a",
+                playbackOccurrence: contentOccurrence
+            ))
+            sut.handleVideoEnded(
+                videoId: "a",
+                playbackOccurrence: contentOccurrence
+            )
+
+            sut.updatePlaybackState(.init(
+                isPlaying: false,
+                progress: 0,
+                duration: 0,
+                hasReadyMedia: false,
+                videoId: "b",
+                boundVideoId: "a",
+                isAd: isAd,
+                playbackOccurrence: contentOccurrence
+            ))
+
+            #expect(sut.currentVideo?.videoId == "a")
+
+            sut.recoverAfterWebContentProcessTermination()
+
+            #expect(sut.currentVideo?.videoId == "a")
+            #expect(controller.reloadedVideoIds.isEmpty)
+
+            sut.resume()
+
+            #expect(sut.currentVideo?.videoId == "b")
+            #expect(controller.loadedVideoIds == ["a", "b"])
+            #expect(controller.reloadedVideoIds.isEmpty)
+        }
+    }
+
+    @Test("Explicit replay placeholders recover the concluded video")
+    func explicitReplayPlaceholderTerminationReloadsCurrentVideo() {
+        for isAd in [true, false] {
+            let controller = MockYouTubeWatchPlaybackController()
+            let sut = YouTubePlayerService(playbackController: controller)
+            sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+            sut.setUpNext([MockYouTubeClient.makeVideo(videoId: "b")])
+            let contentOccurrence = YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 1
+            )
+            sut.updatePlaybackState(.init(
+                isPlaying: true,
+                progress: 59,
+                duration: 60,
+                hasReadyMedia: true,
+                videoId: "a",
+                boundVideoId: "a",
+                playbackOccurrence: contentOccurrence
+            ))
+            sut.handleVideoEnded(
+                videoId: "a",
+                playbackOccurrence: contentOccurrence
+            )
+
+            sut.resume()
+            sut.updatePlaybackState(.init(
+                isPlaying: false,
+                progress: 0,
+                duration: 0,
+                hasReadyMedia: false,
+                videoId: "a",
+                boundVideoId: "a",
+                isAd: isAd,
+                playbackOccurrence: contentOccurrence
+            ))
+            sut.recoverAfterWebContentProcessTermination()
+
+            #expect(sut.currentVideo?.videoId == "a")
+            #expect(controller.reloadedVideoIds == ["a"])
+            #expect(controller.loadedVideoIds == ["a"])
+        }
+    }
+
+    @Test("A post-end user seek supersedes deferred autoplay recovery")
+    func postEndSeekRecoversCurrentVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.setUpNext([MockYouTubeClient.makeVideo(videoId: "b")])
+        let contentOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 59,
+            duration: 60,
+            hasReadyMedia: true,
+            videoId: "a",
+            boundVideoId: "a",
+            playbackOccurrence: contentOccurrence
+        ))
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: contentOccurrence
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            videoId: "b",
+            boundVideoId: "a",
+            playbackOccurrence: contentOccurrence
+        ))
+
+        self.sut.seek(to: 10)
+        // A queued same-occurrence loading sample must not re-arm successor
+        // recovery after the explicit seek has claimed the concluded video.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            videoId: "b",
+            boundVideoId: "a",
+            playbackOccurrence: contentOccurrence
+        ))
+        self.sut.recoverAfterWebContentProcessTermination()
+
+        #expect(self.sut.currentVideo?.videoId == "a")
+        #expect(self.sut.pendingPausedIdentityReloadVideoId == "a")
+        #expect(self.sut.pendingPausedIdentityReloadResumeAt == 10)
+
+        self.sut.resume()
+
+        #expect(self.controller.reloadedVideoIds == ["a"])
+        #expect(self.controller.reloadResumeSeconds == [10])
+        #expect(self.sut.currentVideo?.videoId == "a")
+    }
+
+    @Test("A canceled successor lookup remains retryable after explicit pause")
+    func canceledAutoplayLookupRemainsRetryable() async {
+        let firstLookupStarted = AsyncGate()
+        let releaseFirstLookup = AsyncGate()
+        let successorLoaded = BooleanBox(false)
+        let nextVideo = MockYouTubeClient.makeVideo(videoId: "b")
+        let client = MockYouTubeClient()
+        client.watchNextData = WatchNextData(
+            videoTitle: nil,
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [nextVideo]
+        )
+        client.beforeWatchNextReturn = { callCount in
+            guard callCount == 1 else { return }
+            await firstLookupStarted.open()
+            await releaseFirstLookup.wait()
+        }
+        self.sut.youtubeClient = client
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.controller.onLoadVideo = { videoId in
+            guard videoId == "b" else { return }
+            successorLoaded.value = true
+        }
+        let contentOccurrence = YouTubePlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 59,
+            duration: 60,
+            hasReadyMedia: true,
+            videoId: "a",
+            boundVideoId: "a",
+            playbackOccurrence: contentOccurrence
+        ))
+        self.sut.handleVideoEnded(
+            videoId: "a",
+            playbackOccurrence: contentOccurrence
+        )
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            videoId: "creative",
+            boundVideoId: "a",
+            isAd: true,
+            playbackOccurrence: YouTubePlaybackOccurrence(
+                documentGeneration: 7,
+                mediaGeneration: 2
+            )
+        ))
+        self.sut.recoverAfterWebContentProcessTermination()
+
+        self.sut.resume()
+        await firstLookupStarted.wait()
+        self.sut.playPause()
+        self.sut.resume()
+        await releaseFirstLookup.open()
+        for _ in 0 ..< 10 where !successorLoaded.value {
+            await Task.yield()
+        }
+
+        #expect(self.sut.currentVideo?.videoId == "b")
+        #expect(successorLoaded.value)
+        #expect(client.watchNextCallCount == 2)
+        #expect(self.controller.loadedVideoIds == ["a", "b"])
+        #expect(self.controller.playCount == 0)
     }
 
     @Test("Watch-activity generation advances on every watch-state change and survives stop")
@@ -630,7 +1309,8 @@ struct YouTubePlayerServiceTests {
         // finished "a" (conclusion stays put).
         self.sut.updatePlaybackState(.init(
             isPlaying: true, progress: 0, duration: 200,
-            videoId: "b", title: "Next", isAd: false
+            hasReadyMedia: true, videoId: "b", boundVideoId: "b",
+            title: "Next", isAd: false
         ))
         #expect(self.sut.currentVideo?.videoId == "b")
         #expect(self.sut.watchConclusionGeneration == conclusionAfterFinish) // no double-conclude
@@ -907,6 +1587,11 @@ struct YouTubePlayerServiceTests {
 
         // The suppression is one-shot: a later in-app navigation while
         // playing pops out as usual.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false, progress: 5, duration: 60,
+            videoId: "abc", title: nil, isAd: false
+        ))
+        self.sut.resume()
         self.sut.activeInlineVideoId = "abc"
         self.sut.updatePlaybackState(.init(
             isPlaying: true, progress: 6, duration: 60,

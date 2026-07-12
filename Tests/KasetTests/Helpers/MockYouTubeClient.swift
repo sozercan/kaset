@@ -28,6 +28,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     private(set) var homeFeedCallCount = 0
     private(set) var searchCallCount = 0
+    private(set) var watchNextCallCount = 0
     private(set) var lastSearchQuery: String?
     private(set) var lastSearchFilter: YouTubeSearchFilter?
 
@@ -164,8 +165,16 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return response
     }
 
+    /// Awaited inside `getWatchNext` before it returns, so tests can hold one
+    /// successor lookup open while playback intent changes.
+    var beforeWatchNextReturn: (@Sendable (Int) async -> Void)?
+
     func getWatchNext(videoId _: String) async throws -> WatchNextData {
         if let error { throw error }
+        self.watchNextCallCount += 1
+        if let beforeWatchNextReturn {
+            await beforeWatchNextReturn(self.watchNextCallCount)
+        }
         return self.watchNextData
     }
 

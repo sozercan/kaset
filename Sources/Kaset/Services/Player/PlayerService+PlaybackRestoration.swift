@@ -4,6 +4,53 @@ import Foundation
 
 @MainActor
 extension PlayerService {
+    func updateAdPlaybackState(
+        isShowingAd: Bool,
+        observedProgress: TimeInterval,
+        observedVideoId: String?,
+        isAuthoritativeContent: Bool
+    ) {
+        if isShowingAd {
+            self.isShowingAd = true
+            return
+        }
+        guard isAuthoritativeContent else { return }
+        self.isShowingAd = false
+        self.lastNonAdContentProgress = observedProgress
+        self.lastNonAdContentVideoId = observedVideoId ?? self.currentTrack?.videoId
+    }
+
+    func resetAdPlaybackState() {
+        self.isShowingAd = false
+        self.lastNonAdContentProgress = 0
+        self.lastNonAdContentVideoId = nil
+    }
+
+    func lastNonAdContentProgress(for videoId: String) -> TimeInterval {
+        self.lastNonAdContentVideoId == videoId ? self.lastNonAdContentProgress : 0
+    }
+
+    func pendingRestoredSeekForWebRecovery(videoId: String) -> TimeInterval? {
+        guard self.pendingPlayVideoId == videoId,
+              self.isRestoringPlaybackSession || self.isPendingRestoredLoadDeferred
+        else { return nil }
+        return self.pendingRestoredSeek
+    }
+
+    /// Whether a newly committed ordinary playback document should retain an
+    /// autoplay request. Restored/repoint loads deliberately stay paused until
+    /// native seek reconciliation completes.
+    var shouldAutoplayPlaybackDocument: Bool {
+        guard !self.isRestoringPlaybackSession,
+              !self.isPendingRestoredLoadDeferred
+        else { return false }
+        return self.shouldResumeAfterInterruption
+    }
+
+    var shouldResumeReadyAdDuringRestoration: Bool {
+        self.isRestoringPlaybackSession && self.shouldAutoResumeAfterRestoredLoad
+    }
+
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
         let previousProgress = self.progress
@@ -26,6 +73,30 @@ extension PlayerService {
         )
     }
 
+    /// Updates only play/pause transport while deliberately preserving the
+    /// canonical content clock (used for ready advertisement media).
+    func updatePlaybackTransportState(isPlaying: Bool) {
+        if isPlaying {
+            guard self.shouldResumeAfterInterruption
+                || self.shouldResumeReadyAdDuringRestoration
+            else { return }
+            switch self.state {
+            case .loading, .paused, .playing, .buffering:
+                self.state = .playing
+            case .idle, .ended, .error:
+                break
+            }
+        } else {
+            self.isAwaitingPlaybackConfirmation = false
+            switch self.state {
+            case .loading, .playing, .buffering:
+                self.state = .paused
+            case .idle, .paused, .ended, .error:
+                break
+            }
+        }
+    }
+
     /// Applies a previously persisted playback session in a paused, resume-ready state.
     func applyRestoredPlaybackSession(
         queue: [Song],
@@ -46,6 +117,7 @@ extension PlayerService {
             self.setQueue(queue)
         }
         self.currentIndex = currentIndex
+        self.activePlaybackQueueEntryID = self.currentQueueEntryID
         self.currentTrack = currentSong
         self.pendingPlayVideoId = currentSong.videoId
         self.currentTrackHasVideo = currentSong.musicVideoType?.hasVideoContent ?? currentSong.hasVideo ?? false
@@ -109,10 +181,39 @@ extension PlayerService {
         }
     }
 
+    /// Converts an interrupted restored/repoint load into a retryable paused
+    /// state without discarding its saved seek. A later explicit resume starts a
+    /// fresh full-page navigation and reuses the same restoration target.
+    func deferRestoredPlaybackAfterNavigationFailure() {
+        if self.pendingPlayVideoId == nil {
+            self.pendingPlayVideoId = self.currentTrack?.videoId
+        }
+
+        if self.pendingRestoredSeek == nil, self.state != .ended {
+            let contentProgress: TimeInterval = if self.isShowingAd,
+                                                   let targetVideoId = self.pendingPlayVideoId
+            {
+                self.lastNonAdContentProgress(for: targetVideoId)
+            } else {
+                self.progress
+            }
+            self.pendingRestoredSeek = contentProgress > 0 ? contentProgress : nil
+        }
+        self.isRestoringPlaybackSession = false
+        self.isPendingRestoredLoadDeferred = true
+        self.shouldForcePendingRestoredLoad = true
+        self.shouldAutoResumeAfterRestoredLoad = false
+        self.shouldResumeAfterInterruption = false
+
+        if self.state != .ended {
+            self.state = .paused
+        }
+    }
+
     /// Whether the pending track must be loaded into the WebView before playback can resume.
     var shouldLoadPendingVideoBeforePlayback: Bool {
         guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
-        return self.shouldForcePendingRestoredLoad || SingletonPlayerWebView.shared.currentVideoId != pendingPlayVideoId
+        return self.shouldForcePendingRestoredLoad || self.currentWebPlaybackVideoId() != pendingPlayVideoId
     }
 
     func reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
@@ -155,7 +256,7 @@ extension PlayerService {
         }
         // If the current track was never actually loaded into the WebView, there
         // is likewise nothing to re-point under the old identity.
-        if SingletonPlayerWebView.shared.currentVideoId != currentTrack.videoId {
+        if self.currentWebPlaybackVideoId() != currentTrack.videoId {
             self.logger.debug("Identity switch: current track not loaded in WebView; skipping re-point")
             return
         }
@@ -202,9 +303,20 @@ private extension PlayerService {
         }
 
         if isPlaying {
+            guard !self.isExplicitPauseIntentActive else {
+                SingletonPlayerWebView.shared.pause()
+                return
+            }
+            self.isAwaitingPlaybackConfirmation = false
             self.confirmPlaybackStarted()
-        } else if self.state == .playing {
-            self.state = .paused
+        } else {
+            self.isAwaitingPlaybackConfirmation = false
+            switch self.state {
+            case .loading, .playing, .buffering:
+                self.state = .paused
+            case .idle, .paused, .ended, .error:
+                break
+            }
         }
 
         // Detect when song is about to end (within last 2 seconds)

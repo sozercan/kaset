@@ -170,11 +170,16 @@ struct PlayerServiceWebQueueSyncTests {
         self.playerService.cycleRepeatMode()
         self.playerService.cycleRepeatMode()
         #expect(self.playerService.repeatMode == .one)
+        self.playerService.lastNonAdContentProgress = 179
+        self.playerService.lastNonAdContentVideoId = "v1"
 
         await self.playerService.handleTrackEnded(observedVideoId: "v1")
 
         #expect(self.playerService.currentIndex == 0)
         #expect(self.playerService.pendingPlayVideoId == "v1")
+        #expect(self.playerService.lastNonAdContentProgress == 0)
+        #expect(self.playerService.lastNonAdContentVideoId == nil)
+        #expect(self.playerService.shouldResumeAfterInterruption)
     }
 
     @Test("Repeat one recovers when title drifts before videoId is sent")
@@ -515,6 +520,294 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
         #expect(self.playerService.currentTrack?.title == "Song 2")
+    }
+
+    @Test("Near-end metadata transition is not advanced again by a late ended callback")
+    func nearEndMetadataThenLateEndedDoesNotDoubleAdvance() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.songNearingEnd = true
+        let outgoingOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        self.playerService.updateTrackMetadata(
+            title: "Song 2",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v2",
+            playbackOccurrence: outgoingOccurrence
+        )
+        #expect(self.playerService.currentIndex == 1)
+        let incomingOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 2,
+            nativeGeneration: self.playerService.currentNativeMusicPlaybackGeneration,
+            videoId: "v2"
+        )
+        _ = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 2,
+            nativeGeneration: incomingOccurrence.nativeGeneration,
+            videoId: "v2"
+        )
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: outgoingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v2",
+            playbackOccurrence: incomingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+    }
+
+    @Test("Duplicate ended callback replays repeat one only once")
+    func duplicateEndedCallbackReplaysRepeatOneOnlyOnce() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence
+        )
+        let replayOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(replayOccurrence != endedOccurrence)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == replayOccurrence)
+    }
+
+    @Test("Duplicate ended callback does not skip a repeated video ID in repeat all")
+    func duplicateEndedCallbackDoesNotSkipRepeatedVideoIdInRepeatAll() async {
+        let songs = [
+            Song(id: "1a", title: "Song 1A", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "1b", title: "Song 1B", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.cycleRepeatMode()
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence
+        )
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.title == "Song 1B")
+    }
+
+    @Test("Duplicate ended callback replays no-queue repeat one only once")
+    func duplicateEndedCallbackReplaysNoQueueRepeatOneOnlyOnce() async {
+        let song = Song(
+            id: "solo",
+            title: "Solo",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "solo-video"
+        )
+        await self.playerService.play(song: song)
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "solo-video",
+            playbackOccurrence: endedOccurrence
+        )
+        let replayOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "solo-video",
+            playbackOccurrence: endedOccurrence
+        )
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(replayOccurrence != endedOccurrence)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == replayOccurrence)
+        #expect(self.playerService.state != .ended)
+    }
+
+    @Test("A later observer occurrence can end after the previous occurrence was consumed")
+    func laterObserverOccurrenceCanEnd() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let firstOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: self.playerService.currentNativeMusicPlaybackGeneration,
+            videoId: "v1"
+        )
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: firstOccurrence
+        )
+        let secondOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 2,
+            nativeGeneration: self.playerService.currentNativeMusicPlaybackGeneration,
+            videoId: "v2"
+        )
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v2",
+            playbackOccurrence: secondOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+    }
+
+    @Test("Near-end state does not bind an incoming occurrence before metadata handoff")
+    func nearEndDefersIncomingOccurrenceBinding() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let nativeGeneration = self.playerService.currentNativeMusicPlaybackGeneration
+        let outgoingOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeGeneration,
+            videoId: "v1"
+        )
+        self.playerService.songNearingEnd = true
+
+        let incomingOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 2,
+            nativeGeneration: nativeGeneration,
+            videoId: "v2"
+        )
+
+        #expect(incomingOccurrence == nil)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == outgoingOccurrence)
+    }
+
+    @Test("Music occurrence identity can refine its video ID without becoming newer")
+    func occurrenceVideoIdentityCanRefine() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let nativeGeneration = self.playerService.currentNativeMusicPlaybackGeneration
+        let provisional = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeGeneration,
+            videoId: nil
+        )
+        let refined = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeGeneration,
+            videoId: "v1"
+        )
+
+        #expect(provisional == refined)
+        #expect(self.playerService.currentMusicPlaybackOccurrence?.videoId == "v1")
+    }
+
+    @Test("A claimed native occurrence consumes its matching first Web occurrence")
+    func claimedNativeOccurrenceTransfersToMatchingWebOccurrence() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let nativeOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        #expect(self.playerService.claimTerminalMusicPlaybackOccurrence(nativeOccurrence))
+        let matchingWebOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence?.nativeGeneration ?? 0,
+            videoId: "v1"
+        )
+
+        #expect(!self.playerService.claimTerminalMusicPlaybackOccurrence(matchingWebOccurrence))
+    }
+
+    @Test("A delayed Web occurrence cannot replace a newer native replay")
+    func delayedWebOccurrenceCannotReplaceNativeReplay() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let endedNativeOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        #expect(self.playerService.claimTerminalMusicPlaybackOccurrence(endedNativeOccurrence))
+
+        let replayOccurrence = self.playerService.beginNativeMusicPlaybackOccurrence(videoId: "v1")
+        let delayedWebOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: endedNativeOccurrence?.nativeGeneration ?? 0,
+            videoId: "v1"
+        )
+
+        let boundOccurrence = self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: delayedWebOccurrence.documentGeneration ?? 0,
+            mediaGeneration: delayedWebOccurrence.mediaGeneration,
+            nativeGeneration: delayedWebOccurrence.nativeGeneration,
+            videoId: delayedWebOccurrence.videoId
+        )
+
+        #expect(boundOccurrence == nil)
+        #expect(!self.playerService.claimTerminalMusicPlaybackOccurrence(delayedWebOccurrence))
+        #expect(self.playerService.currentMusicPlaybackOccurrence == replayOccurrence)
+    }
+
+    @Test("Manual seek-to-end and a late ended callback share one occurrence")
+    func manualSeekToEndThenLateEndedDoesNotDoubleAdvance() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        await self.playerService.seek(to: 180)
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
     }
 
     @Test("Stale track-ended events do not double-advance the queue")
