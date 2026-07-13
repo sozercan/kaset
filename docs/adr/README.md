@@ -60,3 +60,4 @@ What becomes easier or more difficult because of this change?
 | [0023](0023-brand-account-history-session-switch.md) | Brand-Account History via WebView Session-Identity Switch | Accepted |
 | [0024](0024-logged-in-guest-mode.md) | Logged-In Guest Mode | Accepted |
 | [0025](0025-smart-shuffle.md) | Smart Shuffle (tri-state shuffle with interleaved recommendations) | Accepted |
+| [0026](0026-now-playing-tracklist-provider.md) | Shared Now-Playing Mix Tracklist Provider | Accepted |
