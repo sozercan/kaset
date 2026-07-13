@@ -431,6 +431,13 @@ struct MusicPlaybackOccurrenceJSTests {
         #expect(script.contains("mediaVideoId: mediaVideoId"))
         #expect(script.contains("mediaGeneration: mediaGeneration"))
         #expect(script.contains("mediaGeneration: occurrenceGeneration"))
+        #expect(script.contains("function __kasetEventTimestampMilliseconds()"))
+        #expect(script.contains("Number(performance.timeOrigin) + Number(performance.now())"))
+        #expect(script.contains("eventIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()"))
+        #expect(script.contains("eventIssuedAtMilliseconds: now"))
+        #expect(script.contains("setTimeout(() => retryTrackEnded(video, endedPayload), 16)"))
+        #expect(script.contains("function trackEndedPayload(video)"))
+        #expect(script.contains("function retryTrackEnded(video, payload)"))
         #expect(script.contains("video.__kasetEndedOccurrenceGeneration"))
         #expect(script.contains("video.__kasetBoundVideoId || lastVideoId || currentVideoId()"))
     }
@@ -642,6 +649,33 @@ struct MusicPlaybackClockJSTests {
 
         #expect(context.evaluateScript("clock.progress").toDouble() == 42)
         #expect(context.evaluateScript("clock.duration").toDouble() == 180)
+    }
+
+    @Test("Clock restoration script pauses and seeks physical media")
+    func restorationScriptSeeksPhysicalMedia() throws {
+        let context = try #require(JSContext())
+        context.evaluateScript(
+            """
+            var pauseCount = 0;
+            var media = {
+                currentTime: 30,
+                pause: function() { pauseCount += 1; }
+            };
+            var document = {
+                querySelector: function(selector) {
+                    return selector === 'video' ? media : null;
+                }
+            };
+            """
+        )
+
+        let result = context.evaluateScript(
+            SingletonPlayerWebView.seekAndPauseScript(to: 10)
+        )
+
+        #expect(result?.toString() == "seeked-paused")
+        #expect(context.evaluateScript("media.currentTime").toDouble() == 10)
+        #expect(context.evaluateScript("pauseCount").toInt32() == 2)
     }
 
     @Test("Invalid clocks degrade to zero")

@@ -14,6 +14,23 @@ struct ChartsViewModelTests {
         self.viewModel = ChartsViewModel(client: self.mockClient)
     }
 
+    private func waitForBackgroundLoading(
+        timeout: Duration = .seconds(3),
+        until condition: @escaping () -> Bool
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        Issue.record("Timed out waiting for background chart loading")
+    }
+
     // MARK: - Initial State Tests
 
     @Test("Initial state is idle with empty sections")
@@ -95,12 +112,12 @@ struct ChartsViewModelTests {
         self.mockClient.chartsContinuationSections = [continuationSections]
 
         await self.viewModel.load()
-
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.waitForBackgroundLoading {
+            self.viewModel.sections.count == 2
+        }
 
         #expect(self.viewModel.sections.count == 2)
-        #expect(self.viewModel.sections[1].title == "More Charts")
+        #expect(self.viewModel.sections.last?.title == "More Charts")
     }
 
     @Test("hasMoreSections updates after continuations")
@@ -111,9 +128,9 @@ struct ChartsViewModelTests {
         // No continuation sections
 
         await self.viewModel.load()
-
-        // Wait for background loading to complete
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.waitForBackgroundLoading {
+            self.viewModel.hasMoreSections == false
+        }
 
         #expect(self.viewModel.hasMoreSections == false)
     }
@@ -148,7 +165,9 @@ struct ChartsViewModelTests {
         ]
 
         await self.viewModel.load()
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.waitForBackgroundLoading {
+            self.viewModel.hasMoreSections == false
+        }
 
         // After load, hasMoreSections should be false (continuations exhausted)
         #expect(self.viewModel.hasMoreSections == false)

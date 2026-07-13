@@ -777,7 +777,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 4) {
                                     Text(song.title)
-                                        .font(.system(size: 9, weight: index == self.playerService.currentIndex ? .semibold : .regular))
+                                        .font(.system(size: 9, weight: index == self.playerService.activePlaybackQueueIndex ? .semibold : .regular))
                                         .lineLimit(1)
                                     if entry.source == .suggested {
                                         Image(systemName: "sparkles")
@@ -796,7 +796,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                         .foregroundStyle(.white.opacity(0.88))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(index == self.playerService.currentIndex ? Color.white.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 10))
+                        .background(index == self.playerService.activePlaybackQueueIndex ? Color.white.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 10))
                     }
                 }
             }

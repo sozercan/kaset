@@ -13,6 +13,23 @@ struct PodcastsViewModelTests {
         self.viewModel = PodcastsViewModel(client: self.mockClient)
     }
 
+    private func waitForBackgroundLoading(
+        timeout: Duration = .seconds(3),
+        until condition: @escaping () -> Bool
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+
+        while clock.now < deadline {
+            if condition() {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+
+        Issue.record("Timed out waiting for background podcast loading")
+    }
+
     // MARK: - Initial State
 
     @Test
@@ -129,12 +146,13 @@ struct PodcastsViewModelTests {
         ]
 
         await self.viewModel.load()
-
-        // Background loading starts automatically; wait for it to complete
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.waitForBackgroundLoading {
+            self.viewModel.sections.count == 2 && self.viewModel.hasMoreSections == false
+        }
 
         // After background loading, continuation should have been consumed
-        #expect(self.viewModel.sections.count >= 1)
+        #expect(self.viewModel.sections.count == 2)
+        #expect(self.viewModel.hasMoreSections == false)
     }
 
     @Test
@@ -146,12 +164,12 @@ struct PodcastsViewModelTests {
         self.mockClient.podcastsContinuationSections = [[continuationSection]]
 
         await self.viewModel.load()
-
-        // Wait for background loading to complete (300ms delay + processing)
-        try? await Task.sleep(for: .milliseconds(600))
+        await self.waitForBackgroundLoading {
+            self.viewModel.sections.count == 2
+        }
 
         #expect(self.viewModel.sections.count == 2)
-        #expect(self.viewModel.sections[1].title == "Continuation")
+        #expect(self.viewModel.sections.last?.title == "Continuation")
     }
 
     @Test
@@ -161,9 +179,9 @@ struct PodcastsViewModelTests {
         // No continuation sections
 
         await self.viewModel.load()
-
-        // Wait for any background loading attempt
-        try? await Task.sleep(for: .milliseconds(500))
+        await self.waitForBackgroundLoading {
+            self.viewModel.hasMoreSections == false
+        }
 
         #expect(self.viewModel.sections.count == 1)
         #expect(self.viewModel.hasMoreSections == false)

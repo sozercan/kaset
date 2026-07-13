@@ -491,10 +491,14 @@ struct PlaylistDetailView: View {
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
         let initiallyLoadedCount = cleanedTracks.count
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
-                cleanedTracks, startingAt: index, deferringSmartShuffleFill: willDeferLoad
+                cleanedTracks,
+                startingAt: index,
+                deferringSmartShuffleFill: willDeferLoad,
+                intent: intent
             )
             // Not deferring (playlist already fully loaded): playQueue filled suggestions itself.
             guard let loadGeneration else { return }
@@ -530,7 +534,9 @@ struct PlaylistDetailView: View {
     {
         tracks.map { song in
             var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" { return nil }
+                if artist.name == "Album" {
+                    return nil
+                }
                 var cleanName = artist.name
                 if cleanName.hasPrefix("Album, ") {
                     cleanName = String(cleanName.dropFirst(7))

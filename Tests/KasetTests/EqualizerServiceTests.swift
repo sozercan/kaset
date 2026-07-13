@@ -49,6 +49,21 @@ struct EqualizerServiceTests {
         return TestHarness(service: service, mock: mock, defaults: defaults)
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(3),
+        condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while clock.now < deadline {
+            if condition() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(25))
+        }
+        return false
+    }
+
     // MARK: - Preset application
 
     @Test("Applying a preset replaces every band gain")
@@ -316,7 +331,10 @@ struct EqualizerServiceTests {
         // Simulate playback starting: source becomes available.
         mock.startResult = .success(())
         service.retryStartIfEnabled()
-        try? await Task.sleep(for: .milliseconds(700))
+        let didStart = await self.waitUntil {
+            mock.startCallCount > firstAttempt && service.status == .active
+        }
+        #expect(didStart)
         #expect(mock.startCallCount > firstAttempt)
         #expect(service.status == .active)
     }
@@ -345,8 +363,16 @@ struct EqualizerServiceTests {
         service.setPreamp(-2)
         service.setGain(forBandAt: 1, to: 3.5)
 
-        // Persistence is debounced; wait past the debounce window.
-        try? await Task.sleep(for: .milliseconds(400))
+        let didPersist = await self.waitUntil {
+            let revived = EqualizerService(
+                engine: MockEqualizerAudioEngine(),
+                defaults: defaults
+            )
+            return revived.settings.preset == .custom
+                && revived.settings.preampDB == -2
+                && revived.settings.bandGainsDB[1] == 3.5
+        }
+        #expect(didPersist)
 
         // New service should load the same settings from the same suite.
         let mock = MockEqualizerAudioEngine()
@@ -438,7 +464,13 @@ struct EqualizerServiceTests {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
 
-        try? await Task.sleep(for: .milliseconds(400))
+        let didPersist = await self.waitUntil {
+            EqualizerService(
+                engine: MockEqualizerAudioEngine(),
+                defaults: defaults
+            ).settings.isEnabled
+        }
+        #expect(didPersist)
 
         let revived = EqualizerService(engine: MockEqualizerAudioEngine(), defaults: defaults)
         #expect(revived.settings.isEnabled == true)
@@ -458,8 +490,11 @@ struct EqualizerServiceTests {
         for _ in 0 ..< 5 {
             service.retryStartIfEnabled()
         }
-        try? await Task.sleep(for: .milliseconds(700))
+        let didRetry = await self.waitUntil {
+            mock.startCallCount == baseline + 1
+        }
 
+        #expect(didRetry)
         #expect(mock.startCallCount == baseline + 1)
     }
 }

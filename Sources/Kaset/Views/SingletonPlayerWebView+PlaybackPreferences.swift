@@ -119,6 +119,7 @@ extension SingletonPlayerWebView {
     static var mediaControlOverrideScript: String {
         """
         (function() {
+            \(eventTimestampFunctionJS)
             if (typeof window.__kasetUseNextPrev !== 'boolean') {
                 try {
                     window.__kasetUseNextPrev =
@@ -143,7 +144,7 @@ extension SingletonPlayerWebView {
                             .postMessage({
                                 type: 'REMOTE_NEXT',
                                 documentGeneration: window.__kasetDocumentGeneration,
-                                commandIssuedAtMilliseconds: Date.now()
+                                commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
                             });
                     });
                     ms.setActionHandler('previoustrack', function() {
@@ -151,7 +152,7 @@ extension SingletonPlayerWebView {
                             .postMessage({
                                 type: 'REMOTE_PREVIOUS',
                                 documentGeneration: window.__kasetDocumentGeneration,
-                                commandIssuedAtMilliseconds: Date.now()
+                                commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
                             });
                     });
                 } catch (e) {}

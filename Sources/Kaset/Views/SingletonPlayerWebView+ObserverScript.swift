@@ -1,6 +1,21 @@
 // MARK: - SingletonPlayerWebView Observer Script Extension
 
 extension SingletonPlayerWebView {
+    /// Returns a wall-clock timestamp with sub-millisecond precision when WebKit exposes it.
+    /// Native intent fences use the same epoch, while `Date.now()` remains a safe fallback.
+    nonisolated static var eventTimestampFunctionJS: String {
+        """
+        function __kasetEventTimestampMilliseconds() {
+            const highResolutionTimestamp = typeof performance !== 'undefined'
+                ? Number(performance.timeOrigin) + Number(performance.now())
+                : Number.NaN;
+            return Number.isFinite(highResolutionTimestamp)
+                ? highResolutionTimestamp
+                : Date.now();
+        }
+        """
+    }
+
     /// Selects the authoritative playback clock for bridge state updates.
     /// The hidden player bar can lag or stop updating while its media element
     /// continues playing, so a ready media element wins over DOM attributes.
@@ -112,6 +127,7 @@ extension SingletonPlayerWebView {
         (function() {
             'use strict';
             const bridge = window.webkit.messageHandlers.singletonPlayer;
+            \(eventTimestampFunctionJS)
             \(autoplayRecoveryFunctionJS)
             window.__kasetAttemptAutoplayRecovery = __kasetAttemptAutoplayRecovery;
             \(playbackClockFunctionJS)
@@ -262,7 +278,11 @@ extension SingletonPlayerWebView {
                         const occurrenceGeneration = video.__kasetMediaGeneration || mediaGeneration;
                         endedMediaGeneration = occurrenceGeneration;
                         video.__kasetEndedOccurrenceGeneration = occurrenceGeneration;
-                        sendTrackEnded(video);
+                        const endedPayload = trackEndedPayload(video);
+                        if (!endedPayload) return;
+                        sendTrackEnded(endedPayload);
+                        setTimeout(() => retryTrackEnded(video, endedPayload), 16);
+                        setTimeout(() => retryTrackEnded(video, endedPayload), 100);
                         stopPolling();
                     });
                     video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
@@ -470,27 +490,37 @@ extension SingletonPlayerWebView {
                 return !!(moviePlayer && moviePlayer.classList.contains('ad-showing'));
             }
 
-            function sendTrackEnded(video) {
-                if (!video || video !== document.querySelector('video')) return;
+            function trackEndedPayload(video) {
+                if (!video || video !== document.querySelector('video') || !video.ended) return null;
                 const occurrenceGeneration = video.__kasetEndedOccurrenceGeneration
                     || video.__kasetMediaGeneration
                     || mediaGeneration;
                 const endedVideoId = video.__kasetBoundVideoId || lastVideoId || currentVideoId();
-                bridge.postMessage({
+                return {
                     type: 'TRACK_ENDED',
                     documentGeneration: window.__kasetDocumentGeneration,
                     nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
+                    eventIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
                     videoId: endedVideoId,
                     mediaGeneration: occurrenceGeneration,
                     isAd: isAdShowing()
-                });
+                };
+            }
+
+            function sendTrackEnded(payload) {
+                bridge.postMessage(payload);
+            }
+
+            function retryTrackEnded(video, payload) {
+                if (!video || video !== document.querySelector('video') || !video.ended) return;
+                sendTrackEnded(payload);
             }
 
             function sendUpdate(force = false) {
                 // Throttle non-forced updates across polling and mutation paths.
                 // If an update is skipped, keep one trailing send so paused/setup
                 // mutations that are not followed by a polling tick still reach Swift.
-                const now = Date.now();
+                const now = __kasetEventTimestampMilliseconds();
                 if (!force) {
                     const elapsed = now - lastUpdateTime;
                     if (elapsed < UPDATE_THROTTLE_MS) {
@@ -610,6 +640,7 @@ extension SingletonPlayerWebView {
                         type: 'STATE_UPDATE',
                         documentGeneration: window.__kasetDocumentGeneration,
                         nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
+                        eventIssuedAtMilliseconds: now,
                         isPlaying: isPlaying,
                         progress: playbackClock.progress,
                         duration: playbackClock.duration,

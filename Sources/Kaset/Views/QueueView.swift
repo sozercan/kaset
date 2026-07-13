@@ -107,18 +107,23 @@ struct QueueView: View {
                 ForEach(Array(self.playerService.queueEntries.enumerated()), id: \.element.id) { index, entry in
                     QueueRowView(
                         song: entry.song,
-                        isCurrentTrack: index == self.playerService.currentIndex,
+                        isCurrentTrack: index == self.playerService.activePlaybackQueueIndex,
                         index: index,
                         isSuggested: entry.source == .suggested,
                         allowsLikeActions: self.authService.hasPersonalAccount,
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
-                            self.playerService.removeFromQueue(at: index)
+                            self.playerService.removeFromQueue(entryIDs: [entry.id])
                         },
                         onTap: {
-                            Task {
-                                await self.playerService.playFromQueue(at: index)
+                            let reservation = self.playerService.reserveMusicPlaybackIntent()
+                            Task { @MainActor in
+                                guard let intent = self.playerService.claimMusicPlaybackIntent(
+                                    reservation,
+                                    queueEntryID: entry.id
+                                ) else { return }
+                                await self.playerService.playFromQueue(entryID: entry.id, intent: intent)
                             }
                         }
                     )

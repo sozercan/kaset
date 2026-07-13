@@ -585,23 +585,23 @@ struct MusicPlaybackBridgeGenerationTests {
         )
 
         #expect(self.occurrenceCount(of: "postMessage(", in: script) == 6)
-        #expect(payloads.count == 6)
+        #expect(payloads.count == 5)
         for payload in payloads {
             #expect(payload.contains("documentGeneration: window.__kasetDocumentGeneration"))
-            if payload.contains("type: 'STATE_UPDATE'")
-                || payload.contains("type: 'TRACK_ENDED'")
-            {
+            if payload.contains("type: 'STATE_UPDATE'") {
                 #expect(payload.contains(
                     "nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0"
                 ))
             }
         }
 
-        for messageType in ["STATE_UPDATE", "TRACK_ENDED", "LYRICS_TIME", "AIRPLAY_STATUS"] {
+        for messageType in ["STATE_UPDATE", "LYRICS_TIME", "AIRPLAY_STATUS"] {
             #expect(payloads.contains { $0.contains("type: '\(messageType)'") })
         }
-        let endedPayload = payloads.first { $0.contains("type: 'TRACK_ENDED'") }
-        #expect(endedPayload?.contains("isAd: isAdShowing()") == true)
+        #expect(script.contains("function trackEndedPayload(video)"))
+        #expect(script.contains("type: 'TRACK_ENDED'"))
+        #expect(script.contains("isAd: isAdShowing()"))
+        #expect(script.contains("bridge.postMessage(payload)"))
         let lyricsPayload = payloads.first { $0.contains("type: 'LYRICS_TIME'") }
         #expect(lyricsPayload?.contains("isAd: isAdShowing()") == true)
         let statePayload = payloads.first { $0.contains("type: 'STATE_UPDATE'") }
@@ -628,8 +628,12 @@ struct MusicPlaybackBridgeGenerationTests {
         }
         #expect(payloads.contains { $0.contains("type: 'REMOTE_NEXT'") })
         #expect(payloads.contains { $0.contains("type: 'REMOTE_PREVIOUS'") })
+        #expect(script.contains("function __kasetEventTimestampMilliseconds()"))
+        #expect(script.contains("Number(performance.timeOrigin) + Number(performance.now())"))
         for payload in payloads where payload.contains("type: 'REMOTE_") {
-            #expect(payload.contains("commandIssuedAtMilliseconds: Date.now()"))
+            #expect(payload.contains(
+                "commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()"
+            ))
         }
     }
 
@@ -658,7 +662,7 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(script.contains("video !== document.querySelector('video')"))
         #expect(script.contains("video.__kasetEndedReported"))
         #expect(script.contains("video.__kasetEndedReported = false"))
-        #expect(script.contains("sendTrackEnded(video)"))
+        #expect(script.contains("sendTrackEnded(endedPayload)"))
     }
 
     @Test("Navigation failure pause clears autoplay retry intent")

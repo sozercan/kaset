@@ -283,12 +283,10 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Atomically pause and seek the underlying video.
-    func seekAndPause(to time: Double) {
-        guard let webView else { return }
-
+    /// Pure script for atomically pausing and seeking the underlying video.
+    nonisolated static func seekAndPauseScript(to time: Double) -> String {
         let safeTime = time.isFinite ? max(time, 0) : 0
-        let script = """
+        return """
             (function() {
                 const video = document.querySelector('video');
                 if (!video) { return 'no-video'; }
@@ -298,7 +296,12 @@ extension SingletonPlayerWebView {
                 return 'seeked-paused';
             })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Atomically pause and seek the underlying video.
+    func seekAndPause(to time: Double) {
+        guard let webView else { return }
+        webView.evaluateJavaScript(Self.seekAndPauseScript(to: time), completionHandler: nil)
     }
 
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).

@@ -69,6 +69,10 @@ extension SingletonPlayerWebView {
                 from: body,
                 documentGeneration: messageDocumentGeneration
             )
+            let musicPlaybackIntent = self.playerService.currentMusicPlaybackIntent
+            let eventIssuedAtMilliseconds = SingletonPlayerWebView.finitePlaybackBridgeDouble(
+                from: body["eventIssuedAtMilliseconds"]
+            )
 
             switch type {
             case "TRACK_ENDED":
@@ -76,32 +80,25 @@ extension SingletonPlayerWebView {
                 Task { @MainActor in
                     guard SingletonPlayerWebView.shared.documentGeneration.accepts(
                         generation: messageDocumentGeneration
-                    ), !endedDuringAd else { return }
+                    ), self.playerService.acceptsMusicTerminalBridgeEvent(
+                        intent: musicPlaybackIntent,
+                        eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
+                    ),
+                        !endedDuringAd
+                    else { return }
                     await self.playerService.handleTrackEnded(
                         observedVideoId: observedVideoId,
-                        playbackOccurrence: playbackOccurrence
+                        playbackOccurrence: playbackOccurrence,
+                        intent: musicPlaybackIntent
                     )
                 }
-            case "REMOTE_NEXT":
-                Task { @MainActor in
-                    guard SingletonPlayerWebView.shared.documentGeneration.acceptsUserCommand(
-                        generation: messageDocumentGeneration,
-                        issuedAtMilliseconds: commandIssuedAtMilliseconds,
-                        navigationStartedAtMilliseconds: SingletonPlayerWebView.shared
-                            .documentNavigationStartedAtMilliseconds
-                    ) else { return }
-                    await self.playerService.next()
-                }
-            case "REMOTE_PREVIOUS":
-                Task { @MainActor in
-                    guard SingletonPlayerWebView.shared.documentGeneration.acceptsUserCommand(
-                        generation: messageDocumentGeneration,
-                        issuedAtMilliseconds: commandIssuedAtMilliseconds,
-                        navigationStartedAtMilliseconds: SingletonPlayerWebView.shared
-                            .documentNavigationStartedAtMilliseconds
-                    ) else { return }
-                    await self.playerService.previous()
-                }
+            case "REMOTE_NEXT", "REMOTE_PREVIOUS":
+                self.handleRemoteCommand(
+                    type: type,
+                    documentGeneration: messageDocumentGeneration,
+                    commandIssuedAtMilliseconds: commandIssuedAtMilliseconds,
+                    musicPlaybackIntent: musicPlaybackIntent
+                )
             case "AIRPLAY_STATUS":
                 self.handleAirPlayStatusUpdate(
                     body: body,
@@ -118,11 +115,35 @@ extension SingletonPlayerWebView {
                 self.handleStateUpdate(
                     body: body,
                     observedVideoId: observedVideoId,
-                    documentGeneration: messageDocumentGeneration
+                    documentGeneration: messageDocumentGeneration,
+                    musicPlaybackIntent: musicPlaybackIntent,
+                    eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
                 )
             default:
                 return
             }
+        }
+
+        private func handleRemoteCommand(
+            type: String,
+            documentGeneration: UInt64,
+            commandIssuedAtMilliseconds: Double?,
+            musicPlaybackIntent: MusicPlaybackIntent
+        ) {
+            guard SingletonPlayerWebView.shared.documentGeneration.acceptsUserCommand(
+                generation: documentGeneration,
+                issuedAtMilliseconds: commandIssuedAtMilliseconds,
+                navigationStartedAtMilliseconds: SingletonPlayerWebView.shared
+                    .documentNavigationStartedAtMilliseconds
+            ), self.playerService.acceptsMusicRemoteCommand(
+                intent: musicPlaybackIntent,
+                commandIssuedAtMilliseconds: commandIssuedAtMilliseconds
+            ), let commandIssuedAtMilliseconds
+            else { return }
+            self.playerService.enqueueRemoteMusicTransportCommand(
+                type == "REMOTE_NEXT" ? .next : .previous,
+                issuedAtMilliseconds: commandIssuedAtMilliseconds
+            )
         }
 
         private static func observedVideoId(from body: [String: Any]) -> String? {
@@ -522,7 +543,9 @@ private extension SingletonPlayerWebView.Coordinator {
     private func handleStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
-        documentGeneration: UInt64
+        documentGeneration: UInt64,
+        musicPlaybackIntent: MusicPlaybackIntent,
+        eventIssuedAtMilliseconds: Double?
     ) {
         let isPlaying = body["isPlaying"] as? Bool ?? false
         let progress = SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["progress"]) ?? 0
@@ -543,7 +566,11 @@ private extension SingletonPlayerWebView.Coordinator {
         Task { @MainActor in
             guard SingletonPlayerWebView.shared.documentGeneration.accepts(
                 generation: documentGeneration
-            ) else { return }
+            ), self.playerService.acceptsMusicBridgeEvent(
+                intent: musicPlaybackIntent,
+                eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
+            ), self.playerService.currentTrack != nil || self.playerService.pendingPlayVideoId != nil
+            else { return }
             if let playbackOccurrence,
                !self.playerService.acceptsWebMusicPlaybackOccurrence(playbackOccurrence)
             {

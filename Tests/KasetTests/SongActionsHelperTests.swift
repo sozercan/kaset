@@ -37,6 +37,21 @@ struct SongActionsHelperTests {
         }
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(3),
+        condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while clock.now < deadline {
+            if condition() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return false
+    }
+
     private func awaitQueueCount(_ expectedCount: Int, in playerService: PlayerService) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(1))
@@ -55,6 +70,105 @@ struct SongActionsHelperTests {
             guard clock.now < deadline else { return }
             try? await Task.sleep(for: .milliseconds(10))
         }
+    }
+
+    @Test("Add to Library cannot toggle a newer track")
+    func addToLibraryCannotMutateNewerTrack() async {
+        let playerService = PlayerService()
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "REDACTED")
+        playerService.setAuthService(authService)
+        playerService.setYTMusicClient(self.mockClient)
+        let songA = TestFixtures.makeSong(id: "library-a")
+        let songB = TestFixtures.makeSong(id: "library-b")
+        self.mockClient.songResponses[songA.videoId] = Song(
+            id: songA.id,
+            title: songA.title,
+            artists: songA.artists,
+            videoId: songA.videoId,
+            feedbackTokens: FeedbackTokens(add: "a-add", remove: "a-remove")
+        )
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeGetSongReturn = { videoID in
+            guard videoID == songA.videoId else { return }
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let addTask = SongActionsHelper.addToLibrary(songA, playerService: playerService)
+        await metadataStarted.wait()
+        await playerService.play(song: songB)
+        await releaseMetadata.open()
+        await addTask.value
+
+        #expect(playerService.currentTrack?.videoId == songB.videoId)
+        #expect(!playerService.currentTrackInLibrary)
+        #expect(!self.mockClient.editSongLibraryStatusCalled)
+    }
+
+    @Test("Add to Library waits for tokens on an already-loading song")
+    func addToLibraryWaitsForLoadingMetadata() async {
+        let playerService = PlayerService()
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "REDACTED")
+        playerService.setAuthService(authService)
+        playerService.setYTMusicClient(self.mockClient)
+        let song = TestFixtures.makeSong(id: "loading-library")
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.id,
+            title: song.title,
+            artists: song.artists,
+            videoId: song.videoId,
+            feedbackTokens: FeedbackTokens(add: "mock-token", remove: "test-cookie")
+        )
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeGetSongReturn = { videoID in
+            guard videoID == song.videoId else { return }
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let initialPlay = Task { @MainActor in
+            await playerService.play(song: song)
+        }
+        await metadataStarted.wait()
+        let addTask = SongActionsHelper.addToLibrary(song, playerService: playerService)
+        await releaseMetadata.open()
+        await initialPlay.value
+        await addTask.value
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while !self.mockClient.editSongLibraryStatusCalled, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(self.mockClient.editSongLibraryStatusCalled)
+    }
+
+    @Test("Add to Library does not remove an already-saved song")
+    func addToLibraryDoesNotToggleSavedSong() async {
+        let playerService = PlayerService()
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "REDACTED")
+        playerService.setAuthService(authService)
+        playerService.setYTMusicClient(self.mockClient)
+        let song = Song(
+            id: "already-saved",
+            title: "Already Saved",
+            artists: [],
+            videoId: "already-saved",
+            isInLibrary: true,
+            feedbackTokens: FeedbackTokens(add: nil, remove: "mock-token")
+        )
+
+        let task = SongActionsHelper.addToLibrary(song, playerService: playerService)
+        await task.value
+        try? await Task.sleep(for: .milliseconds(25))
+
+        #expect(playerService.currentTrackInLibrary)
+        #expect(!self.mockClient.editSongLibraryStatusCalled)
     }
 
     @Test("canQuickPlayPlaylist rejects mood category browse IDs")
@@ -390,11 +504,16 @@ struct SongActionsHelperTests {
         ]
         self.mockClient.libraryContentResponseDelays = [.milliseconds(700)]
 
-        let initialLoadTask = Task {
-            await self.libraryViewModel.load()
+        var initialLoadTask: Task<Void, Never>!
+        await withCheckedContinuation { continuation in
+            self.mockClient.onGetLibraryContent = {
+                self.mockClient.onGetLibraryContent = nil
+                continuation.resume()
+            }
+            initialLoadTask = Task {
+                await self.libraryViewModel.load()
+            }
         }
-
-        try await Task.sleep(for: .milliseconds(100))
 
         try await SongActionsHelper.unsubscribeFromArtist(
             staleArtist,
@@ -404,9 +523,14 @@ struct SongActionsHelperTests {
         )
 
         await initialLoadTask.value
-        try await Task.sleep(for: .milliseconds(100))
+        let didDiscardStaleLoad = await self.waitUntil {
+            self.mockClient.getLibraryContentCallCount >= 2
+                && !self.libraryViewModel.isInLibrary(artistId: "UC-channel-123")
+                && self.libraryViewModel.artists.isEmpty
+        }
 
-        #expect(self.mockClient.getLibraryContentCallCount == 2)
+        #expect(didDiscardStaleLoad)
+        #expect(self.mockClient.getLibraryContentCallCount >= 2)
         #expect(self.libraryViewModel.isInLibrary(artistId: "UC-channel-123") == false)
         #expect(self.libraryViewModel.artists.isEmpty)
     }

@@ -46,12 +46,36 @@ final class LibraryMutationBroadcaster {
         }
     }
 
-    func reconcileCreatedPlaylist(_ playlist: Playlist) async {
+    @discardableResult
+    func reconcileCreatedPlaylist(
+        _ playlist: Playlist,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
         for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else {
+                self.discardCreatedPlaylist(playlist)
+                return false
+            }
             await libraryViewModel.refresh()
+            guard isCurrent() else {
+                self.discardCreatedPlaylist(playlist)
+                return false
+            }
             if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
                 libraryViewModel.addToLibrary(playlist: playlist)
             }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+        guard isCurrent() else {
+            self.discardCreatedPlaylist(playlist)
+            return false
+        }
+        return true
+    }
+
+    func discardCreatedPlaylist(_ playlist: Playlist) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.discardOptimisticPlaylist(playlistId: playlist.id)
             libraryViewModel.markNeedsReloadOnActivation()
         }
     }
@@ -232,6 +256,13 @@ final class LibraryViewModel {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
         self.contentReconciler.addPlaylist(playlist, to: &snapshot)
+        self.librarySnapshot = snapshot
+    }
+
+    func discardOptimisticPlaylist(playlistId: String) {
+        self.markLibraryStateChanged()
+        var snapshot = self.librarySnapshot
+        self.contentReconciler.discardAddedPlaylist(playlistId, from: &snapshot)
         self.librarySnapshot = snapshot
     }
 

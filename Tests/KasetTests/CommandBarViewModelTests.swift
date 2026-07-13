@@ -218,6 +218,58 @@ struct CommandBarViewModelTests {
         viewModel.cancelActiveRequest()
     }
 
+    @Test("Canceled request cleanup cannot release a newer single-flight request")
+    func canceledCleanupCannotClearNewerRequest() async {
+        let playerService = MockPlayerService()
+        let recorder = Recorder()
+        let firstStarted = AsyncGate()
+        let releaseFirst = AsyncGate()
+        let secondStarted = AsyncGate()
+        let releaseSecond = AsyncGate()
+        let aiCallCounter = Counter()
+
+        let aiClient = self.makeAIClient { query, _ in
+            await aiCallCounter.increment()
+            if query.contains("first") {
+                await firstStarted.open()
+                await releaseFirst.wait()
+            } else if query.contains("second") {
+                await secondStarted.open()
+                await releaseSecond.wait()
+            }
+            return Self.makeParsedCommand(action: .search, subject: query)
+        }
+        let viewModel = self.makeViewModel(
+            playerService: playerService,
+            aiClient: aiClient,
+            recorder: recorder,
+            requestTimeout: .seconds(5)
+        )
+
+        viewModel.inputText = "find first obscure request"
+        viewModel.submit()
+        await firstStarted.wait()
+        viewModel.cancelActiveRequest()
+
+        viewModel.inputText = "find second obscure request"
+        viewModel.submit()
+        await secondStarted.wait()
+        await releaseFirst.open()
+        try? await Task.sleep(for: .milliseconds(50))
+
+        #expect(viewModel.isProcessing)
+        #expect(viewModel.isInteractionDisabled)
+        viewModel.inputText = "find third obscure request"
+        viewModel.submit()
+        try? await Task.sleep(for: .milliseconds(25))
+        #expect(await aiCallCounter.get() == 2)
+
+        await releaseSecond.open()
+        await self.waitUntil {
+            !viewModel.isProcessing
+        }
+    }
+
     @Test("Timeout falls back to deterministic search routing")
     func timeoutFallsBackToSearchRouting() async {
         let playerService = MockPlayerService()
@@ -244,6 +296,36 @@ struct CommandBarViewModelTests {
 
         #expect(recorder.routedQueries == ["Billie Eilish"])
         #expect(viewModel.lastFallbackReason == .timedOut)
+    }
+
+    @Test("Timeout does not await a cancellation-insensitive resolver")
+    func hardTimeoutDoesNotAwaitResolver() async {
+        let playerService = MockPlayerService()
+        let recorder = Recorder()
+        let resolverStarted = AsyncGate()
+        let releaseResolver = AsyncGate()
+        let aiClient = self.makeAIClient { _, _ in
+            await resolverStarted.open()
+            await releaseResolver.wait()
+            return Self.makeParsedCommand(action: .play)
+        }
+        let viewModel = self.makeViewModel(
+            playerService: playerService,
+            aiClient: aiClient,
+            recorder: recorder,
+            requestTimeout: .milliseconds(20)
+        )
+
+        viewModel.inputText = "Search for cancellation insensitive music"
+        viewModel.submit()
+        await resolverStarted.wait()
+        await self.waitUntil(timeout: .milliseconds(250)) {
+            viewModel.lastFallbackReason == .timedOut
+        }
+
+        #expect(viewModel.lastFallbackReason == .timedOut)
+        #expect(recorder.routedQueries == ["cancellation insensitive music"])
+        await releaseResolver.open()
     }
 
     @Test("Dismiss cancels an in-flight request")

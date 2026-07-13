@@ -81,6 +81,7 @@ struct AddToPlaylistContextMenu: View {
     let client: any YTMusicClientProtocol
 
     @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
 
     @State private var loadState: PlaylistLoadState = .idle
     @State private var isCreatingPlaylist = false
@@ -232,6 +233,7 @@ struct AddToPlaylistContextMenu: View {
 
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
+        let owner = self.playerService.currentAccountMutationOwner
 
         let alert = NSAlert()
         alert.messageText = "Create Playlist"
@@ -249,7 +251,7 @@ struct AddToPlaylistContextMenu: View {
                 self.loadState = .failed("Playlist Name Required")
                 return
             }
-            Task { await self.createPlaylist(title: title) }
+            Task { await self.createPlaylist(title: title, owner: owner) }
         }
 
         if let window = NSApp.keyWindow ?? NSApp.mainWindow {
@@ -259,8 +261,14 @@ struct AddToPlaylistContextMenu: View {
         }
     }
 
-    private func createPlaylist(title: String) async {
-        guard !title.isEmpty, !self.isCreatingPlaylist else { return }
+    private func createPlaylist(
+        title: String,
+        owner: MusicAccountMutationOwner
+    ) async {
+        guard !title.isEmpty,
+              self.playerService.acceptsAccountMutationOwner(owner),
+              !self.isCreatingPlaylist
+        else { return }
         self.isCreatingPlaylist = true
         defer { self.isCreatingPlaylist = false }
         do {
@@ -270,6 +278,9 @@ struct AddToPlaylistContextMenu: View {
                 privacyStatus: .private,
                 videoIds: [self.song.videoId]
             )
+            guard self.playerService.acceptsAccountMutationOwner(owner) else {
+                throw CancellationError()
+            }
             let playlist = Playlist(
                 id: playlistId,
                 title: title,
@@ -285,8 +296,19 @@ struct AddToPlaylistContextMenu: View {
             // Refresh in the background, but keep the optimistic playlist visible if the
             // cache/backend still returns a stale snapshot.
             try? await Task.sleep(for: .milliseconds(500))
+            guard self.playerService.acceptsAccountMutationOwner(owner) else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
             SongActionsHelper.invalidateLibraryResponseCaches()
-            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
+            let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
+                playlist,
+                whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
+            )
+            guard didReconcile, self.playerService.acceptsAccountMutationOwner(owner) else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
             SongActionsHelper.invalidateLibraryResponseCaches()
 
             await self.loadPlaylists(forceRefresh: true)

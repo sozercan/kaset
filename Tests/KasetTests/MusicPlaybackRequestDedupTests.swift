@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - MusicPlaybackRequestDedupTests
+
 @Suite("Music playback request deduplication", .serialized, .tags(.service))
 @MainActor
 struct MusicPlaybackRequestDedupTests {
@@ -60,48 +62,248 @@ struct MusicPlaybackRequestDedupTests {
         #expect(playerService.shouldResumeAfterInterruption)
     }
 
-    @Test("Distinct queue entries sharing a video ID start a fresh occurrence")
-    func distinctSameVideoQueueEntriesStartFreshPlayback() async throws {
-        let videoId = "same-video"
-        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoId)
+    @Test("A same-video direct request supersedes a different deferred restored load")
+    func sameVideoDirectRequestSupersedesStalePendingRestore() async {
+        let requestedVideoID = "visible-video"
+        let staleVideoID = "stale-restored-video"
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: requestedVideoID)
         _ = webKitManager
         defer { SingletonPlayerWebView.shared.tearDown() }
-        let firstSong = Song(
-            id: "first",
-            title: "First occurrence",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: videoId
+        let mockClient = MockYTMusicClient()
+        playerService.setYTMusicClient(mockClient)
+        mockClient.songResponses[requestedVideoID] = Song(
+            id: requestedVideoID,
+            title: "Visible Metadata",
+            artists: [Artist(id: "visible-artist", name: "Visible Artist")],
+            videoId: requestedVideoID
         )
-        let secondSong = Song(
-            id: "second",
-            title: "Second occurrence",
+        let staleSong = Song(
+            id: staleVideoID,
+            title: "Stale Restored Song",
             artists: [],
-            album: nil,
             duration: 180,
-            thumbnailURL: nil,
-            videoId: videoId
+            videoId: staleVideoID
         )
+        playerService.applyRestoredPlaybackSession(
+            queue: [staleSong],
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        #expect(playerService.isPendingRestoredLoadDeferred)
+        #expect(playerService.pendingPlayVideoId == staleVideoID)
+
+        await playerService.play(videoId: requestedVideoID)
+
+        #expect(playerService.pendingPlayVideoId == requestedVideoID)
+        #expect(playerService.currentTrack?.videoId == requestedVideoID)
+        #expect(playerService.currentTrack?.title == "Visible Metadata")
+        #expect(!playerService.isPendingRestoredLoadDeferred)
+        #expect(playerService.pendingRestoredSeek == nil)
+        #expect(SingletonPlayerWebView.shared.currentVideoId == requestedVideoID)
+        #expect(mockClient.getSongVideoIds == [requestedVideoID])
+    }
+
+    @Test("A direct deduplicated video request detaches ownership under a fresh occurrence")
+    func deduplicatedDirectVideoRequestDetachesQueueOwnership() async throws {
+        let first = Song(
+            id: "direct-same-first",
+            title: "Direct Same First",
+            artists: [],
+            duration: 180,
+            videoId: "direct-same-video"
+        )
+        let second = Song(
+            id: "direct-same-second",
+            title: "Direct Same Second",
+            artists: [],
+            duration: 180,
+            videoId: "direct-same-next"
+        )
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: first.videoId)
+        _ = webKitManager
+        defer { SingletonPlayerWebView.shared.tearDown() }
+        let firstEntryID = UUID()
         playerService.setQueue(entries: [
-            QueueEntry(id: UUID(), song: firstSong),
-            QueueEntry(id: UUID(), song: secondSong),
+            QueueEntry(id: firstEntryID, song: first),
+            QueueEntry(id: UUID(), song: second),
         ])
         playerService.currentIndex = 0
-        await playerService.play(song: firstSong)
+        self.seedPausedPlayback(playerService, song: first)
+        playerService.isShowingAd = false
+        playerService.activePlaybackQueueEntryID = firstEntryID
+        let occurrence = playerService.beginNativeMusicPlaybackOccurrence(videoId: first.videoId)
+
+        await playerService.play(videoId: first.videoId)
+
+        let detachedOccurrence = try #require(playerService.currentMusicPlaybackOccurrence)
+        #expect(playerService.activePlaybackQueueEntryID == nil)
+        #expect(detachedOccurrence.nativeGeneration > occurrence.nativeGeneration)
+        #expect(playerService.progress == 42)
+        #expect(playerService.currentIndex == 0)
+
+        await playerService.handleTrackEnded(
+            observedVideoId: first.videoId,
+            playbackOccurrence: occurrence
+        )
+
+        #expect(playerService.currentIndex == 0)
+        #expect(playerService.currentTrack?.videoId == first.videoId)
+        #expect(playerService.state == .paused)
+
+        await playerService.handleTrackEnded(
+            observedVideoId: first.videoId,
+            playbackOccurrence: detachedOccurrence
+        )
+
+        #expect(playerService.state == .ended)
+    }
+
+    @Test("Direct same-video detachment replaces queue-owned metadata work")
+    func directSameVideoDetachmentReplacesQueueOwnedMetadataWork() async {
+        let videoID = "direct-metadata-handoff"
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoID)
+        _ = webKitManager
+        defer { SingletonPlayerWebView.shared.tearDown() }
+        let mockClient = MockYTMusicClient()
+        playerService.setYTMusicClient(mockClient)
+        let incomplete = Song(
+            id: videoID,
+            title: "Loading...",
+            artists: [],
+            videoId: videoID
+        )
+        let entryID = UUID()
+        playerService.setQueue(entries: [QueueEntry(id: entryID, song: incomplete)])
+        playerService.currentIndex = 0
+        playerService.currentTrack = incomplete
+        playerService.pendingPlayVideoId = videoID
+        playerService.activePlaybackQueueEntryID = entryID
+        playerService.state = .paused
+        playerService.beginNativeMusicPlaybackOccurrence(videoId: videoID)
+        let authoritativeTokens = FeedbackTokens(add: "detached-add", remove: "detached-remove")
+        mockClient.songResponses[videoID] = Song(
+            id: videoID,
+            title: "Detached Metadata",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: videoID,
+            feedbackTokens: authoritativeTokens
+        )
+        let firstRequestStarted = AsyncGate()
+        let releaseFirstRequest = AsyncGate()
+        let requestCounter = PlaybackRequestCounter()
+        mockClient.beforeGetSongReturn = { _ in
+            if await requestCounter.increment() == 1 {
+                await firstRequestStarted.open()
+                await releaseFirstRequest.wait()
+            }
+        }
+        let queuedFetch = Task { @MainActor in
+            await playerService.fetchSongMetadata(
+                videoId: videoID,
+                queueOwner: .entry(entryID)
+            )
+        }
+        await firstRequestStarted.wait()
+
+        await playerService.play(videoId: videoID)
+
+        #expect(mockClient.getSongVideoIds == [videoID, videoID])
+        #expect(playerService.activePlaybackQueueEntryID == nil)
+        #expect(playerService.currentTrack?.title == "Detached Metadata")
+        #expect(playerService.currentTrackFeedbackTokens == authoritativeTokens)
+        #expect(playerService.queue[0].title == "Loading...")
+        #expect(playerService.queue[0].feedbackTokens == authoritativeTokens)
+
+        await releaseFirstRequest.open()
+        await queuedFetch.value
+        #expect(playerService.currentTrack?.title == "Detached Metadata")
+        #expect(playerService.queue[0].title == "Loading...")
+    }
+
+    @Test("Direct same-video playback clears artist episode semantics")
+    func directSameVideoPlaybackClearsArtistEpisodeSemantics() async throws {
+        let videoID = "direct-episode-handoff"
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoID)
+        _ = webKitManager
+        defer { SingletonPlayerWebView.shared.tearDown() }
+        let song = Song(
+            id: videoID,
+            title: "Episode Representative",
+            artists: [],
+            duration: 180,
+            videoId: videoID,
+            feedbackTokens: FeedbackTokens(add: nil, remove: nil)
+        )
+        self.seedPausedPlayback(playerService, song: song)
+        playerService.isShowingAd = false
+        playerService.currentEpisode = ArtistEpisode(
+            videoId: videoID,
+            title: "Live Episode",
+            isLive: true
+        )
+        let occurrence = playerService.beginNativeMusicPlaybackOccurrence(videoId: videoID)
+
+        await playerService.play(videoId: videoID)
+
+        let detachedOccurrence = try #require(playerService.currentMusicPlaybackOccurrence)
+        #expect(playerService.currentEpisode == nil)
+        #expect(!playerService.isCurrentItemLive)
+        #expect(detachedOccurrence.nativeGeneration > occurrence.nativeGeneration)
+        #expect(playerService.progress == 42)
+        #expect(playerService.duration == 180)
+    }
+
+    @Test("Distinct queue entry IDs for the same song start fresh, while reselecting one entry deduplicates")
+    func exactSameSongQueueEntriesUseLogicalEntryIdentity() async throws {
+        let videoId = "same-video"
+        let singleton = SingletonPlayerWebView.shared
+        singleton.tearDown()
+        singleton.currentVideoId = nil
+        defer {
+            singleton.tearDown()
+            singleton.currentVideoId = nil
+        }
+        let playerService = PlayerService()
+        let song = Song(
+            id: "same-song",
+            title: "Same Song",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: videoId
+        )
+        let firstEntryID = UUID()
+        let secondEntryID = UUID()
+        playerService.setQueue(entries: [
+            QueueEntry(id: firstEntryID, song: song),
+            QueueEntry(id: secondEntryID, song: song),
+        ])
+
+        await playerService.playFromQueue(at: 0)
         let firstOccurrence = try #require(playerService.currentMusicPlaybackOccurrence)
+        #expect(playerService.activePlaybackQueueEntryID == firstEntryID)
         playerService.progress = 42
         playerService.currentTimeMs = 42000
 
         await playerService.playFromQueue(at: 1)
-
         let secondOccurrence = try #require(playerService.currentMusicPlaybackOccurrence)
-        #expect(playerService.currentTrack?.id == "second")
+        #expect(playerService.currentTrack == song)
         #expect(playerService.currentIndex == 1)
+        #expect(playerService.activePlaybackQueueEntryID == secondEntryID)
         #expect(playerService.progress == 0)
-        #expect(secondOccurrence != firstOccurrence)
         #expect(secondOccurrence.nativeGeneration > firstOccurrence.nativeGeneration)
+
+        playerService.progress = 17
+        playerService.currentTimeMs = 17000
+        await playerService.playFromQueue(at: 1)
+
+        let reselectedOccurrence = try #require(playerService.currentMusicPlaybackOccurrence)
+        #expect(reselectedOccurrence == secondOccurrence)
+        #expect(playerService.activePlaybackQueueEntryID == secondEntryID)
+        #expect(playerService.progress == 17)
+        #expect(playerService.currentTimeMs == 17000)
     }
 
     @Test("Fresh same-video occurrence forces navigation while an ad is active")
@@ -226,6 +428,9 @@ struct MusicPlaybackRequestDedupTests {
         let singleton = SingletonPlayerWebView.shared
         singleton.tearDown()
         let playerService = PlayerService()
+        let likeStatusManager = SongLikeStatusManager()
+        likeStatusManager.setActiveAccountID(nil)
+        playerService.setSongLikeStatusManager(likeStatusManager)
         let webKitManager = WebKitManager.makeTestInstance()
         _ = singleton.getWebView(
             webKitManager: webKitManager,
@@ -244,5 +449,16 @@ struct MusicPlaybackRequestDedupTests {
         playerService.currentTimeMs = 42000
         playerService.duration = 180
         playerService.isShowingAd = true
+    }
+}
+
+// MARK: - PlaybackRequestCounter
+
+private actor PlaybackRequestCounter {
+    private var count = 0
+
+    func increment() -> Int {
+        self.count += 1
+        return self.count
     }
 }

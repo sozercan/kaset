@@ -12,6 +12,18 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         SingletonPlayerWebView.shared.currentVideoId
     }
 
+    @ObservationIgnored var currentMusicPlaybackSnapshot: @MainActor () async -> SingletonPlayerWebView.PlaybackSnapshot? = {
+        await SingletonPlayerWebView.shared.currentPlaybackSnapshot()
+    }
+
+    @ObservationIgnored var smartShuffleFeatureEnabled: @MainActor () -> Bool = {
+        SettingsManager.shared.smartShuffleEnabled
+    }
+
+    @ObservationIgnored var queuePersistenceDefaults: UserDefaults = .standard
+
+    @ObservationIgnored var onMusicPlaybackNavigationRequested: ((String, Bool) -> Void)?
+
     /// Latest media occurrence observed or initiated for Music playback.
     @ObservationIgnored private(set) var currentMusicPlaybackOccurrence: MusicPlaybackOccurrence?
 
@@ -56,7 +68,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Shuffle mode for playback. `smart` interleaves recommended tracks.
-    enum ShuffleMode: String, CaseIterable {
+    enum ShuffleMode: String, CaseIterable, Codable {
         case off
         case on
         case smart
@@ -282,14 +294,41 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
     var authService: AuthService?
+    var songLikeStatusManager = SongLikeStatusManager.shared
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
     var mixContinuationRequiresAuth = false
-    var playbackRequestGeneration = 0
+    var musicPlaybackIntentGeneration: UInt64 = 0
+    var musicPlaybackReservationGeneration: UInt64 = 0
+    var musicPlaybackIntentIssuedAtMilliseconds: Double = 0
+    var musicPlaybackIntentAcceptsPriorTerminalEvent = false
+    var libraryMutationGeneration: UInt64 = 0
+    var libraryMutationRevisionCounter: UInt64 = 0
+    var libraryMutationRevisions: [String: UInt64] = [:]
+    var confirmedLibraryStateByKey: [String: MusicLibraryConfirmedState] = [:]
+    var pendingLibraryMutationCountsByKey: [String: Int] = [:]
+    var accountSessionGeneration: UInt64 = 0
+    @ObservationIgnored var libraryMutationTails: [String: Task<Result<Void, any Error>, Never>] = [:]
+    @ObservationIgnored var libraryMutationTailGenerations: [String: UInt64] = [:]
+    @ObservationIgnored var remoteMusicTransportCommands: [MusicRemoteTransportCommand] = []
+    @ObservationIgnored var remoteMusicTransportCommandReadIndex = 0
+    @ObservationIgnored var remoteMusicTransportTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicTransportBatchGeneration: UInt64 = 0
+    @ObservationIgnored var remoteMusicTransportIntent: MusicPlaybackIntent?
+    @ObservationIgnored var remoteMusicSkipTarget: TimeInterval?
+    @ObservationIgnored var remoteMusicSkipVideoID: String?
+    @ObservationIgnored var remoteMusicSkipQueueEntryID: UUID?
+    @ObservationIgnored var remoteMusicSkipAdmittedAt: ContinuousClock.Instant?
+    @ObservationIgnored var remoteMusicMetadataFollowUpTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicMetadataFollowUpGeneration: UInt64 = 0
+    @ObservationIgnored var remoteMusicQueueFollowUpTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicQueueFollowUpGeneration: UInt64 = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
+    var activeMixContinuationRequestID: UUID?
+    var mixContinuationWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Smart Shuffle: videoIds suggested this session, for dedup across fills.
     var smartShuffleSeenSuggestionIds: Set<String> = []
@@ -314,9 +353,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let queueDisplayModeKey = "kaset.queue.displayMode"
 
     /// Undo/redo history for queue (up to 10 states). In-memory only.
-    private var queueUndoHistory: [QueueState] = []
-    private var queueRedoHistory: [QueueState] = []
-    private static let queueUndoMaxCount = 10
+    var queueUndoHistory: [QueueState] = []
+    var queueRedoHistory: [QueueState] = []
+    static let queueUndoMaxCount = 10
 
     /// Queue index before each `next()`; `previous()` pops so Back returns to the track you skipped from (shuffle- and seek-safe).
     private var forwardSkipIndexStack: [Int] = []
@@ -372,9 +411,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
             // Don't resurrect smart mode if the feature has since been disabled in settings;
             // fall back to plain shuffle (the user still wanted shuffle, just not suggestions).
-            if self.shuffleMode == .smart, !SettingsManager.shared.smartShuffleEnabled {
-                self.shuffleMode = .on
-            }
+            self.shuffleMode = Self.resolvedShuffleMode(
+                self.shuffleMode,
+                smartShuffleEnabled: self.smartShuffleFeatureEnabled()
+            )
 
             if let savedRepeatMode = UserDefaults.standard.string(forKey: Self.repeatModeKey) {
                 switch savedRepeatMode {
@@ -447,62 +487,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         self.airPlayWasRequested = true
     }
 
-    // MARK: - Queue Undo / Redo
-
-    /// Whether queue undo is available.
-    var canUndoQueue: Bool {
-        !self.queueUndoHistory.isEmpty
-    }
-
-    /// Whether queue redo is available.
-    var canRedoQueue: Bool {
-        !self.queueRedoHistory.isEmpty
-    }
-
-    /// Clears queue undo/redo history at account/privacy boundaries.
-    func clearQueueUndoRedoHistory() {
-        self.queueUndoHistory.removeAll()
-        self.queueRedoHistory.removeAll()
-    }
-
-    /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
-    func recordQueueStateForUndo() {
-        let state = QueueState(entries: self.queueEntries, currentIndex: self.currentIndex)
-        self.queueUndoHistory.append(state)
-        if self.queueUndoHistory.count > Self.queueUndoMaxCount {
-            self.queueUndoHistory.removeFirst()
-        }
-        self.queueRedoHistory.removeAll()
-        self.logger.debug("Recorded queue state for undo, undo count: \(self.queueUndoHistory.count)")
-    }
-
-    /// Restores the previous queue state. Does nothing if undo history is empty.
-    func undoQueue() {
-        guard let state = self.queueUndoHistory.popLast() else { return }
-        // Undo replaces the queue, so cancel Smart Shuffle fills and supersede any in-flight
-        // deferred load: otherwise stale async work can splice tracks into the restored queue.
-        self.prepareForNewPlaybackContext()
-        self.queueRedoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
-        self.setQueue(entries: state.entries)
-        self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))
-        self.saveQueueForPersistence()
-        self.logger.info("Undid queue to \(state.entries.count) songs at index \(self.currentIndex)")
-        self.clearForwardSkipNavigationStack()
-    }
-
-    /// Restores the next queue state after an undo. Does nothing if redo history is empty.
-    func redoQueue() {
-        guard let state = self.queueRedoHistory.popLast() else { return }
-        // Redo replaces the queue, so cancel/supersede stale async queue work (see undoQueue).
-        self.prepareForNewPlaybackContext()
-        self.queueUndoHistory.append(QueueState(entries: self.queueEntries, currentIndex: self.currentIndex))
-        self.setQueue(entries: state.entries)
-        self.currentIndex = min(state.currentIndex, max(0, state.entries.count - 1))
-        self.saveQueueForPersistence()
-        self.logger.info("Redid queue to \(state.entries.count) songs at index \(self.currentIndex)")
-        self.clearForwardSkipNavigationStack()
-    }
-
     /// Clears forward-skip undo when the queue is replaced or reordered so indices are not stale.
     func clearForwardSkipNavigationStack() {
         self.forwardSkipIndexStack.removeAll()
@@ -515,6 +499,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     func setQueue(entries: [QueueEntry]) {
         self.queueStorage = entries
+        if let activePlaybackQueueEntryID,
+           !entries.contains(where: { $0.id == activePlaybackQueueEntryID })
+        {
+            self.activePlaybackQueueEntryID = nil
+        }
         self.synchronizeCurrentQueueEntryID()
     }
 
@@ -578,6 +567,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.currentTrackHasVideo = hasVideo
             self.logger.debug("Loaded mock video availability: \(hasVideo)")
         }
+    }
+
+    /// Sets the like-status cache used by playback metadata and rating actions.
+    func setSongLikeStatusManager(_ manager: SongLikeStatusManager) {
+        self.songLikeStatusManager = manager
     }
 
     /// Sets the YTMusicClient for API calls (dependency injection).
@@ -787,6 +781,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             )
 
         if resolvedOccurrence.documentGeneration == nil {
+            if let currentMusicPlaybackOccurrence {
+                guard currentMusicPlaybackOccurrence.documentGeneration == nil,
+                      resolvedOccurrence.nativeGeneration >= currentMusicPlaybackOccurrence.nativeGeneration
+                else {
+                    return false
+                }
+            }
             guard resolvedOccurrence.mediaGeneration > self.lastClaimedNativeMusicPlaybackGeneration else {
                 return false
             }

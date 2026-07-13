@@ -1689,4 +1689,61 @@ struct PlaybackArbiterTests {
         #expect(controller.pauseCount == 0)
         #expect(arbiter.activeSource == .music)
     }
+
+    @Test("A queued video pause cannot pause music that reclaimed playback")
+    func staleVideoPauseDoesNotPauseNewMusicIntent() async {
+        let playerService = PlayerService()
+        let controller = MockYouTubeWatchPlaybackController()
+        let youtubePlayer = YouTubePlayerService(playbackController: controller)
+        let arbiter = PlaybackArbiter(playerService: playerService, youtubePlayerService: youtubePlayer)
+        playerService.state = .playing
+
+        arbiter.videoWillStartPlaying()
+        await playerService.play(song: Song(
+            id: "new",
+            title: "New",
+            artists: [],
+            duration: 180,
+            videoId: "new",
+            feedbackTokens: .init(add: nil, remove: nil)
+        ))
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(playerService.state == .loading)
+        #expect(playerService.currentTrack?.videoId == "new")
+    }
+
+    @Test("Video ownership supersedes a pending Music API intent")
+    func videoSupersedesPendingMusicIntent() async {
+        let playerService = PlayerService()
+        let musicClient = MockYTMusicClient()
+        playerService.setYTMusicClient(musicClient)
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        musicClient.mixQueueResult = RadioQueueResult(
+            songs: [Song(id: "stale", title: "Stale", artists: [], videoId: "stale")],
+            continuationToken: nil
+        )
+        musicClient.beforeMixQueueReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        let controller = MockYouTubeWatchPlaybackController()
+        let youtubePlayer = YouTubePlayerService(playbackController: controller)
+        let arbiter = PlaybackArbiter(playerService: playerService, youtubePlayerService: youtubePlayer)
+
+        let mixTask = Task { @MainActor in
+            await playerService.playWithMix(playlistId: "RDEM-stale", startVideoId: nil)
+        }
+        await requestStarted.wait()
+        arbiter.videoWillStartPlaying()
+        await releaseRequest.open()
+        await mixTask.value
+
+        #expect(arbiter.activeSource == .video)
+        #expect(playerService.queue.isEmpty)
+        #expect(playerService.currentTrack == nil)
+    }
 }
