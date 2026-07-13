@@ -133,30 +133,31 @@ struct NowPlayingTracklistProviderTests {
 
     @Test("A cancelled ABA parse cannot clear the replacement parse")
     func cancelledABAParseDoesNotClearReplacement() async {
-        let firstRequestGate = AsyncGate()
-        let replacementRequestGate = AsyncGate()
-        let requestGates = SequencedAsyncGates([firstRequestGate, replacementRequestGate])
+        let mix1Gate = AsyncGate()
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         mockYouTube.beforeWatchNextReturn = { videoId in
             if videoId == "mix1" {
-                await requestGates.wait()
+                await mix1Gate.wait()
             }
         }
 
+        // A: mix1's fetch is held in-flight.
         provider.update(track: TestFixtures.makeSong(id: "mix1", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
+        // B: switch to mix2, cancelling A's provider-side parse (its parser fetch stays in-flight).
         provider.update(track: TestFixtures.makeSong(id: "mix2", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 2 }
+        // A again: switching back coalesces onto mix1's still in-flight fetch — no third call.
         provider.update(track: TestFixtures.makeSong(id: "mix1", duration: 3600), duration: 3600)
-        await self.waitUntil { mockYouTube.getWatchNextCallCount == 3 }
+        await self.waitUntil { provider.isParsing }
+        #expect(mockYouTube.getWatchNextCallCount == 2)
 
-        await firstRequestGate.open()
-        await self.waitUntil(timeout: .milliseconds(200)) { !provider.isParsing }
-        #expect(provider.isParsing)
-
-        await replacementRequestGate.open()
+        // Releasing mix1 resumes both the cancelled original and the current parse off the one fetch.
+        // The current (replacement) generation must win; the stale one must not clear it.
+        await mix1Gate.open()
         await self.waitUntil { provider.tracklist != nil }
         #expect(provider.tracklist?.videoId == "mix1")
+        #expect(mockYouTube.getWatchNextCallCount == 2)
     }
 
     @Test("Invalid placeholder video IDs never start a parse")
@@ -392,22 +393,5 @@ struct NowPlayingTracklistProviderTests {
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
 
         #expect(mockYouTube.getWatchNextCallCount == 1)
-    }
-}
-
-// MARK: - SequencedAsyncGates
-
-private actor SequencedAsyncGates {
-    private let gates: [AsyncGate]
-    private var index = 0
-
-    init(_ gates: [AsyncGate]) {
-        self.gates = gates
-    }
-
-    func wait() async {
-        guard let gate = self.gates[safe: self.index] else { return }
-        self.index += 1
-        await gate.wait()
     }
 }

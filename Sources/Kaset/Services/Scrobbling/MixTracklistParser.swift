@@ -20,6 +20,10 @@ final class MixTracklistParser {
 
     private let youTubeClient: any YouTubeClientProtocol
     private var cache: [String: CacheEntry] = [:]
+    /// In-flight parses keyed by video id. The parser is shared by the seek bar and the scrobbler,
+    /// which can both request the same video before either fetch returns; coalescing onto one task
+    /// avoids issuing duplicate watch-next calls (the cache only populates after a fetch completes).
+    private var inFlight: [String: Task<MixTracklist?, Never>] = [:]
     private let logger = DiagnosticsLogger.scrobbling
 
     init(youTubeClient: any YouTubeClientProtocol) {
@@ -28,7 +32,8 @@ final class MixTracklistParser {
 
     /// Parse a tracklist for a video. Returns nil if no tracklist is available.
     /// Results (including confirmed misses) are cached by video ID for the lifetime
-    /// of this parser instance; transient fetch failures are not cached.
+    /// of this parser instance; transient fetch failures are not cached. Concurrent
+    /// requests for the same video share a single in-flight fetch.
     func parseTracklist(videoId: String) async -> MixTracklist? {
         if let cached = self.cache[videoId] {
             return switch cached {
@@ -39,6 +44,17 @@ final class MixTracklistParser {
             }
         }
 
+        if let existing = self.inFlight[videoId] {
+            return await existing.value
+        }
+
+        let task = Task { await self.performParse(videoId: videoId) }
+        self.inFlight[videoId] = task
+        defer { self.inFlight[videoId] = nil }
+        return await task.value
+    }
+
+    private func performParse(videoId: String) async -> MixTracklist? {
         let watchNextData: WatchNextData
         do {
             watchNextData = try await self.youTubeClient.getWatchNext(videoId: videoId)
