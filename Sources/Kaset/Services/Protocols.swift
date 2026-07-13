@@ -230,6 +230,11 @@ protocol YTMusicClientProtocol: Sendable {
     /// Adds a song to an existing playlist.
     func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws
 
+    /// Removes a song from a playlist.
+    /// - Parameter setVideoId: The playlist-item-specific identifier (from `Song.playlistSetVideoId`)
+    ///   identifying which occurrence of the song to remove.
+    func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws
+
     /// Creates a playlist and optionally seeds it with songs.
     func createPlaylist(
         title: String,

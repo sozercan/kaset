@@ -67,6 +67,41 @@ enum LibraryMutationActions {
         await self.addSong(song, to: PlaylistDropTarget(playlistId: playlist.playlistId), client: client)
     }
 
+    /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed
+    /// optimistically and restored if the server mutation fails.
+    static func removeSongFromPlaylist(
+        _ song: Song,
+        from viewModel: PlaylistDetailViewModel,
+        client: any YTMusicClientProtocol
+    ) async {
+        guard let setVideoId = song.playlistSetVideoId else {
+            DiagnosticsLogger.api.error("Cannot remove '\(song.title)' from playlist: missing setVideoId")
+            HapticService.error()
+            return
+        }
+        guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
+
+        do {
+            try Task.checkCancellation()
+            try await client.removeSongFromPlaylist(
+                videoId: song.videoId,
+                setVideoId: setVideoId,
+                playlistId: viewModel.playlistID
+            )
+            Self.invalidateResponseCaches()
+            viewModel.confirmTrackRemoval(removal)
+            HapticService.success()
+            DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+        } catch is CancellationError {
+            await viewModel.rollbackTrackRemoval(removal)
+            return
+        } catch {
+            await viewModel.rollbackTrackRemoval(removal)
+            HapticService.error()
+            DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
+        }
+    }
+
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,

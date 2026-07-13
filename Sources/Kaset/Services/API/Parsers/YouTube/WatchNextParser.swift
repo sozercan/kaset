@@ -13,6 +13,7 @@ enum WatchNextParser {
         var publishedText: String?
         var channel: YouTubeChannel?
         var isSubscribed: Bool?
+        var secondaryDescriptionText: String?
 
         let primaryContents = (
             (results?["results"] as? [String: Any])?["results"] as? [String: Any]
@@ -28,6 +29,11 @@ enum WatchNextParser {
             }
 
             if let secondaryInfo = content["videoSecondaryInfoRenderer"] as? [String: Any] {
+                if let content = (secondaryInfo["attributedDescription"] as? [String: Any])?["content"]
+                    as? String, !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                {
+                    secondaryDescriptionText = content
+                }
                 if let owner = (secondaryInfo["owner"] as? [String: Any])?["videoOwnerRenderer"]
                     as? [String: Any]
                 {
@@ -61,6 +67,7 @@ enum WatchNextParser {
             channel: channel,
             related: YouTubeFeedParser.deduplicate(related),
             chapters: chapters,
+            descriptionText: Self.descriptionText(of: data) ?? secondaryDescriptionText,
             isSubscribed: isSubscribed,
             commentsContinuation: Self.commentsContinuation(of: data)
         )
@@ -78,13 +85,20 @@ enum WatchNextParser {
         var chapterRenderers: [YouTubeChapter] = []
         self.collectChapterRenderers(in: data, videoId: videoId, chapters: &chapterRenderers)
         let canonical = self.deduplicateChapters(chapterRenderers)
-        if !canonical.isEmpty {
-            return canonical
-        }
 
         var macroMarkers: [YouTubeChapter] = []
         self.collectMacroMarkerRenderers(in: data, fallbackVideoId: videoId, chapters: &macroMarkers)
-        return self.deduplicateChapters(macroMarkers)
+        let deduplicatedMacroMarkers = self.deduplicateChapters(macroMarkers)
+        guard !canonical.isEmpty else {
+            return deduplicatedMacroMarkers
+        }
+        return self.mergingEndTimes(in: canonical, from: deduplicatedMacroMarkers)
+    }
+
+    /// Full watch-page description carried by the structured-description engagement panel.
+    static func descriptionText(of data: [String: Any]) -> String? {
+        guard let panels = data["engagementPanels"] as? [Any] else { return nil }
+        return self.findDescriptionText(in: panels)
     }
 
     /// The continuation token for the watch page's comments section
@@ -109,6 +123,35 @@ enum WatchNextParser {
             for element in array {
                 if let token = Self.findCommentsSectionToken(in: element) {
                     return token
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func findDescriptionText(in value: Any) -> String? {
+        if let dict = value as? [String: Any] {
+            if let attributed = dict["attributedDescriptionBodyText"] as? [String: Any],
+               let content = attributed["content"] as? String,
+               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                return content
+            }
+            if let descriptionBody = dict["descriptionBodyText"] as? [String: Any],
+               let content = YouTubeItemParser.text(from: descriptionBody),
+               !content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            {
+                return content
+            }
+            for nested in dict.values {
+                if let description = self.findDescriptionText(in: nested) {
+                    return description
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let description = self.findDescriptionText(in: element) {
+                    return description
                 }
             }
         }
@@ -313,12 +356,18 @@ enum WatchNextParser {
     }
 
     private static func deduplicateChapters(_ chapters: [YouTubeChapter]) -> [YouTubeChapter] {
-        var seen: Set<String> = []
+        var indexByKey: [String: Int] = [:]
         var result: [YouTubeChapter] = []
 
         for chapter in chapters {
-            let key = "\(chapter.videoId ?? "")|\(Int((chapter.startTime * 1000).rounded()))|\(chapter.title)"
-            guard seen.insert(key).inserted else { continue }
+            let key = self.chapterKey(chapter)
+            if let index = indexByKey[key] {
+                if result[index].endTime == nil, chapter.endTime != nil {
+                    result[index] = self.mergingEndTime(in: result[index], from: chapter)
+                }
+                continue
+            }
+            indexByKey[key] = result.count
             result.append(chapter)
         }
 
@@ -328,6 +377,39 @@ enum WatchNextParser {
             }
             return lhs.title < rhs.title
         }
+    }
+
+    private static func mergingEndTimes(
+        in chapters: [YouTubeChapter],
+        from boundedChapters: [YouTubeChapter]
+    ) -> [YouTubeChapter] {
+        let boundsByKey = Dictionary(uniqueKeysWithValues: boundedChapters.map {
+            (self.chapterKey($0), $0)
+        })
+        return chapters.map { chapter in
+            guard chapter.endTime == nil, let boundedChapter = boundsByKey[self.chapterKey(chapter)] else {
+                return chapter
+            }
+            return self.mergingEndTime(in: chapter, from: boundedChapter)
+        }
+    }
+
+    private static func mergingEndTime(
+        in chapter: YouTubeChapter,
+        from boundedChapter: YouTubeChapter
+    ) -> YouTubeChapter {
+        YouTubeChapter(
+            videoId: chapter.videoId,
+            title: chapter.title,
+            startTime: chapter.startTime,
+            endTime: boundedChapter.endTime,
+            timeText: chapter.timeText,
+            thumbnailURL: chapter.thumbnailURL
+        )
+    }
+
+    private static func chapterKey(_ chapter: YouTubeChapter) -> String {
+        "\(chapter.videoId ?? "")|\(Int((chapter.startTime * 1000).rounded()))|\(chapter.title)"
     }
 
     // MARK: - Private

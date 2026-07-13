@@ -33,6 +33,11 @@ struct Song: Identifiable, Codable, Hashable {
     /// Whether this song carries an explicit-content badge (nil if unknown).
     var isExplicit: Bool?
 
+    /// This track's occurrence-specific identifier within a playlist, required to remove
+    /// the correct instance (the same song can appear more than once in a playlist).
+    /// Only populated when the song was parsed from a playlist's track list.
+    var playlistSetVideoId: String?
+
     private enum CodingKeys: String, CodingKey {
         case id
         case title
@@ -48,6 +53,7 @@ struct Song: Identifiable, Codable, Hashable {
         case isInLibrary
         case feedbackTokens
         case isExplicit
+        case playlistSetVideoId
     }
 
     /// Memberwise initializer with default values for mutable properties.
@@ -65,7 +71,8 @@ struct Song: Identifiable, Codable, Hashable {
         likeStatus: LikeStatus? = nil,
         isInLibrary: Bool? = nil,
         feedbackTokens: FeedbackTokens? = nil,
-        isExplicit: Bool? = nil
+        isExplicit: Bool? = nil,
+        playlistSetVideoId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -81,6 +88,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.isInLibrary = isInLibrary
         self.feedbackTokens = feedbackTokens
         self.isExplicit = isExplicit
+        self.playlistSetVideoId = playlistSetVideoId
     }
 
     init(from decoder: any Decoder) throws {
@@ -99,6 +107,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.isInLibrary = try container.decodeIfPresent(Bool.self, forKey: .isInLibrary)
         self.feedbackTokens = try container.decodeIfPresent(FeedbackTokens.self, forKey: .feedbackTokens)
         self.isExplicit = try container.decodeIfPresent(Bool.self, forKey: .isExplicit)
+        self.playlistSetVideoId = try container.decodeIfPresent(String.self, forKey: .playlistSetVideoId)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -117,6 +126,7 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.isInLibrary, forKey: .isInLibrary)
         try container.encodeIfPresent(self.feedbackTokens, forKey: .feedbackTokens)
         try container.encodeIfPresent(self.isExplicit, forKey: .isExplicit)
+        try container.encodeIfPresent(self.playlistSetVideoId, forKey: .playlistSetVideoId)
     }
 
     /// Display string for artists (comma-separated).
