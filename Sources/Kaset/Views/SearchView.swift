@@ -347,7 +347,12 @@ struct SearchView: View {
     }
 
     private func resultRow(_ item: SearchResultItem) -> some View {
-        HoverObservingRow { isHovered in
+        let draggableSong: Song? = if case let .song(song) = item {
+            song
+        } else {
+            nil
+        }
+        return HoverObservingRow(song: draggableSong) { isHovered in
             Button {
                 self.handleItemTap(item)
             } label: {

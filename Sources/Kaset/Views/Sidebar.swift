@@ -9,9 +9,18 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    let client: any YTMusicClientProtocol
     @Environment(AuthService.self) private var authService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
+
+    /// Drop key for the Collection "Liked Music" row, distinct from the pinned LM
+    /// playlist row so only the hovered row highlights.
+    private static let likedMusicNavDropKey = "collection-liked-music"
+
+    @State private var dropTargetPlaylistId: String?
+    @State private var dropFeedbackPlaylistId: String?
 
     var body: some View {
         List {
@@ -50,7 +59,7 @@ struct Sidebar: View {
                     self.navigationRow(.library)
                         .accessibilityIdentifier(AccessibilityID.Sidebar.libraryItem)
 
-                    self.navigationRow(.likedMusic)
+                    self.likedMusicNavigationRow
                         .accessibilityIdentifier(AccessibilityID.Sidebar.likedMusicItem)
 
                     self.navigationRow(.history)
@@ -95,14 +104,36 @@ struct Sidebar: View {
         return nil
     }
 
-    private func navigationRow(_ item: NavigationItem) -> some View {
+    private func navigationRow(_ item: NavigationItem, isDropTargeted: Bool = false) -> some View {
         KasetSidebarRow(
             title: item.displayName,
             systemImage: item.icon,
-            isSelected: self.currentSidebarSelection == .navigation(item)
+            isSelected: self.currentSidebarSelection == .navigation(item),
+            isDropTargeted: isDropTargeted
         ) {
             self.selectNavigationItem(item)
         }
+    }
+
+    /// The Collection "Liked Music" row also accepts song drops: Liked Music is the LM
+    /// auto-playlist, where membership means "liked", so drops rate the song instead of
+    /// editing a playlist.
+    private var likedMusicNavigationRow: some View {
+        self.navigationRow(.likedMusic, isDropTargeted: self.dropTargetPlaylistId == Self.likedMusicNavDropKey)
+            .overlay(alignment: .trailing) {
+                self.dropSuccessBadge(show: self.dropFeedbackPlaylistId == Self.likedMusicNavDropKey)
+            }
+            .animation(AppAnimation.bouncy, value: self.dropFeedbackPlaylistId == Self.likedMusicNavDropKey)
+            .dropDestination(for: Song.self) { droppedSongs, _ in
+                self.handleDroppedSongs(
+                    droppedSongs,
+                    target: .likedMusic,
+                    feedbackKey: Self.likedMusicNavDropKey
+                )
+                return true
+            } isTargeted: { targeted in
+                self.updateDropTarget(key: Self.likedMusicNavDropKey, targeted: targeted)
+            }
     }
 
     private func selectNavigationItem(_ item: NavigationItem) {
@@ -121,13 +152,91 @@ struct Sidebar: View {
         HapticService.navigation()
     }
 
+    /// Adds each dropped song to the target through Library Mutation Orchestration, then maps the
+    /// outcome to haptics and the confirmation badge. Liked Music routing lives in the orchestrator.
+    private func handleDroppedSongs(
+        _ songs: [Song],
+        target: PlaylistDropTarget,
+        feedbackKey: String
+    ) {
+        for song in songs {
+            Task {
+                let outcome = await LibraryMutationActions.addSong(
+                    song,
+                    to: target,
+                    client: self.client,
+                    likeStatusManager: self.likeStatusManager
+                )
+                switch outcome {
+                case .added, .liked:
+                    HapticService.success()
+                    self.flashDropFeedback(for: feedbackKey)
+                case .failed:
+                    HapticService.error()
+                }
+            }
+        }
+    }
+
+    private func updateDropTarget(key: String, targeted: Bool) {
+        self.dropTargetPlaylistId = targeted ? key : (self.dropTargetPlaylistId == key ? nil : self.dropTargetPlaylistId)
+    }
+
+    @ViewBuilder
+    private func dropSuccessBadge(show: Bool) -> some View {
+        if show {
+            Image(systemName: "checkmark")
+                .font(.system(size: 11, weight: .bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .compatGlass(tint: .green, in: Circle())
+                .shadow(color: .black.opacity(0.25), radius: 3, y: 1)
+                .padding(.trailing, 6)
+                .transition(.scale(scale: 0.4, anchor: .trailing).combined(with: .opacity))
+                .accessibilityHidden(true)
+        }
+    }
+
+    /// Briefly shows a green checkmark badge on the playlist row to confirm
+    /// a successful drag-and-drop.
+    private func flashDropFeedback(for playlistId: String) {
+        self.dropFeedbackPlaylistId = playlistId
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(900))
+            if self.dropFeedbackPlaylistId == playlistId {
+                self.dropFeedbackPlaylistId = nil
+            }
+        }
+    }
+
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
-        KasetSidebarRow(
+        let isDropEligible = item.acceptsSongDrops
+        let isDropTargeted = self.dropTargetPlaylistId == item.contentId
+        let showDropFeedback = self.dropFeedbackPlaylistId == item.contentId
+
+        return KasetSidebarRow(
             title: item.title,
             systemImage: item.systemImage,
-            isSelected: self.currentSidebarSelection == .pinned(item)
+            isSelected: self.currentSidebarSelection == .pinned(item),
+            isDropTargeted: isDropEligible && isDropTargeted
         ) {
             self.selectPinnedItem(item)
+        }
+        .overlay(alignment: .trailing) {
+            self.dropSuccessBadge(show: isDropEligible && showDropFeedback)
+        }
+        .animation(AppAnimation.bouncy, value: showDropFeedback)
+        .dropDestination(for: Song.self) { droppedSongs, _ in
+            guard isDropEligible else { return false }
+            self.handleDroppedSongs(
+                droppedSongs,
+                target: PlaylistDropTarget(playlistId: item.contentId),
+                feedbackKey: item.contentId
+            )
+            return true
+        } isTargeted: { targeted in
+            guard isDropEligible else { return }
+            self.updateDropTarget(key: item.contentId, targeted: targeted)
         }
         .contextMenu {
             Button {
@@ -169,9 +278,15 @@ struct Sidebar: View {
 }
 
 #Preview {
-    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
+    let authService = AuthService()
+    let client: any YTMusicClientProtocol = if UITestConfig.isUITestMode {
+        MockUITestYTMusicClient()
+    } else {
+        YTMusicClient(authService: authService, webKitManager: .shared)
+    }
+    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil), client: client)
         .frame(width: 220)
-        .environment(AuthService())
+        .environment(authService)
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }

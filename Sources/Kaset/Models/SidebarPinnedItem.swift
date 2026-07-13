@@ -60,6 +60,19 @@ struct SidebarPinnedItem: Identifiable, Codable, Hashable {
         }
     }
 
+    /// Whether song drops onto this pinned item should be accepted. Followed/non-owned
+    /// playlists are excluded since `edit_playlist` always fails on them; Liked Music is
+    /// an auto-playlist accepted regardless of `canDelete`. Reads the same `PlaylistDropTarget`
+    /// classifier the drop handler routes on, so eligibility and routing never disagree.
+    var acceptsSongDrops: Bool {
+        switch self.itemType {
+        case .album:
+            false
+        case let .playlist(playlist):
+            playlist.canDelete || PlaylistDropTarget(playlistId: playlist.id) == .likedMusic
+        }
+    }
+
     var playlistRoute: Playlist {
         switch self.itemType {
         case let .album(album):

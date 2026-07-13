@@ -39,6 +39,57 @@ struct LibraryMutationActionsTests {
         ])
     }
 
+    @Test("addSong to an editable target adds and reports .added")
+    func addSongToEditableTargetReportsAdded() async {
+        let song = TestFixtures.makeSong(id: "song-add", title: "Song Add")
+
+        let outcome = await LibraryMutationActions.addSong(
+            song,
+            to: .editable(playlistId: "PL_owned"),
+            client: self.mockClient
+        )
+
+        #expect(outcome == .added)
+        #expect(self.mockClient.addSongToPlaylistCalls == [
+            MockYTMusicClient.AddSongToPlaylistCall(
+                videoId: "song-add",
+                playlistId: "PL_owned",
+                allowDuplicate: false
+            ),
+        ])
+    }
+
+    @Test("addSong to an editable target reports .failed when the client throws")
+    func addSongToEditableTargetReportsFailure() async {
+        self.mockClient.shouldThrowError = YTMusicError.authExpired
+        let song = TestFixtures.makeSong(id: "song-fail")
+
+        let outcome = await LibraryMutationActions.addSong(
+            song,
+            to: .editable(playlistId: "PL_owned"),
+            client: self.mockClient
+        )
+
+        #expect(outcome == .failed)
+    }
+
+    @Test("addSong to Liked Music likes the song instead of editing a playlist")
+    func addSongToLikedMusicLikes() async {
+        let song = TestFixtures.makeSong(id: "song-liked-\(#line)")
+
+        let outcome = await LibraryMutationActions.addSong(
+            song,
+            to: .likedMusic,
+            client: self.mockClient,
+            likeStatusManager: SongLikeStatusManager.shared
+        )
+
+        #expect(outcome == .liked)
+        #expect(self.mockClient.rateSongCalled)
+        #expect(self.mockClient.rateSongRatings.first == .like)
+        #expect(self.mockClient.addSongToPlaylistCalls.isEmpty)
+    }
+
     @Test("Remove song from playlist delegates to client and removes it from the loaded list")
     func removeSongFromPlaylistDelegatesToClient() async {
         let song = Song(id: "song-1", title: "Song 1", artists: [], videoId: "song-1", playlistSetVideoId: "set-1")

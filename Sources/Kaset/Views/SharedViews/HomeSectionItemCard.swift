@@ -32,6 +32,11 @@ struct HomeSectionItemCard: View {
     }
 
     var body: some View {
+        self.cardBody.songDraggable(self.draggableSong)
+    }
+
+    @ViewBuilder
+    private var cardBody: some View {
         if self.supportsPlaylistPlayAction {
             self.cardContent
                 .accessibilityAction(named: Text("Play \(self.item.title)")) {
@@ -39,6 +44,15 @@ struct HomeSectionItemCard: View {
                 }
         } else {
             self.cardContent
+        }
+    }
+
+    /// A song card is a drag source whether or not it also exposes a play action.
+    private var draggableSong: Song? {
+        if case let .song(song) = self.item {
+            song
+        } else {
+            nil
         }
     }
 

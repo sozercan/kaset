@@ -14,6 +14,7 @@ struct KasetSidebarRow: View {
     let title: String
     let systemImage: String
     let isSelected: Bool
+    var isDropTargeted: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -24,7 +25,8 @@ struct KasetSidebarRow: View {
                     .foregroundStyle(.primary)
             } icon: {
                 Image(systemName: self.systemImage)
-                    .foregroundStyle(PackageResourceLookup.brandAccent)
+                    .foregroundStyle(self.isDropTargeted ? .white : PackageResourceLookup.brandAccent)
+                    .symbolEffect(.bounce, value: self.isDropTargeted)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 10)
@@ -39,7 +41,14 @@ struct KasetSidebarRow: View {
 
     @ViewBuilder
     private var selectionBackground: some View {
-        if self.isSelected {
+        if self.isDropTargeted {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(PackageResourceLookup.brandAccent.opacity(0.3))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(PackageResourceLookup.brandAccent, lineWidth: 1.5)
+                )
+        } else if self.isSelected {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.secondary.opacity(0.22))
         }

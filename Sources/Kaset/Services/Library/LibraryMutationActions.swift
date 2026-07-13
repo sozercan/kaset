@@ -1,5 +1,17 @@
 import Foundation
 
+// MARK: - AddSongOutcome
+
+/// The result of adding a song to a `PlaylistDropTarget`, for callers to map to their own feedback
+/// (haptics, a confirmation badge). The mutation, cache invalidation, and logging are already done.
+enum AddSongOutcome: Equatable {
+    case added
+    case liked
+    case failed
+}
+
+// MARK: - LibraryMutationActions
+
 /// Orchestrates Library mutations that need optimistic UI updates, cache invalidation,
 /// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
@@ -8,23 +20,51 @@ enum LibraryMutationActions {
 
     private static var artistReconciliationTasks: [String: Task<Void, Never>] = [:]
 
-    /// Adds a song to a playlist.
+    /// Adds a song to a drop target, routing Liked Music through the like flow and every other
+    /// (editable) playlist through `edit_playlist`. Owns cache invalidation and logging; returns an
+    /// outcome so callers can render feedback. This is the single entry both the sidebar drop and
+    /// the context menu use, so the "adding to Liked Music means liking" rule lives in one place.
+    @discardableResult
+    static func addSong(
+        _ song: Song,
+        to target: PlaylistDropTarget,
+        client: any YTMusicClientProtocol,
+        likeStatusManager: SongLikeStatusManager = .shared
+    ) async -> AddSongOutcome {
+        switch target {
+        case .likedMusic:
+            let status = await likeStatusManager.like(song, client: client)
+            guard status == .like else {
+                DiagnosticsLogger.api.error("Failed to like song: '\(song.title)'")
+                return .failed
+            }
+            DiagnosticsLogger.api.info("Added song to Liked Music: '\(song.title)'")
+            return .liked
+
+        case let .editable(playlistId):
+            do {
+                try await client.addSongToPlaylist(
+                    videoId: song.videoId,
+                    playlistId: playlistId,
+                    allowDuplicate: false
+                )
+                self.invalidateResponseCaches()
+                DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist \(playlistId)")
+                return .added
+            } catch {
+                DiagnosticsLogger.api.error("Failed to add song '\(song.title)' to playlist: \(error.localizedDescription)")
+                return .failed
+            }
+        }
+    }
+
+    /// Adds a song to a playlist chosen from the add-to-playlist menu.
     static func addSongToPlaylist(
         _ song: Song,
         playlist: AddToPlaylistOption,
         client: any YTMusicClientProtocol
     ) async {
-        do {
-            try await client.addSongToPlaylist(
-                videoId: song.videoId,
-                playlistId: playlist.playlistId,
-                allowDuplicate: false
-            )
-            self.invalidateResponseCaches()
-            DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to add song to playlist: \(error.localizedDescription)")
-        }
+        await self.addSong(song, to: PlaylistDropTarget(playlistId: playlist.playlistId), client: client)
     }
 
     /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed

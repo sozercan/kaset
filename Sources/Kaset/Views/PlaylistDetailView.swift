@@ -819,6 +819,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
         }
         .buttonStyle(.interactiveRow(cornerRadius: 6))
         .disabled(!self.track.isPlayable)
+        .songDraggable(self.track)
         .onHover { hovering in self.isHovered = hovering }
         .contextMenu { self.menu() }
     }
