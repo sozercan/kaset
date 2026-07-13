@@ -121,12 +121,12 @@ struct YouTubePlayerBar: View {
                 cornerRadius: 6,
                 glowSources: self.currentVideoGlowSources,
                 glowIdentity: self.currentVideoGlowIdentity,
-                glowTargetSize: CGSize(width: 128, height: 72),
+                glowTargetSize: CGSize(width: 64, height: 36),
                 showsHoverOverlay: false
             ) {
                 CachedAsyncImage(
                     url: self.youtubePlayer.currentVideo?.thumbnailURL,
-                    targetSize: CGSize(width: 128, height: 72)
+                    targetSize: CGSize(width: 64, height: 36)
                 ) { image in
                     image
                         .resizable()

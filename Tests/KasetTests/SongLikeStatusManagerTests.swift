@@ -158,6 +158,31 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.status(for: "new-video") == nil)
     }
 
+    @Test("Optimistic cache observers cannot replace the confirmed rollback baseline")
+    func optimisticCacheWritePreservesConfirmedRollback() async {
+        let song = TestFixtures.makeSong(id: "optimistic-observer-rollback")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.manager.setStatus(.indifferent, for: song.videoId)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let likeTask = Task { @MainActor in
+            await self.manager.like(song, client: self.mockClient)
+        }
+        await requestStarted.wait()
+        self.manager.setCachedStatus(.like, for: song.videoId)
+        await releaseRequest.open()
+
+        #expect(await likeTask.value == .indifferent)
+        #expect(self.manager.status(for: song.videoId) == .indifferent)
+    }
+
     @Test("A delayed rating completion cannot overwrite a newer rating")
     func latestRatingCompletionWins() async {
         let song = TestFixtures.makeSong(id: "latest-rating-manager")

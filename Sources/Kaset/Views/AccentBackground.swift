@@ -75,20 +75,10 @@ struct AccentBackground: View {
             return
         }
 
-        // Fetch image data
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let extracted = await ColorExtractor.extractPalette(from: data)
-            self.palette = extracted
-            self.isLoaded = true
-        } catch is CancellationError {
-            // Task was cancelled (e.g., imageURL changed) - expected behavior, no logging needed
-            return
-        } catch {
-            DiagnosticsLogger.ui.debug("Failed to extract accent colors: \(error.localizedDescription)")
-            self.palette = .default
-            self.isLoaded = true
-        }
+        let extracted = await ColorExtractor.cachedPalette(for: url)
+        guard !Task.isCancelled else { return }
+        self.palette = extracted
+        self.isLoaded = true
     }
 }
 

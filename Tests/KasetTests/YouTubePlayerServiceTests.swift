@@ -127,8 +127,12 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
         self.selectedQuality = level
     }
 
-    func storyboardSpec(expectedVideoId _: String?) async -> String? {
-        nil
+    var storyboardSpecResponse: String?
+    private(set) var storyboardSpecRequests: [String?] = []
+
+    func storyboardSpec(expectedVideoId: String?) async -> String? {
+        self.storyboardSpecRequests.append(expectedVideoId)
+        return self.storyboardSpecResponse
     }
 
     func tearDown() {
@@ -1171,7 +1175,7 @@ extension YouTubePlayerServiceTests {
             channel: nil,
             related: [nextVideo]
         )
-        client.beforeWatchNextReturn = { callCount in
+        client.beforeWatchNextReturnByCallCount = { callCount in
             guard callCount == 1 else { return }
             await firstLookupStarted.open()
             await releaseFirstLookup.wait()
@@ -1615,6 +1619,51 @@ extension YouTubePlayerServiceTests {
 
         self.sut.consumePopInRequest()
         #expect(self.sut.popInRequest == nil)
+    }
+
+    @Test("Storyboard refresh task starts once while in-flight and once resolved")
+    func storyboardRefreshTaskStartIsGuarded() async throws {
+        self.controller.storyboardSpecResponse = "mock-storyboard-spec"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        #expect(self.sut.startStoryboardSpecRefreshIfNeeded())
+        #expect(!self.sut.startStoryboardSpecRefreshIfNeeded())
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(self.controller.storyboardSpecRequests == ["abc"])
+        #expect(self.sut.storyboardSpec == "mock-storyboard-spec")
+        #expect(!self.sut.startStoryboardSpecRefreshIfNeeded())
+    }
+
+    @Test("Playback tick skips storyboard refresh unless live ambient is active")
+    func playbackTickSkipsStoryboardRefreshForSteadyAmbient() async throws {
+        let settings = SettingsManager.shared
+        let originalEnabled = settings.ambientBackdropEnabled
+        let originalStyle = settings.ambientBackdropStyle
+        defer {
+            settings.ambientBackdropEnabled = originalEnabled
+            settings.ambientBackdropStyle = originalStyle
+        }
+
+        settings.ambientBackdropEnabled = true
+        settings.ambientBackdropStyle = .soft
+        self.controller.storyboardSpecResponse = "mock-storyboard-spec"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 60,
+            videoId: "abc",
+            title: nil,
+            isAd: false
+        ))
+
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(self.controller.storyboardSpecRequests.isEmpty)
+        #expect(self.sut.storyboardSpec == nil)
     }
 
     @Test("Stop resets everything and tears down the WebView")

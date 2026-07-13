@@ -152,7 +152,7 @@ struct PlaylistDetailView: View {
     private func headerView(_ detail: PlaylistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -452,6 +452,32 @@ struct PlaylistDetailView: View {
                 }
             }
         }
+
+        if self.canRemoveTrack(track) {
+            if track.isPlayable {
+                Divider()
+            }
+
+            Button(role: .destructive) {
+                Task {
+                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+                }
+            } label: {
+                Label("Remove from Playlist", systemImage: "minus.circle")
+            }
+        }
+    }
+
+    /// Whether `track` can be removed from the currently loaded playlist: the user must
+    /// own the playlist (not an album, not the uploaded-songs surface), and the track
+    /// must carry the playlist-item identifier a removal call requires.
+    private func canRemoveTrack(_ track: Song) -> Bool {
+        guard let detail = self.viewModel.playlistDetail else { return false }
+        return !self.viewModel.isRemovingTrack
+            && detail.canDelete
+            && !detail.isAlbum
+            && !detail.isUploadedSongs
+            && track.playlistSetVideoId != nil
     }
 
     private func playTrackInQueue(
@@ -490,7 +516,6 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
-        let initiallyLoadedCount = cleanedTracks.count
         let intent = self.playerService.beginMusicPlaybackIntent()
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
@@ -504,6 +529,7 @@ struct PlaylistDetailView: View {
             guard let loadGeneration else { return }
 
             await self.viewModel.loadAllRemaining()
+            await self.viewModel.waitForTrackRemovalToFinish()
 
             // Stand down if a *different* playback superseded this load while it paged. (User edits
             // such as removing a track keep the same load generation, so loading continues.)
@@ -513,7 +539,10 @@ struct PlaylistDetailView: View {
                 self.viewModel.playlistDetail?.tracks ?? [],
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
-            let remaining = Array(fullTracks.dropFirst(initiallyLoadedCount))
+            let remaining = PlaylistPlaybackActions.remainingTracks(
+                after: cleanedTracks,
+                in: fullTracks
+            )
             self.playerService.appendOriginalTracks(remaining)
             await self.playerService.endQueueLoading(loadGeneration)
         }
@@ -581,7 +610,8 @@ struct PlaylistDetailView: View {
                 duration: song.duration,
                 thumbnailURL: finalThumbnail,
                 videoId: song.videoId,
-                isPlayable: song.isPlayable
+                isPlayable: song.isPlayable,
+                playlistSetVideoId: song.playlistSetVideoId
             )
         }
     }
@@ -751,7 +781,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
                 .frame(width: 28, alignment: .trailing)
 
                 if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL) { image in
+                    CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
                         image.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
                         Rectangle().fill(.quaternary)

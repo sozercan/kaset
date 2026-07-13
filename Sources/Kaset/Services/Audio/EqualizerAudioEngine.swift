@@ -459,7 +459,9 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         /// Whether the failure is recoverable just by playing audio — we
         /// shouldn't show a permission warning in this case.
         var isWaitingForPlayback: Bool {
-            if case .tap(.noAudioSource) = self { return true }
+            if case .tap(.noAudioSource) = self {
+                return true
+            }
             return false
         }
 

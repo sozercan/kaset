@@ -53,7 +53,23 @@ extension PlayerService {
 
     /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
+        self.updatePlaybackState(
+            isPlaying: isPlaying,
+            progress: progress,
+            duration: duration,
+            observedVideoId: self.currentTrack?.videoId
+        )
+    }
+
+    /// Updates playback state with the video identity carried by the same WebView observation.
+    func updatePlaybackState(
+        isPlaying: Bool,
+        progress: Double,
+        duration: Double,
+        observedVideoId: String?
+    ) {
         let previousProgress = self.progress
+        self.recordPlaybackStateObservation(videoId: observedVideoId)
 
         guard !self.isRestoringPlaybackSession else {
             self.reconcileRestoredPlaybackState(

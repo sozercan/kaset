@@ -227,6 +227,14 @@ extension YouTubeWatchWebView {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            if let cancelledNavigation = YouTubeWatchWebView.shared.consumeCancelledDocumentNavigation(
+                navigation
+            ) {
+                if cancelledNavigation.shouldReportFailure {
+                    YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                }
+                return
+            }
             guard YouTubeWatchWebView.shared.finishDocumentNavigation(
                 navigation,
                 webView: webView

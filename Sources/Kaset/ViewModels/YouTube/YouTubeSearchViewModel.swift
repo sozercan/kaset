@@ -165,7 +165,9 @@ final class YouTubeSearchViewModel {
         } catch {
             // A cancelled load (view went away mid-flight or a newer search
             // superseded it) is not an error; the next search owns publishing.
-            if error is CancellationError { return }
+            if error is CancellationError {
+                return
+            }
             guard self.isCurrentSearch(request) else { return }
             guard !Task.isCancelled else { return }
             self.logger.error("YouTube search failed: \(error.localizedDescription)")

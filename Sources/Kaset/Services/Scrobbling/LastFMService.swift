@@ -287,7 +287,9 @@ final class LastFMService: ScrobbleServiceProtocol {
                     return
                 }
             } catch {
-                if Task.isCancelled { return }
+                if Task.isCancelled {
+                    return
+                }
                 self.logger.debug("Auth polling attempt \(attempts) failed: \(error.localizedDescription)")
                 // Continue polling on transient errors
             }

@@ -57,7 +57,7 @@ struct YouTubeHistoryView: View {
                 if self.viewModel.hasMoreVideos {
                     ProgressView()
                         .controlSize(.small)
-                        .task {
+                        .task(id: self.viewModel.paginationTrigger) {
                             await self.viewModel.loadMore()
                         }
                 }

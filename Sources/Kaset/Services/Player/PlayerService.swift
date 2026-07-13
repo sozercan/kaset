@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import Foundation
 import Observation
 import os
@@ -116,8 +118,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Current playback position in seconds.
     var progress: TimeInterval = 0
 
-    /// High-resolution playback time in milliseconds, updated at ~10Hz when synced lyrics are active.
-    var currentTimeMs: Int = 0
+    /// Explicit native playback clock mirror used by restoration/history transitions.
+    /// Synced-lyrics rendering uses `currentLyricsDisplayTimeMs` instead.
+    var currentTimeMs = 0
+
+    /// Current synced-lyrics line index, updated only when the displayed lyric line changes.
+    var currentLyricsLineIndex: Int?
+
+    /// Representative playback timestamp for synced lyrics display state.
+    /// Updated with the line index, not at raw playback cadence.
+    var currentLyricsDisplayTimeMs: Int?
 
     /// Total duration of current track in seconds.
     var duration: TimeInterval = 0
@@ -130,6 +140,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Video identity owning `lastNonAdContentProgress`.
     var lastNonAdContentVideoId: String?
+
+    /// Video ID carried by the latest playback-state bridge update. This gives consumers
+    /// provenance for `progress`/`duration`, which can otherwise remain stale across track changes.
+    private(set) var playbackStateVideoId: String?
+
+    /// Monotonic identity for playback-state bridge observations. Consumers use this to distinguish
+    /// a fresh same-video sample from progress/duration left behind by an earlier metadata identity.
+    private(set) var playbackStateObservationSequence = 0
+
+    func setPlaybackStateVideoId(_ videoId: String?) {
+        self.playbackStateVideoId = videoId
+    }
+
+    func recordPlaybackStateObservation(videoId: String?) {
+        self.playbackStateObservationSequence &+= 1
+        self.playbackStateVideoId = videoId
+    }
 
     /// Current volume (0.0 - 1.0).
     var volume: Double = 1.0
@@ -374,8 +401,43 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
 
-    /// Task handle for the background queue metadata enrichment service.
-    var enrichmentTask: Task<Void, Never>?
+    /// Last playback-session signature written in this process, used to skip redundant UserDefaults writes.
+    @ObservationIgnored var lastSavedPlaybackSessionSignature: Data?
+
+    @ObservationIgnored var queuePersistenceWriteCountForTesting = 0
+
+    /// Optional suffix for test-only queue persistence isolation. Production uses the empty suffix.
+    @ObservationIgnored var queuePersistenceKeySuffix = ""
+
+    /// Task handle for the one-shot queue metadata enrichment pass, if one is scheduled or running.
+    @ObservationIgnored var enrichmentTask: Task<Void, Never>?
+
+    /// Delay used to coalesce queue mutations before the one-shot metadata enrichment pass runs.
+    @ObservationIgnored var queueEnrichmentInitialDelay: Duration = .seconds(2)
+
+    /// Delay used before retrying entries that remain incomplete after a scheduled enrichment pass.
+    @ObservationIgnored var queueEnrichmentRetryDelay: Duration = .seconds(30)
+
+    /// Maximum scheduled enrichment attempts per stable queue entry before waiting for another queue event.
+    static let maxQueueEnrichmentAttempts = 3
+
+    /// Scheduled enrichment attempts by stable queue entry identity.
+    @ObservationIgnored var queueEnrichmentAttemptsByEntryID: [UUID: Int] = [:]
+
+    /// Monotonic token used to prevent stale scheduled enrichment tasks from clearing a newer task.
+    @ObservationIgnored var queueEnrichmentGeneration = 0
+
+    /// True while the one-shot enrichment pass is actively fetching metadata.
+    @ObservationIgnored var isQueueEnrichmentRunning = false
+
+    /// Generation of the currently running enrichment pass, if any.
+    @ObservationIgnored var queueEnrichmentRunningGeneration: Int?
+
+    /// Set when an external queue mutation happens while enrichment is running.
+    @ObservationIgnored var queueEnrichmentNeedsReschedule = false
+
+    /// Suppresses scheduler churn for queue writes that are produced by the enrichment pass itself.
+    @ObservationIgnored var isApplyingQueueEnrichmentResult = false
 
     // MARK: - Initialization
 
@@ -443,7 +505,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
 
-        // Start queue metadata enrichment service
+        // Queue metadata enrichment is event/one-shot driven; this only schedules if restored
+        // state already needs enrichment and a client is available.
         self.startQueueEnrichmentService()
     }
 
@@ -505,6 +568,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             self.activePlaybackQueueEntryID = nil
         }
         self.synchronizeCurrentQueueEntryID()
+        self.queueDidChangeForEnrichment()
     }
 
     func synchronizeCurrentQueueEntryID() {
@@ -577,6 +641,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the YTMusicClient for API calls (dependency injection).
     func setYTMusicClient(_ client: any YTMusicClientProtocol) {
         self.ytMusicClient = client
+        self.resetQueueEnrichmentAttemptState()
+        self.scheduleQueueEnrichmentIfNeeded()
     }
 
     /// Sets the AuthService used to guard account-scoped mutations.

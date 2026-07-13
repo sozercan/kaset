@@ -4,10 +4,15 @@ import SwiftUI
 
 struct SyncedLyricsDisplayView: View {
     let lyrics: SyncedLyrics
-    let currentTimeMs: Int
+    let currentLineIndex: Int?
+    let displayTimeMs: Int?
     let onSeek: (Int) -> Void
 
     @State private var currentLineId: UUID?
+
+    private var effectiveDisplayTimeMs: Int {
+        self.displayTimeMs ?? -1
+    }
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -15,8 +20,9 @@ struct SyncedLyricsDisplayView: View {
                 LazyVStack(alignment: .center, spacing: 20) {
                     Spacer().frame(height: 150) // Top padding
 
-                    ForEach(self.lyrics.lines) { line in
-                        let status = self.currentStatus(for: line)
+                    ForEach(self.lyrics.lines.indices, id: \.self) { lineIndex in
+                        let line = self.lyrics.lines[lineIndex]
+                        let status = self.currentStatus(for: line, at: lineIndex)
                         SyncedLineView(
                             line: line,
                             status: status,
@@ -30,25 +36,35 @@ struct SyncedLyricsDisplayView: View {
                 .padding(.horizontal, 24)
             }
             .scrollIndicators(.hidden)
-            .onChange(of: self.currentTimeMs) { _, newTimeMs in
-                if let currentIdx = lyrics.currentLineIndex(at: newTimeMs) {
-                    let newId = self.lyrics.lines[currentIdx].id
-                    if newId != self.currentLineId {
-                        self.currentLineId = newId
-                        withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
-                            // Target center for natural scrolling
-                            proxy.scrollTo(newId, anchor: .center)
-                        }
-                    }
+            .onChange(of: self.currentLineIndex, initial: true) { _, newLineIndex in
+                guard let newLineIndex,
+                      self.lyrics.lines.indices.contains(newLineIndex)
+                else { return }
+
+                let newId = self.lyrics.lines[newLineIndex].id
+                guard newId != self.currentLineId else { return }
+
+                self.currentLineId = newId
+                withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                    // Target center for natural scrolling
+                    proxy.scrollTo(newId, anchor: .center)
                 }
             }
         }
     }
 
-    private func currentStatus(for line: SyncedLyricLine) -> SyncedLyrics.LineStatus {
-        if line.timeInMs > self.currentTimeMs { return .upcoming }
-        if self.currentTimeMs - line.timeInMs >= line.duration, line.duration > 0 { return .previous }
-        return .current
+    private func currentStatus(for line: SyncedLyricLine, at lineIndex: Int) -> SyncedLyrics.LineStatus {
+        if let currentLineIndex, self.lyrics.lines.indices.contains(currentLineIndex) {
+            if lineIndex < currentLineIndex {
+                return .previous
+            }
+            if lineIndex > currentLineIndex {
+                return .upcoming
+            }
+            return .current
+        }
+
+        return line.timeInMs <= self.effectiveDisplayTimeMs ? .previous : .upcoming
     }
 }
 

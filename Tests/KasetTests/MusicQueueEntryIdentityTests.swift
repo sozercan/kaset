@@ -85,6 +85,53 @@ struct MusicQueueEntryIdentityTests {
         #expect(playerService.activePlaybackQueueEntryID == secondID)
     }
 
+    @Test("Detached current playback still accepts its in-flight metadata")
+    func detachedCurrentPlaybackAcceptsMetadata() async {
+        let (playerService, mockClient) = self.makePlayerService()
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        let entryID = UUID()
+        let current = self.song(id: "detached", title: "Loading...", videoId: "detached")
+        let status = FeedbackTokens(add: nil, remove: "remove-token")
+        let fetched = Song(
+            id: current.id,
+            title: "Fetched detached",
+            artists: current.artists,
+            duration: current.duration,
+            videoId: current.videoId,
+            likeStatus: .like,
+            isInLibrary: true,
+            feedbackTokens: status
+        )
+        playerService.setQueue(entries: [QueueEntry(id: entryID, song: current)])
+        playerService.currentTrack = current
+        playerService.activePlaybackQueueEntryID = entryID
+        mockClient.songResponses[current.videoId] = fetched
+        mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let metadataTask = Task { @MainActor in
+            await playerService.fetchSongMetadata(
+                videoId: current.videoId,
+                queueOwner: .entry(entryID)
+            )
+        }
+        await metadataStarted.wait()
+
+        playerService.setQueue(entries: [])
+        #expect(playerService.activePlaybackQueueEntryID == nil)
+        await releaseMetadata.open()
+        await metadataTask.value
+
+        #expect(playerService.currentTrack?.title == fetched.title)
+        #expect(playerService.currentTrackLikeStatus == .like)
+        #expect(playerService.currentTrackInLibrary)
+        #expect(playerService.currentTrackFeedbackTokens == fetched.feedbackTokens)
+        #expect(playerService.queueEntries.isEmpty)
+    }
+
     @Test("Background queue enrichment follows the entry ID across reorder")
     func queueEnrichmentFollowsEntryAcrossReorder() async throws {
         let (playerService, mockClient) = self.makePlayerService()

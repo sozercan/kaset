@@ -267,7 +267,7 @@ struct YouTubeWatchView: View {
                         HStack(spacing: 10) {
                             CachedAsyncImage(
                                 url: channel.thumbnailURL,
-                                targetSize: CGSize(width: 72, height: 72)
+                                targetSize: CGSize(width: 36, height: 36)
                             ) { image in
                                 image
                                     .resizable()
@@ -726,7 +726,7 @@ private struct CommentRow: View {
     private var avatar: some View {
         CachedAsyncImage(
             url: self.comment.authorAvatarURL,
-            targetSize: CGSize(width: 56, height: 56)
+            targetSize: CGSize(width: 28, height: 28)
         ) { image in
             image
                 .resizable()

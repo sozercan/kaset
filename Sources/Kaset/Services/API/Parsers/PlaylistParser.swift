@@ -1070,6 +1070,7 @@ enum PlaylistParser {
         let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
         let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
+        let playlistSetVideoId = ParsingHelpers.extractPlaylistSetVideoId(from: responsiveRenderer)
 
         return Song(
             id: videoId,
@@ -1080,7 +1081,8 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             videoId: videoId,
             isPlayable: isPlayable,
-            isExplicit: isExplicit
+            isExplicit: isExplicit,
+            playlistSetVideoId: playlistSetVideoId
         )
     }
 
@@ -1106,7 +1108,9 @@ enum PlaylistParser {
                         tracks.append(contentsOf: self.findTracksRecursively(in: item, depth: depth + 1, fallbackThumbnailURL: fallbackThumbnailURL))
                     }
                 }
-                if !tracks.isEmpty { break }
+                if !tracks.isEmpty {
+                    break
+                }
             }
         }
 
@@ -1374,9 +1378,15 @@ enum PlaylistParser {
             Self.extractText(from: data["subtitle"] as? [String: Any]),
         ].compactMap(\.self).joined(separator: " ").uppercased()
 
-        if possibleText.contains("PRIVATE") { return .private }
-        if possibleText.contains("UNLISTED") { return .unlisted }
-        if possibleText.contains("PUBLIC") { return .public }
+        if possibleText.contains("PRIVATE") {
+            return .private
+        }
+        if possibleText.contains("UNLISTED") {
+            return .unlisted
+        }
+        if possibleText.contains("PUBLIC") {
+            return .public
+        }
         return nil
     }
 

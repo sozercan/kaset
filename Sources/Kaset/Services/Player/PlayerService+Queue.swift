@@ -878,7 +878,7 @@ extension PlayerService {
     // MARK: - Queue Persistence
 
     /// Serialized playback session persisted across launches.
-    private struct PersistedPlaybackSession: Codable {
+    private struct PersistedPlaybackSession: Codable, Hashable {
         let queue: [Song]
         let entrySources: [QueueEntry.Source]?
         let currentIndex: Int
@@ -897,6 +897,30 @@ extension PlayerService {
     private static let savedQueueKey = "kaset.saved.queue"
     private static let savedQueueIndexKey = "kaset.saved.queueIndex"
     private static let savedPlaybackSessionKey = "kaset.saved.playbackSession"
+
+    private var savedQueueKey: String {
+        Self.savedQueueKey + self.queuePersistenceKeySuffix
+    }
+
+    private var savedQueueIndexKey: String {
+        Self.savedQueueIndexKey + self.queuePersistenceKeySuffix
+    }
+
+    private var savedPlaybackSessionKey: String {
+        Self.savedPlaybackSessionKey + self.queuePersistenceKeySuffix
+    }
+
+    #if DEBUG
+        func useQueuePersistenceNamespaceForTesting(_ namespace: String) {
+            self.queuePersistenceKeySuffix = namespace.isEmpty ? "" : ".\(namespace)"
+        }
+    #endif
+
+    private func hasPersistedPlaybackSessionPayload() -> Bool {
+        self.queuePersistenceDefaults.data(forKey: self.savedQueueKey) != nil &&
+            self.queuePersistenceDefaults.object(forKey: self.savedQueueIndexKey) != nil &&
+            self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) != nil
+    }
 
     /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence(ownerScopeOverride: String? = nil) {
@@ -948,6 +972,7 @@ extension PlayerService {
 
         do {
             let encoder = JSONEncoder()
+            encoder.outputFormatting = [.sortedKeys]
             let safeIndex: Int = {
                 if let currentID, let index = persistedEntries.firstIndex(where: { $0.id == currentID }) {
                     return index
@@ -969,32 +994,37 @@ extension PlayerService {
                 uniqueKeysWithValues: persistedEntries.enumerated().map { ($0.element.id, $0.offset) }
             )
             let preShuffleEntryIndices = preShuffleEntries?.compactMap { persistedEntryIndexByID[$0.id] }
-            let queueData = try encoder.encode(persistedQueue)
-            let sessionData = try encoder.encode(
-                PersistedPlaybackSession(
-                    queue: persistedQueue,
-                    entrySources: persistedEntries.map(\.source),
-                    currentIndex: safeIndex,
-                    currentVideoId: currentVideoId,
-                    progress: clampedProgress,
-                    duration: resolvedDuration,
-                    ownerScope: ownerScope,
-                    shuffleMode: self.shuffleMode,
-                    preShuffleQueue: preShuffleEntries.map { entries in
-                        let songs = entries.map(\.song)
-                        return isKnownGuestSession ? Self.queueWithoutAccountMetadata(songs) : songs
-                    },
-                    preShuffleEntrySources: preShuffleEntries?.map(\.source),
-                    preShuffleActiveIndex: activeQueueEntryID.flatMap { activeID in
-                        preShuffleEntries?.firstIndex(where: { $0.id == activeID })
-                    },
-                    preShuffleEntryIndices: preShuffleEntryIndices
-                )
+            let session = PersistedPlaybackSession(
+                queue: persistedQueue,
+                entrySources: persistedEntries.map(\.source),
+                currentIndex: safeIndex,
+                currentVideoId: currentVideoId,
+                progress: clampedProgress,
+                duration: resolvedDuration,
+                ownerScope: ownerScope,
+                shuffleMode: self.shuffleMode,
+                preShuffleQueue: preShuffleEntries.map { entries in
+                    let songs = entries.map(\.song)
+                    return isKnownGuestSession ? Self.queueWithoutAccountMetadata(songs) : songs
+                },
+                preShuffleEntrySources: preShuffleEntries?.map(\.source),
+                preShuffleActiveIndex: activeQueueEntryID.flatMap { activeID in
+                    preShuffleEntries?.firstIndex(where: { $0.id == activeID })
+                },
+                preShuffleEntryIndices: preShuffleEntryIndices
             )
+            let queueData = try encoder.encode(persistedQueue)
+            let sessionData = try encoder.encode(session)
+            if self.lastSavedPlaybackSessionSignature == sessionData, self.hasPersistedPlaybackSessionPayload() {
+                self.logger.debug("Skipped unchanged playback session persistence")
+                return
+            }
 
-            self.queuePersistenceDefaults.set(queueData, forKey: Self.savedQueueKey)
-            self.queuePersistenceDefaults.set(safeIndex, forKey: Self.savedQueueIndexKey)
-            self.queuePersistenceDefaults.set(sessionData, forKey: Self.savedPlaybackSessionKey)
+            self.queuePersistenceDefaults.set(queueData, forKey: self.savedQueueKey)
+            self.queuePersistenceDefaults.set(safeIndex, forKey: self.savedQueueIndexKey)
+            self.queuePersistenceDefaults.set(sessionData, forKey: self.savedPlaybackSessionKey)
+            self.lastSavedPlaybackSessionSignature = sessionData
+            self.queuePersistenceWriteCountForTesting += 1
             self.restoredPlaybackSessionOwnerScope = ownerScope
             self.logger.info("Saved playback session with \(persistedQueue.count) songs at index \(safeIndex)")
         } catch {
@@ -1024,7 +1054,7 @@ extension PlayerService {
     func updateRestoredPlaybackSessionOwnerScope(_ ownerScope: String?) {
         self.restoredPlaybackSessionOwnerScope = ownerScope
 
-        guard let sessionData = self.queuePersistenceDefaults.data(forKey: Self.savedPlaybackSessionKey) else { return }
+        guard let sessionData = self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) else { return }
 
         do {
             let decoder = JSONDecoder()
@@ -1044,7 +1074,8 @@ extension PlayerService {
                 preShuffleEntryIndices: savedSession.preShuffleEntryIndices
             )
             let sessionData = try JSONEncoder().encode(updatedSession)
-            self.queuePersistenceDefaults.set(sessionData, forKey: Self.savedPlaybackSessionKey)
+            self.queuePersistenceDefaults.set(sessionData, forKey: self.savedPlaybackSessionKey)
+            self.lastSavedPlaybackSessionSignature = nil
         } catch {
             self.logger.error("Failed to update playback session owner scope: \(error.localizedDescription)")
         }
@@ -1056,7 +1087,7 @@ extension PlayerService {
     func restoreQueueFromPersistence() -> Bool {
         let decoder = JSONDecoder()
 
-        if let sessionData = self.queuePersistenceDefaults.data(forKey: Self.savedPlaybackSessionKey) {
+        if let sessionData = self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) {
             do {
                 let savedSession = try decoder.decode(PersistedPlaybackSession.self, from: sessionData)
                 let restoredQueue = savedSession.ownerScope == Self.playbackSessionScopeGuest
@@ -1064,7 +1095,7 @@ extension PlayerService {
                     : savedSession.queue
                 guard !restoredQueue.isEmpty else {
                     self.logger.info("Saved playback session is empty")
-                    self.queuePersistenceDefaults.removeObject(forKey: Self.savedPlaybackSessionKey)
+                    self.queuePersistenceDefaults.removeObject(forKey: self.savedPlaybackSessionKey)
                     return self.restoreLegacyQueueFromPersistence(using: decoder)
                 }
 
@@ -1100,7 +1131,7 @@ extension PlayerService {
                 return true
             } catch {
                 self.logger.error("Failed to restore playback session: \(error.localizedDescription)")
-                self.queuePersistenceDefaults.removeObject(forKey: Self.savedPlaybackSessionKey)
+                self.queuePersistenceDefaults.removeObject(forKey: self.savedPlaybackSessionKey)
             }
         }
 
@@ -1180,8 +1211,8 @@ extension PlayerService {
 
     /// Restores the legacy queue/index payload when no playback session is available.
     private func restoreLegacyQueueFromPersistence(using decoder: JSONDecoder) -> Bool {
-        guard let queueData = self.queuePersistenceDefaults.data(forKey: Self.savedQueueKey),
-              let savedIndex = self.queuePersistenceDefaults.object(forKey: Self.savedQueueIndexKey) as? Int
+        guard let queueData = self.queuePersistenceDefaults.data(forKey: self.savedQueueKey),
+              let savedIndex = self.queuePersistenceDefaults.object(forKey: self.savedQueueIndexKey) as? Int
         else {
             self.logger.info("No saved queue found")
             return false
@@ -1221,10 +1252,11 @@ extension PlayerService {
 
     /// Removes all persisted queue/session payloads.
     private func removeSavedPlaybackSession() {
-        self.queuePersistenceDefaults.removeObject(forKey: Self.savedQueueKey)
-        self.queuePersistenceDefaults.removeObject(forKey: Self.savedQueueIndexKey)
-        self.queuePersistenceDefaults.removeObject(forKey: Self.savedPlaybackSessionKey)
+        self.queuePersistenceDefaults.removeObject(forKey: self.savedQueueKey)
+        self.queuePersistenceDefaults.removeObject(forKey: self.savedQueueIndexKey)
+        self.queuePersistenceDefaults.removeObject(forKey: self.savedPlaybackSessionKey)
         self.restoredPlaybackSessionOwnerScope = nil
+        self.lastSavedPlaybackSessionSignature = nil
     }
 
     /// Resolves the queue index from saved metadata.

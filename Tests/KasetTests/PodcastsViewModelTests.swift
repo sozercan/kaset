@@ -13,23 +13,6 @@ struct PodcastsViewModelTests {
         self.viewModel = PodcastsViewModel(client: self.mockClient)
     }
 
-    private func waitForBackgroundLoading(
-        timeout: Duration = .seconds(3),
-        until condition: @escaping () -> Bool
-    ) async {
-        let clock = ContinuousClock()
-        let deadline = clock.now + timeout
-
-        while clock.now < deadline {
-            if condition() {
-                return
-            }
-            try? await Task.sleep(for: .milliseconds(25))
-        }
-
-        Issue.record("Timed out waiting for background podcast loading")
-    }
-
     // MARK: - Initial State
 
     @Test
@@ -138,7 +121,7 @@ struct PodcastsViewModelTests {
     // MARK: - Continuation Loading
 
     @Test
-    func hasMoreSectionsReflectsClientState() async {
+    func initialLoadDoesNotDrainContinuations() async {
         let testSection = PodcastSection(id: UUID().uuidString, title: "Main", items: [])
         self.mockClient.podcastsSections = [testSection]
         self.mockClient.podcastsContinuationSections = [
@@ -146,45 +129,45 @@ struct PodcastsViewModelTests {
         ]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading {
-            self.viewModel.sections.count == 2 && self.viewModel.hasMoreSections == false
-        }
 
-        // After background loading, continuation should have been consumed
-        #expect(self.viewModel.sections.count == 2)
-        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.viewModel.sections.map(\.title) == ["Main"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getPodcastsContinuationCallCount == 0)
     }
 
     @Test
-    func loadAppendsContinuationInBackground() async {
+    func loadMoreAppendsOneContinuationPerDemand() async {
         let mainSection = PodcastSection(id: UUID().uuidString, title: "Main", items: [])
-        let continuationSection = PodcastSection(id: UUID().uuidString, title: "Continuation", items: [])
+        let firstContinuation = PodcastSection(id: UUID().uuidString, title: "Continuation 1", items: [])
+        let secondContinuation = PodcastSection(id: UUID().uuidString, title: "Continuation 2", items: [])
 
         self.mockClient.podcastsSections = [mainSection]
-        self.mockClient.podcastsContinuationSections = [[continuationSection]]
+        self.mockClient.podcastsContinuationSections = [[firstContinuation], [secondContinuation]]
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading {
-            self.viewModel.sections.count == 2
-        }
+        await self.viewModel.loadMore()
 
-        #expect(self.viewModel.sections.count == 2)
-        #expect(self.viewModel.sections.last?.title == "Continuation")
+        #expect(self.viewModel.sections.map(\.title) == ["Main", "Continuation 1"])
+        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.mockClient.getPodcastsContinuationCallCount == 1)
+
+        await self.viewModel.loadMore()
+
+        #expect(self.viewModel.sections.map(\.title) == ["Main", "Continuation 1", "Continuation 2"])
+        #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getPodcastsContinuationCallCount == 2)
     }
 
     @Test
     func loadWithNoContinuationDoesNotAddMore() async {
         let testSection = PodcastSection(id: UUID().uuidString, title: "Only Section", items: [])
         self.mockClient.podcastsSections = [testSection]
-        // No continuation sections
 
         await self.viewModel.load()
-        await self.waitForBackgroundLoading {
-            self.viewModel.hasMoreSections == false
-        }
 
         #expect(self.viewModel.sections.count == 1)
         #expect(self.viewModel.hasMoreSections == false)
+        #expect(self.mockClient.getPodcastsContinuationCallCount == 0)
     }
 
     // MARK: - Empty State

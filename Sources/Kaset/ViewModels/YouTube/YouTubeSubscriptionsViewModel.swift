@@ -18,6 +18,9 @@ final class YouTubeSubscriptionsViewModel {
     /// Continuation token for the next feed page.
     private var continuation: String?
 
+    /// Changes whenever pagination advances, even if the page adds no visible videos.
+    private(set) var paginationTrigger = 0
+
     var hasMoreVideos: Bool {
         self.continuation != nil
     }
@@ -69,6 +72,7 @@ final class YouTubeSubscriptionsViewModel {
             guard runID == self.loadGeneration else { return }
             self.videos = feed.videos
             self.continuation = feed.continuation
+            self.paginationTrigger += 1
 
             // Channel rail is best-effort; the feed alone is still useful.
             let channels = await (try? channelsTask) ?? []
@@ -94,6 +98,7 @@ final class YouTubeSubscriptionsViewModel {
         self.videos = []
         self.channels = []
         self.continuation = nil
+        self.paginationTrigger += 1
         await self.load()
     }
 
@@ -112,6 +117,7 @@ final class YouTubeSubscriptionsViewModel {
             let existing = Set(self.videos.map(\.videoId))
             self.videos.append(contentsOf: feed.videos.filter { !existing.contains($0.videoId) })
             self.continuation = feed.continuation
+            self.paginationTrigger += 1
             self.loadingState = .loaded
         } catch {
             // A cancelled page load is not an error; allow retrying.

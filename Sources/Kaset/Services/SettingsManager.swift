@@ -6,6 +6,7 @@ import Observation
 @Observable
 final class SettingsManager {
     static let shared = SettingsManager()
+    nonisolated static let defaultAmbientBackdropStyle: AmbientBackdropStyle = .soft
 
     // MARK: - Settings Keys
 
@@ -384,10 +385,23 @@ final class SettingsManager {
         }
     }
 
-    /// The style the YouTube watch page should actually render: the chosen
-    /// style when enabled, `.off` when the feature is disabled.
+    /// The style the YouTube watch page should request: the chosen style when
+    /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
+    /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
+    /// external states directly.
     var resolvedAmbientStyle: AmbientBackdropStyle {
-        self.ambientBackdropEnabled ? self.ambientBackdropStyle : .off
+        Self.resolveAmbientStyle(
+            enabled: self.ambientBackdropEnabled,
+            preferredStyle: self.ambientBackdropStyle
+        )
+    }
+
+    nonisolated static func resolveAmbientStyle(
+        enabled: Bool,
+        preferredStyle: AmbientBackdropStyle
+    ) -> AmbientBackdropStyle {
+        guard enabled, preferredStyle != .off else { return .off }
+        return preferredStyle
     }
 
     /// The language used for the app interface and API content.
@@ -475,7 +489,7 @@ final class SettingsManager {
         {
             self.ambientBackdropStyle = style
         } else {
-            self.ambientBackdropStyle = .live
+            self.ambientBackdropStyle = Self.defaultAmbientBackdropStyle
         }
 
         if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),

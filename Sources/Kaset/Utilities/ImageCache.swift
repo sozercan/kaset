@@ -12,32 +12,64 @@ actor ImageCache {
     private static let maxConcurrentPrefetch = 4
 
     /// Maximum disk cache size in bytes (200MB).
-    private static let maxDiskCacheSize: Int64 = 200 * 1024 * 1024
+    private static let defaultMaxDiskCacheSize: Int64 = 200 * 1024 * 1024
+
+    /// Reconcile the approximate disk-size counter periodically to account for
+    /// external changes without scanning the cache directory after every write.
+    private static let defaultDiskEvictionWriteThreshold = 32
 
     private let memoryCache = NSCache<NSString, NSImage>()
     /// Keyed by URL + target size (the memory-cache key), so an in-flight
     /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
     /// small downsampled image.
     private var inFlight: [NSString: Task<NSImage?, Never>] = [:]
+    private var rawDataInFlight: [String: Task<Data?, Never>] = [:]
     private let fileManager = FileManager.default
+    private let session: URLSession
     private let diskCacheURL: URL
+    private let maxDiskCacheSize: Int64
+    private let diskEvictionWriteThreshold: Int
+    private var estimatedDiskCacheSize: Int64?
+    private var writesSinceDiskEvictionCheck = 0
+    private var diskEvictionTask: Task<Void, Never>?
+    private(set) var diskCacheSizeScanCountForTesting = 0
 
-    private init() {
+    init(
+        diskCacheURL: URL? = nil,
+        maxDiskCacheSize: Int64 = ImageCache.defaultMaxDiskCacheSize,
+        initialEstimatedDiskCacheSize: Int64? = nil,
+        diskEvictionWriteThreshold: Int = ImageCache.defaultDiskEvictionWriteThreshold,
+        startsEvictionTask: Bool = true,
+        monitorsMemoryPressure: Bool = true,
+        session: URLSession = .shared
+    ) {
         self.memoryCache.countLimit = 200
         self.memoryCache.totalCostLimit = 50 * 1024 * 1024 // 50MB
 
         // Set up disk cache directory
-        let cacheDir = self.fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
-        self.diskCacheURL = cacheDir.appendingPathComponent("com.kaset.imagecache", isDirectory: true)
+        if let diskCacheURL {
+            self.diskCacheURL = diskCacheURL
+        } else {
+            let cacheDir = self.fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first!
+            self.diskCacheURL = cacheDir.appendingPathComponent("com.kaset.imagecache", isDirectory: true)
+        }
+        self.maxDiskCacheSize = maxDiskCacheSize
+        self.diskEvictionWriteThreshold = max(1, diskEvictionWriteThreshold)
+        self.estimatedDiskCacheSize = initialEstimatedDiskCacheSize
+        self.session = session
         try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
 
-        // Set up memory pressure monitoring
-        Self.setupMemoryPressureMonitoring(cache: self)
+        // Set up memory pressure monitoring.
+        if monitorsMemoryPressure {
+            Self.setupMemoryPressureMonitoring(cache: self)
+        }
 
-        // Evict disk cache if needed on startup.
+        // Evict disk cache if needed on startup and initialize the size estimate.
         // Perform file system I/O off the main actor.
-        Task(priority: .utility) {
-            await self.evictDiskCacheIfNeeded()
+        if startsEvictionTask {
+            Task(priority: .utility) {
+                await self.scheduleDiskEviction(force: true)
+            }
         }
     }
 
@@ -97,18 +129,13 @@ actor ImageCache {
                 return diskImage
             }
 
-            // Cold miss: download once, decode, and cache the raw bytes.
-            do {
-                let (data, response) = try await URLSession.shared.data(from: url)
-                guard Self.isSuccessfulResponse(response) else { return nil }
-                guard let image = Self.createImage(from: data, targetSize: targetSize) else { return nil }
-                let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
-                self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
-                self.saveToDisk(url: url, data: data)
-                return image
-            } catch {
-                return nil
-            }
+            // Cold miss: download raw bytes once per URL, then decode independently per target size.
+            guard let data = await self.rawImageData(for: url),
+                  let image = Self.createImage(from: data, targetSize: targetSize)
+            else { return nil }
+            let cost = targetSize != nil ? Int(image.size.width * image.size.height * 4) : data.count
+            self.memoryCache.setObject(image, forKey: memoryKey, cost: cost)
+            return image
         }
 
         self.inFlight[memoryKey] = task
@@ -127,6 +154,30 @@ actor ImageCache {
     private static func isSuccessfulResponse(_ response: URLResponse) -> Bool {
         guard let httpResponse = response as? HTTPURLResponse else { return true }
         return (200 ..< 300).contains(httpResponse.statusCode)
+    }
+
+    private func rawImageData(for url: URL) async -> Data? {
+        let key = self.cacheKey(for: url)
+        if let existing = self.rawDataInFlight[key] {
+            return await existing.value
+        }
+
+        let task = Task<Data?, Never> { [session] in
+            do {
+                let (data, response) = try await session.data(from: url)
+                guard Self.isSuccessfulResponse(response) else { return nil }
+                return data
+            } catch {
+                return nil
+            }
+        }
+        self.rawDataInFlight[key] = task
+        let data = await task.value
+        self.rawDataInFlight.removeValue(forKey: key)
+        if let data {
+            self.saveToDisk(url: url, data: data)
+        }
+        return data
     }
 
     private static func uniqued(_ urls: [URL]) -> [URL] {
@@ -213,6 +264,7 @@ actor ImageCache {
     func clearMemoryCache() {
         self.memoryCache.removeAllObjects()
         self.inFlight.removeAll()
+        self.rawDataInFlight.removeAll()
     }
 
     /// Clears both memory and disk caches.
@@ -220,10 +272,18 @@ actor ImageCache {
         self.clearMemoryCache()
         try? self.fileManager.removeItem(at: self.diskCacheURL)
         try? self.fileManager.createDirectory(at: self.diskCacheURL, withIntermediateDirectories: true)
+        self.estimatedDiskCacheSize = 0
     }
 
     /// Returns the total size of the disk cache in bytes.
     func diskCacheSize() -> Int64 {
+        let size = self.scanDiskCacheSize()
+        self.estimatedDiskCacheSize = size
+        return size
+    }
+
+    private func scanDiskCacheSize() -> Int64 {
+        self.diskCacheSizeScanCountForTesting += 1
         var totalSize: Int64 = 0
         guard let enumerator = fileManager.enumerator(
             at: diskCacheURL,
@@ -270,13 +330,54 @@ actor ImageCache {
 
     private func saveToDisk(url: URL, data: Data) {
         let path = self.diskCachePath(for: url)
-        try? data.write(to: path, options: .atomic)
-
-        // Evict old files if disk cache exceeds limit.
-        // Perform file system I/O off the main actor.
-        Task(priority: .utility) {
-            await self.evictDiskCacheIfNeeded()
+        let previousSize = self.fileSize(at: path)
+        do {
+            try data.write(to: path, options: .atomic)
+        } catch {
+            return
         }
+
+        if let estimatedDiskCacheSize {
+            self.estimatedDiskCacheSize = max(0, estimatedDiskCacheSize - previousSize + Int64(data.count))
+            self.writesSinceDiskEvictionCheck += 1
+            self.scheduleDiskEvictionIfNeededAfterWrite()
+        } else {
+            // First write before the startup/lazy size scan completes. Coalesce a
+            // single forced reconciliation instead of scanning on every save.
+            self.scheduleDiskEviction(force: true)
+        }
+    }
+
+    private func fileSize(at url: URL) -> Int64 {
+        guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize else { return 0 }
+        return Int64(size)
+    }
+
+    private func scheduleDiskEvictionIfNeededAfterWrite() {
+        guard let estimatedDiskCacheSize else {
+            self.scheduleDiskEviction(force: true)
+            return
+        }
+
+        let shouldReconcile = self.writesSinceDiskEvictionCheck >= self.diskEvictionWriteThreshold
+        let shouldEvict = estimatedDiskCacheSize > self.maxDiskCacheSize
+        if shouldReconcile || shouldEvict {
+            self.scheduleDiskEviction(force: shouldReconcile)
+        }
+    }
+
+    private func scheduleDiskEviction(force: Bool = false) {
+        if self.diskEvictionTask != nil {
+            return
+        }
+        if !force, let estimatedDiskCacheSize, estimatedDiskCacheSize <= self.maxDiskCacheSize {
+            return
+        }
+
+        let task = Task(priority: .utility) {
+            await self.evictDiskCacheIfNeeded(force: force)
+        }
+        self.diskEvictionTask = task
     }
 
     // MARK: - Disk Cache Eviction
@@ -291,29 +392,75 @@ actor ImageCache {
     /// Evicts oldest files until disk cache is under the size limit.
     /// Uses LRU (Least Recently Used) eviction based on file modification dates.
     /// Marked async to document the I/O-bound nature and satisfy actor isolation.
-    private func evictDiskCacheIfNeeded() async {
-        let currentSize = self.diskCacheSize()
-        guard currentSize > Self.maxDiskCacheSize else { return }
+    private func evictDiskCacheIfNeeded(force: Bool = false) async {
+        defer {
+            self.diskEvictionTask = nil
+            self.writesSinceDiskEvictionCheck = 0
+        }
 
-        // Get all cached files sorted by modification date (oldest first)
+        if !force, let estimatedDiskCacheSize, estimatedDiskCacheSize <= self.maxDiskCacheSize {
+            return
+        }
+
+        // One directory pass gives both exact size and eviction metadata. This
+        // avoids the previous save path's diskCacheSize() pass plus a second
+        // directory listing to choose victims.
+        guard let files = self.cachedFilesForEviction() else { return }
+        let currentSize = files.reduce(Int64(0)) { $0 + Int64($1.fileSize) }
+        self.estimatedDiskCacheSize = currentSize
+        guard currentSize > self.maxDiskCacheSize else { return }
+
+        let sortedFiles = files.sorted { $0.modificationDate < $1.modificationDate }
+        var sizeToFree = currentSize - self.maxDiskCacheSize
+        var freedSize: Int64 = 0
+        for fileInfo in sortedFiles where sizeToFree > 0 {
+            do {
+                try self.fileManager.removeItem(at: fileInfo.url)
+                let fileSize = Int64(fileInfo.fileSize)
+                sizeToFree -= fileSize
+                freedSize += fileSize
+            } catch {
+                continue
+            }
+        }
+        self.estimatedDiskCacheSize = max(0, currentSize - freedSize)
+    }
+
+    private func cachedFilesForEviction() -> [CachedFileInfo]? {
+        self.diskCacheSizeScanCountForTesting += 1
         guard let files = try? fileManager.contentsOfDirectory(
             at: diskCacheURL,
             includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey],
             options: [.skipsHiddenFiles]
-        ) else { return }
+        ) else { return nil }
 
-        let sortedFiles = files.compactMap { url -> CachedFileInfo? in
+        return files.compactMap { url -> CachedFileInfo? in
             guard let values = try? url.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey]),
                   let date = values.contentModificationDate,
                   let size = values.fileSize
             else { return nil }
             return CachedFileInfo(url: url, modificationDate: date, fileSize: size)
-        }.sorted { $0.modificationDate < $1.modificationDate } // Sort by date ascending (oldest first)
-
-        var sizeToFree = currentSize - Self.maxDiskCacheSize
-        for fileInfo in sortedFiles where sizeToFree > 0 {
-            try? self.fileManager.removeItem(at: fileInfo.url)
-            sizeToFree -= Int64(fileInfo.fileSize)
         }
+    }
+
+    func saveToDiskForTesting(url: URL, data: Data) {
+        self.saveToDisk(url: url, data: data)
+    }
+
+    func estimatedDiskCacheSizeForTesting() -> Int64? {
+        self.estimatedDiskCacheSize
+    }
+
+    func evictDiskCacheIfNeededForTesting(force: Bool = false) async {
+        await self.evictDiskCacheIfNeeded(force: force)
+    }
+
+    func waitForScheduledDiskEvictionForTesting() async {
+        guard let task = self.diskEvictionTask else { return }
+        await task.value
+    }
+
+    func diskCachePathForTesting(url: URL) -> URL {
+        self.diskCachePath(for: url)
     }
 }

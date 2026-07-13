@@ -72,7 +72,7 @@ struct YouTubeChannelView: View {
         HStack(spacing: 16) {
             CachedAsyncImage(
                 url: channel.thumbnailURL,
-                targetSize: CGSize(width: 160, height: 160)
+                targetSize: CGSize(width: 80, height: 80)
             ) { image in
                 image
                     .resizable()

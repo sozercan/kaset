@@ -265,9 +265,12 @@ struct WatchNextParserTests {
         #expect(firstRelated.videoId == "pAMZjmDGFRQ")
         #expect(firstRelated.channelName == "Plingoro")
         #expect(firstRelated.lengthText == "17:10")
+
+        let description = try #require(watchNext.descriptionText)
+        #expect(description.hasPrefix("The official video for"))
     }
 
-    @Test("Parses canonical player-overlay chapter renderers")
+    @Test("Parses canonical chapters and merges macro-marker end bounds")
     func parsesPlayerOverlayChapters() throws {
         let watchNext = WatchNextParser.parse(Self.chapterRendererResponse())
 
@@ -277,13 +280,14 @@ struct WatchNextParserTests {
         #expect(first.videoId == "video-1")
         #expect(first.title == "Introduction")
         #expect(first.startTime == 0)
-        #expect(first.endTime == nil)
+        #expect(first.endTime == 197)
         #expect(first.timeText == nil)
         #expect(first.thumbnailURL?.absoluteString == "https://example.com/intro-336.jpg")
 
         let second = watchNext.chapters[1]
         #expect(second.title == "Single-threaded code")
         #expect(second.startTime == 197)
+        #expect(second.endTime == 360)
     }
 
     @Test("Falls back to deduplicated macro marker chapter cards")
@@ -311,6 +315,49 @@ struct WatchNextParserTests {
         let chapters = WatchNextParser.chapters(of: Self.heatmapOnlyResponse())
 
         #expect(chapters.isEmpty)
+    }
+
+    @Test("Parses the structured watch-page description")
+    func parsesDescriptionText() {
+        let description = "00:00 - Artist A - Track One\n03:15 - Artist B - Track Two"
+        let parsed = WatchNextParser.parse(Self.descriptionResponse(description))
+
+        #expect(parsed.descriptionText == description)
+    }
+
+    @Test("Falls back to the secondary-info description")
+    func parsesSecondaryInfoDescription() {
+        let parsed = WatchNextParser.parse(Self.secondaryInfoDescriptionResponse("Secondary description"))
+
+        #expect(parsed.descriptionText == "Secondary description")
+    }
+
+    @Test("Prefers the structured description over secondary info")
+    func structuredDescriptionTakesPriority() {
+        var response = Self.descriptionResponse("Structured description")
+        response["contents"] = Self.secondaryInfoDescriptionResponse("Secondary description")["contents"]
+
+        let parsed = WatchNextParser.parse(response)
+
+        #expect(parsed.descriptionText == "Structured description")
+    }
+
+    @Test("Parses the runs-based watch-page description")
+    func parsesRunsDescriptionText() {
+        let parsed = WatchNextParser.parse([
+            "engagementPanels": [
+                [
+                    "descriptionBodyText": [
+                        "runs": [
+                            ["text": "00:00 Artist A - Track One\n"],
+                            ["text": "03:00 Artist B - Track Two"],
+                        ],
+                    ],
+                ],
+            ],
+        ])
+
+        #expect(parsed.descriptionText == "00:00 Artist A - Track One\n03:00 Artist B - Track Two")
     }
 
     private static func chapterRendererResponse() -> [String: Any] {
@@ -341,15 +388,16 @@ struct WatchNextParserTests {
                     ],
                 ],
             ],
-            // This duplicate fallback shape should be ignored when canonical
-            // chapterRenderer data exists.
+            // Matching macro markers provide end bounds that the canonical
+            // chapterRenderer timeline omits.
             "engagementPanels": [
                 [
                     "engagementPanelSectionListRenderer": [
                         "content": [
                             "macroMarkersListRenderer": [
                                 "contents": [
-                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro", includesExplicitStart: false)],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Introduction", startMs: 0, endMs: 197_000, imageName: "intro")],
+                                    ["macroMarkersListItemRenderer": self.macroMarkerRenderer(title: "Single-threaded code", startMs: 197_000, endMs: 360_000, imageName: "single")],
                                 ],
                             ],
                         ],
@@ -395,6 +443,48 @@ struct WatchNextParserTests {
                                         "markerType": "MARKER_TYPE_HEATMAP",
                                         "markers": [
                                             ["startMillis": "0", "durationMillis": "1000", "intensityScoreNormalized": 1],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func secondaryInfoDescriptionResponse(_ description: String) -> [String: Any] {
+        [
+            "contents": [
+                "twoColumnWatchNextResults": [
+                    "results": [
+                        "results": [
+                            "contents": [
+                                [
+                                    "videoSecondaryInfoRenderer": [
+                                        "attributedDescription": ["content": description],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private static func descriptionResponse(_ description: String) -> [String: Any] {
+        [
+            "engagementPanels": [
+                [
+                    "engagementPanelSectionListRenderer": [
+                        "content": [
+                            "structuredDescriptionContentRenderer": [
+                                "items": [
+                                    [
+                                        "expandableVideoDescriptionBodyRenderer": [
+                                            "attributedDescriptionBodyText": ["content": description],
                                         ],
                                     ],
                                 ],

@@ -235,7 +235,7 @@ final class SingletonPlayerWebView {
     private(set) var documentGeneration = WebPlaybackDocumentGeneration()
     private(set) var documentNavigationStartedAtMilliseconds: Double?
     private var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
-    private var cancelledDocumentNavigations: [ObjectIdentifier: UInt64] = [:]
+    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
     private var continuationGenerationsAwaitingStart: Set<UInt64> = []
 
     /// Current display mode for the WebView.
@@ -291,9 +291,13 @@ final class SingletonPlayerWebView {
     /// See `beginBackgroundMediaControlReassertion()`.
     var mediaControlReassertTimer: Timer?
 
-    /// Tracks if lyrics high-frequency polling should be active
-    /// Used to restore polling after full-page navigation
+    /// Tracks if lyrics line-boundary polling should be active.
+    /// Used to restore polling after full-page navigation.
     var isLyricsPollActive = false
+
+    /// Last synced-lyrics line ranges supplied by the visible lyrics panel.
+    /// Used by the reload fallback so polling does not restart with an empty range list.
+    private var lastLyricsLineRanges: [[String: Int]] = []
 
     private init() {
         self.mediaControlUsesNextPrev = SettingsManager.shared.mediaControlStyle == .nextPreviousTrack
@@ -376,10 +380,18 @@ final class SingletonPlayerWebView {
         // updateDisplayMode(.video) handles the initial injection perfectly.
     }
 
-    /// Starts high frequency polling for synced lyrics
-    func startLyricsPoll() {
+    /// Starts low-frequency line-boundary polling for synced lyrics.
+    func startLyricsPoll(lineRanges: [[String: Int]]) {
         self.isLyricsPollActive = true
-        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(); }")
+        self.lastLyricsLineRanges = lineRanges
+        let jsonData = (try? JSONSerialization.data(withJSONObject: lineRanges)) ?? Data("[]".utf8)
+        let lineRangesJSON = String(data: jsonData, encoding: .utf8) ?? "[]"
+        self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(\(lineRangesJSON)); }")
+    }
+
+    /// Backward-compatible fallback used after page reloads before the lyrics view re-supplies line boundaries.
+    func startLyricsPoll() {
+        self.startLyricsPoll(lineRanges: self.lastLyricsLineRanges)
     }
 
     /// Stops high frequency polling for synced lyrics
@@ -822,7 +834,10 @@ extension SingletonPlayerWebView {
 extension SingletonPlayerWebView {
     func invalidateDocumentNavigationState() {
         for (identifier, navigation) in self.documentNavigations {
-            self.cancelledDocumentNavigations[identifier] = navigation.generation
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: navigation.generation,
+                shouldReportFailure: true
+            )
         }
         self.documentGeneration.invalidate()
         self.documentNavigationStartedAtMilliseconds = nil
@@ -972,7 +987,10 @@ extension SingletonPlayerWebView {
         for (identifier, navigation) in self.documentNavigations
             where navigation.generation == generation
         {
-            self.cancelledDocumentNavigations[identifier] = generation
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: generation,
+                shouldReportFailure: false
+            )
         }
         self.documentNavigations = self.documentNavigations.filter {
             $0.value.generation != generation
@@ -1018,12 +1036,10 @@ extension SingletonPlayerWebView {
     func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView else { return }
         if let navigation,
-           let cancelledGeneration = self.cancelledDocumentNavigations.removeValue(
-               forKey: ObjectIdentifier(navigation)
-           )
+           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
         {
-            if Self.shouldSuppressCancelledNavigationCommit(
-                cancelledGeneration: cancelledGeneration,
+            if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
+                cancelledGeneration: cancelledNavigation.generation,
                 committedURL: webView.url,
                 pendingGeneration: self.documentGeneration.pendingGeneration,
                 inFlightGeneration: self.documentGeneration.inFlightGeneration,
@@ -1032,7 +1048,7 @@ extension SingletonPlayerWebView {
                 let replacementGeneration = self.documentGeneration.pendingGeneration
                     ?? self.documentGeneration.inFlightGeneration
                 if let replacementGeneration,
-                   replacementGeneration != cancelledGeneration
+                   replacementGeneration != cancelledNavigation.generation
                 {
                     self.suppressSurvivingDocumentMedia(webView)
                 } else {
@@ -1074,6 +1090,15 @@ extension SingletonPlayerWebView {
         if trackedNavigation.didActivatePlaybackOrigin {
             self.syncAutoplayIntent(on: webView)
         }
+    }
+
+    func consumeCancelledDocumentNavigation(
+        _ navigation: WKNavigation?
+    ) -> WebPlaybackCancelledNavigation? {
+        guard let navigation else { return nil }
+        return self.cancelledDocumentNavigations.removeValue(
+            forKey: ObjectIdentifier(navigation)
+        )
     }
 
     func syncAutoplayIntent(on webView: WKWebView) {
@@ -1204,25 +1229,6 @@ extension SingletonPlayerWebView {
         }
     }
 
-    nonisolated static func shouldSuppressCancelledNavigationCommit(
-        cancelledGeneration: UInt64,
-        committedURL: URL?,
-        pendingGeneration: UInt64?,
-        inFlightGeneration: UInt64?,
-        currentGeneration: UInt64
-    ) -> Bool {
-        if WebPlaybackDocumentGeneration.generation(from: committedURL) == cancelledGeneration {
-            return true
-        }
-        let replacementGeneration = pendingGeneration
-            ?? inFlightGeneration
-            ?? currentGeneration
-        if WebPlaybackDocumentGeneration.generation(from: committedURL) == replacementGeneration {
-            return false
-        }
-        return true
-    }
-
     func handleCurrentDocumentNavigationFailure(_ generation: UInt64, webView: WKWebView?) {
         guard self.documentGeneration.cancelInFlightNavigation(generation) else { return }
         self.pauseSurvivingDocument(webView)
@@ -1276,10 +1282,15 @@ extension SingletonPlayerWebView {
             guard let navigation,
                   let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
             else {
-                if let navigation {
-                    self.cancelledDocumentNavigations.removeValue(
-                        forKey: ObjectIdentifier(navigation)
-                    )
+                if let navigation,
+                   let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
+                       forKey: ObjectIdentifier(navigation)
+                   )
+                {
+                    if cancelledNavigation.shouldReportFailure {
+                        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                    }
+                    return
                 }
                 self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
                 return

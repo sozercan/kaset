@@ -523,6 +523,54 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
     return output
 }
 
+// MARK: - PlaylistSetVideoIdSourceCounts
+
+private struct PlaylistSetVideoIdSourceCounts {
+    var playlistItemData = 0
+    var playlistEditEndpoint = 0
+}
+
+private func countPlaylistSetVideoIdSources(in value: Any, counts: inout PlaylistSetVideoIdSourceCounts) {
+    if let dictionary = value as? [String: Any] {
+        if let playlistItemData = dictionary["playlistItemData"] as? [String: Any],
+           let setVideoId = playlistItemData["playlistSetVideoId"] as? String,
+           !setVideoId.isEmpty
+        {
+            counts.playlistItemData += 1
+        }
+
+        if let editEndpoint = dictionary["playlistEditEndpoint"] as? [String: Any],
+           let actions = editEndpoint["actions"] as? [[String: Any]]
+        {
+            counts.playlistEditEndpoint += actions.count { action in
+                action["action"] as? String == "ACTION_REMOVE_VIDEO"
+                    && (action["setVideoId"] as? String)?.isEmpty == false
+            }
+        }
+
+        for nestedValue in dictionary.values {
+            countPlaylistSetVideoIdSources(in: nestedValue, counts: &counts)
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            countPlaylistSetVideoIdSources(in: item, counts: &counts)
+        }
+    }
+}
+
+private func playlistSetVideoIdSourceSummary(_ data: [String: Any]) -> String {
+    var counts = PlaylistSetVideoIdSourceCounts()
+    countPlaylistSetVideoIdSources(in: data, counts: &counts)
+    guard counts.playlistItemData > 0 || counts.playlistEditEndpoint > 0 else { return "" }
+
+    return """
+
+    🧩 Playlist occurrence ID sources:
+      • playlistItemData.playlistSetVideoId: \(counts.playlistItemData)
+      • playlistEditEndpoint ACTION_REMOVE_VIDEO setVideoId: \(counts.playlistEditEndpoint)
+    """
+}
+
 // MARK: - ChapterProbeItem
 
 private struct ChapterProbeItem: Hashable {
@@ -850,6 +898,8 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     if let playlistSummary = playlistBrowseSummary(data) {
         output += playlistSummary
     }
+
+    output += playlistSetVideoIdSourceSummary(data)
 
     output += chapterProbeSummary(data)
 

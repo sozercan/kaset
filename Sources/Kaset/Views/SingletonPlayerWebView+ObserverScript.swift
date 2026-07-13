@@ -265,6 +265,7 @@ extension SingletonPlayerWebView {
                         window.__kasetAutoplayRetryScheduled = false;
                         bindVideoIdentity(video, !mediaVideoId);
                         enforceVolumeNow();
+                        restartLyricsPoll(false);
                     });
                     video.addEventListener('pause', stopPolling);
                     video.addEventListener('play', () => {
@@ -286,7 +287,10 @@ extension SingletonPlayerWebView {
                         stopPolling();
                     });
                     video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
-                    video.addEventListener('seeked', () => sendUpdate(true)); // Seek completed
+                    video.addEventListener('seeked', () => {
+                        sendUpdate(true); // Seek completed
+                        restartLyricsPoll(true);
+                    });
                     // Media events keep advancing when hidden-page JavaScript
                     // timers are throttled, so use them as the primary progress
                     // heartbeat and retain the interval only as a fallback.
@@ -422,28 +426,107 @@ extension SingletonPlayerWebView {
                 }
             }
 
-            let lyricsPollId = null;
-            window.startLyricsPoll = function() {
-                if (lyricsPollId) return;
-                lyricsPollId = setInterval(() => {
-                    const v = document.querySelector('video');
-                    if (v) {
-                        bridge.postMessage({
-                        type: 'LYRICS_TIME',
-                        documentGeneration: window.__kasetDocumentGeneration,
-                        nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
-                            time: v.currentTime,
-                            isAd: isAdShowing()
-                        });
+            var lyricsPollTimeoutId = null;
+            var lyricsPollActive = false;
+            var lyricsLineRanges = [];
+            var lastLyricsBucket = null;
+            const LYRICS_MAX_POLL_INTERVAL_MS = 250;
+            const LYRICS_MIN_POLL_INTERVAL_MS = 50;
+
+            function currentLyricsBucket(timeMs) {
+                if (!Array.isArray(lyricsLineRanges) || lyricsLineRanges.length === 0) {
+                    return { lineIndex: -1, bucket: -1, nextBoundaryMs: null };
+                }
+                for (let index = 0; index < lyricsLineRanges.length; index += 1) {
+                    const range = lyricsLineRanges[index];
+                    if (timeMs >= range.startMs && timeMs < range.endMs) {
+                        return { lineIndex: index, bucket: index, nextBoundaryMs: range.endMs };
                     }
-                }, 100);
+                    if (timeMs < range.startMs) {
+                        return { lineIndex: -1, bucket: -(index + 1), nextBoundaryMs: range.startMs };
+                    }
+                }
+                return { lineIndex: -1, bucket: -(lyricsLineRanges.length + 1), nextBoundaryMs: null };
+            }
+
+            function sendLyricsLineUpdate(force) {
+                const v = document.querySelector('video');
+                if (!v) return null;
+                const timeMs = Math.floor((v.currentTime || 0) * 1000);
+                const bucket = currentLyricsBucket(timeMs);
+                if (!force && bucket.bucket === lastLyricsBucket) return bucket;
+                lastLyricsBucket = bucket.bucket;
+                bridge.postMessage({
+                    type: 'LYRICS_LINE',
+                    documentGeneration: window.__kasetDocumentGeneration,
+                    nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
+                    lineIndex: bucket.lineIndex,
+                    bucket: bucket.bucket,
+                    timeMs: timeMs,
+                    isAd: isAdShowing()
+                });
+                return bucket;
+            }
+
+            function scheduleNextLyricsPoll(bucket) {
+                if (!lyricsPollActive || lyricsPollTimeoutId) return;
+                const v = document.querySelector('video');
+                const timeMs = v ? Math.floor((v.currentTime || 0) * 1000) : 0;
+                const nextBoundaryMs = bucket && typeof bucket.nextBoundaryMs === 'number'
+                    ? bucket.nextBoundaryMs
+                    : null;
+                const boundaryDelay = nextBoundaryMs === null
+                    ? null
+                    : nextBoundaryMs - timeMs + 1;
+                const minBoundaryDelay = v && (v.paused || v.playbackRate === 0)
+                    ? LYRICS_MIN_POLL_INTERVAL_MS
+                    : 0;
+                const delay = boundaryDelay === null
+                    ? LYRICS_MAX_POLL_INTERVAL_MS
+                    : Math.max(minBoundaryDelay, Math.min(LYRICS_MAX_POLL_INTERVAL_MS, boundaryDelay));
+                lyricsPollTimeoutId = setTimeout(() => {
+                    lyricsPollTimeoutId = null;
+                    const nextBucket = sendLyricsLineUpdate(false);
+                    scheduleNextLyricsPoll(nextBucket);
+                }, delay);
+            }
+
+
+            function restartLyricsPoll(force) {
+                if (!lyricsPollActive) return;
+                if (lyricsPollTimeoutId) {
+                    clearTimeout(lyricsPollTimeoutId);
+                    lyricsPollTimeoutId = null;
+                }
+                const bucket = sendLyricsLineUpdate(force);
+                scheduleNextLyricsPoll(bucket);
+            }
+
+            window.startLyricsPoll = function(lineRanges) {
+                lyricsPollActive = true;
+                if (lyricsPollTimeoutId) {
+                    clearTimeout(lyricsPollTimeoutId);
+                    lyricsPollTimeoutId = null;
+                }
+                const nextRanges = Array.isArray(lineRanges) ? lineRanges : [];
+                lyricsLineRanges.length = 0;
+                nextRanges.forEach(range => {
+                    if (!range || typeof range.startMs !== 'number' || typeof range.endMs !== 'number') return;
+                    if (!isFinite(range.startMs) || !isFinite(range.endMs)) return;
+                    lyricsLineRanges.push({ startMs: range.startMs, endMs: range.endMs });
+                });
+                lastLyricsBucket = null;
+                const bucket = sendLyricsLineUpdate(true);
+                scheduleNextLyricsPoll(bucket);
             };
 
             window.stopLyricsPoll = function() {
-                if (lyricsPollId) {
-                    clearInterval(lyricsPollId);
-                    lyricsPollId = null;
+                lyricsPollActive = false;
+                if (lyricsPollTimeoutId) {
+                    clearTimeout(lyricsPollTimeoutId);
+                    lyricsPollTimeoutId = null;
                 }
+                lastLyricsBucket = null;
             };
 
             function startPolling() {
@@ -487,7 +570,8 @@ extension SingletonPlayerWebView {
 
             function isAdShowing() {
                 const moviePlayer = document.getElementById('movie_player');
-                return !!(moviePlayer && moviePlayer.classList.contains('ad-showing'));
+                return !!(moviePlayer && moviePlayer.classList
+                    && moviePlayer.classList.contains('ad-showing'));
             }
 
             function trackEndedPayload(video) {

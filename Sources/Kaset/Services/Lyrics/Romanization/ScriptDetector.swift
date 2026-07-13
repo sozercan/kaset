@@ -80,11 +80,17 @@ enum ScriptDetector {
         for scalar in text.unicodeScalars {
             let v = scalar.value
             // Hangul Jamo U+1100–11FF
-            if v >= 0x1100, v <= 0x11FF { return true }
+            if v >= 0x1100, v <= 0x11FF {
+                return true
+            }
             // Hangul Syllables U+AC00–D7AF
-            if v >= 0xAC00, v <= 0xD7AF { return true }
+            if v >= 0xAC00, v <= 0xD7AF {
+                return true
+            }
             // Hangul Compatibility Jamo U+3130–318F
-            if v >= 0x3130, v <= 0x318F { return true }
+            if v >= 0x3130, v <= 0x318F {
+                return true
+            }
         }
         return false
     }
@@ -126,10 +132,18 @@ enum ScriptDetector {
             // Latin Extended-A (U+0100–017F), Latin Extended-B (U+0180–024F)
             if v > 0x024F {
                 // Also allow common punctuation and symbols
-                if v >= 0x2000, v <= 0x206F { continue } // General Punctuation
-                if v >= 0x20A0, v <= 0x20CF { continue } // Currency Symbols
-                if v >= 0xFE00, v <= 0xFE0F { continue } // Variation Selectors
-                if v >= 0xFFF0, v <= 0xFFFF { continue } // Specials
+                if v >= 0x2000, v <= 0x206F {
+                    continue
+                } // General Punctuation
+                if v >= 0x20A0, v <= 0x20CF {
+                    continue
+                } // Currency Symbols
+                if v >= 0xFE00, v <= 0xFE0F {
+                    continue
+                } // Variation Selectors
+                if v >= 0xFFF0, v <= 0xFFFF {
+                    continue
+                } // Specials
                 return false
             }
         }
@@ -139,13 +153,27 @@ enum ScriptDetector {
     /// Returns the most prevalent non-Latin script in the text.
     static func dominantScript(_ text: String) -> Script {
         // Check in order of specificity
-        if self.hasJapanese(text) { return .japanese }
-        if self.hasKorean(text) { return .korean }
-        if self.hasChinese(text) { return .chinese }
-        if self.hasThai(text) { return .thai }
-        if self.hasBengali(text) { return .bengali }
-        if self.hasHindi(text) { return .hindi }
-        if self.isLatinOnly(text) { return .latin }
+        if self.hasJapanese(text) {
+            return .japanese
+        }
+        if self.hasKorean(text) {
+            return .korean
+        }
+        if self.hasChinese(text) {
+            return .chinese
+        }
+        if self.hasThai(text) {
+            return .thai
+        }
+        if self.hasBengali(text) {
+            return .bengali
+        }
+        if self.hasHindi(text) {
+            return .hindi
+        }
+        if self.isLatinOnly(text) {
+            return .latin
+        }
         return .unknown
     }
 }

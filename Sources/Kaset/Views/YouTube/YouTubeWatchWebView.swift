@@ -41,6 +41,7 @@ final class YouTubeWatchWebView {
     /// Tracks which full-page watch document may publish playback bridge events.
     private(set) var documentGeneration = WebPlaybackDocumentGeneration()
     var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
+    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
     var continuationGenerationsAwaitingStart: Set<UInt64> = []
     var pendingSeeksByGeneration: [UInt64: Double] = [:]
     var pendingSeekVideoIdsByGeneration: [UInt64: String] = [:]
@@ -162,6 +163,14 @@ final class YouTubeWatchWebView {
         {
             cancelledSelectedGeneration = true
             cancelledResumeAt = self.pendingSeeksByGeneration[generation] ?? cancelledResumeAt
+            for (identifier, navigation) in self.documentNavigations
+                where navigation.generation == generation
+            {
+                self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                    generation: generation,
+                    shouldReportFailure: true
+                )
+            }
             self.documentNavigations = self.documentNavigations.filter {
                 $0.value.generation != generation
             }
@@ -289,7 +298,9 @@ final class YouTubeWatchWebView {
         self.logger.info("Tearing down YouTube watch WebView")
         self.loadGeneration += 1
         self.currentVideoId = nil
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in }
+        webView.evaluateJavaScript(
+            "window.__kasetStopYTExtraction?.(); document.querySelector('video')?.pause()"
+        ) { _, _ in }
         if let blankURL {
             webView.load(URLRequest(url: blankURL))
         }
@@ -307,6 +318,7 @@ extension YouTubeWatchWebView {
 
     private func beginBlankDocumentNavigation() -> URL? {
         self.documentNavigations.removeAll()
+        self.cancelledDocumentNavigations.removeAll()
         self.continuationGenerationsAwaitingStart.removeAll()
         self.pendingSeeksByGeneration.removeAll()
         self.pendingSeekVideoIdsByGeneration.removeAll()
@@ -475,6 +487,14 @@ extension YouTubeWatchWebView {
 
     private func cancelActiveDocumentNavigation(on webView: WKWebView) {
         guard let generation = self.documentGeneration.inFlightGeneration else { return }
+        for (identifier, navigation) in self.documentNavigations
+            where navigation.generation == generation
+        {
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: generation,
+                shouldReportFailure: false
+            )
+        }
         self.documentNavigations = self.documentNavigations.filter {
             $0.value.generation != generation
         }
@@ -526,6 +546,28 @@ extension YouTubeWatchWebView {
 
     func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView else { return }
+        if let navigation,
+           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
+        {
+            if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
+                cancelledGeneration: cancelledNavigation.generation,
+                committedURL: webView.url,
+                pendingGeneration: self.documentGeneration.pendingGeneration,
+                inFlightGeneration: self.documentGeneration.inFlightGeneration,
+                currentGeneration: self.documentGeneration.currentGeneration
+            ) {
+                let replacementGeneration = self.documentGeneration.pendingGeneration
+                    ?? self.documentGeneration.inFlightGeneration
+                if let replacementGeneration,
+                   replacementGeneration != cancelledNavigation.generation
+                {
+                    self.suppressSurvivingDocumentMedia(webView)
+                } else {
+                    self.pauseSurvivingDocument(webView)
+                }
+            }
+            return
+        }
         if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
             guard self.documentGeneration.ownsBlankNavigation(webView.url) else {
                 self.handleUnexpectedBlankDocumentCommit(navigation, webView: webView)
@@ -570,6 +612,15 @@ extension YouTubeWatchWebView {
                 )
             }
         }
+    }
+
+    func consumeCancelledDocumentNavigation(
+        _ navigation: WKNavigation?
+    ) -> WebPlaybackCancelledNavigation? {
+        guard let navigation else { return nil }
+        return self.cancelledDocumentNavigations.removeValue(
+            forKey: ObjectIdentifier(navigation)
+        )
     }
 
     func finishDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
@@ -646,6 +697,9 @@ extension YouTubeWatchWebView {
     }
 
     private func failDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
+        if let navigation {
+            self.cancelledDocumentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+        }
         guard webView === self.webView,
               let navigation,
               let trackedNavigation = self.documentNavigations.removeValue(
@@ -736,6 +790,16 @@ extension YouTubeWatchWebView {
             guard let navigation,
                   let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
             else {
+                if let navigation,
+                   let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
+                       forKey: ObjectIdentifier(navigation)
+                   )
+                {
+                    if cancelledNavigation.shouldReportFailure {
+                        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                    }
+                    return
+                }
                 self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
                 return
             }
@@ -758,6 +822,10 @@ extension YouTubeWatchWebView {
 
     private func pauseSurvivingDocument(_ webView: WKWebView) {
         webView.stopLoading()
+        self.suppressSurvivingDocumentMedia(webView)
+    }
+
+    private func suppressSurvivingDocumentMedia(_ webView: WKWebView) {
         webView.evaluateJavaScript(
             WebPlaybackDocumentGeneration.mediaSuppressionScript,
             completionHandler: nil
@@ -767,6 +835,7 @@ extension YouTubeWatchWebView {
     func beginContentProcessRecovery(webView: WKWebView) -> Bool {
         guard webView === self.webView else { return false }
         self.documentNavigations.removeAll()
+        self.cancelledDocumentNavigations.removeAll()
         self.documentGeneration.invalidate()
         self.pendingSeeksByGeneration.removeAll()
         self.pendingSeekVideoIdsByGeneration.removeAll()

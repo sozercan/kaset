@@ -160,35 +160,35 @@ struct MusicPlaybackBridgeGenerationTests {
         let canceledURL = URL(string: "https://music.youtube.com/watch?v=a&kasetDocumentGeneration=1")
         let replacementURL = URL(string: "https://music.youtube.com/watch?v=b&kasetDocumentGeneration=2")
 
-        #expect(SingletonPlayerWebView.shouldSuppressCancelledNavigationCommit(
+        #expect(WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
             cancelledGeneration: 1,
             committedURL: canceledURL,
             pendingGeneration: nil,
             inFlightGeneration: 2,
             currentGeneration: 1
         ))
-        #expect(!SingletonPlayerWebView.shouldSuppressCancelledNavigationCommit(
+        #expect(!WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
             cancelledGeneration: 1,
             committedURL: replacementURL,
             pendingGeneration: nil,
             inFlightGeneration: 2,
             currentGeneration: 1
         ))
-        #expect(SingletonPlayerWebView.shouldSuppressCancelledNavigationCommit(
+        #expect(WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
             cancelledGeneration: 1,
             committedURL: nil,
             pendingGeneration: nil,
             inFlightGeneration: nil,
             currentGeneration: 1
         ))
-        #expect(SingletonPlayerWebView.shouldSuppressCancelledNavigationCommit(
+        #expect(WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
             cancelledGeneration: 1,
             committedURL: nil,
             pendingGeneration: nil,
             inFlightGeneration: 2,
             currentGeneration: 1
         ))
-        #expect(!SingletonPlayerWebView.shouldSuppressCancelledNavigationCommit(
+        #expect(!WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
             cancelledGeneration: 1,
             committedURL: replacementURL,
             pendingGeneration: nil,
@@ -595,14 +595,14 @@ struct MusicPlaybackBridgeGenerationTests {
             }
         }
 
-        for messageType in ["STATE_UPDATE", "LYRICS_TIME", "AIRPLAY_STATUS"] {
+        for messageType in ["STATE_UPDATE", "LYRICS_LINE", "AIRPLAY_STATUS"] {
             #expect(payloads.contains { $0.contains("type: '\(messageType)'") })
         }
         #expect(script.contains("function trackEndedPayload(video)"))
         #expect(script.contains("type: 'TRACK_ENDED'"))
         #expect(script.contains("isAd: isAdShowing()"))
         #expect(script.contains("bridge.postMessage(payload)"))
-        let lyricsPayload = payloads.first { $0.contains("type: 'LYRICS_TIME'") }
+        let lyricsPayload = payloads.first { $0.contains("type: 'LYRICS_LINE'") }
         #expect(lyricsPayload?.contains("isAd: isAdShowing()") == true)
         let statePayload = payloads.first { $0.contains("type: 'STATE_UPDATE'") }
         #expect(statePayload?.contains("isAd: isAd") == true)

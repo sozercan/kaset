@@ -71,14 +71,20 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
     var onGetLibraryContent: (@MainActor () -> Void)?
     var onGetPodcasts: (@MainActor () -> Void)?
+    var beforeGetHomeReturn: (@MainActor () async -> Void)?
+    var beforeGetHomeContinuationReturn: (@MainActor () async -> Void)?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
     var editSongLibraryStatusResponseDelays: [Duration] = []
     var getSongDelay: Duration?
+    var getHistoryDelay: Duration?
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
+    var getPlaylistError: Error?
     var playlistContinuationDelay: Duration?
+    var shouldWaitForRemoveSongFromPlaylistResponse = false
+    var removeSongFromPlaylistError: Error?
     var mixQueueDelay: Duration?
     var getRadioQueueDelay: Duration?
     var mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
@@ -171,13 +177,18 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getPersonalizedRecommendationsCallCount = 0
     private(set) var getPersonalizedRecommendationsContinuationCalled = false
     private(set) var getPersonalizedRecommendationsContinuationCallCount = 0
+    private(set) var getPodcastsContinuationCallCount = 0
     private(set) var getExploreCalled = false
     private(set) var getExploreCallCount = 0
     private(set) var getHistoryCallCount = 0
+    private(set) var getHistoryContinuationCallCount = 0
     private(set) var getExploreContinuationCalled = false
     private(set) var getExploreContinuationCallCount = 0
     private(set) var getChartsCalled = false
     private(set) var getChartsCallCount = 0
+    private(set) var getChartsContinuationCallCount = 0
+    private(set) var getMoodsAndGenresContinuationCallCount = 0
+    private(set) var getNewReleasesContinuationCallCount = 0
     private(set) var searchCalled = false
     private(set) var searchQueries: [String] = []
     private(set) var completedSearchEndpoints: [SearchEndpoint] = []
@@ -262,8 +273,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         let allowDuplicate: Bool
     }
 
+    struct RemoveSongFromPlaylistCall: Equatable {
+        let videoId: String
+        let setVideoId: String
+        let playlistId: String
+    }
+
     private(set) var createPlaylistCalls: [CreatePlaylistCall] = []
     private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
+    private(set) var removeSongFromPlaylistCalls: [RemoveSongFromPlaylistCall] = []
+    private var removeSongFromPlaylistResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -290,15 +309,18 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getHomeCalled = true
         self.getHomeCallCount += 1
         self._homeContinuationIndex = 0
+        let response = self.homeResponse
+        await self.beforeGetHomeReturn?()
         if let error = shouldThrowError {
             throw error
         }
-        return self.homeResponse
+        return response
     }
 
     func getHomeContinuation() async throws -> [HomeSection]? {
         self.getHomeContinuationCalled = true
         self.getHomeContinuationCallCount += 1
+        await self.beforeGetHomeContinuationReturn?()
         if let error = shouldThrowError {
             throw error
         }
@@ -369,6 +391,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getChartsContinuation() async throws -> [HomeSection]? {
+        self.getChartsContinuationCallCount += 1
         if let error = shouldThrowError {
             throw error
         }
@@ -389,6 +412,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
+        self.getMoodsAndGenresContinuationCallCount += 1
         if let error = shouldThrowError {
             throw error
         }
@@ -409,6 +433,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getNewReleasesContinuation() async throws -> [HomeSection]? {
+        self.getNewReleasesContinuationCallCount += 1
         if let error = shouldThrowError {
             throw error
         }
@@ -423,6 +448,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getHistory() async throws -> HomeResponse {
         self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
+        if let getHistoryDelay {
+            try? await Task.sleep(for: getHistoryDelay)
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -433,6 +461,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getHistoryContinuation() async throws -> [HomeSection]? {
+        self.getHistoryContinuationCallCount += 1
         if let error = shouldThrowError {
             throw error
         }
@@ -457,6 +486,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getPodcastsContinuation() async throws -> [PodcastSection]? {
+        self.getPodcastsContinuationCallCount += 1
         if let error = shouldThrowError {
             throw error
         }
@@ -764,6 +794,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let beforeGetPlaylistReturn {
             await beforeGetPlaylistReturn(id)
         }
+        if let getPlaylistError {
+            throw getPlaylistError
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -987,6 +1020,45 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
     }
 
+    func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws {
+        self.removeSongFromPlaylistCalls.append(RemoveSongFromPlaylistCall(videoId: videoId, setVideoId: setVideoId, playlistId: playlistId))
+        if self.shouldWaitForRemoveSongFromPlaylistResponse {
+            await withCheckedContinuation { continuation in
+                self.removeSongFromPlaylistResponseContinuations.append(continuation)
+            }
+        }
+        if let removeSongFromPlaylistError {
+            throw removeSongFromPlaylistError
+        }
+        if let error = shouldThrowError {
+            throw error
+        }
+
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
+        guard self.shouldAutoUpdatePlaylistLibraryOnMutation else { return }
+
+        for (key, detail) in self.playlistDetails where LibraryContentIdentity.playlistKey(for: key) == playlistKey || LibraryContentIdentity.playlistKey(for: detail.id) == playlistKey {
+            let playlist = Playlist(
+                id: detail.id,
+                title: detail.title,
+                description: detail.description,
+                thumbnailURL: detail.thumbnailURL,
+                trackCount: detail.trackCount.map { max(0, $0 - 1) },
+                author: detail.author
+            )
+            self.playlistDetails[key] = PlaylistDetail(
+                playlist: playlist,
+                tracks: detail.tracks.filter { $0.playlistSetVideoId != setVideoId },
+                duration: detail.duration
+            )
+        }
+    }
+
+    func resumeNextRemoveSongFromPlaylistResponse() {
+        guard !self.removeSongFromPlaylistResponseContinuations.isEmpty else { return }
+        self.removeSongFromPlaylistResponseContinuations.removeFirst().resume()
+    }
+
     func unsubscribeFromPlaylist(playlistId: String) async throws {
         self.unsubscribeFromPlaylistCalled = true
         self.unsubscribeFromPlaylistIds.append(playlistId)
@@ -1179,6 +1251,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getPersonalizedRecommendationsCallCount = 0
         self.getPersonalizedRecommendationsContinuationCalled = false
         self.getPersonalizedRecommendationsContinuationCallCount = 0
+        self.getPodcastsContinuationCallCount = 0
         self._personalizedRecommendationsContinuationIndex = 0
         self.getExploreCalled = false
         self.getExploreCallCount = 0
@@ -1187,6 +1260,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._exploreContinuationIndex = 0
         self.getChartsCalled = false
         self.getChartsCallCount = 0
+        self.getChartsContinuationCallCount = 0
+        self.getMoodsAndGenresContinuationCallCount = 0
+        self.getNewReleasesContinuationCallCount = 0
+        self.getHistoryContinuationCallCount = 0
         self._chartsContinuationIndex = 0
         self._moodsAndGenresContinuationIndex = 0
         self._newReleasesContinuationIndex = 0
@@ -1216,6 +1293,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
             self.libraryContentResponseContinuations.removeFirst().resume()
         }
         self.onGetLibraryContent = nil
+        self.beforeGetHomeReturn = nil
+        self.beforeGetHomeContinuationReturn = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
         self.getLikedSongsContinuationCalled = false
@@ -1260,6 +1339,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.rateSongDelay = nil
         self.editSongLibraryStatusResponseDelays = []
         self.getSongDelay = nil
+        self.getHistoryDelay = nil
         self.mixQueueDelay = nil
         self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)

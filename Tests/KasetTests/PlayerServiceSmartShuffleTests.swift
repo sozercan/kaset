@@ -20,11 +20,15 @@ private final class SmartShuffleFeatureGate {
 struct PlayerServiceSmartShuffleTests {
     var playerService: PlayerService
     var mockClient: MockYTMusicClient
+    let persistenceNamespace: String
 
     init() {
+        self.persistenceNamespace = "PlayerServiceSmartShuffleTests-\(UUID().uuidString)"
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
         self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        self.playerService.clearSavedQueue()
         self.playerService.setYTMusicClient(self.mockClient)
         self.playerService.confirmPlaybackStarted()
     }
@@ -355,6 +359,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.queue.map(\.videoId) == ["video-before", "rec-current", "video-after"])
         #expect(restored.queueEntries.map(\.source) == [.queued, .suggested, .queued])
@@ -399,6 +404,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.queue.map(\.videoId) == [original.song.videoId])
     }
@@ -426,6 +432,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.shuffleMode == .on)
         restored.setShuffleMode(.off)
@@ -443,6 +450,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         restored.setShuffleMode(.off)
 
@@ -479,6 +487,7 @@ struct PlayerServiceSmartShuffleTests {
         defer { self.playerService.clearSavedQueue() }
 
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         restored.setShuffleMode(.off)
 
@@ -527,6 +536,7 @@ struct PlayerServiceSmartShuffleTests {
         self.playerService.saveQueueForPersistence()
         defer { self.playerService.clearSavedQueue() }
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         restored.smartShuffleFeatureEnabled = { false }
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.shuffleMode == .on)
@@ -550,6 +560,7 @@ struct PlayerServiceSmartShuffleTests {
         // suggestions. They are regenerated from live playback context, never persisted. (No client
         // is attached and we assert synchronously, so no top-up can run before the checks.)
         let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
         #expect(restored.queueEntries.allSatisfy { $0.source == .queued })
         #expect(Set(restored.queue.map(\.videoId)) == originalIds)

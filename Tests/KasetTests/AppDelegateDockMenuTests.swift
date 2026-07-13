@@ -22,7 +22,9 @@ struct AppDelegateDockMenuTests {
 
     private func waitUntil(_ condition: @escaping @MainActor () -> Bool) async {
         for _ in 0 ..< 20 {
-            if condition() { return }
+            if condition() {
+                return
+            }
             try? await Task.sleep(for: .milliseconds(50))
         }
     }

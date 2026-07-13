@@ -50,7 +50,9 @@ struct PlaylistDetailViewModelTests {
         let deadline = clock.now + timeout
 
         while clock.now < deadline {
-            if condition() { return }
+            if condition() {
+                return
+            }
             try? await Task.sleep(for: .milliseconds(10))
         }
 
@@ -83,6 +85,163 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlistDetail != nil)
         #expect(self.viewModel.playlistDetail?.tracks.count == 10)
+    }
+
+    // MARK: - Track Removal Tests
+
+    @Test("Optimistic track removal removes the matching track and confirms successfully")
+    func optimisticTrackRemovalRemovesMatch() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+        ]
+        let playlist = Playlist(
+            id: "VL-removal-test", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 3, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: songs, duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 2)
+        #expect(viewModel.isRemovingTrack)
+
+        viewModel.confirmTrackRemoval(removal)
+
+        #expect(!viewModel.isRemovingTrack)
+    }
+
+    @Test("Only one optimistic playlist removal can be active")
+    func optimisticTrackRemovalIsSingleFlight() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+        ]
+        let playlist = Playlist(
+            id: "VL-single-flight-removal", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: songs, duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+
+        let firstRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
+        #expect(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b") == nil)
+
+        await viewModel.rollbackTrackRemoval(firstRemoval)
+
+        let secondRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
+        await viewModel.rollbackTrackRemoval(secondRemoval)
+    }
+
+    @Test("Generation-mismatched rollback restores the full pre-removal snapshot")
+    func generationMismatchRollbackRestoresSnapshot() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+        ]
+        let playlist = Playlist(
+            id: "VL-async-rollback", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: Array(songs.prefix(2)),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [[songs[2]]]
+        self.mockClient.playlistContinuationDelay = .milliseconds(150)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
+
+        let loadMoreTask = Task { await viewModel.loadMore() }
+        await self.waitUntil(
+            viewModel.loadingState == .loadingMore,
+            description: "continuation load to start"
+        )
+        loadMoreTask.cancel()
+        await loadMoreTask.value
+        await self.waitUntil(
+            viewModel.loadingState == .loaded,
+            description: "cancelled continuation to settle"
+        )
+
+        await viewModel.rollbackTrackRemoval(removal)
+
+        #expect(!viewModel.isRemovingTrack)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b"])
+        let nextRemoval = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-b"))
+        await viewModel.rollbackTrackRemoval(nextRemoval)
+    }
+
+    @Test("Track removal waiters resume only after the optimistic mutation finishes")
+    func trackRemovalWaitersResumeAfterCompletion() async throws {
+        let song = Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a")
+        let playlist = Playlist(
+            id: "VL-removal-waiter", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: 1, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(playlist: playlist, tracks: [song], duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
+        var waiterFinished = false
+        let waiter = Task { @MainActor in
+            await viewModel.waitForTrackRemovalToFinish()
+            waiterFinished = true
+        }
+        await Task.yield()
+
+        #expect(!waiterFinished)
+
+        viewModel.confirmTrackRemoval(removal)
+        await waiter.value
+
+        #expect(waiterFinished)
+    }
+
+    @Test("Stale refresh counts an off-page tombstone when its continuation arrives")
+    func staleRefreshCountsOffPageTombstoneOnContinuation() async throws {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], videoId: "a", playlistSetVideoId: "set-a"),
+            Song(id: "b", title: "B", artists: [], videoId: "b", playlistSetVideoId: "set-b"),
+            Song(id: "c", title: "C", artists: [], videoId: "c", playlistSetVideoId: "set-c"),
+            Song(id: "d", title: "D", artists: [], videoId: "d", playlistSetVideoId: "set-d"),
+        ]
+        let playlist = Playlist(
+            id: "VL-stale-continuation-removal", title: "Test Playlist", description: nil,
+            thumbnailURL: nil, trackCount: songs.count, canDelete: true
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: songs,
+            duration: nil
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        await viewModel.load()
+        let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-d"))
+        viewModel.confirmTrackRemoval(removal)
+
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: Array(songs.prefix(2)),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [Array(songs.suffix(2))]
+
+        await viewModel.refresh()
+        #expect(viewModel.playlistDetail?.trackCount == 4)
+
+        await viewModel.loadMore()
+
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == ["a", "b", "c"])
+        #expect(viewModel.playlistDetail?.trackCount == 3)
     }
 
     @Test("Load error sets error state")
@@ -132,8 +291,8 @@ struct PlaylistDetailViewModelTests {
         #expect(SongLikeStatusManager.shared.status(for: "liked-2") == .like)
     }
 
-    @Test("Liked Music load fetches every continuation")
-    func likedMusicLoadFetchesEveryContinuation() async {
+    @Test("Liked Music loadAllRemaining fetches every continuation")
+    func likedMusicLoadAllRemainingFetchesEveryContinuation() async {
         let initialTracks = [
             TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
             TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
@@ -150,10 +309,10 @@ struct PlaylistDetailViewModelTests {
         ]
 
         await likedMusicViewModel.load()
-        await self.waitUntil(
-            self.mockClient.getPlaylistContinuationCallCount == 2 && likedMusicViewModel.playlistDetail?.tracks.count == 5,
-            description: "Liked Music background continuation drain"
-        )
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
+
+        await likedMusicViewModel.loadAllRemaining()
 
         #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
         #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [
@@ -167,8 +326,8 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.hasMore == false)
     }
 
-    @Test("Liked Music load returns before delayed continuation drain")
-    func likedMusicLoadReturnsBeforeDelayedContinuationDrain() async {
+    @Test("Liked Music load keeps delayed continuation lazy")
+    func likedMusicLoadKeepsDelayedContinuationLazy() async {
         let initialTracks = [
             TestFixtures.makeSong(id: "liked-1", title: "Liked 1"),
             TestFixtures.makeSong(id: "liked-2", title: "Liked 2"),
@@ -184,16 +343,19 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-1", "liked-2"])
         #expect(self.mockClient.getPlaylistContinuationReturnCount == 0)
 
-        await self.waitUntil(
-            likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-1", "liked-2", "liked-3"],
-            description: "Liked Music delayed continuation drain"
-        )
+        try? await Task.sleep(for: .milliseconds(250))
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-1", "liked-2"])
+        #expect(self.mockClient.getPlaylistContinuationReturnCount == 0)
+        #expect(likedMusicViewModel.hasMore == true)
+
+        await likedMusicViewModel.loadAllRemaining()
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-1", "liked-2", "liked-3"])
         #expect(likedMusicViewModel.playlistDetail?.tracks.allSatisfy { $0.likeStatus == .like } == true)
         #expect(likedMusicViewModel.hasMore == false)
     }
 
-    @Test("Large playlist load fetches every continuation")
-    func largePlaylistLoadFetchesEveryContinuation() async {
+    @Test("Large playlist loadAllRemaining fetches every continuation")
+    func largePlaylistLoadAllRemainingFetchesEveryContinuation() async {
         let playlist = Playlist(
             id: "VL-test-playlist",
             title: "Large Playlist",
@@ -215,10 +377,10 @@ struct PlaylistDetailViewModelTests {
         ]
 
         await self.viewModel.load()
-        await self.waitUntil(
-            self.mockClient.getPlaylistContinuationCallCount == 2 && self.viewModel.playlistDetail?.tracks.count == 125,
-            description: "large playlist background continuation drain"
-        )
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 100)
+
+        await self.viewModel.loadAllRemaining()
 
         #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
         #expect(self.viewModel.playlistDetail?.tracks.count == 125)
@@ -226,8 +388,8 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.hasMore == false)
     }
 
-    @Test("Large playlist load returns before delayed full continuation drain")
-    func largePlaylistLoadReturnsBeforeDelayedFullContinuationDrain() async {
+    @Test("Large playlist load keeps delayed continuation lazy")
+    func largePlaylistLoadKeepsDelayedContinuationLazy() async {
         let playlist = Playlist(
             id: "VL-test-playlist",
             title: "Large Playlist",
@@ -251,10 +413,13 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 100)
         #expect(self.mockClient.getPlaylistContinuationReturnCount == 0)
 
-        await self.waitUntil(
-            self.viewModel.playlistDetail?.tracks.count == 125,
-            description: "large playlist delayed continuation drain"
-        )
+        try? await Task.sleep(for: .milliseconds(250))
+        #expect(self.viewModel.playlistDetail?.tracks.count == 100)
+        #expect(self.mockClient.getPlaylistContinuationReturnCount == 0)
+        #expect(self.viewModel.hasMore == true)
+
+        await self.viewModel.loadAllRemaining()
+        #expect(self.viewModel.playlistDetail?.tracks.count == 125)
         #expect(self.viewModel.hasMore == false)
     }
 
@@ -279,16 +444,18 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await self.viewModel.load()
+        let drainTask = Task { await self.viewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
-            description: "large playlist background drain to start"
+            description: "large playlist explicit drain to start"
         )
 
         await self.viewModel.loadMore()
+        await drainTask.value
 
         await self.waitUntil(
             self.viewModel.playlistDetail?.tracks.count == 125,
-            description: "large playlist background drain after manual load more"
+            description: "large playlist explicit drain after manual load more"
         )
         #expect(self.mockClient.getPlaylistContinuationCallCount == 1)
         #expect(self.viewModel.hasMore == false)
@@ -315,17 +482,19 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await self.viewModel.load()
+        let drainTask = Task { await self.viewModel.loadAllRemaining() }
         await self.waitUntil(
             self.viewModel.loadingState == .loadingMore,
-            description: "background continuation drain to enter loadingMore"
+            description: "explicit continuation drain to enter loadingMore"
         )
 
         await self.viewModel.load()
 
         #expect(self.mockClient.getPlaylistIds == [playlist.id])
+        await drainTask.value
         await self.waitUntil(
             self.viewModel.playlistDetail?.tracks.count == 125,
-            description: "background drain after repeated load"
+            description: "explicit drain after repeated load"
         )
     }
 
@@ -342,6 +511,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await likedMusicViewModel.load()
+        let drainTask = Task { await likedMusicViewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
             description: "overlapping delayed continuation to start"
@@ -351,6 +521,7 @@ struct PlaylistDetailViewModelTests {
             LikeStatusEvent(videoId: "liked-1", status: .indifferent, song: nil)
         )
 
+        await drainTask.value
         await self.waitUntil(
             likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-2"],
             description: "continuation drain to skip loaded unlike overlap"
@@ -371,6 +542,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await likedMusicViewModel.load()
+        let drainTask = Task { await likedMusicViewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
             description: "first delayed continuation to start"
@@ -380,6 +552,7 @@ struct PlaylistDetailViewModelTests {
             LikeStatusEvent(videoId: "future-unliked", status: .indifferent, song: nil)
         )
 
+        await drainTask.value
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 2 && likedMusicViewModel.playlistDetail?.tracks.map(\.videoId).contains("liked-3") == true,
             description: "continuation drain to skip not-yet-loaded unlike"
@@ -403,14 +576,16 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await likedMusicViewModel.load()
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+        let failingDrainTask = Task { await likedMusicViewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
-            description: "failed background continuation to start"
+            description: "failed explicit continuation to start"
         )
-        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+        await failingDrainTask.value
         await self.waitUntil(
-            self.mockClient.getPlaylistContinuationReturnCount == 1 && likedMusicViewModel.loadingState == .loaded,
-            description: "failed background continuation to return"
+            self.mockClient.getPlaylistContinuationReturnCount >= 1 && likedMusicViewModel.loadingState == .loaded,
+            description: "failed explicit continuation to return"
         )
         self.mockClient.shouldThrowError = nil
         self.mockClient.playlistContinuationDelay = nil
@@ -442,6 +617,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await likedMusicViewModel.load()
+        let drainTask = Task { await likedMusicViewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
             description: "first delayed continuation to start"
@@ -455,6 +631,7 @@ struct PlaylistDetailViewModelTests {
             )
         )
 
+        await drainTask.value
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 2 && likedMusicViewModel.playlistDetail?.tracks.map(\.videoId).contains("liked-3") == true,
             description: "continuation drain to advance past live-synced duplicate"
@@ -476,9 +653,10 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
 
         await self.viewModel.load()
+        let drainTask = Task { await self.viewModel.loadAllRemaining() }
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 1,
-            description: "stale background drain to start"
+            description: "stale explicit drain to start"
         )
 
         let refreshedPlaylist = Playlist(
@@ -496,14 +674,63 @@ struct PlaylistDetailViewModelTests {
         )
 
         await self.viewModel.refresh()
+        await drainTask.value
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationReturnCount == 1,
-            description: "stale background drain to return"
+            description: "stale explicit drain to return"
         )
 
         let videoIds = self.viewModel.playlistDetail?.tracks.map(\.videoId) ?? []
         #expect(videoIds == ["video-0", "video-1", "video-2"])
         #expect(videoIds.contains("stale-continuation") == false)
+    }
+
+    @Test("Explicit full drain can run again after refresh cancels stale drain")
+    func explicitFullDrainRunsAfterRefreshCancelsStaleDrain() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Refresh Playlist")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: TestFixtures.makeSongs(count: 100),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            [TestFixtures.makeSong(id: "stale-continuation", title: "Stale")],
+        ]
+        self.mockClient.playlistContinuationDelay = .milliseconds(200)
+
+        await self.viewModel.load()
+        let staleDrain = Task { await self.viewModel.loadAllRemaining() }
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationCallCount == 1,
+            description: "stale explicit drain to start before refresh"
+        )
+
+        let refreshedPlaylist = Playlist(
+            id: playlist.id,
+            title: playlist.title,
+            description: playlist.description,
+            thumbnailURL: playlist.thumbnailURL,
+            trackCount: 4,
+            author: playlist.author
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: refreshedPlaylist,
+            tracks: TestFixtures.makeSongs(count: 3),
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            [TestFixtures.makeSong(id: "fresh-continuation", title: "Fresh")],
+        ]
+        self.mockClient.playlistContinuationDelay = nil
+
+        await self.viewModel.refresh()
+        await staleDrain.value
+        await self.viewModel.loadAllRemaining()
+
+        let videoIds = self.viewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(videoIds == ["video-0", "video-1", "video-2", "fresh-continuation"])
+        #expect(videoIds.contains("stale-continuation") == false)
+        #expect(self.viewModel.hasMore == false)
     }
 
     @Test("Concurrent paging callers coalesce: full load, no stall, no duplicate fetch")
@@ -543,6 +770,41 @@ struct PlaylistDetailViewModelTests {
         // Each of the 3 continuation batches is fetched exactly once — no batch skipped, and no
         // duplicate fetch from a coalesced caller advancing the token twice.
         #expect(self.mockClient.getPlaylistContinuationCallCount == 3)
+    }
+
+    @Test("Large playlist load keeps continuation lazy until explicitly requested")
+    func largePlaylistLoadKeepsContinuationLazy() async {
+        let playlist = Playlist(
+            id: "VL-test-playlist",
+            title: "Large Test Playlist",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 150,
+            author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        let playlistDetail = PlaylistDetail(
+            playlist: playlist,
+            tracks: TestFixtures.makeSongs(count: 100),
+            duration: nil
+        )
+        self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
+        self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [
+            (100 ..< 150).map { TestFixtures.makeSong(id: "cont-\($0)") },
+        ]
+
+        await viewModel.load()
+
+        #expect(self.mockClient.getPlaylistContinuationCalled == false)
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(viewModel.playlistDetail?.tracks.count == 100)
+        #expect(viewModel.hasMore == true)
+
+        await viewModel.loadAllRemaining()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 1)
+        #expect(viewModel.playlistDetail?.tracks.count == 150)
+        #expect(viewModel.hasMore == false)
     }
 
     @Test("Small playlist load keeps continuation lazy")
@@ -755,6 +1017,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [continuationTracks]
 
         await self.viewModel.load()
+        await self.viewModel.loadAllRemaining()
         await self.waitUntil(
             self.viewModel.playlistDetail?.tracks.count == 150,
             description: "reported total count continuation drain"
@@ -872,6 +1135,45 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
         #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == "new-liked-song")
         #expect(likedMusicViewModel.playlistDetail?.tracks.first?.likeStatus == .like)
+    }
+
+    @Test("Liked Music optimistic insertion preserves the confirmed rollback baseline")
+    func likedMusicOptimisticInsertionPreservesRollbackBaseline() async throws {
+        let manager = SongLikeStatusManager.shared
+        let accountID = "liked-music-rollback-\(UUID().uuidString)"
+        manager.setActiveAccountID(accountID)
+        defer { manager.setActiveAccountID(nil) }
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        await likedMusicViewModel.load()
+        let song = Song(
+            id: "optimistic-liked-song",
+            title: "Optimistic Liked Song",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "optimistic-liked-song"
+        )
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        manager.setStatus(.indifferent, for: song.videoId)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let likeTask = Task { @MainActor in
+            await manager.like(song, client: self.mockClient)
+        }
+        await requestStarted.wait()
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+        #expect(manager.status(for: song.videoId) == .like)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == song.videoId)
+
+        await releaseRequest.open()
+
+        #expect(await likeTask.value == .indifferent)
+        #expect(manager.status(for: song.videoId) == .indifferent)
     }
 
     @Test("Liked Music live sync fetches metadata for placeholder song")

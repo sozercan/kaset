@@ -23,9 +23,15 @@ extension PlayerService {
         self.logger.info("Liking current track: \(track.videoId)")
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
+        let previousStatus = self.currentTrackLikeStatus
+        self.songLikeStatusManager.setStatus(
+            previousStatus,
+            for: [track.videoId],
+            accountID: activeAccountID
+        )
 
         // Toggle: if already liked, remove the like
-        let newStatus: LikeStatus = self.currentTrackLikeStatus == .like ? .indifferent : .like
+        let newStatus: LikeStatus = previousStatus == .like ? .indifferent : .like
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
@@ -45,13 +51,11 @@ extension PlayerService {
                 )
             }
 
-            guard self.songLikeStatusManager.activeAccountID == activeAccountID,
-                  self.currentTrack?.videoId == track.videoId
-            else {
-                return
-            }
-
-            self.currentTrackLikeStatus = finalStatus
+            self.reconcileCurrentTrackLikeStatusAfterRating(
+                track: track,
+                requestedAccountID: activeAccountID,
+                finalStatus: finalStatus
+            )
         }
     }
 
@@ -66,9 +70,15 @@ extension PlayerService {
         self.logger.info("Disliking current track: \(track.videoId)")
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
+        let previousStatus = self.currentTrackLikeStatus
+        self.songLikeStatusManager.setStatus(
+            previousStatus,
+            for: [track.videoId],
+            accountID: activeAccountID
+        )
 
         // Toggle: if already disliked, remove the dislike
-        let newStatus: LikeStatus = self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike
+        let newStatus: LikeStatus = previousStatus == .dislike ? .indifferent : .dislike
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
@@ -88,17 +98,33 @@ extension PlayerService {
                 )
             }
 
-            guard self.songLikeStatusManager.activeAccountID == activeAccountID,
-                  self.currentTrack?.videoId == track.videoId
-            else {
-                return
-            }
-
-            self.currentTrackLikeStatus = finalStatus
+            self.reconcileCurrentTrackLikeStatusAfterRating(
+                track: track,
+                requestedAccountID: activeAccountID,
+                finalStatus: finalStatus
+            )
         }
     }
 
+    private func reconcileCurrentTrackLikeStatusAfterRating(
+        track: Song,
+        requestedAccountID: String,
+        finalStatus: LikeStatus
+    ) {
+        guard self.currentTrack?.videoId == track.videoId else {
+            return
+        }
+
+        guard self.songLikeStatusManager.activeAccountID == requestedAccountID else {
+            self.currentTrackLikeStatus = self.songLikeStatusManager.status(for: track.videoId) ?? .indifferent
+            return
+        }
+
+        self.currentTrackLikeStatus = finalStatus
+    }
+
     // swiftlint:disable function_body_length
+
     /// Toggles the library status of the current track.
     func toggleLibraryStatus() {
         guard self.canPerformAccountMutation else {
@@ -391,9 +417,9 @@ extension PlayerService {
         do {
             let songData = try await client.getSong(videoId: videoId)
             guard self.songLikeStatusManager.activeAccountID == activeAccountID,
-                  self.currentTrack?.videoId == videoId,
-                  self.activePlaybackQueueEntryID == queueEntryID
+                  self.currentTrack?.videoId == videoId
             else { return }
+            let queueOwnerIsCurrent = self.activePlaybackQueueEntryID == queueEntryID
 
             let cachedLikeStatus = self.songLikeStatusManager.status(for: videoId)
             let ratingRevisionIsCurrent = self.songLikeStatusManager.ratingRevision(
@@ -469,7 +495,7 @@ extension PlayerService {
                 self.logger.info("Updated track metadata - inLibrary: \(self.currentTrackInLibrary), hasTokens: \(self.currentTrackFeedbackTokens != nil)")
 
                 self.applyFetchedMetadataToQueue(
-                    entryID: queueEntryID,
+                    entryID: queueOwnerIsCurrent ? queueEntryID : nil,
                     response: songData,
                     resolvedLikeStatus: resolvedLikeStatus,
                     libraryMutationIsCurrent: libraryMutationIsCurrent

@@ -64,25 +64,49 @@ struct MoodsAndGenresView: View {
 
     // MARK: - Views
 
+    @ViewBuilder
     private var contentView: some View {
-        Group {
-            if self.viewModel.sections.isEmpty {
+        if self.viewModel.sections.isEmpty {
+            VStack(spacing: 16) {
                 ContentUnavailableView(
                     "No Moods & Genres Available",
                     systemImage: "guitars",
                     description: Text("Content may not be available in your region.")
                 )
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 32) {
-                        ForEach(self.viewModel.sections) { section in
-                            self.sectionView(section)
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.loadingState == .loadingMore,
+                        title: "Load More",
+                        loadingTitle: "Loading more...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMore()
+                    }
+                }
+            }
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 32) {
+                    ForEach(self.viewModel.sections) { section in
+                        self.sectionView(section)
+                    }
+
+                    if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                        LoadMoreFooter(
+                            isLoading: self.viewModel.loadingState == .loadingMore,
+                            title: "Load More",
+                            loadingTitle: "Loading more...",
+                            autoLoad: true,
+                            autoLoadTrigger: self.viewModel.sections.count
+                        ) {
+                            await self.viewModel.loadMore()
                         }
                     }
-                    // Edge-to-edge so shelves slide under the glass sidebar;
-                    // resting inset is restored per-shelf via contentInset.
-                    .padding(.vertical, 20)
                 }
+                // Edge-to-edge so shelves slide under the glass sidebar;
+                // resting inset is restored per-shelf via contentInset.
+                .padding(.vertical, 20)
             }
         }
     }

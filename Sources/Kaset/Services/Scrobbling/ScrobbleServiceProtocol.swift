@@ -108,13 +108,17 @@ enum ScrobbleAuthState: Equatable {
 
     /// Whether the service is currently connected.
     var isConnected: Bool {
-        if case .connected = self { return true }
+        if case .connected = self {
+            return true
+        }
         return false
     }
 
     /// The connected username, if any.
     var username: String? {
-        if case let .connected(username) = self { return username }
+        if case let .connected(username) = self {
+            return username
+        }
         return nil
     }
 }

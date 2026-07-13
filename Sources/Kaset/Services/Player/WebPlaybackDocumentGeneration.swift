@@ -15,6 +15,13 @@ struct WebPlaybackTrackedNavigation: Equatable, Sendable {
     }
 }
 
+// MARK: - WebPlaybackCancelledNavigation
+
+struct WebPlaybackCancelledNavigation: Sendable {
+    let generation: UInt64
+    let shouldReportFailure: Bool
+}
+
 // MARK: - WebPlaybackNavigationFailure
 
 enum WebPlaybackNavigationFailure {
@@ -429,6 +436,25 @@ struct WebPlaybackDocumentGeneration: Equatable, Sendable {
 
     static func blankURL(generation: UInt64) -> URL? {
         URL(string: "about:blank#\(self.blankURLFragmentKey)=\(generation)")
+    }
+
+    static func shouldSuppressCancelledNavigationCommit(
+        cancelledGeneration: UInt64,
+        committedURL: URL?,
+        pendingGeneration: UInt64?,
+        inFlightGeneration: UInt64?,
+        currentGeneration: UInt64
+    ) -> Bool {
+        if self.generation(from: committedURL) == cancelledGeneration {
+            return true
+        }
+        let replacementGeneration = pendingGeneration
+            ?? inFlightGeneration
+            ?? currentGeneration
+        if self.generation(from: committedURL) == replacementGeneration {
+            return false
+        }
+        return true
     }
 
     static func blankGeneration(from url: URL?) -> UInt64? {

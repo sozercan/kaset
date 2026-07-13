@@ -73,6 +73,65 @@ struct PlaylistPlaybackActionsTests {
         #expect(songs.first?.isExplicit == true)
     }
 
+    @Test("Remaining playlist tracks tolerate removal from the initially queued prefix")
+    func remainingTracksTolerateInitialRemoval() {
+        let initial = [
+            TestFixtures.makeSong(id: "a"),
+            TestFixtures.makeSong(id: "b"),
+        ]
+        let full = [
+            TestFixtures.makeSong(id: "b"),
+            TestFixtures.makeSong(id: "c"),
+            TestFixtures.makeSong(id: "d"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.videoId) == ["c", "d"])
+    }
+
+    @Test("Remaining playlist tracks preserve authored duplicates")
+    func remainingTracksPreserveDuplicates() {
+        let initial = [TestFixtures.makeSong(id: "duplicate")]
+        let full = [
+            TestFixtures.makeSong(id: "duplicate"),
+            TestFixtures.makeSong(id: "duplicate"),
+            TestFixtures.makeSong(id: "tail"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.videoId) == ["duplicate", "tail"])
+    }
+
+    @Test("Remaining playlist tracks distinguish duplicate occurrences")
+    func remainingTracksUsePlaylistOccurrenceIdentity() {
+        let initial = [
+            Song(
+                id: "duplicate",
+                title: "Duplicate",
+                artists: [],
+                videoId: "duplicate",
+                playlistSetVideoId: "set-1"
+            ),
+        ]
+        let full = [
+            Song(
+                id: "duplicate",
+                title: "Duplicate",
+                artists: [],
+                videoId: "duplicate",
+                playlistSetVideoId: "set-2"
+            ),
+            TestFixtures.makeSong(id: "tail"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.playlistSetVideoId) == ["set-2", nil])
+        #expect(remaining.map(\.videoId) == ["duplicate", "tail"])
+    }
+
     @Test("Playlist playback continuation auth uses loaded ownership")
     func playlistPlaybackContinuationAuthUsesLoadedOwnership() async {
         let routePlaylist = TestFixtures.makePlaylist(

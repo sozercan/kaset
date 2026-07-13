@@ -146,7 +146,9 @@ struct HistoryView: View {
                         .padding(.bottom, 8)
 
                     let songs = section.items.compactMap { item -> Song? in
-                        if case let .song(song) = item { return song }
+                        if case let .song(song) = item {
+                            return song
+                        }
                         return nil
                     }
 
@@ -157,6 +159,18 @@ struct HistoryView: View {
                             Divider()
                                 .padding(.leading, 72)
                         }
+                    }
+                }
+
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.loadingState == .loadingMore || self.viewModel.isRefreshingHistory,
+                        title: "Load More History",
+                        loadingTitle: "Loading more history...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMore()
                     }
                 }
             }

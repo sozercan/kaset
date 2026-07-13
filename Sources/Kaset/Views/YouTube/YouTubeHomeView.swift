@@ -28,7 +28,9 @@ struct YouTubeHomeView: View {
             case .loaded, .loadingMore:
                 if self.viewModel.sections.isEmpty,
                    self.viewModel.videos.isEmpty,
-                   !self.viewModel.hasMoreVideos
+                   !self.viewModel.hasMoreVideos,
+                   !self.viewModel.hasMoreTopicRails,
+                   !self.viewModel.isLoadingTopicRails
                 {
                     ContentUnavailableView {
                         Label(String(localized: "No recommendations yet"), systemImage: "play.rectangle")
@@ -72,6 +74,19 @@ struct YouTubeHomeView: View {
                 ForEach(self.viewModel.sections) { section in
                     self.sectionRail(section)
                         .transition(.opacity)
+                }
+
+                if self.viewModel.hasMoreTopicRails || self.viewModel.isLoadingTopicRails {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.isLoadingTopicRails,
+                        title: "Load more topics",
+                        loadingTitle: "Loading topics...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMoreTopicRails()
+                    }
+                    .transition(.opacity)
                 }
 
                 // Render the grid whenever there are flat videos OR more pages
@@ -138,7 +153,7 @@ struct YouTubeHomeView: View {
                     ProgressView()
                         .controlSize(.small)
                         .gridCellColumns(1)
-                        .task {
+                        .task(id: self.viewModel.videos.count) {
                             await self.viewModel.loadMore()
                         }
                 }

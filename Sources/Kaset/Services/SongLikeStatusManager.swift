@@ -302,6 +302,13 @@ final class SongLikeStatusManager {
         self.setConfirmedStatus(status, for: videoId, accountID: self.activeAccountID)
     }
 
+    /// Updates the visible cache without advancing the API-confirmed rollback baseline.
+    ///
+    /// Reactive consumers use this for optimistic rating events that may still fail.
+    func setCachedStatus(_ status: LikeStatus, for videoId: String) {
+        self.setStatus(status, for: videoId, accountID: self.activeAccountID)
+    }
+
     /// Updates the cache with the same known status for multiple songs.
     ///
     /// This is used by bulk API response normalization paths (for example Liked

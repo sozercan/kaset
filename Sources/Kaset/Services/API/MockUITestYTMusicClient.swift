@@ -389,6 +389,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         // No-op for UI tests
     }
 
+    func removeSongFromPlaylist(videoId _: String, setVideoId _: String, playlistId _: String) async throws {
+        // No-op for UI tests
+    }
+
     func unsubscribeFromPlaylist(playlistId _: String) async throws {
         // No-op for UI tests
     }

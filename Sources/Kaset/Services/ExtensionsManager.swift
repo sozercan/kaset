@@ -157,7 +157,11 @@ final class ExtensionsManager {
         }
 
         let accessingSource = url.startAccessingSecurityScopedResource()
-        defer { if accessingSource { url.stopAccessingSecurityScopedResource() } }
+        defer {
+            if accessingSource {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
 
         guard let data = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any]

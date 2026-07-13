@@ -1032,13 +1032,25 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         let albumSections = detail.orderedSections.compactMap {
-            if case let .albums(albums) = $0.content { albums } else { nil }
+            if case let .albums(albums) = $0.content {
+                albums
+            } else {
+                nil
+            }
         }
         let playlistSections = detail.orderedSections.compactMap {
-            if case let .playlists(playlists) = $0.content { playlists } else { nil }
+            if case let .playlists(playlists) = $0.content {
+                playlists
+            } else {
+                nil
+            }
         }
         let artistSections = detail.orderedSections.compactMap {
-            if case let .artists(artists) = $0.content { artists } else { nil }
+            if case let .artists(artists) = $0.content {
+                artists
+            } else {
+                nil
+            }
         }
         let artistCount = artistSections.reduce(0) { $0 + $1.count }
         let playlistCount = playlistSections.reduce(0) { $0 + $1.count }
@@ -1512,6 +1524,32 @@ final class YTMusicClient: YTMusicClientProtocol {
         APICache.shared.invalidateMutationCaches()
     }
 
+    /// Removes a song from a playlist.
+    /// - Parameters:
+    ///   - videoId: The video ID to remove
+    ///   - setVideoId: The playlist-item-specific identifier YouTube Music assigns to
+    ///     each track occurrence, required to remove the correct instance (a song can
+    ///     appear more than once in a playlist).
+    ///   - playlistId: The playlist ID to remove from
+    func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws {
+        self.logger.info("Removing song \(videoId) from playlist \(playlistId)")
+
+        let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let body: [String: Any] = [
+            "playlistId": cleanPlaylistId,
+            "actions": [[
+                "action": "ACTION_REMOVE_VIDEO",
+                "removedVideoId": videoId,
+                "setVideoId": setVideoId,
+            ]],
+        ]
+
+        _ = try await self.request("browse/edit_playlist", body: body)
+        self.logger.info("Successfully removed song \(videoId) from playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
+    }
+
     /// Removes a playlist from the user's library using the like/removelike endpoint.
     /// This is equivalent to the "Remove from Library" action in YouTube Music.
     /// - Parameter playlistId: The playlist ID to remove from library
@@ -1735,17 +1773,17 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Builds authentication headers for API requests.
     private func buildAuthHeaders() async throws -> [String: String] {
-        // Log available cookies for debugging auth issues
-        let allCookies = await webKitManager.getAllCookies()
-        let youtubeCookies = await webKitManager.getCookies(for: "youtube.com")
-        self.logger.debug("Building auth headers - total cookies: \(allCookies.count), youtube.com cookies: \(youtubeCookies.count)")
+        // Snapshot cookies once per request; deriving the cookie header and SAPISID from
+        // the same snapshot avoids repeated WebKit cookie-store enumerations during API fanout.
+        let authMaterial = await webKitManager.authMaterial(for: "youtube.com")
+        self.logger.debug("Building auth headers - total cookies: \(authMaterial.totalCookieCount), youtube.com cookies: \(authMaterial.domainCookieCount)")
 
-        guard let cookieHeader = await webKitManager.cookieHeader(for: "youtube.com") else {
+        guard let cookieHeader = authMaterial.cookieHeader else {
             self.logger.error("No cookies found for youtube.com domain")
             throw YTMusicError.notAuthenticated
         }
 
-        guard let sapisid = await webKitManager.getSAPISID() else {
+        guard let sapisid = authMaterial.sapisid else {
             self.logger.error("SAPISID cookie not found or expired")
             throw YTMusicError.authExpired
         }
@@ -1981,6 +2019,7 @@ final class YTMusicAPIKeyResolver {
     private let environment: @Sendable (String) -> String?
     private let webClientURL: URL
     private var cachedAPIKey: String?
+    private var inFlightResolve: Task<String, any Error>?
 
     init(
         session: URLSession = .shared,
@@ -2005,8 +2044,29 @@ final class YTMusicAPIKeyResolver {
             return trimmed
         }
 
+        if let inFlightResolve {
+            return try await inFlightResolve.value
+        }
+
+        let task = Task { [session, webClientURL] in
+            try await Self.fetchAPIKey(session: session, webClientURL: webClientURL)
+        }
+        self.inFlightResolve = task
+
         do {
-            var request = URLRequest(url: self.webClientURL)
+            let apiKey = try await task.value
+            self.cachedAPIKey = apiKey
+            self.inFlightResolve = nil
+            return apiKey
+        } catch {
+            self.inFlightResolve = nil
+            throw error
+        }
+    }
+
+    private static func fetchAPIKey(session: URLSession, webClientURL: URL) async throws -> String {
+        do {
+            var request = URLRequest(url: webClientURL)
             request.setValue(APISessionConfiguration.userAgent, forHTTPHeaderField: "User-Agent")
             // The Innertube API key is public and needs no authentication. Do NOT send the user's
             // cookie jar for this fetch: a stale/partial consent cookie lands the request on the EU
@@ -2015,7 +2075,7 @@ final class YTMusicAPIKeyResolver {
             // bypasses the consent wall and returns the real web client page.
             request.httpShouldHandleCookies = false
             request.setValue("SOCS=CAI", forHTTPHeaderField: "Cookie")
-            let (data, response) = try await self.session.data(for: request)
+            let (data, response) = try await session.data(for: request)
             if let httpResponse = response as? HTTPURLResponse,
                !(200 ... 399).contains(httpResponse.statusCode)
             {
@@ -2031,7 +2091,6 @@ final class YTMusicAPIKeyResolver {
                 throw YTMusicError.parseError(message: "Could not resolve YouTube Music API configuration")
             }
 
-            self.cachedAPIKey = apiKey
             return apiKey
         } catch let error as YTMusicError {
             throw error

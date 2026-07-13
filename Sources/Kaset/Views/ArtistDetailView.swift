@@ -138,7 +138,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func headerView(_ detail: ArtistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -535,7 +535,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func albumCard(_ album: Album) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             // Thumbnail
-            CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -570,7 +570,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func playlistCard(_ playlist: Playlist) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -609,7 +609,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func artistCard(_ artist: Artist) -> some View {
         VStack(alignment: .center, spacing: 8) {
-            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -708,7 +708,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func episodeCard(_ episode: ArtistEpisode) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ZStack(alignment: .topLeading) {
-                CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL) { image in
+                CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 220, height: 124)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -785,7 +785,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         } itemContent: { playlist in
             NavigationLink(value: playlist) {
                 VStack(alignment: .leading, spacing: 8) {
-                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
@@ -831,7 +831,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func podcastCard(_ show: PodcastShow) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -874,7 +874,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func relatedArtistCard(_ artist: Artist) -> some View {
         VStack(alignment: .center, spacing: 8) {
-            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
+            CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 120, height: 120)) { image in
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fill)

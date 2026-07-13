@@ -109,6 +109,11 @@ extension SingletonPlayerWebView {
                     body: body,
                     documentGeneration: messageDocumentGeneration
                 )
+            case "LYRICS_LINE":
+                self.handleLyricsLineUpdate(
+                    body: body,
+                    documentGeneration: messageDocumentGeneration
+                )
             case "PLAYBACK_AUDIO_QUALITY_STATS":
                 Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
             case "STATE_UPDATE":
@@ -201,6 +206,26 @@ extension SingletonPlayerWebView {
                     generation: documentGeneration
                 ) else { return }
                 self.playerService.currentTimeMs = Int(time * 1000)
+            }
+        }
+
+        private func handleLyricsLineUpdate(
+            body: [String: Any],
+            documentGeneration: UInt64
+        ) {
+            guard body["isAd"] as? Bool != true else { return }
+            let lineIndex = body["lineIndex"] as? Int ?? -1
+            let normalizedLineIndex = lineIndex >= 0 ? lineIndex : nil
+            let displayTimeMs = body["timeMs"] as? Int
+
+            Task { @MainActor in
+                guard SingletonPlayerWebView.shared.documentGeneration.accepts(
+                    generation: documentGeneration
+                ), self.playerService.currentLyricsLineIndex != normalizedLineIndex
+                    || self.playerService.currentLyricsDisplayTimeMs != displayTimeMs
+                else { return }
+                self.playerService.currentLyricsLineIndex = normalizedLineIndex
+                self.playerService.currentLyricsDisplayTimeMs = displayTimeMs
             }
         }
 
@@ -452,6 +477,14 @@ extension SingletonPlayerWebView {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            if let cancelledNavigation = SingletonPlayerWebView.shared.consumeCancelledDocumentNavigation(
+                navigation
+            ) {
+                if cancelledNavigation.shouldReportFailure {
+                    SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                }
+                return
+            }
             guard SingletonPlayerWebView.shared.handleDocumentNavigationFinish(
                 navigation,
                 webView: webView

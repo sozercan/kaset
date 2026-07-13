@@ -267,7 +267,9 @@ final class ProcessTapHelper {
             ownedChildPIDs: Self.childPIDs(of: ourPID),
             hostProcessNames: Self.hostProcessNames
         )
-        if !ours.isEmpty { return ours }
+        if !ours.isEmpty {
+            return ours
+        }
         if !candidates.isEmpty {
             Self.logger.warning(
                 "found \(candidates.count) WebKit audio process(es) but none were provably owned by Kaset; skipping tap to avoid hijacking unrelated audio"

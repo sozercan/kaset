@@ -224,6 +224,18 @@ extension SingletonPlayerWebView {
         }
     }
 
+    static var videoModeInjectionScriptForTesting: String {
+        videoContainerScriptInPlace()
+    }
+
+    static var videoModeRemovalScriptForTesting: String {
+        videoModeRemovalScript()
+    }
+
+    static var videoModeRefreshScriptForTesting: String {
+        videoModeRefreshScript()
+    }
+
     // swiftlint:disable function_body_length
     /// Generates the JavaScript to hide UI and show only video in-place.
     private static func videoContainerScriptInPlace() -> String {
@@ -284,40 +296,215 @@ extension SingletonPlayerWebView {
                 }
             `;
 
-            // 2. Identify the video and mark its ancestors
-            const markAncestors = () => {
+            const previousState = window.__kasetVideoModeState;
+            if (previousState && typeof previousState.stop === 'function') {
+                previousState.stop();
+            }
+
+            // 2. Use a bounded warmup plus event-driven enforcement. The first
+            // frames catch YouTube Music's delayed player construction, then the
+            // observers below re-apply only when the player tree/layout changes.
+            const maxWarmupFrames = 30;
+            const state = {
+                active: true,
+                markedElements: [],
+                scheduledFrame: null,
+                warmupFrame: null,
+                warmupFramesRemaining: maxWarmupFrames,
+                treeObserver: null,
+                markedObserver: null,
+                resizeObserver: null,
+                observedResizeElements: [],
+                resizeHandler: null
+            };
+
+            const requestFrame = callback => {
+                if (typeof requestAnimationFrame === 'function') {
+                    return requestAnimationFrame(callback);
+                }
+                return setTimeout(callback, 16);
+            };
+
+            const cancelFrame = frame => {
+                if (frame === null || frame === undefined) return;
+                if (typeof cancelAnimationFrame === 'function') {
+                    cancelAnimationFrame(frame);
+                } else {
+                    clearTimeout(frame);
+                }
+            };
+
+            const sameElements = (lhs, rhs) => {
+                if (lhs.length !== rhs.length) return false;
+                for (let index = 0; index < lhs.length; index += 1) {
+                    if (lhs[index] !== rhs[index]) return false;
+                }
+                return true;
+            };
+
+            const chainHasMarkers = elements => elements.every(el => el.classList.contains('kaset-visible'));
+
+            const reobserveMarkedElements = () => {
+                if (!state.markedObserver) return;
+                state.markedObserver.disconnect();
+                state.markedElements.forEach(el => {
+                    state.markedObserver.observe(el, {
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'hidden']
+                    });
+                });
+            };
+
+            const syncResizeObserver = elements => {
+                if (!state.resizeObserver) return;
+                if (sameElements(state.observedResizeElements, elements)) return;
+
+                state.resizeObserver.disconnect();
+                state.observedResizeElements = elements.slice();
+                elements.forEach(el => {
+                    try {
+                        state.resizeObserver.observe(el);
+                    } catch (_) {}
+                });
+            };
+
+            const videoChain = () => {
                 const video = document.querySelector('video');
-                if (!video) return;
+                if (!video) return [];
 
-                // Clear old marks
-                document.querySelectorAll('.kaset-visible').forEach(el => el.classList.remove('kaset-visible'));
-
-                // Mark current video and all its parents
+                const elements = [];
                 let current = video;
                 while (current && current !== document.documentElement) {
-                    current.classList.add('kaset-visible');
+                    elements.push(current);
                     current = current.parentElement;
+                }
+                return elements;
+            };
+
+            const markVideoChain = () => {
+                const nextElements = videoChain();
+
+                const existingMarkers = Array.from(document.querySelectorAll('.kaset-visible'));
+                const hasOnlyCurrentMarkers = existingMarkers.length === nextElements.length &&
+                    existingMarkers.every(el => nextElements.indexOf(el) !== -1);
+                if (sameElements(state.markedElements, nextElements) && chainHasMarkers(nextElements) && hasOnlyCurrentMarkers) {
+                    syncResizeObserver(nextElements);
+                    return;
+                }
+
+                if (state.markedObserver) {
+                    state.markedObserver.disconnect();
+                }
+
+                existingMarkers.forEach(el => {
+                    if (nextElements.indexOf(el) === -1) {
+                        el.classList.remove('kaset-visible');
+                    }
+                });
+
+                nextElements.forEach(el => {
+                    if (!el.classList.contains('kaset-visible')) {
+                        el.classList.add('kaset-visible');
+                    }
+                });
+
+                state.markedElements = nextElements;
+                reobserveMarkedElements();
+                syncResizeObserver(nextElements);
+            };
+
+            const clearVisibilityMarkers = () => {
+                document.querySelectorAll('.kaset-visible').forEach(el => el.classList.remove('kaset-visible'));
+                state.markedElements = [];
+            };
+
+            const enforceVideoMode = () => {
+                const playerPage = document.querySelector('ytmusic-player-page');
+                if (playerPage && playerPage.videoMode !== true) {
+                    playerPage.videoMode = true;
+                    if (typeof playerPage.onVideoModeChanged === 'function') {
+                        playerPage.onVideoModeChanged();
+                    }
                 }
             };
 
-            // 3. Continuous Enforcement Loop
-            const enforceVisibility = () => {
-                markAncestors();
-                const video = document.querySelector('video');
-                if (video && typeof window.__kasetVideoModeActive === 'boolean' && window.__kasetVideoModeActive) {
-                    // Force Video Mode via Redux/Property if needed
-                    const playerPage = document.querySelector('ytmusic-player-page');
-                    if (playerPage && playerPage.videoMode !== true) {
-                        playerPage.videoMode = true;
-                        if (typeof playerPage.onVideoModeChanged === 'function') playerPage.onVideoModeChanged();
-                    }
-                }
-                if (window.__kasetVideoModeActive) {
-                    requestAnimationFrame(enforceVisibility);
+            const enforce = () => {
+                if (!state.active) return;
+                enforceVideoMode();
+                markVideoChain();
+            };
+
+            const scheduleEnforcement = () => {
+                if (!state.active || state.scheduledFrame !== null) return;
+                state.scheduledFrame = requestFrame(() => {
+                    state.scheduledFrame = null;
+                    enforce();
+                });
+            };
+
+            const runWarmupFrame = () => {
+                state.warmupFrame = null;
+                if (!state.active) return;
+                enforce();
+                state.warmupFramesRemaining -= 1;
+                if (state.warmupFramesRemaining > 0) {
+                    state.warmupFrame = requestFrame(runWarmupFrame);
                 }
             };
+
+            state.restartWarmup = frameCount => {
+                if (!state.active) return;
+                state.warmupFramesRemaining = Math.max(1, frameCount || maxWarmupFrames);
+                if (state.warmupFrame === null) {
+                    state.warmupFrame = requestFrame(runWarmupFrame);
+                }
+            };
+
+            state.enforce = enforce;
+            state.scheduleEnforcement = scheduleEnforcement;
+            state.stop = () => {
+                state.active = false;
+                window.__kasetVideoModeActive = false;
+                cancelFrame(state.scheduledFrame);
+                cancelFrame(state.warmupFrame);
+                state.scheduledFrame = null;
+                state.warmupFrame = null;
+                if (state.treeObserver) state.treeObserver.disconnect();
+                if (state.markedObserver) state.markedObserver.disconnect();
+                if (state.resizeObserver) state.resizeObserver.disconnect();
+                if (state.resizeHandler && window.removeEventListener) {
+                    window.removeEventListener('resize', state.resizeHandler);
+                }
+                clearVisibilityMarkers();
+                state.treeObserver = null;
+                state.markedObserver = null;
+                state.resizeObserver = null;
+                state.observedResizeElements = [];
+            };
+
+            window.__kasetVideoModeState = state;
             window.__kasetVideoModeActive = true;
-            requestAnimationFrame(enforceVisibility);
+
+            if (typeof MutationObserver === 'function') {
+                const root = document.documentElement || document.body;
+                state.treeObserver = new MutationObserver(scheduleEnforcement);
+                if (root) {
+                    state.treeObserver.observe(root, { childList: true, subtree: true });
+                }
+                state.markedObserver = new MutationObserver(scheduleEnforcement);
+            }
+
+            if (typeof ResizeObserver === 'function') {
+                state.resizeObserver = new ResizeObserver(scheduleEnforcement);
+            }
+
+            if (window.addEventListener) {
+                state.resizeHandler = scheduleEnforcement;
+                window.addEventListener('resize', state.resizeHandler, { passive: true });
+            }
+
+            enforce();
+            state.restartWarmup(maxWarmupFrames);
 
             // Remove the extraction container if it exists from previous attempts
             const oldContainer = document.getElementById('kaset-video-container');
@@ -335,24 +522,28 @@ extension SingletonPlayerWebView {
         """
     }
 
-    // swiftlint:enable function_body_length
-
-    /// Removes the video container and restores the video to its original location.
-    func removeVideoModeCSS() {
-        guard let webView else { return }
-
-        let script = """
+    private static func videoModeRemovalScript() -> String {
+        """
             (function() {
                 // Remove blackout overlay
                 const blackout = document.getElementById('kaset-blackout');
                 if (blackout) blackout.remove();
 
+                const state = window.__kasetVideoModeState;
+                if (state && typeof state.stop === 'function') {
+                    state.stop();
+                }
+                delete window.__kasetVideoModeState;
+
                 // Remove the in-place style
                 const style = document.getElementById('kaset-video-mode-style-v2');
                 if (style) style.remove();
 
-                // Stop the enforcement loop
+                // Stop any older loop that predates the state object.
                 window.__kasetVideoModeActive = false;
+
+                // Remove all visibility markers.
+                document.querySelectorAll('.kaset-visible').forEach(el => el.classList.remove('kaset-visible'));
 
                 // Remove video styles manually too
                 const videos = document.querySelectorAll('video');
@@ -369,6 +560,45 @@ extension SingletonPlayerWebView {
                 document.body.style.background = '';
             })();
         """
+    }
+
+    private static func videoModeRefreshScript() -> String {
+        """
+            (function() {
+                const style = document.getElementById('kaset-video-mode-style-v2');
+                if (!style) return { success: false, error: 'no video-mode-style' };
+
+                const state = window.__kasetVideoModeState;
+                if (state && state.active && typeof state.enforce === 'function') {
+                    state.enforce();
+                    if (typeof state.restartWarmup === 'function') {
+                        state.restartWarmup(3);
+                    }
+                    return { success: true, method: 'state' };
+                }
+
+                // Re-apply videoMode property if it drifted. This preserves the
+                // old refresh behavior for pages injected before the state object.
+                const playerPage = document.querySelector('ytmusic-player-page');
+                if (playerPage && typeof playerPage.videoMode !== 'undefined' && playerPage.videoMode !== true) {
+                    playerPage.videoMode = true;
+                    if (typeof playerPage.onVideoModeChanged === 'function') {
+                        playerPage.onVideoModeChanged();
+                    }
+                }
+
+                return { success: true, method: 'fallback' };
+            })();
+        """
+    }
+
+    // swiftlint:enable function_body_length
+
+    /// Removes the video container and restores the video to its original location.
+    func removeVideoModeCSS() {
+        guard let webView else { return }
+
+        let script = Self.videoModeRemovalScript()
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
@@ -385,23 +615,7 @@ extension SingletonPlayerWebView {
         guard width > 0, height > 0 else { return }
 
         // Update the video UI to ensure everything stays hidden and centered
-        let refreshScript = """
-            (function() {
-                const style = document.getElementById('kaset-video-mode-style-v2');
-                if (!style) return { success: false, error: 'no video-mode-style' };
-
-                // Re-apply videoMode property if it drifted
-                const playerPage = document.querySelector('ytmusic-player-page');
-                if (playerPage && typeof playerPage.videoMode !== 'undefined' && playerPage.videoMode !== true) {
-                    playerPage.videoMode = true;
-                    if (typeof playerPage.onVideoModeChanged === 'function') {
-                        playerPage.onVideoModeChanged();
-                    }
-                }
-
-                return { success: true };
-            })();
-        """
+        let refreshScript = Self.videoModeRefreshScript()
         webView.evaluateJavaScript(refreshScript) { result, _ in
             if let dict = result as? [String: Any],
                let success = dict["success"] as? Bool,

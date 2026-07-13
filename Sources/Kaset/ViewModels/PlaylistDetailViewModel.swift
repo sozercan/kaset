@@ -6,15 +6,8 @@ import os
 @MainActor
 @Observable
 final class PlaylistDetailViewModel {
-    private static let fullPlaylistLoadTrackThreshold = 100
-
     private struct LiveSyncTask {
         let id: UUID
-        let task: Task<Void, Never>
-    }
-
-    private struct RemainingTracksTask {
-        let generation: Int
         let task: Task<Void, Never>
     }
 
@@ -24,6 +17,15 @@ final class PlaylistDetailViewModel {
         let currentDetail: PlaylistDetail
         let isLikedMusicPlaylist: Bool
         let requiresAuth: Bool
+    }
+
+    struct PlaylistTrackRemovalSnapshot {
+        let song: Song
+        let index: Int
+        let loadGeneration: Int
+        let detailBeforeRemoval: PlaylistDetail
+        let hadMoreTracks: Bool
+        let continuationToken: String?
     }
 
     /// Current loading state.
@@ -45,9 +47,6 @@ final class PlaylistDetailViewModel {
     private var liveSyncTasks: [String: LiveSyncTask] = [:]
 
     @ObservationIgnored
-    private var remainingTracksTask: RemainingTracksTask?
-
-    @ObservationIgnored
     private var loadGeneration = 0
 
     @ObservationIgnored
@@ -56,6 +55,19 @@ final class PlaylistDetailViewModel {
     private var removedLikedMusicVideoIDs: Set<String> = []
     private var countedRemovedLikedMusicVideoIDs: Set<String> = []
     private var insertedLikedMusicVideoIDs: Set<String> = []
+
+    /// Successful occurrence removals remain tombstoned for this view model's lifetime so
+    /// stale refreshes and continuation responses cannot restore them.
+    @ObservationIgnored
+    private var confirmedRemovedPlaylistSetVideoIDs: Set<String> = []
+
+    @ObservationIgnored
+    private var countedPlaylistRemovalSetVideoIDs: Set<String> = []
+
+    @ObservationIgnored
+    private var pendingRemovedPlaylistSetVideoID: String?
+
+    private(set) var isRemovingTrack = false
 
     private var isLikedMusicPlaylist: Bool {
         LikedMusicPlaylist.matches(id: self.playlist.id)
@@ -66,8 +78,11 @@ final class PlaylistDetailViewModel {
         self.client = client
     }
 
+    var playlistID: String {
+        self.playlist.id
+    }
+
     deinit {
-        self.remainingTracksTask?.task.cancel()
         for liveSyncTask in self.liveSyncTasks.values {
             liveSyncTask.task.cancel()
         }
@@ -101,6 +116,7 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var fullLoadTask: Task<Void, Never>?
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
+    @ObservationIgnored private var trackRemovalWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
     /// callers so a player can await the complete track set before finalizing the queue.
@@ -126,11 +142,12 @@ final class PlaylistDetailViewModel {
             await fullLoadTask.value
             return
         }
+        let generation = self.loadGeneration
         let task = Task { @MainActor in
             var consecutiveStalls = 0
-            while self.hasMore, consecutiveStalls < 8 {
+            while self.isCurrentLoadGeneration(generation), self.hasMore, consecutiveStalls < 8 {
                 let before = self.playlistDetail?.tracks.count ?? 0
-                _ = await self.loadMoreBatch()
+                _ = await self.loadMoreBatch(generation: generation)
                 if (self.playlistDetail?.tracks.count ?? 0) > before {
                     consecutiveStalls = 0
                 } else {
@@ -141,7 +158,9 @@ final class PlaylistDetailViewModel {
         }
         self.fullLoadTask = task
         await task.value
-        self.fullLoadTask = nil
+        if self.isCurrentLoadGeneration(generation) {
+            self.fullLoadTask = nil
+        }
     }
 
     /// Loads the playlist details including tracks.
@@ -150,11 +169,12 @@ final class PlaylistDetailViewModel {
     }
 
     private func load(restartingInFlightLoad: Bool) async {
-        guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore && self.remainingTracksTask == nil) else { return }
+        guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore) else { return }
 
-        self.cancelRemainingTracksTask()
+        self.cancelFullLoadTask()
         self.loadGeneration += 1
         let generation = self.loadGeneration
+        self.countedPlaylistRemovalSetVideoIDs = []
         self.removedLikedMusicVideoIDs = []
         self.countedRemovedLikedMusicVideoIDs = []
         self.insertedLikedMusicVideoIDs = []
@@ -253,6 +273,8 @@ final class PlaylistDetailViewModel {
                 detail = self.normalizeLikedMusicDetail(detail)
             }
 
+            detail = self.filterPlaylistRemovals(from: detail)
+
             self.playlistDetail = detail
             self.continuationToken = self.hasMore ? nextContinuationToken : nil
             self.loadingState = .loaded
@@ -260,7 +282,6 @@ final class PlaylistDetailViewModel {
             let totalTrackCount = detail.trackCount ?? loadedTrackCount
             self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
             self.replaceLoadedTrackVideoIds(with: detail.tracks)
-            self.startRemainingTracksTaskIfNeeded(generation: generation)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return }
 
@@ -277,8 +298,7 @@ final class PlaylistDetailViewModel {
 
     /// Loads more tracks via continuation.
     func loadMore() async {
-        guard self.remainingTracksTask == nil,
-              self.loadingState == .loaded,
+        guard self.loadingState == .loaded,
               self.hasMore,
               self.continuationToken != nil,
               self.playlistDetail != nil
@@ -297,63 +317,6 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func startRemainingTracksTaskIfNeeded(generation: Int) {
-        guard let currentDetail = self.playlistDetail,
-              self.hasMore,
-              self.shouldLoadFullPlaylist(currentDetail)
-        else { return }
-
-        let client = self.client
-        let task = Task { [weak self, client] in
-            while !Task.isCancelled {
-                guard let batch = self?.nextRemainingTracksBatch(generation: generation) else { break }
-
-                do {
-                    let response = try await client.getPlaylistContinuation(
-                        token: batch.continuation,
-                        requiresAuth: batch.requiresAuth
-                    )
-                    guard self?.applyRemainingTracksResponse(response, batch: batch) == true else { break }
-                } catch is CancellationError {
-                    self?.restoreLoadedStateIfCurrent(generation: generation)
-                    break
-                } catch {
-                    self?.handleRemainingTracksError(error, generation: generation)
-                    break
-                }
-            }
-
-            self?.finishRemainingTracksTask(generation: generation)
-        }
-        self.remainingTracksTask = RemainingTracksTask(generation: generation, task: task)
-    }
-
-    private func nextRemainingTracksBatch(generation: Int) -> ContinuationDrainBatch? {
-        guard let currentDetail = self.playlistDetail,
-              self.hasMore,
-              self.shouldLoadFullPlaylist(currentDetail),
-              let continuationToken,
-              generation == self.loadGeneration,
-              !Task.isCancelled
-        else { return nil }
-
-        if self.loadingState == .loaded {
-            self.loadingState = .loadingMore
-        }
-
-        let initialTrackCount = currentDetail.tracks.count
-        let totalTrackCount = currentDetail.trackCount ?? self.playlist.trackCount ?? initialTrackCount
-        self.logger.info("Loading full playlist: \(initialTrackCount) loaded tracks, total: \(totalTrackCount)")
-
-        return ContinuationDrainBatch(
-            generation: generation,
-            continuation: continuationToken,
-            currentDetail: currentDetail,
-            isLikedMusicPlaylist: self.isLikedMusicPlaylist,
-            requiresAuth: currentDetail.requiresPersonalAccountForContinuations
-        )
-    }
-
     private func applyRemainingTracksResponse(_ response: PlaylistContinuationResponse, batch: ContinuationDrainBatch) -> Bool {
         guard batch.generation == self.loadGeneration,
               !Task.isCancelled,
@@ -368,9 +331,21 @@ final class PlaylistDetailViewModel {
                 return song.videoId
             }
             : []
+        let skippedConfirmedPlaylistRemovalCount = response.tracks.reduce(into: 0) { count, track in
+            guard let setVideoId = track.playlistSetVideoId,
+                  self.isPlaylistRemovalTombstoned(setVideoId: setVideoId),
+                  self.countedPlaylistRemovalSetVideoIDs.insert(setVideoId).inserted
+            else { return }
+            count += 1
+        }
+        let skippedRemovalCount = skippedRemovedVideoIDs.count + skippedConfirmedPlaylistRemovalCount
+        let playlistFilteredTracks = response.tracks.filter { track in
+            guard let setVideoId = track.playlistSetVideoId else { return true }
+            return !self.isPlaylistRemovalTombstoned(setVideoId: setVideoId)
+        }
         let candidateTracks = batch.isLikedMusicPlaylist
-            ? response.tracks.filter { !self.removedLikedMusicVideoIDs.contains($0.videoId) }
-            : response.tracks
+            ? playlistFilteredTracks.filter { !self.removedLikedMusicVideoIDs.contains($0.videoId) }
+            : playlistFilteredTracks
         let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
         let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
         let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
@@ -389,7 +364,7 @@ final class PlaylistDetailViewModel {
                 return false
             }
 
-            self.applySkippedLikedMusicRemovalCount(skippedRemovedVideoIDs.count, to: latestDetail)
+            self.applySkippedRemovalCount(skippedRemovalCount, to: latestDetail)
             self.continuationToken = response.continuationToken
             self.hasMore = response.hasMore
             self.loadingState = .loaded
@@ -406,7 +381,7 @@ final class PlaylistDetailViewModel {
         var allTracks = latestDetail.tracks
         allTracks.reserveCapacity(latestDetail.tracks.count + normalizedNewTracks.count)
         allTracks.append(contentsOf: normalizedNewTracks)
-        let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovedVideoIDs.count)
+        let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovalCount)
         let preservedTrackCount = max(allTracks.count, adjustedTrackCount ?? 0)
         let updatedPlaylist = Playlist(
             id: latestDetail.id,
@@ -440,7 +415,7 @@ final class PlaylistDetailViewModel {
         return max(0, trackCount - skippedRemovalCount)
     }
 
-    private func applySkippedLikedMusicRemovalCount(_ skippedRemovalCount: Int, to detail: PlaylistDetail) {
+    private func applySkippedRemovalCount(_ skippedRemovalCount: Int, to detail: PlaylistDetail) {
         guard let adjustedTrackCount = self.adjustedTrackCount(detail.trackCount, skippedRemovalCount: skippedRemovalCount),
               adjustedTrackCount != detail.trackCount
         else { return }
@@ -450,36 +425,6 @@ final class PlaylistDetailViewModel {
             tracks: detail.tracks,
             trackCount: max(detail.tracks.count, adjustedTrackCount)
         )
-    }
-
-    private func restoreLoadedStateIfCurrent(generation: Int) {
-        guard generation == self.loadGeneration else { return }
-        self.logger.debug("Playlist continuation cancelled")
-        self.loadingState = .loaded
-    }
-
-    private func handleRemainingTracksError(_ error: any Error, generation: Int) {
-        guard generation == self.loadGeneration else { return }
-        self.logger.error("Failed to load more playlist tracks: \(error.localizedDescription)")
-        self.loadingState = .loaded
-    }
-
-    private func finishRemainingTracksTask(generation: Int) {
-        if self.remainingTracksTask?.generation == generation {
-            self.remainingTracksTask = nil
-        }
-    }
-
-    private func shouldLoadFullPlaylist(_ detail: PlaylistDetail) -> Bool {
-        guard !detail.isAlbum else { return false }
-        if self.isLikedMusicPlaylist { return true }
-
-        let reportedTrackCount = max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
-        if reportedTrackCount > Self.fullPlaylistLoadTrackThreshold {
-            return true
-        }
-
-        return detail.tracks.count >= Self.fullPlaylistLoadTrackThreshold
     }
 
     /// Single-flight wrapper around one continuation fetch. Concurrent callers — the initial
@@ -562,25 +507,104 @@ final class PlaylistDetailViewModel {
                 self.countedRemovedLikedMusicVideoIDs.insert(event.videoId)
             }
             self.insertedLikedMusicVideoIDs.remove(event.videoId)
-            SongLikeStatusManager.shared.setStatus(event.status, for: event.videoId)
+            SongLikeStatusManager.shared.setCachedStatus(event.status, for: event.videoId)
             self.cancelLiveSyncTask(for: event.videoId)
             self.removeLiveSyncedLikedSong(videoId: event.videoId)
         }
     }
 
     /// Refreshes the playlist.
-    func refresh() async {
+    @discardableResult
+    func refresh() async -> Bool {
+        guard !self.isRemovingTrack else { return false }
+        return await self.performRefresh()
+    }
+
+    private func performRefresh() async -> Bool {
         self.cancelAllLiveSyncTasks()
-        self.cancelRemainingTracksTask()
         self.replacePlaylistDetail(nil)
         self.hasMore = false
         self.continuationToken = nil
         await self.load(restartingInFlightLoad: true)
+        return self.loadingState == .loaded && self.playlistDetail != nil
     }
 
-    private func cancelRemainingTracksTask() {
-        self.remainingTracksTask?.task.cancel()
-        self.remainingTracksTask = nil
+    func beginOptimisticTrackRemoval(setVideoId: String) -> PlaylistTrackRemovalSnapshot? {
+        guard !self.isRemovingTrack,
+              !self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId),
+              let detail = self.playlistDetail,
+              let index = detail.tracks.firstIndex(where: { $0.playlistSetVideoId == setVideoId })
+        else { return nil }
+
+        self.isRemovingTrack = true
+        self.pendingRemovedPlaylistSetVideoID = setVideoId
+        self.countedPlaylistRemovalSetVideoIDs.insert(setVideoId)
+
+        var tracks = detail.tracks
+        let removedSong = tracks.remove(at: index)
+        self.replacePlaylistDetail(self.updatedPlaylistDetail(
+            from: detail,
+            tracks: tracks,
+            trackCount: detail.trackCount.map { max(0, $0 - 1) }
+        ))
+
+        return PlaylistTrackRemovalSnapshot(
+            song: removedSong,
+            index: index,
+            loadGeneration: self.loadGeneration,
+            detailBeforeRemoval: detail,
+            hadMoreTracks: self.hasMore,
+            continuationToken: self.continuationToken
+        )
+    }
+
+    func confirmTrackRemoval(_ removal: PlaylistTrackRemovalSnapshot) {
+        guard let setVideoId = removal.song.playlistSetVideoId,
+              self.pendingRemovedPlaylistSetVideoID == setVideoId
+        else { return }
+
+        self.confirmedRemovedPlaylistSetVideoIDs.insert(setVideoId)
+        self.finishTrackRemoval()
+    }
+
+    func rollbackTrackRemoval(_ removal: PlaylistTrackRemovalSnapshot) async {
+        guard let setVideoId = removal.song.playlistSetVideoId,
+              self.pendingRemovedPlaylistSetVideoID == setVideoId
+        else { return }
+
+        self.countedPlaylistRemovalSetVideoIDs.remove(setVideoId)
+        self.pendingRemovedPlaylistSetVideoID = nil
+        defer { self.finishTrackRemoval() }
+
+        if removal.loadGeneration == self.loadGeneration, let detail = self.playlistDetail {
+            guard !detail.tracks.contains(where: { $0.playlistSetVideoId == setVideoId }) else { return }
+            var tracks = detail.tracks
+            tracks.insert(removal.song, at: min(removal.index, tracks.count))
+            self.replacePlaylistDetail(self.updatedPlaylistDetail(
+                from: detail,
+                tracks: tracks,
+                trackCount: detail.trackCount.map { $0 + 1 }
+            ))
+            return
+        }
+
+        let restoredDetail = self.filterPlaylistRemovals(from: removal.detailBeforeRemoval)
+        self.replacePlaylistDetail(restoredDetail)
+        self.hasMore = removal.hadMoreTracks
+        self.continuationToken = removal.continuationToken
+        self.loadingState = .loaded
+    }
+
+    func waitForTrackRemovalToFinish() async {
+        guard self.isRemovingTrack else { return }
+        await withCheckedContinuation { continuation in
+            self.trackRemovalWaiters.append(continuation)
+        }
+    }
+
+    private func cancelFullLoadTask() {
+        self.fullLoadTask?.cancel()
+        self.fullLoadTask = nil
     }
 
     private func isCurrentLoadGeneration(_ generation: Int?) -> Bool {
@@ -598,6 +622,39 @@ final class PlaylistDetailViewModel {
             tracks: likedTracks,
             trackCount: resolvedTrackCount
         )
+    }
+
+    private func filterPlaylistRemovals(from detail: PlaylistDetail) -> PlaylistDetail {
+        var countedSetVideoIDs: Set<String> = []
+        let filteredTracks = detail.tracks.filter { track in
+            guard let setVideoId = track.playlistSetVideoId,
+                  self.isPlaylistRemovalTombstoned(setVideoId: setVideoId)
+            else { return true }
+            countedSetVideoIDs.insert(setVideoId)
+            return false
+        }
+        let removedTrackCount = detail.tracks.count - filteredTracks.count
+        self.countedPlaylistRemovalSetVideoIDs.formUnion(countedSetVideoIDs)
+        guard removedTrackCount > 0 else { return detail }
+
+        return self.updatedPlaylistDetail(
+            from: detail,
+            tracks: filteredTracks,
+            trackCount: detail.trackCount.map { max(filteredTracks.count, $0 - removedTrackCount) }
+        )
+    }
+
+    private func isPlaylistRemovalTombstoned(setVideoId: String) -> Bool {
+        self.confirmedRemovedPlaylistSetVideoIDs.contains(setVideoId)
+            || self.pendingRemovedPlaylistSetVideoID == setVideoId
+    }
+
+    private func finishTrackRemoval() {
+        self.pendingRemovedPlaylistSetVideoID = nil
+        self.isRemovingTrack = false
+        let waiters = self.trackRemovalWaiters
+        self.trackRemovalWaiters.removeAll()
+        waiters.forEach { $0.resume() }
     }
 
     private func markSongsAsLiked(_ tracks: [Song], deduplicating: Bool = false) -> [Song] {
@@ -670,7 +727,7 @@ final class PlaylistDetailViewModel {
             trackCount: updatedTrackCount
         )
         self.loadedTrackVideoIds.insert(song.videoId)
-        SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        SongLikeStatusManager.shared.setCachedStatus(.like, for: song.videoId)
         self.logger.info("Live sync: added song \(song.videoId) to liked music")
     }
 
