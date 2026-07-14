@@ -429,6 +429,12 @@ struct WebPlaybackDocumentGenerationTests {
 
         #expect(documentGeneration.ownsBlankNavigation(ownedBlank))
         #expect(documentGeneration.ownsBlankNavigation(ownedData))
+        #expect(try documentGeneration.ownsBlankNavigation(#require(URL(
+            string: "about:blank%23kasetBlankGeneration=\(blankGeneration)"
+        ))))
+        #expect(try documentGeneration.ownsBlankNavigation(#require(URL(
+            string: "data:text/html,%3Chtml%3E%3C/html%3E%23kasetBlankGeneration=\(blankGeneration)"
+        ))))
         #expect(!documentGeneration.ownsBlankNavigation(unownedBlank))
 
         let ownedResponse = URLResponse(

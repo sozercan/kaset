@@ -430,8 +430,13 @@ struct WebPlaybackDocumentGeneration: Equatable {
         guard let components = url.flatMap({
             URLComponents(url: $0, resolvingAgainstBaseURL: false)
         }) else { return true }
-        return (components.scheme?.lowercased() == "about" && components.path == "blank")
-            || components.scheme?.lowercased() == "data"
+        if components.scheme?.lowercased() == "data" {
+            return true
+        }
+        guard components.scheme?.lowercased() == "about",
+              let decodedURL = url?.absoluteString.removingPercentEncoding?.lowercased()
+        else { return false }
+        return decodedURL == "about:blank" || decodedURL.hasPrefix("about:blank#")
     }
 
     static func blankURL(generation: UInt64) -> URL? {
@@ -459,13 +464,23 @@ struct WebPlaybackDocumentGeneration: Equatable {
 
     static func blankGeneration(from url: URL?) -> UInt64? {
         guard self.isInternalBlankNavigation(url),
-              let fragment = url.flatMap({
-                  URLComponents(url: $0, resolvingAgainstBaseURL: false)
-              })?.fragment,
+              let fragment = self.internalBlankFragment(from: url),
               let rawGeneration = URLComponents(string: "?\(fragment)")?.queryItems?
               .first(where: { $0.name == Self.blankURLFragmentKey })?.value
         else { return nil }
         return UInt64(rawGeneration)
+    }
+
+    private static func internalBlankFragment(from url: URL?) -> String? {
+        if let fragment = url.flatMap({
+            URLComponents(url: $0, resolvingAgainstBaseURL: false)
+        })?.fragment {
+            return fragment
+        }
+        guard let decodedURL = url?.absoluteString.removingPercentEncoding,
+              let fragmentStart = decodedURL.firstIndex(of: "#")
+        else { return nil }
+        return String(decodedURL[decodedURL.index(after: fragmentStart)...])
     }
 
     static func acceptsMainFrameResponse(_ url: URL?, expectedHost: String) -> Bool {

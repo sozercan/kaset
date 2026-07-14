@@ -242,6 +242,13 @@ struct PlayerServiceSmartShuffleTests {
         await releaseMetadata.open()
         await playTask.value
 
+        let deadline = ContinuousClock.now + .seconds(5)
+        while !self.playerService.queueEntries.contains(where: { $0.source == .suggested }),
+              ContinuousClock.now < deadline
+        {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
         #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
