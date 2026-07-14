@@ -21,11 +21,11 @@ struct LikeStatusEvent: Equatable {
 @MainActor
 @Observable
 final class SongLikeStatusManager {
-    private struct ConfirmedRatingStatus: Sendable {
+    private struct ConfirmedRatingStatus {
         let value: LikeStatus?
     }
 
-    private struct RatingMutationRequest: Sendable {
+    private struct RatingMutationRequest {
         let videoId: String
         let status: LikeStatus
         let accountID: String

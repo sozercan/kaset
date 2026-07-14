@@ -3,7 +3,7 @@ import Foundation
 
 // MARK: - WebPlaybackTrackedNavigation
 
-struct WebPlaybackTrackedNavigation: Equatable, Sendable {
+struct WebPlaybackTrackedNavigation: Equatable {
     let generation: UInt64
     var pendingSeek: Double?
     var didCommit = false
@@ -17,7 +17,7 @@ struct WebPlaybackTrackedNavigation: Equatable, Sendable {
 
 // MARK: - WebPlaybackCancelledNavigation
 
-struct WebPlaybackCancelledNavigation: Sendable {
+struct WebPlaybackCancelledNavigation {
     let generation: UInt64
     let shouldReportFailure: Bool
 }
@@ -46,7 +46,7 @@ enum WebPlaybackNavigationFailure {
 /// document. The new generation becomes current only after WebKit commits that
 /// document. Cancelling or failing before commit restores the last committed
 /// document. Teardown invalidates every previously issued generation.
-struct WebPlaybackDocumentGeneration: Equatable, Sendable {
+struct WebPlaybackDocumentGeneration: Equatable {
     static let urlQueryKey = "kasetDocumentGeneration"
     static let blankURLFragmentKey = "kasetBlankGeneration"
     private static let trustedRedirectHosts: Set<String> = [
@@ -81,7 +81,7 @@ struct WebPlaybackDocumentGeneration: Equatable, Sendable {
     private var startedGenerations: Set<UInt64> = []
     private var validatedPlaybackResponse: ValidatedPlaybackResponse?
 
-    private struct ValidatedPlaybackResponse: Equatable, Sendable {
+    private struct ValidatedPlaybackResponse: Equatable {
         let generation: UInt64
         let videoID: String
     }

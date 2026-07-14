@@ -7,13 +7,13 @@ import Foundation
 /// Web document/media generations reject stale bridge traffic. This token is the
 /// complementary native fence: async API work and scheduled corrective actions
 /// may mutate playback only while the user intent that created them is current.
-struct MusicPlaybackIntent: Equatable, Sendable {
+struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
 
 // MARK: - MusicRemoteTransportCommand
 
-enum MusicRemoteTransportCommand: Equatable, Sendable {
+enum MusicRemoteTransportCommand: Equatable {
     case play
     case pause
     case togglePlayPause
@@ -27,7 +27,7 @@ enum MusicRemoteTransportCommand: Equatable, Sendable {
 
 /// A non-mutating snapshot reserved before parsing or API resolution. It can be
 /// claimed exactly while no newer native playback intent has been created.
-struct MusicPlaybackReservation: Equatable, Sendable {
+struct MusicPlaybackReservation: Equatable {
     let playbackGeneration: UInt64
     let reservationGeneration: UInt64
     let queueMutationGeneration: Int
@@ -37,7 +37,7 @@ struct MusicPlaybackReservation: Equatable, Sendable {
 
 // MARK: - MusicQueueMetadataOwner
 
-enum MusicQueueMetadataOwner: Equatable, Sendable {
+enum MusicQueueMetadataOwner: Equatable {
     case active
     case none
     case entry(UUID)
@@ -45,21 +45,21 @@ enum MusicQueueMetadataOwner: Equatable, Sendable {
 
 // MARK: - MusicAccountMutationOwner
 
-struct MusicAccountMutationOwner: Equatable, Sendable {
+struct MusicAccountMutationOwner: Equatable {
     let accountID: String
     let sessionGeneration: UInt64
 }
 
 // MARK: - MusicLibraryConfirmedState
 
-struct MusicLibraryConfirmedState: Equatable, Sendable {
+struct MusicLibraryConfirmedState: Equatable {
     let isInLibrary: Bool
     let feedbackTokens: FeedbackTokens?
 }
 
 // MARK: - MusicPlaybackRestoreClock
 
-struct MusicPlaybackRestoreClock: Equatable, Sendable {
+struct MusicPlaybackRestoreClock: Equatable {
     let progress: TimeInterval
     let duration: TimeInterval
 }

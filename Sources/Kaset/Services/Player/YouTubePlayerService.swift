@@ -5,7 +5,7 @@ import Observation
 
 // MARK: - YouTubePlaybackOccurrence
 
-struct YouTubePlaybackOccurrence: Hashable, Sendable {
+struct YouTubePlaybackOccurrence: Hashable {
     let documentGeneration: UInt64
     let mediaGeneration: UInt64
 }

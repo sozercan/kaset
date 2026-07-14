@@ -6,14 +6,14 @@ import os
 
 // MARK: - RemoteMusicCommandDirection
 
-enum RemoteMusicCommandDirection: Equatable, Sendable {
+enum RemoteMusicCommandDirection: Equatable {
     case forward
     case backward
 }
 
 // MARK: - RemoteMusicCommandPayload
 
-enum RemoteMusicCommandPayload: Equatable, Sendable {
+enum RemoteMusicCommandPayload: Equatable {
     case play
     case pause
     case togglePlayPause
@@ -24,7 +24,7 @@ enum RemoteMusicCommandPayload: Equatable, Sendable {
 
 // MARK: - CapturedRemoteMusicCommand
 
-struct CapturedRemoteMusicCommand: Equatable, Sendable {
+struct CapturedRemoteMusicCommand: Equatable {
     let sequence: UInt64
     let issuedAtMilliseconds: Double
     let admittedAt: ContinuousClock.Instant

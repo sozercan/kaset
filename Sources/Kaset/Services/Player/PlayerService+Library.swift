@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - LibraryMutationRequest
 
-private struct LibraryMutationRequest: Sendable {
+private struct LibraryMutationRequest {
     let token: String
     let videoId: String
     let accountID: String
