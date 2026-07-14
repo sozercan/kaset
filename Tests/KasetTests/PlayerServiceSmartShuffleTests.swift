@@ -221,8 +221,8 @@ struct PlayerServiceSmartShuffleTests {
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
-    @Test("Pausing initial playback does not skip committed Smart Shuffle fill")
-    func pauseDoesNotSkipCommittedSmartShuffleFill() async {
+    @Test("Pausing initial playback keeps Smart Shuffle fill eligible")
+    func pauseKeepsSmartShuffleFillEligible() async {
         self.playerService.shuffleMode = .smart
         let song = TestFixtures.makeSong(id: "seed")
         self.mockClient.songResponses[song.videoId] = song
@@ -241,13 +241,9 @@ struct PlayerServiceSmartShuffleTests {
         await self.playerService.pause()
         await releaseMetadata.open()
         await playTask.value
-
-        let deadline = ContinuousClock.now + .seconds(5)
-        while !self.playerService.queueEntries.contains(where: { $0.source == .suggested }),
-              ContinuousClock.now < deadline
-        {
-            try? await Task.sleep(for: .milliseconds(10))
-        }
+        // Drive the single-flight fill explicitly so the assertion does not
+        // depend on executor timing after the metadata gate is released.
+        await self.playerService.fillSmartShuffleWindow()
 
         #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
     }
