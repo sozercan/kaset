@@ -171,6 +171,13 @@ final class NowPlayingManager {
         self.playbackArbiter?.routesMediaKeysToVideo == true
     }
 
+    nonisolated static func routesAbsoluteSeekToVideo(
+        routesToYouTubeVideo: Bool,
+        hasYouTubePlayer: Bool
+    ) -> Bool {
+        routesToYouTubeVideo && hasYouTubePlayer
+    }
+
     private func observeSettingsChanges() {
         withObservationTracking {
             _ = self.settings.mediaControlStyle
@@ -342,11 +349,18 @@ final class NowPlayingManager {
             )
         case let .absoluteSeek(position):
             guard position.isFinite else { return }
-            self.enqueueMusicRemoteCommand(
-                .absoluteSeek(position: position),
-                capturedCommand: capturedCommand,
-                player: player
-            )
+            if Self.routesAbsoluteSeekToVideo(
+                routesToYouTubeVideo: self.routesToYouTubeVideo,
+                hasYouTubePlayer: self.youtubePlayerService != nil
+            ), let youtube = self.youtubePlayerService {
+                youtube.seek(to: position)
+            } else {
+                self.enqueueMusicRemoteCommand(
+                    .absoluteSeek(position: position),
+                    capturedCommand: capturedCommand,
+                    player: player
+                )
+            }
         }
     }
 

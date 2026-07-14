@@ -635,7 +635,8 @@ private extension SingletonPlayerWebView.Coordinator {
                 self.playerService.updatePlaybackState(
                     isPlaying: isPlaying,
                     progress: Double(progress),
-                    duration: Double(duration)
+                    duration: Double(duration),
+                    observedVideoId: observedVideoId
                 )
             } else if hasReadyMedia, isAd {
                 self.playerService.updatePlaybackTransportState(isPlaying: isPlaying)

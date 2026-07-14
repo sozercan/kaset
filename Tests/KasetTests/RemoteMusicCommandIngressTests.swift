@@ -84,6 +84,22 @@ struct RemoteMusicCommandIngressTests {
         #expect(!ingress.finishDrainBatch())
     }
 
+    @Test("Absolute seek routes to video only while video owns media keys")
+    func absoluteSeekRouting() {
+        #expect(NowPlayingManager.routesAbsoluteSeekToVideo(
+            routesToYouTubeVideo: true,
+            hasYouTubePlayer: true
+        ))
+        #expect(!NowPlayingManager.routesAbsoluteSeekToVideo(
+            routesToYouTubeVideo: false,
+            hasYouTubePlayer: true
+        ))
+        #expect(!NowPlayingManager.routesAbsoluteSeekToVideo(
+            routesToYouTubeVideo: true,
+            hasYouTubePlayer: false
+        ))
+    }
+
     private func makeSong(id: String) -> Song {
         Song(
             id: id,

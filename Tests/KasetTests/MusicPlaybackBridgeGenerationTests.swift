@@ -677,6 +677,19 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(source.contains("window.__kasetAutoplayRetryScheduled = false;"))
     }
 
+    @Test("Authoritative bridge clocks retain the observed video identity")
+    func authoritativeBridgeClockUsesObservedVideoIdentity() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+
+        #expect(source.contains("duration: Double(duration),\n                    observedVideoId: observedVideoId"))
+    }
+
     private func objectPayloads(in script: String, marker: String, terminator: String) -> [String] {
         script.components(separatedBy: marker).dropFirst().compactMap { suffix in
             suffix.components(separatedBy: terminator).first

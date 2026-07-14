@@ -39,6 +39,14 @@ struct MusicPlaybackOccurrenceRegressionTests {
         let nativeOccurrence = playerService.beginNativeMusicPlaybackOccurrence(videoId: "v1")
         #expect(playerService.claimTerminalMusicPlaybackOccurrence(nativeOccurrence))
 
+        let prospectiveWebOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence.nativeGeneration,
+            videoId: "v2"
+        )
+        #expect(playerService.acceptsWebMusicPlaybackOccurrence(prospectiveWebOccurrence))
+
         let webOccurrence = try #require(playerService.bindWebMusicPlaybackOccurrence(
             documentGeneration: 7,
             mediaGeneration: 1,

@@ -811,7 +811,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 guard occurrence.nativeGeneration >= currentMusicPlaybackOccurrence.nativeGeneration else {
                     return false
                 }
+                let hasConfirmedVideoMismatch = if let nativeVideoId = currentMusicPlaybackOccurrence.videoId,
+                                                   let webVideoId = occurrence.videoId
+                {
+                    nativeVideoId != webVideoId
+                } else {
+                    false
+                }
                 if occurrence.nativeGeneration == currentMusicPlaybackOccurrence.nativeGeneration,
+                   !hasConfirmedVideoMismatch,
                    currentMusicPlaybackOccurrence.mediaGeneration
                    <= self.lastClaimedNativeMusicPlaybackGeneration
                 {
