@@ -582,11 +582,7 @@ extension PlayerServiceQueueTests {
         #expect(self.playerService.acceptsQueueMutation(restoreQueueGeneration))
         await releaseMetadata.open()
         await undoTask.value
-        for _ in 0 ..< 100 where !self.mockClient.getRadioQueueCalled {
-            await Task.yield()
-        }
-        let fillTask = self.playerService.smartShuffleFillTask
-        await fillTask?.value
+        await self.playerService.fillSmartShuffleWindow()
 
         #expect(self.playerService.shuffleMode == .smart)
         #expect(self.playerService.state == .paused)
