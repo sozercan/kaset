@@ -7,9 +7,15 @@ import SwiftUI
 @MainActor
 @Observable
 final class TextInputFocusState {
-    private(set) var isEditing = false
+    private(set) var isFocused = false
 
-    init() {
+    private var observers: [NSObjectProtocol] = []
+    private var isMonitoring = false
+
+    func startMonitoring() {
+        guard !self.isMonitoring else { return }
+        self.isMonitoring = true
+
         let names = [
             NSControl.textDidBeginEditingNotification,
             NSControl.textDidEndEditingNotification,
@@ -18,24 +24,27 @@ final class TextInputFocusState {
         ]
 
         for name in names {
-            NotificationCenter.default.addObserver(
+            let observer = NotificationCenter.default.addObserver(
                 forName: name,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                self?.syncFromFirstResponder()
+                Task { @MainActor in
+                    self?.updateFromFirstResponder()
+                }
             }
+            self.observers.append(observer)
         }
 
-        self.syncFromFirstResponder()
+        self.updateFromFirstResponder()
     }
 
-    private func syncFromFirstResponder() {
-        guard let firstResponder = NSApp.keyWindow?.firstResponder else {
-            self.isEditing = false
+    private func updateFromFirstResponder() {
+        guard let firstResponder = NSApplication.shared.keyWindow?.firstResponder else {
+            self.isFocused = false
             return
         }
 
-        self.isEditing = firstResponder is NSTextView || firstResponder is NSTextField
+        self.isFocused = firstResponder is NSTextView || firstResponder is NSTextField
     }
 }

@@ -194,6 +194,7 @@ struct KasetApp: App {
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
+                    self.textInputFocusState.startMonitoring()
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
@@ -301,7 +302,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.space, modifiers: [])
-                .disabled(self.suppressesPlaybackKeyboardShortcuts)
+                .disabled(self.shouldDisablePlaybackShortcuts)
 
                 Divider()
 
@@ -318,7 +319,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(self.suppressesTrackNavigationShortcuts)
+                .disabled(self.shouldDisableTrackNavigationShortcuts)
 
                 // Previous Track - ⌘←
                 Button("Previous") {
@@ -331,7 +332,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(self.suppressesTrackNavigationShortcuts)
+                .disabled(self.shouldDisableTrackNavigationShortcuts)
 
                 Divider()
 
@@ -342,7 +343,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.upArrow, modifiers: .command)
-                .disabled(self.isEditingText)
+                .disabled(self.textInputFocusState.isFocused)
 
                 // Volume Down - ⌘↓
                 Button("Volume Down") {
@@ -351,7 +352,7 @@ struct KasetApp: App {
                     }
                 }
                 .keyboardShortcut(.downArrow, modifiers: .command)
-                .disabled(self.isEditingText)
+                .disabled(self.textInputFocusState.isFocused)
 
                 // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
@@ -601,12 +602,8 @@ struct KasetApp: App {
         }
     }
 
-    private var isEditingText: Bool {
-        self.textInputFocusState.isEditing
-    }
-
-    private var suppressesPlaybackKeyboardShortcuts: Bool {
-        self.isEditingText
+    private var shouldDisablePlaybackShortcuts: Bool {
+        self.textInputFocusState.isFocused
             || (
                 !self.playbackArbiter.routesMediaKeysToVideo
                     && self.playerService.currentTrack == nil
@@ -614,8 +611,8 @@ struct KasetApp: App {
             )
     }
 
-    private var suppressesTrackNavigationShortcuts: Bool {
-        self.isEditingText
+    private var shouldDisableTrackNavigationShortcuts: Bool {
+        self.textInputFocusState.isFocused
             || (!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
     }
 
