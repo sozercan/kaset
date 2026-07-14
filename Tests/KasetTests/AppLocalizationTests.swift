@@ -52,18 +52,14 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
     }
 
-    @Test("Turkish bundle localizes artist strings")
-    func turkishLocalizationWorks() {
-        let artist = self.localizedValue(key: "Artist", localeIdentifier: "tr")
-        #expect(artist == "Sanatçı")
-    }
+    @Test("Indonesian bundle localizes artist and subscribe strings")
+    func indonesianLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "id")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "id")
+        let title = String(format: localizedText, locale: Locale(identifier: "id"), "34.6M")
 
-    @Test("Turkish bundle localizes formatted subscribe strings")
-    func turkishFormattedLocalizationWorks() {
-        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "tr")
-        let title = String(format: localizedText, locale: Locale(identifier: "tr"), "34.6M")
-
-        #expect(title.hasPrefix("Abone Ol"))
+        #expect(artist == "Artis")
+        #expect(title.hasPrefix("Berlangganan"))
         #expect(title.contains("34.6M"))
     }
 
@@ -78,14 +74,18 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
     }
 
-    @Test("Indonesian bundle localizes artist and subscribe strings")
-    func indonesianLocalizationWorks() {
-        let artist = self.localizedValue(key: "Artist", localeIdentifier: "id")
-        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "id")
-        let title = String(format: localizedText, locale: Locale(identifier: "id"), "34.6M")
+    @Test("Turkish bundle localizes artist strings")
+    func turkishLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "tr")
+        #expect(artist == "Sanatçı")
+    }
 
-        #expect(artist == "Artis")
-        #expect(title.hasPrefix("Berlangganan"))
+    @Test("Turkish bundle localizes formatted subscribe strings")
+    func turkishFormattedLocalizationWorks() {
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "tr")
+        let title = String(format: localizedText, locale: Locale(identifier: "tr"), "34.6M")
+
+        #expect(title.hasPrefix("Abone Ol"))
         #expect(title.contains("34.6M"))
     }
 
@@ -136,8 +136,8 @@ struct AppLocalizationTests {
     func renamedSignedInStatusResolvesInLprojBundles() {
         let expected = [
             ("fr", "Connecté à YouTube"),
-            ("ko", "YouTube에 로그인됨"),
             ("id", "Sudah masuk ke YouTube"),
+            ("ko", "YouTube에 로그인됨"),
         ]
         for (locale, value) in expected {
             #expect(self.localizedValue(key: "Signed in to YouTube", localeIdentifier: locale) == value)
@@ -148,15 +148,46 @@ struct AppLocalizationTests {
     func smartShuffleRuntimeStringsResolveFromLprojBundles() {
         let expectedValues = [
             ("ar", "الخلط الذكي"),
-            ("tr", "Akıllı Karıştırma"),
-            ("ko", "스마트 셔플"),
-            ("id", "Acak Cerdas"),
+            ("de", "Intelligentes Mischen"),
+            ("es", "Aleatorio inteligente"),
             ("fr", "Lecture aléatoire intelligente"),
+            ("id", "Acak Cerdas"),
+            ("it", "Shuffle intelligente"),
+            ("ko", "스마트 셔플"),
+            ("nl", "Slimme shuffle"),
+            ("pl", "Inteligentne losowanie"),
+            ("pt", "Aleatório inteligente"),
+            ("ru", "Умное перемешивание"),
+            ("sv", "Smart blandning"),
+            ("tr", "Akıllı Karıştırma"),
+            ("uk", "Розумне перемішування"),
         ]
 
         for (locale, expectedValue) in expectedValues {
             #expect(self.localizedValue(key: "Smart Shuffle", localeIdentifier: locale) == expectedValue)
         }
+    }
+
+    @Test("German bundle localizes artist and subscribe strings")
+    func germanLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "de")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "de")
+        let title = String(format: localizedText, locale: Locale(identifier: "de"), "34.6M")
+
+        #expect(artist == "Interpret")
+        #expect(title.hasPrefix("Abonnieren"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Spanish bundle localizes artist and subscribe strings")
+    func spanishLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "es")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "es")
+        let title = String(format: localizedText, locale: Locale(identifier: "es"), "34.6M")
+
+        #expect(artist == "Artista")
+        #expect(title.hasPrefix("Suscribirse"))
+        #expect(title.contains("34.6M"))
     }
 
     @Test("French bundle localizes artist and subscribe strings")
@@ -176,6 +207,83 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
         #expect(romanizeLabel == "Romaniser les paroles")
         #expect(romanizeHelp == "Afficher le texte romanisé (romaji, pinyin, etc.) sous les paroles non latines")
+    }
+
+    @Test("Italian bundle localizes artist and subscribe strings")
+    func italianLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "it")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "it")
+        let title = String(format: localizedText, locale: Locale(identifier: "it"), "34.6M")
+
+        #expect(artist == "Artista")
+        #expect(title.hasPrefix("Abbonati"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Dutch bundle localizes artist and subscribe strings")
+    func dutchLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "nl")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "nl")
+        let title = String(format: localizedText, locale: Locale(identifier: "nl"), "34.6M")
+
+        #expect(artist == "Artiest")
+        #expect(title.hasPrefix("Abonneren"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Polish bundle localizes artist and subscribe strings")
+    func polishLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "pl")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "pl")
+        let title = String(format: localizedText, locale: Locale(identifier: "pl"), "34.6M")
+
+        #expect(artist == "Artysta")
+        #expect(title.hasPrefix("Subskrybuj"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Portuguese bundle localizes artist and subscribe strings")
+    func portugueseLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "pt")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "pt")
+        let title = String(format: localizedText, locale: Locale(identifier: "pt"), "34.6M")
+
+        #expect(artist == "Artista")
+        #expect(title.hasPrefix("Inscrever-se"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Russian bundle localizes artist and subscribe strings")
+    func russianLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "ru")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "ru")
+        let title = String(format: localizedText, locale: Locale(identifier: "ru"), "34.6M")
+
+        #expect(artist == "Исполнитель")
+        #expect(title.hasPrefix("Подписаться"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Swedish bundle localizes artist and subscribe strings")
+    func swedishLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "sv")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "sv")
+        let title = String(format: localizedText, locale: Locale(identifier: "sv"), "34.6M")
+
+        #expect(artist == "Artist")
+        #expect(title.hasPrefix("Prenumerera"))
+        #expect(title.contains("34.6M"))
+    }
+
+    @Test("Ukrainian bundle localizes artist and subscribe strings")
+    func ukrainianLocalizationWorks() {
+        let artist = self.localizedValue(key: "Artist", localeIdentifier: "uk")
+        let localizedText = self.localizedValue(key: "Subscribe %@", localeIdentifier: "uk")
+        let title = String(format: localizedText, locale: Locale(identifier: "uk"), "34.6M")
+
+        #expect(artist == "Виконавець")
+        #expect(title.hasPrefix("Підписатися"))
+        #expect(title.contains("34.6M"))
     }
 
     @Test("Override bundle lookup is scoped to Kaset-owned bundles")

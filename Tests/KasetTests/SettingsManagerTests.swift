@@ -115,11 +115,21 @@ struct SettingsManagerTests {
     @Test("Explicit content languages expose stable API language codes")
     func explicitContentLanguagesExposeAPILanguageCodes() {
         let expectedCodes: [(SettingsManager.ContentLanguage, String)] = [
-            (.english, "en"),
-            (.korean, "ko"),
             (.arabic, "ar"),
-            (.turkish, "tr"),
+            (.dutch, "nl"),
+            (.english, "en"),
+            (.french, "fr"),
+            (.german, "de"),
             (.indonesian, "id"),
+            (.italian, "it"),
+            (.korean, "ko"),
+            (.polish, "pl"),
+            (.portuguese, "pt"),
+            (.russian, "ru"),
+            (.spanish, "es"),
+            (.swedish, "sv"),
+            (.turkish, "tr"),
+            (.ukrainian, "uk"),
         ]
 
         for (language, expectedCode) in expectedCodes {
