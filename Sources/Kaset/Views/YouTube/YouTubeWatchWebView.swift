@@ -418,6 +418,7 @@ extension YouTubeWatchWebView {
 
     private func refreshDocumentUserScripts(on webView: WKWebView) {
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
+        let scriptGeneration = self.documentGeneration.userScriptGeneration
         let pendingSeek: Double? = if self.documentGeneration.pendingGeneration != nil
             || self.documentGeneration.inFlightGeneration != nil
         {
@@ -428,9 +429,12 @@ extension YouTubeWatchWebView {
         self.installUserScripts(
             on: webView.configuration.userContentController,
             targetVolume: targetVolume,
-            documentGeneration: self.documentGeneration.userScriptGeneration,
+            documentGeneration: scriptGeneration,
             pendingSeek: pendingSeek,
-            pendingSeekVideoId: pendingSeek == nil ? nil : self.currentVideoId
+            pendingSeekVideoId: pendingSeek == nil ? nil : self.currentVideoId,
+            pendingSeekAttemptID: pendingSeek == nil
+                ? nil
+                : self.pendingSeekAttemptIDsByGeneration[scriptGeneration]
         )
     }
 
@@ -540,7 +544,8 @@ extension YouTubeWatchWebView {
             targetVolume: targetVolume,
             documentGeneration: trackedNavigation.generation,
             pendingSeek: trackedNavigation.pendingSeek,
-            pendingSeekVideoId: self.pendingSeekVideoIdsByGeneration[trackedNavigation.generation]
+            pendingSeekVideoId: self.pendingSeekVideoIdsByGeneration[trackedNavigation.generation],
+            pendingSeekAttemptID: self.pendingSeekAttemptIDsByGeneration[trackedNavigation.generation]
         )
     }
 
