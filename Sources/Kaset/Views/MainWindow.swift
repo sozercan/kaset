@@ -27,6 +27,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
+    @Environment(\.sidebarNavigationReselectGenerations) private var sidebarNavigationReselectGenerations
+    @Environment(\.sidebarPinnedReselectGenerations) private var sidebarPinnedReselectGenerations
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -400,10 +402,27 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 if self.settings.appSource == .music {
                     Sidebar(
                         selection: self.$navigationSelection,
-                        pinnedSelection: self.$selectedSidebarPinnedItem
+                        pinnedSelection: self.$selectedSidebarPinnedItem,
+                        onReselectNavigationItem: { item in
+                            self.sidebarNavigationReselectGenerations.wrappedValue[item, default: 0] += 1
+                            if item == .search {
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(100))
+                                    self.searchFocusTrigger.wrappedValue = true
+                                }
+                            }
+                        },
+                        onReselectPinnedItem: { item in
+                            self.sidebarPinnedReselectGenerations.wrappedValue[item.contentId, default: 0] += 1
+                        }
                     )
                 } else {
-                    YouTubeSidebar(selection: self.$youtubeNavigationSelection)
+                    YouTubeSidebar(
+                        selection: self.$youtubeNavigationSelection,
+                        onReselect: { _ in
+                            self.youtubeStore.navigationPath = NavigationPath()
+                        }
+                    )
                 }
             } detail: {
                 if self.settings.appSource == .music {
@@ -527,6 +546,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 isPresented: self.$isCommandBarPresented,
                 navigationSelection: self.$navigationSelection,
                 searchFocusTrigger: self.searchFocusTrigger,
+                sidebarNavigationReselectGenerations: self.sidebarNavigationReselectGenerations,
                 searchViewModel: self.searchViewModel
             )
         }
@@ -590,6 +610,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         )
                         .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     }
+                    .popsNavigationStackOnSidebarReselect(
+                        path: self.$likedMusicNavigationPath,
+                        for: .likedMusic
+                    )
                 }
             case .library:
                 if self.requiresSignIn(item) {
@@ -654,7 +678,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     )
                 }
             }
-            .id(item.contentId)
+            .id("\(item.contentId)-\(self.sidebarPinnedReselectGenerations.wrappedValue[item.contentId, default: 0])")
             .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)

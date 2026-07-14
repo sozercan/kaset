@@ -6,6 +6,14 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
+    @Entry var sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:])
+}
+
+extension EnvironmentValues {
+    @Entry var sidebarPinnedReselectGenerations: Binding<[String: Int]> = .constant([:])
+}
+
+extension EnvironmentValues {
     @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
 }
 
@@ -51,6 +59,9 @@ struct KasetApp: App {
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
+
+    @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
+    @State private var sidebarPinnedReselectGenerations: [String: Int] = [:]
 
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
@@ -186,6 +197,8 @@ struct KasetApp: App {
                 .environment(self.equalizerService)
                 .environment(self.podcastsAvailabilityService)
                 .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
+                .environment(\.sidebarNavigationReselectGenerations, self.$sidebarNavigationReselectGenerations)
+                .environment(\.sidebarPinnedReselectGenerations, self.$sidebarPinnedReselectGenerations)
                 .environment(\.navigationSelection, self.$navigationSelection)
                 .environment(\.showCommandBar, self.$showCommandBar)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
@@ -440,12 +453,7 @@ struct KasetApp: App {
                         self.youtubeNavigationSelection = .search
                         return
                     }
-                    self.navigationSelection = .search
-                    // Trigger focus after a brief delay to allow view to appear
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(100))
-                        self.searchFocusTrigger = true
-                    }
+                    self.activateMusicSearch()
                 }
                 .keyboardShortcut("f", modifiers: .command)
 
@@ -524,6 +532,18 @@ struct KasetApp: App {
             if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
                 self.showMainWindow()
             }
+        }
+    }
+
+    private func activateMusicSearch() {
+        let alreadyOnSearch = self.navigationSelection == .search
+        self.navigationSelection = .search
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            if alreadyOnSearch {
+                self.sidebarNavigationReselectGenerations[.search, default: 0] += 1
+            }
+            self.searchFocusTrigger = true
         }
     }
 

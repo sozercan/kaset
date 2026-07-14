@@ -53,6 +53,7 @@ struct NewReleasesView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .newReleases)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {

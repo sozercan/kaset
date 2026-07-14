@@ -60,6 +60,7 @@ struct SearchView: View {
                 self.focusTrigger = false
             }
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
