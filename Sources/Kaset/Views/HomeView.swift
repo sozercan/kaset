@@ -170,7 +170,7 @@ struct HomeView: View {
             Button {
                 Task { await self.playerService.play(song: song) }
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             Divider()
@@ -201,7 +201,7 @@ struct HomeView: View {
 
             if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -215,7 +215,7 @@ struct HomeView: View {
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
 
@@ -223,7 +223,7 @@ struct HomeView: View {
             Button {
                 self.playItem(item, in: HomeSection(id: "", title: "", items: []), at: 0)
             } label: {
-                Label("View Album", systemImage: "square.stack")
+                Label(String(localized: "View Album"), systemImage: "square.stack")
             }
 
             Divider()
@@ -236,7 +236,7 @@ struct HomeView: View {
                     playerService: self.playerService
                 )
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             Button {
@@ -246,7 +246,7 @@ struct HomeView: View {
                     playerService: self.playerService
                 )
             } label: {
-                Label("Play Next", systemImage: "text.insert")
+                Label(String(localized: "Play Next"), systemImage: "text.insert")
             }
 
             Button {
@@ -256,7 +256,7 @@ struct HomeView: View {
                     playerService: self.playerService
                 )
             } label: {
-                Label("Add to Queue", systemImage: "text.append")
+                Label(String(localized: "Add to Queue"), systemImage: "text.append")
             }
 
             Divider()
@@ -271,7 +271,7 @@ struct HomeView: View {
             Button {
                 self.navigationPath.append(playlist)
             } label: {
-                Label("View Playlist", systemImage: "music.note.list")
+                Label(String(localized: "View Playlist"), systemImage: "music.note.list")
             }
 
             Divider()
@@ -286,7 +286,7 @@ struct HomeView: View {
             Button {
                 self.navigationPath.append(artist)
             } label: {
-                Label("View Artist", systemImage: "person")
+                Label(String(localized: "View Artist"), systemImage: "person")
             }
 
             Divider()

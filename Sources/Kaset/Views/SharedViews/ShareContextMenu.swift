@@ -50,7 +50,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -62,7 +62,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -75,7 +75,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -88,7 +88,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -101,7 +101,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }

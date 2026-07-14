@@ -177,6 +177,8 @@ struct AppLocalizationTests {
         #expect(artist == "Interpret")
         #expect(title.hasPrefix("Abonnieren"))
         #expect(title.contains("34.6M"))
+        #expect(self.localizedValue(key: "Move Up", localeIdentifier: "de") == "Nach oben")
+        #expect(self.localizedValue(key: "Add to Sidebar", localeIdentifier: "de") == "Zur Seitenleiste hinzufügen")
     }
 
     @Test("Spanish bundle localizes artist and subscribe strings")
@@ -249,7 +251,7 @@ struct AppLocalizationTests {
         let title = String(format: localizedText, locale: Locale(identifier: "pt"), "34.6M")
 
         #expect(artist == "Artista")
-        #expect(title.hasPrefix("Inscrever-se"))
+        #expect(title.hasPrefix("Subscrever"))
         #expect(title.contains("34.6M"))
     }
 

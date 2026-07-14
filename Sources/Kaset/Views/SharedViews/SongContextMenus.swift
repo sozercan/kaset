@@ -24,13 +24,13 @@ struct LikeDislikeContextMenu: View {
             Button {
                 SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
             } label: {
-                Label("Unlike", systemImage: "hand.thumbsup.fill")
+                Label(String(localized: "Unlike"), systemImage: "hand.thumbsup.fill")
             }
         } else {
             Button {
                 SongActionsHelper.likeSong(self.song, likeStatusManager: self.likeStatusManager)
             } label: {
-                Label("Like", systemImage: "hand.thumbsup")
+                Label(String(localized: "Like"), systemImage: "hand.thumbsup")
             }
 
             // Only show Dislike if not already liked
@@ -38,13 +38,13 @@ struct LikeDislikeContextMenu: View {
                 Button {
                     SongActionsHelper.undislikeSong(self.song, likeStatusManager: self.likeStatusManager)
                 } label: {
-                    Label("Remove Dislike", systemImage: "hand.thumbsdown.fill")
+                    Label(String(localized: "Remove Dislike"), systemImage: "hand.thumbsdown.fill")
                 }
             } else {
                 Button {
                     SongActionsHelper.dislikeSong(self.song, likeStatusManager: self.likeStatusManager)
                 } label: {
-                    Label("Dislike", systemImage: "hand.thumbsdown")
+                    Label(String(localized: "Dislike"), systemImage: "hand.thumbsdown")
                 }
             }
         }
@@ -62,13 +62,13 @@ struct AddToQueueContextMenu: View {
         Button {
             SongActionsHelper.addToQueueNext(self.song, playerService: self.playerService)
         } label: {
-            Label("Play Next", systemImage: "text.insert")
+            Label(String(localized: "Play Next"), systemImage: "text.insert")
         }
 
         Button {
             SongActionsHelper.addToQueueLast(self.song, playerService: self.playerService)
         } label: {
-            Label("Add to Queue", systemImage: "text.append")
+            Label(String(localized: "Add to Queue"), systemImage: "text.append")
         }
     }
 }
@@ -109,11 +109,11 @@ struct AddToPlaylistContextMenu: View {
             Group {
                 switch self.loadState {
                 case .idle, .loading:
-                    Label("Loading Playlists…", systemImage: "hourglass")
+                    Label(String(localized: "Loading Playlists…"), systemImage: "hourglass")
 
                 case let .loaded(menu):
                     if menu.options.isEmpty {
-                        Label("No Playlists", systemImage: "music.note.list")
+                        Label(String(localized: "No Playlists"), systemImage: "music.note.list")
                     } else {
                         ForEach(menu.options) { option in
                             Button {
@@ -139,7 +139,7 @@ struct AddToPlaylistContextMenu: View {
                     Button {
                         Task { await self.loadPlaylists(forceRefresh: true) }
                     } label: {
-                        Label("Retry Loading Playlists", systemImage: "arrow.clockwise")
+                        Label(String(localized: "Retry Loading Playlists"), systemImage: "arrow.clockwise")
                     }
                 }
 
@@ -152,7 +152,7 @@ struct AddToPlaylistContextMenu: View {
                 self.startLoadingPlaylistsIfNeeded()
             }
         } label: {
-            Label("Add to Playlist", systemImage: "text.badge.plus")
+            Label(String(localized: "Add to Playlist"), systemImage: "text.badge.plus")
         }
         .onAppear {
             // Start loading as soon as the parent context menu is built, not only

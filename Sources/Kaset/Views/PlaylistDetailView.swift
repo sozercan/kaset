@@ -214,7 +214,7 @@ struct PlaylistDetailView: View {
                     }
 
                     if index < artists.count - 1 {
-                        Text(", ")
+                        Text(verbatim: ", ")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -391,7 +391,7 @@ struct PlaylistDetailView: View {
                     fallbackAlbum: fallbackAlbum
                 )
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -414,7 +414,7 @@ struct PlaylistDetailView: View {
                 Button {
                     SongActionsHelper.addToLibrary(track, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -434,7 +434,7 @@ struct PlaylistDetailView: View {
 
             if let artist = track.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -448,7 +448,7 @@ struct PlaylistDetailView: View {
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
@@ -463,7 +463,7 @@ struct PlaylistDetailView: View {
                     await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
                 }
             } label: {
-                Label("Remove from Playlist", systemImage: "minus.circle")
+                Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
             }
         }
     }

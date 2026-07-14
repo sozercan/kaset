@@ -49,7 +49,7 @@ struct MoodCategoryDetailView: View {
             ContentUnavailableView(
                 "No Content Available",
                 systemImage: "music.note",
-                description: Text("No songs or playlists found in this category.")
+                description: Text(String(localized: "No songs or playlists found in this category."))
             )
         } else {
             ScrollView {

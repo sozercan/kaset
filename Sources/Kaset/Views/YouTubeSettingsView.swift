@@ -9,32 +9,32 @@ struct YouTubeSettingsView: View {
     var body: some View {
         Form {
             Section {
-                Toggle("Ambient Color Backdrop", isOn: self.$settings.ambientBackdropEnabled)
-                    .help("Show a soft color glow, drawn from the video, behind the player")
+                Toggle(String(localized: "Ambient Color Backdrop"), isOn: self.$settings.ambientBackdropEnabled)
+                    .help(String(localized: "Show a soft color glow, drawn from the video, behind the player"))
 
                 if self.settings.ambientBackdropEnabled {
-                    Picker("Style", selection: self.$settings.ambientBackdropStyle) {
+                    Picker(String(localized: "Style"), selection: self.$settings.ambientBackdropStyle) {
                         ForEach(AmbientBackdropStyle.userSelectableCases) { style in
                             Text(style.displayName).tag(style)
                         }
                     }
-                    .help("“Live” shifts the colors as the video plays; the others stay constant")
+                    .help(String(localized: "\"Live\" shifts the colors as the video plays; the others stay constant"))
                 }
             } header: {
-                Text("Ambient Backdrop")
+                Text(String(localized: "Ambient Backdrop"))
             } footer: {
-                Text("A soft color glow drawn from the video plays behind the player. Applies to YouTube videos, not Music.")
+                Text(String(localized: "A soft color glow drawn from the video plays behind the player. Applies to YouTube videos, not Music."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Section {
-                Toggle("Pop Out Video When Navigating Away", isOn: self.$settings.popOutVideoOnNavigateAway)
-                    .help("Keep a playing video in a floating window when you leave the page. When off, the video stops instead.")
+                Toggle(String(localized: "Pop Out Video When Navigating Away"), isOn: self.$settings.popOutVideoOnNavigateAway)
+                    .help(String(localized: "Keep a playing video in a floating window when you leave the page. When off, the video stops instead."))
             } header: {
-                Text("Video Window")
+                Text(String(localized: "Video Window"))
             } footer: {
-                Text("When off, navigating back from a playing video stops it instead of opening the floating player. The pop-out and full-view buttons still work.")
+                Text(String(localized: "When off, navigating back from a playing video stops it instead of opening the floating player. The pop-out and full-view buttons still work."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

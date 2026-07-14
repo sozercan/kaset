@@ -133,25 +133,25 @@ struct Sidebar: View {
             Button {
                 self.sidebarPinnedItemsManager.moveUp(contentId: item.contentId)
             } label: {
-                Label("Move Up", systemImage: "chevron.up")
+                Label(String(localized: "Move Up"), systemImage: "chevron.up")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveDown(contentId: item.contentId)
             } label: {
-                Label("Move Down", systemImage: "chevron.down")
+                Label(String(localized: "Move Down"), systemImage: "chevron.down")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveToTop(contentId: item.contentId)
             } label: {
-                Label("Move to Top", systemImage: "arrow.up.to.line")
+                Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveToEnd(contentId: item.contentId)
             } label: {
-                Label("Move to End", systemImage: "arrow.down.to.line")
+                Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
             }
 
             Divider()
@@ -162,7 +162,7 @@ struct Sidebar: View {
                 }
                 self.sidebarPinnedItemsManager.remove(contentId: item.contentId)
             } label: {
-                Label("Remove from Sidebar", systemImage: "sidebar.left")
+                Label(String(localized: "Remove from Sidebar"), systemImage: "sidebar.left")
             }
         }
     }

@@ -273,7 +273,7 @@ struct SearchView: View {
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            Text("Find songs, albums, artists, and playlists")
+            Text(String(localized: "Find songs, albums, artists, and playlists"))
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
         }
@@ -286,11 +286,11 @@ struct SearchView: View {
                 .font(.system(size: 48))
                 .foregroundStyle(.tertiary)
 
-            Text("No results found")
+            Text(String(localized: "No results found"))
                 .font(.title3)
                 .foregroundStyle(.secondary)
 
-            Text("Try searching for something else")
+            Text(String(localized: "Try searching for something else"))
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
         }
@@ -385,7 +385,7 @@ struct SearchView: View {
                                 .foregroundStyle(.secondary)
 
                             if let subtitle = item.subtitle {
-                                Text("•")
+                                Text(String(localized: "•"))
                                     .font(.system(size: 11))
                                     .foregroundStyle(.tertiary)
 
@@ -443,7 +443,7 @@ struct SearchView: View {
         Button {
             Task { await self.playerService.playWithRadio(song: song) }
         } label: {
-            Label("Play", systemImage: "play.fill")
+            Label(String(localized: "Play"), systemImage: "play.fill")
         }
 
         if self.authService.hasPersonalAccount {
@@ -466,7 +466,7 @@ struct SearchView: View {
             Button {
                 SongActionsHelper.addToLibrary(song, playerService: self.playerService)
             } label: {
-                Label("Add to Library", systemImage: "plus.circle")
+                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
             }
 
             Divider()
@@ -487,7 +487,7 @@ struct SearchView: View {
         // Go to Artist - show first artist with valid ID
         if let artist = song.artists.first(where: { $0.hasNavigableId }) {
             NavigationLink(value: artist) {
-                Label("Go to Artist", systemImage: "person")
+                Label(String(localized: "Go to Artist"), systemImage: "person")
             }
         }
 
@@ -502,7 +502,7 @@ struct SearchView: View {
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             NavigationLink(value: playlist) {
-                Label("Go to Album", systemImage: "square.stack")
+                Label(String(localized: "Go to Album"), systemImage: "square.stack")
             }
         }
     }
@@ -520,7 +520,7 @@ struct SearchView: View {
             )
             self.navigationPath.append(playlist)
         } label: {
-            Label("View Album", systemImage: "square.stack")
+            Label(String(localized: "View Album"), systemImage: "square.stack")
         }
 
         Divider()
@@ -533,7 +533,7 @@ struct SearchView: View {
                 playerService: self.playerService
             )
         } label: {
-            Label("Play", systemImage: "play.fill")
+            Label(String(localized: "Play"), systemImage: "play.fill")
         }
 
         Button {
@@ -543,7 +543,7 @@ struct SearchView: View {
                 playerService: self.playerService
             )
         } label: {
-            Label("Play Next", systemImage: "text.insert")
+            Label(String(localized: "Play Next"), systemImage: "text.insert")
         }
 
         Button {
@@ -553,7 +553,7 @@ struct SearchView: View {
                 playerService: self.playerService
             )
         } label: {
-            Label("Add to Queue", systemImage: "text.append")
+            Label(String(localized: "Add to Queue"), systemImage: "text.append")
         }
 
         Divider()
@@ -568,7 +568,7 @@ struct SearchView: View {
         Button {
             self.navigationPath.append(artist)
         } label: {
-            Label("View Artist", systemImage: "person")
+            Label(String(localized: "View Artist"), systemImage: "person")
         }
 
         Divider()
@@ -590,7 +590,7 @@ struct SearchView: View {
                     )
                 }
             } label: {
-                Label("Add to Library", systemImage: "plus.circle")
+                Label(String(localized: "Add to Library"), systemImage: "plus.circle")
             }
 
             Divider()
@@ -607,7 +607,7 @@ struct SearchView: View {
         Button {
             self.navigationPath.append(playlist)
         } label: {
-            Label("View Playlist", systemImage: "music.note.list")
+            Label(String(localized: "View Playlist"), systemImage: "music.note.list")
         }
     }
 
@@ -616,7 +616,7 @@ struct SearchView: View {
         Button {
             self.navigationPath.append(show)
         } label: {
-            Label("View Podcast", systemImage: "mic.fill")
+            Label(String(localized: "View Podcast"), systemImage: "mic.fill")
         }
 
         Divider()

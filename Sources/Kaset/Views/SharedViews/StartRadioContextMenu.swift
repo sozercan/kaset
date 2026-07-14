@@ -13,7 +13,7 @@ enum StartRadioContextMenu {
                 await playerService.playWithRadio(song: song)
             }
         } label: {
-            Label("Start Radio", systemImage: "dot.radiowaves.left.and.right")
+            Label(String(localized: "Start Radio"), systemImage: "dot.radiowaves.left.and.right")
         }
     }
 }
