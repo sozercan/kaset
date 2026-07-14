@@ -28,7 +28,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.sidebarNavigationReselectGenerations) private var sidebarNavigationReselectGenerations
-    @Environment(\.sidebarPinnedReselectGenerations) private var sidebarPinnedReselectGenerations
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -76,6 +75,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     /// Navigation path for the Liked Music route.
     @State private var likedMusicNavigationPath = NavigationPath()
+
+    /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
+    @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -413,7 +415,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             }
                         },
                         onReselectPinnedItem: { item in
-                            self.sidebarPinnedReselectGenerations.wrappedValue[item.contentId, default: 0] += 1
+                            guard !(self.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
+                            self.pinnedNavigationPaths[item.contentId] = NavigationPath()
                         }
                     )
                 } else {
@@ -658,7 +661,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         _ item: SidebarPinnedItem,
         client: any YTMusicClientProtocol
     ) -> some View {
-        NavigationStack {
+        NavigationStack(path: Binding(
+            get: { self.pinnedNavigationPaths[item.contentId, default: NavigationPath()] },
+            set: { self.pinnedNavigationPaths[item.contentId] = $0 }
+        )) {
             Group {
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
@@ -678,7 +684,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     )
                 }
             }
-            .id("\(item.contentId)-\(self.sidebarPinnedReselectGenerations.wrappedValue[item.contentId, default: 0])")
+            .id(item.contentId)
             .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
@@ -809,6 +815,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         self.libraryViewModel = LibraryViewModel(client: self.client)
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()
+        self.pinnedNavigationPaths = [:]
         self.contentResetID = UUID()
     }
 

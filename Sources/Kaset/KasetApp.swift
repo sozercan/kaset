@@ -10,10 +10,6 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
-    @Entry var sidebarPinnedReselectGenerations: Binding<[String: Int]> = .constant([:])
-}
-
-extension EnvironmentValues {
     @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
 }
 
@@ -61,7 +57,6 @@ struct KasetApp: App {
     @State private var searchFocusTrigger = false
 
     @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
-    @State private var sidebarPinnedReselectGenerations: [String: Int] = [:]
 
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
@@ -198,7 +193,6 @@ struct KasetApp: App {
                 .environment(self.podcastsAvailabilityService)
                 .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
                 .environment(\.sidebarNavigationReselectGenerations, self.$sidebarNavigationReselectGenerations)
-                .environment(\.sidebarPinnedReselectGenerations, self.$sidebarPinnedReselectGenerations)
                 .environment(\.navigationSelection, self.$navigationSelection)
                 .environment(\.showCommandBar, self.$showCommandBar)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
