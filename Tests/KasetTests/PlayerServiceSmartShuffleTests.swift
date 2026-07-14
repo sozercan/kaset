@@ -224,9 +224,15 @@ struct PlayerServiceSmartShuffleTests {
     @Test("Pausing initial playback keeps Smart Shuffle fill eligible")
     func pauseKeepsSmartShuffleFillEligible() async {
         self.playerService.shuffleMode = .smart
-        let song = TestFixtures.makeSong(id: "seed")
-        self.mockClient.songResponses[song.videoId] = song
-        self.mockClient.radioQueueSongs[song.videoId] = [TestFixtures.makeSong(id: "suggestion")]
+        let songs = (0 ..< SettingsManager.smartShuffleSuggestEveryNRange.upperBound).map {
+            TestFixtures.makeSong(id: "seed-\($0)")
+        }
+        self.mockClient.songResponses[songs[0].videoId] = songs[0]
+        for song in songs {
+            self.mockClient.radioQueueSongs[song.videoId] = [
+                TestFixtures.makeSong(id: "suggestion-\(song.videoId)"),
+            ]
+        }
         let metadataStarted = AsyncGate()
         let releaseMetadata = AsyncGate()
         self.mockClient.beforeGetSongReturn = { _ in
@@ -235,7 +241,7 @@ struct PlayerServiceSmartShuffleTests {
         }
 
         let playTask = Task { @MainActor in
-            await self.playerService.playQueue([song], startingAt: 0)
+            await self.playerService.playQueue(songs, startingAt: 0)
         }
         await metadataStarted.wait()
         await self.playerService.pause()
