@@ -245,6 +245,7 @@
 "Loading songs..." = "Завантаження пісень...";
 "Loading your library..." = "Завантаження вашої бібліотеки...";
 "Loading..." = "Завантаження...";
+"Loading…" = "Завантаження…";
 "Loudness" = "Loudness";
 "Lounge" = "Lounge";
 "Lyrics" = "Текст пісні";
@@ -505,6 +506,7 @@
 "Volume" = "Гучність";
 "Volume Down" = "Зменшити гучність";
 "Volume Up" = "Збільшити гучність";
+"Waiting for authorization…" = "Очікування авторизації…";
 "Waiting for playback" = "Очікування відтворення";
 "Watch Later" = "Переглянути пізніше";
 "Watch some videos to build your feed." = "Перегляньте кілька відео, щоб сформувати свою стрічку.";

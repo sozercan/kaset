@@ -112,29 +112,13 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.object(forKey: repeatKey) == nil)
     }
 
-    @Test("Explicit content languages expose stable API language codes")
-    func explicitContentLanguagesExposeAPILanguageCodes() {
-        let expectedCodes: [(SettingsManager.ContentLanguage, String)] = [
-            (.arabic, "ar"),
-            (.dutch, "nl"),
-            (.english, "en"),
-            (.french, "fr"),
-            (.german, "de"),
-            (.indonesian, "id"),
-            (.italian, "it"),
-            (.korean, "ko"),
-            (.polish, "pl"),
-            (.portuguese, "pt"),
-            (.russian, "ru"),
-            (.spanish, "es"),
-            (.swedish, "sv"),
-            (.turkish, "tr"),
-            (.ukrainian, "uk"),
-        ]
+    @Test("Content languages expose stable API codes in ISO-code order")
+    func contentLanguagesExposeAPICodesInISOCodeOrder() {
+        let expectedCodes = ["ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk"]
+        let languages = SettingsManager.ContentLanguage.allCases
 
-        for (language, expectedCode) in expectedCodes {
-            #expect(language.apiLanguageCode == expectedCode)
-        }
+        #expect(languages.first == .system)
+        #expect(languages.dropFirst().compactMap(\.languageCode) == expectedCodes)
     }
 
     @Test("System content language uses the current locale language code fallback")

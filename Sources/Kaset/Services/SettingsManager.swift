@@ -89,17 +89,17 @@ final class SettingsManager {
     enum ContentLanguage: String, CaseIterable, Identifiable {
         case system
         case arabic
-        case dutch
-        case english
-        case french
         case german
+        case english
+        case spanish
+        case french
         case indonesian
         case italian
         case korean
+        case dutch
         case polish
         case portuguese
         case russian
-        case spanish
         case swedish
         case turkish
         case ukrainian

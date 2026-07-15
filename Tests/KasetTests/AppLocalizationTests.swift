@@ -4,6 +4,14 @@ import Testing
 
 @Suite(.serialized, .tags(.service))
 struct AppLocalizationTests {
+    private var repositoryRoot: URL {
+        let testFileURL = URL(fileURLWithPath: #filePath)
+        return testFileURL
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+    }
+
     /// Helper to find the specific `.lproj` bundle for direct string verification.
     private func localizedBundle(for localization: String) -> Bundle? {
         AppLocalization.bundle(forLocalization: localization)
@@ -18,23 +26,72 @@ struct AppLocalizationTests {
         return lprojBundle.localizedString(forKey: key, value: nil, table: nil)
     }
 
-    /// Helper to read a localized value directly from the source string catalog.
-    private func sourceCatalogValue(key: String, localeIdentifier: String) throws -> String {
-        let testFileURL = URL(fileURLWithPath: #filePath)
-        let repositoryRoot = testFileURL
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let catalogURL = repositoryRoot.appendingPathComponent("Sources/Kaset/Resources/Localizable.xcstrings")
+    private func sourceCatalogStrings() throws -> [String: Any] {
+        let catalogURL = self.repositoryRoot.appendingPathComponent("Sources/Kaset/Resources/Localizable.xcstrings")
         let data = try Data(contentsOf: catalogURL)
         let catalog = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let strings = try #require(catalog["strings"] as? [String: Any])
+        return try #require(catalog["strings"] as? [String: Any])
+    }
+
+    /// Helper to read a localized value directly from the source string catalog.
+    private func sourceCatalogValue(key: String, localeIdentifier: String) throws -> String {
+        let strings = try self.sourceCatalogStrings()
         let entry = try #require(strings[key] as? [String: Any])
         let localizations = try #require(entry["localizations"] as? [String: Any])
         let localization = try #require(localizations[localeIdentifier] as? [String: Any])
         let stringUnit = try #require(localization["stringUnit"] as? [String: Any])
 
         return try #require(stringUnit["value"] as? String)
+    }
+
+    private func sourceCatalogKeys(localeIdentifier: String) throws -> Set<String> {
+        let strings = try self.sourceCatalogStrings()
+        return Set(strings.compactMap { key, value in
+            guard let entry = value as? [String: Any],
+                  let localizations = entry["localizations"] as? [String: Any],
+                  localizations[localeIdentifier] != nil
+            else { return nil }
+
+            return key
+        })
+    }
+
+    private func sourceLocalizationKeys(localeIdentifier: String) throws -> Set<String> {
+        let stringsURL = self.repositoryRoot
+            .appendingPathComponent("Sources/Kaset/Resources")
+            .appendingPathComponent("\(localeIdentifier).lproj/Localizable.strings")
+        let data = try Data(contentsOf: stringsURL)
+        let propertyList = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+        let strings = try #require(propertyList as? [String: String])
+        return Set(strings.keys)
+    }
+
+    @Test("Supported localization resources have matching key sets")
+    func supportedLocalizationResourcesHaveMatchingKeySets() throws {
+        // English uses the catalog's source values and only has two format-order overrides.
+        let localeCodes = SettingsManager.ContentLanguage.allCases
+            .compactMap(\.languageCode)
+            .filter { $0 != "en" }
+        var catalogKeysByLocale: [String: Set<String>] = [:]
+        var expectedKeys = Set<String>()
+
+        for localeCode in localeCodes {
+            let keys = try self.sourceCatalogKeys(localeIdentifier: localeCode)
+            catalogKeysByLocale[localeCode] = keys
+            expectedKeys.formUnion(keys)
+        }
+
+        for localeCode in localeCodes {
+            let catalogKeys = try #require(catalogKeysByLocale[localeCode])
+            let localizationKeys = try self.sourceLocalizationKeys(localeIdentifier: localeCode)
+            let missingCatalogKeys = expectedKeys.subtracting(catalogKeys).sorted()
+            let missingLocalizationKeys = expectedKeys.subtracting(localizationKeys).sorted()
+            let unexpectedLocalizationKeys = localizationKeys.subtracting(expectedKeys).sorted()
+
+            #expect(missingCatalogKeys.isEmpty, "\(localeCode) catalog is missing: \(missingCatalogKeys)")
+            #expect(missingLocalizationKeys.isEmpty, "\(localeCode) strings file is missing: \(missingLocalizationKeys)")
+            #expect(unexpectedLocalizationKeys.isEmpty, "\(localeCode) strings file has unexpected keys: \(unexpectedLocalizationKeys)")
+        }
     }
 
     @Test("Arabic bundle localizes artist strings")

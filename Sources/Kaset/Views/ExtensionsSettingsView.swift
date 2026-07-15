@@ -76,7 +76,10 @@ struct ExtensionsSettingsView: View {
 
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
-                        Text(String(localized: "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported."))
+                        Text(
+                            "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported.",
+                            bundle: AppLocalization.bundle
+                        )
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)

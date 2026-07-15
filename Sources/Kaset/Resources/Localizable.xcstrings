@@ -25047,6 +25047,12 @@
             "state": "translated",
             "value": "Yetkilendirme bekleniyor…"
           }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Очікування авторизації…"
+          }
         }
       }
     },
@@ -26897,6 +26903,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Yükleniyor…"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завантаження…"
           }
         }
       }
