@@ -97,11 +97,11 @@
 "Continue Watching" = "Weiterschauen";
 "Control playback with your keyboard" = "Steuere die Wiedergabe mit deiner Tastatur";
 "Could not create AI session" = "KI-Sitzung konnte nicht erstellt werden";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Kasets Audio konnte nicht erfasst werden (Status %lld). Prüfe die Berechtigung für Bildschirm- und Systemaudioaufnahme in den Systemeinstellungen.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kasets Audio konnte nicht erfasst werden (Status %d). Prüfe die Berechtigung für Bildschirm- und Systemaudioaufnahme in den Systemeinstellungen.";
 "Couldn't configure the audio unit (%lld)." = "Die Audioeinheit konnte nicht konfiguriert werden (%lld).";
 "Couldn't create the audio unit." = "Die Audioeinheit konnte nicht erstellt werden.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Das Audioausgabegerät des Equalizers konnte nicht erstellt werden. Ein Neustart von Kaset behebt das normalerweise.";
-"Couldn't install the audio I/O proc (%lld)." = "Der Audio-I/O-Proc konnte nicht installiert werden (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Der Audio-I/O-Proc konnte nicht installiert werden (%d).";
 "Couldn't install the audio render callback (%lld)." = "Der Audio-Render-Callback konnte nicht installiert werden (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Es konnte kein kompatibles Audioformat mit dem Ausgabegerät ausgehandelt werden.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Kasets Audio konnte nicht in die Equalizer-Engine geleitet werden.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "In Playlist speichern";
 "Saving queue as playlist…" = "Warteschlange wird als Playlist gespeichert…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "%1$@ nach links scrollen";
-"Scroll %1$@ right" = "%1$@ nach rechts scrollen";
+"Scroll %@ left" = "%1$@ nach links scrollen";
+"Scroll %@ right" = "%1$@ nach rechts scrollen";
 "Scrolls this shelf by one page" = "Scrollt dieses Regal um eine Seite";
 "Search" = "Suchen";
 "Search YouTube" = "YouTube durchsuchen";

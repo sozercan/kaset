@@ -97,11 +97,11 @@
 "Continue Watching" = "Continuer à regarder";
 "Control playback with your keyboard" = "Contrôlez la lecture avec votre clavier";
 "Could not create AI session" = "Impossible de créer la session IA";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Impossible de capturer l'audio de Kaset (état %lld). Vérifiez l'autorisation Enregistrement de l'écran et de l'audio système dans Réglages Système.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Impossible de capturer l'audio de Kaset (état %d). Vérifiez l'autorisation Enregistrement de l'écran et de l'audio système dans Réglages Système.";
 "Couldn't configure the audio unit (%lld)." = "Impossible de configurer l'unité audio (%lld).";
 "Couldn't create the audio unit." = "Impossible de créer l'unité audio.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Impossible de créer le périphérique audio de l'égaliseur. Redémarrer Kaset résout généralement ce problème.";
-"Couldn't install the audio I/O proc (%lld)." = "Impossible d'installer le processus E/S audio (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Impossible d'installer le processus E/S audio (%d).";
 "Couldn't install the audio render callback (%lld)." = "Impossible d'installer le rappel de rendu audio (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Impossible de négocier un format audio compatible avec le périphérique de sortie.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Impossible d'acheminer l'audio de Kaset vers le moteur de l'égaliseur.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Enregistrer dans la playlist";
 "Saving queue as playlist…" = "Enregistrement de la file d'attente en playlist…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Faire défiler %1$@ vers la gauche";
-"Scroll %1$@ right" = "Faire défiler %1$@ vers la droite";
+"Scroll %@ left" = "Faire défiler %1$@ vers la gauche";
+"Scroll %@ right" = "Faire défiler %1$@ vers la droite";
 "Scrolls this shelf by one page" = "Fait défiler cette rangée d'une page";
 "Search" = "Rechercher";
 "Search YouTube" = "Rechercher sur YouTube";

@@ -97,11 +97,11 @@
 "Continue Watching" = "Seguir viendo";
 "Control playback with your keyboard" = "Controla la reproducción con el teclado";
 "Could not create AI session" = "No se pudo crear la sesión de la IA";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "No se pudo capturar el audio de Kaset (estado %lld). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "No se pudo capturar el audio de Kaset (estado %d). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema.";
 "Couldn't configure the audio unit (%lld)." = "No se pudo configurar la unidad de audio (%lld).";
 "Couldn't create the audio unit." = "No se pudo crear la unidad de audio.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "No se pudo crear el dispositivo de audio del ecualizador. Reiniciar Kaset suele solucionar esto.";
-"Couldn't install the audio I/O proc (%lld)." = "No se pudo instalar el proceso de E/S de audio (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "No se pudo instalar el proceso de E/S de audio (%d).";
 "Couldn't install the audio render callback (%lld)." = "No se pudo instalar el callback de renderizado de audio (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "No se pudo negociar un formato de audio compatible con el dispositivo de salida.";
 "Couldn't route Kaset's audio into the equalizer engine." = "No se pudo dirigir el audio de Kaset al motor del ecualizador.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Guardar en playlist";
 "Saving queue as playlist…" = "Guardando cola como playlist…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Desplazar %1$@ a la izquierda";
-"Scroll %1$@ right" = "Desplazar %1$@ a la derecha";
+"Scroll %@ left" = "Desplazar %1$@ a la izquierda";
+"Scroll %@ right" = "Desplazar %1$@ a la derecha";
 "Scrolls this shelf by one page" = "Desplaza este estante una página";
 "Search" = "Buscar";
 "Search YouTube" = "Buscar en YouTube";

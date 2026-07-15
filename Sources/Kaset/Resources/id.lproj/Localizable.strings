@@ -97,11 +97,11 @@
 "Continue Watching" = "Lanjutkan Menonton";
 "Control playback with your keyboard" = "Kendalikan pemutaran dengan keyboard Anda";
 "Could not create AI session" = "Tidak dapat membuat sesi AI";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Tidak dapat menangkap audio Kaset (status %lld). Periksa izin Perekaman Layar & Audio Sistem di Pengaturan Sistem.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Tidak dapat menangkap audio Kaset (status %d). Periksa izin Perekaman Layar & Audio Sistem di Pengaturan Sistem.";
 "Couldn't configure the audio unit (%lld)." = "Tidak dapat mengonfigurasi unit audio (%lld).";
 "Couldn't create the audio unit." = "Tidak dapat membuat unit audio.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Tidak dapat membuat perangkat audio equalizer. Memulai ulang Kaset biasanya menyelesaikan masalah ini.";
-"Couldn't install the audio I/O proc (%lld)." = "Tidak dapat memasang proses I/O audio (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Tidak dapat memasang proses I/O audio (%d).";
 "Couldn't install the audio render callback (%lld)." = "Tidak dapat memasang callback render audio (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Tidak dapat menegosiasikan format audio yang kompatibel dengan perangkat output.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Tidak dapat merutekan audio Kaset ke mesin equalizer.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Simpan ke Playlist";
 "Saving queue as playlist…" = "Menyimpan antrean sebagai playlist…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Gulir %1$@ ke kiri";
-"Scroll %1$@ right" = "Gulir %1$@ ke kanan";
+"Scroll %@ left" = "Gulir %1$@ ke kiri";
+"Scroll %@ right" = "Gulir %1$@ ke kanan";
 "Scrolls this shelf by one page" = "Gulir rak ini satu halaman";
 "Search" = "Cari";
 "Search YouTube" = "Cari di YouTube";

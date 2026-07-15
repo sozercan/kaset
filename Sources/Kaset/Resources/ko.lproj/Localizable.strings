@@ -97,11 +97,11 @@
 "Continue Watching" = "계속 시청";
 "Control playback with your keyboard" = "키보드로 재생을 제어하세요";
 "Could not create AI session" = "AI 세션을 생성할 수 없음";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Kaset의 오디오를 캡처할 수 없습니다(상태 %lld). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset의 오디오를 캡처할 수 없습니다(상태 %d). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요.";
 "Couldn't configure the audio unit (%lld)." = "오디오 유닛을 구성할 수 없습니다 (%lld).";
 "Couldn't create the audio unit." = "오디오 유닛을 생성할 수 없습니다.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "이퀄라이저 오디오 장치를 생성할 수 없습니다. Kaset을 재시작하면 보통 해결됩니다.";
-"Couldn't install the audio I/O proc (%lld)." = "오디오 I/O 프로시저를 설치할 수 없습니다(%lld).";
+"Couldn't install the audio I/O proc (%d)." = "오디오 I/O 프로시저를 설치할 수 없습니다(%d).";
 "Couldn't install the audio render callback (%lld)." = "오디오 렌더 콜백을 설치할 수 없습니다 (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "출력 장치와 호환되는 오디오 형식을 협상할 수 없습니다.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Kaset의 오디오를 이퀄라이저 엔진으로 라우팅할 수 없습니다.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "재생목록에 저장";
 "Saving queue as playlist…" = "대기열을 재생목록으로 저장하는 중…";
 "Scrobbling" = "스크로블링";
-"Scroll %1$@ left" = "%1$@ 왼쪽으로 스크롤";
-"Scroll %1$@ right" = "%1$@ 오른쪽으로 스크롤";
+"Scroll %@ left" = "%1$@ 왼쪽으로 스크롤";
+"Scroll %@ right" = "%1$@ 오른쪽으로 스크롤";
 "Scrolls this shelf by one page" = "이 선반을 한 페이지씩 스크롤합니다";
 "Search" = "검색";
 "Search YouTube" = "YouTube 검색";

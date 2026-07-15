@@ -269,6 +269,7 @@ struct KasetApp: App {
 
         Settings {
             SettingsView()
+                .id(self.settings.contentLanguage)
                 .environment(\.locale, self.settings.contentLanguage.locale)
                 .environment(self.authService)
                 .environment(self.accountService)

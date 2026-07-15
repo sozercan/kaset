@@ -97,11 +97,11 @@
 "Continue Watching" = "İzlemeye devam et";
 "Control playback with your keyboard" = "Oynatmayı klavyenizle denetleyin";
 "Could not create AI session" = "Yapay zeka oturumu oluşturulamadı";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Kaset'in sesi yakalanamadı (durum %lld). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset'in sesi yakalanamadı (durum %d). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin.";
 "Couldn't configure the audio unit (%lld)." = "Ses birimi yapılandırılamadı (%lld).";
 "Couldn't create the audio unit." = "Ses birimi oluşturulamadı.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Ekolayzır ses cihazı oluşturulamadı. Kaset'i yeniden başlatmak genellikle bu sorunu çözer.";
-"Couldn't install the audio I/O proc (%lld)." = "Ses G/Ç yordamı kurulamadı (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Ses G/Ç yordamı kurulamadı (%d).";
 "Couldn't install the audio render callback (%lld)." = "Ses oluşturma geri çağrısı kurulamadı (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Çıkış aygıtı ile uyumlu bir ses biçimi üzerinde anlaşılamadı.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Kaset'in sesi ekolayzır motoruna yönlendirilemedi.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Çalma listesine kaydet";
 "Saving queue as playlist…" = "Kuyruk çalma listesi olarak kaydediliyor…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "%1$@ sola kaydır";
-"Scroll %1$@ right" = "%1$@ sağa kaydır";
+"Scroll %@ left" = "%1$@ sola kaydır";
+"Scroll %@ right" = "%1$@ sağa kaydır";
 "Scrolls this shelf by one page" = "Bu rafı bir sayfa kaydırır";
 "Search" = "Ara";
 "Search YouTube" = "YouTube'da ara";

@@ -97,11 +97,11 @@
 "Continue Watching" = "Continua a guardare";
 "Control playback with your keyboard" = "Controlla la riproduzione con la tastiera";
 "Could not create AI session" = "Impossibile creare la sessione AI";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Impossibile acquisire l'audio di Kaset (stato %lld). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Impossibile acquisire l'audio di Kaset (stato %d). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Impossibile configurare l'unità audio (%lld).";
 "Couldn't create the audio unit." = "Impossibile creare l'unità audio.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Impossibile creare il dispositivo audio dell'equalizzatore. Riavviare Kaset di solito risolve il problema.";
-"Couldn't install the audio I/O proc (%lld)." = "Impossibile installare il processo di I/O audio (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Impossibile installare il processo di I/O audio (%d).";
 "Couldn't install the audio render callback (%lld)." = "Impossibile installare il callback di rendering audio (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Impossibile negoziare un formato audio compatibile con il dispositivo di uscita.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Impossibile instradare l'audio di Kaset nel motore dell'equalizzatore.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Salva nella playlist";
 "Saving queue as playlist…" = "Salvataggio della coda come playlist…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Scorri %1$@ a sinistra";
-"Scroll %1$@ right" = "Scorri %1$@ a destra";
+"Scroll %@ left" = "Scorri %1$@ a sinistra";
+"Scroll %@ right" = "Scorri %1$@ a destra";
 "Scrolls this shelf by one page" = "Scorre questo scaffale di una pagina";
 "Search" = "Cerca";
 "Search YouTube" = "Cerca su YouTube";

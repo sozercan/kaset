@@ -97,11 +97,11 @@
 "Continue Watching" = "Fortsätt titta";
 "Control playback with your keyboard" = "Styr uppspelningen med tangentbordet";
 "Could not create AI session" = "Kunde inte skapa AI-session";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %lld). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
 "Couldn't configure the audio unit (%lld)." = "Kunde inte konfigurera ljudenheten (%lld).";
 "Couldn't create the audio unit." = "Kunde inte skapa ljudenheten.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Kunde inte skapa equalizerns ljudenhet. Om du startar om Kaset brukar det lösa problemet.";
-"Couldn't install the audio I/O proc (%lld)." = "Det gick inte att installera ljud-I/O-processen (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Det gick inte att installera ljud-I/O-processen (%d).";
 "Couldn't install the audio render callback (%lld)." = "Kunde inte installera ljudrenderings-callback (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Kunde inte komma överens om ett kompatibelt ljudformat med utdataenheten.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Kunde inte dirigera Kasets ljud till equalizermotorn.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Spara i spellista";
 "Saving queue as playlist…" = "Sparar kön som spellista…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Rulla %1$@ åt vänster";
-"Scroll %1$@ right" = "Rulla %1$@ åt höger";
+"Scroll %@ left" = "Rulla %1$@ åt vänster";
+"Scroll %@ right" = "Rulla %1$@ åt höger";
 "Scrolls this shelf by one page" = "Rullar den här raden en sida";
 "Search" = "Sök";
 "Search YouTube" = "Sök på YouTube";

@@ -97,11 +97,11 @@
 "Continue Watching" = "متابعة المشاهدة";
 "Control playback with your keyboard" = "تحكم في التشغيل باستخدام لوحة المفاتيح";
 "Could not create AI session" = "تعذّر إنشاء جلسة الذكاء الاصطناعي";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "تعذر التقاط صوت Kaset (الحالة %lld). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "تعذر التقاط صوت Kaset (الحالة %d). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام.";
 "Couldn't configure the audio unit (%lld)." = "تعذر تكوين وحدة الصوت (%lld).";
 "Couldn't create the audio unit." = "تعذر إنشاء وحدة الصوت.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "تعذر إنشاء جهاز صوت المعادل. عادةً ما يؤدي إعادة تشغيل Kaset إلى حل المشكلة.";
-"Couldn't install the audio I/O proc (%lld)." = "تعذر تثبيت عملية إدخال/إخراج الصوت (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "تعذر تثبيت عملية إدخال/إخراج الصوت (%d).";
 "Couldn't install the audio render callback (%lld)." = "تعذر تثبيت رد نداء عرض الصوت (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "تعذر التفاوض على تنسيق صوت متوافق مع جهاز الإخراج.";
 "Couldn't route Kaset's audio into the equalizer engine." = "تعذر توجيه صوت Kaset إلى محرك المعادل.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "حفظ في قائمة تشغيل";
 "Saving queue as playlist…" = "جارٍ حفظ قائمة الانتظار كقائمة تشغيل…";
 "Scrobbling" = "سكروبلينج";
-"Scroll %1$@ left" = "مرّر %1$@ إلى اليسار";
-"Scroll %1$@ right" = "مرّر %1$@ إلى اليمين";
+"Scroll %@ left" = "مرّر %1$@ إلى اليسار";
+"Scroll %@ right" = "مرّر %1$@ إلى اليمين";
 "Scrolls this shelf by one page" = "يحرّك هذا الرف بمقدار صفحة واحدة";
 "Search" = "بحث";
 "Search YouTube" = "البحث في YouTube";

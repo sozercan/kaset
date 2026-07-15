@@ -97,11 +97,11 @@
 "Continue Watching" = "Продовжити перегляд";
 "Control playback with your keyboard" = "Керуйте відтворенням за допомогою клавіатури";
 "Could not create AI session" = "Не вдалося створити сеанс ШІ";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Не вдалося захопити звук Kaset (стан %lld). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Не вдалося захопити звук Kaset (стан %d). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах.";
 "Couldn't configure the audio unit (%lld)." = "Не вдалося налаштувати аудіомодуль (%lld).";
 "Couldn't create the audio unit." = "Не вдалося створити аудіомодуль.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Не вдалося створити аудіопристрій еквалайзера. Перезапуск Kaset зазвичай вирішує цю проблему.";
-"Couldn't install the audio I/O proc (%lld)." = "Не вдалося встановити процес вводу/виводу аудіо (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Не вдалося встановити процес вводу/виводу аудіо (%d).";
 "Couldn't install the audio render callback (%lld)." = "Не вдалося встановити зворотний виклик рендерингу аудіо (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Не вдалося узгодити сумісний аудіоформат із пристроєм виведення.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Не вдалося направити аудіо Kaset до модуля еквалайзера.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Зберегти до плейлиста";
 "Saving queue as playlist…" = "Збереження черги як плейлиста…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Прокрутити %1$@ ліворуч";
-"Scroll %1$@ right" = "Прокрутити %1$@ праворуч";
+"Scroll %@ left" = "Прокрутити %1$@ ліворуч";
+"Scroll %@ right" = "Прокрутити %1$@ праворуч";
 "Scrolls this shelf by one page" = "Прокручує цю полицю на одну сторінку";
 "Search" = "Пошук";
 "Search YouTube" = "Шукати в YouTube";

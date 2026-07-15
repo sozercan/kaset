@@ -97,11 +97,11 @@
 "Continue Watching" = "Verder kijken";
 "Control playback with your keyboard" = "Bedien het afspelen met je toetsenbord";
 "Could not create AI session" = "Kon geen AI-sessie maken";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Kon het audio van Kaset niet vastleggen (status %lld). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kon het audio van Kaset niet vastleggen (status %d). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen.";
 "Couldn't configure the audio unit (%lld)." = "Kon de audio-eenheid niet configureren (%lld).";
 "Couldn't create the audio unit." = "Kon de audio-eenheid niet aanmaken.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Kon het audioapparaat van de equalizer niet aanmaken. Kaset opnieuw starten lost dit meestal op.";
-"Couldn't install the audio I/O proc (%lld)." = "Kon de audio-I/O-proc niet installeren (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Kon de audio-I/O-proc niet installeren (%d).";
 "Couldn't install the audio render callback (%lld)." = "Kon de audio-render-callback (%lld) niet installeren.";
 "Couldn't negotiate a compatible audio format with the output device." = "Kon geen compatibele audio-indeling met het uitvoerapparaat afspreken.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Kon de audio van Kaset niet naar de equalizer-engine leiden.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Opslaan in afspeellijst";
 "Saving queue as playlist…" = "Wachtrij opslaan als afspeellijst…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Scroll %1$@ naar links";
-"Scroll %1$@ right" = "Scroll %1$@ naar rechts";
+"Scroll %@ left" = "Scroll %1$@ naar links";
+"Scroll %@ right" = "Scroll %1$@ naar rechts";
 "Scrolls this shelf by one page" = "Scrolt deze rij één pagina";
 "Search" = "Zoek";
 "Search YouTube" = "YouTube doorzoeken";

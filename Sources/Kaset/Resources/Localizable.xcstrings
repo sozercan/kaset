@@ -29583,90 +29583,90 @@
         }
       }
     },
-    "Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings.": {
+    "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تعذر التقاط صوت Kaset (الحالة %lld). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام."
+            "value": "تعذر التقاط صوت Kaset (الحالة %d). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kasets Audio konnte nicht erfasst werden (Status %lld). Prüfe die Berechtigung für Bildschirm- und Systemaudioaufnahme in den Systemeinstellungen."
+            "value": "Kasets Audio konnte nicht erfasst werden (Status %d). Prüfe die Berechtigung für Bildschirm- und Systemaudioaufnahme in den Systemeinstellungen."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo capturar el audio de Kaset (estado %lld). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema."
+            "value": "No se pudo capturar el audio de Kaset (estado %d). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible de capturer l'audio de Kaset (état %lld). Vérifiez l'autorisation Enregistrement de l'écran et de l'audio système dans Réglages Système."
+            "value": "Impossible de capturer l'audio de Kaset (état %d). Vérifiez l'autorisation Enregistrement de l'écran et de l'audio système dans Réglages Système."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tidak dapat menangkap audio Kaset (status %lld). Periksa izin Perekaman Layar & Audio Sistem di Pengaturan Sistem."
+            "value": "Tidak dapat menangkap audio Kaset (status %d). Periksa izin Perekaman Layar & Audio Sistem di Pengaturan Sistem."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossibile acquisire l'audio di Kaset (stato %lld). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema."
+            "value": "Impossibile acquisire l'audio di Kaset (stato %d). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kaset의 오디오를 캡처할 수 없습니다(상태 %lld). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요."
+            "value": "Kaset의 오디오를 캡처할 수 없습니다(상태 %d). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kon het audio van Kaset niet vastleggen (status %lld). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen."
+            "value": "Kon het audio van Kaset niet vastleggen (status %d). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie udało się przechwycić dźwięku Kaset (stan %lld). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych."
+            "value": "Nie udało się przechwycić dźwięku Kaset (stan %d). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não foi possível capturar o áudio do Kaset (estado %lld). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema."
+            "value": "Não foi possível capturar o áudio do Kaset (estado %d). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось захватить звук Kaset (статус %lld). Проверьте разрешение на запись экрана и системного звука в Системных настройках."
+            "value": "Не удалось захватить звук Kaset (статус %d). Проверьте разрешение на запись экрана и системного звука в Системных настройках."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Det gick inte att fånga Kasets ljud (status %lld). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar."
+            "value": "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kaset'in sesi yakalanamadı (durum %lld). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin."
+            "value": "Kaset'in sesi yakalanamadı (durum %d). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не вдалося захопити звук Kaset (стан %lld). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах."
+            "value": "Не вдалося захопити звук Kaset (стан %d). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах."
           }
         }
       }
@@ -45697,7 +45697,7 @@
         }
       }
     },
-    "Scroll %1$@ left": {
+    "Scroll %@ left": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -45785,7 +45785,7 @@
         }
       }
     },
-    "Scroll %1$@ right": {
+    "Scroll %@ right": {
       "localizations": {
         "ar": {
           "stringUnit": {
@@ -46049,90 +46049,90 @@
         }
       }
     },
-    "Couldn't install the audio I/O proc (%lld).": {
+    "Couldn't install the audio I/O proc (%d).": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تعذر تثبيت عملية إدخال/إخراج الصوت (%lld)."
+            "value": "تعذر تثبيت عملية إدخال/إخراج الصوت (%d)."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Der Audio-I/O-Proc konnte nicht installiert werden (%lld)."
+            "value": "Der Audio-I/O-Proc konnte nicht installiert werden (%d)."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "No se pudo instalar el proceso de E/S de audio (%lld)."
+            "value": "No se pudo instalar el proceso de E/S de audio (%d)."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossible d'installer le processus E/S audio (%lld)."
+            "value": "Impossible d'installer le processus E/S audio (%d)."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Tidak dapat memasang proses I/O audio (%lld)."
+            "value": "Tidak dapat memasang proses I/O audio (%d)."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Impossibile installare il processo di I/O audio (%lld)."
+            "value": "Impossibile installare il processo di I/O audio (%d)."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "오디오 I/O 프로시저를 설치할 수 없습니다(%lld)."
+            "value": "오디오 I/O 프로시저를 설치할 수 없습니다(%d)."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kon de audio-I/O-proc niet installeren (%lld)."
+            "value": "Kon de audio-I/O-proc niet installeren (%d)."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nie udało się zainstalować procesu wejścia/wyjścia audio (%lld)."
+            "value": "Nie udało się zainstalować procesu wejścia/wyjścia audio (%d)."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Não foi possível instalar o processo de E/S de áudio (%lld)."
+            "value": "Não foi possível instalar o processo de E/S de áudio (%d)."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не удалось установить процесс аудио I/O (%lld)."
+            "value": "Не удалось установить процесс аудио I/O (%d)."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Det gick inte att installera ljud-I/O-processen (%lld)."
+            "value": "Det gick inte att installera ljud-I/O-processen (%d)."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ses G/Ç yordamı kurulamadı (%lld)."
+            "value": "Ses G/Ç yordamı kurulamadı (%d)."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Не вдалося встановити процес вводу/виводу аудіо (%lld)."
+            "value": "Не вдалося встановити процес вводу/виводу аудіо (%d)."
           }
         }
       }

@@ -97,11 +97,11 @@
 "Continue Watching" = "Kontynuuj oglądanie";
 "Control playback with your keyboard" = "Steruj odtwarzaniem za pomocą klawiatury";
 "Could not create AI session" = "Nie udało się utworzyć sesji AI";
-"Couldn't capture Kaset's audio (status %lld). Check Screen & System Audio Recording permission in System Settings." = "Nie udało się przechwycić dźwięku Kaset (stan %lld). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych.";
+"Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Nie udało się przechwycić dźwięku Kaset (stan %d). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych.";
 "Couldn't configure the audio unit (%lld)." = "Nie udało się skonfigurować jednostki audio (%lld).";
 "Couldn't create the audio unit." = "Nie udało się utworzyć jednostki audio.";
 "Couldn't create the equalizer audio device. Restarting Kaset usually fixes this." = "Nie udało się utworzyć urządzenia audio korektora. Ponowne uruchomienie Kaset zwykle rozwiązuje ten problem.";
-"Couldn't install the audio I/O proc (%lld)." = "Nie udało się zainstalować procesu wejścia/wyjścia audio (%lld).";
+"Couldn't install the audio I/O proc (%d)." = "Nie udało się zainstalować procesu wejścia/wyjścia audio (%d).";
 "Couldn't install the audio render callback (%lld)." = "Nie udało się zainstalować wywołania zwrotnego renderowania audio (%lld).";
 "Couldn't negotiate a compatible audio format with the output device." = "Nie udało się uzgodnić zgodnego formatu audio z urządzeniem wyjściowym.";
 "Couldn't route Kaset's audio into the equalizer engine." = "Nie udało się skierować dźwięku Kaset do silnika korektora.";
@@ -391,8 +391,8 @@
 "Save to Playlist" = "Zapisz do playlisty";
 "Saving queue as playlist…" = "Zapisywanie kolejki jako playlisty…";
 "Scrobbling" = "Scrobbling";
-"Scroll %1$@ left" = "Przewiń %1$@ w lewo";
-"Scroll %1$@ right" = "Przewiń %1$@ w prawo";
+"Scroll %@ left" = "Przewiń %1$@ w lewo";
+"Scroll %@ right" = "Przewiń %1$@ w prawo";
 "Scrolls this shelf by one page" = "Przewija tę sekcję o jedną stronę";
 "Search" = "Szukaj";
 "Search YouTube" = "Szukaj w YouTube";

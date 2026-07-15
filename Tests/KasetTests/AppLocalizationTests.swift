@@ -94,6 +94,39 @@ struct AppLocalizationTests {
         }
     }
 
+    @Test("Runtime interpolation keys resolve carousel and OSStatus translations")
+    func runtimeInterpolationKeysResolveTranslations() throws {
+        let shelf = "Alben"
+        let status: Int32 = -50
+        let bundle = try #require(self.localizedBundle(for: "de"))
+        let locale = Locale(identifier: "de")
+
+        #expect(String(localized: "Scroll \(shelf) left", bundle: bundle, locale: locale) == "Alben nach links scrollen")
+        #expect(String(localized: "Scroll \(shelf) right", bundle: bundle, locale: locale) == "Alben nach rechts scrollen")
+        #expect(
+            String(localized: "Couldn't install the audio I/O proc (\(status)).", bundle: bundle, locale: locale) ==
+                "Der Audio-I/O-Proc konnte nicht installiert werden (-50)."
+        )
+        #expect(
+            String(
+                localized: "Couldn't capture Kaset's audio (status \(status)). Check Screen & System Audio Recording permission in System Settings.",
+                bundle: bundle,
+                locale: locale
+            ) ==
+                "Kasets Audio konnte nicht erfasst werden (Status -50). Prüfe die Berechtigung für Bildschirm- und Systemaudioaufnahme in den Systemeinstellungen."
+        )
+
+        #expect(try self.sourceCatalogValue(key: "Scroll %@ left", localeIdentifier: "de") == "%1$@ nach links scrollen")
+        #expect(try self.sourceCatalogValue(key: "Scroll %@ right", localeIdentifier: "de") == "%1$@ nach rechts scrollen")
+        #expect(try self.sourceCatalogValue(key: "Couldn't install the audio I/O proc (%d).", localeIdentifier: "de").contains("%d"))
+        #expect(
+            try self.sourceCatalogValue(
+                key: "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings.",
+                localeIdentifier: "de"
+            ).contains("%d")
+        )
+    }
+
     @Test("Arabic bundle localizes artist strings")
     func arabicLocalizationWorks() {
         let artist = self.localizedValue(key: "Artist", localeIdentifier: "ar")
