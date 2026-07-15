@@ -174,6 +174,7 @@ enum SongActionsHelper {
 
     struct PlaylistCreationFailure: Error {
         let message: String
+        let recoverySuggestion: String
     }
 
     static func presentCreatePlaylistDialog(
@@ -196,7 +197,10 @@ enum SongActionsHelper {
             guard response == .alertFirstButtonReturn else { return }
             let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !title.isEmpty else {
-                completion(.failure(PlaylistCreationFailure(message: "Playlist Name Required")))
+                completion(.failure(PlaylistCreationFailure(
+                    message: "Playlist Name Required",
+                    recoverySuggestion: "Enter a name for the playlist and try again."
+                )))
                 return
             }
 
@@ -210,6 +214,20 @@ enum SongActionsHelper {
             alert.beginSheetModal(for: window, completionHandler: handleResponse)
         } else {
             handleResponse(alert.runModal())
+        }
+    }
+
+    static func presentPlaylistCreationError(_ failure: PlaylistCreationFailure) {
+        let alert = NSAlert()
+        alert.messageText = failure.message
+        alert.informativeText = failure.recoverySuggestion
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
         }
     }
 
@@ -247,7 +265,10 @@ enum SongActionsHelper {
 
             completion(.success(playlist))
         } catch {
-            completion(.failure(PlaylistCreationFailure(message: "Unable to Create Playlist")))
+            completion(.failure(PlaylistCreationFailure(
+                message: "Unable to Create Playlist",
+                recoverySuggestion: "Check your connection and try again."
+            )))
             DiagnosticsLogger.ui.error("Failed to create playlist: \(error.localizedDescription)")
         }
     }

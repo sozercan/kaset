@@ -172,7 +172,7 @@ struct Sidebar: View {
                     self.sidebarPinnedItemsManager.add(pinnedItem)
                     self.selectPinnedItem(pinnedItem)
                 case let .failure(failure):
-                    DiagnosticsLogger.ui.error("Failed to create playlist from sidebar: \(failure.message)")
+                    SongActionsHelper.presentPlaylistCreationError(failure)
                 }
             }
         )

@@ -118,9 +118,8 @@ enum LibraryMutationActions {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        let pinnedIndex = SidebarPinnedItemsManager.shared.items.firstIndex { $0.contentId == playlist.id }
-        let pinnedItem = pinnedIndex.map { SidebarPinnedItemsManager.shared.items[$0] }
-        SidebarPinnedItemsManager.shared.remove(contentId: playlist.id)
+        let pinnedItemsManager = SidebarPinnedItemsManager.shared
+        let removedPins = pinnedItemsManager.removePlaylistPins(matching: playlist.id)
         LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
 
         do {
@@ -134,9 +133,7 @@ enum LibraryMutationActions {
             await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
             self.invalidateResponseCaches()
         } catch {
-            if let pinnedItem, let pinnedIndex {
-                SidebarPinnedItemsManager.shared.insert(pinnedItem, at: pinnedIndex)
-            }
+            pinnedItemsManager.restore(removedPins)
             // Restore the caller's view directly (like the optimistic podcast mutations do) rather
             // than broadcasting a creation: other Library instances self-heal on their next reload,
             // and a global playlistCreated here would fabricate the playlist in views that never
