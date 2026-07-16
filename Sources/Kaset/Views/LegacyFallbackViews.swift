@@ -111,7 +111,7 @@ struct SimplePlaylistDetailView: View {
                     Button {
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Play", systemImage: "play.fill")
+                        Label(String(localized: "Play"), systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(playableTracks.isEmpty)
@@ -122,7 +122,7 @@ struct SimplePlaylistDetailView: View {
                         }
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
+                        Label(String(localized: "Shuffle"), systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
                     .disabled(playableTracks.isEmpty)

@@ -765,7 +765,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                     ContentUnavailableView(
                         String(localized: "No Queue"),
                         systemImage: "list.bullet",
-                        description: Text("Songs you play next will appear here.")
+                        description: Text(String(localized: "Songs you play next will appear here."))
                     )
                     .foregroundStyle(.white.opacity(0.76))
                     .frame(maxWidth: .infinity, minHeight: 210)
@@ -783,7 +783,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                                         Image(systemName: "sparkles")
                                             .font(.system(size: 8, weight: .semibold))
                                             .foregroundStyle(PackageResourceLookup.brandAccent)
-                                            .accessibilityLabel(Text("Suggested"))
+                                            .accessibilityLabel(Text(String(localized: "Suggested")))
                                     }
                                 }
                                 Text(song.artistsDisplay)

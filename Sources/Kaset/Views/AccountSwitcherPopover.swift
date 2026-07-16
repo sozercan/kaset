@@ -46,7 +46,7 @@ struct AccountSwitcherPopover: View {
 
     private var headerView: some View {
         HStack {
-            Text("Switch Account")
+            Text(String(localized: "Switch Account"))
                 .font(.headline)
                 .foregroundStyle(.primary)
 

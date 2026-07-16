@@ -230,7 +230,7 @@ private struct PodcastEpisodeCard: View {
                             .lineLimit(1)
                     }
                     if self.episode.showTitle != nil, self.episode.publishedDate != nil {
-                        Text("•")
+                        Text(String(localized: "•"))
                     }
                     if let date = episode.publishedDate {
                         Text(date)
@@ -371,7 +371,7 @@ struct PodcastShowView: View {
                         Button {
                             self.playEpisodeInQueue(at: 0)
                         } label: {
-                            Label("Play Latest", systemImage: "play.fill")
+                            Label(String(localized: "Play Latest"), systemImage: "play.fill")
                                 .font(.headline)
                         }
                         .compatGlassProminentButton()
@@ -407,7 +407,7 @@ struct PodcastShowView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header with "Show All" button
             HStack {
-                Text("Episodes")
+                Text(String(localized: "Episodes"))
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -417,7 +417,7 @@ struct PodcastShowView: View {
                     Button {
                         self.showAllEpisodes = true
                     } label: {
-                        Text("Show All")
+                        Text(String(localized: "Show All"))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -568,7 +568,7 @@ struct PodcastEpisodeRow: View {
                         }
                         Spacer()
                         if self.episode.isPlayed {
-                            Label("Played", systemImage: "checkmark.circle.fill")
+                            Label(String(localized: "Played"), systemImage: "checkmark.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

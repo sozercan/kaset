@@ -54,7 +54,7 @@ struct LoginSheet: View {
     private var headerView: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text("Sign in to YouTube Music")
+                Text(String(localized: "Sign in to YouTube Music"))
                     .font(.headline)
 
                 Spacer()
@@ -67,7 +67,7 @@ struct LoginSheet: View {
                 }
             }
 
-            Text("Note: If passkeys don't work, use \"Try another way\" to sign in with password.", comment: "Login help text about passkey alternative")
+            Text(String(localized: "Note: If passkeys don't work, use \"Try another way\" to sign in with password."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -165,7 +165,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
-                .accessibilityLabel(Text("Go to Album"))
+                .accessibilityLabel(Text(String(localized: "Go to Album")))
             } else {
                 self.trackArtwork(for: track)
                     .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
@@ -806,7 +806,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             Button {
                 self.openArtist(artist)
             } label: {
-                Label("Go to Artist", systemImage: "person")
+                Label(String(localized: "Go to Artist"), systemImage: "person")
             }
         }
 
@@ -814,7 +814,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             Button {
                 self.openAlbum(self.playlist(from: album, track: track))
             } label: {
-                Label("Go to Album", systemImage: "square.stack")
+                Label(String(localized: "Go to Album"), systemImage: "square.stack")
             }
         }
     }

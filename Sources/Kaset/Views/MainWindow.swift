@@ -400,7 +400,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 if self.settings.appSource == .music {
                     Sidebar(
                         selection: self.$navigationSelection,
-                        pinnedSelection: self.$selectedSidebarPinnedItem
+                        pinnedSelection: self.$selectedSidebarPinnedItem,
+                        client: self.client
                     )
                 } else {
                     YouTubeSidebar(selection: self.$youtubeNavigationSelection)
@@ -658,6 +659,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
+        .environment(\.onPlaylistDeleted) {
+            self.navigationSelection = .home
+        }
     }
 
     /// View shown while checking initial login status.

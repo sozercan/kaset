@@ -166,14 +166,14 @@ struct NowPlayingIndicator: View {
     VStack(spacing: 24) {
         // Playing state
         HStack(spacing: 24) {
-            Text("Playing:")
+            Text(String(localized: "Playing:"))
             EqualizerView(isAnimating: true)
                 .frame(width: 20, height: 20)
         }
 
         // Paused state
         HStack(spacing: 24) {
-            Text("Paused:")
+            Text(String(localized: "Paused:"))
             EqualizerView(isAnimating: false)
                 .frame(width: 20, height: 20)
         }

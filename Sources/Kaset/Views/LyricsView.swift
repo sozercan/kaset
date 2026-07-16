@@ -88,7 +88,7 @@ struct LyricsView: View {
 
     private var headerView: some View {
         HStack {
-            Text("Lyrics")
+            Text(String(localized: "Lyrics"))
                 .font(.headline)
                 .foregroundStyle(.primary)
             Spacer()
@@ -319,7 +319,7 @@ struct LyricsView: View {
                         .controlSize(.small)
                         .scaleEffect(0.6)
                         .frame(width: 10, height: 10)
-                    Text("Analyzing...")
+                    Text(String(localized: "Analyzing..."))
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 }
@@ -339,7 +339,7 @@ struct LyricsView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
             Spacer()
-            Button("Retry") {
+            Button(String(localized: "Retry")) {
                 self.explanationError = nil
                 Task {
                     await self.explainLyrics()
@@ -358,7 +358,7 @@ struct LyricsView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
 
-            Text("No Lyrics Available")
+            Text(String(localized: "No Lyrics Available"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
@@ -377,7 +377,7 @@ struct LyricsView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
 
-            Text("No Song Playing")
+            Text(String(localized: "No Song Playing"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
 

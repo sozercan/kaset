@@ -7,6 +7,11 @@ import Observation
 @MainActor
 @Observable
 final class SidebarPinnedItemsManager {
+    struct RemovedPin {
+        let item: SidebarPinnedItem
+        let index: Int
+    }
+
     static let shared = SidebarPinnedItemsManager()
 
     private(set) var items: [SidebarPinnedItem] = []
@@ -59,7 +64,7 @@ final class SidebarPinnedItemsManager {
     }
 
     func add(_ item: SidebarPinnedItem) {
-        guard !self.isPinned(contentId: item.contentId) else {
+        guard !self.isPinned(item) else {
             DiagnosticsLogger.ui.debug("Item already pinned to sidebar: \(item.contentId)")
             return
         }
@@ -67,6 +72,37 @@ final class SidebarPinnedItemsManager {
         self.items.append(item)
         self.save()
         DiagnosticsLogger.ui.info("Added to sidebar: \(item.title)")
+    }
+
+    @discardableResult
+    func removePlaylistPins(matching playlistId: String) -> [RemovedPin] {
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
+        let removedPins = self.items.enumerated().compactMap { index, item -> RemovedPin? in
+            guard self.matchesPlaylist(item, playlistKey: playlistKey) else { return nil }
+            return RemovedPin(item: item, index: index)
+        }
+        guard !removedPins.isEmpty else {
+            DiagnosticsLogger.ui.debug("Playlist not pinned to sidebar: \(playlistId)")
+            return []
+        }
+
+        self.items.removeAll { self.matchesPlaylist($0, playlistKey: playlistKey) }
+        self.save()
+        DiagnosticsLogger.ui.info("Removed \(removedPins.count) playlist pin(s) from sidebar")
+        return removedPins
+    }
+
+    func restore(_ removedPins: [RemovedPin]) {
+        var restoredCount = 0
+        for removedPin in removedPins.sorted(by: { $0.index < $1.index }) {
+            guard !self.isPinned(contentId: removedPin.item.contentId) else { continue }
+            self.items.insert(removedPin.item, at: min(removedPin.index, self.items.endIndex))
+            restoredCount += 1
+        }
+        guard restoredCount > 0 else { return }
+
+        self.save()
+        DiagnosticsLogger.ui.info("Restored \(restoredCount) playlist pin(s) to sidebar")
     }
 
     func remove(contentId: String) {
@@ -81,10 +117,16 @@ final class SidebarPinnedItemsManager {
     }
 
     func toggle(_ item: SidebarPinnedItem) {
-        if self.isPinned(contentId: item.contentId) {
-            self.remove(contentId: item.contentId)
-        } else {
+        guard self.isPinned(item) else {
             self.add(item)
+            return
+        }
+
+        switch item.itemType {
+        case let .playlist(playlist):
+            self.removePlaylistPins(matching: playlist.id)
+        case .album:
+            self.remove(contentId: item.contentId)
         }
     }
 
@@ -130,12 +172,29 @@ final class SidebarPinnedItemsManager {
     }
 
     func isPinned(_ item: SidebarPinnedItem) -> Bool {
-        self.isPinned(contentId: item.contentId)
+        self.items.contains { self.matchesIdentity($0, item) }
     }
 
     func reset(with items: [SidebarPinnedItem]) {
         self.items = items
         self.save()
+    }
+
+    private func matchesIdentity(_ lhs: SidebarPinnedItem, _ rhs: SidebarPinnedItem) -> Bool {
+        switch (lhs.itemType, rhs.itemType) {
+        case let (.playlist(lhsPlaylist), .playlist(rhsPlaylist)):
+            LibraryContentIdentity.playlistKey(for: lhsPlaylist.id) ==
+                LibraryContentIdentity.playlistKey(for: rhsPlaylist.id)
+        case let (.album(lhsAlbum), .album(rhsAlbum)):
+            lhsAlbum.id == rhsAlbum.id
+        default:
+            false
+        }
+    }
+
+    private func matchesPlaylist(_ item: SidebarPinnedItem, playlistKey: String) -> Bool {
+        guard case let .playlist(playlist) = item.itemType else { return false }
+        return LibraryContentIdentity.playlistKey(for: playlist.id) == playlistKey
     }
 
     private func save() {

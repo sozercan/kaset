@@ -68,11 +68,11 @@ struct QueueSidePanelView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
 
-            Text("No Queue")
+            Text(String(localized: "No Queue"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("Play songs from a playlist or album to build your queue.")
+            Text(String(localized: "Play songs from a playlist or album to build your queue."))
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -673,7 +673,7 @@ private struct QueueSidePanelHeader: View {
 
     var body: some View {
         HStack {
-            Text("Up Next")
+            Text(String(localized: "Up Next"))
                 .font(.headline)
                 .foregroundStyle(.primary)
 
@@ -704,7 +704,7 @@ private struct QueueSidePanelHeader: View {
             Button {
                 self.playerService.toggleQueueDisplayMode()
             } label: {
-                Label("Done", systemImage: "checkmark")
+                Label(String(localized: "Done"), systemImage: "checkmark")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
