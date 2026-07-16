@@ -97,10 +97,10 @@ struct PlayerServiceMixTests {
             continuationToken: "guest-mix-continuation"
         )
 
-        async let play: Void = self.playerService.playWithMix(playlistId: "RDEM123", startVideoId: nil)
+        async let play: Bool = self.playerService.playWithMix(playlistId: "RDEM123", startVideoId: nil)
         try? await Task.sleep(for: .milliseconds(30))
         self.playerService.clearPlaybackForGuestStartup()
-        await play
+        _ = await play
 
         #expect(self.playerService.queue.isEmpty)
         #expect(self.playerService.currentTrack == nil)

@@ -41,4 +41,79 @@ struct CommandExecutorTests {
         #expect(outcome.shouldDismiss == false)
         #expect(outcome.searchQueryToOpen == nil)
     }
+
+    @Test("removeFromQueue removes songs matching the subject")
+    func removeFromQueueMatchesSubject() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [
+            self.makeSong(title: "One More Time", artist: "Daft Punk", videoId: "dp-1"),
+            self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1"),
+            self.makeSong(title: "Around the World", artist: "Daft Punk", videoId: "dp-2"),
+        ]
+        playerService.currentIndex = 1
+        let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
+
+        let outcome = await executor.execute(.removeFromQueue(query: "daft punk"))
+
+        #expect(playerService.queue.map(\.videoId) == ["fm-1"])
+        #expect(outcome.resultMessage?.contains("Removed 2") == true)
+        #expect(outcome.errorMessage == nil)
+    }
+
+    @Test("removeFromQueue with an empty subject is a safe no-op and never clears the queue")
+    func removeFromQueueEmptySubjectIsNoOp() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1")]
+        let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
+
+        let outcome = await executor.execute(.removeFromQueue(query: "   "))
+
+        #expect(outcome.errorMessage != nil)
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.removeFromQueueCallCount == 0)
+    }
+
+    @Test("removeFromQueue with no match reports an error and leaves the queue intact")
+    func removeFromQueueNoMatch() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1")]
+        let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
+
+        let outcome = await executor.execute(.removeFromQueue(query: "taylor swift"))
+
+        #expect(outcome.errorMessage != nil)
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.removeFromQueueCallCount == 0)
+    }
+
+    @Test("removeDuplicates drops later duplicate videoIds and reports the count")
+    func removeDuplicatesReportsCount() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [
+            self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1"),
+            self.makeSong(title: "Around the World", artist: "Daft Punk", videoId: "dp-1"),
+            self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1"),
+        ]
+        let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
+
+        let outcome = await executor.execute(.removeDuplicates)
+
+        #expect(playerService.queue.map(\.videoId) == ["fm-1", "dp-1"])
+        #expect(outcome.resultMessage?.contains("Removed 1") == true)
+    }
+
+    @Test("removeDuplicates reports an error when there is nothing to remove")
+    func removeDuplicatesNoDuplicates() async {
+        let playerService = MockPlayerService()
+        playerService.queue = [
+            self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "fm-1"),
+            self.makeSong(title: "Around the World", artist: "Daft Punk", videoId: "dp-1"),
+        ]
+        let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
+
+        let outcome = await executor.execute(.removeDuplicates)
+
+        #expect(outcome.errorMessage != nil)
+        #expect(playerService.queue.count == 2)
+    }
 }

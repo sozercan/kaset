@@ -13,6 +13,9 @@ struct CommandExecutor {
         case clearQueue
         case shuffleQueue
         case toggleShuffle
+        case queueRadio
+        case removeFromQueue(query: String)
+        case removeDuplicates
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
@@ -58,7 +61,7 @@ struct CommandExecutor {
 
     private let logger = DiagnosticsLogger.ai
 
-    func execute(_ request: Request) async -> Outcome {
+    func execute(_ request: Request) async -> Outcome { // swiftlint:disable:this cyclomatic_complexity
         switch request {
         case .pause:
             HapticService.playback()
@@ -105,6 +108,24 @@ struct CommandExecutor {
             self.playerService.toggleShuffle()
             let status = self.playerService.shuffleEnabled ? "on" : "off"
             return .result("Shuffle is now \(status)")
+
+        case .queueRadio:
+            HapticService.success()
+            return await self.queueRadioFromCurrentTrack()
+
+        case let .removeFromQueue(query):
+            return self.removeMatchingFromQueue(query: query)
+
+        case .removeDuplicates:
+            let before = self.playerService.queue.count
+            self.playerService.removeDuplicateQueueEntries()
+            let removed = before - self.playerService.queue.count
+            guard removed > 0 else {
+                return .error(String(localized: "No duplicates in the queue"))
+            }
+            HapticService.toggle()
+            let songLabel = removed == 1 ? "duplicate" : "duplicates"
+            return .result("Removed \(removed) \(songLabel)")
 
         case let .playSearch(query, description):
             return await self.playSearchResult(query: query, description: description)
@@ -284,6 +305,63 @@ struct CommandExecutor {
         }
     }
 
+    private func removeMatchingFromQueue(query: String) -> Outcome {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Empty subject is a safe no-op: never let a fumbled removal fall through to a full clear.
+        guard !trimmed.isEmpty else {
+            return .error(String(localized: "Tell me which songs to remove from the queue"))
+        }
+
+        let needle = trimmed.lowercased()
+        let matches = self.playerService.queue.filter {
+            $0.artistsDisplay.lowercased().contains(needle) || $0.title.lowercased().contains(needle)
+        }
+        let videoIds = Set(matches.map(\.videoId))
+
+        guard !videoIds.isEmpty else {
+            return .error(String(localized: "No songs matching \"\(trimmed)\" in the queue"))
+        }
+
+        HapticService.toggle()
+        let previousCount = self.playerService.queue.count
+        self.playerService.removeFromQueue(videoIds: videoIds)
+        let removed = previousCount - self.playerService.queue.count
+        self.logger.info("Removed \(removed) songs matching \(needle) from queue")
+
+        guard removed > 0 else {
+            return .error(String(localized: "Only the song playing matches \"\(trimmed)\""))
+        }
+
+        let songLabel = removed == 1 ? "song" : "songs"
+        return .result("Removed \(removed) \(songLabel) matching \"\(trimmed)\"")
+    }
+
+    private func queueRadioFromCurrentTrack() async -> Outcome {
+        guard let seed = self.playerService.currentTrack, !seed.videoId.isEmpty else {
+            return .error(String(localized: "Nothing is playing to build a radio from"))
+        }
+
+        do {
+            let radioSongs = try await self.client.getRadioQueue(videoId: seed.videoId)
+            let existingIds = Set(self.playerService.queue.map(\.videoId))
+            let newSongs = radioSongs.filter { !existingIds.contains($0.videoId) }
+
+            self.logger.info("Radio queue for \(seed.videoId) returned \(radioSongs.count), \(newSongs.count) new")
+
+            guard !newSongs.isEmpty else {
+                return .error(String(localized: "Couldn't find more songs like that"))
+            }
+
+            self.playerService.appendToQueue(newSongs)
+            let seedArtist = seed.artistsDisplay.isEmpty ? "" : " by \(seed.artistsDisplay)"
+            return .result("Added \(newSongs.count) songs like \"\(seed.title)\"\(seedArtist) to the queue")
+        } catch {
+            self.logger.error("Radio queue failed: \(error.localizedDescription)")
+            return .error(String(localized: "Couldn't build a radio from this song"))
+        }
+    }
+
     private func playContent(
         intent: MusicIntent,
         query: String,
@@ -305,6 +383,13 @@ struct CommandExecutor {
                 await self.playerService.playQueue(songs, startingAt: 0)
                 return .result("Playing top songs")
             }
+            return await self.playSearchResult(query: query, description: description)
+
+        case .artistMix:
+            if let outcome = await self.playArtistMix(intent: intent) {
+                return outcome
+            }
+            self.logger.info("No artist mix available, falling back to search")
             return await self.playSearchResult(query: query, description: description)
 
         case .search:
@@ -345,8 +430,85 @@ struct CommandExecutor {
 
             return await self.queueSearchResult(query: query, description: description)
 
+        case .artistMix:
+            if let outcome = await self.queueArtistMix(intent: intent) {
+                return outcome
+            }
+            self.logger.info("No artist mix available, falling back to search")
+            return await self.queueSearchResult(query: query, description: description)
+
         case .search:
             return await self.queueSearchResult(query: query, description: description)
+        }
+    }
+
+    private struct ArtistMix {
+        let playlistId: String
+        let startVideoId: String?
+        let name: String
+    }
+
+    private func resolveArtistMix(artistName: String) async -> ArtistMix? {
+        do {
+            let response = try await self.client.searchArtists(query: artistName)
+            guard let artist = response.artists.first else {
+                self.logger.info("No artist found for \(artistName)")
+                return nil
+            }
+
+            let detail = try await self.client.getArtist(id: artist.id)
+            guard let playlistId = detail.mixPlaylistId else {
+                self.logger.info("No mix playlist for artist \(artist.name)")
+                return nil
+            }
+
+            return ArtistMix(playlistId: playlistId, startVideoId: detail.mixVideoId, name: artist.name)
+        } catch {
+            self.logger.error("Artist mix resolution failed: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func playArtistMix(intent: MusicIntent) async -> Outcome? {
+        guard let mix = await self.resolveArtistMix(artistName: intent.artist) else {
+            return nil
+        }
+
+        // Fall back to search (return nil) if the mix was empty or failed to load, so the
+        // caller doesn't report "Playing X mix" when nothing actually started.
+        guard await self.playerService.playWithMix(playlistId: mix.playlistId, startVideoId: mix.startVideoId) else {
+            return nil
+        }
+        return .result("Playing \(mix.name) mix")
+    }
+
+    private func queueArtistMix(intent: MusicIntent) async -> Outcome? {
+        guard let mix = await self.resolveArtistMix(artistName: intent.artist) else {
+            return nil
+        }
+
+        do {
+            let result = try await self.client.getMixQueue(playlistId: mix.playlistId, startVideoId: mix.startVideoId)
+            guard !result.songs.isEmpty else {
+                return nil
+            }
+
+            if self.playerService.queue.isEmpty {
+                await self.playerService.playQueue(result.songs, startingAt: 0)
+                return .result("Playing \(mix.name) mix")
+            }
+
+            let existingIds = Set(self.playerService.queue.map(\.videoId))
+            let newSongs = result.songs.filter { !existingIds.contains($0.videoId) }
+            guard !newSongs.isEmpty else {
+                return nil
+            }
+
+            self.playerService.appendToQueue(newSongs)
+            return .result("Added \(mix.name) mix to queue")
+        } catch {
+            self.logger.error("Artist mix queue failed: \(error.localizedDescription)")
+            return nil
         }
     }
 

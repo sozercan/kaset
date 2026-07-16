@@ -66,6 +66,15 @@ enum ContentSourceResolver {
 
     static func suggestedContentSource(for intent: MusicIntent) -> ContentSource {
         if !intent.artist.isEmpty {
+            // Open-ended artist listening ("play/queue some daft punk") maps to the artist's
+            // mix. Any specific modifier — hits, era, version, mood, or genre — keeps the
+            // existing search, since the mix is artist-seeded and honors none of them.
+            if !self.queryWantsHits(intent.query),
+               intent.era.isEmpty, intent.version.isEmpty,
+               intent.mood.isEmpty, intent.genre.isEmpty
+            {
+                return .artistMix
+            }
             return .search
         }
 

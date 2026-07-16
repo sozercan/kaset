@@ -52,6 +52,14 @@ struct CommandIntentParser {
             return .shuffleQueue
         }
 
+        if Self.radioCommands.contains(normalized) {
+            return .queueRadio
+        }
+
+        if Self.removeDuplicatesCommands.contains(normalized) {
+            return .removeDuplicates
+        }
+
         return nil
     }
 
@@ -62,6 +70,21 @@ struct CommandIntentParser {
 
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowered = trimmedQuery.lowercased()
+
+        if self.referencesCurrentTrackRadio(lowered) {
+            return .queueRadio
+        }
+
+        if lowered.contains("duplicate") {
+            return .removeDuplicates
+        }
+
+        if lowered.hasPrefix("remove ") || lowered.hasPrefix("delete ") || lowered.hasPrefix("take out ") {
+            let subject = self.removeQueueSubject(from: trimmedQuery)
+            if !subject.isEmpty {
+                return .removeFromQueue(query: subject)
+            }
+        }
 
         if let searchQuery = self.explicitSearchQuery(from: trimmedQuery) {
             return .openSearch(query: searchQuery)
@@ -135,6 +158,48 @@ struct CommandIntentParser {
         }
 
         return nil
+    }
+
+    private func removeQueueSubject(from query: String) -> String {
+        var cleaned = query.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        for prefix in ["remove ", "delete ", "take out "] where cleaned.lowercased().hasPrefix(prefix) {
+            cleaned = String(cleaned.dropFirst(prefix.count))
+            break
+        }
+
+        for suffix in [" from the queue", " from queue", " out of the queue", " out of queue"]
+            where cleaned.lowercased().hasSuffix(suffix)
+        {
+            cleaned = String(cleaned.dropLast(suffix.count))
+            break
+        }
+
+        for suffix in [" songs", " tracks", " song", " track"] where cleaned.lowercased().hasSuffix(suffix) {
+            cleaned = String(cleaned.dropLast(suffix.count))
+            break
+        }
+
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func referencesCurrentTrackRadio(_ lowered: String) -> Bool {
+        // "dislike this" / "don't like this" contain "like this" but mean the opposite,
+        // so bail on any negation before matching the current-track phrases below.
+        guard !lowered.contains("dislike"), !lowered.contains("n't like"), !lowered.contains("not like") else {
+            return false
+        }
+
+        // Only phrases anchored to "this/that" (the current track). Object-taking phrases
+        // like "similar songs to <artist>" are intentionally excluded here — they stay in
+        // the exact-match radioCommands set, where they unambiguously mean current-track radio.
+        let phrases = [
+            "like this", "like these", "like that",
+            "more of this", "more like this",
+            "keep it going", "keep this going",
+            "start a radio", "start radio",
+        ]
+        return phrases.contains { lowered.contains($0) }
     }
 
     private func explicitSearchQuery(from query: String) -> String? {
@@ -335,6 +400,32 @@ struct CommandIntentParser {
         "shuffle queue",
         "shuffle my queue",
         "shuffle the queue",
+    ]
+
+    private static let removeDuplicatesCommands: Set<String> = [
+        "remove duplicates",
+        "remove duplicates from queue",
+        "remove duplicates from the queue",
+        "remove the duplicates",
+        "remove duplicate songs",
+        "delete duplicates",
+        "dedupe queue",
+        "dedupe the queue",
+        "deduplicate queue",
+    ]
+
+    private static let radioCommands: Set<String> = [
+        "radio",
+        "start radio",
+        "start a radio",
+        "more like this",
+        "more songs like this",
+        "songs like this",
+        "play more like this",
+        "keep it going",
+        "keep this going",
+        "similar songs",
+        "play similar songs",
     ]
 
     private static let queueInspectionPrefixes: Set<String> = [

@@ -94,6 +94,8 @@ enum ContentSource: String, CustomStringConvertible {
     case moodsAndGenres
     /// Use Charts for popularity-based requests
     case charts
+    /// Use the artist's YouTube Music mix (radio) seeded from their page
+    case artistMix
 
     var description: String {
         rawValue

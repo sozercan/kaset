@@ -91,7 +91,8 @@ extension PlayerService {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
     ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
-    func playWithMix(playlistId: String, startVideoId: String?) async {
+    @discardableResult
+    func playWithMix(playlistId: String, startVideoId: String?) async -> Bool {
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
         let requestGeneration = self.playbackRequestGeneration
         let continuationRequiresAuth = self.authService?.hasPersonalAccount == true
@@ -100,7 +101,7 @@ extension PlayerService {
 
         guard let client = self.ytMusicClient else {
             self.logger.warning("No YTMusicClient available for playing mix")
-            return
+            return false
         }
 
         do {
@@ -108,12 +109,12 @@ extension PlayerService {
             let result = try await client.getMixQueue(playlistId: playlistId, startVideoId: startVideoId)
             guard !result.songs.isEmpty else {
                 self.logger.warning("Mix queue returned empty")
-                return
+                return false
             }
 
             guard requestGeneration == self.playbackRequestGeneration else {
                 self.logger.info("Discarding stale mix playback request after privacy boundary")
-                return
+                return false
             }
 
             // Store continuation token for infinite mix
@@ -141,8 +142,10 @@ extension PlayerService {
 
             self.logger.info("Mix queue loaded with \(shuffledSongs.count) songs, hasContinuation: \(result.continuationToken != nil)")
             self.saveQueueForPersistence()
+            return true
         } catch {
             self.logger.warning("Failed to fetch mix queue: \(error.localizedDescription)")
+            return false
         }
     }
 
@@ -496,9 +499,11 @@ extension PlayerService {
         let currentEntryID = self.currentQueueEntryID
         let originalCurrentIndex = self.currentIndex
         let indicesToRemove = self.queueEntries.enumerated()
-            .filter { videoIds.contains($0.element.song.videoId) }
+            .filter { $0.element.id != currentEntryID && videoIds.contains($0.element.song.videoId) }
             .map(\.offset)
-        let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
+        let remainingEntries = self.queueEntries.filter {
+            $0.id == currentEntryID || !videoIds.contains($0.song.videoId)
+        }
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(
             currentEntryID: currentEntryID,

@@ -56,4 +56,54 @@ struct CommandIntentParserTests {
         #expect(!self.parser.isQueueInspectionQuery("show me Coming Up"))
         #expect(!self.parser.isQueueInspectionQuery("next track"))
     }
+
+    @Test("Radio phrases resolve to queueRadio deterministically", arguments: [
+        "more like this",
+        "songs like this",
+        "start a radio",
+        "keep it going",
+        "similar songs",
+    ])
+    func radioDeterministic(query: String) {
+        #expect(self.parser.deterministicRequest(for: query) == .queueRadio)
+    }
+
+    @Test("Dislike phrasing is never treated as a current-track radio request")
+    func dislikeIsNotRadio() {
+        #expect(self.parser.fallbackRequest(for: "i dislike this") == .dislike)
+        #expect(self.parser.fallbackRequest(for: "don't like this") != .queueRadio)
+    }
+
+    @Test("More-like-this inside a longer sentence still routes to radio")
+    func radioFallbackFromSentence() {
+        #expect(self.parser.fallbackRequest(for: "add more songs like this to the queue") == .queueRadio)
+    }
+
+    @Test("Similar-to-an-artist is not hijacked into current-track radio")
+    func similarToArtistIsNotRadio() {
+        #expect(self.parser.fallbackRequest(for: "play similar songs to daft punk") != .queueRadio)
+    }
+
+    @Test("Remove-duplicates phrases resolve to removeDuplicates", arguments: [
+        "remove duplicates",
+        "remove duplicates from queue",
+        "dedupe queue",
+        "remove duplicate songs",
+    ])
+    func removeDuplicatesDeterministic(query: String) {
+        #expect(self.parser.deterministicRequest(for: query) == .removeDuplicates)
+    }
+
+    @Test("A duplicate-removal request is not misparsed as removing a song named 'duplicates'")
+    func removeDuplicatesTakesPrecedenceOverRemove() {
+        #expect(self.parser.fallbackRequest(for: "please remove the duplicate tracks") == .removeDuplicates)
+    }
+
+    @Test("Fallback extracts the removal subject from a remove command")
+    func removeSubjectExtraction() {
+        #expect(
+            self.parser.fallbackRequest(for: "remove daft punk songs from the queue") ==
+                .removeFromQueue(query: "daft punk")
+        )
+    }
 }

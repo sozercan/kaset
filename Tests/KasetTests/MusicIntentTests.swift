@@ -452,4 +452,67 @@ struct ContentSourceTests {
         #expect(ContentSource.moodsAndGenres.description == "moodsAndGenres")
         #expect(ContentSource.charts.description == "charts")
     }
+
+    @Test("An artist with no modifiers routes to the artist mix")
+    func artistAloneUsesArtistMix() {
+        let intent = MusicIntent(
+            action: .play, query: "daft punk", shuffleScope: "",
+            artist: "Daft Punk", genre: "", mood: "", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "artistMix")
+    }
+
+    @Test("An artist request with hits keeps search")
+    func artistWithHitsUsesSearch() {
+        let intent = MusicIntent(
+            action: .play, query: "greatest hits", shuffleScope: "",
+            artist: "Queen", genre: "", mood: "", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "search")
+    }
+
+    @Test("An artist request with an era keeps search")
+    func artistWithEraUsesSearch() {
+        let intent = MusicIntent(
+            action: .play, query: "", shuffleScope: "",
+            artist: "Queen", genre: "", mood: "", era: "1990s", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "search")
+    }
+
+    @Test("An artist request with a genre keeps search")
+    func artistWithGenreUsesSearch() {
+        let intent = MusicIntent(
+            action: .play, query: "", shuffleScope: "",
+            artist: "Daft Punk", genre: "electronic", mood: "", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "search")
+    }
+
+    @Test("An artist request with a mood keeps search")
+    func artistWithMoodUsesSearch() {
+        let intent = MusicIntent(
+            action: .play, query: "", shuffleScope: "",
+            artist: "Daft Punk", genre: "", mood: "chill", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "search")
+    }
+
+    @Test("A genre with no artist routes to Moods & Genres")
+    func genreAloneUsesMoodsAndGenres() {
+        let intent = MusicIntent(
+            action: .play, query: "", shuffleScope: "",
+            artist: "", genre: "jazz", mood: "", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "moodsAndGenres")
+    }
+
+    @Test("A popularity request routes to Charts")
+    func popularityUsesCharts() {
+        let intent = MusicIntent(
+            action: .play, query: "top songs", shuffleScope: "",
+            artist: "", genre: "", mood: "", era: "", version: "", activity: ""
+        )
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent).rawValue == "charts")
+    }
 }

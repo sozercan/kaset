@@ -458,7 +458,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
     ///   - startVideoId: Optional starting video ID
-    func playWithMix(playlistId: String, startVideoId: String?) async
+    /// - Returns: `true` if the mix loaded and playback started, `false` if it was empty or failed.
+    @discardableResult
+    func playWithMix(playlistId: String, startVideoId: String?) async -> Bool
 
     /// Clears the queue while preserving the current track when possible.
     func clearQueue()
@@ -468,6 +470,12 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Appends songs to the end of the queue.
     func appendToQueue(_ songs: [Song])
+
+    /// Removes every queue entry whose song matches one of the given video IDs.
+    func removeFromQueue(videoIds: Set<String>)
+
+    /// Removes later duplicate songs from the queue, keeping the first occurrence of each video ID.
+    func removeDuplicateQueueEntries()
 
     // MARK: - Like/Library Actions
 
