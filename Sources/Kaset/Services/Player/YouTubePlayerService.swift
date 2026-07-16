@@ -130,6 +130,11 @@ final class YouTubePlayerService {
     /// actions clear this; an accepted playing update restores it for autoplay.
     @ObservationIgnored private var desiredPlaybackIntent: DesiredPlaybackIntent = .paused
 
+    /// Rejects remote-command callbacks captured before a newer native video action.
+    @ObservationIgnored var youtubePlaybackIntentIssuedAtMilliseconds: Double = 0
+    @ObservationIgnored var youtubeRemoteCommandIntentIssuedAtMilliseconds: Double?
+    @ObservationIgnored var youtubePlaybackIntentGeneration: UInt64 = 0
+
     /// Explicit native pause dominates late playing samples until the next native
     /// resume/new-watch intent. Natural end is intentionally separate so genuine
     /// same-document autoplay can still become authoritative.
@@ -309,6 +314,7 @@ final class YouTubePlayerService {
 
     /// Starts playback of a video, docked inline.
     func play(video: YouTubeVideo, usesCookieFreeDataStore: Bool = false, startAt: Double? = nil) {
+        self.beginYouTubePlaybackIntent()
         self.autoplayRecoveryRequestGeneration &+= 1
         self.shouldRecoverAutoplayTransitionOnResume = false
         let normalizedStartAt = Self.normalizedExplicitStartAt(startAt)
@@ -370,6 +376,7 @@ final class YouTubePlayerService {
     }
 
     func reloadCurrentVideoForIdentitySwitch() {
+        self.beginYouTubePlaybackIntent()
         guard let currentVideo = self.currentVideo else {
             self.logger.debug("Identity switch: no current video to re-point")
             return
@@ -543,20 +550,31 @@ final class YouTubePlayerService {
 
     /// Toggles play/pause.
     func playPause() {
+        self.beginYouTubePlaybackIntent()
+        self.performPlayPause()
+    }
+
+    func performPlayPause(resumeIssuedAtMilliseconds: Double? = nil) {
         if self.isPlaying
             || self.isAwaitingResumeConfirmation
             || (self.desiredPlaybackIntent == .playing
                 && !(self.hasObservedPausedMedia && !self.isPlaying))
         {
-            self.pause()
+            self.performPause()
         } else {
-            self.resume()
+            self.performResume(issuedAtMilliseconds: resumeIssuedAtMilliseconds)
         }
     }
 
     /// Resumes playback.
     func resume() {
-        self.lastResumeIssuedAtMilliseconds = Date().timeIntervalSince1970 * 1000
+        self.beginYouTubePlaybackIntent()
+        self.performResume()
+    }
+
+    func performResume(issuedAtMilliseconds: Double? = nil) {
+        self.lastResumeIssuedAtMilliseconds = issuedAtMilliseconds
+            ?? Date().timeIntervalSince1970 * 1000
         self.desiredPlaybackIntent = .playing
         self.isExplicitPauseIntentActive = false
         self.isAwaitingResumeConfirmation = true
@@ -616,6 +634,11 @@ final class YouTubePlayerService {
 
     /// Pauses playback.
     func pause() {
+        self.beginYouTubePlaybackIntent()
+        self.performPause()
+    }
+
+    func performPause() {
         self.autoplayRecoveryRequestGeneration &+= 1
         self.activateExplicitPauseIntent()
         let didCancelPendingLoad = self.playbackController.cancelPendingLoad()
@@ -649,6 +672,7 @@ final class YouTubePlayerService {
 
     /// Stops playback entirely and releases the surface.
     func stop() {
+        self.beginYouTubePlaybackIntent()
         self.autoplayRecoveryRequestGeneration &+= 1
         self.shouldRecoverAutoplayTransitionOnResume = false
         self.logger.info("YouTubePlayer: stop")
@@ -736,20 +760,35 @@ final class YouTubePlayerService {
     /// Skips to the next video (first up-next candidate; fetched lazily
     /// when none are known, e.g. when playing in the floating window).
     func skipForward() async {
+        let playbackIntentGeneration = self.beginYouTubePlaybackIntent()
+        await self.skipForward(ownedBy: playbackIntentGeneration)
+    }
+
+    func skipForward(ownedBy playbackIntentGeneration: UInt64) async {
         guard let current = self.currentVideo else { return }
 
         var target = self.upNext.first
         if target == nil, let client = self.youtubeClient {
             target = await (try? client.getWatchNext(videoId: current.videoId))?
                 .related.first { !$0.isShort }
+            guard self.youtubePlaybackIntentGeneration == playbackIntentGeneration,
+                  self.currentVideo?.videoId == current.videoId
+            else { return }
         }
         guard let next = target else { return }
+        // `advance` deliberately preserves the already-admitted intent generation and
+        // timestamp; it must not restamp an async remote-next completion.
         self.advance(to: next)
     }
 
     /// Skips back to the previously played video, or restarts the current
     /// one when there is no history.
     func skipBackward() {
+        self.beginYouTubePlaybackIntent()
+        self.skipBackwardWithoutBeginningIntent()
+    }
+
+    func skipBackwardWithoutBeginningIntent() {
         if let previous = self.history.popLast() {
             self.advance(to: previous, recordingHistory: false)
         } else {
@@ -1307,6 +1346,9 @@ extension YouTubePlayerService {
               || (update.hasReadyMedia && update.boundVideoId == videoId)
         else { return }
 
+        self.beginYouTubePlaybackIntent(
+            issuedAtMilliseconds: update.eventIssuedAtMilliseconds
+        )
         self.logger.info("YouTubePlayer: page drifted to a different video, following")
         let shouldRepointDriftedVideo = self.pendingPausedIdentityReloadVideoId != nil
         let driftedContentProgress: Double? = if !update.isAd,
@@ -1434,15 +1476,21 @@ extension YouTubePlayerService {
             self.logger.debug("YouTubePlayer: ignoring ended event (stale id or ad)")
             return false
         }
-        if !isNativeTerminal,
-           let eventIssuedAtMilliseconds,
-           let lastResumeIssuedAtMilliseconds = self.lastResumeIssuedAtMilliseconds,
-           Self.isEndEventStale(
-               eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
-               lastResumeIssuedAtMilliseconds: lastResumeIssuedAtMilliseconds
-           )
-        {
-            return false
+        if !isNativeTerminal, let eventIssuedAtMilliseconds {
+            if Self.isEndEventStale(
+                eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
+                lastResumeIssuedAtMilliseconds: self.youtubePlaybackIntentIssuedAtMilliseconds
+            ) {
+                return false
+            }
+            if let lastResumeIssuedAtMilliseconds = self.lastResumeIssuedAtMilliseconds,
+               Self.isEndEventStale(
+                   eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
+                   lastResumeIssuedAtMilliseconds: lastResumeIssuedAtMilliseconds
+               )
+            {
+                return false
+            }
         }
         guard self.claimEndedPlaybackOccurrence(
             playbackOccurrence,
@@ -1450,6 +1498,11 @@ extension YouTubePlayerService {
         ) else {
             self.logger.debug("YouTubePlayer: ignoring ended event for stale playback occurrence")
             return false
+        }
+        if !isNativeTerminal, let eventIssuedAtMilliseconds {
+            self.beginYouTubePlaybackIntent(
+                issuedAtMilliseconds: eventIssuedAtMilliseconds
+            )
         }
         self.isPlaying = false
         self.desiredPlaybackIntent = .paused
@@ -1473,6 +1526,8 @@ extension YouTubePlayerService {
         eventIssuedAtMilliseconds: Double,
         lastResumeIssuedAtMilliseconds: Double
     ) -> Bool {
+        // Bridge timestamps are whole milliseconds while native intent timestamps can be
+        // fractional. Equality is ambiguous, so occurrence/generation ownership handles it.
         floor(eventIssuedAtMilliseconds) < floor(lastResumeIssuedAtMilliseconds)
     }
 

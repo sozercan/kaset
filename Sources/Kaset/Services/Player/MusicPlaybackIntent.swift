@@ -45,7 +45,7 @@ enum MusicQueueMetadataOwner: Equatable {
 
 // MARK: - MusicAccountMutationOwner
 
-struct MusicAccountMutationOwner: Equatable {
+struct MusicAccountMutationOwner: Hashable {
     let accountID: String
     let sessionGeneration: UInt64
 }
@@ -80,9 +80,19 @@ extension PlayerService {
         allowsPriorTerminalEvent: Bool = false
     ) -> MusicPlaybackIntent {
         self.invalidateRemoteMusicTransportCommands()
+        let previousIntentGeneration = self.musicPlaybackIntentGeneration
         self.musicPlaybackIntentGeneration &+= 1
         self.musicPlaybackReservationGeneration &+= 1
         self.musicPlaybackIntentAcceptsPriorTerminalEvent = allowsPriorTerminalEvent
+        if allowsPriorTerminalEvent {
+            self.musicPlaybackMinimumAcceptedTerminalIntentGeneration = min(
+                self.musicPlaybackMinimumAcceptedTerminalIntentGeneration,
+                previousIntentGeneration
+            )
+        } else {
+            self.musicPlaybackMinimumAcceptedTerminalIntentGeneration =
+                self.musicPlaybackIntentGeneration
+        }
         self.musicPlaybackIntentIssuedAtMilliseconds = if let issuedAtMilliseconds,
                                                           issuedAtMilliseconds.isFinite
         {
@@ -118,12 +128,13 @@ extension PlayerService {
         ) {
             return true
         }
-        guard self.acceptsMusicPlaybackIntent(intent),
-              self.musicPlaybackIntentAcceptsPriorTerminalEvent,
+        guard self.musicPlaybackIntentAcceptsPriorTerminalEvent,
               let eventIssuedAtMilliseconds,
-              eventIssuedAtMilliseconds.isFinite
+              eventIssuedAtMilliseconds.isFinite,
+              eventIssuedAtMilliseconds <= self.musicPlaybackIntentIssuedAtMilliseconds
         else { return false }
-        return eventIssuedAtMilliseconds <= self.musicPlaybackIntentIssuedAtMilliseconds
+        return intent.generation >= self.musicPlaybackMinimumAcceptedTerminalIntentGeneration
+            && intent.generation <= self.musicPlaybackIntentGeneration
     }
 
     func acceptsMusicRemoteCommand(

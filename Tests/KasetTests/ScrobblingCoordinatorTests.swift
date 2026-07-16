@@ -495,11 +495,13 @@ struct ScrobblingCoordinatorTests {
         playerService.duration = 100
         playerService.setPlaybackStateVideoId("song1")
         let queue = ScrobbleQueue(directory: dir)
+        var now = Date(timeIntervalSince1970: 1000)
         let coordinator = ScrobblingCoordinator(
             playerService: playerService,
             settingsManager: settings,
             services: [mockService],
-            queue: queue
+            queue: queue,
+            now: { now }
         )
         coordinator.startMonitoring()
         defer { coordinator.stopMonitoring() }
@@ -508,8 +510,9 @@ struct ScrobblingCoordinatorTests {
         await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
         playerService.progress = 1.1
         await self.waitUntil { queue.count == 1 }
-        let firstTimestamp = queue.pendingTracks.first?.timestamp
+        let firstTimestamp = try #require(queue.pendingTracks.first?.timestamp)
 
+        now = now.addingTimeInterval(1)
         playerService.progress = 50
         try await Task.sleep(for: .milliseconds(20))
         playerService.progress = 0.1
@@ -517,6 +520,7 @@ struct ScrobblingCoordinatorTests {
         playerService.progress = 1.1
         await self.waitUntil { queue.count == 2 }
 
+        #expect(queue.pendingTracks.last?.timestamp == now)
         #expect(queue.pendingTracks.last?.timestamp != firstTimestamp)
     }
 

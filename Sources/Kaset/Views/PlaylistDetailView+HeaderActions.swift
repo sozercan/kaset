@@ -183,7 +183,8 @@ extension PlaylistDetailView {
                         canDelete: detail.canDelete
                     ),
                     client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
+                    libraryViewModel: self.libraryViewModel,
+                    playerService: self.playerService
                 ) {
                     if let onPlaylistDeleted = self.onPlaylistDeleted {
                         onPlaylistDeleted()

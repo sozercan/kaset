@@ -318,19 +318,25 @@ final class NowPlayingManager {
         switch capturedCommand.payload {
         case .play:
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                youtube.resume()
+                youtube.handleRemoteResume(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
             } else {
                 self.enqueueMusicRemoteCommand(.play, capturedCommand: capturedCommand, player: player)
             }
         case .pause:
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                youtube.pause()
+                youtube.handleRemotePause(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
             } else {
                 self.enqueueMusicRemoteCommand(.pause, capturedCommand: capturedCommand, player: player)
             }
         case .togglePlayPause:
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                youtube.playPause()
+                youtube.handleRemoteTogglePlayPause(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
             } else {
                 self.enqueueMusicRemoteCommand(.togglePlayPause, capturedCommand: capturedCommand, player: player)
             }
@@ -341,6 +347,15 @@ final class NowPlayingManager {
                 player: player
             )
         case let .skip(interval, direction):
+            if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                guard interval.isFinite else { return }
+                let delta = direction == .forward ? interval : -interval
+                youtube.handleRemoteSeek(
+                    to: max(0, youtube.progress + delta),
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+                return
+            }
             self.handleSkipCommand(
                 interval: interval,
                 direction: direction,
@@ -353,7 +368,10 @@ final class NowPlayingManager {
                 routesToYouTubeVideo: self.routesToYouTubeVideo,
                 hasYouTubePlayer: self.youtubePlayerService != nil
             ), let youtube = self.youtubePlayerService {
-                youtube.seek(to: position)
+                youtube.handleRemoteSeek(
+                    to: position,
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
             } else {
                 self.enqueueMusicRemoteCommand(
                     .absoluteSeek(position: position),
@@ -369,6 +387,27 @@ final class NowPlayingManager {
         capturedCommand: CapturedRemoteMusicCommand,
         player: PlayerService
     ) {
+        if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+            if self.settings.mediaControlStyle == .skipForwardBackward {
+                let delta = direction == .forward ? Self.defaultSkipInterval : -Self.defaultSkipInterval
+                youtube.handleRemoteSeek(
+                    to: max(0, youtube.progress + delta),
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else if direction == .forward {
+                Task { @MainActor in
+                    await youtube.handleRemoteSkipForward(
+                        issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                    )
+                }
+            } else {
+                youtube.handleRemoteSkipBackward(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            }
+            return
+        }
+
         if self.settings.mediaControlStyle == .skipForwardBackward {
             self.handleSkipCommand(
                 interval: Self.defaultSkipInterval,

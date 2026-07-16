@@ -76,7 +76,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
+    var rateSongErrors: [(any Error)?] = []
     var editSongLibraryStatusResponseDelays: [Duration] = []
+    var editSongLibraryStatusErrors: [(any Error)?] = []
     var getSongDelay: Duration?
     var getHistoryDelay: Duration?
     var getPodcastsDelay: Duration?
@@ -910,6 +912,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let beforeRateSongReturn {
             await beforeRateSongReturn(videoId, rating)
         }
+        if !self.rateSongErrors.isEmpty, let error = self.rateSongErrors.removeFirst() {
+            throw error
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -925,6 +930,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         if let beforeEditSongLibraryStatusReturn {
             await beforeEditSongLibraryStatusReturn(feedbackTokens)
+        }
+        if !self.editSongLibraryStatusErrors.isEmpty,
+           let error = self.editSongLibraryStatusErrors.removeFirst()
+        {
+            throw error
         }
         if let error = shouldThrowError {
             throw error
@@ -1337,7 +1347,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.unsubscribeFromArtistIds = []
         self.unsubscribeFromArtistDelay = nil
         self.rateSongDelay = nil
+        self.rateSongErrors = []
         self.editSongLibraryStatusResponseDelays = []
+        self.editSongLibraryStatusErrors = []
         self.getSongDelay = nil
         self.getHistoryDelay = nil
         self.mixQueueDelay = nil

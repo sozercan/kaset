@@ -8,6 +8,7 @@ private struct LibraryMutationRequest {
     let accountID: String
     let mutationRevision: UInt64
     let accountSessionGeneration: UInt64
+    let expectedState: MusicLibraryConfirmedState
 }
 
 @MainActor
@@ -24,33 +25,20 @@ extension PlayerService {
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
         let previousStatus = self.currentTrackLikeStatus
-        self.songLikeStatusManager.setStatus(
-            previousStatus,
-            for: [track.videoId],
-            accountID: activeAccountID
-        )
-
         // Toggle: if already liked, remove the like
         let newStatus: LikeStatus = previousStatus == .like ? .indifferent : .like
+        let request = self.songLikeStatusManager.enqueueRating(
+            track,
+            status: newStatus,
+            accountID: activeAccountID,
+            client: client,
+            visibleBaseline: previousStatus
+        )
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            let finalStatus: LikeStatus = if newStatus == .like {
-                await self.songLikeStatusManager.like(
-                    track,
-                    accountID: activeAccountID,
-                    client: client
-                )
-            } else {
-                await self.songLikeStatusManager.unlike(
-                    track,
-                    accountID: activeAccountID,
-                    client: client
-                )
-            }
-
+            let finalStatus = await request.value
             self.reconcileCurrentTrackLikeStatusAfterRating(
                 track: track,
                 requestedAccountID: activeAccountID,
@@ -71,33 +59,20 @@ extension PlayerService {
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
         let previousStatus = self.currentTrackLikeStatus
-        self.songLikeStatusManager.setStatus(
-            previousStatus,
-            for: [track.videoId],
-            accountID: activeAccountID
-        )
-
         // Toggle: if already disliked, remove the dislike
         let newStatus: LikeStatus = previousStatus == .dislike ? .indifferent : .dislike
+        let request = self.songLikeStatusManager.enqueueRating(
+            track,
+            status: newStatus,
+            accountID: activeAccountID,
+            client: client,
+            visibleBaseline: previousStatus
+        )
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        // Delegate to SongLikeStatusManager for API call + cache sync + event emission
         Task {
-            let finalStatus: LikeStatus = if newStatus == .dislike {
-                await self.songLikeStatusManager.dislike(
-                    track,
-                    accountID: activeAccountID,
-                    client: client
-                )
-            } else {
-                await self.songLikeStatusManager.undislike(
-                    track,
-                    accountID: activeAccountID,
-                    client: client
-                )
-            }
-
+            let finalStatus = await request.value
             self.reconcileCurrentTrackLikeStatusAfterRating(
                 track: track,
                 requestedAccountID: activeAccountID,
@@ -167,10 +142,9 @@ extension PlayerService {
         // Optimistic update
         let currentTokens = self.currentTrackFeedbackTokens
         let expectedInLibrary = !isCurrentlyInLibrary
-        let expectedFeedbackTokens = FeedbackTokens(
-            add: currentTokens?.remove,
-            remove: currentTokens?.add
-        )
+        // Feedback tokens are action-specific. Keep the known add/remove pair
+        // stable until an authoritative metadata refresh rotates it.
+        let expectedFeedbackTokens = currentTokens
         self.applyLibraryState(
             videoId: track.videoId,
             isInLibrary: expectedInLibrary,
@@ -182,7 +156,11 @@ extension PlayerService {
             videoId: track.videoId,
             accountID: activeAccountID,
             mutationRevision: mutationRevision,
-            accountSessionGeneration: accountSessionGeneration
+            accountSessionGeneration: accountSessionGeneration,
+            expectedState: MusicLibraryConfirmedState(
+                isInLibrary: expectedInLibrary,
+                feedbackTokens: expectedFeedbackTokens
+            )
         )
         let request = self.enqueueSerializedLibraryMutation(mutation)
 
@@ -191,15 +169,10 @@ extension PlayerService {
             do {
                 try await request.value.get()
                 guard self.accountSessionGeneration == accountSessionGeneration else { return }
-                self.confirmedLibraryStateByKey[mutationKey] = MusicLibraryConfirmedState(
-                    isInLibrary: expectedInLibrary,
-                    feedbackTokens: expectedFeedbackTokens
-                )
                 guard self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision) else { return }
                 let action = isCurrentlyInLibrary ? "removed from" : "added to"
                 self.logger.info("Successfully \(action) library")
 
-                // After successful toggle, we need to swap the tokens
                 // The browse metadata can lag briefly, so delay the refresh and keep
                 // the optimistic library state if the response is still stale.
                 try? await Task.sleep(for: .milliseconds(500))
@@ -282,6 +255,10 @@ extension PlayerService {
             }
             do {
                 try await client.editSongLibraryStatus(feedbackTokens: [mutation.token])
+                guard self.accountSessionGeneration == mutation.accountSessionGeneration else {
+                    return .failure(CancellationError())
+                }
+                self.confirmedLibraryStateByKey[key] = mutation.expectedState
                 return .success(())
             } catch {
                 return .failure(error)

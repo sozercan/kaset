@@ -133,12 +133,16 @@ enum SongActionsHelper {
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        owner: MusicAccountMutationOwner,
+        playerService: PlayerService
     ) async throws {
         try await LibraryMutationActions.deletePlaylist(
             playlist,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            owner: owner,
+            whileValid: { playerService.acceptsAccountMutationOwner(owner) }
         )
     }
 
@@ -149,8 +153,10 @@ enum SongActionsHelper {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
+        playerService: PlayerService,
         onConfirm: (() -> Void)? = nil
     ) {
+        let owner = playerService.currentAccountMutationOwner
         let alert = NSAlert()
         alert.messageText = "Delete “\(playlist.title)”?"
         alert.informativeText = "This permanently deletes the playlist from YouTube Music. You can only delete playlists you created."
@@ -159,7 +165,9 @@ enum SongActionsHelper {
         alert.addButton(withTitle: "Cancel")
 
         let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
+            guard response == .alertFirstButtonReturn,
+                  playerService.acceptsAccountMutationOwner(owner)
+            else { return }
 
             onConfirm?()
             Task { @MainActor in
@@ -167,8 +175,12 @@ enum SongActionsHelper {
                     try await self.deletePlaylist(
                         playlist,
                         client: client,
-                        libraryViewModel: libraryViewModel
+                        libraryViewModel: libraryViewModel,
+                        owner: owner,
+                        playerService: playerService
                     )
+                } catch is CancellationError {
+                    return
                 } catch {
                     self.presentPlaylistDeletionError(error)
                 }
@@ -209,7 +221,7 @@ enum SongActionsHelper {
     static func presentCreatePlaylistDialog(
         informativeText: String,
         request: PlaylistCreationRequest,
-        onWillCreate: @escaping () -> Void = {},
+        onWillCreate: @escaping () -> Bool = { true },
         completion: @escaping (Result<Playlist, PlaylistCreationFailure>) -> Void
     ) {
         let alert = NSAlert()
@@ -233,7 +245,7 @@ enum SongActionsHelper {
                 return
             }
 
-            onWillCreate()
+            guard onWillCreate() else { return }
             Task {
                 await Self.createPlaylist(title: title, request: request, completion: completion)
             }

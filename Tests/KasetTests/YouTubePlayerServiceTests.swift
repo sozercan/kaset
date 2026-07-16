@@ -1682,6 +1682,100 @@ extension YouTubePlayerServiceTests {
         #expect(self.sut.surfaceLocation == .none)
         #expect(self.controller.tearDownCount == 1)
     }
+
+    @Test("An older ended callback cannot break a newer remote-command batch")
+    func staleEndedCallbackPreservesRemoteBatch() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(playbackController: controller)
+        let video = MockYouTubeClient.makeVideo(videoId: "stale-ended-remote-batch")
+        service.play(video: video)
+        service.youtubePlaybackIntentIssuedAtMilliseconds = 1000
+
+        service.handleRemotePause(issuedAtMilliseconds: 1600)
+        #expect(!service.handleVideoEnded(
+            videoId: video.videoId,
+            eventIssuedAtMilliseconds: 1500
+        ))
+        service.handleRemoteResume(issuedAtMilliseconds: 1600)
+
+        #expect(controller.pauseCount == 1)
+        #expect(controller.playCount == 1)
+    }
+
+    @Test("A newer remote pause invalidates an older delayed skip")
+    func remotePauseInvalidatesDelayedSkip() async {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(playbackController: controller)
+        let client = MockYouTubeClient()
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        client.watchNextData = WatchNextData(
+            videoTitle: nil,
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [MockYouTubeClient.makeVideo(videoId: "stale-next")]
+        )
+        client.beforeWatchNextReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        service.youtubeClient = client
+        service.play(video: MockYouTubeClient.makeVideo(videoId: "current"))
+
+        let skipTask = Task { @MainActor in
+            await service.skipForward()
+        }
+        await requestStarted.wait()
+        service.handleRemotePause(
+            issuedAtMilliseconds: service.youtubePlaybackIntentIssuedAtMilliseconds + 1
+        )
+        await releaseRequest.open()
+        await skipTask.value
+
+        #expect(service.currentVideo?.videoId == "current")
+        #expect(controller.pauseCount == 1)
+    }
+
+    @Test("A remote command issued after an ended event remains admissible")
+    func remoteCommandAfterEndedEventRemainsAdmissible() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(playbackController: controller)
+        let video = MockYouTubeClient.makeVideo(videoId: "ended-remote-order")
+        service.play(video: video)
+        service.youtubePlaybackIntentIssuedAtMilliseconds = 1000
+
+        #expect(service.handleVideoEnded(
+            videoId: video.videoId,
+            eventIssuedAtMilliseconds: 1500
+        ))
+        service.handleRemoteResume(issuedAtMilliseconds: 1600)
+
+        #expect(controller.playCount == 1)
+    }
+
+    @Test("Remote video commands captured before a newer native intent are ignored")
+    func staleRemoteVideoCommandsAreIgnored() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(playbackController: controller)
+        service.beginYouTubePlaybackIntent(issuedAtMilliseconds: 2000)
+
+        service.handleRemotePause(issuedAtMilliseconds: 1000)
+        service.handleRemoteResume(issuedAtMilliseconds: 1000)
+        service.handleRemoteSeek(to: 42, issuedAtMilliseconds: 1000)
+
+        #expect(controller.pauseCount == 0)
+        #expect(controller.playCount == 0)
+        #expect(controller.pendingRecoverySeeks.isEmpty)
+
+        service.handleRemotePause(issuedAtMilliseconds: 2001)
+        service.handleRemoteResume(issuedAtMilliseconds: 2002)
+        service.handleRemoteSeek(to: 42, issuedAtMilliseconds: 2003)
+
+        #expect(controller.pauseCount == 1)
+        #expect(controller.playCount == 1)
+        #expect(controller.pendingRecoverySeeks == [42])
+    }
 }
 
 // MARK: - PlaybackArbiterTests

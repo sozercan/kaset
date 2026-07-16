@@ -129,7 +129,7 @@ final class SongLikeStatusManager {
         accountID: String? = nil,
         client: (any YTMusicClientProtocol)? = nil
     ) async -> LikeStatus {
-        await self.rate(song, status: .like, accountID: accountID, client: client)
+        await self.enqueueRating(song, status: .like, accountID: accountID, client: client).value
     }
 
     /// Unlikes a song (removes rating).
@@ -144,7 +144,7 @@ final class SongLikeStatusManager {
         accountID: String? = nil,
         client: (any YTMusicClientProtocol)? = nil
     ) async -> LikeStatus {
-        await self.rate(song, status: .indifferent, accountID: accountID, client: client)
+        await self.enqueueRating(song, status: .indifferent, accountID: accountID, client: client).value
     }
 
     /// Dislikes a song.
@@ -159,7 +159,7 @@ final class SongLikeStatusManager {
         accountID: String? = nil,
         client: (any YTMusicClientProtocol)? = nil
     ) async -> LikeStatus {
-        await self.rate(song, status: .dislike, accountID: accountID, client: client)
+        await self.enqueueRating(song, status: .dislike, accountID: accountID, client: client).value
     }
 
     /// Undislikes a song (removes rating).
@@ -174,27 +174,43 @@ final class SongLikeStatusManager {
         accountID: String? = nil,
         client: (any YTMusicClientProtocol)? = nil
     ) async -> LikeStatus {
-        await self.rate(song, status: .indifferent, accountID: accountID, client: client)
+        await self.enqueueRating(song, status: .indifferent, accountID: accountID, client: client).value
     }
 
-    /// Rates a song with the given status.
-    /// - Parameters:
-    ///   - song: The song to rate.
-    ///   - status: The rating to apply.
-    ///   - accountID: Optional account scope override.
-    ///   - client: Optional client override.
-    /// - Returns: The final status after the request settles.
-    private func rate(
+    /// Registers a rating mutation synchronously, then returns its completion task.
+    /// Submission-time registration preserves user action order even when callers
+    /// await the result from unstructured tasks.
+    func enqueueRating(
         _ song: Song,
         status: LikeStatus,
-        accountID: String?,
-        client overrideClient: (any YTMusicClientProtocol)?
-    ) async -> LikeStatus {
+        accountID: String? = nil,
+        client overrideClient: (any YTMusicClientProtocol)? = nil,
+        visibleBaseline: LikeStatus? = nil
+    ) -> Task<LikeStatus, Never> {
         let resolvedAccountID = accountID.map(Self.resolvedAccountID) ?? self.activeAccountID
+        let key = Self.ratingMutationKey(
+            accountID: resolvedAccountID,
+            videoId: song.videoId
+        )
+        if let visibleBaseline {
+            if self.ratingMutationTails[key] == nil,
+               self.confirmedStatusByAccount[resolvedAccountID]?[song.videoId] == nil
+            {
+                self.setConfirmedStatus(
+                    visibleBaseline,
+                    for: song.videoId,
+                    accountID: resolvedAccountID
+                )
+            }
+            self.setStatus(visibleBaseline, for: song.videoId, accountID: resolvedAccountID)
+        }
 
         guard let client = overrideClient ?? self.client else {
             DiagnosticsLogger.api.warning("SongLikeStatusManager: No client set, cannot rate song")
-            return self.status(for: song.videoId, accountID: resolvedAccountID) ?? song.likeStatus ?? .indifferent
+            let fallback = self.status(for: song.videoId, accountID: resolvedAccountID)
+                ?? song.likeStatus
+                ?? .indifferent
+            return Task { @MainActor in fallback }
         }
 
         let sessionGeneration = self.sessionGeneration
@@ -202,8 +218,6 @@ final class SongLikeStatusManager {
             videoId: song.videoId,
             accountID: resolvedAccountID
         )
-
-        // Optimistically update cache and notify observers
         let previousStatus = self.status(for: song.videoId, accountID: resolvedAccountID)
         if self.confirmedStatusByAccount[resolvedAccountID]?[song.videoId] == nil {
             self.setConfirmedStatus(previousStatus, for: song.videoId, accountID: resolvedAccountID)
@@ -214,81 +228,107 @@ final class SongLikeStatusManager {
             for: resolvedAccountID
         )
 
-        do {
-            try await self.performSerializedRatingMutation(
-                client: client,
-                mutation: RatingMutationRequest(
-                    videoId: song.videoId,
-                    status: status,
-                    accountID: resolvedAccountID,
-                    revision: revision,
-                    sessionGeneration: sessionGeneration
-                )
+        let mutation = RatingMutationRequest(
+            videoId: song.videoId,
+            status: status,
+            accountID: resolvedAccountID,
+            revision: revision,
+            sessionGeneration: sessionGeneration
+        )
+        let request = self.enqueueSerializedRatingMutation(
+            client: client,
+            mutation: mutation
+        )
+        return Task { @MainActor in
+            await self.settleRatingMutation(
+                song: song,
+                status: status,
+                mutation: mutation,
+                request: request
             )
-            guard self.sessionGeneration == sessionGeneration else {
-                return self.status(for: song.videoId, accountID: resolvedAccountID) ?? status
+        }
+    }
+
+    private func settleRatingMutation(
+        song: Song,
+        status: LikeStatus,
+        mutation: RatingMutationRequest,
+        request: Task<Result<Void, any Error>, Never>
+    ) async -> LikeStatus {
+        defer {
+            self.finishRatingMutation(
+                accountID: mutation.accountID,
+                videoId: mutation.videoId,
+                revision: mutation.revision
+            )
+        }
+        do {
+            try await request.value.get()
+            guard self.sessionGeneration == mutation.sessionGeneration else {
+                return self.status(for: song.videoId, accountID: mutation.accountID) ?? status
             }
-            self.setConfirmedStatus(status, for: song.videoId, accountID: resolvedAccountID)
             guard self.isCurrentRatingOperation(
-                revision,
+                mutation.revision,
                 videoId: song.videoId,
-                accountID: resolvedAccountID
+                accountID: mutation.accountID
             ) else {
-                return self.status(for: song.videoId, accountID: resolvedAccountID) ?? status
+                return self.status(for: song.videoId, accountID: mutation.accountID) ?? status
             }
             DiagnosticsLogger.api.info("Rated song \(song.videoId) as \(status.rawValue)")
             return status
         } catch is CancellationError {
-            guard self.isCurrentRatingOperation(
-                revision,
-                videoId: song.videoId,
-                accountID: resolvedAccountID
-            ) else {
-                return self.status(for: song.videoId, accountID: resolvedAccountID) ?? status
-            }
-            let confirmedStatus = self.confirmedStatus(for: song.videoId, accountID: resolvedAccountID)
-            let rollbackStatus = confirmedStatus ?? .indifferent
-            let sessionIsCurrent = self.sessionGeneration == sessionGeneration
-            let shouldRestoreOldAccount = sessionIsCurrent || self.activeAccountID != resolvedAccountID
-            if shouldRestoreOldAccount {
-                self.restoreStatus(confirmedStatus, for: song.videoId, accountID: resolvedAccountID)
-            }
-            if sessionIsCurrent {
-                self.publishEvent(
-                    LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song),
-                    for: resolvedAccountID
-                )
-            }
-            DiagnosticsLogger.api.debug("Rating cancelled for song \(song.videoId)")
-            return shouldRestoreOldAccount
-                ? rollbackStatus
-                : (self.status(for: song.videoId, accountID: resolvedAccountID) ?? .indifferent)
+            return self.rollbackRatingMutation(
+                song: song,
+                status: status,
+                mutation: mutation,
+                logsCancellation: true
+            )
         } catch {
-            guard self.isCurrentRatingOperation(
-                revision,
-                videoId: song.videoId,
-                accountID: resolvedAccountID
-            ) else {
-                return self.status(for: song.videoId, accountID: resolvedAccountID) ?? status
-            }
-            let confirmedStatus = self.confirmedStatus(for: song.videoId, accountID: resolvedAccountID)
-            let rollbackStatus = confirmedStatus ?? .indifferent
-            let sessionIsCurrent = self.sessionGeneration == sessionGeneration
-            let shouldRestoreOldAccount = sessionIsCurrent || self.activeAccountID != resolvedAccountID
-            if shouldRestoreOldAccount {
-                self.restoreStatus(confirmedStatus, for: song.videoId, accountID: resolvedAccountID)
-            }
-            if sessionIsCurrent {
-                self.publishEvent(
-                    LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song),
-                    for: resolvedAccountID
-                )
-            }
             DiagnosticsLogger.api.error("Failed to rate song: \(error.localizedDescription)")
-            return shouldRestoreOldAccount
-                ? rollbackStatus
-                : (self.status(for: song.videoId, accountID: resolvedAccountID) ?? .indifferent)
+            return self.rollbackRatingMutation(
+                song: song,
+                status: status,
+                mutation: mutation,
+                logsCancellation: false
+            )
         }
+    }
+
+    private func rollbackRatingMutation(
+        song: Song,
+        status: LikeStatus,
+        mutation: RatingMutationRequest,
+        logsCancellation: Bool
+    ) -> LikeStatus {
+        guard self.isCurrentRatingOperation(
+            mutation.revision,
+            videoId: song.videoId,
+            accountID: mutation.accountID
+        ) else {
+            return self.status(for: song.videoId, accountID: mutation.accountID) ?? status
+        }
+        let confirmedStatus = self.confirmedStatus(
+            for: song.videoId,
+            accountID: mutation.accountID
+        )
+        let rollbackStatus = confirmedStatus ?? .indifferent
+        let sessionIsCurrent = self.sessionGeneration == mutation.sessionGeneration
+        let shouldRestoreOldAccount = sessionIsCurrent || self.activeAccountID != mutation.accountID
+        if shouldRestoreOldAccount {
+            self.restoreStatus(confirmedStatus, for: song.videoId, accountID: mutation.accountID)
+        }
+        if sessionIsCurrent {
+            self.publishEvent(
+                LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song),
+                for: mutation.accountID
+            )
+        }
+        if logsCancellation {
+            DiagnosticsLogger.api.debug("Rating cancelled for song \(song.videoId)")
+        }
+        return shouldRestoreOldAccount
+            ? rollbackStatus
+            : (self.status(for: song.videoId, accountID: mutation.accountID) ?? .indifferent)
     }
 
     // MARK: - Cache Management
@@ -369,28 +409,34 @@ final class SongLikeStatusManager {
         self.ratingRevisionByAccount[accountID]?[videoId] == revision
     }
 
-    private func performSerializedRatingMutation(
+    private func enqueueSerializedRatingMutation(
         client: any YTMusicClientProtocol,
         mutation: RatingMutationRequest
-    ) async throws {
-        let key = mutation.accountID + "\u{0}" + mutation.videoId
+    ) -> Task<Result<Void, any Error>, Never> {
+        let key = Self.ratingMutationKey(
+            accountID: mutation.accountID,
+            videoId: mutation.videoId
+        )
         let predecessor = self.ratingMutationTails[key]
-        let requestTask = Task { () -> Result<Void, any Error> in
+        let requestTask = Task { @MainActor () -> Result<Void, any Error> in
             if let predecessor {
                 _ = await predecessor.value
             }
             guard self.sessionGeneration == mutation.sessionGeneration,
-                  self.activeAccountID == mutation.accountID,
-                  self.isCurrentRatingOperation(
-                      mutation.revision,
-                      videoId: mutation.videoId,
-                      accountID: mutation.accountID
-                  )
+                  self.activeAccountID == mutation.accountID
             else {
                 return .failure(CancellationError())
             }
             do {
                 try await client.rateSong(videoId: mutation.videoId, rating: mutation.status)
+                guard self.sessionGeneration == mutation.sessionGeneration else {
+                    return .failure(CancellationError())
+                }
+                self.setConfirmedStatus(
+                    mutation.status,
+                    for: mutation.videoId,
+                    accountID: mutation.accountID
+                )
                 return .success(())
             } catch {
                 return .failure(error)
@@ -398,12 +444,22 @@ final class SongLikeStatusManager {
         }
         self.ratingMutationTails[key] = requestTask
         self.ratingMutationTailRevisions[key] = mutation.revision
-        let result = await requestTask.value
-        if self.ratingMutationTailRevisions[key] == mutation.revision {
-            self.ratingMutationTails.removeValue(forKey: key)
-            self.ratingMutationTailRevisions.removeValue(forKey: key)
-        }
-        try result.get()
+        return requestTask
+    }
+
+    private func finishRatingMutation(
+        accountID: String,
+        videoId: String,
+        revision: UInt64
+    ) {
+        let key = Self.ratingMutationKey(accountID: accountID, videoId: videoId)
+        guard self.ratingMutationTailRevisions[key] == revision else { return }
+        self.ratingMutationTails.removeValue(forKey: key)
+        self.ratingMutationTailRevisions.removeValue(forKey: key)
+    }
+
+    private static func ratingMutationKey(accountID: String, videoId: String) -> String {
+        accountID + "\u{0}" + videoId
     }
 
     private static func resolvedAccountID(_ accountID: String?) -> String {

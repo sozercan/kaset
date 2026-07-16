@@ -242,7 +242,11 @@ struct AddToPlaylistContextMenu: View {
                 thumbnailURL: self.song.thumbnailURL,
                 whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
             ),
-            onWillCreate: { self.isCreatingPlaylist = true },
+            onWillCreate: {
+                guard !self.isCreatingPlaylist else { return false }
+                self.isCreatingPlaylist = true
+                return true
+            },
             completion: { result in
                 self.isCreatingPlaylist = false
                 guard self.playerService.acceptsAccountMutationOwner(owner) else { return }

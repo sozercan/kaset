@@ -330,6 +330,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var musicPlaybackReservationGeneration: UInt64 = 0
     var musicPlaybackIntentIssuedAtMilliseconds: Double = 0
     var musicPlaybackIntentAcceptsPriorTerminalEvent = false
+    var musicPlaybackMinimumAcceptedTerminalIntentGeneration: UInt64 = 0
     var libraryMutationGeneration: UInt64 = 0
     var libraryMutationRevisionCounter: UInt64 = 0
     var libraryMutationRevisions: [String: UInt64] = [:]

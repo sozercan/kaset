@@ -658,6 +658,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .environment(self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
+            self.selectedSidebarPinnedItem = nil
             self.navigationSelection = .home
         }
     }

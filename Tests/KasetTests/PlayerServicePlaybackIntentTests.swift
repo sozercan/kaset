@@ -950,6 +950,65 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(mockClient.getMixQueueContinuationCallCount == 1)
     }
 
+    @Test("Queue-only intents accept an already-admitted terminal callback")
+    func priorIntentTerminalCallbackRemainsAccepted() {
+        let playerService = PlayerService()
+        let admittedIntent = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 1000
+        )
+        let queueOnlyIntent = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 2000,
+            allowsPriorTerminalEvent: true
+        )
+
+        #expect(playerService.currentMusicPlaybackIntent == queueOnlyIntent)
+        #expect(playerService.acceptsMusicTerminalBridgeEvent(
+            intent: admittedIntent,
+            eventIssuedAtMilliseconds: 1500
+        ))
+    }
+
+    @Test("Consecutive queue-only intents preserve terminal callback admission")
+    func consecutiveQueueOnlyIntentsPreserveTerminalCallbackAdmission() {
+        let playerService = PlayerService()
+        let admittedIntent = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 1000
+        )
+        _ = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 2000,
+            allowsPriorTerminalEvent: true
+        )
+        _ = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 3000,
+            allowsPriorTerminalEvent: true
+        )
+
+        #expect(playerService.acceptsMusicTerminalBridgeEvent(
+            intent: admittedIntent,
+            eventIssuedAtMilliseconds: 1500
+        ))
+    }
+
+    @Test("A normal playback intent closes prior terminal callback admission")
+    func normalIntentClosesPriorTerminalCallbackAdmission() {
+        let playerService = PlayerService()
+        let staleIntent = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 1000
+        )
+        _ = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 2000,
+            allowsPriorTerminalEvent: true
+        )
+        _ = playerService.beginMusicPlaybackIntent(
+            issuedAtMilliseconds: 3000
+        )
+
+        #expect(!playerService.acceptsMusicTerminalBridgeEvent(
+            intent: staleIntent,
+            eventIssuedAtMilliseconds: 1500
+        ))
+    }
+
     private func makePlayerService() -> (PlayerService, MockYTMusicClient) {
         self.resetSingletonPlayer()
         let mockClient = MockYTMusicClient()

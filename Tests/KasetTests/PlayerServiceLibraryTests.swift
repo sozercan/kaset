@@ -111,7 +111,7 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         let song = TestFixtures.makeSong(id: "stale-like-cache-video")
         self.playerService.currentTrack = song
         self.playerService.currentTrackLikeStatus = .indifferent
-        self.playerService.songLikeStatusManager.setStatus(.like, for: song.videoId)
+        self.playerService.songLikeStatusManager.setCachedStatus(.like, for: song.videoId)
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
         self.playerService.likeCurrentTrack()
@@ -451,8 +451,8 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         #expect(self.playerService.queue[0].isInLibrary == true)
         #expect(self.playerService.queue[0].feedbackTokens == FeedbackTokens(
-            add: "remove-token",
-            remove: "add-token"
+            add: "add-token",
+            remove: "remove-token"
         ))
     }
 
@@ -672,7 +672,7 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
     @Test("Metadata cannot replace rollback state while a library mutation is pending")
     func metadataCannotReplacePendingLibraryMutationBaseline() async {
         let originalTokens = FeedbackTokens(add: "fresh-add", remove: "fresh-remove")
-        let optimisticTokens = FeedbackTokens(add: "fresh-remove", remove: "fresh-add")
+        let optimisticTokens = originalTokens
         let staleTokens = FeedbackTokens(add: "stale-add", remove: "stale-remove")
         let song = Song(
             id: "pending-library-metadata",
@@ -806,7 +806,7 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         #expect(self.playerService.currentTrackInLibrary == true)
         #expect(self.playerService.currentTrack?.isInLibrary == true)
-        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "remove-token", remove: "add-token"))
+        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "add-token", remove: "remove-token"))
     }
 
     @Test("toggleLibraryStatus preserves optimistic removal when metadata refresh is stale")
@@ -831,7 +831,7 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         #expect(self.playerService.currentTrackInLibrary == false)
         #expect(self.playerService.currentTrack?.isInLibrary == false)
-        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "remove-token", remove: "add-token"))
+        #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "add-token", remove: "remove-token"))
     }
 
     @Test("A stale account owner cannot create a captured queue playlist")
@@ -969,6 +969,133 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackLikeStatus == .indifferent)
         #expect(self.playerService.currentTrackInLibrary == false)
         #expect(self.playerService.currentTrackFeedbackTokens == nil)
+    }
+
+    @Test("A failed newer rating rolls back to a successful predecessor")
+    func failedNewerRatingRollsBackToSuccessfulPredecessor() async {
+        let song = TestFixtures.makeSong(id: "rating-success-then-failure")
+        let failure = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .indifferent
+        self.mockClient.rateSongDelay = .milliseconds(150)
+        self.mockClient.rateSongErrors = [nil, failure]
+
+        self.playerService.likeCurrentTrack()
+        let didStartLike = await self.waitUntilRateSongCallCount(1)
+        #expect(didStartLike)
+
+        self.mockClient.rateSongDelay = nil
+        self.playerService.dislikeCurrentTrack()
+        let didAttemptDislike = await self.waitUntilRateSongCallCount(2)
+        #expect(didAttemptDislike)
+        let didRollbackToLike = await self.waitUntilLikeStatus(.like)
+        #expect(didRollbackToLike)
+        #expect(self.mockClient.appliedRateSongRatings == [.like])
+    }
+
+    @Test("A failed newer library toggle rolls back to a successful predecessor")
+    func failedNewerLibraryToggleRollsBackToSuccessfulPredecessor() async {
+        let failure = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        let tokens = FeedbackTokens(add: "add-token", remove: "remove-token")
+        let song = Song(
+            id: "library-success-then-failure",
+            title: "Library Success Then Failure",
+            artists: [],
+            videoId: "library-success-then-failure",
+            isInLibrary: false,
+            feedbackTokens: tokens
+        )
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = tokens
+        self.mockClient.editSongLibraryStatusResponseDelays = [.milliseconds(150), .zero]
+        self.mockClient.editSongLibraryStatusErrors = [nil, failure]
+
+        self.playerService.toggleLibraryStatus()
+        let didStartAdd = await self.waitUntilLibraryEditCallCount(1)
+        #expect(didStartAdd)
+
+        self.playerService.toggleLibraryStatus()
+        let didAttemptRemove = await self.waitUntilLibraryEditCallCount(2)
+        #expect(didAttemptRemove)
+        let didRollbackToAdded = await self.waitUntil {
+            self.playerService.currentTrackInLibrary
+        }
+        #expect(didRollbackToAdded)
+        #expect(self.playerService.currentTrackFeedbackTokens == tokens)
+        #expect(self.mockClient.appliedEditSongLibraryStatusTokens == [["add-token"]])
+    }
+
+    @Test("Rapid rating submissions preserve user action order")
+    func rapidRatingSubmissionsPreserveOrder() async {
+        let song = TestFixtures.makeSong(id: "rapid-rating-order")
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .indifferent
+
+        self.playerService.likeCurrentTrack()
+        self.playerService.dislikeCurrentTrack()
+
+        let didSubmitBoth = await self.waitUntilRateSongCallCount(2)
+        #expect(didSubmitBoth)
+        let didApplyBoth = await self.waitUntil {
+            self.mockClient.appliedRateSongRatings.count == 2
+        }
+        #expect(didApplyBoth)
+        let didSettle = await self.waitUntilLikeStatus(.dislike)
+        #expect(didSettle)
+        #expect(self.mockClient.rateSongRatings == [.like, .dislike])
+        #expect(self.mockClient.appliedRateSongRatings == [.like, .dislike])
+    }
+
+    @Test("Rapid rating failures preserve the API-confirmed baseline")
+    func rapidRatingFailuresPreserveConfirmedBaseline() async {
+        let song = TestFixtures.makeSong(id: "rapid-rating-baseline")
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .indifferent
+        self.mockClient.rateSongDelay = .milliseconds(200)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+
+        self.playerService.likeCurrentTrack()
+        let didStartLike = await self.waitUntilRateSongCallCount(1)
+        #expect(didStartLike)
+
+        self.mockClient.rateSongDelay = nil
+        self.playerService.dislikeCurrentTrack()
+        let didAttemptDislike = await self.waitUntilRateSongCallCount(2)
+        #expect(didAttemptDislike)
+        let didRollback = await self.waitUntilLikeStatus(.indifferent)
+        #expect(didRollback)
+    }
+
+    @Test("Rapid add/remove uses the action token for each requested state")
+    func rapidLibraryToggleUsesDistinctActionTokens() async {
+        let song = Song(
+            id: "rapid-library-token",
+            title: "Rapid Library Token",
+            artists: [],
+            videoId: "rapid-library-token",
+            isInLibrary: false,
+            feedbackTokens: FeedbackTokens(add: "add-token", remove: "remove-token")
+        )
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = song.feedbackTokens
+
+        self.playerService.toggleLibraryStatus()
+        self.playerService.toggleLibraryStatus()
+
+        let didCallTwice = await self.waitUntilLibraryEditCallCount(2)
+        #expect(didCallTwice)
+        #expect(self.mockClient.editSongLibraryStatusTokens == [
+            ["add-token"],
+            ["remove-token"],
+        ])
     }
 
     private func waitUntil(

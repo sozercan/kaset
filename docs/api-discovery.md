@@ -617,7 +617,19 @@ let body = ["feedbackTokens": [addToken]]
 _ = try await request("feedback", body: body)
 ```
 
-Tokens come from `getSong(videoId:)` response.
+Tokens come from `getSong(videoId:)` response. `FeedbackTokens.add` and
+`FeedbackTokens.remove` are action-specific: select the add token when the
+target state is in-library and the remove token when the target state is
+out-of-library. Keep the known pair stable across optimistic UI updates; do not
+swap the fields. A later authoritative metadata response may replace or rotate
+the pair.
+
+`api-explorer` reports library feedback action structure without printing token
+values. It can also inspect a saved response safely:
+
+```bash
+swift run api-explorer analyze-file path/to/response.json
+```
 
 ---
 

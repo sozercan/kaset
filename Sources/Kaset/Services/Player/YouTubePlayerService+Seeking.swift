@@ -16,6 +16,18 @@ extension YouTubePlayerService {
 
     /// Seeks to a position in seconds.
     func seek(to time: Double) {
+        self.beginYouTubePlaybackIntent()
+        self.clearRelativeSeekCoalescingTarget()
+        self.performSeek(to: time)
+    }
+
+    func handleRemoteSeek(
+        to time: Double,
+        issuedAtMilliseconds: Double
+    ) {
+        guard self.admitYouTubeRemoteCommand(
+            issuedAtMilliseconds: issuedAtMilliseconds
+        ) else { return }
         self.clearRelativeSeekCoalescingTarget()
         self.performSeek(to: time)
     }
@@ -80,12 +92,14 @@ extension YouTubePlayerService {
     /// Seeks backward by a fixed interval, clamping to the beginning.
     func seekBackward(by seconds: Double = 30) {
         guard seconds.isFinite, seconds > 0 else { return }
+        self.beginYouTubePlaybackIntent()
         self.seekRelative(by: -seconds)
     }
 
     /// Seeks forward by a fixed interval, clamping to the known duration.
     func seekForward(by seconds: Double = 30) {
         guard seconds.isFinite, seconds > 0 else { return }
+        self.beginYouTubePlaybackIntent()
         self.seekRelative(by: seconds)
     }
 
