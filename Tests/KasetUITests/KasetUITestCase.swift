@@ -65,6 +65,7 @@ enum TestAccessibilityID {
         static let header = "accountSwitcher.header"
         static let accountsList = "accountSwitcher.accountsList"
         static let guestModeRow = "accountSwitcher.guestMode"
+        static let signOutButton = "accountSwitcher.signOut"
 
         static func accountRow(index: Int) -> String {
             "accountSwitcher.account.\(index)"

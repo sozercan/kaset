@@ -72,7 +72,7 @@ struct SidebarProfileView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier(AccessibilityID.SidebarProfile.profileButton)
             .accessibilityLabel(self.profileAccessibilityLabel(for: account))
-            .accessibilityHint(String(localized: "Double-tap to switch accounts or guest mode"))
+            .accessibilityHint(String(localized: "Double-tap to switch accounts, guest mode, or sign out"))
             .popover(isPresented: self.$showingAccountSwitcher, arrowEdge: .top) {
                 AccountSwitcherPopover()
                     .environment(self.authService)
