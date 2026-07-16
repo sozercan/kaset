@@ -312,12 +312,14 @@ Manages user-curated Favorites section on Home view:
 - `toggle(_:)` — Adds if not pinned, removes if pinned
 - `move(from:to:)` — Reorders via drag-and-drop
 - `isPinned(contentId:)` — Checks if item is in Favorites
+- `setActiveAccountID(_:)` — Switches account scope; `nil` clears the visible list (sign-out)
 
 **Persistence**:
-- **Location**: `~/Library/Application Support/Kaset/favorites.json`
+- **Location**: `~/Library/Application Support/Kaset/favorites-<accountId>.json`
+- **Scope**: Per YouTube account (same IDs as `SongLikeStatusManager`)
 - **Format**: JSON-encoded `[FavoriteItem]`
-- **Writes**: Async on background thread via `Task.detached`
-- **Reads**: Synchronous at init (one-time on app launch)
+- **Writes**: Debounced async; flushed before account switch
+- **Upgrade**: Old shared `favorites.json` is renamed into the first activated account file
 
 **Related Files**:
 - `Sources/Kaset/Models/FavoriteItem.swift` — Data model with `ItemType` enum

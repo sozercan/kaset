@@ -247,6 +247,40 @@ struct FavoritesManagerTests {
         #expect(self.manager.isVisible == false)
     }
 
+    // MARK: - Account Scope
+
+    @Test("Switching accounts isolates favorites")
+    func switchingAccountsIsolatesFavorites() {
+        let songA = TestFixtures.makeSong(id: "account-a-song")
+        let songB = TestFixtures.makeSong(id: "account-b-song")
+
+        self.manager.setActiveAccountID("account-a")
+        self.manager.add(.from(songA))
+
+        self.manager.setActiveAccountID("account-b")
+        #expect(self.manager.items.isEmpty)
+        self.manager.add(.from(songB))
+
+        self.manager.setActiveAccountID("account-a")
+        #expect(self.manager.isPinned(song: songA))
+        #expect(!self.manager.isPinned(song: songB))
+    }
+
+    @Test("Nil account ID clears visible favorites without losing stored pins")
+    func nilAccountIDClearsVisibleFavorites() {
+        let song = TestFixtures.makeSong(id: "logout-song")
+
+        self.manager.setActiveAccountID("brand-account")
+        self.manager.add(.from(song))
+        self.manager.setActiveAccountID(nil)
+
+        #expect(self.manager.items.isEmpty)
+        #expect(self.manager.activeAccountID == "primary")
+
+        self.manager.setActiveAccountID("brand-account")
+        #expect(self.manager.isPinned(song: song))
+    }
+
     // MARK: - FavoriteItem Model Tests
 
     @Test("FavoriteItem contentId returns correct value")
