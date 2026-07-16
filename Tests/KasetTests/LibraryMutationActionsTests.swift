@@ -265,6 +265,42 @@ struct LibraryMutationActionsTests {
         #expect(!self.libraryViewModel.isInLibrary(playlistId: "VL-owned"))
     }
 
+    @Test("Delete playlist unpins it from the sidebar")
+    func deletePlaylistUnpinsFromSidebar() async throws {
+        let pinnedPlaylist = TestFixtures.makePlaylist(id: "PL-pinned-delete", title: "Pinned Playlist")
+        let playlist = TestFixtures.makePlaylist(id: "VLPL-pinned-delete", title: "Pinned Playlist")
+        SidebarPinnedItemsManager.shared.add(.from(pinnedPlaylist))
+
+        try await LibraryMutationActions.deletePlaylist(
+            playlist,
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel
+        )
+
+        #expect(!SidebarPinnedItemsManager.shared.isPinned(contentId: "PL-pinned-delete"))
+    }
+
+    @Test("Failed playlist deletion restores the sidebar pin and library entry")
+    func deletePlaylistRestoresStateOnFailure() async throws {
+        let pinnedPlaylist = TestFixtures.makePlaylist(id: "PL-delete-fails", title: "Sticky Playlist")
+        let playlist = TestFixtures.makePlaylist(id: "VLPL-delete-fails", title: "Sticky Playlist")
+        self.libraryViewModel.addToLibrary(playlist: playlist)
+        SidebarPinnedItemsManager.shared.add(.from(pinnedPlaylist))
+        self.mockClient.shouldThrowError = URLError(.notConnectedToInternet)
+
+        await #expect(throws: (any Error).self) {
+            try await LibraryMutationActions.deletePlaylist(
+                playlist,
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel
+            )
+        }
+
+        #expect(SidebarPinnedItemsManager.shared.isPinned(contentId: "PL-delete-fails"))
+        #expect(self.libraryViewModel.isInLibrary(playlistId: "VLPL-delete-fails"))
+        SidebarPinnedItemsManager.shared.remove(contentId: "PL-delete-fails")
+    }
+
     private func waitUntil(_ condition: @autoclosure () -> Bool, timeout: Duration = .seconds(1)) async -> Bool {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)

@@ -26,7 +26,7 @@ struct FavoritesSection: View {
             showsControls: self.draggedItem == nil,
             contentInset: self.contentInset
         ) {
-            Text("Favorites")
+            Text(String(localized: "Favorites"))
                 .font(.title2)
                 .fontWeight(.semibold)
         } itemContent: { item in
@@ -111,7 +111,7 @@ struct FavoritesSection: View {
             Button {
                 Task { await self.playerService.play(song: song) }
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             Divider()
@@ -123,7 +123,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Album", systemImage: "square.stack")
+                Label(String(localized: "View Album"), systemImage: "square.stack")
             }
 
             Divider()
@@ -131,7 +131,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Playlist", systemImage: "music.note.list")
+                Label(String(localized: "View Playlist"), systemImage: "music.note.list")
             }
 
             Divider()
@@ -139,7 +139,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Artist", systemImage: "person")
+                Label(String(localized: "View Artist"), systemImage: "person")
             }
 
             Divider()
@@ -147,7 +147,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Podcast", systemImage: "mic.fill")
+                Label(String(localized: "View Podcast"), systemImage: "mic.fill")
             }
 
             Divider()
@@ -160,13 +160,13 @@ struct FavoritesSection: View {
         Button {
             self.favoritesManager.moveToTop(contentId: item.contentId)
         } label: {
-            Label("Move to Top", systemImage: "arrow.up.to.line")
+            Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
         }
 
         Button {
             self.favoritesManager.moveToEnd(contentId: item.contentId)
         } label: {
-            Label("Move to End", systemImage: "arrow.down.to.line")
+            Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
         }
 
         Divider()
@@ -175,7 +175,7 @@ struct FavoritesSection: View {
         Button(role: .destructive) {
             self.favoritesManager.remove(contentId: item.contentId)
         } label: {
-            Label("Remove from Favorites", systemImage: "heart.slash")
+            Label(String(localized: "Remove from Favorites"), systemImage: "heart.slash")
         }
 
         Divider()
@@ -202,7 +202,7 @@ struct FavoritesSection: View {
                 Button {
                     self.onNavigate?(artist)
                 } label: {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -218,7 +218,7 @@ struct FavoritesSection: View {
                 Button {
                     self.onNavigate?(playlist)
                 } label: {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         default:

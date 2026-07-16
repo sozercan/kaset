@@ -94,7 +94,7 @@ struct YouTubeWatchView: View {
             storyboardSpec: self.ambientStoryboardSpec
         )
         // The in-page metadata shows the title; keep the bar clean.
-        .navigationTitle("")
+        .navigationTitle(String(localized: ""))
         // Let the ambient reach under the nav bar, like the other accent pages.
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         #if DEBUG
@@ -129,7 +129,7 @@ struct YouTubeWatchView: View {
         private var ambientStylePicker: some ToolbarContent {
             ToolbarItem(placement: .automatic) {
                 Menu {
-                    Picker("Ambient", selection: self.$settings.ambientBackdropStyle) {
+                    Picker(String(localized: "Ambient"), selection: self.$settings.ambientBackdropStyle) {
                         ForEach(AmbientBackdropStyle.allCases) { style in
                             Text(style.debugLabel).tag(style)
                         }
@@ -138,7 +138,7 @@ struct YouTubeWatchView: View {
                 } label: {
                     Image(systemName: "paintpalette")
                 }
-                .help("Ambient backdrop style (developer)")
+                .help(String(localized: "Ambient backdrop style (developer)"))
             }
         }
     #endif

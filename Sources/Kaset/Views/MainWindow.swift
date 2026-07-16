@@ -405,6 +405,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     Sidebar(
                         selection: self.$navigationSelection,
                         pinnedSelection: self.$selectedSidebarPinnedItem,
+                        client: self.client,
                         onReselectNavigationItem: { item in
                             self.sidebarNavigationReselectGenerations.wrappedValue[item, default: 0] += 1
                             if item == .search {
@@ -688,6 +689,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .navigationDestinations(client: client)
         }
         .environment(self.libraryViewModel)
+        .environment(\.onPlaylistDeleted) {
+            self.navigationSelection = .home
+        }
     }
 
     /// View shown while checking initial login status.

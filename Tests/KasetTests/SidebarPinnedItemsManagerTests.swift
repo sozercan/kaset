@@ -33,6 +33,18 @@ struct SidebarPinnedItemsManagerTests {
         #expect(self.manager.items.count == 1)
     }
 
+    @Test("Treats raw and browse playlist IDs as the same pin")
+    func ignoresEquivalentPlaylistAliases() {
+        let rawPlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "PL-playlist-1", title: "Road Mix"))
+        let browsePlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "VLPL-playlist-1", title: "Road Mix"))
+
+        self.manager.add(rawPlaylist)
+        self.manager.add(browsePlaylist)
+
+        #expect(self.manager.items.map(\.contentId) == ["PL-playlist-1"])
+        #expect(self.manager.isPinned(browsePlaylist))
+    }
+
     @Test("Toggles pins on and off")
     func togglesPins() {
         let album = SidebarPinnedItem.from(TestFixtures.makeAlbum(id: "MPRE-album-1", title: "Night Album"))
@@ -42,6 +54,34 @@ struct SidebarPinnedItemsManagerTests {
 
         self.manager.toggle(album)
         #expect(self.manager.isPinned(album) == false)
+    }
+
+    @Test("Toggling an equivalent playlist alias removes every persisted alias")
+    func togglesEquivalentPlaylistAlias() {
+        let rawPlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "PL-playlist-1", title: "Road Mix"))
+        let browsePlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "VLPL-playlist-1", title: "Road Mix"))
+        self.manager.reset(with: [rawPlaylist, browsePlaylist])
+
+        self.manager.toggle(browsePlaylist)
+
+        #expect(self.manager.items.isEmpty)
+    }
+
+    @Test("Removes and restores every persisted alias of a playlist")
+    func removesAndRestoresEveryPlaylistAlias() {
+        let rawPlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "PL-playlist-1", title: "Road Mix"))
+        let album = SidebarPinnedItem.from(TestFixtures.makeAlbum(id: "MPRE-album-1", title: "Night Album"))
+        let browsePlaylist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "VLPL-playlist-1", title: "Road Mix"))
+        self.manager.reset(with: [rawPlaylist, album, browsePlaylist])
+
+        let removedPins = self.manager.removePlaylistPins(matching: "VLPL-playlist-1")
+
+        #expect(removedPins.map(\.item.contentId) == ["PL-playlist-1", "VLPL-playlist-1"])
+        #expect(self.manager.items.map(\.contentId) == ["MPRE-album-1"])
+
+        self.manager.restore(removedPins)
+
+        #expect(self.manager.items.map(\.contentId) == ["PL-playlist-1", "MPRE-album-1", "VLPL-playlist-1"])
     }
 
     @Test("Moves pins by drag source and destination")

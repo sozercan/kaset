@@ -121,11 +121,13 @@ enum SongActionsHelper {
     }
 
     /// Shows a confirmation dialog before permanently deleting a playlist owned by the user.
+    /// Deletion is optimistic: `onConfirm` fires immediately and the playlist is removed from
+    /// the sidebar and library up front, then restored with an error alert if the API call fails.
     static func confirmDeletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
-        onSuccess: (() -> Void)? = nil
+        onConfirm: (() -> Void)? = nil
     ) {
         let alert = NSAlert()
         alert.messageText = "Delete “\(playlist.title)”?"
@@ -137,6 +139,7 @@ enum SongActionsHelper {
         let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
             guard response == .alertFirstButtonReturn else { return }
 
+            onConfirm?()
             Task { @MainActor in
                 do {
                     try await self.deletePlaylist(
@@ -144,7 +147,6 @@ enum SongActionsHelper {
                         client: client,
                         libraryViewModel: libraryViewModel
                     )
-                    onSuccess?()
                 } catch {
                     self.presentPlaylistDeletionError(error)
                 }
@@ -155,6 +157,119 @@ enum SongActionsHelper {
             alert.beginSheetModal(for: window, completionHandler: handleResponse)
         } else {
             handleResponse(alert.runModal())
+        }
+    }
+
+    struct PlaylistCreationRequest {
+        let client: any YTMusicClientProtocol
+        let videoIds: [String]
+        let thumbnailURL: URL?
+
+        init(client: any YTMusicClientProtocol, videoIds: [String], thumbnailURL: URL? = nil) {
+            self.client = client
+            self.videoIds = videoIds
+            self.thumbnailURL = thumbnailURL
+        }
+    }
+
+    struct PlaylistCreationFailure: Error {
+        let message: String
+        let recoverySuggestion: String
+    }
+
+    static func presentCreatePlaylistDialog(
+        informativeText: String,
+        request: PlaylistCreationRequest,
+        onWillCreate: @escaping () -> Void = {},
+        completion: @escaping (Result<Playlist, PlaylistCreationFailure>) -> Void
+    ) {
+        let alert = NSAlert()
+        alert.messageText = "Create Playlist"
+        alert.informativeText = informativeText
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "Create")
+        alert.addButton(withTitle: "Cancel")
+        let titleField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        titleField.placeholderString = "Playlist name"
+        alert.accessoryView = titleField
+
+        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .alertFirstButtonReturn else { return }
+            let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty else {
+                completion(.failure(PlaylistCreationFailure(
+                    message: "Playlist Name Required",
+                    recoverySuggestion: "Enter a name for the playlist and try again."
+                )))
+                return
+            }
+
+            onWillCreate()
+            Task {
+                await Self.createPlaylist(title: title, request: request, completion: completion)
+            }
+        }
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window, completionHandler: handleResponse)
+        } else {
+            handleResponse(alert.runModal())
+        }
+    }
+
+    static func presentPlaylistCreationError(_ failure: PlaylistCreationFailure) {
+        let alert = NSAlert()
+        alert.messageText = failure.message
+        alert.informativeText = failure.recoverySuggestion
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
+    }
+
+    private static func createPlaylist(
+        title: String,
+        request: PlaylistCreationRequest,
+        completion: @escaping (Result<Playlist, PlaylistCreationFailure>) -> Void
+    ) async {
+        do {
+            let playlistId = try await request.client.createPlaylist(
+                title: title,
+                description: nil,
+                privacyStatus: .private,
+                videoIds: request.videoIds
+            )
+            let playlist = Playlist(
+                id: playlistId,
+                title: title,
+                description: nil,
+                thumbnailURL: request.thumbnailURL,
+                trackCount: request.videoIds.count,
+                canDelete: true
+            )
+
+            Self.invalidateLibraryResponseCaches()
+            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
+
+            // Library browse responses can lag briefly behind a successful playlist creation.
+            // Refresh in the background, but keep the optimistic playlist visible if the
+            // cache/backend still returns a stale snapshot.
+            try? await Task.sleep(for: .milliseconds(500))
+            Self.invalidateLibraryResponseCaches()
+            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
+            Self.invalidateLibraryResponseCaches()
+
+            completion(.success(playlist))
+        } catch {
+            completion(.failure(PlaylistCreationFailure(
+                message: "Unable to Create Playlist",
+                recoverySuggestion: "Check your connection and try again."
+            )))
+            DiagnosticsLogger.ui.error("Failed to create playlist: \(error.localizedDescription)")
         }
     }
 

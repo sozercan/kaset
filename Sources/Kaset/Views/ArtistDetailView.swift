@@ -190,7 +190,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                                 await self.shuffleAllSongs()
                             }
                         } label: {
-                            Label("Shuffle", systemImage: "shuffle")
+                            Label(String(localized: "Shuffle"), systemImage: "shuffle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -205,7 +205,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         Button {
                             self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
                         } label: {
-                            Label("Mix", systemImage: "play.circle")
+                            Label(String(localized: "Mix"), systemImage: "play.circle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -305,7 +305,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         songsBrowseId: detail.songsBrowseId,
                         songsParams: detail.songsParams
                     )) {
-                        Text("See all")
+                        Text(String(localized: "See all"))
                             .font(.subheadline)
                     }
                     .buttonStyle(.plain)
@@ -369,7 +369,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                             .lineLimit(1)
                             .frame(width: 150, alignment: .leading)
                     } else {
-                        Text("")
+                        Text(String(localized: ""))
                             .frame(width: 150, alignment: .leading)
                     }
 
@@ -396,7 +396,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     await self.playerService.playQueue(allSongs, startingAt: startIndex)
                 }
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -419,7 +419,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 Button {
                     SongActionsHelper.addToLibrary(song, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -448,7 +448,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
@@ -911,7 +911,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 trackCount: nil,
                 author: Artist.inline(name: artistName, namespace: "playlist-author")
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
@@ -921,7 +921,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 sectionTitle: sectionTitle,
                 endpoint: more
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)

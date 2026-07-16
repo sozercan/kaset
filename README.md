@@ -29,7 +29,7 @@ A native macOS client for YouTube Music and YouTube, built with Swift and SwiftU
 - 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
 - 🕓 **History** — Revisit recently played tracks
 - 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
-- 🌍 **Localized** — Available in English, French, Korean, Indonesian, Turkish, and Arabic
+- 🌍 **Localized** — UI available in 15 languages (Arabic, Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
 - ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
@@ -59,6 +59,7 @@ brew install sozercan/repo/kaset
 
 > **Note:** The app is not signed.
 > If you downloaded the app manually, you can clear extended attributes (including quarantine) with:
+>
 > ```bash
 > xattr -cr /Applications/Kaset.app
 > ```
@@ -70,4 +71,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, architecture, and 
 We welcome AI-assisted contributions! You can submit traditional PRs or **prompt requests** — share the AI prompt that generates your changes, and maintainers can review the intent before running the code. See the [AI-Assisted Contributions](CONTRIBUTING.md#ai-assisted-contributions--prompt-requests) section for details.
 
 ## Disclaimer
+
 Kaset is an unofficial application and not affiliated with YouTube or Google Inc. in any way. "YouTube", "YouTube Music" and the "YouTube Logo" are registered trademarks of Google Inc.
