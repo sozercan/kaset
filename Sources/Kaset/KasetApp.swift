@@ -199,8 +199,16 @@ struct KasetApp: App {
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
+                    // Drain any cold-launch URLs once `onReceive` below is subscribed.
+                    self.appDelegate.beginOpenURLDelivery()
                     // Reference notificationService to keep SwiftUI from deallocating it
                     _ = self.notificationService
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .kasetOpenURLs)) { notification in
+                    guard let urls = notification.object as? [URL] else { return }
+                    for url in urls {
+                        self.handleIncomingURL(url)
+                    }
                 }
                 .task {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -226,9 +234,9 @@ struct KasetApp: App {
                         await FoundationModelsService.shared.warmup()
                     }
                 }
-                .onOpenURL { url in
-                    self.handleIncomingURL(url)
-                }
+                // Claim deep links for this existing window so macOS does not
+                // spawn/tear down a second scene around `kaset://`.
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .onChange(of: self.playerService.isPlaying) { _, isPlaying in
                     // The Core Audio process tap needs WebKit's GPU
                     // process to be actively emitting audio before it
@@ -270,6 +278,7 @@ struct KasetApp: App {
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
         .windowResizability(.contentMinSize)
+        .handlesExternalEvents(matching: ["*"])
 
         Settings {
             SettingsView()
@@ -654,6 +663,8 @@ struct KasetApp: App {
 
     /// Handles parsed URL content.
     private func handleParsedContent(_ content: URLHandler.ParsedContent) {
+        self.showMainWindow()
+
         switch content {
         case let .song(videoId):
             DiagnosticsLogger.app.info("Playing song from URL: \(videoId)")
@@ -664,7 +675,8 @@ struct KasetApp: App {
                 videoId: videoId
             )
             Task {
-                await self.playerService.play(song: song)
+                // Match AppleScript `play video` / other external play entry points.
+                await self.playerService.playWithRadio(song: song)
             }
 
         case let .youtubeVideo(videoId):
