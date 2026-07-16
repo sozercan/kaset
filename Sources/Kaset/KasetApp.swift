@@ -21,6 +21,10 @@ extension EnvironmentValues {
     @Entry var usesLegacyMacOS15UI = false
 }
 
+extension EnvironmentValues {
+    @Entry var onPlaylistDeleted: (() -> Void)?
+}
+
 // MARK: - KasetApp
 
 /// Main entry point for the Kaset macOS application.

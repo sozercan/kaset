@@ -16,6 +16,7 @@ struct PlaylistDetailView: View {
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
+    @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
     /// Tracks whether this playlist has been added to library in this session.
     @State var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.

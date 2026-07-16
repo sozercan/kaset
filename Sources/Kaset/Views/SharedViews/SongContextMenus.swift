@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 
@@ -235,86 +234,29 @@ struct AddToPlaylistContextMenu: View {
         guard !self.isCreatingPlaylist else { return }
         let owner = self.playerService.currentAccountMutationOwner
 
-        let alert = NSAlert()
-        alert.messageText = "Create Playlist"
-        alert.informativeText = "Create a private playlist and add \"\(self.song.title)\" to it."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-        let titleField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        titleField.placeholderString = "Playlist name"
-        alert.accessoryView = titleField
-        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
-            let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !title.isEmpty else {
-                self.loadState = .failed("Playlist Name Required")
-                return
-            }
-            Task { await self.createPlaylist(title: title, owner: owner) }
-        }
-
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-            alert.beginSheetModal(for: window, completionHandler: handleResponse)
-        } else {
-            handleResponse(alert.runModal())
-        }
-    }
-
-    private func createPlaylist(
-        title: String,
-        owner: MusicAccountMutationOwner
-    ) async {
-        guard !title.isEmpty,
-              self.playerService.acceptsAccountMutationOwner(owner),
-              !self.isCreatingPlaylist
-        else { return }
-        self.isCreatingPlaylist = true
-        defer { self.isCreatingPlaylist = false }
-        do {
-            let playlistId = try await self.client.createPlaylist(
-                title: title,
-                description: nil,
-                privacyStatus: .private,
-                videoIds: [self.song.videoId]
-            )
-            guard self.playerService.acceptsAccountMutationOwner(owner) else {
-                throw CancellationError()
-            }
-            let playlist = Playlist(
-                id: playlistId,
-                title: title,
-                description: nil,
+        SongActionsHelper.presentCreatePlaylistDialog(
+            informativeText: "Create a private playlist and add \"\(self.song.title)\" to it.",
+            request: SongActionsHelper.PlaylistCreationRequest(
+                client: self.client,
+                videoIds: [self.song.videoId],
                 thumbnailURL: self.song.thumbnailURL,
-                trackCount: 1
-            )
-
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
-
-            // Library browse responses can lag briefly behind a successful playlist creation.
-            // Refresh in the background, but keep the optimistic playlist visible if the
-            // cache/backend still returns a stale snapshot.
-            try? await Task.sleep(for: .milliseconds(500))
-            guard self.playerService.acceptsAccountMutationOwner(owner) else {
-                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-                throw CancellationError()
-            }
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
-                playlist,
                 whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
-            )
-            guard didReconcile, self.playerService.acceptsAccountMutationOwner(owner) else {
-                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-                throw CancellationError()
-            }
-            SongActionsHelper.invalidateLibraryResponseCaches()
+            ),
+            onWillCreate: { self.isCreatingPlaylist = true },
+            completion: { result in
+                self.isCreatingPlaylist = false
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
 
-            await self.loadPlaylists(forceRefresh: true)
-        } catch {
-            self.loadState = .failed("Unable to Create Playlist")
-            DiagnosticsLogger.ui.error("Failed to create playlist: \(error.localizedDescription)")
-        }
+                switch result {
+                case .success:
+                    Task {
+                        guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+                        await self.loadPlaylists(forceRefresh: true)
+                    }
+                case let .failure(failure):
+                    self.loadState = .failed(failure.message)
+                }
+            }
+        )
     }
 }
