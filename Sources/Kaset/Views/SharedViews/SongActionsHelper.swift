@@ -51,10 +51,32 @@ enum SongActionsHelper {
 
     /// Adds a song to the library by playing it and toggling library status.
     /// Note: This still requires playing because library toggle works on current track.
-    static func addToLibrary(_ song: Song, playerService: PlayerService) {
-        Task {
-            await playerService.play(song: song)
-            try? await Task.sleep(for: .milliseconds(100))
+    @discardableResult
+    static func addToLibrary(_ song: Song, playerService: PlayerService) -> Task<Void, Never> {
+        let intent = playerService.beginMusicPlaybackIntent()
+        let queueEntryID = playerService.currentQueueEntryID(matching: song)
+        return Task {
+            await playerService.play(
+                song: song,
+                webLoadStrategy: .standard,
+                queueEntryID: queueEntryID,
+                intent: intent
+            )
+            guard playerService.acceptsMusicPlaybackIntent(intent),
+                  playerService.currentTrack?.videoId == song.videoId
+            else { return }
+            guard !playerService.currentTrackInLibrary else { return }
+            if playerService.currentTrackFeedbackTokens?.add == nil {
+                await playerService.fetchSongMetadata(
+                    videoId: song.videoId,
+                    queueOwner: queueEntryID.map(MusicQueueMetadataOwner.entry) ?? .none
+                )
+            }
+            guard playerService.acceptsMusicPlaybackIntent(intent),
+                  playerService.currentTrack?.videoId == song.videoId,
+                  !playerService.currentTrackInLibrary,
+                  playerService.currentTrackFeedbackTokens?.add != nil
+            else { return }
             playerService.toggleLibraryStatus()
         }
     }
@@ -111,12 +133,16 @@ enum SongActionsHelper {
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        owner: MusicAccountMutationOwner,
+        playerService: PlayerService
     ) async throws {
         try await LibraryMutationActions.deletePlaylist(
             playlist,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            owner: owner,
+            whileValid: { playerService.acceptsAccountMutationOwner(owner) }
         )
     }
 
@@ -127,8 +153,10 @@ enum SongActionsHelper {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
+        playerService: PlayerService,
         onConfirm: (() -> Void)? = nil
     ) {
+        let owner = playerService.currentAccountMutationOwner
         let alert = NSAlert()
         alert.messageText = "Delete “\(playlist.title)”?"
         alert.informativeText = "This permanently deletes the playlist from YouTube Music. You can only delete playlists you created."
@@ -137,7 +165,9 @@ enum SongActionsHelper {
         alert.addButton(withTitle: "Cancel")
 
         let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
+            guard response == .alertFirstButtonReturn,
+                  playerService.acceptsAccountMutationOwner(owner)
+            else { return }
 
             onConfirm?()
             Task { @MainActor in
@@ -145,8 +175,12 @@ enum SongActionsHelper {
                     try await self.deletePlaylist(
                         playlist,
                         client: client,
-                        libraryViewModel: libraryViewModel
+                        libraryViewModel: libraryViewModel,
+                        owner: owner,
+                        playerService: playerService
                     )
+                } catch is CancellationError {
+                    return
                 } catch {
                     self.presentPlaylistDeletionError(error)
                 }
@@ -164,11 +198,18 @@ enum SongActionsHelper {
         let client: any YTMusicClientProtocol
         let videoIds: [String]
         let thumbnailURL: URL?
+        let isValid: () -> Bool
 
-        init(client: any YTMusicClientProtocol, videoIds: [String], thumbnailURL: URL? = nil) {
+        init(
+            client: any YTMusicClientProtocol,
+            videoIds: [String],
+            thumbnailURL: URL? = nil,
+            whileValid isValid: @escaping () -> Bool = { true }
+        ) {
             self.client = client
             self.videoIds = videoIds
             self.thumbnailURL = thumbnailURL
+            self.isValid = isValid
         }
     }
 
@@ -180,7 +221,7 @@ enum SongActionsHelper {
     static func presentCreatePlaylistDialog(
         informativeText: String,
         request: PlaylistCreationRequest,
-        onWillCreate: @escaping () -> Void = {},
+        onWillCreate: @escaping () -> Bool = { true },
         completion: @escaping (Result<Playlist, PlaylistCreationFailure>) -> Void
     ) {
         let alert = NSAlert()
@@ -204,7 +245,7 @@ enum SongActionsHelper {
                 return
             }
 
-            onWillCreate()
+            guard onWillCreate() else { return }
             Task {
                 await Self.createPlaylist(title: title, request: request, completion: completion)
             }
@@ -236,6 +277,14 @@ enum SongActionsHelper {
         request: PlaylistCreationRequest,
         completion: @escaping (Result<Playlist, PlaylistCreationFailure>) -> Void
     ) async {
+        guard !Task.isCancelled, request.isValid() else {
+            completion(.failure(PlaylistCreationFailure(
+                message: "Unable to Create Playlist",
+                recoverySuggestion: "Try again after switching accounts."
+            )))
+            return
+        }
+
         do {
             let playlistId = try await request.client.createPlaylist(
                 title: title,
@@ -243,6 +292,9 @@ enum SongActionsHelper {
                 privacyStatus: .private,
                 videoIds: request.videoIds
             )
+            guard !Task.isCancelled, request.isValid() else {
+                throw CancellationError()
+            }
             let playlist = Playlist(
                 id: playlistId,
                 title: title,
@@ -259,11 +311,27 @@ enum SongActionsHelper {
             // Refresh in the background, but keep the optimistic playlist visible if the
             // cache/backend still returns a stale snapshot.
             try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, request.isValid() else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
             Self.invalidateLibraryResponseCaches()
-            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
+            let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
+                playlist,
+                whileValid: request.isValid
+            )
+            guard didReconcile, !Task.isCancelled, request.isValid() else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
             Self.invalidateLibraryResponseCaches()
 
             completion(.success(playlist))
+        } catch is CancellationError {
+            completion(.failure(PlaylistCreationFailure(
+                message: "Unable to Create Playlist",
+                recoverySuggestion: "Try again after switching accounts."
+            )))
         } catch {
             completion(.failure(PlaylistCreationFailure(
                 message: "Unable to Create Playlist",

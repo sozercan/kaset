@@ -123,6 +123,7 @@ extension SingletonPlayerWebView {
     static var mediaControlOverrideScript: String {
         """
         (function() {
+            \(eventTimestampFunctionJS)
             if (typeof window.__kasetUseNextPrev !== 'boolean') {
                 try {
                     window.__kasetUseNextPrev =
@@ -153,11 +154,19 @@ extension SingletonPlayerWebView {
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_NEXT' });
+                                .postMessage({
+                                    type: 'REMOTE_NEXT',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                });
                         });
                         ms.setActionHandler('previoustrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_PREVIOUS' });
+                                .postMessage({
+                                    type: 'REMOTE_PREVIOUS',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                });
                         });
                     });
                 } catch (e) {}

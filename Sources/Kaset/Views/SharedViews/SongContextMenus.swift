@@ -80,6 +80,7 @@ struct AddToPlaylistContextMenu: View {
     let client: any YTMusicClientProtocol
 
     @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
 
     @State private var loadState: PlaylistLoadState = .idle
     @State private var isCreatingPlaylist = false
@@ -231,24 +232,32 @@ struct AddToPlaylistContextMenu: View {
 
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
+        let owner = self.playerService.currentAccountMutationOwner
 
         SongActionsHelper.presentCreatePlaylistDialog(
             informativeText: "Create a private playlist and add \"\(self.song.title)\" to it.",
             request: SongActionsHelper.PlaylistCreationRequest(
                 client: self.client,
                 videoIds: [self.song.videoId],
-                thumbnailURL: self.song.thumbnailURL
+                thumbnailURL: self.song.thumbnailURL,
+                whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
             ),
-            onWillCreate: { self.isCreatingPlaylist = true },
+            onWillCreate: {
+                guard !self.isCreatingPlaylist else { return false }
+                self.isCreatingPlaylist = true
+                return true
+            },
             completion: { result in
+                self.isCreatingPlaylist = false
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+
                 switch result {
                 case .success:
                     Task {
-                        self.isCreatingPlaylist = false
+                        guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
                         await self.loadPlaylists(forceRefresh: true)
                     }
                 case let .failure(failure):
-                    self.isCreatingPlaylist = false
                     self.loadState = .failed(failure.message)
                 }
             }

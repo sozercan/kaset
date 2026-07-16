@@ -1137,6 +1137,45 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.first?.likeStatus == .like)
     }
 
+    @Test("Liked Music optimistic insertion preserves the confirmed rollback baseline")
+    func likedMusicOptimisticInsertionPreservesRollbackBaseline() async throws {
+        let manager = SongLikeStatusManager.shared
+        let accountID = "liked-music-rollback-\(UUID().uuidString)"
+        manager.setActiveAccountID(accountID)
+        defer { manager.setActiveAccountID(nil) }
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        await likedMusicViewModel.load()
+        let song = Song(
+            id: "optimistic-liked-song",
+            title: "Optimistic Liked Song",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "optimistic-liked-song"
+        )
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        manager.setStatus(.indifferent, for: song.videoId)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let likeTask = Task { @MainActor in
+            await manager.like(song, client: self.mockClient)
+        }
+        await requestStarted.wait()
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+        #expect(manager.status(for: song.videoId) == .like)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == song.videoId)
+
+        await releaseRequest.open()
+
+        #expect(await likeTask.value == .indifferent)
+        #expect(manager.status(for: song.videoId) == .indifferent)
+    }
+
     @Test("Liked Music live sync fetches metadata for placeholder song")
     func likedMusicLiveSyncFetchesMetadataForPlaceholderSong() async {
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)

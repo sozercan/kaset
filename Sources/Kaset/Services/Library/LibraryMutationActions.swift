@@ -4,9 +4,20 @@ import Foundation
 /// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
 enum LibraryMutationActions {
+    private struct PlaylistDeletionKey: Hashable {
+        let playlistId: String
+        let owner: MusicAccountMutationOwner?
+    }
+
+    private struct PendingPlaylistDeletion {
+        let id: UUID
+        let task: Task<Void, Error>
+    }
+
     static var artistReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
 
     private static var artistReconciliationTasks: [String: Task<Void, Never>] = [:]
+    private static var pendingPlaylistDeletions: [PlaylistDeletionKey: PendingPlaylistDeletion] = [:]
 
     /// Adds a song to a playlist.
     static func addSongToPlaylist(
@@ -116,32 +127,67 @@ enum LibraryMutationActions {
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        owner: MusicAccountMutationOwner? = nil,
+        whileValid isCurrent: @escaping () -> Bool = { true }
     ) async throws {
-        let pinnedItemsManager = SidebarPinnedItemsManager.shared
-        let removedPins = pinnedItemsManager.removePlaylistPins(matching: playlist.id)
-        LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
-
-        do {
-            try await client.deletePlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
-
-            // Library browse responses can lag briefly behind a successful deletion.
-            try? await Task.sleep(for: .milliseconds(500))
-            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-        } catch {
-            pinnedItemsManager.restore(removedPins)
-            // Restore the caller's view directly (like the optimistic podcast mutations do) rather
-            // than broadcasting a creation: other Library instances self-heal on their next reload,
-            // and a global playlistCreated here would fabricate the playlist in views that never
-            // saw the optimistic removal.
-            libraryViewModel?.addToLibrary(playlist: playlist)
-            DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
-            throw error
+        guard isCurrent() else { throw CancellationError() }
+        let key = PlaylistDeletionKey(
+            playlistId: LibraryContentIdentity.playlistKey(for: playlist.id),
+            owner: owner
+        )
+        if let pendingDeletion = self.pendingPlaylistDeletions[key] {
+            try await pendingDeletion.task.value
+            return
         }
+
+        let operationID = UUID()
+        let removedPins = SidebarPinnedItemsManager.shared.removePlaylistPins(matching: playlist.id)
+        let removalReceipt = LibraryMutationBroadcaster.shared.playlistRemoved(
+            playlistId: playlist.id
+        )
+        let task = Task { @MainActor in
+            var didDeleteRemotely = false
+            do {
+                guard isCurrent() else { throw CancellationError() }
+                try await client.deletePlaylist(playlistId: playlist.id)
+                didDeleteRemotely = true
+                guard isCurrent() else { throw CancellationError() }
+                self.invalidateResponseCaches()
+                libraryViewModel?.markNeedsReloadOnActivation()
+                DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
+
+                // Library browse responses can lag briefly behind a successful deletion.
+                try? await Task.sleep(for: .milliseconds(500))
+                guard isCurrent() else { throw CancellationError() }
+                await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+                self.invalidateResponseCaches()
+            } catch {
+                guard isCurrent() else {
+                    if !didDeleteRemotely {
+                        SidebarPinnedItemsManager.shared.restore(removedPins)
+                    }
+                    throw CancellationError()
+                }
+                SidebarPinnedItemsManager.shared.restore(removedPins)
+                LibraryMutationBroadcaster.shared.rollbackPlaylistRemoval(
+                    playlist,
+                    receipt: removalReceipt
+                )
+                DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
+                throw error
+            }
+        }
+        self.pendingPlaylistDeletions[key] = PendingPlaylistDeletion(
+            id: operationID,
+            task: task
+        )
+        defer {
+            if self.pendingPlaylistDeletions[key]?.id == operationID {
+                self.pendingPlaylistDeletions.removeValue(forKey: key)
+            }
+        }
+        try await task.value
     }
 
     /// Subscribes to a podcast show (adds to library).

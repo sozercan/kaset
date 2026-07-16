@@ -301,6 +301,26 @@ struct LibraryMutationActionsTests {
         SidebarPinnedItemsManager.shared.remove(contentId: "PL-delete-fails")
     }
 
+    @Test("Failed playlist deletion restores every library model that observed the optimistic removal")
+    func deletePlaylistRestoresAllAffectedLibraryModels() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-delete-multi-window", title: "Shared Playlist")
+        let otherLibraryViewModel = LibraryViewModel(client: self.mockClient)
+        self.libraryViewModel.addToLibrary(playlist: playlist)
+        otherLibraryViewModel.addToLibrary(playlist: playlist)
+        self.mockClient.shouldThrowError = URLError(.notConnectedToInternet)
+
+        await #expect(throws: (any Error).self) {
+            try await LibraryMutationActions.deletePlaylist(
+                playlist,
+                client: self.mockClient,
+                libraryViewModel: nil
+            )
+        }
+
+        #expect(self.libraryViewModel.isInLibrary(playlistId: playlist.id))
+        #expect(otherLibraryViewModel.isInLibrary(playlistId: playlist.id))
+    }
+
     private func waitUntil(_ condition: @autoclosure () -> Bool, timeout: Duration = .seconds(1)) async -> Bool {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: timeout)

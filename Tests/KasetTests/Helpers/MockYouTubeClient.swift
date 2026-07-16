@@ -189,9 +189,15 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var getWatchNextCompletionCount = 0
     private(set) var requestedWatchNextVideoIds: [String] = []
 
-    /// Awaited inside `getWatchNext` before it returns, so a test can hold one mix parse open
-    /// while the coordinator switches tracks and starts a newer request.
+    var watchNextCallCount: Int {
+        self.getWatchNextCallCount
+    }
+
+    /// Awaited before returning so tests can gate by requested video identity.
     var beforeWatchNextReturn: (@Sendable (String) async -> Void)?
+
+    /// Awaited before returning so playback tests can gate a specific call ordinal.
+    var beforeWatchNextReturnByCallCount: (@Sendable (Int) async -> Void)?
 
     func getWatchNext(videoId: String) async throws -> WatchNextData {
         self.getWatchNextCallCount += 1
@@ -201,6 +207,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         }
         if let beforeWatchNextReturn {
             await beforeWatchNextReturn(videoId)
+        }
+        if let beforeWatchNextReturnByCallCount {
+            await beforeWatchNextReturnByCallCount(self.getWatchNextCallCount)
         }
         try Task.checkCancellation()
         self.getWatchNextCompletionCount += 1
