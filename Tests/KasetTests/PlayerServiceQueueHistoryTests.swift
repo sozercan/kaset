@@ -515,18 +515,12 @@ extension PlayerServiceQueueTests {
 
     @Test("Pause during undo metadata preserves structural finalization")
     func pauseDuringUndoMetadataPreservesStructuralFinalization() async {
-        let settings = SettingsManager.shared
-        let savedAhead = settings.smartShuffleSuggestionsAhead
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        let savedBurst = settings.smartShuffleBurst
         self.playerService.smartShuffleFeatureEnabled = { true }
-        settings.smartShuffleSuggestionsAhead = 1
-        settings.smartShuffleSuggestEveryN = 1
-        settings.smartShuffleBurst = 1
-        defer {
-            settings.smartShuffleSuggestionsAhead = savedAhead
-            settings.smartShuffleSuggestEveryN = savedEveryN
-            settings.smartShuffleBurst = savedBurst
+        // Configure Smart Shuffle on this instance instead of the shared SettingsManager
+        // singleton: the fill loop reads `smartShuffleConfigProvider`, so mutating the global
+        // here would race with the (parallel) Smart Shuffle suite that also touches it.
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
         }
 
         let restored = Song(

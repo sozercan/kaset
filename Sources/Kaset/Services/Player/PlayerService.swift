@@ -22,6 +22,18 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         SettingsManager.shared.smartShuffleEnabled
     }
 
+    /// Numeric Smart Shuffle tuning consumed by the fill loop (`performSmartShuffleFill`).
+    /// Injectable like ``smartShuffleFeatureEnabled`` so tests configure a single instance instead
+    /// of mutating the shared `SettingsManager` singleton; mutating that singleton races across the
+    /// test suites that run in parallel. Defaults to the live user settings.
+    @ObservationIgnored var smartShuffleConfigProvider: @MainActor () -> SmartShuffleConfig = {
+        SmartShuffleConfig(
+            suggestEveryN: SettingsManager.shared.smartShuffleSuggestEveryN,
+            burst: SettingsManager.shared.smartShuffleBurst,
+            suggestionsAhead: SettingsManager.shared.smartShuffleSuggestionsAhead
+        )
+    }
+
     @ObservationIgnored var queuePersistenceDefaults: UserDefaults = .standard
 
     @ObservationIgnored var onMusicPlaybackNavigationRequested: ((String, Bool) -> Void)?

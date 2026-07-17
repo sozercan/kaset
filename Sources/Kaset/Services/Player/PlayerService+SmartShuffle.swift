@@ -4,6 +4,16 @@ import Foundation
 
 @MainActor
 extension PlayerService {
+    /// Numeric tuning for the Smart Shuffle fill loop, read via ``smartShuffleConfigProvider``.
+    /// Injecting it per instance lets tests configure one `PlayerService` instead of mutating the
+    /// shared `SettingsManager` singleton — cross-suite mutation of that singleton races when the
+    /// test suites run in parallel.
+    struct SmartShuffleConfig {
+        let suggestEveryN: Int
+        let burst: Int
+        let suggestionsAhead: Int
+    }
+
     static func resolvedShuffleMode(
         _ mode: ShuffleMode,
         smartShuffleEnabled: Bool
@@ -125,9 +135,10 @@ extension PlayerService {
     /// The actual fill loop, run inside the stored single-flight task. Assumes the entry guards in
     /// ``fillSmartShuffleWindow()`` already passed; bails promptly on cancellation or a mode change.
     private func performSmartShuffleFill() async {
-        let everyN = max(1, SettingsManager.shared.smartShuffleSuggestEveryN)
-        let burst = max(1, SettingsManager.shared.smartShuffleBurst)
-        let target = max(1, SettingsManager.shared.smartShuffleSuggestionsAhead)
+        let config = self.smartShuffleConfigProvider()
+        let everyN = max(1, config.suggestEveryN)
+        let burst = max(1, config.burst)
+        let target = max(1, config.suggestionsAhead)
 
         // Seeds whose radio threw this pass: skipped for the rest of the pass (so later slots still
         // fill) but NOT banned for the session — a transient error should be retried next advance.

@@ -74,6 +74,54 @@ struct PlayerServiceSmartShuffleTests {
         #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
+    /// Regression guard for a cross-suite flake: the fill loop used to read `SettingsManager.shared`
+    /// directly, so a parallel suite mutating those settings changed suggestion output here. Two
+    /// instances given OPPOSITE per-instance configs on identical queues must diverge — which can
+    /// only happen if each honors its own provider. Reading the shared singleton would make both
+    /// read the same value and behave identically, so this asserts the fix independently of whatever
+    /// the ambient global cadence happens to be.
+    @Test("Smart Shuffle fill honors the injected config, not the shared settings singleton")
+    func fillHonorsInjectedConfigOverGlobalSettings() async {
+        func makeService() -> (PlayerService, MockYTMusicClient) {
+            let client = MockYTMusicClient()
+            let service = PlayerService()
+            service.smartShuffleFeatureEnabled = { true }
+            service.useQueuePersistenceNamespaceForTesting("SmartShuffleConfigInjection-\(UUID().uuidString)")
+            service.clearSavedQueue()
+            service.setYTMusicClient(client)
+            service.confirmPlaybackStarted()
+            return (service, client)
+        }
+
+        let songs = TestFixtures.makeSongs(count: 4)
+
+        // Suppressing config: a cadence far larger than the queue leaves no slot to fill.
+        let (suppressed, suppressedClient) = makeService()
+        suppressed.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1000, burst: 1, suggestionsAhead: 1)
+        }
+        // Enabling config: suggest after every track.
+        let (enabled, enabledClient) = makeService()
+        enabled.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
+        }
+        for song in songs {
+            suppressedClient.radioQueueSongs[song.videoId] = [TestFixtures.makeSong(id: "rec-\(song.videoId)")]
+            enabledClient.radioQueueSongs[song.videoId] = [TestFixtures.makeSong(id: "rec-\(song.videoId)")]
+        }
+
+        await suppressed.playQueue(songs, startingAt: 0)
+        suppressed.setShuffleMode(.smart)
+        await suppressed.fillSmartShuffleWindow()
+
+        await enabled.playQueue(songs, startingAt: 0)
+        enabled.setShuffleMode(.smart)
+        await enabled.fillSmartShuffleWindow()
+
+        #expect(!suppressed.queueEntries.contains { $0.source == .suggested })
+        #expect(enabled.queueEntries.contains { $0.source == .suggested })
+    }
+
     @Test("leaving smart mode strips suggestions")
     func leavingSmartStrips() async {
         let songs = TestFixtures.makeSongs(count: 6)
@@ -132,17 +180,8 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("Redoing Smart Shuffle restarts the canceled recommendation fill")
     func redoSmartShuffleRestartsCanceledFill() async {
-        let settings = SettingsManager.shared
-        let savedAhead = settings.smartShuffleSuggestionsAhead
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        let savedBurst = settings.smartShuffleBurst
-        settings.smartShuffleSuggestionsAhead = 1
-        settings.smartShuffleSuggestEveryN = 1
-        settings.smartShuffleBurst = 1
-        defer {
-            settings.smartShuffleSuggestionsAhead = savedAhead
-            settings.smartShuffleSuggestEveryN = savedEveryN
-            settings.smartShuffleBurst = savedBurst
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
         }
 
         let songs = TestFixtures.makeSongs(count: 3)
@@ -318,14 +357,12 @@ struct PlayerServiceSmartShuffleTests {
         // Force lazy top-up: a small look-ahead window (min 5) with one slot per original means
         // the engine cannot place every possible suggestion up front, so advancing past them must
         // trigger additional radio fetches.
-        let settings = SettingsManager.shared
-        let savedAhead = settings.smartShuffleSuggestionsAhead
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        settings.smartShuffleSuggestionsAhead = 5
-        settings.smartShuffleSuggestEveryN = 1
-        defer {
-            settings.smartShuffleSuggestionsAhead = savedAhead
-            settings.smartShuffleSuggestEveryN = savedEveryN
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(
+                suggestEveryN: 1,
+                burst: SettingsManager.smartShuffleBurstDefault,
+                suggestionsAhead: 5
+            )
         }
 
         let songs = TestFixtures.makeSongs(count: 10) // video-0...video-9
@@ -580,6 +617,10 @@ struct PlayerServiceSmartShuffleTests {
         #expect(PlayerService.resolvedShuffleMode(.smart, smartShuffleEnabled: false) == .on)
     }
 
+    /// This is the only test that still mutates the shared SettingsManager Smart Shuffle values.
+    /// It MUST stay synchronous: with no `await` between the mutation and the `defer` restore it runs
+    /// atomically on the main actor, so it cannot interleave with a parallel suite's default-provider
+    /// fill and clobber it. Do not make it `async` or add an `await` inside the mutation window.
     @Test("clamped Smart Shuffle numeric settings persist the corrected values")
     func clampedSmartShuffleSettingsPersist() {
         let settings = SettingsManager.shared
@@ -751,10 +792,13 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("switching playlists in smart mode resets seen state so the new queue gets suggestions (#4)")
     func switchingPlaylistsResetsSmartState() async {
-        let settings = SettingsManager.shared
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        settings.smartShuffleSuggestEveryN = 1
-        defer { settings.smartShuffleSuggestEveryN = savedEveryN }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(
+                suggestEveryN: 1,
+                burst: SettingsManager.smartShuffleBurstDefault,
+                suggestionsAhead: SettingsManager.smartShuffleSuggestionsAheadDefault
+            )
+        }
 
         // Playlist A: every seed's radio offers the same "shared-rec".
         let aSongs = (0 ..< 4).map { TestFixtures.makeSong(id: "a-\($0)") }
@@ -780,10 +824,13 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("a radio error on one seed does not abort the whole fill pass (#9)")
     func radioThrowOnOneSeedStillFillsOthers() async {
-        let settings = SettingsManager.shared
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        settings.smartShuffleSuggestEveryN = 1
-        defer { settings.smartShuffleSuggestEveryN = savedEveryN }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(
+                suggestEveryN: 1,
+                burst: SettingsManager.smartShuffleBurstDefault,
+                suggestionsAhead: SettingsManager.smartShuffleSuggestionsAheadDefault
+            )
+        }
 
         let songs = TestFixtures.makeSongs(count: 6)
         await self.playerService.playQueue(songs, startingAt: 0)
