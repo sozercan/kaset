@@ -25,6 +25,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
     @Environment(\.sidebarNavigationReselectGenerations) private var sidebarNavigationReselectGenerations
@@ -239,6 +240,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .onChange(of: self.navigationSelection) { _, newValue in
             if newValue != nil {
                 self.selectedSidebarPinnedItem = nil
+            }
+        }
+        .onChange(of: self.sidebarPinnedItemsManager.committedRemovalGenerations) { oldValue, newValue in
+            for (contentId, generation) in newValue where oldValue[contentId] != generation {
+                self.pinnedNavigationPaths.removeValue(forKey: contentId)
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in

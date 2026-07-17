@@ -119,11 +119,12 @@ enum LibraryMutationActions {
         libraryViewModel: LibraryViewModel?
     ) async throws {
         let pinnedItemsManager = SidebarPinnedItemsManager.shared
-        let removedPins = pinnedItemsManager.removePlaylistPins(matching: playlist.id)
+        let removedPins = pinnedItemsManager.stagePlaylistPinRemoval(matching: playlist.id)
         LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
 
         do {
             try await client.deletePlaylist(playlistId: playlist.id)
+            pinnedItemsManager.commitPlaylistPinRemoval(removedPins)
             self.invalidateResponseCaches()
             libraryViewModel?.markNeedsReloadOnActivation()
             DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
