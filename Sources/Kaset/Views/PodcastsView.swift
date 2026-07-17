@@ -58,6 +58,7 @@ struct PodcastsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
