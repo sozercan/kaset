@@ -237,20 +237,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.showWhatsNew.wrappedValue = false
             }
         }
-        .onChange(of: self.navigationSelection) { _, newValue in
-            if newValue != nil {
-                self.selectedSidebarPinnedItem = nil
-            }
-        }
-        .onChange(of: self.selectedSidebarPinnedItem?.contentId) { oldContentId, newContentId in
-            guard oldContentId != newContentId, let oldContentId else { return }
-            self.pinnedNavigationPaths.removeValue(forKey: oldContentId)
-        }
-        .onChange(of: self.sidebarPinnedItemsManager.committedRemovalGenerations) { oldValue, newValue in
-            for (contentId, generation) in newValue where oldValue[contentId] != generation {
-                self.pinnedNavigationPaths.removeValue(forKey: contentId)
-            }
-        }
+        .modifier(PinnedNavigationPathLifecycleModifier(
+            navigationSelection: self.$navigationSelection,
+            selectedPinnedItem: self.$selectedSidebarPinnedItem,
+            navigationPaths: self.$pinnedNavigationPaths,
+            committedRemovalGenerations: self.sidebarPinnedItemsManager.committedRemovalGenerations
+        ))
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
@@ -930,6 +922,33 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
+    }
+}
+
+// MARK: - PinnedNavigationPathLifecycleModifier
+
+private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
+    @Binding var navigationSelection: NavigationItem?
+    @Binding var selectedPinnedItem: SidebarPinnedItem?
+    @Binding var navigationPaths: [String: NavigationPath]
+    let committedRemovalGenerations: [String: UInt]
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: self.navigationSelection) { _, newValue in
+                if newValue != nil {
+                    self.selectedPinnedItem = nil
+                }
+            }
+            .onChange(of: self.selectedPinnedItem?.contentId) { oldContentId, newContentId in
+                guard oldContentId != newContentId, let oldContentId else { return }
+                self.navigationPaths.removeValue(forKey: oldContentId)
+            }
+            .onChange(of: self.committedRemovalGenerations) { oldValue, newValue in
+                for (contentId, generation) in newValue where oldValue[contentId] != generation {
+                    self.navigationPaths.removeValue(forKey: contentId)
+                }
+            }
     }
 }
 
