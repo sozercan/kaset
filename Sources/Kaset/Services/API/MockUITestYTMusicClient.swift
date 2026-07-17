@@ -579,10 +579,25 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 return nil
             }
             let artist = songDict["artist"] as? String ?? "Unknown"
+            let album: Album? = if let albumId = songDict["albumId"] as? String,
+                                   let albumTitle = songDict["albumTitle"] as? String
+            {
+                Album(
+                    id: albumId,
+                    title: albumTitle,
+                    artists: [Artist.inline(name: artist, namespace: "mock-search-album")],
+                    thumbnailURL: nil,
+                    year: nil,
+                    trackCount: nil
+                )
+            } else {
+                nil
+            }
             return Song(
                 id: id,
                 title: title,
                 artists: [Artist(id: "mock", name: artist)],
+                album: album,
                 videoId: videoId
             )
         } ?? []
