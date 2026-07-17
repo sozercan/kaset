@@ -242,6 +242,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.selectedSidebarPinnedItem = nil
             }
         }
+        .onChange(of: self.selectedSidebarPinnedItem?.contentId) { oldContentId, newContentId in
+            guard oldContentId != newContentId, let oldContentId else { return }
+            self.pinnedNavigationPaths.removeValue(forKey: oldContentId)
+        }
         .onChange(of: self.sidebarPinnedItemsManager.committedRemovalGenerations) { oldValue, newValue in
             for (contentId, generation) in newValue where oldValue[contentId] != generation {
                 self.pinnedNavigationPaths.removeValue(forKey: contentId)
