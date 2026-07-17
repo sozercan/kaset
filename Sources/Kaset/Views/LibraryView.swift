@@ -146,6 +146,7 @@ struct LibraryView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {

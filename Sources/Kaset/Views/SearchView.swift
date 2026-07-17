@@ -60,6 +60,7 @@ struct SearchView: View {
                 self.focusTrigger = false
             }
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
@@ -300,8 +301,8 @@ struct SearchView: View {
     private var resultsView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(self.viewModel.filteredItems) { item in
-                    self.resultRow(item)
+                ForEach(Array(self.viewModel.filteredItems.enumerated()), id: \.element.id) { index, item in
+                    self.resultRow(item, index: index)
                     Divider()
                         .padding(.leading, 72)
                 }
@@ -346,7 +347,7 @@ struct SearchView: View {
         }
     }
 
-    private func resultRow(_ item: SearchResultItem) -> some View {
+    private func resultRow(_ item: SearchResultItem, index: Int) -> some View {
         HoverObservingRow { isHovered in
             Button {
                 self.handleItemTap(item)
@@ -416,6 +417,7 @@ struct SearchView: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.interactiveRow(cornerRadius: 6))
+            .accessibilityIdentifier(AccessibilityID.Search.resultRow(index: index))
         }
         .contextMenu {
             self.contextMenuItems(for: item)
