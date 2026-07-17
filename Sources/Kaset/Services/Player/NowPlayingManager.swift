@@ -125,6 +125,9 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
+    /// True while Kaset is the one asserting a native Now Playing claim (so we only
+    /// clear the center when we set it, never stomping WebKit's card).
+    private var isAssertingNativeClaim = false
 
     /// YouTube video routing (optional; absent in music-only flows).
     /// When the arbiter says the video source played last, play/pause/toggle
@@ -137,6 +140,74 @@ final class NowPlayingManager {
     private static let defaultSkipInterval: TimeInterval = 15
 
     private init() {}
+
+    // MARK: - Now Playing Claim
+
+    /// What Kaset should tell the system Now Playing center for the current player state.
+    /// `handsOff` leaves the slot to WebKit's media session (the rich card during playback).
+    enum NowPlayingClaim: Equatable {
+        case handsOff
+        case claim(title: String, artist: String)
+    }
+
+    /// Pure decision: given playback state and (optional) track metadata, what claim do we want?
+    /// While actively playing/starting we stay hands-off so WebKit owns the Control Center card.
+    /// While paused/stopped with a track loaded we claim the slot so the Play key resumes Kaset
+    /// instead of Apple Music. With no track there is nothing to resume, so we stay hands-off.
+    nonisolated static func desiredClaim(
+        state: PlayerService.PlaybackState,
+        track: (title: String, artist: String)?
+    ) -> NowPlayingClaim {
+        switch state {
+        case .playing, .buffering, .loading:
+            return .handsOff
+        case .idle, .paused, .ended, .error:
+            guard let track else { return .handsOff }
+            return .claim(title: track.title, artist: track.artist)
+        }
+    }
+
+    /// Reads current player state and pushes the desired claim to the system center.
+    private func updateNowPlayingClaim() {
+        guard let player = self.playerService else { return }
+        let track = player.currentTrack.map { song in
+            (title: song.title, artist: song.artists.map(\.name).joined(separator: ", "))
+        }
+        let claim = Self.desiredClaim(state: player.state, track: track)
+        self.applyNowPlayingClaim(claim)
+    }
+
+    /// Maps a claim onto `MPNowPlayingInfoCenter`. Hands-off only clears info we set.
+    private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
+        let center = MPNowPlayingInfoCenter.default()
+        switch claim {
+        case .handsOff:
+            guard self.isAssertingNativeClaim else { return }
+            center.nowPlayingInfo = nil
+            self.isAssertingNativeClaim = false
+        case let .claim(title, artist):
+            var info: [String: Any] = [MPMediaItemPropertyTitle: title]
+            if !artist.isEmpty {
+                info[MPMediaItemPropertyArtist] = artist
+            }
+            center.nowPlayingInfo = info
+            center.playbackState = .paused
+            self.isAssertingNativeClaim = true
+        }
+    }
+
+    /// Re-runs the claim whenever playback state or the current track changes.
+    private func observePlaybackState() {
+        withObservationTracking {
+            _ = self.playerService?.state
+            _ = self.playerService?.currentTrack
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.updateNowPlayingClaim()
+                self?.observePlaybackState()
+            }
+        }
+    }
 
     /// Configures the singleton with a player service. Only configures once; subsequent calls are ignored.
     func configure(playerService: PlayerService) {
@@ -152,6 +223,9 @@ final class NowPlayingManager {
         self.logger.info("NowPlayingManager configured (remote commands only)")
 
         self.observeSettingsChanges()
+
+        self.updateNowPlayingClaim()
+        self.observePlaybackState()
     }
 
     /// Registers the YouTube video player for media-key routing.
