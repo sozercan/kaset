@@ -3,6 +3,11 @@ import Foundation
 @available(macOS 26.0, *)
 @MainActor
 struct CommandExecutor {
+    private struct QueueCommandOwnership {
+        let playbackIntent: MusicPlaybackIntent?
+        let queueGeneration: Int?
+    }
+
     enum Request: Equatable {
         case pause
         case resume
@@ -17,6 +22,45 @@ struct CommandExecutor {
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
         case musicIntent(MusicIntent)
+
+        var requiresPlaybackClaim: Bool {
+            switch self {
+            case .pause, .resume, .skip, .previous, .clearQueue, .shuffleQueue,
+                 .toggleShuffle, .playSearch:
+                true
+            case let .musicIntent(intent):
+                switch intent.action {
+                case .play, .shuffle, .skip, .previous, .pause, .resume:
+                    true
+                case .queue, .like, .dislike, .search:
+                    false
+                }
+            case .queueSearch, .like, .dislike, .openSearch:
+                false
+            }
+        }
+
+        var isQueueRequest: Bool {
+            switch self {
+            case .queueSearch:
+                true
+            case let .musicIntent(intent):
+                intent.action == .queue
+            default:
+                false
+            }
+        }
+
+        var requiresPlaybackValidation: Bool {
+            switch self {
+            case .like, .dislike:
+                true
+            case let .musicIntent(intent):
+                intent.action == .like || intent.action == .dislike
+            default:
+                false
+            }
+        }
     }
 
     struct Outcome: Equatable {
@@ -51,6 +95,15 @@ struct CommandExecutor {
                 searchQueryToOpen: query
             )
         }
+
+        static var ignored: Self {
+            Self(
+                resultMessage: nil,
+                errorMessage: nil,
+                shouldDismiss: false,
+                searchQueryToOpen: nil
+            )
+        }
     }
 
     let client: any YTMusicClientProtocol
@@ -58,66 +111,138 @@ struct CommandExecutor {
 
     private let logger = DiagnosticsLogger.ai
 
-    func execute(_ request: Request) async -> Outcome {
+    func execute(
+        _ request: Request,
+        reservation: MusicPlaybackReservation? = nil
+    ) async -> Outcome {
+        guard !Task.isCancelled else { return .ignored }
+        let playbackIntent: MusicPlaybackIntent?
+        let queueGeneration: Int?
+        if request.isQueueRequest, !self.playerService.queue.isEmpty {
+            playbackIntent = nil
+            let submittedQueueGeneration = reservation?.queueMutationGeneration
+                ?? self.playerService.reserveQueueMutation()
+            guard self.playerService.acceptsQueueMutation(submittedQueueGeneration) else {
+                return .ignored
+            }
+            queueGeneration = submittedQueueGeneration
+        } else if request.requiresPlaybackClaim || request.isQueueRequest {
+            guard let claimedIntent = self.claimPlaybackIntent(reservation) else { return .ignored }
+            playbackIntent = claimedIntent
+            queueGeneration = nil
+        } else {
+            playbackIntent = nil
+            queueGeneration = nil
+            if request.requiresPlaybackValidation {
+                guard self.validatePlaybackReservation(reservation) else { return .ignored }
+            }
+        }
+
+        switch request {
+        case .pause, .resume, .skip, .previous:
+            return await self.executeTransportControl(request)
+        case .like, .dislike, .clearQueue, .shuffleQueue, .toggleShuffle:
+            return self.executeImmediateControl(request)
+        case let .playSearch(query, description):
+            guard let playbackIntent else { return .ignored }
+            return await self.playSearchResult(
+                query: query,
+                description: description,
+                playbackIntent: playbackIntent
+            )
+        case let .queueSearch(query, description):
+            return await self.queueSearchResult(
+                query: query,
+                description: description,
+                ownership: QueueCommandOwnership(
+                    playbackIntent: playbackIntent,
+                    queueGeneration: queueGeneration
+                )
+            )
+        case let .openSearch(query):
+            return .openSearch(query)
+        case let .musicIntent(intent):
+            return await self.executeMusicIntent(
+                intent,
+                ownership: QueueCommandOwnership(
+                    playbackIntent: playbackIntent,
+                    queueGeneration: queueGeneration
+                )
+            )
+        }
+    }
+
+    private func executeTransportControl(_ request: Request) async -> Outcome {
+        HapticService.playback()
         switch request {
         case .pause:
-            HapticService.playback()
             await self.playerService.pause()
             return .result("Paused")
-
         case .resume:
-            HapticService.playback()
             await self.playerService.resume()
             return .result("Playing")
-
         case .skip:
-            HapticService.playback()
             await self.playerService.next()
             return .result("Skipped")
-
         case .previous:
-            HapticService.playback()
             await self.playerService.previous()
             return .result("Playing previous track")
+        default:
+            return .ignored
+        }
+    }
 
+    private func executeImmediateControl(_ request: Request) -> Outcome {
+        HapticService.toggle()
+        switch request {
         case .like:
-            HapticService.toggle()
             self.playerService.likeCurrentTrack()
             return .result("Liked!")
-
         case .dislike:
-            HapticService.toggle()
             self.playerService.dislikeCurrentTrack()
             return .result("Disliked")
-
         case .clearQueue:
-            HapticService.toggle()
             self.playerService.clearQueue()
             return .result("Queue cleared")
-
         case .shuffleQueue:
-            HapticService.toggle()
             self.playerService.shuffleQueue()
             return .result("Queue shuffled")
-
         case .toggleShuffle:
-            HapticService.toggle()
             self.playerService.toggleShuffle()
             let status = self.playerService.shuffleEnabled ? "on" : "off"
             return .result("Shuffle is now \(status)")
-
-        case let .playSearch(query, description):
-            return await self.playSearchResult(query: query, description: description)
-
-        case let .queueSearch(query, description):
-            return await self.queueSearchResult(query: query, description: description)
-
-        case let .openSearch(query):
-            return .openSearch(query)
-
-        case let .musicIntent(intent):
-            return await self.executeMusicIntent(intent)
+        default:
+            return .ignored
         }
+    }
+
+    private func claimPlaybackIntent(
+        _ reservation: MusicPlaybackReservation?
+    ) -> MusicPlaybackIntent? {
+        let reservation = reservation ?? self.playerService.reserveMusicPlaybackIntent()
+        return self.playerService.claimMusicPlaybackIntent(reservation)
+    }
+
+    private func validatePlaybackReservation(
+        _ reservation: MusicPlaybackReservation?
+    ) -> Bool {
+        let reservation = reservation ?? self.playerService.reserveMusicPlaybackIntent()
+        return self.playerService.acceptsMusicPlaybackReservation(reservation)
+    }
+
+    private func commandStillOwnsPlayback(_ intent: MusicPlaybackIntent) -> Bool {
+        !Task.isCancelled && self.playerService.acceptsMusicPlaybackIntent(intent)
+    }
+
+    private func commandStillOwnsQueue(_ ownership: QueueCommandOwnership) -> Bool {
+        if let playbackIntent = ownership.playbackIntent {
+            return self.commandStillOwnsPlayback(playbackIntent)
+        }
+        if let queueGeneration = ownership.queueGeneration {
+            return !Task.isCancelled
+                && self.playerService.acceptsQueueMutation(queueGeneration)
+        }
+        return false
     }
 
     func describeQueueLocally(previewLimit: Int = 3) -> Outcome {
@@ -127,7 +252,19 @@ struct CommandExecutor {
             return .result("Your queue is empty.", shouldDismiss: false)
         }
 
-        let safeCurrentIndex = min(max(self.playerService.currentIndex, 0), queue.count - 1)
+        guard let activeIndex = self.playerService.activePlaybackQueueIndex else {
+            let preview = queue.prefix(previewLimit).map { song in
+                let artist = song.artistsDisplay.isEmpty ? "Unknown Artist" : song.artistsDisplay
+                return "\"\(song.title)\" by \(artist)"
+            }.joined(separator: ", ")
+            let remainingCount = max(0, queue.count - min(previewLimit, queue.count))
+            let suffix = remainingCount > 0 ? ", and \(remainingCount) more." : "."
+            return .result(
+                "Your queue has \(queue.count) tracks: \(preview)\(suffix)",
+                shouldDismiss: false
+            )
+        }
+        let safeCurrentIndex = min(max(activeIndex, 0), queue.count - 1)
         let currentTrack = queue[safe: safeCurrentIndex] ?? queue[0]
         let currentArtist = currentTrack.artistsDisplay.isEmpty ? "Unknown Artist" : currentTrack.artistsDisplay
         let intro = if self.playerService.isPlaying {
@@ -161,7 +298,10 @@ struct CommandExecutor {
         return .result(summary, shouldDismiss: false)
     }
 
-    private func executeMusicIntent(_ intent: MusicIntent) async -> Outcome {
+    private func executeMusicIntent(
+        _ intent: MusicIntent,
+        ownership: QueueCommandOwnership
+    ) async -> Outcome {
         let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent)
         let description = ContentSourceResolver.queryDescription(for: intent)
         let contentSource = ContentSourceResolver.suggestedContentSource(for: intent)
@@ -180,12 +320,25 @@ struct CommandExecutor {
                 await self.playerService.resume()
                 return .result("Resuming playback")
             }
-            return await self.playContent(intent: intent, query: searchQuery, description: description, source: contentSource)
+            guard let playbackIntent = ownership.playbackIntent else { return .ignored }
+            return await self.playContent(
+                intent: intent,
+                query: searchQuery,
+                description: description,
+                source: contentSource,
+                playbackIntent: playbackIntent
+            )
 
         case .queue:
             HapticService.success()
             if !searchQuery.isEmpty {
-                return await self.queueContent(intent: intent, query: searchQuery, description: description, source: contentSource)
+                return await self.queueContent(
+                    intent: intent,
+                    query: searchQuery,
+                    description: description,
+                    source: contentSource,
+                    ownership: ownership
+                )
             }
             return .error(String(localized: "Couldn't search for music"))
 
@@ -235,14 +388,25 @@ struct CommandExecutor {
         }
     }
 
-    private func playSearchResult(query: String, description: String = "") async -> Outcome {
+    private func playSearchResult(
+        query: String,
+        description: String = "",
+        playbackIntent: MusicPlaybackIntent
+    ) async -> Outcome {
         do {
             let allSongs = try await self.client.searchSongs(query: query)
+            guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
             let songs = Array(allSongs.prefix(20))
 
             self.logger.info("Songs search returned \(allSongs.count), using top \(songs.count) for query: \(query)")
             if let firstSong = songs.first {
-                await self.playerService.playQueue(songs, startingAt: 0)
+                await self.playerService.playQueue(
+                    songs,
+                    startingAt: 0,
+                    deferringSmartShuffleFill: false,
+                    intent: playbackIntent
+                )
+                guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                 self.logger.info("Started queue with \(songs.count) songs, first: \(firstSong.title)")
                 if !description.isEmpty {
                     return .result("Playing \(description)")
@@ -251,20 +415,33 @@ struct CommandExecutor {
             }
             return .error("No songs found for \"\(query)\"")
         } catch {
+            guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
             self.logger.error("Search failed: \(error.localizedDescription)")
             return .error(String(localized: "Couldn't search for music"))
         }
     }
 
-    private func queueSearchResult(query: String, description: String = "") async -> Outcome {
+    private func queueSearchResult(
+        query: String,
+        description: String = "",
+        ownership: QueueCommandOwnership
+    ) async -> Outcome {
         do {
             let allSongs = try await self.client.searchSongs(query: query)
+            guard self.commandStillOwnsQueue(ownership) else { return .ignored }
             let songs = Array(allSongs.prefix(10))
 
             self.logger.info("Queue songs search returned \(allSongs.count), using top \(songs.count) for query: \(query)")
             if let firstSong = songs.first {
                 if self.playerService.queue.isEmpty {
-                    await self.playerService.playQueue(songs, startingAt: 0)
+                    guard let playbackIntent = ownership.playbackIntent else { return .ignored }
+                    await self.playerService.playQueue(
+                        songs,
+                        startingAt: 0,
+                        deferringSmartShuffleFill: false,
+                        intent: playbackIntent
+                    )
+                    guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                     if !description.isEmpty {
                         return .result("Playing \(description)")
                     }
@@ -279,6 +456,7 @@ struct CommandExecutor {
             }
             return .error("No songs found for \"\(query)\"")
         } catch {
+            guard self.commandStillOwnsQueue(ownership) else { return .ignored }
             self.logger.error("Search failed: \(error.localizedDescription)")
             return .error(String(localized: "Couldn't search for music"))
         }
@@ -288,27 +466,54 @@ struct CommandExecutor {
         intent: MusicIntent,
         query: String,
         description: String,
-        source: ContentSource
+        source: ContentSource,
+        playbackIntent: MusicPlaybackIntent
     ) async -> Outcome {
         switch source {
         case .moodsAndGenres:
             if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
-                await self.playerService.playQueue(songs, startingAt: 0)
+                guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
+                await self.playerService.playQueue(
+                    songs,
+                    startingAt: 0,
+                    deferringSmartShuffleFill: false,
+                    intent: playbackIntent
+                )
+                guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                 return .result("Playing \(description.isEmpty ? "curated playlist" : description)")
             }
 
             self.logger.info("No matching Moods & Genres playlist, falling back to search")
-            return await self.playSearchResult(query: query, description: description)
+            return await self.playSearchResult(
+                query: query,
+                description: description,
+                playbackIntent: playbackIntent
+            )
 
         case .charts:
             if let songs = await self.findSongsFromCharts() {
-                await self.playerService.playQueue(songs, startingAt: 0)
+                guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
+                await self.playerService.playQueue(
+                    songs,
+                    startingAt: 0,
+                    deferringSmartShuffleFill: false,
+                    intent: playbackIntent
+                )
+                guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                 return .result("Playing top songs")
             }
-            return await self.playSearchResult(query: query, description: description)
+            return await self.playSearchResult(
+                query: query,
+                description: description,
+                playbackIntent: playbackIntent
+            )
 
         case .search:
-            return await self.playSearchResult(query: query, description: description)
+            return await self.playSearchResult(
+                query: query,
+                description: description,
+                playbackIntent: playbackIntent
+            )
         }
     }
 
@@ -316,13 +521,22 @@ struct CommandExecutor {
         intent: MusicIntent,
         query: String,
         description: String,
-        source: ContentSource
+        source: ContentSource,
+        ownership: QueueCommandOwnership
     ) async -> Outcome {
         switch source {
         case .moodsAndGenres:
             if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
+                guard self.commandStillOwnsQueue(ownership) else { return .ignored }
                 if self.playerService.queue.isEmpty {
-                    await self.playerService.playQueue(songs, startingAt: 0)
+                    guard let playbackIntent = ownership.playbackIntent else { return .ignored }
+                    await self.playerService.playQueue(
+                        songs,
+                        startingAt: 0,
+                        deferringSmartShuffleFill: false,
+                        intent: playbackIntent
+                    )
+                    guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                     return .result("Playing \(description.isEmpty ? "curated playlist" : description)")
                 }
 
@@ -330,12 +544,24 @@ struct CommandExecutor {
                 return .result("Added \(description.isEmpty ? "curated songs" : description) to queue")
             }
 
-            return await self.queueSearchResult(query: query, description: description)
+            return await self.queueSearchResult(
+                query: query,
+                description: description,
+                ownership: ownership
+            )
 
         case .charts:
             if let songs = await self.findSongsFromCharts() {
+                guard self.commandStillOwnsQueue(ownership) else { return .ignored }
                 if self.playerService.queue.isEmpty {
-                    await self.playerService.playQueue(songs, startingAt: 0)
+                    guard let playbackIntent = ownership.playbackIntent else { return .ignored }
+                    await self.playerService.playQueue(
+                        songs,
+                        startingAt: 0,
+                        deferringSmartShuffleFill: false,
+                        intent: playbackIntent
+                    )
+                    guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                     return .result("Playing top songs")
                 }
 
@@ -343,10 +569,18 @@ struct CommandExecutor {
                 return .result("Added top songs to queue")
             }
 
-            return await self.queueSearchResult(query: query, description: description)
+            return await self.queueSearchResult(
+                query: query,
+                description: description,
+                ownership: ownership
+            )
 
         case .search:
-            return await self.queueSearchResult(query: query, description: description)
+            return await self.queueSearchResult(
+                query: query,
+                description: description,
+                ownership: ownership
+            )
         }
     }
 

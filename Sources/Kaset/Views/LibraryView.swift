@@ -354,7 +354,8 @@ struct LibraryView: View {
                     SongActionsHelper.confirmDeletePlaylist(
                         playlist,
                         client: self.viewModel.client,
-                        libraryViewModel: self.viewModel
+                        libraryViewModel: self.viewModel,
+                        playerService: self.playerService
                     )
                 } label: {
                     Label(String(localized: "Delete Playlist…"), systemImage: "trash")

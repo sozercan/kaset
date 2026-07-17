@@ -364,8 +364,11 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Playback queue.
     var queue: [Song] { get }
 
-    /// Index of current track in queue.
+    /// Queue cursor used for next/previous navigation.
     var currentIndex: Int { get }
+
+    /// Index of the queue entry that actually owns playback, or nil for detached playback.
+    var activePlaybackQueueIndex: Int? { get }
 
     /// Whether the mini player should be shown.
     var showMiniPlayer: Bool { get set }
@@ -446,8 +449,35 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Stops playback and clears state.
     func stop() async
 
+    /// Reserves native playback ownership without changing the current intent.
+    func reserveMusicPlaybackIntent() -> MusicPlaybackReservation
+
+    /// Claims a reservation only if no newer playback intent has superseded it.
+    func claimMusicPlaybackIntent(_ reservation: MusicPlaybackReservation) -> MusicPlaybackIntent?
+
+    /// Whether an unclaimed reservation still names the current playback context.
+    func acceptsMusicPlaybackReservation(_ reservation: MusicPlaybackReservation) -> Bool
+
+    /// Captures the queue context for queue-only deferred mutations.
+    func reserveQueueMutation() -> Int
+
+    /// Whether a queue-only mutation still targets the same queue context.
+    func acceptsQueueMutation(_ generation: Int) -> Bool
+
+    /// Whether the supplied native playback intent still owns mutations.
+    func acceptsMusicPlaybackIntent(_ intent: MusicPlaybackIntent) -> Bool
+
     /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int) async
+
+    /// Conditionally plays a queue under a previously claimed native intent.
+    @discardableResult
+    func playQueue(
+        _ songs: [Song],
+        startingAt index: Int,
+        deferringSmartShuffleFill: Bool,
+        intent: MusicPlaybackIntent
+    ) async -> Int?
 
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
@@ -458,7 +488,11 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
     ///   - startVideoId: Optional starting video ID
-    func playWithMix(playlistId: String, startVideoId: String?) async
+    func playWithMix(
+        playlistId: String,
+        startVideoId: String?,
+        intent: MusicPlaybackIntent?
+    ) async
 
     /// Clears the queue while preserving the current track when possible.
     func clearQueue()
@@ -496,4 +530,14 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Updates the like status from WebView observation.
     func updateLikeStatus(_ status: LikeStatus)
+}
+
+extension PlayerServiceProtocol {
+    func playWithMix(playlistId: String, startVideoId: String?) async {
+        await self.playWithMix(
+            playlistId: playlistId,
+            startVideoId: startVideoId,
+            intent: nil
+        )
+    }
 }

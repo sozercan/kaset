@@ -507,7 +507,7 @@ final class PlaylistDetailViewModel {
                 self.countedRemovedLikedMusicVideoIDs.insert(event.videoId)
             }
             self.insertedLikedMusicVideoIDs.remove(event.videoId)
-            SongLikeStatusManager.shared.setStatus(event.status, for: event.videoId)
+            SongLikeStatusManager.shared.setCachedStatus(event.status, for: event.videoId)
             self.cancelLiveSyncTask(for: event.videoId)
             self.removeLiveSyncedLikedSong(videoId: event.videoId)
         }
@@ -727,7 +727,7 @@ final class PlaylistDetailViewModel {
             trackCount: updatedTrackCount
         )
         self.loadedTrackVideoIds.insert(song.videoId)
-        SongLikeStatusManager.shared.setStatus(.like, for: song.videoId)
+        SongLikeStatusManager.shared.setCachedStatus(.like, for: song.videoId)
         self.logger.info("Live sync: added song \(song.videoId) to liked music")
     }
 

@@ -1,9 +1,7 @@
 import Foundation
 import Observation
 
-/// Bridges PlayerService to scrobbling backends.
-/// Observes PlayerService playback mutations, tracks accumulated play time,
-/// and triggers scrobbles when thresholds are met.
+/// Bridges PlayerService playback mutations to scrobbling backends.
 @MainActor
 @Observable
 final class ScrobblingCoordinator {
@@ -25,6 +23,7 @@ final class ScrobblingCoordinator {
     let mixTracklistParser: MixTracklistParser?
     let unknownDurationParseDelay: Duration
     let mixParseTimeout: Duration
+    private let now: () -> Date
 
     // MARK: - Tracking State
 
@@ -111,7 +110,8 @@ final class ScrobblingCoordinator {
         queue: ScrobbleQueue = ScrobbleQueue(),
         mixTracklistParser: MixTracklistParser? = nil,
         unknownDurationParseDelay: Duration = .seconds(2),
-        mixParseTimeout: Duration = .seconds(10)
+        mixParseTimeout: Duration = .seconds(10),
+        now: @escaping () -> Date = Date.init
     ) {
         self.playerService = playerService
         self.settingsManager = settingsManager
@@ -120,6 +120,7 @@ final class ScrobblingCoordinator {
         self.mixTracklistParser = mixTracklistParser
         self.unknownDurationParseDelay = unknownDurationParseDelay
         self.mixParseTimeout = mixParseTimeout
+        self.now = now
     }
 
     /// Permanent teardown must call stopMonitoring(finalizeCurrentTrack: true) first.
@@ -273,7 +274,7 @@ final class ScrobblingCoordinator {
                     self.startTrackingNewTrack(track)
                 case .unresolved, .parsing, .awaitingDuration:
                     self.refreshPendingWholeTrackPlay(with: tracker)
-                    self.trackTracker = PlaybackScrobbleTracker(startTime: Date(), initialProgress: progress)
+                    self.trackTracker = PlaybackScrobbleTracker(startTime: self.now(), initialProgress: progress)
                 case .mix:
                     break
                 }
@@ -342,7 +343,7 @@ final class ScrobblingCoordinator {
         self.currentTrackArtist = track.artistsDisplay
         self.trackedSong = track
         self.trackTracker = PlaybackScrobbleTracker(
-            startTime: Date(),
+            startTime: self.now(),
             initialProgress: self.playerService.progress
         )
         self.requiredPlaybackStateSequence = requiredPlaybackStateSequence
@@ -540,7 +541,7 @@ final class ScrobblingCoordinator {
     ) {
         guard var tracker = self.trackTracker else { return }
         let segmentStart = tracker.lastProgress
-        let now = Date()
+        let now = self.now()
         let credited = tracker.accumulate(progress: progress, isPlaying: isPlaying, now: now)
         self.trackTracker = tracker
 
@@ -686,7 +687,7 @@ final class ScrobblingCoordinator {
                         self.mixEntryTracker?.accumulate(
                             progress: endTime,
                             isPlaying: isPlaying,
-                            now: Date()
+                            now: self.now()
                         )
                     }
                 }
@@ -712,7 +713,7 @@ final class ScrobblingCoordinator {
                restartedNearEntryStart
             {
                 self.mixEntryScrobbledIds.remove(entry.id)
-                self.mixEntryTracker = PlaybackScrobbleTracker(startTime: Date(), initialProgress: progress)
+                self.mixEntryTracker = PlaybackScrobbleTracker(startTime: self.now(), initialProgress: progress)
                 self.logger.debug("Mix replay detected at \(String(format: "%.1f", progress))s for sub-track '\(entry.title)'")
             } else {
                 self.mixEntryTracker?.resetForSeek()
@@ -721,7 +722,7 @@ final class ScrobblingCoordinator {
         }
 
         // Accumulate play time (the tracker ignores seeks and paused spans internally)
-        self.mixEntryTracker?.accumulate(progress: progress, isPlaying: isPlaying, now: Date())
+        self.mixEntryTracker?.accumulate(progress: progress, isPlaying: isPlaying, now: self.now())
 
         // Send "now playing" once per sub-track
         if self.mixEntryTracker?.hasSentNowPlaying == false, isPlaying {
@@ -748,7 +749,7 @@ final class ScrobblingCoordinator {
             self.mixEntryScrobbledIds.remove(entry.id)
         }
         var tracker = PlaybackScrobbleTracker(
-            startTime: provisionalCredit?.startTime ?? Date(),
+            startTime: provisionalCredit?.startTime ?? self.now(),
             initialProgress: progress
         )
         if let provisionalCredit {

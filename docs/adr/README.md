@@ -60,3 +60,5 @@ What becomes easier or more difficult because of this change?
 | [0023](0023-brand-account-history-session-switch.md) | Brand-Account History via WebView Session-Identity Switch | Accepted |
 | [0024](0024-logged-in-guest-mode.md) | Logged-In Guest Mode | Accepted |
 | [0025](0025-smart-shuffle.md) | Smart Shuffle (tri-state shuffle with interleaved recommendations) | Accepted |
+| [0026](0026-generation-scoped-web-playback-bridge.md) | Generation-Scoped Web Playback Bridge Events | Accepted |
+| [0027](0027-native-music-playback-intents-and-queue-entry-identity.md) | Native Music Playback Intents and Queue-Entry Identity | Accepted |

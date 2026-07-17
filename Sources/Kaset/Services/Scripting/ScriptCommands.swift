@@ -387,7 +387,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
             }
 
             let info: [String: Any] = [
-                "currentIndex": tracks.isEmpty ? 0 : playerService.currentIndex + 1,
+                "currentIndex": playerService.activePlaybackQueueIndex.map { $0 + 1 } ?? 0,
                 "tracks": tracks,
             ]
 
@@ -430,7 +430,7 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
             return nil
         }
 
-        let queueCount = MainActor.assumeIsolated { playerService.queue.count }
+        let queueCount = MainActor.assumeIsolated { playerService.queueEntries.count }
 
         // Convert 1-based AppleScript index to 0-based Swift index
         let zeroBasedIndex = indexValue - 1
@@ -442,9 +442,18 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
             return nil
         }
 
+        let selection = MainActor.assumeIsolated { () -> (UUID, MusicPlaybackReservation)? in
+            guard let entryID = playerService.queueEntries[safe: zeroBasedIndex]?.id else { return nil }
+            return (entryID, playerService.reserveMusicPlaybackIntent())
+        }
+        guard let (entryID, reservation) = selection else { return nil }
         logger.info("Executing playTrackAtIndex command with index: \(indexValue)")
         Task { @MainActor in
-            await playerService.playFromQueue(at: zeroBasedIndex)
+            guard let intent = playerService.claimMusicPlaybackIntent(
+                reservation,
+                queueEntryID: entryID
+            ) else { return }
+            await playerService.playFromQueue(entryID: entryID, intent: intent)
         }
         return nil
     }

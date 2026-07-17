@@ -13,6 +13,7 @@ struct Sidebar: View {
     var onReselectNavigationItem: ((NavigationItem) -> Void)?
     var onReselectPinnedItem: ((SidebarPinnedItem) -> Void)?
     @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @State private var isCreatingPlaylist = false
@@ -169,13 +170,24 @@ struct Sidebar: View {
 
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
+        let owner = self.playerService.currentAccountMutationOwner
 
         SongActionsHelper.presentCreatePlaylistDialog(
             informativeText: "Create a new playlist.",
-            request: SongActionsHelper.PlaylistCreationRequest(client: self.client, videoIds: []),
-            onWillCreate: { self.isCreatingPlaylist = true },
+            request: SongActionsHelper.PlaylistCreationRequest(
+                client: self.client,
+                videoIds: [],
+                whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
+            ),
+            onWillCreate: {
+                guard !self.isCreatingPlaylist else { return false }
+                self.isCreatingPlaylist = true
+                return true
+            },
             completion: { result in
                 self.isCreatingPlaylist = false
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+
                 switch result {
                 case let .success(playlist):
                     let pinnedItem = SidebarPinnedItem.from(playlist)
@@ -241,6 +253,7 @@ struct Sidebar: View {
     Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil), client: client)
         .frame(width: 220)
         .environment(authService)
+        .environment(PlayerService())
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }

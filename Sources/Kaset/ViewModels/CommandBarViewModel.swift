@@ -1,6 +1,39 @@
 import Foundation
 import Observation
 
+// MARK: - CommandBarTimeoutRace
+
+@available(macOS 26.0, *)
+@MainActor
+private final class CommandBarTimeoutRace<Value: Sendable> {
+    private var continuation: CheckedContinuation<Value, any Error>?
+    private var pendingResult: Result<Value, any Error>?
+    private var isResolved = false
+
+    func install(_ continuation: CheckedContinuation<Value, any Error>) {
+        if let pendingResult {
+            self.isResolved = true
+            continuation.resume(with: pendingResult)
+            self.pendingResult = nil
+        } else {
+            self.continuation = continuation
+        }
+    }
+
+    func resolve(_ result: Result<Value, any Error>) {
+        guard !self.isResolved else { return }
+        guard let continuation else {
+            self.pendingResult = result
+            return
+        }
+        self.isResolved = true
+        self.continuation = nil
+        continuation.resume(with: result)
+    }
+}
+
+// MARK: - CommandBarViewModel
+
 @available(macOS 26.0, *)
 @MainActor
 @Observable
@@ -102,6 +135,7 @@ final class CommandBarViewModel {
     private(set) var lastFallbackReason: FallbackReason?
 
     @ObservationIgnored private var requestTask: Task<Void, Never>?
+    @ObservationIgnored private var activeRequestID: UUID?
     @ObservationIgnored private let parser = CommandIntentParser()
     @ObservationIgnored private let executor: CommandExecutor
     @ObservationIgnored private let playerService: any PlayerServiceProtocol
@@ -165,11 +199,17 @@ final class CommandBarViewModel {
             return
         }
 
-        self.startRequest()
+        let requestID = UUID()
+        self.startRequest(id: requestID)
+        let playbackReservation = self.playerService.reserveMusicPlaybackIntent()
 
         self.requestTask = Task { [weak self] in
             guard let self else { return }
-            await self.process(query: query)
+            await self.process(
+                query: query,
+                playbackReservation: playbackReservation,
+                requestID: requestID
+            )
         }
     }
 
@@ -186,45 +226,65 @@ final class CommandBarViewModel {
 
     func cancelActiveRequest() {
         self.requestTask?.cancel()
-        self.finishRequest()
+        guard let activeRequestID else { return }
+        self.finishRequest(id: activeRequestID)
     }
 
-    private func process(query: String) async {
+    private func process(
+        query: String,
+        playbackReservation: MusicPlaybackReservation,
+        requestID: UUID
+    ) async {
         self.logger.info("Processing command: \(query)")
         self.logger.debug("Using Foundation Models command prompt version \(self.aiPromptVersion.logDescription)")
 
         defer {
-            self.finishRequest()
+            self.finishRequest(id: requestID)
         }
 
         if let localRequest = self.parser.deterministicRequest(for: query) {
             self.phase = .localCommand
-            await self.applyOutcome(self.executor.execute(localRequest))
+            await self.applyOutcome(self.executor.execute(
+                localRequest,
+                reservation: playbackReservation
+            ))
             return
         }
 
         if self.parser.isQueueInspectionQuery(query) {
             self.phase = .localCommand
-            await self.describeQueue()
+            await self.describeQueue(requestID: requestID)
             return
         }
 
         self.aiClient.refreshAvailability()
 
         guard self.aiClient.isAvailable() else {
-            await self.handleFallback(query: query, reason: .aiUnavailable)
+            await self.handleFallback(
+                query: query,
+                reason: .aiUnavailable,
+                playbackReservation: playbackReservation
+            )
             return
         }
 
         guard self.aiClient.supportsCurrentLocale() else {
-            await self.handleFallback(query: query, reason: .unsupportedLocale)
+            await self.handleFallback(
+                query: query,
+                reason: .unsupportedLocale,
+                playbackReservation: playbackReservation
+            )
             return
         }
 
         do {
             self.phase = .aiParsing
             let parsedCommand = try await self.resolveCommand(query: query)
-            await self.executeParsedCommand(parsedCommand)
+            await self.executeParsedCommand(
+                parsedCommand,
+                playbackReservation: playbackReservation,
+                requestID: requestID
+            )
         } catch {
             let handledError = AIErrorHandler.handle(error)
 
@@ -232,17 +292,17 @@ final class CommandBarViewModel {
             case .cancelled:
                 self.logger.info("Command processing cancelled")
             case .timedOut:
-                await self.handleFallback(query: query, reason: .timedOut)
+                await self.handleFallback(query: query, reason: .timedOut, playbackReservation: playbackReservation)
             case .decodingFailure:
-                await self.handleFallback(query: query, reason: .decodingFailure)
+                await self.handleFallback(query: query, reason: .decodingFailure, playbackReservation: playbackReservation)
             case .sessionBusy:
-                await self.handleFallback(query: query, reason: .sessionBusy)
+                await self.handleFallback(query: query, reason: .sessionBusy, playbackReservation: playbackReservation)
             case .contextWindowExceeded:
-                await self.handleFallback(query: query, reason: .contextWindowExceeded)
+                await self.handleFallback(query: query, reason: .contextWindowExceeded, playbackReservation: playbackReservation)
             case .modelNotReady:
-                await self.handleFallback(query: query, reason: .modelNotReady)
+                await self.handleFallback(query: query, reason: .modelNotReady, playbackReservation: playbackReservation)
             case .notAvailable:
-                await self.handleFallback(query: query, reason: .aiUnavailable)
+                await self.handleFallback(query: query, reason: .aiUnavailable, playbackReservation: playbackReservation)
             case .contentBlocked, .unknown:
                 if let message = AIErrorHandler.handleAndMessage(error, context: "command processing") {
                     self.errorMessage = message
@@ -254,38 +314,27 @@ final class CommandBarViewModel {
     private func resolveCommand(query: String) async throws -> CommandBarParseResult {
         let resolveCommand = self.aiClient.resolveCommand
         let instructions = self.aiSystemInstructions
-        let requestTimeout = self.requestTimeout
-
-        return try await withThrowingTaskGroup(of: CommandBarParseResult.self) { group in
-            group.addTask {
-                try await resolveCommand(query, instructions)
-            }
-            group.addTask {
-                try await Task.sleep(for: requestTimeout)
-                throw AIError.timedOut
-            }
-
-            defer {
-                group.cancelAll()
-            }
-
-            guard let parsedCommand = try await group.next() else {
-                throw CancellationError()
-            }
-
-            return parsedCommand
+        return try await self.withHardTimeout(self.requestTimeout) {
+            try await resolveCommand(query, instructions)
         }
     }
 
-    private func executeParsedCommand(_ parsedCommand: CommandBarParseResult) async {
+    private func executeParsedCommand(
+        _ parsedCommand: CommandBarParseResult,
+        playbackReservation: MusicPlaybackReservation,
+        requestID: UUID
+    ) async {
         if parsedCommand.isQueueInspection {
-            await self.describeQueue()
+            await self.describeQueue(requestID: requestID)
             return
         }
 
         if let directRequest = parsedCommand.directRequest {
             self.phase = .executing
-            await self.applyOutcome(self.executor.execute(directRequest))
+            await self.applyOutcome(self.executor.execute(
+                directRequest,
+                reservation: playbackReservation
+            ))
             return
         }
 
@@ -295,10 +344,13 @@ final class CommandBarViewModel {
         }
 
         self.phase = .executing
-        await self.applyOutcome(self.executor.execute(.musicIntent(intent)))
+        await self.applyOutcome(self.executor.execute(
+            .musicIntent(intent),
+            reservation: playbackReservation
+        ))
     }
 
-    private func describeQueue() async {
+    private func describeQueue(requestID: UUID) async {
         guard !self.playerService.queue.isEmpty else {
             await self.applyOutcome(self.executor.describeQueueLocally())
             return
@@ -318,8 +370,19 @@ final class CommandBarViewModel {
 
         do {
             self.phase = .aiParsing
-            let queueSnapshot = await self.queueSnapshot(maxLimit: 20)
-            let summary = try await self.resolveQueueDescription(queueSnapshot: queueSnapshot)
+            let summary = try await self.withHardTimeout(self.queueDescriptionTimeout) { [weak self] in
+                guard let self, self.activeRequestID == requestID else {
+                    throw CancellationError()
+                }
+                let queueSnapshot = await self.queueSnapshot(maxLimit: 20)
+                guard self.activeRequestID == requestID else {
+                    throw CancellationError()
+                }
+                return try await self.resolveQueueDescription(
+                    queueSnapshot: queueSnapshot,
+                    requestID: requestID
+                )
+            }
             self.phase = .executing
             await self.applyOutcome(.result(summary.displayText, shouldDismiss: false))
         } catch {
@@ -346,7 +409,10 @@ final class CommandBarViewModel {
         }
     }
 
-    private func resolveQueueDescription(queueSnapshot: QueueSnapshot) async throws -> QueueAnalysisSummary {
+    private func resolveQueueDescription(
+        queueSnapshot: QueueSnapshot,
+        requestID: UUID
+    ) async throws -> QueueAnalysisSummary {
         let describeQueue = self.aiClient.describeQueue
         let instructions = self.queueDescriptionInstructions
         let prompt = FoundationModelsPromptLibrary.queueDescriptionPrompt(
@@ -355,37 +421,28 @@ final class CommandBarViewModel {
             shownTracks: queueSnapshot.shownTracks,
             version: self.aiPromptVersion
         )
-        let requestTimeout = self.queueDescriptionTimeout
 
-        return try await withThrowingTaskGroup(of: QueueAnalysisSummary.self) { group in
-            group.addTask {
-                try await describeQueue(prompt, instructions) { [weak self] partial in
-                    guard let self, let displayText = partial.displayText else { return }
-                    self.resultMessage = displayText
-                }
-            }
-            group.addTask {
-                try await Task.sleep(for: requestTimeout)
-                throw AIError.timedOut
-            }
-
-            defer {
-                group.cancelAll()
-            }
-
-            guard let summary = try await group.next() else {
-                throw CancellationError()
-            }
-
-            return summary
+        return try await describeQueue(prompt, instructions) { [weak self] partial in
+            guard let self,
+                  self.activeRequestID == requestID,
+                  let displayText = partial.displayText
+            else { return }
+            self.resultMessage = displayText
         }
     }
 
-    private func handleFallback(query: String, reason: FallbackReason) async {
+    private func handleFallback(
+        query: String,
+        reason: FallbackReason,
+        playbackReservation: MusicPlaybackReservation
+    ) async {
         self.phase = .fallback
         self.lastFallbackReason = reason
         self.logger.info("Falling back from AI for command '\(query)' due to \(reason.rawValue)")
-        await self.applyOutcome(self.executor.execute(self.parser.fallbackRequest(for: query)))
+        await self.applyOutcome(self.executor.execute(
+            self.parser.fallbackRequest(for: query),
+            reservation: playbackReservation
+        ))
     }
 
     private func applyLocalQueueDescription(reason: FallbackReason) async {
@@ -410,7 +467,7 @@ final class CommandBarViewModel {
     private func queueSnapshot(maxLimit: Int) async -> QueueSnapshot {
         let candidateLines = FoundationModelsPromptLibrary.queueTrackLines(
             from: self.playerService.queue,
-            currentIndex: self.playerService.currentIndex,
+            currentIndex: self.playerService.activePlaybackQueueIndex ?? -1,
             isPlaying: self.playerService.isPlaying,
             limit: maxLimit
         )
@@ -427,7 +484,7 @@ final class CommandBarViewModel {
         )
         let lines = FoundationModelsPromptLibrary.queueTrackLines(
             from: self.playerService.queue,
-            currentIndex: self.playerService.currentIndex,
+            currentIndex: self.playerService.activePlaybackQueueIndex ?? -1,
             isPlaying: self.playerService.isPlaying,
             limit: finalLineCount
         )
@@ -474,7 +531,42 @@ final class CommandBarViewModel {
         self.dismissAction()
     }
 
-    private func startRequest() {
+    private func withHardTimeout<Value: Sendable>(
+        _ timeout: Duration,
+        operation: @escaping @MainActor @Sendable () async throws -> Value
+    ) async throws -> Value {
+        let race = CommandBarTimeoutRace<Value>()
+        let operationTask = Task<Value, any Error> {
+            try await operation()
+        }
+        let timeoutTask = Task<Value, any Error> {
+            try await Task.sleep(for: timeout)
+            throw AIError.timedOut
+        }
+
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                race.install(continuation)
+                Task { @MainActor in
+                    await race.resolve(operationTask.result)
+                    timeoutTask.cancel()
+                }
+                Task { @MainActor in
+                    await race.resolve(timeoutTask.result)
+                    operationTask.cancel()
+                }
+            }
+        } onCancel: {
+            operationTask.cancel()
+            timeoutTask.cancel()
+            Task { @MainActor in
+                race.resolve(.failure(CancellationError()))
+            }
+        }
+    }
+
+    private func startRequest(id: UUID) {
+        self.activeRequestID = id
         self.isProcessing = true
         self.isInteractionDisabled = true
         self.errorMessage = nil
@@ -483,7 +575,9 @@ final class CommandBarViewModel {
         self.phase = .idle
     }
 
-    private func finishRequest() {
+    private func finishRequest(id: UUID) {
+        guard self.activeRequestID == id else { return }
+        self.activeRequestID = nil
         self.requestTask = nil
         self.isProcessing = false
         self.isInteractionDisabled = false

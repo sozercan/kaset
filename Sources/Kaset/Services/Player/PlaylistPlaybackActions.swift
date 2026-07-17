@@ -12,17 +12,19 @@ enum PlaylistPlaybackActions {
     }
 
     /// Plays a playlist immediately, replacing the current queue.
+    @discardableResult
+    @MainActor
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         playerService: PlayerService
-    ) {
-        Task { @MainActor in
-            let requestGeneration = playerService.playbackRequestGeneration
+    ) -> Task<Void, Never> {
+        let intent = playerService.beginMusicPlaybackIntent()
+        return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
-                guard requestGeneration == playerService.playbackRequestGeneration else {
-                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after privacy boundary")
+                guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after newer playback intent")
                     return
                 }
                 var songs = response.detail.tracks
@@ -30,8 +32,8 @@ enum PlaylistPlaybackActions {
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
-                        guard requestGeneration == playerService.playbackRequestGeneration else {
-                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after privacy boundary")
+                        guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after newer playback intent")
                             return
                         }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
@@ -53,7 +55,10 @@ enum PlaylistPlaybackActions {
                     // fill cannot slip through.
                     let willDeferLoad = response.continuationToken != nil
                     let loadGeneration = await playerService.playQueue(
-                        playableSongs, startingAt: 0, deferringSmartShuffleFill: willDeferLoad
+                        playableSongs,
+                        startingAt: 0,
+                        deferringSmartShuffleFill: willDeferLoad,
+                        intent: intent
                     )
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
 
@@ -78,7 +83,12 @@ enum PlaylistPlaybackActions {
                 let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                 guard !playableSongs.isEmpty else { return }
 
-                await playerService.playQueue(playableSongs, startingAt: 0)
+                await playerService.playQueue(
+                    playableSongs,
+                    startingAt: 0,
+                    deferringSmartShuffleFill: false,
+                    intent: intent
+                )
                 DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")

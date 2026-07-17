@@ -232,6 +232,11 @@ final class SingletonPlayerWebView {
     var coordinator: Coordinator?
     let logger = DiagnosticsLogger.player
     private var loadGeneration = 0
+    private(set) var documentGeneration = WebPlaybackDocumentGeneration()
+    private(set) var documentNavigationStartedAtMilliseconds: Double?
+    private var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
+    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
+    private var continuationGenerationsAwaitingStart: Set<UInt64> = []
 
     /// Current display mode for the WebView.
     enum DisplayMode {
@@ -248,6 +253,34 @@ final class SingletonPlayerWebView {
         case preferInPlaceWhenSameVideoId
         /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
         case forceFullPageWhenSameVideoId
+    }
+
+    nonisolated static func acceptsPlaybackRequest(
+        videoId: String,
+        currentVideoId: String?,
+        hasWebView: Bool,
+        strategy: VideoLoadStrategy
+    ) -> Bool {
+        guard hasWebView, videoId == currentVideoId else { return true }
+        return strategy != .standard
+    }
+
+    func acceptsPlaybackRequest(
+        videoId: String,
+        strategy: VideoLoadStrategy
+    ) -> Bool {
+        Self.acceptsPlaybackRequest(
+            videoId: videoId,
+            currentVideoId: self.currentVideoId,
+            hasWebView: self.webView != nil,
+            strategy: strategy
+        )
+    }
+
+    nonisolated static func freshSameIDPlaybackStrategy(
+        isShowingAd: Bool
+    ) -> VideoLoadStrategy {
+        isShowingAd ? .forceFullPageWhenSameVideoId : .preferInPlaceWhenSameVideoId
     }
 
     var displayMode: DisplayMode = .hidden
@@ -304,8 +337,10 @@ final class SingletonPlayerWebView {
 
         self.installUserScripts(
             on: configuration.userContentController,
-            isRestoringPlaybackSession: playerService.isRestoringPlaybackSession,
-            targetVolume: playerService.volume
+            shouldAutoplay: playerService.shouldAutoplayPlaybackDocument,
+            targetVolume: playerService.volume,
+            documentGeneration: Self.userScriptDocumentGeneration(from: self.documentGeneration),
+            nativePlaybackGeneration: playerService.currentNativeMusicPlaybackGeneration
         )
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
@@ -367,16 +402,20 @@ final class SingletonPlayerWebView {
 
     /// Stops playback, blanks the page, and detaches the persistent music WebView.
     func tearDown() {
+        let blankURL = self.beginBlankDocumentNavigation()
         guard let webView else { return }
         self.logger.info("Tearing down singleton music WebView")
         self.loadGeneration += 1
         self.currentVideoId = nil
         webView.evaluateJavaScript("document.querySelector('video')?.pause()", completionHandler: nil)
-        webView.loadHTMLString("", baseURL: nil)
+        if let blankURL {
+            webView.load(URLRequest(url: blankURL))
+        }
         webView.removeFromSuperview()
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .musicPlayer)
         self.webView = nil
         self.coordinator = nil
+        self.cancelledDocumentNavigations.removeAll()
         self.currentContainer = nil
         self.usesCookieFreeDataStore = nil
     }
@@ -438,20 +477,26 @@ final class SingletonPlayerWebView {
             self.logger.info("Loading video: \(videoId) (was: \(previousVideoId ?? "none"))")
         }
 
+        self.cancelActiveDocumentNavigation(on: webView)
+
         // Update currentVideoId immediately to prevent duplicate loads
         self.currentVideoId = videoId
         self.loadGeneration &+= 1
-        let generation = self.loadGeneration
+        self.documentNavigationStartedAtMilliseconds = Date().timeIntervalSince1970 * 1000
+        let reservedDocumentGeneration = self.documentGeneration.beginNavigation()
 
         // Get current volume from PlayerService via coordinator
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
-        let isRestoringPlaybackSession = self.coordinator?.playerService.isRestoringPlaybackSession ?? false
+        let shouldAutoplay = self.coordinator?.playerService.shouldAutoplayPlaybackDocument ?? false
         self.logger.info("Will apply volume \(currentVolume) after page load")
 
         self.installUserScripts(
             on: webView.configuration.userContentController,
-            isRestoringPlaybackSession: isRestoringPlaybackSession,
-            targetVolume: currentVolume
+            shouldAutoplay: shouldAutoplay,
+            targetVolume: currentVolume,
+            documentGeneration: reservedDocumentGeneration,
+            nativePlaybackGeneration: self.coordinator?.playerService
+                .currentNativeMusicPlaybackGeneration ?? 0
         )
 
         // Stop current playback first, then load new video. For a forced
@@ -459,37 +504,69 @@ final class SingletonPlayerWebView {
         // OLD <video>: the navigation tears it down anyway, and the pause event
         // would emit a stale STATE_UPDATE from the outgoing page that can be
         // mis-reconciled against a restored session before the new document loads.
-        let urlToLoad = URL(string: "https://music.youtube.com/watch?v=\(videoId)")!
-        let skipPrenavPause = (strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId)
-        if skipPrenavPause {
-            webView.evaluateJavaScript("window.__kasetTargetVolume = \(currentVolume);", completionHandler: nil)
-            webView.load(URLRequest(url: urlToLoad))
+        guard let urlToLoad = Self.playbackURL(
+            videoId: videoId,
+            documentGeneration: reservedDocumentGeneration
+        ) else {
+            self.handlePendingDocumentNavigationFailure(webView: webView)
             return
         }
-        let prenavScript = "document.querySelector('video')?.pause();"
-        webView.evaluateJavaScript("\(prenavScript)void 0;") { [weak self] _, _ in
-            guard let self, let webView = self.webView else { return }
-            guard self.loadGeneration == generation, self.currentVideoId == videoId else { return }
+        let prenavScript = """
+            window.__kasetAutoplayPending = false;
+            window.__kasetAutoplayAttempts = 0;
+            window.__kasetAutoplayRetryScheduled = false;
+            \(WebPlaybackDocumentGeneration.mediaSuppressionScript)
+        """
+        // Submit suppression best-effort, but never wait for its callback. During
+        // rapid replacements a provisional WebContent process can defer an eval
+        // completion for seconds; the generation gate already rejects every
+        // outgoing observation, while starting the new navigation tears down its
+        // media promptly.
+        webView.evaluateJavaScript("\(prenavScript)void 0;", completionHandler: nil)
 
-            // Keep the current page's target volume fresh until the new document
-            // finishes loading and gets the same value from didFinish.
-            let prepareScript = "window.__kasetTargetVolume = \(currentVolume);"
-            webView.evaluateJavaScript(prepareScript, completionHandler: nil)
-
-            webView.load(URLRequest(url: urlToLoad))
-        }
+        // Keep the current page's target volume fresh until the new document
+        // gets the same value from its document-start bootstrap.
+        webView.evaluateJavaScript(
+            "window.__kasetTargetVolume = \(currentVolume);",
+            completionHandler: nil
+        )
+        self.startDocumentNavigation(
+            on: webView,
+            request: URLRequest(url: urlToLoad),
+            generation: reservedDocumentGeneration
+        )
     }
 
     /// Returns the JS snippet that hands the autoplay intent to the freshly loaded
     /// page's window. Restored sessions suppress autoplay so the reconcile path
     /// resumes at the saved seek rather than at 0s.
     nonisolated static func autoplayIntentScript(isRestoringPlaybackSession: Bool) -> String {
-        "window.__kasetAutoplayPending = \(isRestoringPlaybackSession ? "false" : "true");"
+        self.autoplayIntentScript(shouldAutoplay: !isRestoringPlaybackSession)
+    }
+
+    nonisolated static func autoplayIntentScript(shouldAutoplay: Bool) -> String {
+        "window.__kasetAutoplayPending = \(shouldAutoplay ? "true" : "false");"
     }
 
     nonisolated static func pageBootstrapScript(
         isRestoringPlaybackSession: Bool,
-        targetVolume: Double
+        targetVolume: Double,
+        documentGeneration: UInt64,
+        nativePlaybackGeneration: UInt64 = 0
+    ) -> String {
+        self.pageBootstrapScript(
+            shouldAutoplay: !isRestoringPlaybackSession,
+            targetVolume: targetVolume,
+            documentGeneration: documentGeneration,
+            nativePlaybackGeneration: nativePlaybackGeneration
+        )
+    }
+
+    nonisolated static func pageBootstrapScript(
+        shouldAutoplay: Bool,
+        targetVolume: Double,
+        documentGeneration _: UInt64,
+        nativePlaybackGeneration: UInt64 = 0
     ) -> String {
         let clampedVolume = if targetVolume.isFinite {
             min(max(targetVolume, 0), 1)
@@ -498,15 +575,62 @@ final class SingletonPlayerWebView {
         }
 
         return """
-            \(Self.autoplayIntentScript(isRestoringPlaybackSession: isRestoringPlaybackSession))
+            (function() {
+                try {
+                    const queryGeneration = new URLSearchParams(window.location.search)
+                        .get('\(WebPlaybackDocumentGeneration.urlQueryKey)');
+                    const fragmentGeneration = new URLSearchParams(
+                        window.location.hash.replace(/^#/, '')
+                    ).get('\(WebPlaybackDocumentGeneration.urlQueryKey)');
+                    const rawGeneration = queryGeneration || fragmentGeneration;
+                    const parsedGeneration = rawGeneration === null || rawGeneration === ''
+                        ? Number.NaN
+                        : Number(rawGeneration);
+                    window.__kasetDocumentGeneration =
+                        Number.isSafeInteger(parsedGeneration) && parsedGeneration >= 0
+                            ? parsedGeneration
+                            : -1;
+                } catch (e) {
+                    window.__kasetDocumentGeneration = -1;
+                }
+            })();
+            window.__kasetNativePlaybackGeneration = \(nativePlaybackGeneration);
+            \(Self.autoplayIntentScript(shouldAutoplay: shouldAutoplay))
+            window.__kasetPlaybackSuppressed = \(shouldAutoplay ? "false" : "true");
+            window.__kasetResumeAdOnly = false;
+            if (!window.__kasetPlaybackSuppressionInstalled) {
+                window.__kasetPlaybackSuppressionInstalled = true;
+                document.addEventListener('play', function(event) {
+                    if (!window.__kasetPlaybackSuppressed) return;
+                    const media = event.target;
+                    if (media && typeof media.pause === 'function') media.pause();
+                }, true);
+            }
+            window.__kasetAutoplayAttempts = 0;
+            window.__kasetAutoplayRetryScheduled = false;
             window.__kasetTargetVolume = \(clampedVolume);
         """
     }
 
+    nonisolated static func playbackURL(videoId: String, documentGeneration: UInt64) -> URL? {
+        var components = URLComponents(string: "https://music.youtube.com/watch")
+        components?.queryItems = [
+            URLQueryItem(name: "v", value: videoId),
+            URLQueryItem(
+                name: WebPlaybackDocumentGeneration.urlQueryKey,
+                value: String(documentGeneration)
+            ),
+        ]
+        components?.fragment = "\(WebPlaybackDocumentGeneration.urlQueryKey)=\(documentGeneration)"
+        return components?.url
+    }
+
     private func installUserScripts(
         on contentController: WKUserContentController,
-        isRestoringPlaybackSession: Bool,
-        targetVolume: Double
+        shouldAutoplay: Bool,
+        targetVolume: Double,
+        documentGeneration: UInt64,
+        nativePlaybackGeneration: UInt64
     ) {
         contentController.removeAllUserScripts()
 
@@ -514,8 +638,10 @@ final class SingletonPlayerWebView {
         // `didFinish` is too late on fast or cached player loads.
         let pageBootstrapScript = WKUserScript(
             source: Self.pageBootstrapScript(
-                isRestoringPlaybackSession: isRestoringPlaybackSession,
-                targetVolume: targetVolume
+                shouldAutoplay: shouldAutoplay,
+                targetVolume: targetVolume,
+                documentGeneration: documentGeneration,
+                nativePlaybackGeneration: nativePlaybackGeneration
             ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
@@ -566,460 +692,676 @@ final class SingletonPlayerWebView {
         guard let webView else { return }
 
         let currentVolume = self.coordinator?.playerService.volume ?? 1.0
-        let isRestoringPlaybackSession = self.coordinator?.playerService.isRestoringPlaybackSession ?? false
+        let shouldAutoplay = self.coordinator?.playerService.shouldAutoplayPlaybackDocument ?? false
         self.installUserScripts(
             on: webView.configuration.userContentController,
-            isRestoringPlaybackSession: isRestoringPlaybackSession,
-            targetVolume: currentVolume
+            shouldAutoplay: shouldAutoplay,
+            targetVolume: currentVolume,
+            documentGeneration: Self.userScriptDocumentGeneration(from: self.documentGeneration),
+            nativePlaybackGeneration: self.coordinator?.playerService
+                .currentNativeMusicPlaybackGeneration ?? 0
         )
     }
 
-    // MARK: - Coordinator
+    func setNativePlaybackGeneration(_ generation: UInt64) {
+        self.webView?.evaluateJavaScript(
+            "window.__kasetNativePlaybackGeneration = \(generation);",
+            completionHandler: nil
+        )
+    }
+}
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        let playerService: PlayerService
+extension SingletonPlayerWebView {
+    struct ContentProcessRecoveryPlan: Equatable {
+        let shouldReload: Bool
+        let pendingSeek: TimeInterval?
+        let shouldAutoResume: Bool
+    }
 
-        init(playerService: PlayerService) {
-            self.playerService = playerService
-        }
+    /// Cancels every outstanding music navigation and makes any surviving
+    /// document inert. Used by explicit stop so a late commit/canplay callback
+    /// cannot resurrect playback after native state has been cleared.
+    func cancelPendingPlayback() async {
+        self.loadGeneration &+= 1
+        self.invalidateDocumentNavigationState()
+        self.currentVideoId = nil
+        guard let webView else { return }
+        webView.stopLoading()
+        _ = try? await webView.evaluateJavaScript("""
+            window.__kasetAutoplayPending = false;
+            window.__kasetAutoplayAttempts = 0;
+            window.__kasetAutoplayRetryScheduled = false;
+            \(WebPlaybackDocumentGeneration.mediaSuppressionScript)
+        """)
+    }
 
-        func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard let body = message.body as? [String: Any],
-                  let type = body["type"] as? String
-            else { return }
+    nonisolated static func userScriptDocumentGeneration(
+        from documentGeneration: WebPlaybackDocumentGeneration
+    ) -> UInt64 {
+        documentGeneration.userScriptGeneration
+    }
 
-            let observedVideoId = Self.observedVideoId(from: body)
+    nonisolated static func acceptsBridgeMessage(
+        sourceWebView: AnyObject?,
+        currentWebView: AnyObject?,
+        documentGeneration: WebPlaybackDocumentGeneration,
+        rawDocumentGeneration: Any?
+    ) -> Bool {
+        guard let sourceWebView,
+              let currentWebView,
+              sourceWebView === currentWebView
+        else { return false }
+        return documentGeneration.accepts(rawGeneration: rawDocumentGeneration)
+    }
 
-            switch type {
-            case "TRACK_ENDED":
-                Task { @MainActor in
-                    await self.playerService.handleTrackEnded(observedVideoId: observedVideoId)
-                }
-            case "REMOTE_NEXT":
-                Task { @MainActor in
-                    await self.playerService.next()
-                }
-            case "REMOTE_PREVIOUS":
-                Task { @MainActor in
-                    await self.playerService.previous()
-                }
-            case "AIRPLAY_STATUS":
-                self.handleAirPlayStatusUpdate(body: body)
-            case "LYRICS_LINE":
-                self.handleLyricsLineUpdate(body: body)
-            case "PLAYBACK_AUDIO_QUALITY_STATS":
-                Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
-            case "STATE_UPDATE":
-                self.handleStateUpdate(body: body, observedVideoId: observedVideoId)
-            default:
-                return
-            }
-        }
+    nonisolated static func isCurrentBridgeWebView(
+        sourceWebView: AnyObject?,
+        currentWebView: AnyObject?
+    ) -> Bool {
+        guard let sourceWebView, let currentWebView else { return false }
+        return sourceWebView === currentWebView
+    }
 
-        private static func observedVideoId(from body: [String: Any]) -> String? {
-            guard let videoId = body["videoId"] as? String, !videoId.isEmpty else { return nil }
-            return videoId
-        }
+    nonisolated static func acceptsBridgeSource(
+        isMainFrame: Bool,
+        sourceScheme: String,
+        sourceHost: String
+    ) -> Bool {
+        isMainFrame && sourceScheme == "https" && sourceHost == "music.youtube.com"
+    }
 
-        private func handleAirPlayStatusUpdate(body: [String: Any]) {
-            let isConnected = body["isConnected"] as? Bool ?? false
-            let wasRequested = body["wasRequested"] as? Bool ?? false
+    nonisolated static func acceptsMainFrameResponse(
+        _ response: URLResponse,
+        expectedVideoID: String?,
+        documentGeneration: WebPlaybackDocumentGeneration
+    ) -> Bool {
+        WebPlaybackDocumentGeneration.acceptsMainFrameResponse(
+            response,
+            expectedHost: "music.youtube.com",
+            expectedVideoID: expectedVideoID,
+            allowsInternalBlank: documentGeneration.ownsBlankNavigation(response.url)
+        )
+    }
 
-            Task { @MainActor in
-                self.playerService.updateAirPlayStatus(
-                    isConnected: isConnected,
-                    wasRequested: wasRequested
-                )
-            }
-        }
+    nonisolated static func isAuthoritativePlaybackSample(
+        hasReadyMedia: Bool,
+        isShowingAd: Bool
+    ) -> Bool {
+        hasReadyMedia && !isShowingAd
+    }
 
-        private func handleLyricsLineUpdate(body: [String: Any]) {
-            let lineIndex = body["lineIndex"] as? Int ?? -1
-            let normalizedLineIndex = lineIndex >= 0 ? lineIndex : nil
-            let displayTimeMs = body["timeMs"] as? Int
-
-            Task { @MainActor in
-                guard self.playerService.currentLyricsLineIndex != normalizedLineIndex ||
-                    self.playerService.currentLyricsDisplayTimeMs != displayTimeMs
-                else { return }
-                self.playerService.currentLyricsLineIndex = normalizedLineIndex
-                self.playerService.currentLyricsDisplayTimeMs = displayTimeMs
-            }
-        }
-
-        private func handleStateUpdate(body: [String: Any], observedVideoId: String?) {
-            let isPlaying = body["isPlaying"] as? Bool ?? false
-            let progress = body["progress"] as? Int ?? 0
-            let duration = body["duration"] as? Int ?? 0
-            let title = body["title"] as? String ?? ""
-            let artist = body["artist"] as? String ?? ""
-            let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
-            let trackChanged = body["trackChanged"] as? Bool ?? false
-            let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
-            let hasVideo = body["hasVideo"] as? Bool ?? false
-
-            Task { @MainActor in
-                self.playerService.updatePlaybackState(
-                    isPlaying: isPlaying,
-                    progress: Double(progress),
-                    duration: Double(duration),
-                    observedVideoId: observedVideoId
-                )
-
-                // Update video availability
-                self.playerService.updateVideoAvailability(hasVideo: hasVideo)
-
-                // Update like status only when track changes (initial state)
-                if trackChanged {
-                    self.playerService.updateLikeStatus(likeStatus)
-                }
-
-                let hasObservedMetadata = observedVideoId != nil || !title.isEmpty
-                // Repeat-one still needs drift recovery, but the normal same-song polling path
-                // should not rewrite `currentTrack` on every observer tick.
-                let repeatOneNeedsReconcile = self.playerService.repeatMode == .one
-                    && hasObservedMetadata
-                    && (trackChanged
-                        || (observedVideoId != nil && observedVideoId != self.playerService.currentTrack?.videoId)
-                        || (observedVideoId == nil && !title.isEmpty && title != self.playerService.currentTrack?.title))
-                let shouldReconcileMetadata = hasObservedMetadata && (trackChanged || repeatOneNeedsReconcile)
-
-                if shouldReconcileMetadata {
-                    self.playerService.updateTrackMetadata(
-                        title: title,
-                        artist: artist,
-                        thumbnailUrl: thumbnailUrl,
-                        videoId: observedVideoId
-                    )
-
-                    // Close video window on track change, but skip during grace period.
-                    // We only close if the videoId actually changed to prevent closing
-                    // due to spurious metadata (title/artist) glitches during resize.
-                    let videoIdChanged = observedVideoId != nil && observedVideoId != self.playerService.currentTrack?.videoId
-
-                    if self.playerService.showVideo, videoIdChanged, !self.playerService.isVideoGracePeriodActive {
-                        DiagnosticsLogger.player.info(
-                            "trackChanged to videoId '\(observedVideoId ?? "unknown")' while video shown - closing video window"
-                        )
-                        self.playerService.showVideo = false
-                    }
-                }
-            }
-        }
-
-        private static func likeStatus(from rawValue: String?) -> LikeStatus {
-            switch rawValue {
-            case "LIKE":
-                .like
-            case "DISLIKE":
-                .dislike
-            default:
-                .indifferent
-            }
-        }
-
-        private static let allowedAudioQualityStatsKeys: Set<String> = [
-            "afmt",
-            "audioBitrate",
-            "audioCodec",
-            "audioCodecs",
-            "audioFormat",
-            "audioItag",
-            "audioMimeType",
-            "audioQuality",
-            "audio_format",
-            "bitrate",
-            "codec",
-            "codecs",
-            "debug_audioFormat",
-            "debug_audioQuality",
-            "debug_playbackQuality",
-            "itag",
-            "mimeType",
-            "quality",
-        ]
-
-        private static let allowedAudioQualityStatsFragments: Set<String> = [
-            "bitrate",
-            "codec",
-            "format",
-            "itag",
-            "mime",
-            "quality",
-        ]
-
-        private static func logAudioQualityStats(body: [String: Any], observedVideoId: String?) {
-            let message = Self.audioQualityStatsLogMessage(body: body, observedVideoId: observedVideoId)
-            DiagnosticsLogger.player.info("Audio quality stats: \(message, privacy: .private)")
-        }
-
-        static func audioQualityStatsLogMessage(body: [String: Any], observedVideoId: String?) -> String {
-            let preferred = Self.sanitizedLogString(body["preferred"])
-            let desired = Self.sanitizedLogString(body["desired"])
-            let applied = (body["applied"] as? Bool) == true ? "true" : "false"
-            let observed = Self.sanitizedLogString(body["observed"])
-            let source = Self.sanitizedLogString(body["source"])
-            let videoId = Self.sanitizedLogString(observedVideoId, fallback: "unknown")
-            let available = Self.compactJSONText(
-                Self.sanitizedPrimitiveArray(body["available"]) ?? [],
-                fallback: "[]"
+    nonisolated static func contentProcessRecoveryPlan(
+        state: PlayerService.PlaybackState,
+        progress: TimeInterval,
+        isShowingAd: Bool,
+        lastNonAdContentProgress: TimeInterval,
+        isPendingRestoredLoadDeferred: Bool = false
+    ) -> ContentProcessRecoveryPlan {
+        guard !isPendingRestoredLoadDeferred else {
+            return ContentProcessRecoveryPlan(
+                shouldReload: false,
+                pendingSeek: nil,
+                shouldAutoResume: false
             )
-            let stats = Self.compactJSONText(Self.sanitizedStatsForNerds(body["stats"]), fallback: "{}")
+        }
+        let shouldReload = switch state {
+        case .loading, .playing, .buffering, .paused:
+            true
+        case .idle, .ended, .error:
+            false
+        }
+        let shouldAutoResume = switch state {
+        case .loading, .playing, .buffering:
+            true
+        case .idle, .paused, .ended, .error:
+            false
+        }
+        let pendingSeek: TimeInterval? = if !shouldReload || state == .loading {
+            nil
+        } else if isShowingAd {
+            lastNonAdContentProgress > 0 ? lastNonAdContentProgress : nil
+        } else {
+            progress
+        }
+        return ContentProcessRecoveryPlan(
+            shouldReload: shouldReload,
+            pendingSeek: pendingSeek,
+            shouldAutoResume: shouldAutoResume
+        )
+    }
+}
 
-            return """
-            preferred=\(preferred) desired=\(desired) applied=\(applied) observed=\(observed) \
-            source=\(source) videoId=\(videoId) available=\(available) stats=\(stats)
-            """
+extension SingletonPlayerWebView {
+    func invalidateDocumentNavigationState() {
+        for (identifier, navigation) in self.documentNavigations {
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: navigation.generation,
+                shouldReportFailure: true
+            )
+        }
+        self.documentGeneration.invalidate()
+        self.documentNavigationStartedAtMilliseconds = nil
+        self.documentNavigations.removeAll()
+        self.continuationGenerationsAwaitingStart.removeAll()
+    }
+
+    func beginBlankDocumentNavigation() -> URL? {
+        self.documentNavigations.removeAll()
+        self.continuationGenerationsAwaitingStart.removeAll()
+        let generation = self.documentGeneration.beginBlankNavigation()
+        return WebPlaybackDocumentGeneration.blankURL(generation: generation)
+    }
+
+    func recordAcceptedMainFrameResponse(_ response: URLResponse) {
+        guard let currentVideoId = self.currentVideoId else { return }
+        _ = self.documentGeneration.recordSuccessfulPlaybackResponse(
+            url: response.url,
+            host: "music.youtube.com",
+            videoID: currentVideoId
+        )
+    }
+
+    func decideNavigationPolicy(
+        webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        guard navigationAction.targetFrame?.isMainFrame == true else {
+            decisionHandler(.allow)
+            return
         }
 
-        private static func sanitizedLogString(_ value: Any?, fallback: String = "unknown") -> String {
-            guard let value else { return fallback }
-
-            let string: String = if let stringValue = value as? String {
-                stringValue
-            } else {
-                String(describing: value)
-            }
-
-            let flattened = string
-                .replacingOccurrences(of: "\n", with: " ")
-                .replacingOccurrences(of: "\r", with: " ")
-                .replacingOccurrences(of: "\t", with: " ")
-
-            guard !flattened.isEmpty else { return fallback }
-            return String(flattened.prefix(200))
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(navigationAction.request.url) {
+            decisionHandler(
+                self.documentGeneration.ownsBlankNavigation(navigationAction.request.url)
+                    ? .allow
+                    : .cancel
+            )
+            return
         }
 
-        private static func compactJSONText(_ value: Any, fallback: String) -> String {
-            guard JSONSerialization.isValidJSONObject(value),
-                  let data = try? JSONSerialization.data(withJSONObject: value, options: [.sortedKeys]),
-                  let text = String(data: data, encoding: .utf8)
-            else {
-                return fallback
-            }
-
-            return text
-        }
-
-        private static func sanitizedStatsForNerds(_ value: Any?) -> [String: Any] {
-            guard let value = value as? [String: Any] else { return [:] }
-
-            var sanitized: [String: Any] = [:]
-            for key in value.keys.sorted() where sanitized.count < 12 {
-                guard Self.isAllowedAudioQualityStatsKey(key) else { continue }
-
-                let sanitizedKey = String(key.prefix(80))
-                if let primitive = Self.sanitizedPrimitive(value[key]) {
-                    sanitized[sanitizedKey] = primitive
-                    continue
-                }
-
-                if let primitiveArray = Self.sanitizedPrimitiveArray(value[key]) {
-                    sanitized[sanitizedKey] = primitiveArray
-                }
-            }
-
-            return sanitized
-        }
-
-        private static func isAllowedAudioQualityStatsKey(_ key: String) -> Bool {
-            if self.allowedAudioQualityStatsKeys.contains(key) {
-                return true
-            }
-
-            let lowercasedKey = key.lowercased()
-            return lowercasedKey.contains("audio")
-                && Self.allowedAudioQualityStatsFragments.contains { lowercasedKey.contains($0) }
-        }
-
-        private static func sanitizedPrimitiveArray(_ value: Any?) -> [Any]? {
-            guard let values = value as? [Any] else { return nil }
-
-            let sanitized = values.prefix(12).compactMap { Self.sanitizedPrimitive($0) }
-            return sanitized.isEmpty ? nil : sanitized
-        }
-
-        private static func sanitizedPrimitive(_ value: Any?) -> Any? {
-            guard let value else { return nil }
-
-            if let value = value as? String {
-                return String(value.prefix(160))
-            }
-
-            if let value = value as? Bool {
-                return value
-            }
-
-            return Self.sanitizedNumericPrimitive(value)
-        }
-
-        private static func sanitizedNumericPrimitive(_ value: Any) -> Any? {
-            if let value = value as? Int {
-                return value
-            }
-
-            if let value = value as? Int8 {
-                return value
-            }
-
-            if let value = value as? Int16 {
-                return value
-            }
-
-            if let value = value as? Int32 {
-                return value
-            }
-
-            if let value = value as? Int64 {
-                return value
-            }
-
-            if let value = value as? UInt {
-                return value
-            }
-
-            if let value = value as? UInt8 {
-                return value
-            }
-
-            if let value = value as? UInt16 {
-                return value
-            }
-
-            if let value = value as? UInt32 {
-                return value
-            }
-
-            if let value = value as? UInt64 {
-                return value
-            }
-
-            if let value = value as? Double {
-                return value.isFinite ? value : nil
-            }
-
-            if let value = value as? Float {
-                return value.isFinite ? Double(value) : nil
-            }
-
-            if let value = value as? NSNumber {
-                return value.doubleValue.isFinite ? value : nil
-            }
-
-            return nil
-        }
-
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+        if WebPlaybackDocumentGeneration.isFragmentOnlyNavigation(
+            from: webView.url,
+            to: navigationAction.request.url
         ) {
-            guard navigationAction.targetFrame?.isMainFrame == true else {
-                decisionHandler(.allow)
-                return
-            }
-
-            SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewWillNavigate(
+            self.webKitManager?.extensionHostWebViewWillNavigate(
                 webView,
                 to: navigationAction.request.url
             )
             decisionHandler(.allow)
+            return
         }
 
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
-            SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewDidStartNavigation(webView)
+        if self.documentGeneration.pendingGeneration != nil {
+            decisionHandler(.cancel)
+            return
         }
 
-        func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
-            SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
-            DiagnosticsLogger.player.info(
-                "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
-            )
-
-            // Apply the current volume when page finishes loading
-            // This is critical because YouTube may set its own default volume
-            let savedVolume = self.playerService.volume
-            let applyVolumeScript = """
-                (function() {
-                    try {
-                        const volume = \(savedVolume);
-                        window.__kasetTargetVolume = volume;
-                        window.__kasetIsSettingVolume = true;
-
-                        const video = document.querySelector('video');
-                        if (video) {
-                            video.volume = volume;
-                        }
-
-                        // Sync YouTube's internal player APIs if ready
-                        const ytVolume = Math.round(volume * 100);
-                        const player = document.querySelector('ytmusic-player');
-                        if (player && player.playerApi && typeof player.playerApi.setVolume === 'function') {
-                            player.playerApi.setVolume(ytVolume);
-                        }
-                        const moviePlayer = document.getElementById('movie_player');
-                        if (moviePlayer && typeof moviePlayer.setVolume === 'function') {
-                            moviePlayer.setVolume(ytVolume);
-                        }
-
-                        setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
-                        return video ? 'applied' : 'no-video-yet';
-                    } catch (e) {
-                         return 'error: ' + e;
+        if let inFlightGeneration = self.documentGeneration.inFlightGeneration {
+            guard WebPlaybackDocumentGeneration.requestBelongsToNavigationChain(
+                navigationAction.request,
+                currentURL: webView.url,
+                generation: inFlightGeneration,
+                playbackHost: "music.youtube.com",
+                committedIntermediaryGeneration: self.documentGeneration.committedIntermediaryGeneration
+            ) else {
+                decisionHandler(.cancel)
+                return
+            }
+            if WebPlaybackDocumentGeneration.generation(from: navigationAction.request.url)
+                != inFlightGeneration
+            {
+                decisionHandler(.cancel)
+                self.continuationGenerationsAwaitingStart.insert(inFlightGeneration)
+                if let boundRequest = WebPlaybackDocumentGeneration.requestByBindingGeneration(
+                    navigationAction.request,
+                    generation: inFlightGeneration
+                ) {
+                    Task { @MainActor in
+                        self.startBoundNavigationContinuation(
+                            on: webView,
+                            request: boundRequest,
+                            generation: inFlightGeneration
+                        )
                     }
-                })();
-            """
-            webView.evaluateJavaScript(applyVolumeScript) { result, error in
-                if let error {
-                    DiagnosticsLogger.player.error(
-                        "Failed to apply saved volume \(savedVolume): \(error.localizedDescription)"
-                    )
-                } else if let resultString = result as? String {
-                    DiagnosticsLogger.player.debug("Volume apply result: \(resultString)")
                 }
+                return
+            }
+            self.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+            return
+        }
 
-                // Restore lyrics high-frequency polling if it was active
-                if SingletonPlayerWebView.shared.isLyricsPollActive {
-                    SingletonPlayerWebView.shared.startLyricsPoll()
-                }
+        decisionHandler(.cancel)
+    }
 
-                // Re-inject video mode CSS if it was active
-                if SingletonPlayerWebView.shared.displayMode == .video {
-                    SingletonPlayerWebView.shared.refreshVideoModeCSS()
-                    // If refresh fails to find the container (because it's a new page),
-                    // it will log a debug message. We should also call the full injection.
-                    SingletonPlayerWebView.shared.injectVideoModeCSS()
+    func startDocumentNavigation(
+        on webView: WKWebView,
+        request: URLRequest,
+        generation: UInt64
+    ) {
+        guard webView === self.webView else {
+            if self.documentGeneration.pendingGeneration == generation {
+                self.handlePendingDocumentNavigationFailure(webView: self.webView)
+            }
+            return
+        }
+        guard self.documentGeneration.startNavigation(generation) else { return }
+        guard let navigation = webView.load(request) else {
+            self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+            return
+        }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation
+        )
+    }
+
+    func startBoundNavigationContinuation(
+        on webView: WKWebView,
+        request: URLRequest,
+        generation: UInt64
+    ) {
+        guard webView === self.webView,
+              self.documentGeneration.inFlightGeneration == generation,
+              self.documentGeneration.pendingGeneration == nil
+        else {
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            return
+        }
+        guard let navigation = webView.load(request) else {
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+            return
+        }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation
+        )
+        self.continuationGenerationsAwaitingStart.remove(generation)
+    }
+
+    func cancelActiveDocumentNavigation(on webView: WKWebView) {
+        guard let generation = self.documentGeneration.inFlightGeneration else { return }
+        for (identifier, navigation) in self.documentNavigations
+            where navigation.generation == generation
+        {
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: generation,
+                shouldReportFailure: false
+            )
+        }
+        self.documentNavigations = self.documentNavigations.filter {
+            $0.value.generation != generation
+        }
+        _ = self.documentGeneration.cancelInFlightNavigation(generation)
+        self.continuationGenerationsAwaitingStart.remove(generation)
+        webView.stopLoading()
+    }
+
+    func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView,
+              let navigation,
+              self.documentNavigations[ObjectIdentifier(navigation)] == nil,
+              let generation = WebPlaybackDocumentGeneration.generation(from: webView.url)
+              ?? (self.documentGeneration.committedIntermediaryGeneration
+                  == self.documentGeneration.inFlightGeneration
+                  && WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
+                      webView.url,
+                      playbackHost: "music.youtube.com"
+                  ) ? self.documentGeneration.inFlightGeneration : nil),
+              generation == self.documentGeneration.inFlightGeneration
+        else { return }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation
+        )
+    }
+
+    func handleDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
+        self.trackDocumentNavigationStart(navigation, webView: webView)
+        self.webKitManager?.extensionHostWebViewDidStartNavigation(webView)
+    }
+
+    func handleDocumentNavigationRedirect(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView,
+              let navigation,
+              let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)],
+              trackedNavigation.generation == self.documentGeneration.inFlightGeneration,
+              self.documentGeneration.pendingGeneration == nil
+        else { return }
+        self.refreshInstalledUserScripts()
+    }
+
+    func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView else { return }
+        if let navigation,
+           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
+        {
+            if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
+                cancelledGeneration: cancelledNavigation.generation,
+                committedURL: webView.url,
+                pendingGeneration: self.documentGeneration.pendingGeneration,
+                inFlightGeneration: self.documentGeneration.inFlightGeneration,
+                currentGeneration: self.documentGeneration.currentGeneration
+            ) {
+                let replacementGeneration = self.documentGeneration.pendingGeneration
+                    ?? self.documentGeneration.inFlightGeneration
+                if let replacementGeneration,
+                   replacementGeneration != cancelledNavigation.generation
+                {
+                    self.suppressSurvivingDocumentMedia(webView)
+                } else {
+                    self.pauseSurvivingDocument(webView)
                 }
             }
+            return
         }
-
-        func webView(_ webView: WKWebView, didFail _: WKNavigation!, withError _: Error) {
-            SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
+            guard self.documentGeneration.ownsBlankNavigation(webView.url) else {
+                self.handleUnexpectedBlankDocumentCommit(navigation, webView: webView)
+                return
+            }
+            return
         }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError _: Error) {
-            SingletonPlayerWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+        guard let navigation,
+              var trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+        else { return }
+        trackedNavigation.didCommit = true
+        if let currentVideoId = self.currentVideoId,
+           WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
+               webView.url,
+               host: "music.youtube.com",
+               videoID: currentVideoId
+           )
+        {
+            guard self.documentGeneration.commitNavigation(
+                trackedNavigation.generation,
+                expectedVideoID: currentVideoId
+            ) else { return }
+            self.documentNavigationStartedAtMilliseconds = nil
+            trackedNavigation.didActivatePlaybackOrigin = true
+        } else if WebPlaybackDocumentGeneration.isTrustedIntermediaryURL(webView.url) {
+            guard self.documentGeneration.commitIntermediaryNavigation(
+                trackedNavigation.generation
+            ) else { return }
         }
+        self.documentNavigations[ObjectIdentifier(navigation)] = trackedNavigation
+        if trackedNavigation.didActivatePlaybackOrigin {
+            self.syncAutoplayIntent(on: webView)
+        }
+    }
 
-        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            // WebView content process crashed - attempt recovery
-            DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
+    func consumeCancelledDocumentNavigation(
+        _ navigation: WKNavigation?
+    ) -> WebPlaybackCancelledNavigation? {
+        guard let navigation else { return nil }
+        return self.cancelledDocumentNavigations.removeValue(
+            forKey: ObjectIdentifier(navigation)
+        )
+    }
 
-            // Get the current video ID before reloading
-            let currentVideoId = SingletonPlayerWebView.shared.currentVideoId
-
-            // Reload the WebView
-            webView.reload()
-
-            // If we had a video playing, reload it after a brief delay
-            if let videoId = currentVideoId {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
-                    // Reset currentVideoId to force reload
-                    SingletonPlayerWebView.shared.currentVideoId = nil
-                    SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
-                }
+    func syncAutoplayIntent(on webView: WKWebView) {
+        let generation = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: generation) else { return }
+        let shouldAutoplay = self.coordinator?.playerService.shouldAutoplayPlaybackDocument ?? false
+        let nativePlaybackGeneration = self.coordinator?.playerService
+            .currentNativeMusicPlaybackGeneration ?? 0
+        let script = Self.autoplayIntentSynchronizationScript(
+            shouldAutoplay: shouldAutoplay,
+            nativePlaybackGeneration: nativePlaybackGeneration,
+            documentGeneration: generation
+        )
+        webView.evaluateJavaScript(script) { [weak self] _, error in
+            if let error {
+                self?.logger.debug("Autoplay intent synchronization deferred: \(error.localizedDescription)")
             }
         }
+    }
+
+    nonisolated static func autoplayIntentSynchronizationScript(
+        shouldAutoplay: Bool,
+        nativePlaybackGeneration: UInt64,
+        documentGeneration: UInt64
+    ) -> String {
+        """
+        (function() {
+            if (window.__kasetDocumentGeneration !== \(documentGeneration)) return 'stale';
+            window.__kasetNativePlaybackGeneration = \(nativePlaybackGeneration);
+            window.__kasetAutoplayPending = \(shouldAutoplay ? "true" : "false");
+            window.__kasetPlaybackSuppressed = \(shouldAutoplay ? "false" : "true");
+            if (window.__kasetAutoplayPending) {
+                window.__kasetAutoplayAttempts = 0;
+                window.__kasetAutoplayRetryScheduled = false;
+            }
+            if (!window.__kasetAutoplayPending) { document.querySelector('video')?.pause(); }
+            return 'synced';
+        })();
+        """
+    }
+
+    func finishDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
+        guard webView === self.webView else { return false }
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
+            guard self.documentGeneration.ownsBlankNavigation(webView.url) else {
+                self.handleUnexpectedBlankDocumentCommit(navigation, webView: webView)
+                return false
+            }
+            return true
+        }
+        guard let navigation,
+              let trackedNavigation = self.documentNavigations.removeValue(
+                  forKey: ObjectIdentifier(navigation)
+              )
+        else { return false }
+        guard trackedNavigation.didCommit else {
+            self.handleCurrentDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView
+            )
+            return false
+        }
+        if !trackedNavigation.didActivatePlaybackOrigin {
+            return WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
+                webView.url,
+                playbackHost: "music.youtube.com"
+            ) && trackedNavigation.generation == self.documentGeneration.inFlightGeneration
+        }
+        guard self.documentGeneration.canFinishNavigation(
+            trackedNavigation.generation
+        ) else { return false }
+        return true
+    }
+
+    func handleUnexpectedBlankDocumentCommit(
+        _ navigation: WKNavigation?,
+        webView: WKWebView
+    ) {
+        guard webView === self.webView else { return }
+        if let navigation,
+           self.documentNavigations[ObjectIdentifier(navigation)] != nil
+        {
+            self.failDocumentNavigation(navigation, webView: webView)
+            return
+        }
+        if let generation = self.documentGeneration.inFlightGeneration {
+            self.documentNavigations = self.documentNavigations.filter {
+                $0.value.generation != generation
+            }
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+        } else if self.documentGeneration.pendingGeneration != nil {
+            self.handlePendingDocumentNavigationFailure(webView: webView)
+        } else if self.currentVideoId != nil {
+            self.handleCommittedDocumentNavigationFailure(
+                self.documentGeneration.currentGeneration,
+                webView: webView
+            )
+        }
+    }
+
+    func handleDocumentNavigationFinish(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
+        guard self.finishDocumentNavigation(navigation, webView: webView) else { return false }
+        self.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
+        return true
+    }
+
+    func failDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
+        if let navigation {
+            self.cancelledDocumentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+        }
+        guard webView === self.webView,
+              let navigation,
+              let trackedNavigation = self.documentNavigations.removeValue(
+                  forKey: ObjectIdentifier(navigation)
+              )
+        else { return }
+        if trackedNavigation.didActivatePlaybackOrigin {
+            self.handleCommittedDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView
+            )
+        } else {
+            self.handleCurrentDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView
+            )
+        }
+    }
+
+    func handleCurrentDocumentNavigationFailure(_ generation: UInt64, webView: WKWebView?) {
+        guard self.documentGeneration.cancelInFlightNavigation(generation) else { return }
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.deferRestoredPlaybackAfterNavigationFailure()
+        self.refreshInstalledUserScripts()
+    }
+
+    func handlePendingDocumentNavigationFailure(webView: WKWebView?) {
+        self.documentGeneration.cancelPendingNavigation()
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.deferRestoredPlaybackAfterNavigationFailure()
+        self.refreshInstalledUserScripts()
+    }
+
+    func handleCommittedDocumentNavigationFailure(_ generation: UInt64, webView: WKWebView?) {
+        guard self.documentGeneration.currentGeneration == generation,
+              self.documentGeneration.pendingGeneration == nil,
+              self.documentGeneration.inFlightGeneration == nil
+        else { return }
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.deferRestoredPlaybackAfterNavigationFailure()
+        self.refreshInstalledUserScripts()
+    }
+
+    func pauseSurvivingDocument(_ webView: WKWebView?) {
+        webView?.stopLoading()
+        self.suppressSurvivingDocumentMedia(webView)
+    }
+
+    func suppressSurvivingDocumentMedia(_ webView: WKWebView?) {
+        webView?.evaluateJavaScript("""
+            window.__kasetAutoplayPending = false;
+            window.__kasetAutoplayAttempts = 0;
+            window.__kasetAutoplayRetryScheduled = false;
+            \(WebPlaybackDocumentGeneration.mediaSuppressionScript)
+        """, completionHandler: nil)
+    }
+
+    func handleDocumentNavigationFailure(
+        _ navigation: WKNavigation?,
+        webView: WKWebView,
+        error: Error
+    ) {
+        if WebPlaybackNavigationFailure.isRetryableCancellation(error) {
+            guard let navigation,
+                  let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+            else {
+                if let navigation,
+                   let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
+                       forKey: ObjectIdentifier(navigation)
+                   )
+                {
+                    if cancelledNavigation.shouldReportFailure {
+                        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                    }
+                    return
+                }
+                self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                return
+            }
+            let hasSameGenerationSuccessor = self.documentNavigations.contains { key, candidate in
+                key != ObjectIdentifier(navigation)
+                    && candidate.generation == trackedNavigation.generation
+            }
+            if !trackedNavigation.didActivatePlaybackOrigin,
+               hasSameGenerationSuccessor
+               || self.continuationGenerationsAwaitingStart.contains(trackedNavigation.generation)
+            {
+                self.documentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+                self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                return
+            }
+        }
+        self.failDocumentNavigation(navigation, webView: webView)
+        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+    }
+
+    func recoverFromContentProcessTermination(webView: WKWebView) {
+        guard webView === self.webView else { return }
+        DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
+        self.invalidateDocumentNavigationState()
+        self.cancelledDocumentNavigations.removeAll()
+
+        guard let playerService = self.coordinator?.playerService else {
+            if let blankURL = self.beginBlankDocumentNavigation() {
+                webView.load(URLRequest(url: blankURL))
+            }
+            return
+        }
+        guard !playerService.isStoppingPlayback else {
+            self.currentVideoId = nil
+            return
+        }
+        let videoId = playerService.pendingPlayVideoId
+            ?? playerService.currentTrack?.videoId
+            ?? self.currentVideoId
+        guard let videoId else {
+            if let blankURL = self.beginBlankDocumentNavigation() {
+                webView.load(URLRequest(url: blankURL))
+            }
+            return
+        }
+
+        let recoveryPlan = Self.contentProcessRecoveryPlan(
+            state: playerService.state,
+            progress: playerService.progress,
+            isShowingAd: playerService.isShowingAd,
+            lastNonAdContentProgress: playerService.lastNonAdContentProgress(for: videoId),
+            isPendingRestoredLoadDeferred: playerService.isPendingRestoredLoadDeferred
+        )
+        guard recoveryPlan.shouldReload else {
+            self.currentVideoId = nil
+            return
+        }
+
+        let preservedRestoredSeek = playerService.pendingRestoredSeekForWebRecovery(
+            videoId: videoId
+        )
+        let shouldAutoResume = if playerService.isRestoringPlaybackSession
+            || playerService.isPendingRestoredLoadDeferred
+        {
+            playerService.shouldAutoResumeAfterRestoredLoad
+        } else {
+            recoveryPlan.shouldReload && playerService.shouldResumeAfterInterruption
+        }
+        playerService.pendingRestoredSeek = preservedRestoredSeek ?? recoveryPlan.pendingSeek
+        playerService.beginRestoredPlaybackLoad(autoResumeAfterSeek: shouldAutoResume)
+        self.loadVideo(videoId: videoId, strategy: .forceFullPageWhenSameVideoId)
     }
 }

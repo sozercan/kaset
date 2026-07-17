@@ -4,6 +4,115 @@ import MediaPlayer
 import Observation
 import os
 
+// MARK: - RemoteMusicCommandDirection
+
+enum RemoteMusicCommandDirection: Equatable {
+    case forward
+    case backward
+}
+
+// MARK: - RemoteMusicCommandPayload
+
+enum RemoteMusicCommandPayload: Equatable {
+    case play
+    case pause
+    case togglePlayPause
+    case nextPrevious(direction: RemoteMusicCommandDirection)
+    case skip(interval: TimeInterval, direction: RemoteMusicCommandDirection)
+    case absoluteSeek(position: TimeInterval)
+}
+
+// MARK: - CapturedRemoteMusicCommand
+
+struct CapturedRemoteMusicCommand: Equatable {
+    let sequence: UInt64
+    let issuedAtMilliseconds: Double
+    let admittedAt: ContinuousClock.Instant
+    let payload: RemoteMusicCommandPayload
+}
+
+// MARK: - RemoteMusicCommandIngress
+
+/// Thread-safe callback inbox for native media commands. Callback order and clocks
+/// are captured synchronously before any MainActor scheduling can reorder delivery.
+final class RemoteMusicCommandIngress: @unchecked Sendable {
+    private struct State {
+        var nextSequence: UInt64 = 0
+        var pendingCommands: [CapturedRemoteMusicCommand] = []
+        var isDrainScheduled = false
+    }
+
+    private let lock = NSLock()
+    private var state = State()
+
+    /// Returns `true` only when the caller must schedule the single MainActor drain.
+    @discardableResult
+    func capture(_ payload: RemoteMusicCommandPayload) -> Bool {
+        self.lock.withLock {
+            self.captureLocked(
+                payload,
+                issuedAtMilliseconds: Date().timeIntervalSince1970 * 1000,
+                admittedAt: ContinuousClock.now
+            )
+        }
+    }
+
+    /// Deterministic clock injection for ingress ordering and stale-admission tests.
+    @discardableResult
+    func capture(
+        _ payload: RemoteMusicCommandPayload,
+        issuedAtMilliseconds: Double,
+        admittedAt: ContinuousClock.Instant
+    ) -> Bool {
+        self.lock.withLock {
+            self.captureLocked(
+                payload,
+                issuedAtMilliseconds: issuedAtMilliseconds,
+                admittedAt: admittedAt
+            )
+        }
+    }
+
+    func takePendingCommands() -> [CapturedRemoteMusicCommand] {
+        self.lock.withLock {
+            let commands = self.state.pendingCommands
+            self.state.pendingCommands.removeAll(keepingCapacity: true)
+            return commands
+        }
+    }
+
+    /// Returns `true` when callbacks arrived during the last batch and the existing
+    /// drain must loop. Otherwise, it atomically rearms scheduling for the next callback.
+    func finishDrainBatch() -> Bool {
+        self.lock.withLock {
+            guard self.state.pendingCommands.isEmpty else { return true }
+            self.state.isDrainScheduled = false
+            return false
+        }
+    }
+
+    private func captureLocked(
+        _ payload: RemoteMusicCommandPayload,
+        issuedAtMilliseconds: Double,
+        admittedAt: ContinuousClock.Instant
+    ) -> Bool {
+        let command = CapturedRemoteMusicCommand(
+            sequence: self.state.nextSequence,
+            issuedAtMilliseconds: issuedAtMilliseconds,
+            admittedAt: admittedAt,
+            payload: payload
+        )
+        self.state.nextSequence &+= 1
+        self.state.pendingCommands.append(command)
+
+        guard !self.state.isDrainScheduled else { return false }
+        self.state.isDrainScheduled = true
+        return true
+    }
+}
+
+// MARK: - NowPlayingManager
+
 /// Manages remote command center integration for media key support.
 /// Note: Now Playing info display is handled natively by WKWebView's media session.
 /// This class only sets up remote command handlers to route media keys to our PlayerService.
@@ -24,11 +133,8 @@ final class NowPlayingManager {
     private weak var youtubePlayerService: YouTubePlayerService?
     private weak var playbackArbiter: PlaybackArbiter?
     private let settings = SettingsManager.shared
+    private let remoteMusicCommandIngress = RemoteMusicCommandIngress()
     private static let defaultSkipInterval: TimeInterval = 15
-    private static let skipTargetCoalescingWindow: Duration = .seconds(1)
-    private var lastSkipTarget: TimeInterval?
-    private var lastSkipVideoId: String?
-    private var lastSkipIssuedAt: ContinuousClock.Instant?
 
     private init() {}
 
@@ -63,6 +169,13 @@ final class NowPlayingManager {
     /// Whether play/pause media keys should control the YouTube video player.
     private var routesToYouTubeVideo: Bool {
         self.playbackArbiter?.routesMediaKeysToVideo == true
+    }
+
+    nonisolated static func routesAbsoluteSeekToVideo(
+        routesToYouTubeVideo: Bool,
+        hasYouTubePlayer: Bool
+    ) -> Bool {
+        routesToYouTubeVideo && hasYouTubePlayer
     }
 
     private func observeSettingsChanges() {
@@ -100,8 +213,16 @@ final class NowPlayingManager {
     // MARK: - Remote Commands
 
     private func setupRemoteCommands() {
-        guard let player = playerService else { return }
+        guard self.playerService != nil else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
+        let ingress = self.remoteMusicCommandIngress
+        let captureCommand: @Sendable (RemoteMusicCommandPayload) -> Void = { [weak self] payload in
+            guard ingress.capture(payload) else { return }
+            Task { @MainActor [weak self] in
+                self?.drainRemoteMusicCommandIngress()
+            }
+        }
+
         // Remove any existing targets to prevent duplicates
         commandCenter.playCommand.removeTarget(nil)
         commandCenter.pauseCommand.removeTarget(nil)
@@ -114,202 +235,242 @@ final class NowPlayingManager {
 
         // Play command
         commandCenter.playCommand.isEnabled = true
-        commandCenter.playCommand.addTarget { [weak self] _ in
-            Task { @MainActor in
-                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                    youtube.resume()
-                } else {
-                    await player.resume()
-                }
-            }
+        commandCenter.playCommand.addTarget { _ in
+            captureCommand(.play)
             return .success
         }
 
         // Pause command
         commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { [weak self] _ in
-            Task { @MainActor in
-                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                    youtube.pause()
-                } else {
-                    await player.pause()
-                }
-            }
+        commandCenter.pauseCommand.addTarget { _ in
+            captureCommand(.pause)
             return .success
         }
 
         // Toggle play/pause command
         commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { [weak self] _ in
-            Task { @MainActor in
-                if let self, self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-                    youtube.playPause()
-                } else {
-                    await player.playPause()
-                }
-            }
+        commandCenter.togglePlayPauseCommand.addTarget { _ in
+            captureCommand(.togglePlayPause)
             return .success
         }
 
         // Next track command
         commandCenter.nextTrackCommand.isEnabled = true
-        commandCenter.nextTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task { @MainActor in
-                await self.handleNextPreviousMediaKey(direction: .forward, player: player)
-            }
+        commandCenter.nextTrackCommand.addTarget { _ in
+            captureCommand(.nextPrevious(direction: .forward))
             return .success
         }
 
         // Previous track command
         commandCenter.previousTrackCommand.isEnabled = true
-        commandCenter.previousTrackCommand.addTarget { [weak self] _ in
-            guard let self else { return .commandFailed }
-            Task { @MainActor in
-                await self.handleNextPreviousMediaKey(direction: .backward, player: player)
-            }
+        commandCenter.previousTrackCommand.addTarget { _ in
+            captureCommand(.nextPrevious(direction: .backward))
             return .success
         }
 
         // Skip forward command (Control Center skip buttons or media keys)
         commandCenter.skipForwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
-        commandCenter.skipForwardCommand.addTarget { [weak self] event in
-            guard let self else { return .commandFailed }
+        commandCenter.skipForwardCommand.addTarget { event in
             let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
-            Task { @MainActor in
-                await self.handleSkipCommand(interval: interval, direction: .forward, player: player)
-            }
+            captureCommand(.skip(interval: interval, direction: .forward))
             return .success
         }
 
         // Skip backward command (Control Center skip buttons or media keys)
         commandCenter.skipBackwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
-        commandCenter.skipBackwardCommand.addTarget { [weak self] event in
-            guard let self else { return .commandFailed }
+        commandCenter.skipBackwardCommand.addTarget { event in
             let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
-            Task { @MainActor in
-                await self.handleSkipCommand(interval: interval, direction: .backward, player: player)
-            }
+            captureCommand(.skip(interval: interval, direction: .backward))
             return .success
         }
 
         // Change playback position command
         commandCenter.changePlaybackPositionCommand.isEnabled = true
-        commandCenter.changePlaybackPositionCommand.addTarget { [weak self] event in
-            guard let self else { return .commandFailed }
+        commandCenter.changePlaybackPositionCommand.addTarget { event in
             guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }
-            let position = positionEvent.positionTime
-            Task { @MainActor in
-                self.clearSkipCoalescingTarget()
-                await player.seek(to: position)
-            }
+            captureCommand(.absoluteSeek(position: positionEvent.positionTime))
             return .success
         }
 
         self.logger.info("Remote commands configured")
     }
 
-    private enum SkipDirection {
-        case forward
-        case backward
+    private func drainRemoteMusicCommandIngress() {
+        while true {
+            let commands = self.remoteMusicCommandIngress.takePendingCommands()
+            if let player = self.playerService {
+                for command in commands {
+                    self.handleCapturedRemoteMusicCommand(command, player: player)
+                }
+            }
+            guard self.remoteMusicCommandIngress.finishDrainBatch() else { return }
+        }
     }
 
-    private func handleNextPreviousMediaKey(direction: SkipDirection, player: PlayerService) async {
+    private func handleCapturedRemoteMusicCommand(
+        _ capturedCommand: CapturedRemoteMusicCommand,
+        player: PlayerService
+    ) {
+        switch capturedCommand.payload {
+        case .play:
+            if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                youtube.handleRemoteResume(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else {
+                self.enqueueMusicRemoteCommand(.play, capturedCommand: capturedCommand, player: player)
+            }
+        case .pause:
+            if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                youtube.handleRemotePause(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else {
+                self.enqueueMusicRemoteCommand(.pause, capturedCommand: capturedCommand, player: player)
+            }
+        case .togglePlayPause:
+            if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                youtube.handleRemoteTogglePlayPause(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else {
+                self.enqueueMusicRemoteCommand(.togglePlayPause, capturedCommand: capturedCommand, player: player)
+            }
+        case let .nextPrevious(direction):
+            self.handleNextPreviousMediaKey(
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
+        case let .skip(interval, direction):
+            if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+                guard interval.isFinite else { return }
+                let delta = direction == .forward ? interval : -interval
+                youtube.handleRemoteSeek(
+                    to: max(0, youtube.progress + delta),
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+                return
+            }
+            self.handleSkipCommand(
+                interval: interval,
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
+        case let .absoluteSeek(position):
+            guard position.isFinite else { return }
+            if Self.routesAbsoluteSeekToVideo(
+                routesToYouTubeVideo: self.routesToYouTubeVideo,
+                hasYouTubePlayer: self.youtubePlayerService != nil
+            ), let youtube = self.youtubePlayerService {
+                youtube.handleRemoteSeek(
+                    to: position,
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else {
+                self.enqueueMusicRemoteCommand(
+                    .absoluteSeek(position: position),
+                    capturedCommand: capturedCommand,
+                    player: player
+                )
+            }
+        }
+    }
+
+    private func handleNextPreviousMediaKey(
+        direction: RemoteMusicCommandDirection,
+        capturedCommand: CapturedRemoteMusicCommand,
+        player: PlayerService
+    ) {
+        if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+            if self.settings.mediaControlStyle == .skipForwardBackward {
+                let delta = direction == .forward ? Self.defaultSkipInterval : -Self.defaultSkipInterval
+                youtube.handleRemoteSeek(
+                    to: max(0, youtube.progress + delta),
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            } else if direction == .forward {
+                Task { @MainActor in
+                    await youtube.handleRemoteSkipForward(
+                        issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                    )
+                }
+            } else {
+                youtube.handleRemoteSkipBackward(
+                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+                )
+            }
+            return
+        }
+
         if self.settings.mediaControlStyle == .skipForwardBackward {
-            await self.handleSkipCommand(interval: Self.defaultSkipInterval, direction: direction, player: player)
+            self.handleSkipCommand(
+                interval: Self.defaultSkipInterval,
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
         } else {
-            await self.handleTrackNavigation(direction: direction, player: player)
+            self.handleTrackNavigation(
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
         }
     }
 
     private func handleSkipCommand(
         interval: TimeInterval,
-        direction: SkipDirection,
+        direction: RemoteMusicCommandDirection,
+        capturedCommand: CapturedRemoteMusicCommand,
         player: PlayerService
-    ) async {
-        guard player.currentTrack != nil || player.pendingPlayVideoId != nil || !player.queue.isEmpty else {
-            return
-        }
+    ) {
+        guard interval.isFinite,
+              player.currentTrack != nil || player.pendingPlayVideoId != nil || !player.queue.isEmpty
+        else { return }
 
         if self.settings.mediaControlStyle == .nextPreviousTrack {
-            await self.handleTrackNavigation(direction: direction, player: player)
+            self.handleTrackNavigation(
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
             return
         }
 
-        let now = ContinuousClock.now
-        let currentVideoId = player.currentTrack?.videoId ?? player.pendingPlayVideoId
-        if let currentVideoId {
-            if self.lastSkipVideoId != currentVideoId {
-                self.clearSkipCoalescingTarget()
-            }
-            self.lastSkipVideoId = currentVideoId
-        }
-
-        guard let playbackSnapshot = await SingletonPlayerWebView.shared.currentPlaybackSnapshot(),
-              self.playbackSnapshot(playbackSnapshot, matches: currentVideoId)
-        else {
-            self.clearSkipCoalescingTarget()
-            return
-        }
-
-        let reportedProgress = playbackSnapshot.progress
-        let reportedDuration = playbackSnapshot.duration
-
-        // WebView progress can lag behind rapid media-key repeats. Briefly use the cached
-        // target so repeated or reversed skips accumulate before stale observer updates land.
-        let baseProgress = if self.canCoalesceSkipTarget(at: now), let lastSkipTarget = self.lastSkipTarget {
-            lastSkipTarget
-        } else {
-            reportedProgress
-        }
-
-        let rawTarget = switch direction {
-        case .forward:
-            baseProgress + interval
-        case .backward:
-            baseProgress - interval
-        }
-        let target = if reportedDuration > 0 {
-            min(max(0, rawTarget), reportedDuration)
-        } else {
-            max(0, rawTarget)
-        }
-
-        self.lastSkipTarget = target
-        self.lastSkipIssuedAt = now
-        player.progress = target
-        await player.seek(to: target)
+        let delta = direction == .forward ? interval : -interval
+        self.enqueueMusicRemoteCommand(
+            .relativeSeek(delta: delta, admittedAt: capturedCommand.admittedAt),
+            capturedCommand: capturedCommand,
+            player: player
+        )
     }
 
-    private func playbackSnapshot(
-        _ snapshot: SingletonPlayerWebView.PlaybackSnapshot?,
-        matches currentVideoId: String?
-    ) -> Bool {
-        guard let snapshotVideoId = snapshot?.videoId, let currentVideoId else { return true }
-        return snapshotVideoId == currentVideoId
+    private func handleTrackNavigation(
+        direction: RemoteMusicCommandDirection,
+        capturedCommand: CapturedRemoteMusicCommand,
+        player: PlayerService
+    ) {
+        self.enqueueMusicRemoteCommand(
+            direction == .forward ? .next : .previous,
+            capturedCommand: capturedCommand,
+            player: player
+        )
     }
 
-    private func handleTrackNavigation(direction: SkipDirection, player: PlayerService) async {
-        self.clearSkipCoalescingTarget()
-        switch direction {
-        case .forward:
-            await player.next()
-        case .backward:
-            await player.previous()
-        }
-    }
-
-    private func canCoalesceSkipTarget(at now: ContinuousClock.Instant) -> Bool {
-        guard let lastSkipIssuedAt = self.lastSkipIssuedAt else { return false }
-        return now - lastSkipIssuedAt <= Self.skipTargetCoalescingWindow
-    }
-
-    private func clearSkipCoalescingTarget() {
-        self.lastSkipTarget = nil
-        self.lastSkipIssuedAt = nil
+    private func enqueueMusicRemoteCommand(
+        _ command: MusicRemoteTransportCommand,
+        capturedCommand: CapturedRemoteMusicCommand,
+        player: PlayerService
+    ) {
+        player.enqueueRemoteMusicTransportCommand(
+            command,
+            issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+        )
     }
 }

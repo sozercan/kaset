@@ -1,8 +1,25 @@
+// swiftlint:disable file_length
+
 import Foundation
 
 // MARK: - Observer & Extraction Scripts
 
 extension YouTubeWatchWebView {
+    func markCurrentPlaybackOccurrenceEnded() {
+        guard let webView = self.webView else { return }
+        let generation = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: generation) else { return }
+        webView.evaluateJavaScript(
+            """
+            if (window.__kasetDocumentGeneration === \(generation)) {
+                const video = document.querySelector('video');
+                if (video) { video.__kasetEndedReported = true; }
+            }
+            """,
+            completionHandler: nil
+        )
+    }
+
     /// Observer script for youtube.com watch pages.
     ///
     /// Posts event-driven `STATE_UPDATE` and `VIDEO_ENDED` messages to the
@@ -18,13 +35,17 @@ extension YouTubeWatchWebView {
             const bridge = window.webkit.messageHandlers.youtubePlayer;
             const UPDATE_THROTTLE_MS = 1000;
             const MAX_ATTACH_RETRIES = 20;
-            let lastVideoId = '';
-            let lastUpdateTime = 0;
-            let trailingUpdateTimeoutId = null;
-            let attachRetryCount = 0;
-            let attachRetryTimeoutId = null;
-            let attachDebounceTimeoutId = null;
-            let videoObserver = null;
+            var mediaGeneration = 0;
+            var mediaVideoId = '';
+            var mediaSource = '';
+            var lastMediaCurrentTime = 0;
+            var mediaIdentityNeedsRefresh = false;
+            var lastUpdateTime = 0;
+            var trailingUpdateTimeoutId = null;
+            var attachRetryCount = 0;
+            var attachRetryTimeoutId = null;
+            var attachDebounceTimeoutId = null;
+            var videoObserver = null;
 
             function moviePlayer() {
                 return document.getElementById('movie_player');
@@ -69,6 +90,7 @@ extension YouTubeWatchWebView {
                 try {
                     const video = videoEl();
                     if (!video) { return; }
+                    bindVideoIdentity(video, false);
                     applyPendingSeek(video);
 
                     if (force) {
@@ -89,25 +111,116 @@ extension YouTubeWatchWebView {
                     lastUpdateTime = Date.now();
 
                     const videoId = currentVideoId();
-                    if (videoId !== '') { lastVideoId = videoId; }
+                    const hasReadyMedia = !!(video.currentSrc && video.readyState >= 1);
+                    const pendingSeekApplied = window.__kasetPendingSeekApplied === true;
+                    const pendingSeekFailed = window.__kasetPendingSeekFailed === true;
+                    const pendingSeekTarget = window.__kasetPendingSeekResultTarget;
+                    const pendingSeekVideoId = window.__kasetPendingSeekResultVideoId || '';
+                    const pendingSeekAttempt = window.__kasetPendingSeekAttempt;
+                    const nativePausePending = window.__kasetNativePausePending === true;
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
+                        documentGeneration: window.__kasetDocumentGeneration,
+                        mediaGeneration: video.__kasetMediaGeneration || mediaGeneration,
                         isPlaying: !video.paused && !video.ended,
                         progress: video.currentTime || 0,
                         duration: (video.duration && isFinite(video.duration)) ? video.duration : 0,
+                        hasReadyMedia: hasReadyMedia,
                         videoId: videoId,
+                        boundVideoId: video.__kasetBoundVideoId || '',
                         title: currentTitle(),
-                        isAd: isAdShowing()
+                        isAd: isAdShowing(),
+                        pendingSeekApplied: pendingSeekApplied,
+                        pendingSeekFailed: pendingSeekFailed,
+                        pendingSeekTarget: pendingSeekTarget,
+                        pendingSeekVideoId: pendingSeekVideoId,
+                        pendingSeekAttempt: pendingSeekAttempt,
+                        nativePausePending: nativePausePending
+                        ,eventIssuedAtMilliseconds: (typeof performance !== 'undefined'
+                            && Number.isFinite(performance.timeOrigin)
+                            && typeof performance.now === 'function')
+                            ? performance.timeOrigin + performance.now()
+                            : Date.now()
                     });
+                    if (pendingSeekApplied) window.__kasetPendingSeekApplied = false;
+                    if (pendingSeekFailed) window.__kasetPendingSeekFailed = false;
+                    if (pendingSeekApplied || pendingSeekFailed) {
+                        window.__kasetPendingSeekResultTarget = null;
+                        window.__kasetPendingSeekResultVideoId = null;
+                    }
                 } catch (e) {
                     console.log('[KasetYT] update error: ' + e);
                 }
             }
 
-            function sendEnded() {
+            function bindVideoIdentity(video, transitionEvidence) {
+                if (!video || video !== videoEl()) { return; }
+                const videoId = currentVideoId();
+                const resolvedVideoId = videoId
+                    || (!video.__kasetBoundVideoId
+                        ? (window.__kasetPendingSeekVideoId || '')
+                        : '');
+                const source = video.currentSrc || video.src || '';
+                const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+                const hasBoundOccurrence = !!video.__kasetMediaGeneration;
+                const isReplacementElement = !hasBoundOccurrence && mediaGeneration > 0;
+                const previousMediaVideoId = mediaVideoId;
+                const sourceChanged = hasBoundOccurrence && source !== mediaSource;
+                const mediaTimeReset = hasBoundOccurrence && currentTime + 2 < lastMediaCurrentTime;
+                const identityChanged = !!resolvedVideoId
+                    && !!mediaVideoId
+                    && resolvedVideoId !== mediaVideoId;
+                const identityBecameKnown = !!resolvedVideoId && !mediaVideoId;
+                const shouldBind = !hasBoundOccurrence
+                    || sourceChanged
+                    || mediaTimeReset
+                    || (identityChanged && transitionEvidence === true);
+
+                if (!shouldBind) {
+                    if (identityBecameKnown || (identityChanged && mediaIdentityNeedsRefresh)) {
+                        mediaVideoId = resolvedVideoId;
+                        video.__kasetBoundVideoId = resolvedVideoId;
+                        mediaIdentityNeedsRefresh = false;
+                    }
+                    if (!identityChanged) lastMediaCurrentTime = currentTime;
+                    return;
+                }
+
+                mediaGeneration += 1;
+                mediaVideoId = resolvedVideoId;
+                mediaSource = source;
+                lastMediaCurrentTime = currentTime;
+                mediaIdentityNeedsRefresh = (isReplacementElement || sourceChanged || mediaTimeReset)
+                    && (!resolvedVideoId || resolvedVideoId === previousMediaVideoId);
+                video.__kasetMediaGeneration = mediaGeneration;
+                video.__kasetEndedReported = false;
+                video.__kasetBoundVideoId = resolvedVideoId;
+                window.__kasetPendingSeekInFlightAttempt = null;
+            }
+
+            function armEndedOccurrence(video) {
+                if (!video || video !== videoEl() || video.ended) { return; }
+                bindVideoIdentity(video, false);
+                if (video.__kasetEndedReported === true) {
+                    mediaGeneration += 1;
+                    video.__kasetMediaGeneration = mediaGeneration;
+                }
+                video.__kasetEndedReported = false;
+            }
+
+            function sendEnded(video) {
+                if (video !== videoEl() || !video.ended || video.__kasetEndedReported === true) {
+                    return;
+                }
+                video.__kasetEndedReported = true;
                 bridge.postMessage({
                     type: 'VIDEO_ENDED',
-                    videoId: lastVideoId || currentVideoId()
+                    documentGeneration: window.__kasetDocumentGeneration,
+                    mediaGeneration: video.__kasetMediaGeneration || mediaGeneration,
+                    pendingSeekAttempt: window.__kasetPendingSeekAttempt,
+                    eventIssuedAtMilliseconds: Date.now(),
+                    videoId: video.__kasetBoundVideoId || currentVideoId(),
+                    isAd: isAdShowing()
                 });
             }
 
@@ -139,22 +252,86 @@ extension YouTubeWatchWebView {
             function applyPendingSeek(video) {
                 const target = window.__kasetPendingSeek;
                 if (typeof target !== 'number') { return; }
-                // Don't seek (or consume the pending value) on a preroll-ad video
-                // element — wait for the real content player, or the content would
-                // start from 0 after the ad.
+                // An ad can expose the creative's video ID; never consume the
+                // requested content seek against advertisement media.
                 if (isAdShowing()) { return; }
-                if (video.readyState < 1) { return; }
+                if (video.readyState < 1 || !video.currentSrc) { return; }
+                const expectedVideoId = window.__kasetPendingSeekVideoId;
+                const boundVideoId = video.__kasetBoundVideoId || '';
+                if (expectedVideoId && boundVideoId !== expectedVideoId) {
+                    // Metadata can lead the physical media during SPA changes.
+                    // Keep the target armed until this element is actually bound
+                    // to the requested content occurrence.
+                    return;
+                }
+                if (!video.seekable || video.seekable.length === 0) { return; }
+                const seekAttempt = window.__kasetPendingSeekAttempt || 0;
+                window.__kasetPendingSeekAttempt = seekAttempt;
+                if (window.__kasetPendingSeekInFlightAttempt === seekAttempt) { return; }
+                window.__kasetPendingSeekInFlightAttempt = seekAttempt;
                 try {
-                    video.currentTime = target;
-                    // Re-assert once if the player clobbers currentTime back near 0.
-                    setTimeout(function() {
-                        if (typeof window.__kasetPendingSeek === 'number' &&
-                            Math.abs(video.currentTime - target) > 1.5) {
-                            try { video.currentTime = target; } catch (e) {}
+                    const seekMediaGeneration = video.__kasetMediaGeneration || 0;
+                    const seekSource = video.currentSrc;
+                    function stillOwnsSeekOperation() {
+                        return video === videoEl()
+                            && window.__kasetPendingSeek === target
+                            && (window.__kasetPendingSeekVideoId || '') === (expectedVideoId || '')
+                            && (video.__kasetBoundVideoId || '') === (expectedVideoId || '')
+                            && (video.__kasetMediaGeneration || 0) === seekMediaGeneration
+                            && video.currentSrc === seekSource
+                            && window.__kasetPendingSeekAttempt === seekAttempt
+                            && window.__kasetPendingSeekInFlightAttempt === seekAttempt;
+                    }
+                    const firstSeekable = video.seekable.start(0);
+                    const lastSeekable = video.seekable.end(video.seekable.length - 1);
+                    const hasFiniteDuration = video.duration && isFinite(video.duration);
+                    const resolvedTarget = hasFiniteDuration
+                        ? Math.min(Math.max(target, 0), video.duration)
+                        : Math.min(Math.max(target, firstSeekable), lastSeekable);
+                    window.__kasetPendingSeekWaits = 0;
+                    video.currentTime = resolvedTarget;
+                    function reportSeekResult() {
+                        if (!stillOwnsSeekOperation()) return;
+                        if (Math.abs(video.currentTime - resolvedTarget) <= 1.5) {
+                            window.__kasetPendingSeek = null;
+                            window.__kasetPendingSeekVideoId = null;
+                            window.__kasetPendingSeekWaits = 0;
+                            window.__kasetPendingSeekApplied = true;
+                            window.__kasetPendingSeekResultTarget = target;
+                            window.__kasetPendingSeekResultVideoId = expectedVideoId
+                                || currentVideoId()
+                                || video.__kasetBoundVideoId
+                                || '';
+                        } else {
+                            window.__kasetPendingSeek = null;
+                            window.__kasetPendingSeekVideoId = null;
+                            window.__kasetPendingSeekWaits = 0;
+                            window.__kasetPendingSeekFailed = true;
+                            window.__kasetPendingSeekResultTarget = target;
+                            window.__kasetPendingSeekResultVideoId = expectedVideoId
+                                || currentVideoId()
+                                || video.__kasetBoundVideoId
+                                || '';
                         }
-                        window.__kasetPendingSeek = null;
+                        window.__kasetPendingSeekInFlightAttempt = null;
+                        sendUpdate(true);
+                    }
+                    // Re-assert once if the player clobbers currentTime back near 0,
+                    // then wait again before reporting success.
+                    setTimeout(function() {
+                        if (!stillOwnsSeekOperation()) return;
+                        if (Math.abs(video.currentTime - resolvedTarget) > 1.5) {
+                            try { video.currentTime = resolvedTarget; } catch (e) {}
+                            setTimeout(reportSeekResult, 400);
+                            return;
+                        }
+                        reportSeekResult();
                     }, 400);
-                } catch (e) {}
+                } catch (e) {
+                    if (window.__kasetPendingSeekInFlightAttempt === seekAttempt) {
+                        window.__kasetPendingSeekInFlightAttempt = null;
+                    }
+                }
             }
 
             function disableAutonav() {
@@ -167,28 +344,51 @@ extension YouTubeWatchWebView {
                 } catch (e) {}
             }
 
-            function handlePlaybackStarted() {
-                const video = videoEl();
-                if (video) { enforceVolume(video); }
+            function eventVideo(event) {
+                return (event && event.currentTarget) || videoEl();
+            }
+
+            function handlePlaybackStarted(event) {
+                const video = eventVideo(event);
+                if (!video) return;
+                bindVideoIdentity(video, false);
+                armEndedOccurrence(video);
+                enforceVolume(video);
                 sendUpdate(true);
             }
 
-            function handlePlaybackStopped() {
+            function handlePlaybackStopped(event) {
+                const video = eventVideo(event);
+                if (!video) return;
+                if (event && event.type === 'pause') {
+                    window.__kasetNativePausePending = false;
+                }
+                if (event && (event.type === 'loadedmetadata' || event.type === 'canplay')) {
+                    bindVideoIdentity(video, true);
+                } else {
+                    bindVideoIdentity(video, false);
+                }
+                if (event && (event.type === 'seeked' || event.type === 'loadedmetadata'
+                    || event.type === 'canplay')) {
+                    armEndedOccurrence(video);
+                }
                 sendUpdate(true);
             }
 
-            function handleTimelineUpdate() {
-                const video = videoEl();
-                if (!video) { return; }
+            function handleTimelineUpdate(event) {
+                const video = eventVideo(event);
+                if (!video) return;
+                bindVideoIdentity(video, false);
                 applyPendingSeek(video);
                 if (!video.paused && !video.ended) {
                     sendUpdate(false);
                 }
             }
 
-            function handleEnded() {
+            function handleEnded(event) {
+                const endedVideo = event.currentTarget;
                 sendUpdate(true);
-                sendEnded();
+                sendEnded(endedVideo);
             }
 
             function attach() {
@@ -200,12 +400,17 @@ extension YouTubeWatchWebView {
                     applyPendingSeek(video);
                     if (videoId && video.__kasetAttachedVideoId !== videoId) {
                         video.__kasetAttachedVideoId = videoId;
+                        bindVideoIdentity(video, true);
+                        armEndedOccurrence(video);
                         sendUpdate(true);
                     }
                     return true;
                 }
                 video.__kasetAttached = true;
                 video.__kasetAttachedVideoId = videoId || '';
+                video.__kasetEndedReported = false;
+                bindVideoIdentity(video, video.readyState >= 1);
+                armEndedOccurrence(video);
                 attachRetryCount = 0;
 
                 ['play', 'playing'].forEach(function(evt) {
@@ -528,7 +733,15 @@ extension YouTubeWatchWebView {
             (function() {
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');
                 if (!video) { return 'no-video'; }
-                if (video.paused) { video.play(); return 'playing'; } else { video.pause(); return 'paused'; }
+                if (video.paused) {
+                    window.__kasetNativePausePending = false;
+                    video.play();
+                    return 'playing';
+                } else {
+                    window.__kasetNativePausePending = true;
+                    video.pause();
+                    return 'paused';
+                }
             })();
             """,
             completionHandler: nil
@@ -540,6 +753,7 @@ extension YouTubeWatchWebView {
         self.webView?.evaluateJavaScript(
             """
             (function() {
+                window.__kasetNativePausePending = false;
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');
                 if (video && video.paused) { video.play(); }
             })();
@@ -553,6 +767,7 @@ extension YouTubeWatchWebView {
         self.webView?.evaluateJavaScript(
             """
             (function() {
+                window.__kasetNativePausePending = true;
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');
                 if (video && !video.paused) { video.pause(); }
             })();

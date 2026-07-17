@@ -32,11 +32,16 @@ final class PlaybackArbiter {
     /// Video playback is about to start — pause music.
     func videoWillStartPlaying() {
         self.activeSource = .video
+        let intent = self.playerService.beginMusicPlaybackIntent()
 
-        guard self.playerService.isPlaying else { return }
+        let hasActiveOrPendingMusic = self.playerService.isPlaying
+            || self.playerService.state == .loading
+            || self.playerService.isAwaitingPlaybackConfirmation
+            || self.playerService.pendingPlayVideoId != nil
+        guard hasActiveOrPendingMusic else { return }
         self.logger.info("Arbiter: pausing music for video playback")
         Task {
-            await self.playerService.pause()
+            await self.playerService.pause(intent: intent)
         }
     }
 

@@ -403,6 +403,7 @@ extension SingletonPlayerWebView {
             function collectAudioQualitySnapshot(quality, desired, applied, players) {
                 var snapshot = {
                     type: 'PLAYBACK_AUDIO_QUALITY_STATS',
+                    documentGeneration: window.__kasetDocumentGeneration,
                     preferred: quality,
                     desired: desired,
                     applied: !!applied,
