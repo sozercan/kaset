@@ -77,7 +77,7 @@ struct KasetApp: App {
     /// Incoming app URLs received before auth initialization and guest-startup
     /// cleanup complete. These are replayed only after guest cleanup has run so
     /// cleanup cannot erase URL-started playback.
-    @State private var pendingIncomingURL: URL?
+    @State private var pendingIncomingURLs: [URL] = []
 
     @State private var didCompleteStartupPlaybackCleanup = false
 
@@ -231,7 +231,7 @@ struct KasetApp: App {
                         }
                         self.didCompleteStartupPlaybackCleanup = true
                     }
-                    self.drainPendingIncomingURLIfReady()
+                    self.drainPendingIncomingURLsIfReady()
 
                     // Fetch accounts after login check (for account switcher)
                     await self.accountService?.fetchAccounts()
@@ -649,21 +649,24 @@ struct KasetApp: App {
 
         guard !self.authService.state.isInitializing, self.didCompleteStartupPlaybackCleanup else {
             DiagnosticsLogger.app.info("Startup auth/guest cleanup still running; deferring incoming URL")
-            self.pendingIncomingURL = url
+            self.pendingIncomingURLs.append(url)
             return
         }
 
         self.handleReadyIncomingURL(url)
     }
 
-    private func drainPendingIncomingURLIfReady() {
+    private func drainPendingIncomingURLsIfReady() {
         guard !self.authService.state.isInitializing,
               self.didCompleteStartupPlaybackCleanup,
-              let url = self.pendingIncomingURL
+              !self.pendingIncomingURLs.isEmpty
         else { return }
 
-        self.pendingIncomingURL = nil
-        self.handleReadyIncomingURL(url)
+        let urls = self.pendingIncomingURLs
+        self.pendingIncomingURLs.removeAll()
+        for url in urls {
+            self.handleReadyIncomingURL(url)
+        }
     }
 
     private func handleReadyIncomingURL(_ url: URL) {
@@ -688,9 +691,12 @@ struct KasetApp: App {
                 artists: [],
                 videoId: videoId
             )
+            // Reserve intent synchronously so a later URL in the same batch
+            // invalidates this asynchronous playback before it can start.
+            let intent = self.playerService.beginMusicPlaybackIntent()
             Task {
                 // Match AppleScript `play video` / other external play entry points.
-                await self.playerService.playWithRadio(song: song)
+                await self.playerService.playWithRadio(song: song, intent: intent)
             }
 
         case let .youtubeVideo(videoId):
