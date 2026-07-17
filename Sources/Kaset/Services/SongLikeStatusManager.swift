@@ -39,8 +39,16 @@ final class SongLikeStatusManager {
     private static let primaryAccountID = "primary"
     static let guestAccountID = "guest"
 
+    /// Bumped on every cache mutation so observers (the now-playing like status) can
+    /// re-resolve when likes are (re)seeded. The Liked Music seed can land after a track
+    /// already resolved to `.indifferent`, and the cache is cleared then refilled across
+    /// login identity switches — a one-shot read at track load misses it.
+    private(set) var cacheGeneration: UInt64 = 0
+
     /// Cache of account ID to (video ID to like status).
-    private var statusCacheByAccount: [String: [String: LikeStatus]] = [:]
+    private var statusCacheByAccount: [String: [String: LikeStatus]] = [:] {
+        didSet { self.cacheGeneration &+= 1 }
+    }
 
     /// Monotonic latest-operation revisions scoped by account and video ID.
     private var sessionGeneration: UInt64 = 0

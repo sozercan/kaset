@@ -444,6 +444,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     override init() {
         super.init()
+        self.observeNowPlayingLikeStatus()
         // Restore saved volume from UserDefaults
         if UserDefaults.standard.object(forKey: Self.volumeKey) != nil {
             let savedVolume = UserDefaults.standard.double(forKey: Self.volumeKey)
