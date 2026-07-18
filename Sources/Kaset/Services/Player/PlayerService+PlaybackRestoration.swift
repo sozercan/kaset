@@ -314,7 +314,12 @@ extension PlayerService {
     /// via the existing restored-session machinery.
     func reloadCurrentTrackForIdentitySwitch() {
         self.accountSessionGeneration &+= 1
-        self.songLikeStatusManager.invalidateSession()
+        // Do NOT wipe the like cache here. On launch this fires AFTER the Liked Music page
+        // seeds its first page (rows 1-100), and the paging re-seed only covers pages 2+,
+        // so clearing permanently drops the top ~100 liked tracks from the cache — the songs
+        // shown first read "not liked". Bump the session generation but keep the cache;
+        // account scoping + the reactive now-playing resolver keep it correct.
+        self.songLikeStatusManager.invalidateSession(clearsActiveCache: false)
         self.beginMusicPlaybackIntent()
         self.cancelDeferredQueueWork()
         self.clearQueueUndoRedoHistory()

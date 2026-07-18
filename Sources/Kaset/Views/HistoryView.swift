@@ -77,6 +77,7 @@ struct HistoryView: View {
         .refreshable {
             await self.performRefresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .history)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
