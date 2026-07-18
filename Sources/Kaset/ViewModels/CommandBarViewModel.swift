@@ -224,7 +224,7 @@ final class CommandBarViewModel {
         do {
             self.phase = .aiParsing
             let parsedCommand = try await self.resolveCommand(query: query)
-            await self.executeParsedCommand(parsedCommand)
+            await self.executeParsedCommand(parsedCommand, originalQuery: query)
         } catch {
             let handledError = AIErrorHandler.handle(error)
 
@@ -277,7 +277,7 @@ final class CommandBarViewModel {
         }
     }
 
-    private func executeParsedCommand(_ parsedCommand: CommandBarParseResult) async {
+    private func executeParsedCommand(_ parsedCommand: CommandBarParseResult, originalQuery: String) async {
         if parsedCommand.isQueueInspection {
             await self.describeQueue()
             return
@@ -295,7 +295,7 @@ final class CommandBarViewModel {
         }
 
         self.phase = .executing
-        await self.applyOutcome(self.executor.execute(.musicIntent(intent)))
+        await self.applyOutcome(self.executor.execute(.musicIntent(intent, originalQuery: originalQuery)))
     }
 
     private func describeQueue() async {

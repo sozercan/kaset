@@ -3,6 +3,11 @@ import Foundation
 @available(macOS 26.0, *)
 @MainActor
 struct CommandExecutor {
+    private enum ResolvableContentKey: Hashable {
+        case moodCategory(MoodCategoryEndpoint)
+        case playlist(String)
+    }
+
     enum Request: Equatable {
         case pause
         case resume
@@ -16,7 +21,7 @@ struct CommandExecutor {
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
-        case musicIntent(MusicIntent)
+        case musicIntent(MusicIntent, originalQuery: String)
     }
 
     struct Outcome: Equatable {
@@ -115,8 +120,8 @@ struct CommandExecutor {
         case let .openSearch(query):
             return .openSearch(query)
 
-        case let .musicIntent(intent):
-            return await self.executeMusicIntent(intent)
+        case let .musicIntent(intent, originalQuery):
+            return await self.executeMusicIntent(intent, originalQuery: originalQuery)
         }
     }
 
@@ -161,10 +166,11 @@ struct CommandExecutor {
         return .result(summary, shouldDismiss: false)
     }
 
-    private func executeMusicIntent(_ intent: MusicIntent) async -> Outcome {
-        let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent)
-        let description = ContentSourceResolver.queryDescription(for: intent)
-        let contentSource = ContentSourceResolver.suggestedContentSource(for: intent)
+    private func executeMusicIntent(_ intent: MusicIntent, originalQuery: String) async -> Outcome {
+        let intent = ContentSourceResolver.groundedIntent(intent, groundingQuery: originalQuery)
+        let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery)
+        let description = ContentSourceResolver.queryDescription(for: intent, groundingQuery: originalQuery)
+        let contentSource = ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery)
 
         self.logger.info("Executing intent: \(intent.action.rawValue)")
         self.logger.info("  Raw query: \(intent.query)")
@@ -231,7 +237,8 @@ struct CommandExecutor {
 
         case .search:
             let fallbackQuery = intent.query.isEmpty ? searchQuery : intent.query
-            return .openSearch(fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines))
+            let queryToOpen = CommandIntentParser.explicitSearchQuery(from: originalQuery) ?? fallbackQuery
+            return .openSearch(queryToOpen.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 
@@ -292,7 +299,7 @@ struct CommandExecutor {
     ) async -> Outcome {
         switch source {
         case .moodsAndGenres:
-            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
+            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent), !songs.isEmpty {
                 await self.playerService.playQueue(songs, startingAt: 0)
                 return .result("Playing \(description.isEmpty ? "curated playlist" : description)")
             }
@@ -320,7 +327,7 @@ struct CommandExecutor {
     ) async -> Outcome {
         switch source {
         case .moodsAndGenres:
-            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
+            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent), !songs.isEmpty {
                 if self.playerService.queue.isEmpty {
                     await self.playerService.playQueue(songs, startingAt: 0)
                     return .result("Playing \(description.isEmpty ? "curated playlist" : description)")
@@ -356,38 +363,220 @@ struct CommandExecutor {
             let searchTerms = self.buildSearchTerms(from: intent)
             self.logger.info("Searching Moods & Genres with terms: \(searchTerms)")
 
-            for section in response.sections {
-                if self.matchesSearchTerms(section.title, searchTerms) {
-                    if let playlistItem = section.items.first(where: { $0.playlist != nil }),
-                       let playlist = playlistItem.playlist
-                    {
-                        return try await self.fetchPlaylistSongs(playlistId: playlist.id)
-                    }
-
-                    let songs = section.items.compactMap { item -> Song? in
-                        if case let .song(song) = item {
-                            return song
-                        }
-                        return nil
-                    }
-                    if !songs.isEmpty {
-                        return Array(songs.prefix(25))
-                    }
-                }
-
-                for item in section.items where self.matchesSearchTerms(item.title, searchTerms) {
-                    if let playlist = item.playlist {
-                        return try await self.fetchPlaylistSongs(playlistId: playlist.id)
-                    }
-                }
+            let exactCandidates = self.exactMatchingPlaylists(in: response, matching: searchTerms)
+            if let songs = try await self.firstResolvedSongs(
+                from: exactCandidates,
+                searchTerms: searchTerms,
+                visitedCategories: []
+            ) {
+                return songs
             }
 
-            self.logger.info("No matching Moods & Genres content found")
-            return nil
+            let directSongs = self.rankedSongs(in: response, matching: searchTerms)
+            if !directSongs.isEmpty {
+                return Array(directSongs.prefix(25))
+            }
+
+            let exactKeys = Set(exactCandidates.map(self.resolvableContentKey))
+            let remainingCandidates = self.rankedPlaylists(
+                in: response,
+                matching: searchTerms,
+                includeFallback: false
+            ).filter { !exactKeys.contains(self.resolvableContentKey($0)) }
+            return try await self.firstResolvedSongs(
+                from: remainingCandidates,
+                searchTerms: searchTerms,
+                visitedCategories: []
+            )
         } catch {
             self.logger.error("Failed to fetch Moods & Genres: \(error.localizedDescription)")
             return nil
         }
+    }
+
+    private func resolveSongs(
+        from playlist: Playlist,
+        searchTerms: [String],
+        visitedCategories: Set<MoodCategoryEndpoint>
+    ) async throws -> [Song]? {
+        // Mood/genre landing cards are represented as Playlist values for shared UI,
+        // but their IDs encode a category browse request rather than playlist tracks.
+        if let category = playlist.resolvedMoodCategoryEndpoint {
+            guard !visitedCategories.contains(category) else {
+                self.logger.warning("Skipping cyclic mood category: \(playlist.title)")
+                return nil
+            }
+
+            var visitedCategories = visitedCategories
+            visitedCategories.insert(category)
+            let response = try await self.client.getMoodCategory(
+                browseId: category.browseId,
+                params: category.params
+            )
+            return try await self.resolveSongs(
+                fromMoodCategory: response,
+                searchTerms: searchTerms,
+                visitedCategories: visitedCategories
+            )
+        }
+
+        return try await self.fetchNonEmptyPlaylistSongs(playlistId: playlist.id)
+    }
+
+    private func resolveSongs(
+        fromMoodCategory response: HomeResponse,
+        searchTerms: [String],
+        visitedCategories: Set<MoodCategoryEndpoint>
+    ) async throws -> [Song]? {
+        var seenVideoIds: Set<String> = []
+        let directSongs = response.sections.flatMap { section in
+            section.items.compactMap { item -> Song? in
+                if case let .song(song) = item,
+                   seenVideoIds.insert(song.videoId).inserted
+                {
+                    return song
+                }
+                return nil
+            }
+        }
+        if !directSongs.isEmpty {
+            return Array(directSongs.prefix(25))
+        }
+
+        let candidates = self.rankedPlaylists(
+            in: response,
+            matching: searchTerms,
+            includeFallback: true
+        )
+        return try await self.firstResolvedSongs(
+            from: candidates,
+            searchTerms: searchTerms,
+            visitedCategories: visitedCategories
+        )
+    }
+
+    private func firstResolvedSongs(
+        from playlists: [Playlist],
+        searchTerms: [String],
+        visitedCategories: Set<MoodCategoryEndpoint>
+    ) async throws -> [Song]? {
+        for playlist in playlists {
+            if let songs = try await self.resolveSongs(
+                from: playlist,
+                searchTerms: searchTerms,
+                visitedCategories: visitedCategories
+            ) {
+                return songs
+            }
+        }
+        return nil
+    }
+
+    private func resolvableContentKey(_ playlist: Playlist) -> ResolvableContentKey {
+        if let category = playlist.resolvedMoodCategoryEndpoint {
+            return .moodCategory(category)
+        }
+        return .playlist(playlist.id)
+    }
+
+    private func rankedSongs(in response: HomeResponse, matching searchTerms: [String]) -> [Song] {
+        var result: [Song] = []
+        var seenVideoIds: Set<String> = []
+
+        func append(_ songs: [Song]) {
+            for song in songs where seenVideoIds.insert(song.videoId).inserted {
+                result.append(song)
+            }
+        }
+
+        for term in searchTerms {
+            for section in response.sections where self.exactlyMatchesSearchTerm(section.title, [term]) {
+                append(section.items.compactMap { item -> Song? in
+                    guard case let .song(song) = item else { return nil }
+                    return song
+                })
+            }
+        }
+        for term in searchTerms {
+            for section in response.sections where self.matchesSearchTerms(section.title, [term]) {
+                append(section.items.compactMap { item -> Song? in
+                    guard case let .song(song) = item else { return nil }
+                    return song
+                })
+            }
+        }
+        return result
+    }
+
+    private func exactMatchingPlaylists(in response: HomeResponse, matching searchTerms: [String]) -> [Playlist] {
+        var result: [Playlist] = []
+        var seenKeys: Set<ResolvableContentKey> = []
+
+        func append(_ playlists: [Playlist]) {
+            for playlist in playlists where seenKeys.insert(self.resolvableContentKey(playlist)).inserted {
+                result.append(playlist)
+            }
+        }
+
+        for term in searchTerms {
+            for section in response.sections {
+                append(section.items.compactMap(\.playlist).filter {
+                    self.exactlyMatchesSearchTerm($0.title, [term])
+                })
+            }
+        }
+        for term in searchTerms {
+            for section in response.sections where self.exactlyMatchesSearchTerm(section.title, [term]) {
+                append(section.items.compactMap(\.playlist))
+            }
+        }
+
+        return result
+    }
+
+    private func rankedPlaylists(
+        in response: HomeResponse,
+        matching searchTerms: [String],
+        includeFallback: Bool
+    ) -> [Playlist] {
+        var result: [Playlist] = []
+        var seenKeys: Set<ResolvableContentKey> = []
+
+        func append(_ playlists: [Playlist]) {
+            for playlist in playlists where seenKeys.insert(self.resolvableContentKey(playlist)).inserted {
+                result.append(playlist)
+            }
+        }
+
+        for term in searchTerms {
+            for section in response.sections {
+                append(section.items.compactMap(\.playlist).filter {
+                    self.exactlyMatchesSearchTerm($0.title, [term])
+                })
+            }
+        }
+        for term in searchTerms {
+            for section in response.sections where self.exactlyMatchesSearchTerm(section.title, [term]) {
+                append(section.items.compactMap(\.playlist))
+            }
+        }
+        for term in searchTerms {
+            for section in response.sections {
+                append(section.items.compactMap(\.playlist).filter {
+                    self.matchesSearchTerms($0.title, [term])
+                })
+            }
+        }
+        for term in searchTerms {
+            for section in response.sections where self.matchesSearchTerms(section.title, [term]) {
+                append(section.items.compactMap(\.playlist))
+            }
+        }
+        if includeFallback {
+            append(response.sections.flatMap { $0.items.compactMap(\.playlist) })
+        }
+
+        return result
     }
 
     private func findSongsFromCharts() async -> [Song]? {
@@ -418,48 +607,75 @@ struct CommandExecutor {
         return Array(response.detail.tracks.prefix(25))
     }
 
+    private func fetchNonEmptyPlaylistSongs(playlistId: String) async throws -> [Song]? {
+        let songs = try await self.fetchPlaylistSongs(playlistId: playlistId)
+        return songs.isEmpty ? nil : songs
+    }
+
     private func buildSearchTerms(from intent: MusicIntent) -> [String] {
         var terms: [String] = []
 
         if !intent.mood.isEmpty {
             let mood = intent.mood.lowercased()
             terms.append(mood)
-            terms.append(contentsOf: self.moodSynonyms(for: mood))
-        }
-        if !intent.genre.isEmpty {
-            terms.append(intent.genre.lowercased())
-        }
-        if !intent.activity.isEmpty {
+            terms.append(contentsOf: MusicDiscoveryTaxonomy.moodAliases(for: mood))
+        } else if !intent.genre.isEmpty {
+            let genre = intent.genre.lowercased()
+            terms.append(genre)
+            terms.append(contentsOf: MusicDiscoveryTaxonomy.genreAliases(for: genre))
+        } else if !intent.activity.isEmpty {
             terms.append(intent.activity.lowercased())
+            terms.append(contentsOf: self.activitySynonyms(for: intent.activity.lowercased()))
         }
         if !intent.query.isEmpty {
-            terms.append(contentsOf: intent.query.lowercased().split(separator: " ").map { String($0) })
+            let genericTerms: Set = [
+                "a", "add", "an", "anything", "for", "me", "music", "play", "please",
+                "queue", "some", "something", "song", "songs", "the", "to", "track", "tracks",
+            ]
+            terms.append(contentsOf: intent.query.lowercased().split(separator: " ").compactMap { word in
+                let term = String(word)
+                return genericTerms.contains(term) ? nil : term
+            })
         }
 
-        return terms
+        var seen: Set<String> = []
+        return terms.filter { term in
+            !self.normalizedDiscoveryText(term).isEmpty && seen.insert(term).inserted
+        }
     }
 
-    private func moodSynonyms(for mood: String) -> [String] {
-        switch mood {
-        case "chill", "relaxing", "calm":
-            ["chill", "relax", "calm", "peaceful", "ambient", "lo-fi", "lofi", "mellow"]
-        case "energetic", "upbeat", "happy":
-            ["energy", "upbeat", "happy", "pump", "hype", "workout", "party"]
-        case "sad", "melancholic":
-            ["sad", "melancholy", "heartbreak", "emotional", "moody"]
-        case "focus", "study":
-            ["focus", "study", "concentrate", "work", "productivity"]
-        case "romantic", "love":
-            ["romance", "romantic", "love", "date"]
-        case "sleep", "bedtime":
-            ["sleep", "bedtime", "night", "ambient", "calm"]
+    private func activitySynonyms(for activity: String) -> [String] {
+        switch activity {
+        case "run", "running":
+            ["running", "workout"]
+        case "study", "studying":
+            ["study", "focus"]
+        case "drive", "driving":
+            ["driving", "commute"]
+        case "sleep", "sleeping":
+            ["sleep", "bedtime"]
         default:
             []
         }
     }
 
+    private func exactlyMatchesSearchTerm(_ title: String, _ terms: [String]) -> Bool {
+        let normalizedTitle = self.normalizedDiscoveryText(title)
+        return terms.contains { self.normalizedDiscoveryText($0) == normalizedTitle }
+    }
+
     private func matchesSearchTerms(_ title: String, _ terms: [String]) -> Bool {
-        let titleLower = title.lowercased()
-        return terms.contains { titleLower.contains($0) }
+        let normalizedTitle = self.normalizedDiscoveryText(title)
+        return terms.contains { term in
+            let normalizedTerm = self.normalizedDiscoveryText(term)
+            return !normalizedTerm.isEmpty && normalizedTitle.contains(normalizedTerm)
+        }
+    }
+
+    private func normalizedDiscoveryText(_ value: String) -> String {
+        value
+            .lowercased()
+            .replacingOccurrences(of: #"[^\p{L}\p{N}]+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

@@ -15,9 +15,8 @@ struct NavigationDestinationsModifier: ViewModifier {
         content
             .navigationDestination(for: Playlist.self) { playlist in
                 // Check if this is a mood/genre category disguised as a playlist
-                if MoodCategory.isMoodCategory(playlist.id) {
-                    // Parse the ID and navigate to mood category view
-                    if let parsed = MoodCategory.parseId(playlist.id) {
+                if playlist.resolvedMoodCategoryEndpoint != nil {
+                    if let parsed = playlist.resolvedMoodCategoryEndpoint {
                         let category = MoodCategory(
                             browseId: parsed.browseId,
                             params: parsed.params,

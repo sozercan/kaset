@@ -421,6 +421,11 @@ let body = ["browseId": "FEmusic_moods_and_genres"]
 
 Each item links to a playlist or browse endpoint for that mood/genre.
 
+As verified on July 13, 2026, mood and genre cards use the browse ID
+`FEmusic_moods_and_genres_category` with an opaque `params` value. Keep the
+browse ID and params as separate structured fields when parsing; concatenated
+display IDs are not a safe source for reconstructing navigation endpoints.
+
 ---
 
 #### History (`FEmusic_history`)
