@@ -33,11 +33,22 @@ struct NowPlayingTracklistProviderTests {
         }
     }
 
-    private func makeProvider(chapters: [YouTubeChapter]) -> (NowPlayingTracklistProvider, MockYouTubeClient) {
+    private func makeProvider(
+        chapters: [YouTubeChapter],
+        retryDelay: Duration = .seconds(1),
+        maxTransientRetryAttempts: Int = 1
+    ) -> (NowPlayingTracklistProvider, MockYouTubeClient) {
         let mockYouTube = MockYouTubeClient()
         mockYouTube.watchNextData = self.makeWatchNextData(chapters: chapters)
         let parser = MixTracklistParser(youTubeClient: mockYouTube)
-        return (NowPlayingTracklistProvider(parser: parser), mockYouTube)
+        return (
+            NowPlayingTracklistProvider(
+                parser: parser,
+                retryDelay: retryDelay,
+                maxTransientRetryAttempts: maxTransientRetryAttempts
+            ),
+            mockYouTube
+        )
     }
 
     private func waitUntil(
@@ -95,6 +106,43 @@ struct NowPlayingTracklistProviderTests {
         provider.update(track: track, duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
+    }
+
+    @Test("A transient fetch failure retries once for the current video")
+    func transientFailureRetriesCurrentVideo() async {
+        let (provider, mockYouTube) = self.makeProvider(
+            chapters: self.makeMixChapters(),
+            retryDelay: .milliseconds(100)
+        )
+        mockYouTube.error = URLError(.timedOut)
+        let track = TestFixtures.makeSong(id: "retry-mix", title: "Retry Mix", duration: 3600)
+
+        provider.update(track: track, duration: 3600)
+        await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
+        mockYouTube.error = nil
+
+        await self.waitUntil { mockYouTube.getWatchNextCallCount == 2 }
+        await self.waitUntil { provider.tracklist != nil }
+
+        #expect(mockYouTube.getWatchNextCallCount == 2)
+        #expect(provider.tracklist?.videoId == "retry-mix")
+    }
+
+    @Test("A confirmed non-mix result does not retry")
+    func confirmedNonMixDoesNotRetry() async {
+        let (provider, mockYouTube) = self.makeProvider(
+            chapters: self.makeMixChapters(count: 2),
+            retryDelay: .milliseconds(20)
+        )
+        let track = TestFixtures.makeSong(id: "regular", title: "Regular", duration: 3600)
+
+        provider.update(track: track, duration: 3600)
+        await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
+        await self.waitUntil(timeout: .milliseconds(100)) { mockYouTube.getWatchNextCallCount > 1 }
+
+        #expect(mockYouTube.getWatchNextCallCount == 1)
+        #expect(!provider.isParsing)
+        #expect(provider.tracklist == nil)
     }
 
     @Test("Fetch is not attempted for short tracks even once duration is known")

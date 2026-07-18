@@ -98,6 +98,12 @@ final class MixTracklistParser {
         }
     }
 
+    /// Whether this video has a confirmed cached result, including a confirmed non-mix result.
+    /// Transient fetch failures and cancelled requests deliberately remain uncached.
+    func hasCachedResult(for videoId: String) -> Bool {
+        self.cache[videoId] != nil
+    }
+
     private func registerWaiter(
         _ continuation: CheckedContinuation<MixTracklist?, Never>,
         cancellationState: WaiterCancellationState,

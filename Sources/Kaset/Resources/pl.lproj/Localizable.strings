@@ -525,3 +525,5 @@
 "e.g., Remove slow songs, reorder by energy..." = "np. usuń wolne utwory, zmień kolejność według energii…";
 "songs" = "utworów";
 "tracks" = "utworami";
+"Mix tracks" = "Utwory miksu";
+"Track" = "Utwór";

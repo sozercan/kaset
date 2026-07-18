@@ -525,3 +525,5 @@
 "e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
 "songs" = "곡";
 "tracks" = "트랙";
+"Mix tracks" = "믹스 트랙";
+"Track" = "트랙";

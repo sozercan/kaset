@@ -24,6 +24,8 @@ final class NowPlayingTracklistProvider {
     private static let minMixDuration: TimeInterval = 600
 
     private let parser: MixTracklistParser?
+    private let retryDelay: Duration
+    private let maxTransientRetryAttempts: Int
     private let logger = DiagnosticsLogger.player
 
     /// Video id currently being tracked; a change resets the latch and clears the tracklist.
@@ -36,16 +38,24 @@ final class NowPlayingTracklistProvider {
     /// In-flight parse for the current video. Cancelled on video changes so a slow request for the
     /// previous video never blocks or overwrites the next one.
     private var parseTask: Task<Void, Never>?
+    private var retryTask: Task<Void, Never>?
     private var parseGeneration = 0
+    private var transientRetryAttempts = 0
 
     /// Whether a tracklist parse is in flight for the current video. Consumers that would act on
     /// "this is not a mix" (e.g. whole-track scrobbling) should wait until this settles.
     var isParsing: Bool {
-        self.parseTask != nil
+        self.parseTask != nil || self.retryTask != nil
     }
 
-    init(parser: MixTracklistParser?) {
+    init(
+        parser: MixTracklistParser?,
+        retryDelay: Duration = .seconds(1),
+        maxTransientRetryAttempts: Int = 1
+    ) {
         self.parser = parser
+        self.retryDelay = retryDelay
+        self.maxTransientRetryAttempts = max(0, maxTransientRetryAttempts)
     }
 
     /// Drive the provider from playback observation. Idempotent and cheap: it resets on a video
@@ -88,7 +98,42 @@ final class NowPlayingTracklistProvider {
             if let parsed, parsed.isMix {
                 self.tracklist = parsed
                 self.logger.info("Now-playing tracklist loaded: \(parsed.entries.count) sub-tracks for \(title)")
+                return
             }
+            guard !parser.hasCachedResult(for: videoId) else { return }
+            self.scheduleTransientRetry(
+                track: track,
+                duration: duration,
+                videoId: videoId,
+                generation: generation
+            )
+        }
+    }
+
+    private func scheduleTransientRetry(
+        track: Song,
+        duration: TimeInterval,
+        videoId: String,
+        generation: Int
+    ) {
+        guard self.transientRetryAttempts < self.maxTransientRetryAttempts else { return }
+        self.transientRetryAttempts += 1
+        let delay = self.retryDelay
+        self.retryTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: delay)
+            } catch {
+                return
+            }
+            guard let self,
+                  !Task.isCancelled,
+                  self.currentVideoId == videoId,
+                  self.parseGeneration == generation
+            else { return }
+
+            self.retryTask = nil
+            self.attemptedVideoId = nil
+            self.update(track: track, duration: duration)
         }
     }
 
@@ -100,9 +145,12 @@ final class NowPlayingTracklistProvider {
     private func reset(to videoId: String?) {
         self.parseTask?.cancel()
         self.parseTask = nil
+        self.retryTask?.cancel()
+        self.retryTask = nil
         self.parseGeneration &+= 1
         self.currentVideoId = videoId
         self.attemptedVideoId = nil
+        self.transientRetryAttempts = 0
         self.tracklist = nil
     }
 }

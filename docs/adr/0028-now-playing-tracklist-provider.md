@@ -21,10 +21,10 @@ fallbacks, provisional playback credit, timeouts, and post-exit finalization.
 
 There is also a timing hazard: YouTube reports a video's duration a beat after
 the track object appears, and a duration value can briefly leak across a video
-change. The mix-detection floor (a video must be ≥ 10 min to be a mix worth
-segmenting) must be evaluated against the duration that provably belongs to the
-current video, or a short track can inherit a previous mix's duration and be
-mis-segmented.
+change. The mix-detection floor (a video must be longer than 10 minutes,
+strictly `> 600s`, to be a mix worth segmenting) must be evaluated against the
+duration that provably belongs to the current video, or a short track can
+inherit a previous mix's duration and be mis-segmented.
 
 ## Decision
 
