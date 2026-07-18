@@ -686,6 +686,16 @@ final class SingletonPlayerWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(script)
+
+        // Inject user-installed extension content scripts/styles so they affect
+        // the music player surface (WebKit's WKWebExtensionController does not
+        // inject content into these dedicated WebViews on current macOS).
+        for extScript in ExtensionContentScriptInjector.userScripts(for: .musicPlayer) {
+            contentController.addUserScript(extScript)
+        }
+        for extStyle in ExtensionContentScriptInjector.styleSheets(for: .musicPlayer) {
+            contentController.addUserScript(extStyle)
+        }
     }
 
     func refreshInstalledUserScripts() {

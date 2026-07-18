@@ -84,6 +84,7 @@ Click the **trash** icon next to any extension, then restart Kaset.
 - When you add an extension, Kaset copies that folder into `~/Library/Application Support/Kaset/ManagedExtensions/`.
 - Kaset loads enabled extensions when the app starts.
 - Extensions run inside Kaset's YouTube and YouTube Music web players.
+- Content scripts and stylesheets are injected into the playback WebViews via `WKUserScript`/`WKUserContentController` (scoped to each extension's `matches`), because WebKit's `WKWebExtensionController` does not deliver content-script injection into these dedicated, single-origin WebViews on current macOS releases. Manifest V3 `content_scripts` (`js`/`css`, `run_at`) and `<all_urls>` are supported.
 
 ## Troubleshooting
 

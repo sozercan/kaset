@@ -71,7 +71,7 @@ final class ExtensionsManager {
             .appendingPathComponent("extensions.json")
     }
 
-    private var managedExtensionsDirectoryURL: URL? {
+    var managedExtensionsDirectoryURL: URL? {
         self.persistenceURL?
             .deletingLastPathComponent()
             .appendingPathComponent("ManagedExtensions", isDirectory: true)

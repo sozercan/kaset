@@ -895,5 +895,15 @@ extension YouTubeWatchWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(extraction)
+
+        // Inject user-installed extension content scripts/styles so they affect
+        // the video player surface (WebKit's WKWebExtensionController does not
+        // inject content into these dedicated WebViews on current macOS).
+        for extScript in ExtensionContentScriptInjector.userScripts(for: .youtubeWatch) {
+            contentController.addUserScript(extScript)
+        }
+        for extStyle in ExtensionContentScriptInjector.styleSheets(for: .youtubeWatch) {
+            contentController.addUserScript(extStyle)
+        }
     }
 }
