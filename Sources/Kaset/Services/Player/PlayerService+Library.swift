@@ -324,6 +324,39 @@ extension PlayerService {
         self.currentTrackFeedbackTokens = nil
     }
 
+    /// Refreshes the now-playing track's like status from the `SongLikeStatusManager`
+    /// cache. Bulk sources (e.g. the Liked Music page) seed like state *after* the
+    /// current track may have already resolved to `.indifferent` — its `getSong` fetch
+    /// returns no rating, and the cache can be empty at play time. Without this, the
+    /// player bar / Now Playing surfaces (and the boring.notch mirror) keep showing
+    /// "not liked" for a track that is actually liked. Only fills an unknown status;
+    /// never overrides a known `.like` / `.dislike`.
+    func refreshCurrentTrackLikeStatusFromCache() {
+        guard self.currentTrackLikeStatus == .indifferent,
+              let videoId = self.currentTrack?.videoId,
+              let cached = self.songLikeStatusManager.status(for: videoId)
+        else { return }
+        self.currentTrackLikeStatus = cached
+    }
+
+    /// Keeps the now-playing like status in sync with the like cache. The status has no
+    /// reliable synchronous source (getSong returns no rating; the account-scoped cache is
+    /// seeded asynchronously by the Liked Music page and cleared then refilled across login
+    /// identity switches), so a one-shot read at track load races and leaves it stuck at
+    /// `.indifferent`. Re-resolving whenever the track or the cache changes makes it
+    /// self-correcting the moment the user's likes finish loading.
+    func observeNowPlayingLikeStatus() {
+        withObservationTracking {
+            _ = self.currentTrack?.videoId
+            _ = self.songLikeStatusManager.cacheGeneration
+        } onChange: {
+            Task { @MainActor [weak self] in
+                self?.refreshCurrentTrackLikeStatusFromCache()
+                self?.observeNowPlayingLikeStatus()
+            }
+        }
+    }
+
     private func applyLibraryState(
         videoId: String,
         isInLibrary: Bool,
