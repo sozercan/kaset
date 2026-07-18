@@ -413,16 +413,16 @@ enum ContentSourceResolver {
         var activity = requiresLexicalGrounding
             ? self.groundedActivity(
                 intent.activity,
-                in: groundingQuery
+                in: roleGroundingQuery
             )
             : intent.activity
         let activityEvidence = self.matchedGroundingCandidates(
             intent.activity,
             aliases: self.activityAliases(for: intent.activity),
-            in: groundingQuery
+            in: roleGroundingQuery
         )
         let activityIsExplicit = !requiresLexicalGrounding || (
-            MusicDiscoveryTaxonomy.containsActivityContext(groundingQuery) && !activityEvidence.isEmpty
+            MusicDiscoveryTaxonomy.containsActivityContext(roleGroundingQuery) && !activityEvidence.isEmpty
         )
         let sharedEvidence = moodEvidence.intersection(activityEvidence)
         let hasOnlySharedEvidence = !sharedEvidence.isEmpty &&
@@ -450,17 +450,18 @@ enum ContentSourceResolver {
             action: intent.action,
             query: intent.query,
             shuffleScope: intent.shuffleScope,
-            artist: requiresLexicalGrounding ? self.groundedValue(intent.artist, in: groundingQuery) : intent.artist,
+            artist: requiresLexicalGrounding ? self.groundedValue(intent.artist, in: roleGroundingQuery) : intent.artist,
             genre: genre,
             mood: mood,
             era: requiresLexicalGrounding
-                ? self.groundedEra(intent.era, in: groundingQuery)
+                ? self.groundedEra(intent.era, in: roleGroundingQuery)
                 : intent.era,
             version: requiresLexicalGrounding
                 ? self.groundedVersion(
                     intent.version,
                     intentQuery: intent.query,
                     groundingQuery: groundingQuery,
+                    roleGroundingQuery: roleGroundingQuery,
                     constraints: [genre, mood, activity]
                 )
                 : intent.version,
@@ -755,6 +756,7 @@ extension ContentSourceResolver {
         _ version: String,
         intentQuery: String,
         groundingQuery: String,
+        roleGroundingQuery: String,
         constraints: [String]
     ) -> String {
         guard !version.isEmpty else { return "" }
@@ -776,7 +778,7 @@ extension ContentSourceResolver {
 
         return self.groundedValue(
             version,
-            in: intentQuery,
+            in: roleGroundingQuery,
             aliases: self.versionAliases(for: version),
             allowsInflections: true
         )

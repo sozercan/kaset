@@ -67,6 +67,153 @@ struct CommandBarDiscoveryReviewTests {
         #expect(ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery) == "Study Music")
     }
 
+    @Test("Explicit titles do not ground generated activity")
+    func explicitTitlesDoNotGroundActivity() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let cases = [
+            (title: "Born to Run", activity: "run"),
+            (title: "Music to Run", activity: "run"),
+        ]
+        for item in cases {
+            let intent = MusicIntent(
+                action: .play,
+                query: item.title,
+                shuffleScope: "",
+                artist: "",
+                genre: "",
+                mood: "",
+                era: "",
+                version: "",
+                activity: item.activity
+            )
+            let originalQuery = "play the song \(item.title)"
+            let grounded = ContentSourceResolver.groundedIntent(intent, groundingQuery: originalQuery)
+
+            #expect(grounded.activity.isEmpty)
+            #expect(ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery) == .search)
+            #expect(ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery) == item.title)
+        }
+    }
+
+    @Test("Explicit titles do not ground artist, era, or version")
+    func explicitTitlesDoNotGroundOtherRoles() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let artistIntent = MusicIntent(
+            action: .play,
+            query: "Train",
+            shuffleScope: "",
+            artist: "Train",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: ""
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                artistIntent,
+                groundingQuery: "play the song Train"
+            ).artist.isEmpty
+        )
+
+        let eraIntent = MusicIntent(
+            action: .play,
+            query: "Summer of 1995",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "1990s",
+            version: "",
+            activity: ""
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                eraIntent,
+                groundingQuery: "play the song Summer of 1995"
+            ).era.isEmpty
+        )
+
+        let versionIntent = MusicIntent(
+            action: .play,
+            query: "Cover",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "cover",
+            activity: ""
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                versionIntent,
+                groundingQuery: "play the song Cover"
+            ).version.isEmpty
+        )
+    }
+
+    @Test("Qualifiers outside explicit titles remain grounded")
+    func explicitTitleQualifiersRemainGrounded() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let activityIntent = MusicIntent(
+            action: .play,
+            query: "Born to Run",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: "study"
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                activityIntent,
+                groundingQuery: "play the song Born to Run while studying"
+            ).activity == "study"
+        )
+
+        let artistIntent = MusicIntent(
+            action: .play,
+            query: "Drops of Jupiter",
+            shuffleScope: "",
+            artist: "Train",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: ""
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                artistIntent,
+                groundingQuery: "play the song Drops of Jupiter by Train"
+            ).artist == "Train"
+        )
+
+        let versionIntent = MusicIntent(
+            action: .play,
+            query: "Cover",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "cover",
+            activity: ""
+        )
+        #expect(
+            ContentSourceResolver.groundedIntent(
+                versionIntent,
+                groundingQuery: "play the song Cover cover"
+            ).version == "cover"
+        )
+    }
+
     @Test("Original mood alias outranks broader synonyms")
     func originalMoodAliasRanksFirst() async {
         guard #available(macOS 26.0, *) else { return }
