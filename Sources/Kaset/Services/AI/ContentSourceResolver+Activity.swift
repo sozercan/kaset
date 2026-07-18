@@ -39,7 +39,12 @@ extension ContentSourceResolver {
 
     static func groundedActivity(_ activity: String, in query: String) -> String {
         guard !activity.isEmpty else { return "" }
-        let activityEvidence = MusicDiscoveryTaxonomy.activityEvidencePhrases(in: query)
+        var activityEvidence = MusicDiscoveryTaxonomy.activityEvidencePhrases(in: query)
+        if activityEvidence.isEmpty,
+           let standaloneActivity = MusicDiscoveryTaxonomy.standaloneActivityPhrase(in: query)
+        {
+            activityEvidence = [standaloneActivity]
+        }
         guard !activityEvidence.isEmpty else { return "" }
 
         let aliases = Self.activityAliases(for: activity)

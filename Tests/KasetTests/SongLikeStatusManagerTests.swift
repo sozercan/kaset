@@ -10,8 +10,7 @@ struct SongLikeStatusManagerTests {
     var mockClient: MockYTMusicClient
 
     init() {
-        // Use the shared singleton (init is private)
-        self.manager = SongLikeStatusManager.shared
+        self.manager = SongLikeStatusManager()
         self.mockClient = MockYTMusicClient()
         self.manager.clearCache()
         self.manager.setActiveAccountID(nil)
@@ -157,6 +156,110 @@ struct SongLikeStatusManagerTests {
 
         // Should remove the entry entirely
         #expect(self.manager.status(for: "new-video") == nil)
+    }
+
+    @Test("Optimistic cache observers cannot replace the confirmed rollback baseline")
+    func optimisticCacheWritePreservesConfirmedRollback() async {
+        let song = TestFixtures.makeSong(id: "optimistic-observer-rollback")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.manager.setStatus(.indifferent, for: song.videoId)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let likeTask = Task { @MainActor in
+            await self.manager.like(song, client: self.mockClient)
+        }
+        await requestStarted.wait()
+        self.manager.setCachedStatus(.like, for: song.videoId)
+        await releaseRequest.open()
+
+        #expect(await likeTask.value == .indifferent)
+        #expect(self.manager.status(for: song.videoId) == .indifferent)
+    }
+
+    @Test("A delayed rating completion cannot overwrite a newer rating")
+    func latestRatingCompletionWins() async {
+        let song = TestFixtures.makeSong(id: "latest-rating-manager")
+        let accountID = "latest-rating-account"
+        self.manager.setActiveAccountID(accountID)
+        self.mockClient.rateSongDelay = .milliseconds(200)
+        let likeTask = Task { @MainActor in
+            await self.manager.like(
+                song,
+                accountID: accountID,
+                client: self.mockClient
+            )
+        }
+        try? await Task.sleep(for: .milliseconds(25))
+        self.mockClient.rateSongDelay = nil
+
+        let dislikeStatus = await self.manager.dislike(
+            song,
+            accountID: accountID,
+            client: self.mockClient
+        )
+        let lateLikeStatus = await likeTask.value
+
+        #expect(dislikeStatus == .dislike)
+        #expect(lateLikeStatus == .dislike)
+        #expect(self.manager.status(for: song.videoId, accountID: accountID) == .dislike)
+        #expect(self.mockClient.appliedRateSongRatings.last == .dislike)
+    }
+
+    @Test("A stale successful rating cannot seed rollback state after session invalidation")
+    func staleSuccessfulRatingCannotSeedRollbackAfterSessionInvalidation() async {
+        let song = TestFixtures.makeSong(id: "stale-rating-session")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let staleLike = Task { @MainActor in
+            await self.manager.like(song, client: self.mockClient)
+        }
+        await requestStarted.wait()
+        self.manager.invalidateSession()
+        #expect(self.manager.status(for: song.videoId) == nil)
+
+        await releaseRequest.open()
+        _ = await staleLike.value
+        self.mockClient.beforeRateSongReturn = nil
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+
+        let finalStatus = await self.manager.dislike(song, client: self.mockClient)
+
+        #expect(finalStatus == .indifferent)
+        #expect(self.manager.status(for: song.videoId) == nil)
+    }
+
+    @Test("Overlapping failed ratings roll back to the confirmed baseline")
+    func overlappingRatingFailuresRestoreConfirmedState() async {
+        let song = TestFixtures.makeSong(id: "failed-rating-chain")
+        self.mockClient.rateSongDelay = .milliseconds(200)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+        let likeTask = Task { @MainActor in
+            await self.manager.like(song, client: self.mockClient)
+        }
+        try? await Task.sleep(for: .milliseconds(25))
+        self.mockClient.rateSongDelay = nil
+        let dislikeStatus = await self.manager.dislike(song, client: self.mockClient)
+        let likeStatus = await likeTask.value
+
+        #expect(dislikeStatus == .indifferent)
+        #expect(likeStatus == .dislike || likeStatus == .indifferent)
+        #expect(self.manager.status(for: song.videoId) == nil)
     }
 
     @Test("dislike reverts cache on API failure")

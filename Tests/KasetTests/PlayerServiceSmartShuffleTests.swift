@@ -2,6 +2,19 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - SmartShuffleFeatureGate
+
+@MainActor
+private final class SmartShuffleFeatureGate {
+    var isEnabled: Bool
+
+    init(isEnabled: Bool) {
+        self.isEnabled = isEnabled
+    }
+}
+
+// MARK: - PlayerServiceSmartShuffleTests
+
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceSmartShuffleTests {
@@ -13,6 +26,7 @@ struct PlayerServiceSmartShuffleTests {
         self.persistenceNamespace = "PlayerServiceSmartShuffleTests-\(UUID().uuidString)"
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
+        self.playerService.smartShuffleFeatureEnabled = { true }
         self.playerService.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         self.playerService.clearSavedQueue()
         self.playerService.setYTMusicClient(self.mockClient)
@@ -99,10 +113,8 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("disabling Smart Shuffle while a fill is in flight prevents late insertions")
     func disablingSmartShuffleStopsInFlightFill() async {
-        let settings = SettingsManager.shared
-        let savedEnabled = settings.smartShuffleEnabled
-        settings.smartShuffleEnabled = true
-        defer { settings.smartShuffleEnabled = savedEnabled }
+        let featureGate = SmartShuffleFeatureGate(isEnabled: true)
+        self.playerService.smartShuffleFeatureEnabled = { featureGate.isEnabled }
 
         let songs = TestFixtures.makeSongs(count: 6)
         await self.playerService.playQueue(songs, startingAt: 0)
@@ -112,19 +124,138 @@ struct PlayerServiceSmartShuffleTests {
 
         let fill = Task { await self.playerService.fillSmartShuffleWindow() }
         try? await Task.sleep(for: .milliseconds(20))
-        settings.smartShuffleEnabled = false
+        featureGate.isEnabled = false
         await fill.value
 
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
+    @Test("Redoing Smart Shuffle restarts the canceled recommendation fill")
+    func redoSmartShuffleRestartsCanceledFill() async {
+        let settings = SettingsManager.shared
+        let savedAhead = settings.smartShuffleSuggestionsAhead
+        let savedEveryN = settings.smartShuffleSuggestEveryN
+        let savedBurst = settings.smartShuffleBurst
+        settings.smartShuffleSuggestionsAhead = 1
+        settings.smartShuffleSuggestEveryN = 1
+        settings.smartShuffleBurst = 1
+        defer {
+            settings.smartShuffleSuggestionsAhead = savedAhead
+            settings.smartShuffleSuggestEveryN = savedEveryN
+            settings.smartShuffleBurst = savedBurst
+        }
+
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        for song in songs {
+            self.mockClient.radioQueueSongs[song.videoId] = [
+                TestFixtures.makeSong(id: "redo-rec-\(song.videoId)"),
+            ]
+        }
+        let releaseRequests = AsyncGate()
+        self.mockClient.beforeRadioQueueReturn = { _ in
+            await releaseRequests.wait()
+        }
+
+        self.playerService.setShuffleMode(.smart)
+        for _ in 0 ..< 20 where self.mockClient.getRadioQueueVideoIds.count < 1 {
+            await Task.yield()
+        }
+        #expect(self.mockClient.getRadioQueueVideoIds.count == 1)
+
+        await self.playerService.undoQueue()
+        #expect(self.playerService.shuffleMode == .off)
+        await self.playerService.redoQueue()
+        #expect(self.playerService.shuffleMode == .smart)
+        for _ in 0 ..< 20 where self.mockClient.getRadioQueueVideoIds.count < 2 {
+            await Task.yield()
+        }
+
+        let restoredFill = self.playerService.smartShuffleFillTask
+        #expect(self.mockClient.getRadioQueueVideoIds.count == 2)
+        await releaseRequests.open()
+        await restoredFill?.value
+        #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
+    }
+
+    @Test("Stop cancels an in-flight Smart Shuffle fill")
+    func stopCancelsInFlightSmartShuffleFill() async {
+        let songs = TestFixtures.makeSongs(count: 6)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.mockClient.radioQueueSongs["video-0"] = [TestFixtures.makeSong(id: "late-rec")]
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.mockClient.beforeRadioQueueReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let entryIDs = self.playerService.queueEntryIDs
+        let fill = Task { @MainActor in
+            await self.playerService.fillSmartShuffleWindow()
+        }
+        await requestStarted.wait()
+        await self.playerService.stop()
+        await releaseRequest.open()
+        await fill.value
+
+        #expect(self.playerService.queueEntryIDs == entryIDs)
+        #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
+        #expect(!self.playerService.isApplyingSmartShuffle)
+    }
+
+    @Test("Stop invalidates a scheduled Smart Shuffle fill before it starts")
+    func stopInvalidatesScheduledSmartShuffleFill() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [TestFixtures.makeSong(id: "late")]
+
+        self.playerService.setShuffleMode(.smart)
+        await self.playerService.stop()
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(!self.mockClient.getRadioQueueCalled)
+        #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
+    }
+
+    @Test("Pausing initial playback keeps Smart Shuffle fill eligible")
+    func pauseKeepsSmartShuffleFillEligible() async {
+        self.playerService.shuffleMode = .smart
+        let songs = (0 ..< SettingsManager.smartShuffleSuggestEveryNRange.upperBound).map {
+            TestFixtures.makeSong(id: "seed-\($0)")
+        }
+        self.mockClient.songResponses[songs[0].videoId] = songs[0]
+        for song in songs {
+            self.mockClient.radioQueueSongs[song.videoId] = [
+                TestFixtures.makeSong(id: "suggestion-\(song.videoId)"),
+            ]
+        }
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let playTask = Task { @MainActor in
+            await self.playerService.playQueue(songs, startingAt: 0)
+        }
+        await metadataStarted.wait()
+        await self.playerService.pause()
+        await releaseMetadata.open()
+        await playTask.value
+        // Drive the single-flight fill explicitly so the assertion does not
+        // depend on executor timing after the metadata gate is released.
+        await self.playerService.fillSmartShuffleWindow()
+
+        #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
+    }
+
     @Test("undo cancels an in-flight Smart Shuffle fill for the replaced queue")
     func undoCancelsInFlightSmartShuffleFill() async {
-        let settings = SettingsManager.shared
-        let savedEnabled = settings.smartShuffleEnabled
-        settings.smartShuffleEnabled = true
-        defer { settings.smartShuffleEnabled = savedEnabled }
-
         let songs = TestFixtures.makeSongs(count: 4)
         await self.playerService.playQueue(songs, startingAt: 0)
         self.playerService.shuffleMode = .smart
@@ -138,7 +269,7 @@ struct PlayerServiceSmartShuffleTests {
 
         let fill = Task { await self.playerService.fillSmartShuffleWindow() }
         try? await Task.sleep(for: .milliseconds(20))
-        self.playerService.undoQueue()
+        await self.playerService.undoQueue()
         await fill.value
 
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
@@ -163,6 +294,7 @@ struct PlayerServiceSmartShuffleTests {
         ])
         self.playerService.currentIndex = 2
         self.playerService.currentTrack = suggestion.song
+        self.playerService.activePlaybackQueueEntryID = suggestion.id
         self.playerService.queueOrderBeforeShuffle = originals
         self.playerService.shuffleMode = .smart
 
@@ -231,6 +363,7 @@ struct PlayerServiceSmartShuffleTests {
         self.playerService.setQueue(entries: [originalBefore, currentSuggestion, originalAfter])
         self.playerService.currentIndex = 1
         self.playerService.currentTrack = currentSuggestion.song
+        self.playerService.activePlaybackQueueEntryID = currentSuggestion.id
         self.playerService.saveQueueForPersistence()
         defer { self.playerService.clearSavedQueue() }
 
@@ -240,6 +373,182 @@ struct PlayerServiceSmartShuffleTests {
         #expect(restored.queue.map(\.videoId) == ["video-before", "rec-current", "video-after"])
         #expect(restored.queueEntries.map(\.source) == [.queued, .suggested, .queued])
         #expect(restored.currentIndex == 1)
+    }
+
+    @Test("Detached playback does not preserve a queue-cursor suggestion when leaving Smart Shuffle")
+    func detachedPlaybackDoesNotKeepSuggestedCursor() {
+        let original = QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "detached-original"))
+        let suggestion = QueueEntry(
+            id: UUID(),
+            song: TestFixtures.makeSong(id: "detached-suggestion"),
+            source: .suggested
+        )
+        let trailing = QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "detached-trailing"))
+        self.playerService.setQueue(entries: [original, suggestion, trailing])
+        self.playerService.queueOrderBeforeShuffle = [original, trailing]
+        self.playerService.currentIndex = 1
+        self.playerService.currentTrack = TestFixtures.makeSong(id: "detached-track")
+        self.playerService.activePlaybackQueueEntryID = nil
+        self.playerService.shuffleMode = .smart
+
+        self.playerService.setShuffleMode(.off)
+
+        #expect(!self.playerService.queueEntries.contains(where: { $0.source == .suggested }))
+        #expect(self.playerService.queueEntryIDs == [original.id, trailing.id])
+    }
+
+    @Test("A stopped queue cursor does not persist a Smart Shuffle suggestion")
+    func stoppedQueueCursorDoesNotPersistSuggestion() {
+        let original = QueueEntry(id: UUID(), song: TestFixtures.makeSong(id: "stopped-original"))
+        let suggestion = QueueEntry(
+            id: UUID(),
+            song: TestFixtures.makeSong(id: "stopped-suggestion"),
+            source: .suggested
+        )
+        self.playerService.setQueue(entries: [original, suggestion])
+        self.playerService.currentIndex = 1
+        self.playerService.currentTrack = nil
+        self.playerService.activePlaybackQueueEntryID = nil
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+
+        let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        #expect(restored.restoreQueueFromPersistence())
+        #expect(restored.queue.map(\.videoId) == [original.song.videoId])
+    }
+
+    @Test("Undoing shuffle restores both mode and authored order")
+    func undoShuffleRestoresModeAndOrder() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(songs, startingAt: 1)
+        let originalEntryIDs = self.playerService.queueEntryIDs
+
+        self.playerService.setShuffleMode(.on)
+        await self.playerService.undoQueue()
+
+        #expect(self.playerService.shuffleMode == .off)
+        #expect(self.playerService.queueEntryIDs == originalEntryIDs)
+        #expect(self.playerService.queueOrderBeforeShuffle == nil)
+    }
+
+    @Test("Persisted shuffle can restore authored order after relaunch")
+    func persistedShuffleRestoresAuthoredOrder() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(songs, startingAt: 2)
+        self.playerService.setShuffleMode(.on)
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+
+        let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        #expect(restored.restoreQueueFromPersistence())
+        #expect(restored.shuffleMode == .on)
+        restored.setShuffleMode(.off)
+
+        #expect(restored.queue.map(\.videoId) == songs.map(\.videoId))
+    }
+
+    @Test("Persisted shuffle preserves the active identical duplicate occurrence")
+    func persistedShufflePreservesActiveDuplicate() async {
+        let duplicate = TestFixtures.makeSong(id: "persisted-duplicate")
+        let middle = TestFixtures.makeSong(id: "persisted-middle")
+        await self.playerService.playQueue([duplicate, middle, duplicate], startingAt: 2)
+        self.playerService.setShuffleMode(.on)
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+
+        let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        #expect(restored.restoreQueueFromPersistence())
+        restored.setShuffleMode(.off)
+
+        #expect(restored.queue.map(\.videoId) == [duplicate.videoId, middle.videoId, duplicate.videoId])
+        #expect(restored.activePlaybackQueueIndex == 2)
+    }
+
+    @Test("Persisted pre-shuffle order preserves non-active duplicate payloads")
+    func persistedPreShuffleOrderPreservesDuplicatePayloads() {
+        let firstDuplicate = Song(
+            id: "shared-duplicate",
+            title: "First authored occurrence",
+            artists: [],
+            videoId: "shared-duplicate"
+        )
+        let secondDuplicate = Song(
+            id: "shared-duplicate",
+            title: "Second authored occurrence",
+            artists: [],
+            videoId: "shared-duplicate"
+        )
+        let active = TestFixtures.makeSong(id: "duplicate-active", title: "Active")
+        let firstEntry = QueueEntry(id: UUID(), song: firstDuplicate)
+        let secondEntry = QueueEntry(id: UUID(), song: secondDuplicate)
+        let activeEntry = QueueEntry(id: UUID(), song: active)
+        self.playerService.setQueue(entries: [activeEntry, secondEntry, firstEntry])
+        self.playerService.currentIndex = 0
+        self.playerService.activePlaybackQueueEntryID = activeEntry.id
+        self.playerService.currentTrack = active
+        self.playerService.pendingPlayVideoId = active.videoId
+        self.playerService.queueOrderBeforeShuffle = [firstEntry, secondEntry, activeEntry]
+        self.playerService.shuffleMode = .on
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+
+        let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        #expect(restored.restoreQueueFromPersistence())
+        restored.setShuffleMode(.off)
+
+        #expect(restored.queue.map(\.title) == [
+            "First authored occurrence",
+            "Second authored occurrence",
+            "Active",
+        ])
+        #expect(restored.currentIndex == 2)
+        #expect(restored.currentTrack?.videoId == active.videoId)
+    }
+
+    @Test("Queue history downgrades Smart Shuffle when the feature is disabled")
+    func queueHistorySmartShuffleRespectsDisabledSetting() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 3), startingAt: 0)
+        let originalEntries = self.playerService.queueEntries
+        let suggestion = QueueEntry(
+            id: UUID(),
+            song: TestFixtures.makeSong(id: "disabled-history-suggestion"),
+            source: .suggested
+        )
+        self.playerService.setQueue(entries: [originalEntries[0], suggestion] + Array(originalEntries.dropFirst()))
+        self.playerService.currentIndex = 0
+        self.playerService.activePlaybackQueueEntryID = originalEntries[0].id
+        self.playerService.shuffleMode = .smart
+        let smartState = self.playerService.makeQueueStateSnapshot()
+        self.playerService.shuffleMode = .off
+        self.playerService.clearQueueUndoRedoHistory()
+        self.playerService.recordQueueStateForUndo(smartState)
+        self.playerService.smartShuffleFeatureEnabled = { false }
+
+        await self.playerService.undoQueue()
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.shuffleMode == .on)
+        #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
+        #expect(!self.mockClient.getRadioQueueCalled)
+    }
+
+    @Test("Persisted Smart Shuffle downgrades when the feature is disabled")
+    func persistedSmartShuffleRespectsDisabledSetting() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 3), startingAt: 0)
+        self.playerService.setShuffleMode(.smart)
+        self.playerService.saveQueueForPersistence()
+        defer { self.playerService.clearSavedQueue() }
+        let restored = PlayerService()
+        restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
+        restored.smartShuffleFeatureEnabled = { false }
+        #expect(restored.restoreQueueFromPersistence())
+        #expect(restored.shuffleMode == .on)
     }
 
     @Test("suggestions are ephemeral: not persisted across a save/restore")
@@ -266,22 +575,9 @@ struct PlayerServiceSmartShuffleTests {
         #expect(Set(restored.queue.map(\.videoId)) == originalIds)
     }
 
-    @Test("a persisted smart mode downgrades to .on when Smart Shuffle is disabled in settings")
+    @Test("a persisted smart mode resolves to .on when Smart Shuffle is disabled")
     func disabledSmartDowngradesOnLaunch() {
-        let settings = SettingsManager.shared
-        let savedRemember = settings.rememberPlaybackSettings
-        let savedEnabled = settings.smartShuffleEnabled
-        settings.rememberPlaybackSettings = true
-        settings.smartShuffleEnabled = false
-        UserDefaults.standard.set("smart", forKey: "playerShuffleMode")
-        defer {
-            UserDefaults.standard.removeObject(forKey: "playerShuffleMode")
-            settings.rememberPlaybackSettings = savedRemember
-            settings.smartShuffleEnabled = savedEnabled
-        }
-
-        let service = PlayerService()
-        #expect(service.shuffleMode == .on)
+        #expect(PlayerService.resolvedShuffleMode(.smart, smartShuffleEnabled: false) == .on)
     }
 
     @Test("clamped Smart Shuffle numeric settings persist the corrected values")

@@ -59,8 +59,11 @@ enum MusicDiscoveryTaxonomy {
                 let phraseWords = Self.normalizedTokens(phrase)
                 guard nounIndex >= phraseWords.count else { continue }
                 let phraseStart = nounIndex - phraseWords.count
-                if phraseStart > words.startIndex, words[phraseStart - 1] == "to" {
-                    continue
+                if phraseStart > words.startIndex {
+                    let precedingWord = words[phraseStart - 1]
+                    if precedingWord == "to" || Self.contentNouns.contains(precedingWord) {
+                        continue
+                    }
                 }
                 if Array(words[phraseStart ..< nounIndex]) == phraseWords {
                     appendEvidence(phrase)
@@ -70,6 +73,40 @@ enum MusicDiscoveryTaxonomy {
         }
 
         return evidence
+    }
+
+    static func standaloneActivityPhrase(in query: String) -> String? {
+        let fillers: Set = [
+            "add", "best", "find", "me", "play", "please", "popular", "queue", "search", "some", "top", "trending",
+        ]
+        let subject = Self.normalizedTokens(query).filter { !fillers.contains($0) }
+        return Self.activityKeywords.first { Self.normalizedTokens($0) == subject }
+    }
+
+    static func queryExcludingExplicitTitle(_ query: String) -> String {
+        let words = Self.normalizedTokens(query)
+        let titleNouns: Set = ["song", "track"]
+        let qualifierWords: Set = ["by", "for", "from", "in", "while", "with"]
+
+        for nounIndex in words.indices where titleNouns.contains(words[nounIndex]) {
+            var titleStart = words.index(after: nounIndex)
+            if titleStart < words.endIndex,
+               ["called", "named", "titled"].contains(words[titleStart])
+            {
+                titleStart = words.index(after: titleStart)
+            }
+            guard titleStart < words.endIndex else { continue }
+
+            var titleEnd = titleStart
+            while titleEnd < words.endIndex, !qualifierWords.contains(words[titleEnd]) {
+                titleEnd = words.index(after: titleEnd)
+            }
+            guard titleStart < titleEnd else { continue }
+
+            return (Array(words[..<titleStart]) + Array(words[titleEnd...])).joined(separator: " ")
+        }
+
+        return query
     }
 
     static func requiresLexicalGrounding(for query: String) -> Bool {
@@ -82,22 +119,29 @@ enum MusicDiscoveryTaxonomy {
     static func containsRoutingPopularityKeyword(_ query: String) -> Bool {
         let words = Self.normalizedTokens(query)
         let popularityKeywords = ["best", "chart", "charts", "hits", "popular", "top", "trending"]
-        return popularityKeywords.contains { Self.containsPhrase($0, in: words) }
+        if popularityKeywords.contains(where: { Self.containsPhrase($0, in: words) }) {
+            return true
+        }
+        return ["hit songs", "hit tracks"].contains { Self.containsPhrase($0, in: words) }
     }
 
     static func containsEraReference(_ query: String) -> Bool {
         let normalizedQuery = Self.normalizedPhrase(query)
+        let words = Self.normalizedTokens(query)
         let eraWords = [
             "aughts", "classic", "eighties", "nineties", "noughties", "oldies",
             "seventies", "sixties", "y2k",
         ]
-        if eraWords.contains(where: { Self.containsPhrase($0, in: Self.normalizedTokens(query)) }) {
+        if eraWords.contains(where: { Self.containsPhrase($0, in: words) }) {
             return true
         }
-        return normalizedQuery.range(
-            of: #"\b(?:(?:19|20)?\d0s|(?:19|20)\d{2})\b"#,
+        if normalizedQuery.range(
+            of: #"\b(?:19|20)?\d0s\b"#,
             options: .regularExpression
-        ) != nil
+        ) != nil {
+            return true
+        }
+        return !Self.contextualYears(in: words).isEmpty
     }
 
     static func year(in query: String, representsEra era: String) -> Bool {
@@ -106,7 +150,7 @@ enum MusicDiscoveryTaxonomy {
         else {
             return false
         }
-        return Self.normalizedTokens(query).compactMap(Int.init).contains { year in
+        return Self.contextualYears(in: Self.normalizedTokens(query)).contains { year in
             year >= decade && year < decade + 10
         }
     }
@@ -206,6 +250,16 @@ enum MusicDiscoveryTaxonomy {
             }
         }
         return nil
+    }
+
+    private static func contextualYears(in words: [String]) -> [Int] {
+        let markers: Set = ["during", "from", "in", "of"]
+        return words.indices.compactMap { index in
+            guard let year = Int(words[index]), (1900 ... 2099).contains(year), index > words.startIndex else {
+                return nil
+            }
+            return markers.contains(words[index - 1]) ? year : nil
+        }
     }
 
     private static func normalizedPhrase(_ value: String) -> String {

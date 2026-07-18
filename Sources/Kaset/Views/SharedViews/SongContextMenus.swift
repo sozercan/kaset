@@ -1,4 +1,3 @@
-import AppKit
 import Foundation
 import SwiftUI
 
@@ -24,13 +23,13 @@ struct LikeDislikeContextMenu: View {
             Button {
                 SongActionsHelper.unlikeSong(self.song, likeStatusManager: self.likeStatusManager)
             } label: {
-                Label("Unlike", systemImage: "hand.thumbsup.fill")
+                Label(String(localized: "Unlike"), systemImage: "hand.thumbsup.fill")
             }
         } else {
             Button {
                 SongActionsHelper.likeSong(self.song, likeStatusManager: self.likeStatusManager)
             } label: {
-                Label("Like", systemImage: "hand.thumbsup")
+                Label(String(localized: "Like"), systemImage: "hand.thumbsup")
             }
 
             // Only show Dislike if not already liked
@@ -38,13 +37,13 @@ struct LikeDislikeContextMenu: View {
                 Button {
                     SongActionsHelper.undislikeSong(self.song, likeStatusManager: self.likeStatusManager)
                 } label: {
-                    Label("Remove Dislike", systemImage: "hand.thumbsdown.fill")
+                    Label(String(localized: "Remove Dislike"), systemImage: "hand.thumbsdown.fill")
                 }
             } else {
                 Button {
                     SongActionsHelper.dislikeSong(self.song, likeStatusManager: self.likeStatusManager)
                 } label: {
-                    Label("Dislike", systemImage: "hand.thumbsdown")
+                    Label(String(localized: "Dislike"), systemImage: "hand.thumbsdown")
                 }
             }
         }
@@ -62,13 +61,13 @@ struct AddToQueueContextMenu: View {
         Button {
             SongActionsHelper.addToQueueNext(self.song, playerService: self.playerService)
         } label: {
-            Label("Play Next", systemImage: "text.insert")
+            Label(String(localized: "Play Next"), systemImage: "text.insert")
         }
 
         Button {
             SongActionsHelper.addToQueueLast(self.song, playerService: self.playerService)
         } label: {
-            Label("Add to Queue", systemImage: "text.append")
+            Label(String(localized: "Add to Queue"), systemImage: "text.append")
         }
     }
 }
@@ -81,6 +80,7 @@ struct AddToPlaylistContextMenu: View {
     let client: any YTMusicClientProtocol
 
     @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
 
     @State private var loadState: PlaylistLoadState = .idle
     @State private var isCreatingPlaylist = false
@@ -109,11 +109,11 @@ struct AddToPlaylistContextMenu: View {
             Group {
                 switch self.loadState {
                 case .idle, .loading:
-                    Label("Loading Playlists…", systemImage: "hourglass")
+                    Label(String(localized: "Loading Playlists…"), systemImage: "hourglass")
 
                 case let .loaded(menu):
                     if menu.options.isEmpty {
-                        Label("No Playlists", systemImage: "music.note.list")
+                        Label(String(localized: "No Playlists"), systemImage: "music.note.list")
                     } else {
                         ForEach(menu.options) { option in
                             Button {
@@ -139,7 +139,7 @@ struct AddToPlaylistContextMenu: View {
                     Button {
                         Task { await self.loadPlaylists(forceRefresh: true) }
                     } label: {
-                        Label("Retry Loading Playlists", systemImage: "arrow.clockwise")
+                        Label(String(localized: "Retry Loading Playlists"), systemImage: "arrow.clockwise")
                     }
                 }
 
@@ -152,7 +152,7 @@ struct AddToPlaylistContextMenu: View {
                 self.startLoadingPlaylistsIfNeeded()
             }
         } label: {
-            Label("Add to Playlist", systemImage: "text.badge.plus")
+            Label(String(localized: "Add to Playlist"), systemImage: "text.badge.plus")
         }
         .onAppear {
             // Start loading as soon as the parent context menu is built, not only
@@ -232,67 +232,35 @@ struct AddToPlaylistContextMenu: View {
 
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
+        let owner = self.playerService.currentAccountMutationOwner
 
-        let alert = NSAlert()
-        alert.messageText = "Create Playlist"
-        alert.informativeText = "Create a private playlist and add \"\(self.song.title)\" to it."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
-        let titleField = NSTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        titleField.placeholderString = "Playlist name"
-        alert.accessoryView = titleField
-        let handleResponse: (NSApplication.ModalResponse) -> Void = { response in
-            guard response == .alertFirstButtonReturn else { return }
-            let title = titleField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !title.isEmpty else {
-                self.loadState = .failed("Playlist Name Required")
-                return
-            }
-            Task { await self.createPlaylist(title: title) }
-        }
-
-        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
-            alert.beginSheetModal(for: window, completionHandler: handleResponse)
-        } else {
-            handleResponse(alert.runModal())
-        }
-    }
-
-    private func createPlaylist(title: String) async {
-        guard !title.isEmpty, !self.isCreatingPlaylist else { return }
-        self.isCreatingPlaylist = true
-        defer { self.isCreatingPlaylist = false }
-        do {
-            let playlistId = try await self.client.createPlaylist(
-                title: title,
-                description: nil,
-                privacyStatus: .private,
-                videoIds: [self.song.videoId]
-            )
-            let playlist = Playlist(
-                id: playlistId,
-                title: title,
-                description: nil,
+        SongActionsHelper.presentCreatePlaylistDialog(
+            informativeText: "Create a private playlist and add \"\(self.song.title)\" to it.",
+            request: SongActionsHelper.PlaylistCreationRequest(
+                client: self.client,
+                videoIds: [self.song.videoId],
                 thumbnailURL: self.song.thumbnailURL,
-                trackCount: 1
-            )
+                whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
+            ),
+            onWillCreate: {
+                guard !self.isCreatingPlaylist else { return false }
+                self.isCreatingPlaylist = true
+                return true
+            },
+            completion: { result in
+                self.isCreatingPlaylist = false
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
 
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
-
-            // Library browse responses can lag briefly behind a successful playlist creation.
-            // Refresh in the background, but keep the optimistic playlist visible if the
-            // cache/backend still returns a stale snapshot.
-            try? await Task.sleep(for: .milliseconds(500))
-            SongActionsHelper.invalidateLibraryResponseCaches()
-            await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(playlist)
-            SongActionsHelper.invalidateLibraryResponseCaches()
-
-            await self.loadPlaylists(forceRefresh: true)
-        } catch {
-            self.loadState = .failed("Unable to Create Playlist")
-            DiagnosticsLogger.ui.error("Failed to create playlist: \(error.localizedDescription)")
-        }
+                switch result {
+                case .success:
+                    Task {
+                        guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+                        await self.loadPlaylists(forceRefresh: true)
+                    }
+                case let .failure(failure):
+                    self.loadState = .failed(failure.message)
+                }
+            }
+        )
     }
 }

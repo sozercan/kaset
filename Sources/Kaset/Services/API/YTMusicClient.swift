@@ -1524,6 +1524,32 @@ final class YTMusicClient: YTMusicClientProtocol {
         APICache.shared.invalidateMutationCaches()
     }
 
+    /// Removes a song from a playlist.
+    /// - Parameters:
+    ///   - videoId: The video ID to remove
+    ///   - setVideoId: The playlist-item-specific identifier YouTube Music assigns to
+    ///     each track occurrence, required to remove the correct instance (a song can
+    ///     appear more than once in a playlist).
+    ///   - playlistId: The playlist ID to remove from
+    func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws {
+        self.logger.info("Removing song \(videoId) from playlist \(playlistId)")
+
+        let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
+        let body: [String: Any] = [
+            "playlistId": cleanPlaylistId,
+            "actions": [[
+                "action": "ACTION_REMOVE_VIDEO",
+                "removedVideoId": videoId,
+                "setVideoId": setVideoId,
+            ]],
+        ]
+
+        _ = try await self.request("browse/edit_playlist", body: body)
+        self.logger.info("Successfully removed song \(videoId) from playlist \(playlistId)")
+
+        APICache.shared.invalidateMutationCaches()
+    }
+
     /// Removes a playlist from the user's library using the like/removelike endpoint.
     /// This is equivalent to the "Remove from Library" action in YouTube Music.
     /// - Parameter playlistId: The playlist ID to remove from library

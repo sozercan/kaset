@@ -97,6 +97,7 @@ enum ContentSourceResolver {
     ) -> ContentSource {
         let intent = Self.groundedIntent(intent, groundingQuery: groundingQuery)
         let routingQuery = groundingQuery ?? intent.query
+        let discoveryRoutingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(routingQuery)
 
         if !intent.artist.isEmpty {
             return .search
@@ -125,9 +126,11 @@ enum ContentSourceResolver {
 
         let moodLower = intent.mood.lowercased()
         let matchesMood = !intent.mood.isEmpty && moodMatches.contains { moodLower.contains($0) }
-        let normalizedQuery = Self.normalizedTokens(routingQuery).joined(separator: " ")
+        let normalizedQuery = Self.normalizedTokens(discoveryRoutingQuery).joined(separator: " ")
+        let hasActivityContext = MusicDiscoveryTaxonomy.containsActivityContext(normalizedQuery) ||
+            MusicDiscoveryTaxonomy.standaloneActivityPhrase(in: routingQuery) != nil
         let matchesQuery = moodMatches.contains { Self.containsNormalizedPhrase(normalizedQuery, $0) } ||
-            MusicDiscoveryTaxonomy.containsActivityContext(normalizedQuery)
+            hasActivityContext
         let queryMoodKeywords = moodMatches.filter { Self.containsNormalizedPhrase(normalizedQuery, $0) }
         let queryActivityKeywords = MusicDiscoveryTaxonomy.activityKeywords.filter { Self.containsNormalizedPhrase(normalizedQuery, $0) }
         var discoveryDimensions: Set<String> = []
@@ -140,7 +143,7 @@ enum ContentSourceResolver {
             discoveryDimensions.insert("mood")
         }
         if !intent.activity.isEmpty ||
-            (MusicDiscoveryTaxonomy.containsActivityContext(normalizedQuery) &&
+            (hasActivityContext &&
                 queryActivityKeywords.contains(where: { activityKeyword in
                     if Self.value(activityKeyword, isRepresentedBy: intent.mood) {
                         return false
@@ -369,20 +372,21 @@ enum ContentSourceResolver {
         let groundingQuery = groundingQuery ?? intent.query
         guard !groundingQuery.isEmpty else { return intent }
         let requiresLexicalGrounding = MusicDiscoveryTaxonomy.requiresLexicalGrounding(for: groundingQuery)
+        let roleGroundingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(groundingQuery)
 
         // Guided generation can fill optional string fields with plausible but
         // unrequested values. Keep only modifiers represented in the subject.
         var genre = requiresLexicalGrounding
             ? self.groundedValue(
                 intent.genre,
-                in: groundingQuery,
+                in: roleGroundingQuery,
                 aliases: MusicDiscoveryTaxonomy.genreAliases(for: intent.genre)
             )
             : intent.genre
         var mood = requiresLexicalGrounding
             ? self.groundedValue(
                 intent.mood,
-                in: groundingQuery,
+                in: roleGroundingQuery,
                 aliases: MusicDiscoveryTaxonomy.moodAliases(for: intent.mood),
                 allowsInflections: true
             )
@@ -393,7 +397,7 @@ enum ContentSourceResolver {
         let moodEvidence = self.matchedGroundingCandidates(
             intent.mood,
             aliases: MusicDiscoveryTaxonomy.moodAliases(for: intent.mood),
-            in: groundingQuery
+            in: roleGroundingQuery
         )
         let moodIsExplicit = !requiresLexicalGrounding || !moodEvidence.isEmpty
         if !genre.isEmpty,

@@ -183,9 +183,14 @@ extension PlaylistDetailView {
                         canDelete: detail.canDelete
                     ),
                     client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
+                    libraryViewModel: self.libraryViewModel,
+                    playerService: self.playerService
                 ) {
-                    self.dismiss()
+                    if let onPlaylistDeleted = self.onPlaylistDeleted {
+                        onPlaylistDeleted()
+                    } else {
+                        self.dismiss()
+                    }
                 }
             } label: {
                 self.headerActionLabel(

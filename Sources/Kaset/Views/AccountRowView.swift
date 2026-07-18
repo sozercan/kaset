@@ -49,7 +49,7 @@ struct AccountRowView: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.blue)
-                        .accessibilityLabel("Selected")
+                        .accessibilityLabel(String(localized: "Selected"))
                 }
             }
             .padding(.horizontal, 12)

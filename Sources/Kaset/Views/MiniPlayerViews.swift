@@ -765,7 +765,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                     ContentUnavailableView(
                         String(localized: "No Queue"),
                         systemImage: "list.bullet",
-                        description: Text("Songs you play next will appear here.")
+                        description: Text(String(localized: "Songs you play next will appear here."))
                     )
                     .foregroundStyle(.white.opacity(0.76))
                     .frame(maxWidth: .infinity, minHeight: 210)
@@ -777,13 +777,13 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack(spacing: 4) {
                                     Text(song.title)
-                                        .font(.system(size: 9, weight: index == self.playerService.currentIndex ? .semibold : .regular))
+                                        .font(.system(size: 9, weight: index == self.playerService.activePlaybackQueueIndex ? .semibold : .regular))
                                         .lineLimit(1)
                                     if entry.source == .suggested {
                                         Image(systemName: "sparkles")
                                             .font(.system(size: 8, weight: .semibold))
                                             .foregroundStyle(PackageResourceLookup.brandAccent)
-                                            .accessibilityLabel(Text("Suggested"))
+                                            .accessibilityLabel(Text(String(localized: "Suggested")))
                                     }
                                 }
                                 Text(song.artistsDisplay)
@@ -796,7 +796,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                         .foregroundStyle(.white.opacity(0.88))
                         .padding(.horizontal, 8)
                         .padding(.vertical, 5)
-                        .background(index == self.playerService.currentIndex ? Color.white.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 10))
+                        .background(index == self.playerService.activePlaybackQueueIndex ? Color.white.opacity(0.12) : Color.clear, in: .rect(cornerRadius: 10))
                     }
                 }
             }

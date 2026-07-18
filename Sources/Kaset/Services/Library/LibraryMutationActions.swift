@@ -4,9 +4,20 @@ import Foundation
 /// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
 enum LibraryMutationActions {
+    private struct PlaylistDeletionKey: Hashable {
+        let playlistId: String
+        let owner: MusicAccountMutationOwner?
+    }
+
+    private struct PendingPlaylistDeletion {
+        let id: UUID
+        let task: Task<Void, Error>
+    }
+
     static var artistReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
 
     private static var artistReconciliationTasks: [String: Task<Void, Never>] = [:]
+    private static var pendingPlaylistDeletions: [PlaylistDeletionKey: PendingPlaylistDeletion] = [:]
 
     /// Adds a song to a playlist.
     static func addSongToPlaylist(
@@ -24,6 +35,41 @@ enum LibraryMutationActions {
             DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
         } catch {
             DiagnosticsLogger.api.error("Failed to add song to playlist: \(error.localizedDescription)")
+        }
+    }
+
+    /// Removes a song from the playlist currently loaded in `viewModel`. The row is removed
+    /// optimistically and restored if the server mutation fails.
+    static func removeSongFromPlaylist(
+        _ song: Song,
+        from viewModel: PlaylistDetailViewModel,
+        client: any YTMusicClientProtocol
+    ) async {
+        guard let setVideoId = song.playlistSetVideoId else {
+            DiagnosticsLogger.api.error("Cannot remove '\(song.title)' from playlist: missing setVideoId")
+            HapticService.error()
+            return
+        }
+        guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
+
+        do {
+            try Task.checkCancellation()
+            try await client.removeSongFromPlaylist(
+                videoId: song.videoId,
+                setVideoId: setVideoId,
+                playlistId: viewModel.playlistID
+            )
+            Self.invalidateResponseCaches()
+            viewModel.confirmTrackRemoval(removal)
+            HapticService.success()
+            DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+        } catch is CancellationError {
+            await viewModel.rollbackTrackRemoval(removal)
+            return
+        } catch {
+            await viewModel.rollbackTrackRemoval(removal)
+            HapticService.error()
+            DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
         }
     }
 
@@ -81,23 +127,69 @@ enum LibraryMutationActions {
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        owner: MusicAccountMutationOwner? = nil,
+        whileValid isCurrent: @escaping () -> Bool = { true }
     ) async throws {
-        do {
-            try await client.deletePlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
-
-            // Library browse responses can lag briefly behind a successful deletion.
-            try? await Task.sleep(for: .milliseconds(500))
-            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
-            throw error
+        guard isCurrent() else { throw CancellationError() }
+        let key = PlaylistDeletionKey(
+            playlistId: LibraryContentIdentity.playlistKey(for: playlist.id),
+            owner: owner
+        )
+        if let pendingDeletion = self.pendingPlaylistDeletions[key] {
+            try await pendingDeletion.task.value
+            return
         }
+
+        let operationID = UUID()
+        let pinnedItemsManager = SidebarPinnedItemsManager.shared
+        let removedPins = pinnedItemsManager.stagePlaylistPinRemoval(matching: playlist.id)
+        let removalReceipt = LibraryMutationBroadcaster.shared.playlistRemoved(
+            playlistId: playlist.id
+        )
+        let task = Task { @MainActor in
+            var didDeleteRemotely = false
+            do {
+                guard isCurrent() else { throw CancellationError() }
+                try await client.deletePlaylist(playlistId: playlist.id)
+                didDeleteRemotely = true
+                pinnedItemsManager.commitPlaylistPinRemoval(removedPins)
+                guard isCurrent() else { throw CancellationError() }
+                self.invalidateResponseCaches()
+                libraryViewModel?.markNeedsReloadOnActivation()
+                DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
+
+                // Library browse responses can lag briefly behind a successful deletion.
+                try? await Task.sleep(for: .milliseconds(500))
+                guard isCurrent() else { throw CancellationError() }
+                await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+                self.invalidateResponseCaches()
+            } catch {
+                guard isCurrent() else {
+                    if !didDeleteRemotely {
+                        pinnedItemsManager.restore(removedPins)
+                    }
+                    throw CancellationError()
+                }
+                pinnedItemsManager.restore(removedPins)
+                LibraryMutationBroadcaster.shared.rollbackPlaylistRemoval(
+                    playlist,
+                    receipt: removalReceipt
+                )
+                DiagnosticsLogger.api.error("Failed to delete playlist: \(error.localizedDescription)")
+                throw error
+            }
+        }
+        self.pendingPlaylistDeletions[key] = PendingPlaylistDeletion(
+            id: operationID,
+            task: task
+        )
+        defer {
+            if self.pendingPlaylistDeletions[key]?.id == operationID {
+                self.pendingPlaylistDeletions.removeValue(forKey: key)
+            }
+        }
+        try await task.value
     }
 
     /// Subscribes to a podcast show (adds to library).

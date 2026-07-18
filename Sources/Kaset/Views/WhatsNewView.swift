@@ -135,7 +135,7 @@ struct WhatsNewView: View {
                 Button {
                     NSWorkspace.shared.open(url)
                 } label: {
-                    Label("Learn more", systemImage: "arrow.up.right")
+                    Label(String(localized: "Learn more"), systemImage: "arrow.up.right")
                         .font(.subheadline.weight(.semibold))
                 }
                 .buttonStyle(.plain)
@@ -147,7 +147,7 @@ struct WhatsNewView: View {
             Button {
                 self.onDismiss()
             } label: {
-                Text("Continue")
+                Text(String(localized: "Continue"))
                     .font(.headline)
                     .frame(minWidth: 160)
             }

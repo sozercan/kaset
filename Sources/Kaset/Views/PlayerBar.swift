@@ -136,33 +136,33 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private var keyboardShortcuts: some View {
-        Button("") {
+        Button(String(localized: "")) {
             Task { await self.playerService.playPause() }
         }
         .keyboardShortcut(.space, modifiers: [])
         .opacity(0)
 
-        Button("") {
+        Button(String(localized: "")) {
             Task { await self.playerService.next() }
         }
         .keyboardShortcut(.rightArrow, modifiers: .command)
         .disabled(self.playerService.currentEpisode != nil)
         .opacity(0)
 
-        Button("") {
+        Button(String(localized: "")) {
             Task { await self.playerService.previous() }
         }
         .keyboardShortcut(.leftArrow, modifiers: .command)
         .disabled(self.playerService.currentEpisode != nil)
         .opacity(0)
 
-        Button("") {
+        Button(String(localized: "")) {
             Task { await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1)) }
         }
         .keyboardShortcut(.upArrow, modifiers: .command)
         .opacity(0)
 
-        Button("") {
+        Button(String(localized: "")) {
             Task { await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1)) }
         }
         .keyboardShortcut(.downArrow, modifiers: .command)
@@ -203,7 +203,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
-                .accessibilityLabel(Text("Go to Album"))
+                .accessibilityLabel(Text(String(localized: "Go to Album")))
             } else {
                 self.trackArtwork(for: track)
                     .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
@@ -844,7 +844,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             Button {
                 self.openArtist(artist)
             } label: {
-                Label("Go to Artist", systemImage: "person")
+                Label(String(localized: "Go to Artist"), systemImage: "person")
             }
         }
 
@@ -852,7 +852,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             Button {
                 self.openAlbum(self.playlist(from: album, track: track))
             } label: {
-                Label("Go to Album", systemImage: "square.stack")
+                Label(String(localized: "Go to Album"), systemImage: "square.stack")
             }
         }
     }

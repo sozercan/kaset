@@ -16,24 +16,38 @@ extension YouTubePlayerService {
 
     /// Seeks to a position in seconds.
     func seek(to time: Double) {
+        self.beginYouTubePlaybackIntent()
+        self.clearRelativeSeekCoalescingTarget()
+        self.performSeek(to: time)
+    }
+
+    func handleRemoteSeek(
+        to time: Double,
+        issuedAtMilliseconds: Double
+    ) {
+        guard self.admitYouTubeRemoteCommand(
+            issuedAtMilliseconds: issuedAtMilliseconds
+        ) else { return }
         self.clearRelativeSeekCoalescingTarget()
         self.performSeek(to: time)
     }
 
     private func performSeek(to time: Double) {
         guard time.isFinite else { return }
+        self.invalidateExplicitStartTargetForUserSeek()
         let target = self.clampedSeekTarget(time)
         if self.duration > 0, target >= self.duration - Self.seekToEndThreshold {
             self.handleManualSeekToEnd()
             return
         }
 
+        self.recordPendingUserSeek(to: target)
         self.progress = target
         if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
             self.pendingPausedIdentityReloadResumeAt = target > 0 ? target : nil
             self.userUpdatedPendingPausedIdentityReloadSeek = true
         }
-        self.playbackController.seek(to: target)
+        self.playbackController.seekWithRecovery(to: target)
     }
 
     private func clampedSeekTarget(_ time: Double) -> Double {
@@ -48,29 +62,44 @@ extension YouTubePlayerService {
         let terminalSeekTime = max(0, self.duration - Self.seekToEndThreshold)
         self.progress = self.duration
         self.lastNonAdContentProgress = self.duration
+        self.clearPendingUserSeek()
         self.clearRelativeSeekCoalescingTarget()
         if self.pendingPausedIdentityReloadVideoId == self.currentVideo?.videoId {
             self.pendingPausedIdentityReloadResumeAt = nil
             self.userUpdatedPendingPausedIdentityReloadSeek = true
         }
 
+        // Fence native pause intent before any WebView command can synchronously
+        // publish a late playing sample, then cancel every older deferred seek so
+        // it cannot overwrite this terminal position after the command returns.
+        self.activateExplicitPauseIntent()
+        self.pendingPausedIdentityReloadVideoId = nil
+        self.pendingPausedIdentityReloadResumeAt = nil
+        self.userUpdatedPendingPausedIdentityReloadSeek = true
+        self.playbackController.cancelPendingRecoverySeek()
+        self.playbackController.markCurrentPlaybackOccurrenceEnded()
         // Keep the WebView away from exact-duration seeks and pause it so a
         // follow-up state update cannot look like a fresh replay of the just-
         // concluded watch.
         self.playbackController.seek(to: terminalSeekTime)
         self.playbackController.pause()
-        self.handleVideoEnded(videoId: self.currentVideo?.videoId)
+        self.handleVideoEnded(
+            videoId: self.currentVideo?.videoId,
+            isNativeTerminal: true
+        )
     }
 
     /// Seeks backward by a fixed interval, clamping to the beginning.
     func seekBackward(by seconds: Double = 30) {
         guard seconds.isFinite, seconds > 0 else { return }
+        self.beginYouTubePlaybackIntent()
         self.seekRelative(by: -seconds)
     }
 
     /// Seeks forward by a fixed interval, clamping to the known duration.
     func seekForward(by seconds: Double = 30) {
         guard seconds.isFinite, seconds > 0 else { return }
+        self.beginYouTubePlaybackIntent()
         self.seekRelative(by: seconds)
     }
 

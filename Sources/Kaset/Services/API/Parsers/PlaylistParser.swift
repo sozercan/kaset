@@ -1070,6 +1070,7 @@ enum PlaylistParser {
         let album = ParsingHelpers.extractAlbumFromFlexColumns(responsiveRenderer)
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
         let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
+        let playlistSetVideoId = ParsingHelpers.extractPlaylistSetVideoId(from: responsiveRenderer)
 
         return Song(
             id: videoId,
@@ -1080,7 +1081,8 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             videoId: videoId,
             isPlayable: isPlayable,
-            isExplicit: isExplicit
+            isExplicit: isExplicit,
+            playlistSetVideoId: playlistSetVideoId
         )
     }
 
