@@ -114,6 +114,24 @@ struct AuthServiceTests {
         #expect(self.authService.needsReauth == true)
     }
 
+    @Test("Session expiry clears like state and invalidates liked-music requests")
+    func sessionExpiryClearsLikeStateAndInvalidatesLikedMusicRequests() {
+        self.authService.completeLogin(sapisid: "placeholder")
+
+        let manager = SongLikeStatusManager.shared
+        let videoId = "session-expiry-cached-like"
+        manager.setStatus(.like, for: videoId)
+        let requestSnapshot = manager.beginLikedMusicRequest()
+
+        #expect(manager.status(for: videoId) == .like)
+        #expect(manager.matchesCurrentScope(requestSnapshot))
+
+        self.authService.sessionExpired()
+
+        #expect(manager.status(for: videoId) == nil)
+        #expect(manager.matchesCurrentScope(requestSnapshot) == false)
+    }
+
     @Test("Guest mode transitions clear URL cache")
     func guestModeTransitionsClearURLCache() async throws {
         self.authService.completeLogin(sapisid: "placeholder")

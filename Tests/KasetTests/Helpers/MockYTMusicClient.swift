@@ -100,6 +100,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var playlistDetails: [String: PlaylistDetail] = [:]
     var playlistAllTracks: [String: [Song]] = [:]
     var playlistContinuationTracks: [String: [[Song]]] = [:]
+    var forcedPlaylistContinuationResponses: [PlaylistContinuationResponse] = []
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
     var artistSongsResponse: [Song] = []
@@ -828,6 +829,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         if let error = shouldThrowError {
             throw error
+        }
+        if !self.forcedPlaylistContinuationResponses.isEmpty {
+            return self.forcedPlaylistContinuationResponses.removeFirst()
         }
         guard let (playlistId, index) = Self.parsePlaylistContinuationToken(token),
               let continuations = playlistContinuationTracks[playlistId],

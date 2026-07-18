@@ -7,11 +7,61 @@ struct LikeStatusEvent: Equatable {
     let videoId: String
     let status: LikeStatus
     let song: Song?
-    private let eventId = UUID()
+    let addsLikedMusicMembership: Bool?
+    private let eventId: UUID
+
+    init(
+        videoId: String,
+        status: LikeStatus,
+        song: Song?,
+        addsLikedMusicMembership: Bool? = nil
+    ) {
+        self.videoId = videoId
+        self.status = status
+        self.song = song
+        self.addsLikedMusicMembership = addsLikedMusicMembership
+        self.eventId = UUID()
+    }
 
     static func == (lhs: LikeStatusEvent, rhs: LikeStatusEvent) -> Bool {
         lhs.eventId == rhs.eventId
     }
+}
+
+// MARK: - LikeStatusEventBatch
+
+struct LikeStatusEventBatch: Equatable {
+    let accountID: String
+    let events: [LikeStatusEvent]
+    private let batchId: UUID
+
+    init(accountID: String, events: [LikeStatusEvent]) {
+        self.accountID = accountID
+        self.events = events
+        self.batchId = UUID()
+    }
+
+    static func == (lhs: LikeStatusEventBatch, rhs: LikeStatusEventBatch) -> Bool {
+        lhs.batchId == rhs.batchId
+    }
+}
+
+// MARK: - LikedMusicRequestSnapshot
+
+struct LikedMusicRequestSnapshot: Equatable {
+    let accountID: String
+    let scopeGeneration: UInt64
+    let requestID: UInt64
+}
+
+// MARK: - LikedMusicReconciliation
+
+struct LikedMusicReconciliation {
+    let tracks: [Song]
+    let filteredVideoIDs: Set<String>
+    let insertedVideoIDs: Set<String>
+    let localOverlayVideoIDs: Set<String>
+    let newLikedMembershipVideoIDs: Set<String>
 }
 
 // MARK: - SongLikeStatusManager
@@ -33,6 +83,20 @@ final class SongLikeStatusManager {
         let sessionGeneration: UInt64
     }
 
+    private struct PendingRating {
+        let revision: UInt64
+        let status: LikeStatus
+        let song: Song
+    }
+
+    private struct LocalRatingOverlay {
+        let revision: UInt64
+        let status: LikeStatus
+        let song: Song
+        let addsLikedMusicMembership: Bool
+        var protectedRequestIDs: Set<UInt64>
+    }
+
     /// Shared singleton instance.
     static let shared = SongLikeStatusManager()
 
@@ -52,9 +116,14 @@ final class SongLikeStatusManager {
 
     /// Monotonic latest-operation revisions scoped by account and video ID.
     private var sessionGeneration: UInt64 = 0
+    private(set) var requestScopeGeneration: UInt64 = 0
+    private var likedMusicRequestCounter: UInt64 = 0
+    private var activeLikedMusicRequestIDsByAccount: [String: Set<UInt64>] = [:]
     private var ratingRevisionCounter: UInt64 = 0
     private var ratingRevisionByAccount: [String: [String: UInt64]] = [:]
     private var confirmedStatusByAccount: [String: [String: ConfirmedRatingStatus]] = [:]
+    private var pendingRatingByAccount: [String: [String: PendingRating]] = [:]
+    private var localRatingOverlayByAccount: [String: [String: LocalRatingOverlay]] = [:]
     @ObservationIgnored private var ratingMutationTails: [String: Task<Result<Void, any Error>, Never>] = [:]
     @ObservationIgnored private var ratingMutationTailRevisions: [String: UInt64] = [:]
 
@@ -63,6 +132,7 @@ final class SongLikeStatusManager {
 
     /// The most recent like status change event, for reactive observation by views.
     private(set) var lastLikeEvent: LikeStatusEvent?
+    private(set) var lastLikeEventBatch: LikeStatusEventBatch?
 
     /// Reference to the YTMusic client for API calls.
     private var client: (any YTMusicClientProtocol)?
@@ -88,8 +158,10 @@ final class SongLikeStatusManager {
         let resolvedAccountID = Self.resolvedAccountID(accountID)
         guard self.activeAccountID != resolvedAccountID else { return }
 
-        self.invalidateSession(clearsActiveCache: false)
+        self.invalidateSession(clearsActiveCache: false, publishesRollbackEvents: false)
         self.activeAccountID = resolvedAccountID
+        self.lastLikeEvent = nil
+        self.lastLikeEventBatch = nil
         DiagnosticsLogger.api.debug("SongLikeStatusManager: Switched cache scope to account \(resolvedAccountID)")
     }
 
@@ -121,6 +193,125 @@ final class SongLikeStatusManager {
     /// - Returns: True if the song is disliked.
     func isDisliked(_ song: Song) -> Bool {
         self.status(for: song) == .dislike
+    }
+
+    func beginLikedMusicRequest() -> LikedMusicRequestSnapshot {
+        let accountID = self.activeAccountID
+        self.likedMusicRequestCounter &+= 1
+        let requestID = self.likedMusicRequestCounter
+        self.activeLikedMusicRequestIDsByAccount[accountID, default: []].insert(requestID)
+        if var overlays = self.localRatingOverlayByAccount[accountID] {
+            for (videoId, var overlay) in overlays
+                where self.pendingRatingByAccount[accountID]?[videoId] != nil
+                || !overlay.protectedRequestIDs.isEmpty
+            {
+                overlay.protectedRequestIDs.insert(requestID)
+                overlays[videoId] = overlay
+            }
+            self.localRatingOverlayByAccount[accountID] = overlays
+        }
+        return LikedMusicRequestSnapshot(
+            accountID: accountID,
+            scopeGeneration: self.requestScopeGeneration,
+            requestID: requestID
+        )
+    }
+
+    func finishLikedMusicRequest(_ snapshot: LikedMusicRequestSnapshot) {
+        self.activeLikedMusicRequestIDsByAccount[snapshot.accountID]?.remove(snapshot.requestID)
+        if self.activeLikedMusicRequestIDsByAccount[snapshot.accountID]?.isEmpty == true {
+            self.activeLikedMusicRequestIDsByAccount.removeValue(forKey: snapshot.accountID)
+        }
+        guard var overlays = self.localRatingOverlayByAccount[snapshot.accountID] else { return }
+        for (videoId, var overlay) in overlays {
+            overlay.protectedRequestIDs.remove(snapshot.requestID)
+            if overlay.protectedRequestIDs.isEmpty,
+               self.pendingRatingByAccount[snapshot.accountID]?[videoId] == nil
+            {
+                overlays.removeValue(forKey: videoId)
+            } else {
+                overlays[videoId] = overlay
+            }
+        }
+        self.localRatingOverlayByAccount[snapshot.accountID] = overlays.isEmpty ? nil : overlays
+    }
+
+    func matchesCurrentScope(_ snapshot: LikedMusicRequestSnapshot) -> Bool {
+        self.activeAccountID == snapshot.accountID
+            && self.requestScopeGeneration == snapshot.scopeGeneration
+    }
+
+    func reconcileLikedMusicTracks(
+        _ tracks: [Song],
+        snapshot: LikedMusicRequestSnapshot,
+        deduplicating: Bool = false
+    ) -> LikedMusicReconciliation? {
+        guard self.matchesCurrentScope(snapshot) else { return nil }
+
+        var acceptedTracks: [Song] = []
+        var filteredVideoIDs: Set<String> = []
+        var insertedVideoIDs: Set<String> = []
+        var localOverlayVideoIDs: Set<String> = []
+        var newLikedMembershipVideoIDs: Set<String> = []
+        var seenVideoIDs: Set<String> = []
+        var cache = self.statusCacheByAccount[snapshot.accountID] ?? [:]
+        let overlays = self.localRatingOverlayByAccount[snapshot.accountID] ?? [:]
+        var didMutateCache = false
+
+        for var song in tracks {
+            if deduplicating, !seenVideoIDs.insert(song.videoId).inserted {
+                continue
+            }
+            if let overlay = overlays[song.videoId],
+               overlay.protectedRequestIDs.contains(snapshot.requestID)
+            {
+                localOverlayVideoIDs.insert(song.videoId)
+                guard overlay.status == .like else {
+                    filteredVideoIDs.insert(song.videoId)
+                    continue
+                }
+                if overlay.addsLikedMusicMembership {
+                    newLikedMembershipVideoIDs.insert(song.videoId)
+                }
+            } else {
+                cache[song.videoId] = .like
+                self.setConfirmedStatus(.like, for: song.videoId, accountID: snapshot.accountID)
+                didMutateCache = true
+            }
+            song.likeStatus = .like
+            acceptedTracks.append(song)
+        }
+
+        var acceptedVideoIDs = Set(acceptedTracks.map(\.videoId))
+        let missingLikedOverlays = overlays.filter { videoId, overlay in
+            overlay.protectedRequestIDs.contains(snapshot.requestID)
+                && overlay.status == .like
+                && !acceptedVideoIDs.contains(videoId)
+        }.sorted { lhs, rhs in
+            lhs.value.revision < rhs.value.revision
+        }
+        for (videoId, overlay) in missingLikedOverlays {
+            var song = overlay.song
+            song.likeStatus = .like
+            acceptedTracks.insert(song, at: 0)
+            acceptedVideoIDs.insert(videoId)
+            insertedVideoIDs.insert(videoId)
+            localOverlayVideoIDs.insert(videoId)
+            if overlay.addsLikedMusicMembership {
+                newLikedMembershipVideoIDs.insert(videoId)
+            }
+        }
+
+        if didMutateCache {
+            self.statusCacheByAccount[snapshot.accountID] = cache
+        }
+        return LikedMusicReconciliation(
+            tracks: acceptedTracks,
+            filteredVideoIDs: filteredVideoIDs,
+            insertedVideoIDs: insertedVideoIDs,
+            localOverlayVideoIDs: localOverlayVideoIDs,
+            newLikedMembershipVideoIDs: newLikedMembershipVideoIDs
+        )
     }
 
     // MARK: - Rating Actions
@@ -230,10 +421,29 @@ final class SongLikeStatusManager {
         if self.confirmedStatusByAccount[resolvedAccountID]?[song.videoId] == nil {
             self.setConfirmedStatus(previousStatus, for: song.videoId, accountID: resolvedAccountID)
         }
+        let addsLikedMusicMembership = status == .like
+            && self.confirmedStatus(for: song.videoId, accountID: resolvedAccountID) != .like
         self.setStatus(status, for: song.videoId, accountID: resolvedAccountID)
         self.publishEvent(
-            LikeStatusEvent(videoId: song.videoId, status: status, song: song),
+            LikeStatusEvent(
+                videoId: song.videoId,
+                status: status,
+                song: song,
+                addsLikedMusicMembership: addsLikedMusicMembership
+            ),
             for: resolvedAccountID
+        )
+        self.pendingRatingByAccount[resolvedAccountID, default: [:]][song.videoId] = PendingRating(
+            revision: revision,
+            status: status,
+            song: song
+        )
+        self.localRatingOverlayByAccount[resolvedAccountID, default: [:]][song.videoId] = LocalRatingOverlay(
+            revision: revision,
+            status: status,
+            song: song,
+            addsLikedMusicMembership: addsLikedMusicMembership,
+            protectedRequestIDs: self.activeLikedMusicRequestIDsByAccount[resolvedAccountID] ?? []
         )
 
         let mutation = RatingMutationRequest(
@@ -304,7 +514,7 @@ final class SongLikeStatusManager {
 
     private func rollbackRatingMutation(
         song: Song,
-        status: LikeStatus,
+        status _: LikeStatus,
         mutation: RatingMutationRequest,
         logsCancellation: Bool
     ) -> LikeStatus {
@@ -313,13 +523,31 @@ final class SongLikeStatusManager {
             videoId: song.videoId,
             accountID: mutation.accountID
         ) else {
-            return self.status(for: song.videoId, accountID: mutation.accountID) ?? status
+            return self.status(for: song.videoId, accountID: mutation.accountID) ?? .indifferent
         }
         let confirmedStatus = self.confirmedStatus(
             for: song.videoId,
             accountID: mutation.accountID
         )
         let rollbackStatus = confirmedStatus ?? .indifferent
+        if let overlay = self.localRatingOverlayByAccount[mutation.accountID]?[song.videoId],
+           overlay.revision == mutation.revision
+        {
+            if overlay.protectedRequestIDs.isEmpty {
+                self.localRatingOverlayByAccount[mutation.accountID]?.removeValue(forKey: song.videoId)
+                if self.localRatingOverlayByAccount[mutation.accountID]?.isEmpty == true {
+                    self.localRatingOverlayByAccount.removeValue(forKey: mutation.accountID)
+                }
+            } else {
+                self.localRatingOverlayByAccount[mutation.accountID]?[song.videoId] = LocalRatingOverlay(
+                    revision: mutation.revision,
+                    status: rollbackStatus,
+                    song: song,
+                    addsLikedMusicMembership: false,
+                    protectedRequestIDs: overlay.protectedRequestIDs
+                )
+            }
+        }
         let sessionIsCurrent = self.sessionGeneration == mutation.sessionGeneration
         let shouldRestoreOldAccount = sessionIsCurrent || self.activeAccountID != mutation.accountID
         if shouldRestoreOldAccount {
@@ -327,7 +555,12 @@ final class SongLikeStatusManager {
         }
         if sessionIsCurrent {
             self.publishEvent(
-                LikeStatusEvent(videoId: song.videoId, status: rollbackStatus, song: song),
+                LikeStatusEvent(
+                    videoId: song.videoId,
+                    status: rollbackStatus,
+                    song: song,
+                    addsLikedMusicMembership: false
+                ),
                 for: mutation.accountID
             )
         }
@@ -348,6 +581,7 @@ final class SongLikeStatusManager {
     func setStatus(_ status: LikeStatus, for videoId: String) {
         self.setStatus(status, for: videoId, accountID: self.activeAccountID)
         self.setConfirmedStatus(status, for: videoId, accountID: self.activeAccountID)
+        self.localRatingOverlayByAccount[self.activeAccountID]?.removeValue(forKey: videoId)
     }
 
     /// Updates the visible cache without advancing the API-confirmed rollback baseline.
@@ -380,21 +614,64 @@ final class SongLikeStatusManager {
 
     /// Clears all cached statuses.
     func clearCache() {
-        self.statusCacheByAccount.removeAll()
-        self.ratingRevisionByAccount.removeAll()
-        self.confirmedStatusByAccount.removeAll()
-        self.lastLikeEvent = nil
-    }
-
-    func invalidateSession(clearsActiveCache: Bool = true) {
+        self.requestScopeGeneration &+= 1
         self.sessionGeneration &+= 1
         for task in self.ratingMutationTails.values {
             task.cancel()
         }
+        self.pendingRatingByAccount.removeAll()
+        self.localRatingOverlayByAccount.removeAll()
+        self.activeLikedMusicRequestIDsByAccount.removeAll()
+        self.statusCacheByAccount.removeAll()
+        self.ratingRevisionByAccount.removeAll()
+        self.confirmedStatusByAccount.removeAll()
+        self.lastLikeEvent = nil
+        self.lastLikeEventBatch = nil
+    }
+
+    func invalidateSession(
+        clearsActiveCache: Bool = true,
+        publishesRollbackEvents: Bool = true
+    ) {
+        let accountID = self.activeAccountID
+        let rollbackEvents = clearsActiveCache
+            ? []
+            : self.restorePendingRatings(for: accountID)
+        self.requestScopeGeneration &+= 1
+        self.sessionGeneration &+= 1
+        for task in self.ratingMutationTails.values {
+            task.cancel()
+        }
+        self.pendingRatingByAccount.removeAll()
+        self.activeLikedMusicRequestIDsByAccount.removeAll()
+        self.localRatingOverlayByAccount.removeAll()
         if clearsActiveCache {
-            self.statusCacheByAccount.removeValue(forKey: self.activeAccountID)
-            self.confirmedStatusByAccount.removeValue(forKey: self.activeAccountID)
+            self.statusCacheByAccount.removeValue(forKey: accountID)
+            self.confirmedStatusByAccount.removeValue(forKey: accountID)
+            self.ratingRevisionByAccount.removeValue(forKey: accountID)
             self.lastLikeEvent = nil
+            self.lastLikeEventBatch = nil
+        } else if publishesRollbackEvents {
+            self.publishEvents(rollbackEvents, for: accountID)
+        }
+    }
+
+    func hasPendingRating(for videoId: String, accountID: String? = nil) -> Bool {
+        let resolvedAccountID = accountID.map(Self.resolvedAccountID) ?? self.activeAccountID
+        return self.pendingRatingByAccount[resolvedAccountID]?[videoId] != nil
+    }
+
+    private func restorePendingRatings(for accountID: String) -> [LikeStatusEvent] {
+        (self.pendingRatingByAccount[accountID] ?? [:]).map { videoId, pendingRating in
+            let confirmedStatus = self.confirmedStatus(for: videoId, accountID: accountID)
+            self.restoreStatus(confirmedStatus, for: videoId, accountID: accountID)
+            self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
+            return LikeStatusEvent(
+                videoId: videoId,
+                status: confirmedStatus ?? .indifferent,
+                song: pendingRating.song,
+                addsLikedMusicMembership: false
+            )
         }
     }
 
@@ -464,6 +741,20 @@ final class SongLikeStatusManager {
         guard self.ratingMutationTailRevisions[key] == revision else { return }
         self.ratingMutationTails.removeValue(forKey: key)
         self.ratingMutationTailRevisions.removeValue(forKey: key)
+        if self.pendingRatingByAccount[accountID]?[videoId]?.revision == revision {
+            self.pendingRatingByAccount[accountID]?.removeValue(forKey: videoId)
+            if self.pendingRatingByAccount[accountID]?.isEmpty == true {
+                self.pendingRatingByAccount.removeValue(forKey: accountID)
+            }
+        }
+        if self.localRatingOverlayByAccount[accountID]?[videoId]?.revision == revision,
+           self.localRatingOverlayByAccount[accountID]?[videoId]?.protectedRequestIDs.isEmpty == true
+        {
+            self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
+            if self.localRatingOverlayByAccount[accountID]?.isEmpty == true {
+                self.localRatingOverlayByAccount.removeValue(forKey: accountID)
+            }
+        }
     }
 
     private static func ratingMutationKey(accountID: String, videoId: String) -> String {
@@ -512,7 +803,12 @@ final class SongLikeStatusManager {
     }
 
     private func publishEvent(_ event: LikeStatusEvent, for accountID: String) {
-        guard accountID == self.activeAccountID else { return }
-        self.lastLikeEvent = event
+        self.publishEvents([event], for: accountID)
+    }
+
+    private func publishEvents(_ events: [LikeStatusEvent], for accountID: String) {
+        guard accountID == self.activeAccountID, let lastEvent = events.last else { return }
+        self.lastLikeEvent = lastEvent
+        self.lastLikeEventBatch = LikeStatusEventBatch(accountID: accountID, events: events)
     }
 }

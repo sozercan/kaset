@@ -349,7 +349,7 @@ extension PlayerService {
         withObservationTracking {
             _ = self.currentTrack?.videoId
             _ = self.songLikeStatusManager.cacheGeneration
-        } onChange: {
+        } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 self?.refreshCurrentTrackLikeStatusFromCache()
                 self?.observeNowPlayingLikeStatus()
