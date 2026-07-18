@@ -53,6 +53,7 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {

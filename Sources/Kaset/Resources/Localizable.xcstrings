@@ -18397,7 +18397,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ripeti"
+            "value": "Ripristina"
           }
         },
         "ko": {
@@ -19543,7 +19543,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Salva playlist e abbonati ai podcast su YouTube Music per vederli qui."
+            "value": "Salva playlist e iscriviti ai podcast su YouTube Music per vederli qui."
           }
         },
         "ko": {
@@ -19631,7 +19631,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Salva playlist, segui artisti e abbonati ai podcast su YouTube Music per vederli qui."
+            "value": "Salva playlist, segui artisti e iscriviti ai podcast su YouTube Music per vederli qui."
           }
         },
         "ko": {
@@ -22010,7 +22010,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbonati"
+            "value": "Iscriviti"
           }
         },
         "ko": {
@@ -22098,7 +22098,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbonati a %@"
+            "value": "Iscriviti a %@"
           }
         },
         "ko": {
@@ -22186,7 +22186,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbonati ai podcast su YouTube Music per vederli qui."
+            "value": "Iscriviti ai podcast su YouTube Music per vederli qui."
           }
         },
         "ko": {
@@ -22274,7 +22274,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Abbonato"
+            "value": "Iscritto"
           }
         },
         "ko": {
@@ -22362,7 +22362,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Errore di abbonamento"
+            "value": "Errore di iscrizione"
           }
         },
         "ko": {
@@ -26326,7 +26326,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Predefinito"
+            "value": "Preimpostazione"
           }
         },
         "ko": {
@@ -40804,7 +40804,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Ripeti l'ultima modifica alla coda annullata."
+            "value": "Ripristina l'ultima modifica alla coda annullata."
           }
         },
         "ko": {
@@ -40892,7 +40892,7 @@
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Aggiorna stato IA"
+            "value": "Aggiorna stato AI"
           }
         },
         "ko": {

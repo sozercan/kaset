@@ -53,6 +53,7 @@ struct ChartsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .charts)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {

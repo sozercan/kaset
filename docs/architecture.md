@@ -469,7 +469,7 @@ Parses YouTube Music URLs, regular YouTube watch links, and custom `kaset://` UR
 | `kaset://album?id=xxx` | `.album(id:)` |
 | `kaset://artist?id=xxx` | `.artist(id:)` |
 
-**Usage**: Called from `KasetApp.onOpenURL` to handle deep links. Music song links play through `PlayerService`; regular YouTube watch links switch to the YouTube source and open playback in the floating video window.
+**Usage**: Custom-scheme URLs enter through `AppDelegate.application(_:open:)`. The app delegate buffers cold-launch deliveries until the SwiftUI scene subscribes, then posts `.kasetOpenURLs` for `KasetApp.handleIncomingURL` to parse and route. Music song links play through `PlayerService`; regular YouTube watch links switch to the YouTube source and open playback in the floating video window.
 
 ### ScriptCommands (AppleScript)
 
