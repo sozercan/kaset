@@ -105,4 +105,56 @@ struct PlaylistTrackFilterTests {
         #expect(PlaylistTrackFilter.normalize("   \n\t ").isEmpty)
         #expect(!PlaylistTrackFilter.normalize("  x ").isEmpty)
     }
+
+    // MARK: - Queue source
+
+    private func makeIndexedRows() -> [IndexedTrack] {
+        // Simulate a search that matched originals at playlist positions 1 and 3.
+        [
+            IndexedTrack(index: 1, track: TestFixtures.makeSong(id: "b", title: "Target Beta")),
+            IndexedTrack(index: 3, track: TestFixtures.makeSong(id: "d", title: "Target Delta")),
+        ]
+    }
+
+    @Test("Queue source is the full playlist when the results preference is off")
+    func queueSourceDefaultsToFullPlaylist() {
+        let rows = self.makeIndexedRows()
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: 1, rows: rows, queryActive: true, queueFromResults: false
+        )
+
+        // Tapping the 2nd match must start the whole playlist at its ORIGINAL index (3), not 1.
+        #expect(source == .fullPlaylist(originalIndex: 3))
+    }
+
+    @Test("Queue source is the search results when the preference is on and a query is active")
+    func queueSourceUsesResultsWhenEnabled() {
+        let rows = self.makeIndexedRows()
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: 1, rows: rows, queryActive: true, queueFromResults: true
+        )
+
+        // Now the queue is the results, starting at the tapped filtered position (1).
+        #expect(source == .searchResults(startIndex: 1))
+    }
+
+    @Test("With no active query the full playlist is used even if the results preference is on")
+    func queueSourceIgnoresResultsPreferenceWithoutQuery() {
+        let rows = self.makeIndexedRows()
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: 0, rows: rows, queryActive: false, queueFromResults: true
+        )
+
+        #expect(source == .fullPlaylist(originalIndex: 1))
+    }
+
+    @Test("An out-of-range position yields no queue source")
+    func queueSourceRejectsOutOfRangePosition() {
+        let rows = self.makeIndexedRows()
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: 5, rows: rows, queryActive: true, queueFromResults: true
+        )
+
+        #expect(source == nil)
+    }
 }

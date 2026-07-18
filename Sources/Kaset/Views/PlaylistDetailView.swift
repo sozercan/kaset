@@ -33,6 +33,11 @@ struct PlaylistDetailView: View {
     /// still starts the queue at that track's original position in the full playlist.
     /// Non-private so the search UI in `PlaylistDetailView+Search.swift` can bind to it.
     @State var searchQuery: String = ""
+    /// Whether the header search field is expanded for editing. When false it rests as a
+    /// pill (or, with an active query, a compact chip) among the header action buttons.
+    @State var isSearchActive: Bool = false
+    /// Drives focus of the expanded search field so it collapses when editing ends.
+    @FocusState var searchFieldFocused: Bool
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
@@ -142,10 +147,6 @@ struct PlaylistDetailView: View {
                 self.headerView(detail)
 
                 Divider()
-
-                if self.shouldShowSearchField(for: detail) {
-                    self.searchField
-                }
 
                 // Tracks
                 let fallbackAlbum = Album(
@@ -260,9 +261,12 @@ struct PlaylistDetailView: View {
         return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
+    /// Renders one track row. `index` is the number shown to the user (the track's original
+    /// playlist position); `onPlay` is resolved by the caller so it can honor the search
+    /// queue-source setting.
     func trackRow(
-        _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
-        fallbackAlbum: Album? = nil
+        _ track: Song, index: Int, isAlbum: Bool, author: String?,
+        onPlay: @escaping () -> Void
     ) -> some View {
         PlaylistTrackRow(
             track: track,
@@ -270,20 +274,9 @@ struct PlaylistDetailView: View {
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
-            onPlay: {
-                self.playTrackInQueue(
-                    tracks: tracks, startingAt: index, fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            },
+            onPlay: onPlay,
             menu: {
-                self.trackContextMenu(
-                    track,
-                    index: index,
-                    tracks: tracks,
-                    author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
+                self.trackContextMenu(track, onPlay: onPlay)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -361,19 +354,11 @@ struct PlaylistDetailView: View {
     @ViewBuilder
     private func trackContextMenu(
         _ track: Song,
-        index: Int,
-        tracks: [Song],
-        author: String?,
-        fallbackAlbum: Album?
+        onPlay: @escaping () -> Void
     ) -> some View {
         if track.isPlayable {
             Button {
-                self.playTrackInQueue(
-                    tracks: tracks,
-                    startingAt: index,
-                    fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
+                onPlay()
             } label: {
                 Label(String(localized: "Play"), systemImage: "play.fill")
             }
@@ -478,6 +463,36 @@ struct PlaylistDetailView: View {
             initial: cleanedTracks, startingAt: playableIndex,
             fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
         )
+    }
+
+    /// Plays the row at filtered `position`, choosing the queue source per the user's setting:
+    /// when a search is active and "queue from results" is on, the queue is just the matches;
+    /// otherwise it's the whole playlist starting at the track's original position.
+    func playFilteredRow(
+        at position: Int, in rows: [IndexedTrack], fullTracks: [Song],
+        fallbackArtist: String?, fallbackAlbum: Album?
+    ) {
+        let queryActive = !PlaylistTrackFilter.normalize(self.searchQuery).isEmpty
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: position,
+            rows: rows,
+            queryActive: queryActive,
+            queueFromResults: SettingsManager.shared.playlistSearchQueueFromResults
+        )
+        switch source {
+        case let .fullPlaylist(originalIndex):
+            self.playTrackInQueue(
+                tracks: fullTracks, startingAt: originalIndex,
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+        case let .searchResults(startIndex):
+            self.playSearchResults(
+                rows.map(\.track), startingAt: startIndex,
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+        case nil:
+            break
+        }
     }
 
     func playAll(

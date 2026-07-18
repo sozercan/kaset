@@ -22,7 +22,59 @@ extension PlaylistDetailView {
         return detail.tracks.count >= Self.searchFieldMinimumTrackCount || self.viewModel.hasMore
     }
 
-    var searchField: some View {
+    /// The collapsed search control that lives among the header action buttons: a
+    /// magnifying-glass pill when idle, or a compact chip showing the active query plus a
+    /// clear button. Tapping it expands the field via ``expandedSearchField``.
+    var searchControl: some View {
+        Group {
+            if self.searchQuery.isEmpty {
+                Button {
+                    self.activateSearch()
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .help(String(localized: "Find in playlist"))
+                .accessibilityLabel(String(localized: "Find in playlist"))
+                .accessibilityIdentifier(AccessibilityID.PlaylistDetail.searchPill)
+            } else {
+                HStack(spacing: 6) {
+                    Button {
+                        self.activateSearch()
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: "magnifyingglass")
+                            Text(self.searchQuery)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .frame(maxWidth: 140)
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .help(String(localized: "Edit search"))
+                    .accessibilityIdentifier(AccessibilityID.PlaylistDetail.searchPill)
+
+                    Button {
+                        self.clearAndCollapseSearch()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(String(localized: "Clear search"))
+                    .accessibilityLabel(String(localized: "Clear search"))
+                    .accessibilityIdentifier(AccessibilityID.PlaylistDetail.clearSearchButton)
+                }
+            }
+        }
+    }
+
+    /// The expanded, focused search field that temporarily takes over the header action row
+    /// while typing. Auto-focuses on appear and folds back to ``searchControl`` when editing
+    /// ends (blur, Return, or tapping a result).
+    var expandedSearchField: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
                 .foregroundStyle(.secondary)
@@ -30,24 +82,65 @@ extension PlaylistDetailView {
             TextField(String(localized: "Find in playlist"), text: self.$searchQuery)
                 .textFieldStyle(.plain)
                 .autocorrectionDisabled()
+                .focused(self.$searchFieldFocused)
+                .onSubmit { self.searchFieldFocused = false }
                 .accessibilityIdentifier(AccessibilityID.PlaylistDetail.searchField)
 
-            if !self.searchQuery.isEmpty {
-                Button {
-                    self.searchQuery = ""
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(String(localized: "Clear search"))
-                .accessibilityIdentifier(AccessibilityID.PlaylistDetail.clearSearchButton)
+            Button {
+                self.clearAndCollapseSearch()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Clear search"))
+            .accessibilityIdentifier(AccessibilityID.PlaylistDetail.clearSearchButton)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .compatGlass(in: .capsule)
-        .frame(maxWidth: 360, alignment: .leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .task { self.searchFieldFocused = true }
+        .onChange(of: self.searchFieldFocused) { _, focused in
+            guard !focused else { return }
+            // Fold back to the pill/chip when editing ends, but defer one hop so a tap on the
+            // in-field clear button finishes first — collapsing synchronously here would tear
+            // the field down mid-click and drop that tap. Re-check focus in case it returned.
+            Task { @MainActor in
+                if !self.searchFieldFocused {
+                    self.isSearchActive = false
+                }
+            }
+        }
+    }
+
+    private func activateSearch() {
+        self.isSearchActive = true
+    }
+
+    private func clearAndCollapseSearch() {
+        self.searchQuery = ""
+        self.searchFieldFocused = false
+        self.isSearchActive = false
+    }
+
+    /// Plays exactly the given tracks (the current search matches) as the queue, starting at
+    /// `index` within them. Unlike ``playTrackInQueue(tracks:startingAt:fallbackArtist:fallbackAlbum:)``
+    /// it does NOT grow the queue to the full playlist — the queue is only the results.
+    func playSearchResults(
+        _ tracks: [Song], startingAt index: Int, fallbackArtist: String? = nil,
+        fallbackAlbum: Album? = nil
+    ) {
+        guard tracks.indices.contains(index), tracks[index].isPlayable else { return }
+
+        let playableIndex = tracks[...index].filter(\.isPlayable).count - 1
+        let cleanedTracks = self.playableTracks(
+            tracks, fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+        )
+        guard cleanedTracks.indices.contains(playableIndex) else { return }
+        Task { @MainActor in
+            await self.playerService.playQueue(cleanedTracks, startingAt: playableIndex)
+        }
     }
 
     /// The playlist's tracks, filtered by `searchQuery`. Each rendered row carries its
@@ -67,11 +160,17 @@ extension PlaylistDetailView {
             }
 
             ForEach(Array(rows.enumerated()), id: \.element.id) { position, row in
-                // Invariant: pass the FULL `tracks` and the row's ORIGINAL `row.index` (not the
-                // filtered position) so playback queues the whole playlist from the right spot.
+                // `index: row.index` shows the track's real playlist number; `playFilteredRow`
+                // resolves the queue source (full playlist from the original index, or just the
+                // search results) per the user's setting.
                 self.trackRow(
-                    row.track, index: row.index, tracks: tracks, isAlbum: isAlbum, author: author,
-                    fallbackAlbum: fallbackAlbum
+                    row.track, index: row.index, isAlbum: isAlbum, author: author,
+                    onPlay: {
+                        self.playFilteredRow(
+                            at: position, in: rows, fullTracks: tracks,
+                            fallbackArtist: author, fallbackAlbum: fallbackAlbum
+                        )
+                    }
                 )
                 .onAppear {
                     // Scroll-based pagination only applies to the unfiltered list; a search

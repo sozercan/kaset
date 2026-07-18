@@ -17,6 +17,17 @@ struct IndexedTrack: Identifiable, Hashable {
     }
 }
 
+// MARK: - PlaylistSearchQueueSource
+
+/// Which queue a played in-playlist-search row should build.
+enum PlaylistSearchQueueSource: Equatable {
+    /// Play the whole playlist, starting at this original index — the default, identical to
+    /// tapping the track in the unfiltered list.
+    case fullPlaylist(originalIndex: Int)
+    /// Play only the current search-result tracks, starting at this index within them.
+    case searchResults(startIndex: Int)
+}
+
 // MARK: - PlaylistTrackFilter
 
 /// Pure, view-agnostic filtering for in-playlist track search.
@@ -54,5 +65,21 @@ enum PlaylistTrackFilter {
         text
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// Decides which queue to build when the filtered row at `position` is played. Defaults to
+    /// the full playlist (matching unfiltered behavior) whenever the search isn't active or the
+    /// results-queue preference is off. Returns `nil` if `position` is out of range.
+    static func queueSource(
+        forFilteredPosition position: Int,
+        rows: [IndexedTrack],
+        queryActive: Bool,
+        queueFromResults: Bool
+    ) -> PlaylistSearchQueueSource? {
+        guard rows.indices.contains(position) else { return nil }
+        if queryActive, queueFromResults {
+            return .searchResults(startIndex: position)
+        }
+        return .fullPlaylist(originalIndex: rows[position].index)
     }
 }
