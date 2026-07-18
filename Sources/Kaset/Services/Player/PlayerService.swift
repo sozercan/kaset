@@ -161,11 +161,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// a fresh same-video sample from progress/duration left behind by an earlier metadata identity.
     private(set) var playbackStateObservationSequence = 0
 
+    /// Updates only playback identity; it must not infer duration provenance from existing state.
     func setPlaybackStateVideoId(_ videoId: String?) {
         self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)
-        self.recordDurationObservation(videoId: self.playbackStateVideoId, duration: self.duration)
     }
 
+    /// Records duration provenance only when both values came from the same bridge sample.
     func recordPlaybackStateObservation(videoId: String?, duration: TimeInterval) {
         self.playbackStateObservationSequence &+= 1
         self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)

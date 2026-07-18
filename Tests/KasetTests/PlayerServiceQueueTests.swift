@@ -407,8 +407,12 @@ struct PlayerServiceQueueTests {
     func playbackPersistenceRejectsMismatchedDuration() async {
         let song = TestFixtures.makeSong(id: "short1", duration: 240)
         await self.playerService.playQueue([song], startingAt: 0)
-        self.playerService.duration = 3600
-        self.playerService.setPlaybackStateVideoId("old-mix")
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 3600,
+            observedVideoId: "old-mix"
+        )
 
         self.playerService.saveQueueForPersistence()
 

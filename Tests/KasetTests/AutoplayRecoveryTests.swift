@@ -409,6 +409,31 @@ struct MusicPlaybackOccurrenceJSTests {
         ).toBool() == true)
     }
 
+    @Test("Leading metadata keeps the outgoing media clock owner")
+    func leadingMetadataKeepsOutgoingMediaClockOwner() {
+        let context = self.makeObserverContext()
+        #expect(context.exception == nil)
+
+        context.evaluateScript(
+            """
+            messages = [];
+            currentDataVideoId = 'v2';
+            titleElement.textContent = 'v2';
+            dispatch('waiting');
+            """
+        )
+
+        #expect(context.evaluateScript(
+            "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })[0].videoId"
+        ).toString() == "v2")
+        #expect(context.evaluateScript(
+            "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })[0].mediaVideoId"
+        ).toString() == "v1")
+        #expect(context.evaluateScript(
+            "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })[0].duration"
+        ).toDouble() == 180)
+    }
+
     @Test("A replay after ended advances only the consumed occurrence")
     func replayAfterEndedAdvancesOccurrence() {
         let context = self.makeContext()

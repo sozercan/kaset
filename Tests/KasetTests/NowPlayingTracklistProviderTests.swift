@@ -252,11 +252,11 @@ struct NowPlayingTracklistProviderTests {
         #expect(provider.tracklist == nil)
     }
 
-    /// Regression: `currentTrackDuration` gates on provenance, so a mix whose `duration` is already
-    /// correct when its video id is confirmed (restored session, or consecutive items sharing a
-    /// duration) sees no `duration.didSet`. The provenance change itself must re-drive the provider.
-    @Test("Provider is driven when provenance becomes valid even if the duration value is unchanged")
-    func provenanceChangeDrivesProviderWithUnchangedDuration() async {
+    /// Regression: a video-id-only update is not an atomic playback observation. It must not certify
+    /// an existing duration that may still belong to the previous video; a same-value duration is
+    /// trusted only when the bridge reports the id and duration together.
+    @Test("An ID-only update cannot certify an existing duration")
+    func idOnlyUpdateCannotCertifyExistingDuration() async {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         let player = PlayerService()
         player.setNowPlayingTracklistProvider(provider)
@@ -267,9 +267,14 @@ struct NowPlayingTracklistProviderTests {
         await self.waitUntil(timeout: .milliseconds(150)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
 
-        // The bridge confirms the video id without changing the duration value → provenance change
-        // alone must drive the fetch.
+        // Advancing only the id must not promote the existing duration.
         player.setPlaybackStateVideoId("mix1")
+        await self.waitUntil(timeout: .milliseconds(150)) { mockYouTube.getWatchNextCallCount >= 1 }
+        #expect(mockYouTube.getWatchNextCallCount == 0)
+
+        // The bridge then reports the same duration atomically with the id. This must drive the fetch
+        // even though assigning the duration property again would not trigger didSet.
+        player.recordPlaybackStateObservation(videoId: "mix1", duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
     }

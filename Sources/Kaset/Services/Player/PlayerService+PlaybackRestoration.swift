@@ -16,8 +16,9 @@ extension PlayerService {
         }
         guard isAuthoritativeContent else { return }
         self.isShowingAd = false
+        guard let observedVideoId = self.normalizedPlaybackVideoId(observedVideoId) else { return }
         self.lastNonAdContentProgress = observedProgress
-        self.lastNonAdContentVideoId = observedVideoId ?? self.currentTrack?.videoId
+        self.lastNonAdContentVideoId = observedVideoId
     }
 
     func resetAdPlaybackState() {
@@ -88,7 +89,7 @@ extension PlayerService {
         }
 
         self.isApplyingPlaybackStateObservation = false
-        self.recordPlaybackStateObservation(videoId: observedVideoId, duration: self.duration)
+        self.recordPlaybackStateObservation(videoId: observedVideoId, duration: duration)
     }
 
     /// Updates only play/pause transport while deliberately preserving the
