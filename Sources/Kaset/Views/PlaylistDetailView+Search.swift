@@ -119,9 +119,14 @@ extension PlaylistDetailView {
     }
 
     private func clearAndCollapseSearch() {
-        self.searchQuery = ""
-        self.searchFieldFocused = false
-        self.isSearchActive = false
+        // Defer the reset one hop so the tap that triggered it finishes on the ✕ first. Mutating
+        // synchronously swaps the chip/field for the pill *under the cursor*, and the click's
+        // completion then lands on that pill — re-activating search and reopening an empty field.
+        Task { @MainActor in
+            self.searchQuery = ""
+            self.searchFieldFocused = false
+            self.isSearchActive = false
+        }
     }
 
     /// Plays exactly the given tracks (the current search matches) as the queue, starting at
@@ -161,8 +166,8 @@ extension PlaylistDetailView {
 
             ForEach(Array(rows.enumerated()), id: \.element.id) { position, row in
                 // `index: row.index` shows the track's real playlist number; `playFilteredRow`
-                // resolves the queue source (full playlist from the original index, or just the
-                // search results) per the user's setting.
+                // resolves the queue source (the search results while filtering, else the full
+                // playlist from the original index).
                 self.trackRow(
                     row.track, index: row.index, isAlbum: isAlbum, author: author,
                     onPlay: {

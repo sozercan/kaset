@@ -262,8 +262,7 @@ struct PlaylistDetailView: View {
     }
 
     /// Renders one track row. `index` is the number shown to the user (the track's original
-    /// playlist position); `onPlay` is resolved by the caller so it can honor the search
-    /// queue-source setting.
+    /// playlist position); `onPlay` is resolved by the caller so it can build the right queue.
     func trackRow(
         _ track: Song, index: Int, isAlbum: Bool, author: String?,
         onPlay: @escaping () -> Void
@@ -465,9 +464,9 @@ struct PlaylistDetailView: View {
         )
     }
 
-    /// Plays the row at filtered `position`, choosing the queue source per the user's setting:
-    /// when a search is active and "queue from results" is on, the queue is just the matches;
-    /// otherwise it's the whole playlist starting at the track's original position.
+    /// Plays the row at filtered `position`: while a search is active the queue is just the
+    /// matches (starting at the tapped one); with no active search it's the whole playlist
+    /// starting at the track's original position.
     func playFilteredRow(
         at position: Int, in rows: [IndexedTrack], fullTracks: [Song],
         fallbackArtist: String?, fallbackAlbum: Album?
@@ -476,8 +475,7 @@ struct PlaylistDetailView: View {
         let source = PlaylistTrackFilter.queueSource(
             forFilteredPosition: position,
             rows: rows,
-            queryActive: queryActive,
-            queueFromResults: SettingsManager.shared.playlistSearchQueueFromResults
+            queryActive: queryActive
         )
         switch source {
         case let .fullPlaylist(originalIndex):

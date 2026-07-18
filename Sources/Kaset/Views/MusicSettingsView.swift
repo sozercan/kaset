@@ -62,18 +62,6 @@ struct MusicSettingsView: View {
                 Text(String(localized: "Smart Shuffle"))
             }
 
-            // MARK: - Playlists Section
-
-            Section {
-                Toggle(
-                    "Play matches from search results",
-                    isOn: self.$settings.playlistSearchQueueFromResults
-                )
-                .help(String(localized: "When you play a song found with in-playlist search, build the queue from the matching results instead of the whole playlist"))
-            } header: {
-                Text(String(localized: "Playlists"))
-            }
-
             // MARK: - Audio Section
 
             Section {

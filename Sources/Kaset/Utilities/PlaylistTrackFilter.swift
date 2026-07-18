@@ -67,17 +67,16 @@ enum PlaylistTrackFilter {
             .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    /// Decides which queue to build when the filtered row at `position` is played. Defaults to
-    /// the full playlist (matching unfiltered behavior) whenever the search isn't active or the
-    /// results-queue preference is off. Returns `nil` if `position` is out of range.
+    /// Decides which queue to build when the filtered row at `position` is played: the current
+    /// search results while a search is active, otherwise the full playlist from the track's
+    /// original index (the unfiltered behavior). Returns `nil` if `position` is out of range.
     static func queueSource(
         forFilteredPosition position: Int,
         rows: [IndexedTrack],
-        queryActive: Bool,
-        queueFromResults: Bool
+        queryActive: Bool
     ) -> PlaylistSearchQueueSource? {
         guard rows.indices.contains(position) else { return nil }
-        if queryActive, queueFromResults {
+        if queryActive {
             return .searchResults(startIndex: position)
         }
         return .fullPlaylist(originalIndex: rows[position].index)
