@@ -372,7 +372,8 @@ struct NowPlayingTracklistProviderTests {
             duration: 3600,
             observedVideoId: "short1"
         )
-        await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
+        await self.waitUntil { provider.tracklist?.isMix == true }
+        #expect(mockYouTube.getWatchNextCallCount == 1)
         #expect(provider.tracklist?.isMix == true)
     }
 
