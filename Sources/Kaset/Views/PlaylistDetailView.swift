@@ -163,11 +163,12 @@ struct PlaylistDetailView: View {
                 )
             }
             .padding(.vertical, 24)
+            // Inset the content horizontally with plain padding (matching ArtistDetailView) rather
+            // than `.contentMargins(…, for: .scrollContent)`: the latter shifts the content's visual
+            // position without moving its hit region, leaving a ~24pt dead strip on the trailing edge
+            // where the header search field's ✕ (and any right-aligned control) never receives clicks.
+            .padding(.horizontal, DetailContentLayout.horizontalInset)
         }
-        // Inset the resting content while the scroll view stays edge-to-edge so
-        // content extends under the floating glass sidebar; the accent backdrop
-        // (which ignores the safe area) refracts through it.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .topFade(style: .contentMask)
     }
 
