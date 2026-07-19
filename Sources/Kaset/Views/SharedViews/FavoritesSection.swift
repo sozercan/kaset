@@ -88,7 +88,8 @@ struct FavoritesSection: View {
     }
 
     private func handleDrop(_ droppedItems: [FavoriteItem], on target: FavoriteItem) -> Bool {
-        guard let droppedItem = droppedItems.first,
+        guard self.favoritesManager.canMutate,
+              let droppedItem = droppedItems.first,
               let sourceIndex = favoritesManager.items.firstIndex(of: droppedItem),
               let targetIndex = favoritesManager.items.firstIndex(of: target),
               sourceIndex != targetIndex
@@ -156,29 +157,31 @@ struct FavoritesSection: View {
             EmptyView()
         }
 
-        // Reorder actions
-        Button {
-            self.favoritesManager.moveToTop(contentId: item.contentId)
-        } label: {
-            Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
+        if self.favoritesManager.canMutate {
+            // Reorder actions
+            Button {
+                self.favoritesManager.moveToTop(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
+            }
+
+            Button {
+                self.favoritesManager.moveToEnd(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
+            }
+
+            Divider()
+
+            // Remove action
+            Button(role: .destructive) {
+                self.favoritesManager.remove(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Remove from Favorites"), systemImage: "heart.slash")
+            }
+
+            Divider()
         }
-
-        Button {
-            self.favoritesManager.moveToEnd(contentId: item.contentId)
-        } label: {
-            Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
-        }
-
-        Divider()
-
-        // Remove action
-        Button(role: .destructive) {
-            self.favoritesManager.remove(contentId: item.contentId)
-        } label: {
-            Label(String(localized: "Remove from Favorites"), systemImage: "heart.slash")
-        }
-
-        Divider()
 
         ShareContextMenu.menuItem(for: item)
 
@@ -348,6 +351,7 @@ private struct FavoriteItemCard: View {
 
 #Preview {
     let manager = FavoritesManager(skipLoad: true)
+    manager.setActiveAccountScopeID("preview")
     // Add some sample items for preview
     let song = Song(
         id: "test",

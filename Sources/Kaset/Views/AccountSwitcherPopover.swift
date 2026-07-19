@@ -134,12 +134,8 @@ struct AccountSwitcherPopover: View {
                             isSelected: account == self.accountService.currentAccount,
                             onSelect: {
                                 Task {
-                                    let wasGuestMode = self.authService.isGuestModeEnabled
                                     do {
                                         try await self.accountService.switchAccount(to: account)
-                                        if wasGuestMode {
-                                            self.authService.exitGuestMode(activeAccountID: account.id)
-                                        }
                                         self.dismiss()
                                     } catch {
                                         // Keep the popover open so the user can retry.
@@ -147,6 +143,7 @@ struct AccountSwitcherPopover: View {
                                 }
                             }
                         )
+                        .disabled(self.accountService.isLoading)
                         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountRow(index: index))
 
                         // Divider between accounts (not after last one)

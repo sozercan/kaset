@@ -9,6 +9,8 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     var allCookies: [HTTPCookie] = []
     var sapisidValue: String?
+    var getSAPISIDGate: (@Sendable () async -> Void)?
+    var clearAllDataGate: (@Sendable () async -> Void)?
 
     /// When set, `switchSessionIdentity` throws this error instead of succeeding.
     var switchSessionIdentityError: Error?
@@ -76,6 +78,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.getSAPISIDCalled = true
         self.getSAPISIDCallCount += 1
         self.callSequence.append("getSAPISID")
+        await self.getSAPISIDGate?()
         return self.sapisidValue
     }
 
@@ -92,6 +95,7 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
     func clearAllData() async {
         self.clearAllDataCalled = true
+        await self.clearAllDataGate?()
         // Does NOT clear real data - this is a mock
         self.allCookies = []
         self.sapisidValue = nil
@@ -155,9 +159,11 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.cookieHeaderCalled = false
         self.getSAPISIDCalled = false
         self.getSAPISIDCallCount = 0
+        self.getSAPISIDGate = nil
         self.hasAuthCookiesCalled = false
         self.clearAuthCookiesCalled = false
         self.clearAllDataCalled = false
+        self.clearAllDataGate = nil
         self.forceBackupCookiesCalled = false
         self.waitForInitialCookieRestoreCalled = false
         self.waitForInitialCookieRestoreCallCount = 0
