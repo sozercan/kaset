@@ -83,11 +83,12 @@ enum MusicDiscoveryTaxonomy {
         return Self.activityKeywords.first { Self.normalizedTokens($0) == subject }
     }
 
-    static func queryExcludingExplicitTitle(_ query: String) -> String {
+    static func queryExcludingExplicitTitle(_ query: String, title: String) -> String {
         let words = Self.normalizedTokens(query)
-        let titleNouns: Set = ["song", "track"]
-        let qualifierWords: Set = ["by", "for", "from", "in", "while", "with"]
+        let titleWords = Self.normalizedTokens(title)
+        guard !titleWords.isEmpty else { return query }
 
+        let titleNouns: Set = ["song", "track"]
         for nounIndex in words.indices where titleNouns.contains(words[nounIndex]) {
             var titleStart = words.index(after: nounIndex)
             if titleStart < words.endIndex,
@@ -95,13 +96,9 @@ enum MusicDiscoveryTaxonomy {
             {
                 titleStart = words.index(after: titleStart)
             }
-            guard titleStart < words.endIndex else { continue }
-
-            var titleEnd = titleStart
-            while titleEnd < words.endIndex, !qualifierWords.contains(words[titleEnd]) {
-                titleEnd = words.index(after: titleEnd)
-            }
-            guard titleStart < titleEnd else { continue }
+            guard titleStart + titleWords.count <= words.count else { continue }
+            let titleEnd = titleStart + titleWords.count
+            guard Array(words[titleStart ..< titleEnd]) == titleWords else { continue }
 
             return (Array(words[..<titleStart]) + Array(words[titleEnd...])).joined(separator: " ")
         }
@@ -122,7 +119,10 @@ enum MusicDiscoveryTaxonomy {
         if popularityKeywords.contains(where: { Self.containsPhrase($0, in: words) }) {
             return true
         }
-        return ["hit songs", "hit tracks"].contains { Self.containsPhrase($0, in: words) }
+        let contextualPopularity = [
+            "greatest hits", "greatest songs", "greatest tracks", "hit songs", "hit tracks",
+        ]
+        return contextualPopularity.contains { Self.containsPhrase($0, in: words) }
     }
 
     static func containsEraReference(_ query: String) -> Bool {
@@ -187,7 +187,7 @@ enum MusicDiscoveryTaxonomy {
     static func normalizedEra(_ era: String) -> String {
         let lowered = era.lowercased()
         for decade in stride(from: 1960, through: 2020, by: 10) where lowered.contains(String(decade)) {
-            return decade == 2000 ? "2000s" : "\(decade % 100)s"
+            return decade >= 2000 ? "\(decade)s" : "\(decade % 100)s"
         }
         return era
     }
@@ -236,7 +236,7 @@ enum MusicDiscoveryTaxonomy {
         "work out", "working out",
         "bedtime", "code", "coding", "commute", "commuting", "cook", "cooking",
         "drive", "driving", "exercise", "exercising", "focus", "focusing", "party",
-        "relax", "relaxing", "run", "running", "sleep", "sleeping", "study", "studying",
+        "relax", "relaxing", "run", "running", "sleep", "sleeping", "study", "studying", "work", "working",
         "workout", "workouts", "yoga",
     ]
 

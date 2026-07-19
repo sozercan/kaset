@@ -9,7 +9,11 @@ enum ContentSourceResolver {
         groundingQuery: String? = nil
     ) -> String {
         let groundedIntent = Self.groundedIntent(intent, groundingQuery: groundingQuery)
-        let wantsHits = Self.queryWantsHits(groundingQuery ?? groundedIntent.query)
+        let popularityQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(
+            groundingQuery ?? groundedIntent.query,
+            title: intent.query
+        )
+        let wantsHits = Self.queryWantsHits(popularityQuery)
 
         if !groundedIntent.query.isEmpty,
            groundedIntent.artist.isEmpty,
@@ -54,50 +58,13 @@ enum ContentSourceResolver {
         return parts.joined(separator: " ")
     }
 
-    static func queryDescription(
-        for intent: MusicIntent,
-        groundingQuery: String? = nil
-    ) -> String {
-        let intent = Self.groundedIntent(intent, groundingQuery: groundingQuery)
-        var parts: [String] = []
-        let wantsHits = MusicDiscoveryTaxonomy.containsRoutingPopularityKeyword(groundingQuery ?? intent.query)
-
-        if !intent.mood.isEmpty {
-            parts.append(intent.mood)
-        }
-        if !intent.genre.isEmpty {
-            parts.append(intent.genre)
-        }
-        if wantsHits {
-            parts.append("hits")
-        }
-        if !intent.artist.isEmpty {
-            parts.append("by \(intent.artist)")
-        }
-        if !intent.era.isEmpty {
-            parts.append("from the \(intent.era)")
-        }
-        if !intent.version.isEmpty {
-            parts.append("(\(intent.version))")
-        }
-        if !intent.activity.isEmpty {
-            parts.append("for \(intent.activity)")
-        }
-
-        if parts.isEmpty {
-            return intent.query
-        }
-
-        return parts.joined(separator: " ")
-    }
-
     static func suggestedContentSource(
         for intent: MusicIntent,
         groundingQuery: String? = nil
     ) -> ContentSource {
         let intent = Self.groundedIntent(intent, groundingQuery: groundingQuery)
         let routingQuery = groundingQuery ?? intent.query
-        let discoveryRoutingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(routingQuery)
+        let discoveryRoutingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(routingQuery, title: intent.query)
 
         if !intent.artist.isEmpty {
             return .search
@@ -113,7 +80,7 @@ enum ContentSourceResolver {
             return .search
         }
 
-        let wantsPopularity = MusicDiscoveryTaxonomy.containsRoutingPopularityKeyword(routingQuery)
+        let wantsPopularity = MusicDiscoveryTaxonomy.containsRoutingPopularityKeyword(discoveryRoutingQuery)
 
         let moodMatches = [
             "chill", "relaxing", "calm", "peaceful", "mellow",
@@ -352,6 +319,15 @@ enum ContentSourceResolver {
             cleaned = queryWithoutArtist
         }
 
+        let commandPrefixes = [
+            "please play some ", "please play ", "play some ", "play ",
+            "please queue some ", "please queue ", "queue some ", "queue ",
+            "add some ", "add ",
+        ]
+        if let prefix = commandPrefixes.first(where: cleaned.hasPrefix) {
+            cleaned.removeFirst(prefix.count)
+        }
+
         for prefix in ["best of ", "greatest hits by ", "top songs by "] where cleaned.hasPrefix(prefix) {
             cleaned.removeFirst(prefix.count)
             break
@@ -372,7 +348,7 @@ enum ContentSourceResolver {
         let groundingQuery = groundingQuery ?? intent.query
         guard !groundingQuery.isEmpty else { return intent }
         let requiresLexicalGrounding = MusicDiscoveryTaxonomy.requiresLexicalGrounding(for: groundingQuery)
-        let roleGroundingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(groundingQuery)
+        let roleGroundingQuery = MusicDiscoveryTaxonomy.queryExcludingExplicitTitle(groundingQuery, title: intent.query)
 
         // Guided generation can fill optional string fields with plausible but
         // unrequested values. Keep only modifiers represented in the subject.

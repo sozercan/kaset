@@ -431,6 +431,134 @@ struct CommandBarDiscoveryReviewTests {
         )
     }
 
+    @Test("Popularity words inside explicit titles remain title text")
+    func explicitTitlePopularityRemainsSearch() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let intent = MusicIntent(
+            action: .play,
+            query: "Top of the World",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: ""
+        )
+        let originalQuery = "play the song Top of the World"
+
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery) == .search)
+        #expect(ContentSourceResolver.queryDescription(for: intent, groundingQuery: originalQuery) == "Top of the World")
+        #expect(ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery) == "Top of the World")
+    }
+
+    @Test("Prepositions inside explicit titles remain part of the title")
+    func explicitTitlePrepositionsDoNotGroundQualifiers() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let intent = MusicIntent(
+            action: .play,
+            query: "Rock in the 80s",
+            shuffleScope: "",
+            artist: "",
+            genre: "rock",
+            mood: "",
+            era: "1980s",
+            version: "",
+            activity: ""
+        )
+        let originalQuery = "play the song Rock in the 80s"
+        let grounded = ContentSourceResolver.groundedIntent(intent, groundingQuery: originalQuery)
+
+        #expect(grounded.genre.isEmpty)
+        #expect(grounded.era.isEmpty)
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery) == .search)
+        #expect(ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery) == "Rock in the 80s")
+    }
+
+    @Test("Recent decades retain four-digit canonical forms")
+    func recentDecadesRemainCanonical() {
+        guard #available(macOS 26.0, *) else { return }
+
+        for era in ["2010s", "2020s"] {
+            let intent = MusicIntent(
+                action: .play,
+                query: "\(era) pop",
+                shuffleScope: "",
+                artist: "",
+                genre: "pop",
+                mood: "",
+                era: era,
+                version: "",
+                activity: ""
+            )
+
+            #expect(intent.buildSearchQuery() == "\(era) pop hits")
+        }
+    }
+
+    @Test("Contextual greatest requests retain popularity intent")
+    func contextualGreatestRetainsPopularity() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let intent = MusicIntent(
+            action: .play,
+            query: "greatest songs by Adele",
+            shuffleScope: "",
+            artist: "Adele",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: ""
+        )
+
+        #expect(intent.buildSearchQuery() == "Adele greatest hits")
+    }
+
+    @Test("Parsed subjects discard command filler")
+    func parsedSubjectCommandFillerIsRemoved() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let intent = MusicIntent(
+            action: .play,
+            query: "play some jazz",
+            shuffleScope: "",
+            artist: "",
+            genre: "jazz",
+            mood: "",
+            era: "",
+            version: "",
+            activity: ""
+        )
+
+        #expect(intent.buildSearchQuery() == "jazz songs")
+    }
+
+    @Test("Work wording grounds the focus activity")
+    func workGroundsFocusActivity() {
+        guard #available(macOS 26.0, *) else { return }
+
+        let intent = MusicIntent(
+            action: .play,
+            query: "music",
+            shuffleScope: "",
+            artist: "",
+            genre: "",
+            mood: "",
+            era: "",
+            version: "",
+            activity: "focus"
+        )
+        let originalQuery = "play music for work"
+        let grounded = ContentSourceResolver.groundedIntent(intent, groundingQuery: originalQuery)
+
+        #expect(grounded.activity == "focus")
+        #expect(ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery) == .moodsAndGenres)
+        #expect(ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery) == "focus music")
+    }
+
     private static func makeCategory(title: String, params: String) -> Playlist {
         Playlist(
             id: params,
