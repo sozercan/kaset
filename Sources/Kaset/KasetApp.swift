@@ -306,8 +306,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.space, modifiers: [])
-                .disabled(self.shouldDisablePlaybackShortcuts)
+                .keyboardShortcut(self.playbackShortcut(.space, modifiers: []))
+                .disabled(self.shouldDisablePlaybackCommand)
 
                 Divider()
 
@@ -323,8 +323,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(self.shouldDisableTrackNavigationShortcuts)
+                .keyboardShortcut(self.playbackShortcut(.rightArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 // Previous Track - ⌘←
                 Button(String(localized: "Previous")) {
@@ -336,8 +336,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(self.shouldDisableTrackNavigationShortcuts)
+                .keyboardShortcut(self.playbackShortcut(.leftArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 Divider()
 
@@ -347,8 +347,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
                     }
                 }
-                .keyboardShortcut(.upArrow, modifiers: .command)
-                .disabled(self.textInputFocusState.isFocused)
+                .keyboardShortcut(self.playbackShortcut(.upArrow, modifiers: .command))
 
                 // Volume Down - ⌘↓
                 Button(String(localized: "Volume Down")) {
@@ -356,8 +355,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
                     }
                 }
-                .keyboardShortcut(.downArrow, modifiers: .command)
-                .disabled(self.textInputFocusState.isFocused)
+                .keyboardShortcut(self.playbackShortcut(.downArrow, modifiers: .command))
 
                 // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
@@ -607,18 +605,19 @@ struct KasetApp: App {
         }
     }
 
-    private var shouldDisablePlaybackShortcuts: Bool {
-        self.textInputFocusState.isFocused
-            || (
-                !self.playbackArbiter.routesMediaKeysToVideo
-                    && self.playerService.currentTrack == nil
-                    && self.playerService.pendingPlayVideoId == nil
-            )
+    private func playbackShortcut(_ key: KeyEquivalent, modifiers: EventModifiers) -> KeyboardShortcut? {
+        guard !self.textInputFocusState.isFocused else { return nil }
+        return KeyboardShortcut(key, modifiers: modifiers)
     }
 
-    private var shouldDisableTrackNavigationShortcuts: Bool {
-        self.textInputFocusState.isFocused
-            || (!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
+    private var shouldDisablePlaybackCommand: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo
+            && self.playerService.currentTrack == nil
+            && self.playerService.pendingPlayVideoId == nil
+    }
+
+    private var shouldDisableTrackNavigationCommands: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil
     }
 
     /// Label for repeat mode menu item.

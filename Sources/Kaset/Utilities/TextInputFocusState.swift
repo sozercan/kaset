@@ -39,6 +39,12 @@ final class TextInputFocusState {
         self.updateFromFirstResponder()
     }
 
+    isolated deinit {
+        for observer in self.observers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+    }
+
     private func updateFromFirstResponder() {
         guard let firstResponder = NSApplication.shared.keyWindow?.firstResponder else {
             self.isFocused = false
