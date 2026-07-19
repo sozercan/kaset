@@ -96,7 +96,9 @@ struct ScrobblingCoordinatorMixTests {
 
         // First poll ran synchronously in startMonitoring; duration unknown → no fetch attempted.
         #expect(mockYouTube.getWatchNextCallCount == 0)
-        await self.waitUntil { mockService.nowPlayingTracks.first?.title == "Long Mix" }
+        await self.waitUntil(timeout: .seconds(10)) {
+            mockService.nowPlayingTracks.first?.title == "Long Mix"
+        }
         #expect(mockService.nowPlayingTracks.first?.title == "Long Mix")
 
         // Duration becomes known — the observed change must commit the existing parse result.

@@ -188,6 +188,46 @@ struct PlaylistPlaybackActionsTests {
         #expect(playerService.currentTrack == nil)
     }
 
+    @Test("A delayed playlist cannot replace a newer direct queue")
+    func delayedPlaylistCannotReplaceNewerQueue() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-delayed-intent", title: "Delayed")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        let staleSong = Song(id: "stale", title: "Stale", artists: [], videoId: "stale")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [staleSong],
+            duration: nil
+        )
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        let playerService = PlayerService()
+
+        let playlistTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await requestStarted.wait()
+        let replacement = Song(
+            id: "replacement",
+            title: "Replacement",
+            artists: [],
+            videoId: "replacement"
+        )
+        await playerService.playQueue([replacement], startingAt: 0)
+        let replacementEntryIDs = playerService.queueEntryIDs
+
+        await releaseRequest.open()
+        await playlistTask.value
+
+        #expect(playerService.queue == [replacement])
+        #expect(playerService.queueEntryIDs == replacementEntryIDs)
+        #expect(playerService.currentTrack?.videoId == replacement.videoId)
+    }
+
     @Test("Playlist continuations preserve authored duplicate songs")
     func playlistContinuationsPreserveAuthoredDuplicates() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-duplicates", title: "Duplicates")

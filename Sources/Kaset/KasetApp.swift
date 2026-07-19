@@ -6,6 +6,10 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
+    @Entry var sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:])
+}
+
+extension EnvironmentValues {
     @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
 }
 
@@ -58,6 +62,8 @@ struct KasetApp: App {
 
     @State private var textInputFocusState = TextInputFocusState()
 
+    @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
+
     /// Current navigation selection for keyboard navigation.
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
 
@@ -73,7 +79,7 @@ struct KasetApp: App {
     /// Incoming app URLs received before auth initialization and guest-startup
     /// cleanup complete. These are replayed only after guest cleanup has run so
     /// cleanup cannot erase URL-started playback.
-    @State private var pendingIncomingURL: URL?
+    @State private var pendingIncomingURLs: [URL] = []
 
     @State private var didCompleteStartupPlaybackCleanup = false
 
@@ -192,6 +198,7 @@ struct KasetApp: App {
                 .environment(self.equalizerService)
                 .environment(self.podcastsAvailabilityService)
                 .environment(\.searchFocusTrigger, self.$searchFocusTrigger)
+                .environment(\.sidebarNavigationReselectGenerations, self.$sidebarNavigationReselectGenerations)
                 .environment(\.navigationSelection, self.$navigationSelection)
                 .environment(\.showCommandBar, self.$showCommandBar)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
@@ -202,8 +209,16 @@ struct KasetApp: App {
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
+                    // Drain any cold-launch URLs once `onReceive` below is subscribed.
+                    self.appDelegate.beginOpenURLDelivery()
                     // Reference notificationService to keep SwiftUI from deallocating it
                     _ = self.notificationService
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .kasetOpenURLs)) { notification in
+                    guard let urls = notification.object as? [URL] else { return }
+                    for url in urls {
+                        self.handleIncomingURL(url)
+                    }
                 }
                 .task {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
@@ -219,7 +234,7 @@ struct KasetApp: App {
                         }
                         self.didCompleteStartupPlaybackCleanup = true
                     }
-                    self.drainPendingIncomingURLIfReady()
+                    self.drainPendingIncomingURLsIfReady()
 
                     // Fetch accounts after login check (for account switcher)
                     await self.accountService?.fetchAccounts()
@@ -229,9 +244,9 @@ struct KasetApp: App {
                         await FoundationModelsService.shared.warmup()
                     }
                 }
-                .onOpenURL { url in
-                    self.handleIncomingURL(url)
-                }
+                // Claim deep links for this existing window so macOS does not
+                // spawn/tear down a second scene around `kaset://`.
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .onChange(of: self.playerService.isPlaying) { _, isPlaying in
                     // The Core Audio process tap needs WebKit's GPU
                     // process to be actively emitting audio before it
@@ -273,6 +288,7 @@ struct KasetApp: App {
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
         .windowResizability(.contentMinSize)
+        .handlesExternalEvents(matching: ["*"])
 
         Settings {
             SettingsView()
@@ -444,12 +460,7 @@ struct KasetApp: App {
                         self.youtubeNavigationSelection = .search
                         return
                     }
-                    self.navigationSelection = .search
-                    // Trigger focus after a brief delay to allow view to appear
-                    Task { @MainActor in
-                        try? await Task.sleep(for: .milliseconds(100))
-                        self.searchFocusTrigger = true
-                    }
+                    self.activateMusicSearch()
                 }
                 .keyboardShortcut("f", modifiers: .command)
 
@@ -528,6 +539,18 @@ struct KasetApp: App {
             if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
                 self.showMainWindow()
             }
+        }
+    }
+
+    private func activateMusicSearch() {
+        let alreadyOnSearch = self.navigationSelection == .search
+        self.navigationSelection = .search
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(100))
+            if alreadyOnSearch {
+                self.sidebarNavigationReselectGenerations[.search, default: 0] += 1
+            }
+            self.searchFocusTrigger = true
         }
     }
 
@@ -640,21 +663,24 @@ struct KasetApp: App {
 
         guard !self.authService.state.isInitializing, self.didCompleteStartupPlaybackCleanup else {
             DiagnosticsLogger.app.info("Startup auth/guest cleanup still running; deferring incoming URL")
-            self.pendingIncomingURL = url
+            self.pendingIncomingURLs.append(url)
             return
         }
 
         self.handleReadyIncomingURL(url)
     }
 
-    private func drainPendingIncomingURLIfReady() {
+    private func drainPendingIncomingURLsIfReady() {
         guard !self.authService.state.isInitializing,
               self.didCompleteStartupPlaybackCleanup,
-              let url = self.pendingIncomingURL
+              !self.pendingIncomingURLs.isEmpty
         else { return }
 
-        self.pendingIncomingURL = nil
-        self.handleReadyIncomingURL(url)
+        let urls = self.pendingIncomingURLs
+        self.pendingIncomingURLs.removeAll()
+        for url in urls {
+            self.handleReadyIncomingURL(url)
+        }
     }
 
     private func handleReadyIncomingURL(_ url: URL) {
@@ -668,6 +694,8 @@ struct KasetApp: App {
 
     /// Handles parsed URL content.
     private func handleParsedContent(_ content: URLHandler.ParsedContent) {
+        self.showMainWindow()
+
         switch content {
         case let .song(videoId):
             DiagnosticsLogger.app.info("Playing song from URL: \(videoId)")
@@ -677,8 +705,12 @@ struct KasetApp: App {
                 artists: [],
                 videoId: videoId
             )
+            // Reserve intent synchronously so a later URL in the same batch
+            // invalidates this asynchronous playback before it can start.
+            let intent = self.playerService.beginMusicPlaybackIntent()
             Task {
-                await self.playerService.play(song: song)
+                // Match AppleScript `play video` / other external play entry points.
+                await self.playerService.playWithRadio(song: song, intent: intent)
             }
 
         case let .youtubeVideo(videoId):

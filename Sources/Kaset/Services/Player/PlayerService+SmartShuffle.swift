@@ -4,6 +4,23 @@ import Foundation
 
 @MainActor
 extension PlayerService {
+    /// Numeric tuning for the Smart Shuffle fill loop, read via ``smartShuffleConfigProvider``.
+    /// Injecting it per instance lets tests configure one `PlayerService` instead of mutating the
+    /// shared `SettingsManager` singleton — cross-suite mutation of that singleton races when the
+    /// test suites run in parallel.
+    struct SmartShuffleConfig {
+        let suggestEveryN: Int
+        let burst: Int
+        let suggestionsAhead: Int
+    }
+
+    static func resolvedShuffleMode(
+        _ mode: ShuffleMode,
+        smartShuffleEnabled: Bool
+    ) -> ShuffleMode {
+        mode == .smart && !smartShuffleEnabled ? .on : mode
+    }
+
     /// Filters candidates to playable songs not already present (matched by `videoId`), and drops
     /// duplicates within the candidate list. Order is preserved.
     static func dedupeSuggestions(
@@ -94,7 +111,7 @@ extension PlayerService {
         guard !self.isQueueLoading else { return }
         // If the feature was disabled in settings while still in smart mode, stop topping up.
         // Already-queued suggestions remain until the user cycles shuffle off (which strips them).
-        guard SettingsManager.shared.smartShuffleEnabled else { return }
+        guard self.smartShuffleFeatureEnabled() else { return }
 
         // Coalesce onto any fill already running rather than starting a second interleaved loop.
         if let existing = self.smartShuffleFillTask {
@@ -118,9 +135,10 @@ extension PlayerService {
     /// The actual fill loop, run inside the stored single-flight task. Assumes the entry guards in
     /// ``fillSmartShuffleWindow()`` already passed; bails promptly on cancellation or a mode change.
     private func performSmartShuffleFill() async {
-        let everyN = max(1, SettingsManager.shared.smartShuffleSuggestEveryN)
-        let burst = max(1, SettingsManager.shared.smartShuffleBurst)
-        let target = max(1, SettingsManager.shared.smartShuffleSuggestionsAhead)
+        let config = self.smartShuffleConfigProvider()
+        let everyN = max(1, config.suggestEveryN)
+        let burst = max(1, config.burst)
+        let target = max(1, config.suggestionsAhead)
 
         // Seeds whose radio threw this pass: skipped for the rest of the pass (so later slots still
         // fill) but NOT banned for the session — a transient error should be retried next advance.
@@ -136,7 +154,7 @@ extension PlayerService {
         var safety = self.queueEntries.count + (target + 2) * (everyN + burst) + 10
         while safety > 0,
               self.shuffleMode == .smart,
-              SettingsManager.shared.smartShuffleEnabled,
+              self.smartShuffleFeatureEnabled(),
               !Task.isCancelled
         {
             safety -= 1
@@ -175,7 +193,7 @@ extension PlayerService {
             // The queue, mode, or feature setting may have changed while awaiting — re-validate
             // against current state before inserting any recommendations.
             guard self.shuffleMode == .smart,
-                  SettingsManager.shared.smartShuffleEnabled,
+                  self.smartShuffleFeatureEnabled(),
                   !Task.isCancelled
             else { break }
             let entriesNow = self.queueEntries
@@ -218,7 +236,7 @@ extension PlayerService {
 
     /// Removes upcoming `.suggested` entries, keeping the currently-playing track, and realigns the index.
     func stripSuggestedEntries() {
-        let currentID = self.currentQueueEntryID
+        let currentID = self.queueEntryIDOwningCurrentPlayback
         let kept = Self.stripSuggested(from: self.queueEntries, keepingCurrentID: currentID)
         guard kept.count != self.queueEntries.count else { return }
         self.setQueue(entries: kept)
@@ -258,8 +276,29 @@ extension PlayerService {
     /// supersedes any in-flight deferred load so a stale pager cannot suppress or pollute the new
     /// playback's suggestions.
     func prepareForNewPlaybackContext() {
+        self.cancelRemoteMusicTransportFollowUp()
         self.resetSmartShuffleForNewQueue()
         self.invalidateStaleQueueLoad()
+        self.invalidateMixContinuationRequest()
+    }
+
+    /// Cancels async work owned by the current queue without otherwise changing
+    /// the queue. Used by terminal/privacy/restoration boundaries.
+    func cancelDeferredQueueWork() {
+        self.cancelRemoteMusicTransportFollowUp()
+        self.invalidateStaleQueueLoad()
+        self.cancelSmartShuffleFill()
+        self.invalidateMixContinuationRequest()
+    }
+
+    func scheduleSmartShuffleFillForCurrentQueue() {
+        let queueGeneration = self.queueLoadGeneration
+        Task { @MainActor [weak self] in
+            guard let self,
+                  self.isCurrentQueueLoad(queueGeneration)
+            else { return }
+            await self.fillSmartShuffleWindow()
+        }
     }
 
     // MARK: - Progressive queue loading
@@ -278,6 +317,14 @@ extension PlayerService {
     /// clobbering the new playback's loading state.
     func isCurrentQueueLoad(_ generation: Int) -> Bool {
         generation == self.queueLoadGeneration
+    }
+
+    func reserveQueueMutation() -> Int {
+        self.queueLoadGeneration
+    }
+
+    func acceptsQueueMutation(_ generation: Int) -> Bool {
+        self.isCurrentQueueLoad(generation)
     }
 
     /// Supersedes any in-flight deferred load without starting a new one: bumps the generation (so

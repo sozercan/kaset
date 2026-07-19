@@ -13,6 +13,7 @@
 //    browse <browseId> [params]    - Explore a browse endpoint
 //    action <endpoint> <body>      - Explore an action endpoint (body as JSON)
 //    continuation <token> [ep]     - Explore a continuation (ep: browse or next)
+//    analyze-file <path>           - Safely summarize a saved JSON response
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
@@ -815,6 +816,126 @@ private func chapterProbeSummary(_ data: [String: Any], limit: Int = 8) -> Strin
     return output
 }
 
+// MARK: - LibraryFeedbackProbeItem
+
+private struct LibraryFeedbackProbeItem: Hashable {
+    enum Kind: String {
+        case single
+        case toggle
+    }
+
+    let kind: Kind
+    let iconType: String
+    let hasPrimaryToken: Bool
+    let hasToggledToken: Bool
+    let tokensAreDistinct: Bool?
+}
+
+private func firstFeedbackToken(in value: Any) -> String? {
+    if let dictionary = value as? [String: Any] {
+        if let token = dictionary["feedbackToken"] as? String, !token.isEmpty {
+            return token
+        }
+        for nestedValue in dictionary.values {
+            if let token = firstFeedbackToken(in: nestedValue) {
+                return token
+            }
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            if let token = firstFeedbackToken(in: item) {
+                return token
+            }
+        }
+    }
+    return nil
+}
+
+private func isLibraryFeedbackIcon(_ iconType: String) -> Bool {
+    iconType.contains("LIBRARY") || iconType.contains("BOOKMARK")
+}
+
+private func collectLibraryFeedbackProbeItems(
+    in value: Any,
+    items: inout [LibraryFeedbackProbeItem]
+) {
+    if let dictionary = value as? [String: Any] {
+        if let renderer = dictionary["menuServiceItemRenderer"] as? [String: Any] {
+            let token = firstFeedbackToken(in: renderer["serviceEndpoint"] as Any)
+            if token != nil {
+                let icon = renderer["icon"] as? [String: Any]
+                let iconType = icon?["iconType"] as? String ?? "unknown"
+                if isLibraryFeedbackIcon(iconType) {
+                    items.append(LibraryFeedbackProbeItem(
+                        kind: .single,
+                        iconType: iconType,
+                        hasPrimaryToken: true,
+                        hasToggledToken: false,
+                        tokensAreDistinct: nil
+                    ))
+                }
+            }
+        }
+
+        if let renderer = dictionary["toggleMenuServiceItemRenderer"] as? [String: Any] {
+            let defaultToken = firstFeedbackToken(in: renderer["defaultServiceEndpoint"] as Any)
+            let toggledToken = firstFeedbackToken(in: renderer["toggledServiceEndpoint"] as Any)
+            guard defaultToken != nil || toggledToken != nil else {
+                for nestedValue in dictionary.values {
+                    collectLibraryFeedbackProbeItems(in: nestedValue, items: &items)
+                }
+                return
+            }
+            let icon = renderer["defaultIcon"] as? [String: Any]
+            let iconType = icon?["iconType"] as? String ?? "unknown"
+            if isLibraryFeedbackIcon(iconType) {
+                let tokensAreDistinct: Bool? = if let defaultToken, let toggledToken {
+                    defaultToken != toggledToken
+                } else {
+                    nil
+                }
+                items.append(LibraryFeedbackProbeItem(
+                    kind: .toggle,
+                    iconType: iconType,
+                    hasPrimaryToken: defaultToken != nil,
+                    hasToggledToken: toggledToken != nil,
+                    tokensAreDistinct: tokensAreDistinct
+                ))
+            }
+        }
+
+        for nestedValue in dictionary.values {
+            collectLibraryFeedbackProbeItems(in: nestedValue, items: &items)
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            collectLibraryFeedbackProbeItems(in: item, items: &items)
+        }
+    }
+}
+
+private func libraryFeedbackProbeSummary(_ data: [String: Any]) -> String {
+    var items: [LibraryFeedbackProbeItem] = []
+    collectLibraryFeedbackProbeItems(in: data, items: &items)
+    guard !items.isEmpty else { return "" }
+
+    let grouped = Dictionary(grouping: items, by: \.self)
+    var output = "\n📚 Library feedback actions (token values redacted):\n"
+    for item in grouped.keys.sorted(by: {
+        ($0.kind.rawValue, $0.iconType) < ($1.kind.rawValue, $1.iconType)
+    }) {
+        let count = grouped[item]?.count ?? 0
+        switch item.kind {
+        case .single:
+            output += "  • single icon=\(item.iconType) token=\(item.hasPrimaryToken ? "present" : "missing") count=\(count)\n"
+        case .toggle:
+            let distinct = item.tokensAreDistinct.map { $0 ? "yes" : "no" } ?? "unknown"
+            output += "  • toggle defaultIcon=\(item.iconType) defaultToken=\(item.hasPrimaryToken ? "present" : "missing") toggledToken=\(item.hasToggledToken ? "present" : "missing") distinct=\(distinct) count=\(count)\n"
+        }
+    }
+    return output
+}
+
 func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     var output = ""
 
@@ -902,6 +1023,8 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     output += playlistSetVideoIdSourceSummary(data)
 
     output += chapterProbeSummary(data)
+
+    output += libraryFeedbackProbeSummary(data)
 
     output += rendererHistogram(data)
 
@@ -2152,6 +2275,7 @@ func showHelp() {
           browse <browseId> [params]     Explore a browse endpoint
           action <endpoint> <body>       Explore an action endpoint (body as JSON)
           continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
+          analyze-file <path>            Safely summarize a saved JSON response
           list                           List all known endpoints
           auth                           Check authentication status
           accounts                       Discover available accounts (via authuser)
@@ -2209,6 +2333,9 @@ func showHelp() {
           swift run api-explorer continuation <token>           # browse endpoint (default)
           swift run api-explorer continuation <token> next      # next endpoint (for mix queues)
 
+          # Safely inspect a saved response without printing raw token values
+          swift run api-explorer analyze-file Tests/KasetTests/Fixtures/example.json
+
           # Check auth status
           swift run api-explorer auth
 
@@ -2221,6 +2348,25 @@ func showHelp() {
 
         """
     )
+}
+
+/// Analyzes a saved JSON response without printing raw values.
+/// Useful for parser/fixture validation when live authenticated cookies are unavailable.
+func analyzeSavedResponse(at path: String) {
+    let url = URL(fileURLWithPath: path)
+    do {
+        let data = try Data(contentsOf: url)
+        guard let response = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Saved response is not a JSON object")
+            return
+        }
+        print("📄 Analyzing saved response: \(url.lastPathComponent)")
+        print("   Raw JSON and token values remain hidden")
+        print()
+        print(analyzeResponse(response))
+    } catch {
+        print("❌ Failed to analyze saved response: \(error.localizedDescription)")
+    }
 }
 
 // MARK: - Main Entry Point
@@ -2327,6 +2473,13 @@ func runMain() async {
         await exploreContinuation(
             token, endpoint: endpoint, verbose: verbose, outputFile: outputFile
         )
+
+    case "analyze-file":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: analyze-file <path>")
+            return
+        }
+        analyzeSavedResponse(at: filteredArgs[1])
 
     case "list":
         listEndpoints()

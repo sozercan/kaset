@@ -15,6 +15,7 @@ final class SidebarPinnedItemsManager {
     static let shared = SidebarPinnedItemsManager()
 
     private(set) var items: [SidebarPinnedItem] = []
+    private(set) var committedRemovalGenerations: [String: UInt] = [:]
 
     var isVisible: Bool {
         !self.items.isEmpty
@@ -76,6 +77,23 @@ final class SidebarPinnedItemsManager {
 
     @discardableResult
     func removePlaylistPins(matching playlistId: String) -> [RemovedPin] {
+        self.removePlaylistPins(matching: playlistId, recordsCommittedRemoval: true)
+    }
+
+    @discardableResult
+    func stagePlaylistPinRemoval(matching playlistId: String) -> [RemovedPin] {
+        self.removePlaylistPins(matching: playlistId, recordsCommittedRemoval: false)
+    }
+
+    func commitPlaylistPinRemoval(_ removedPins: [RemovedPin]) {
+        self.recordCommittedRemoval(removedPins.map(\.item))
+    }
+
+    @discardableResult
+    private func removePlaylistPins(
+        matching playlistId: String,
+        recordsCommittedRemoval: Bool
+    ) -> [RemovedPin] {
         let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         let removedPins = self.items.enumerated().compactMap { index, item -> RemovedPin? in
             guard self.matchesPlaylist(item, playlistKey: playlistKey) else { return nil }
@@ -87,6 +105,9 @@ final class SidebarPinnedItemsManager {
         }
 
         self.items.removeAll { self.matchesPlaylist($0, playlistKey: playlistKey) }
+        if recordsCommittedRemoval {
+            self.recordCommittedRemoval(removedPins.map(\.item))
+        }
         self.save()
         DiagnosticsLogger.ui.info("Removed \(removedPins.count) playlist pin(s) from sidebar")
         return removedPins
@@ -112,6 +133,7 @@ final class SidebarPinnedItemsManager {
         }
 
         let removed = self.items.remove(at: index)
+        self.recordCommittedRemoval([removed])
         self.save()
         DiagnosticsLogger.ui.info("Removed from sidebar: \(removed.title)")
     }
@@ -195,6 +217,17 @@ final class SidebarPinnedItemsManager {
     private func matchesPlaylist(_ item: SidebarPinnedItem, playlistKey: String) -> Bool {
         guard case let .playlist(playlist) = item.itemType else { return false }
         return LibraryContentIdentity.playlistKey(for: playlist.id) == playlistKey
+    }
+
+    private func recordCommittedRemoval(_ items: [SidebarPinnedItem]) {
+        let contentIds = Set(items.map(\.contentId))
+        guard !contentIds.isEmpty else { return }
+
+        var generations = self.committedRemovalGenerations
+        for contentId in contentIds {
+            generations[contentId, default: 0] &+= 1
+        }
+        self.committedRemovalGenerations = generations
     }
 
     private func save() {

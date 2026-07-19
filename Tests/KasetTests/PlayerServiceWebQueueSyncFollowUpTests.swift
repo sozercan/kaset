@@ -3,6 +3,441 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Web metadata cannot replace detached playback with a leftover queue")
+    func detachedPlaybackIgnoresQueueEnforcement() async {
+        let queued = Song(id: "queued", title: "Queued", artists: [], duration: 180, videoId: "queued")
+        let detached = Song(
+            id: "detached",
+            title: "Detached",
+            artists: [],
+            duration: 180,
+            videoId: "detached",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        await self.playerService.playQueue([queued], startingAt: 0)
+        await self.playerService.play(song: detached)
+
+        self.playerService.updateTrackMetadata(
+            title: "Observed Detached",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: detached.videoId
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.queue == [queued])
+        #expect(self.playerService.currentTrack?.videoId == detached.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == nil)
+    }
+
+    @Test("Detached manual transport does not adopt the leftover queue")
+    func detachedManualTransportIgnoresLeftoverQueue() async {
+        let queue = [
+            Song(id: "manual-queued-1", title: "Queued 1", artists: [], duration: 180, videoId: "manual-queued-1"),
+            Song(id: "manual-queued-2", title: "Queued 2", artists: [], duration: 180, videoId: "manual-queued-2"),
+        ]
+        let detached = Song(
+            id: "manual-detached",
+            title: "Detached",
+            artists: [],
+            duration: 180,
+            videoId: "manual-detached",
+            feedbackTokens: FeedbackTokens(add: nil, remove: nil)
+        )
+        await self.playerService.playQueue(queue, startingAt: 0)
+        await self.playerService.play(song: detached)
+
+        await self.playerService.next()
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == detached.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == nil)
+
+        self.playerService.currentIndex = 1
+        self.playerService.progress = 0
+        await self.playerService.previous()
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == detached.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == nil)
+    }
+
+    @Test("Stopped queue transport can still navigate the native queue")
+    func stoppedQueueTransportStillNavigatesNativeQueue() async {
+        let queue = [
+            Song(id: "stopped-nav-1", title: "Queued 1", artists: [], duration: 180, videoId: "stopped-nav-1"),
+            Song(id: "stopped-nav-2", title: "Queued 2", artists: [], duration: 180, videoId: "stopped-nav-2"),
+        ]
+        await self.playerService.playQueue(queue, startingAt: 0)
+        await self.playerService.stop()
+
+        await self.playerService.next()
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == queue[1].videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == self.playerService.queueEntryIDs[1])
+    }
+
+    @Test("Detached playback ending does not advance the leftover queue")
+    func detachedTrackEndIgnoresLeftoverQueue() async {
+        let queue = [
+            Song(id: "queued-1", title: "Queued 1", artists: [], duration: 180, videoId: "queued-1"),
+            Song(id: "queued-2", title: "Queued 2", artists: [], duration: 180, videoId: "queued-2"),
+        ]
+        let detached = Song(
+            id: "detached-end",
+            title: "Detached",
+            artists: [],
+            duration: 180,
+            videoId: "detached-end",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        await self.playerService.playQueue(queue, startingAt: 0)
+        await self.playerService.play(song: detached)
+        let occurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: detached.videoId,
+            playbackOccurrence: occurrence
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.queue == queue)
+        #expect(self.playerService.currentTrack?.videoId == detached.videoId)
+        #expect(self.playerService.state == .ended)
+    }
+
+    @Test("Observed queue drift persists only after playback ownership realigns")
+    func observedQueueDriftPersistsRealignedOwnership() async {
+        self.playerService.clearSavedQueue()
+        defer { self.playerService.clearSavedQueue() }
+        let songs = [
+            Song(id: "persist-v1", title: "Persist 1", artists: [], duration: 180, videoId: "persist-v1"),
+            Song(id: "persist-v2", title: "Persist 2", artists: [], duration: 180, videoId: "persist-v2"),
+            Song(id: "persist-v3", title: "Persist 3", artists: [], duration: 180, videoId: "persist-v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let matchedEntryID = self.playerService.queueEntryIDs[1]
+        self.playerService.updateTrackMetadata(
+            title: songs[0].title,
+            artist: "",
+            thumbnailUrl: "",
+            videoId: songs[0].videoId
+        )
+
+        self.playerService.updateTrackMetadata(
+            title: songs[1].title,
+            artist: "",
+            thumbnailUrl: "",
+            videoId: songs[1].videoId
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentQueueEntryID == matchedEntryID)
+        #expect(self.playerService.activePlaybackQueueEntryID == matchedEntryID)
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+
+        let restored = PlayerService()
+        #expect(restored.restoreQueueFromPersistence())
+        #expect(restored.queue.map(\.videoId) == songs.map(\.videoId))
+        #expect(restored.currentIndex == 1)
+        #expect(restored.currentTrack?.videoId == songs[1].videoId)
+
+        await self.playerService.handleTrackEnded(observedVideoId: songs[1].videoId)
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Ambiguous duplicate video IDs do not select the first queue entry")
+    func ambiguousObservedVideoIDDoesNotSelectFirstDuplicate() async {
+        let current = Song(
+            id: "current",
+            title: "Current",
+            artists: [],
+            duration: 180,
+            videoId: "v1",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        let duplicate = Song(
+            id: "duplicate",
+            title: "Duplicate",
+            artists: [],
+            duration: 180,
+            videoId: "v2",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        let currentEntryID = UUID()
+        self.playerService.setQueue(entries: [
+            QueueEntry(id: currentEntryID, song: current),
+            QueueEntry(id: UUID(), song: duplicate),
+            QueueEntry(id: UUID(), song: duplicate),
+        ])
+        await self.playerService.playFromQueue(at: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+
+        self.playerService.updateTrackMetadata(
+            title: duplicate.title,
+            artist: "",
+            thumbnailUrl: "",
+            videoId: duplicate.videoId
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentQueueEntryID == currentEntryID)
+        #expect(self.playerService.activePlaybackQueueEntryID == currentEntryID)
+        #expect(self.playerService.currentTrack?.videoId == current.videoId)
+    }
+
+    @Test("A scheduled drift replay cannot replace a newer queue")
+    func scheduledDriftReplayCannotReplaceNewerQueue() async {
+        let oldSong = Song(
+            id: "old",
+            title: "Old",
+            artists: [],
+            duration: 180,
+            videoId: "old",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        let newSong = Song(
+            id: "new",
+            title: "New",
+            artists: [],
+            duration: 180,
+            videoId: "new",
+            feedbackTokens: .init(add: nil, remove: nil)
+        )
+        await self.playerService.playQueue([oldSong], startingAt: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+
+        self.playerService.updateTrackMetadata(
+            title: "Unexpected",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "unexpected"
+        )
+        await self.playerService.playQueue([newSong], startingAt: 0)
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.queue == [newSong])
+        #expect(self.playerService.currentTrack?.videoId == newSong.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == self.playerService.currentQueueEntryID)
+    }
+
+    @Test("An admitted end cannot advance after a newer pause intent")
+    func staleIntentTrackEndCannotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "One", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Two", artists: [], duration: 180, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        let admittedIntent = self.playerService.currentMusicPlaybackIntent
+
+        await self.playerService.pause()
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: endedOccurrence,
+            intent: admittedIntent
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.state == .paused)
+    }
+
+    @Test("An end emitted after pause is consumed without advancing the queue")
+    func currentPauseIntentTrackEndCannotAdvanceQueue() async {
+        let songs = [
+            Song(id: "pause-end-1", title: "One", artists: [], duration: 180, videoId: "pause-end-v1"),
+            Song(id: "pause-end-2", title: "Two", artists: [], duration: 180, videoId: "pause-end-v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        let pauseIntent = self.playerService.beginMusicPlaybackIntent()
+        await self.playerService.pause(intent: pauseIntent)
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: endedOccurrence,
+            intent: pauseIntent
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(self.playerService.state == .paused)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
+    }
+
+    @Test("Shuffle admits an already-emitted end for the active occurrence")
+    func shuffleDoesNotDiscardPendingTrackEnd() async {
+        let songs = [
+            Song(id: "shuffle-end-a", title: "A", artists: [], duration: 180, videoId: "shuffle-end-a"),
+            Song(id: "shuffle-end-b", title: "B", artists: [], duration: 180, videoId: "shuffle-end-b"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let occurrence = self.playerService.currentMusicPlaybackOccurrence
+        let emittedAt = Date().timeIntervalSince1970 * 1000
+
+        self.playerService.shuffleQueue()
+        let shuffleIntent = self.playerService.currentMusicPlaybackIntent
+        #expect(self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: shuffleIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: shuffleIntent
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+    }
+
+    @Test("Clear queue admits an already-emitted end for the retained occurrence")
+    func clearQueueDoesNotDiscardPendingTrackEnd() async throws {
+        self.playerService.shuffleMode = .off
+        while self.playerService.repeatMode != .off {
+            self.playerService.advanceRepeatMode()
+        }
+        let songs = [
+            Song(id: "clear-end-a", title: "A", artists: [], duration: 180, videoId: "clear-end-a"),
+            Song(id: "clear-end-b", title: "B", artists: [], duration: 180, videoId: "clear-end-b"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        let retainedEntryID = try #require(self.playerService.activePlaybackQueueEntryID)
+
+        self.playerService.clearQueue()
+        let clearIntent = self.playerService.currentMusicPlaybackIntent
+        self.playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        #expect(self.playerService.currentMusicPlaybackOccurrence == occurrence)
+        #expect(self.playerService.activePlaybackQueueEntryID == retainedEntryID)
+        #expect(!self.playerService.acceptsMusicBridgeEvent(
+            intent: clearIntent,
+            eventIssuedAtMilliseconds: 999
+        ))
+        try #require(self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: clearIntent,
+            eventIssuedAtMilliseconds: 999
+        ))
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: clearIntent
+        )
+
+        #expect(self.playerService.queueEntryIDs == [retainedEntryID])
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
+    @Test("Near-end metadata cannot rekey consecutive duplicate video entries")
+    func nearEndDuplicateVideoDefersUntilEnded() async throws {
+        let first = Song(id: "first", title: "First", artists: [], duration: 180, videoId: "shared")
+        let second = Song(id: "second", title: "Second", artists: [], duration: 180, videoId: "shared")
+        let third = Song(id: "third", title: "Third", artists: [], duration: 180, videoId: "third")
+        let firstID = UUID()
+        let secondID = UUID()
+        self.playerService.setQueue(entries: [
+            QueueEntry(id: firstID, song: first),
+            QueueEntry(id: secondID, song: second),
+            QueueEntry(id: UUID(), song: third),
+        ])
+        await self.playerService.playFromQueue(at: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.songNearingEnd = true
+        let outgoingOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+
+        self.playerService.updateTrackMetadata(
+            title: second.title,
+            artist: "",
+            thumbnailUrl: "",
+            videoId: second.videoId,
+            playbackOccurrence: outgoingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentQueueEntryID == firstID)
+        #expect(self.playerService.activePlaybackQueueEntryID == firstID)
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: first.videoId,
+            playbackOccurrence: outgoingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentQueueEntryID == secondID)
+        #expect(self.playerService.activePlaybackQueueEntryID == secondID)
+    }
+
+    @Test("Near-end queue correction owns a late ended callback")
+    func nearEndQueueCorrectionThenLateEndedDoesNotDoubleAdvance() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+        ]
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.songNearingEnd = true
+        let outgoingOccurrence = self.playerService.currentMusicPlaybackOccurrence
+
+        self.playerService.updateTrackMetadata(
+            title: "Unexpected autoplay",
+            artist: "Someone else",
+            thumbnailUrl: "",
+            videoId: "unexpected",
+            playbackOccurrence: outgoingOccurrence
+        )
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(self.playerService.currentIndex == 1)
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: outgoingOccurrence
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("In-place repeat-one replay clears the terminal pause fence")
+    func repeatOneReplayClearsPauseFence() async {
+        let song = Song(
+            id: "1",
+            title: "Song 1",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "v1"
+        )
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.markUserInteractedThisSession()
+        self.playerService.currentWebPlaybackVideoId = { "v1" }
+        self.playerService.cycleRepeatMode()
+        self.playerService.cycleRepeatMode()
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: "v1",
+            playbackOccurrence: self.playerService.currentMusicPlaybackOccurrence
+        )
+
+        #expect(!self.playerService.isExplicitPauseIntentActive)
+        #expect(self.playerService.isAwaitingPlaybackConfirmation)
+        #expect(self.playerService.shouldResumeAfterInterruption)
+    }
+
     // MARK: - Play From Queue Tests
 
     @Test("Play from queue valid index")
@@ -27,9 +462,11 @@ extension PlayerServiceWebQueueSyncTests {
         ]
 
         await playerService.playQueue(songs, startingAt: 0)
+        let intent = self.playerService.currentMusicPlaybackIntent
         await self.playerService.playFromQueue(at: 5)
 
         #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentMusicPlaybackIntent == intent)
     }
 
     @Test("Play from queue negative index does nothing")
@@ -39,9 +476,24 @@ extension PlayerServiceWebQueueSyncTests {
         ]
 
         await playerService.playQueue(songs, startingAt: 0)
+        let intent = self.playerService.currentMusicPlaybackIntent
         await self.playerService.playFromQueue(at: -1)
 
         #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentMusicPlaybackIntent == intent)
+    }
+
+    @Test("Play from queue missing entry ID does nothing")
+    func playFromQueueMissingEntryIDDoesNothing() async {
+        let song = Song(id: "missing-entry", title: "Song", artists: [], duration: 180, videoId: "missing-entry")
+        await self.playerService.playQueue([song], startingAt: 0)
+        let intent = self.playerService.currentMusicPlaybackIntent
+
+        await self.playerService.playFromQueue(entryID: UUID())
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == song.videoId)
+        #expect(self.playerService.currentMusicPlaybackIntent == intent)
     }
 
     // MARK: - Play With Radio Tests
@@ -257,6 +709,37 @@ extension PlayerServiceWebQueueSyncTests {
 
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
+    @Test("Resuming a pre-bind terminal occurrence starts a fresh native occurrence")
+    func resumeAfterPreBindTerminalStartsFreshOccurrence() async throws {
+        let song = Song(
+            id: "1",
+            title: "Song 1",
+            artists: [],
+            album: nil,
+            duration: 180,
+            thumbnailURL: nil,
+            videoId: "v1"
+        )
+        await self.playerService.play(song: song)
+        let endedOccurrence = self.playerService.beginNativeMusicPlaybackOccurrence(videoId: "v1")
+
+        await self.playerService.seek(to: 180)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == endedOccurrence)
+
+        await self.playerService.resume()
+        let replayOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        #expect(replayOccurrence.nativeGeneration > endedOccurrence.nativeGeneration)
+
+        let firstWebOccurrence = try #require(self.playerService.bindWebMusicPlaybackOccurrence(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: replayOccurrence.nativeGeneration,
+            videoId: "v1"
+        ))
+        #expect(self.playerService.acceptsWebMusicPlaybackOccurrence(firstWebOccurrence))
     }
 
     @Test("Manual seek to mid-track does not advance queue")

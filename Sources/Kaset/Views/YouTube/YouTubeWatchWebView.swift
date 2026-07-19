@@ -38,6 +38,19 @@ final class YouTubeWatchWebView {
     /// superseded, so a stale reload can't navigate over a newer selection.
     private var loadGeneration = 0
 
+    /// Tracks which full-page watch document may publish playback bridge events.
+    private(set) var documentGeneration = WebPlaybackDocumentGeneration()
+    var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
+    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
+    var continuationGenerationsAwaitingStart: Set<UInt64> = []
+    var pendingSeeksByGeneration: [UInt64: Double] = [:]
+    var pendingSeekVideoIdsByGeneration: [UInt64: String] = [:]
+    var pendingSeekAttemptIDsByGeneration: [UInt64: UInt64] = [:]
+    var nextPendingSeekAttemptID: UInt64 = 0
+    var cancelledPendingSeekGenerations: Set<UInt64> = []
+    var directSeekGenerations: Set<UInt64> = []
+    var pendingSeekRetryCounts: [UInt64: Int] = [:]
+
     private init() {}
 
     /// Get or create the watch WebView.
@@ -66,7 +79,8 @@ final class YouTubeWatchWebView {
         configuration.userContentController.add(self.coordinator!, name: "youtubePlayer")
         self.installUserScripts(
             on: configuration.userContentController,
-            targetVolume: playerService.volume
+            targetVolume: playerService.volume,
+            documentGeneration: Self.userScriptDocumentGeneration(from: self.documentGeneration)
         )
 
         let newWebView = WKWebView(frame: .zero, configuration: configuration)
@@ -127,9 +141,82 @@ final class YouTubeWatchWebView {
         self.load(videoId: videoId)
     }
 
-    func cancelPendingLoad() {
+    @discardableResult
+    func cancelPendingLoad() -> Bool {
         self.loadGeneration += 1
+        var didCancelDocumentNavigation = false
+        var cancelledResumeAt = self.pendingSeek
+        var cancelledSelectedGeneration = false
+        if let generation = self.documentGeneration.pendingGeneration {
+            cancelledSelectedGeneration = true
+            cancelledResumeAt = self.pendingSeeksByGeneration[generation] ?? cancelledResumeAt
+            self.pendingSeeksByGeneration.removeValue(forKey: generation)
+            self.pendingSeekVideoIdsByGeneration.removeValue(forKey: generation)
+            self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: generation)
+            self.pendingSeekRetryCounts.removeValue(forKey: generation)
+            self.directSeekGenerations.remove(generation)
+            self.documentGeneration.cancelPendingNavigation()
+            didCancelDocumentNavigation = true
+        }
+        if let generation = self.documentGeneration.inFlightGeneration,
+           self.documentGeneration.cancelInFlightNavigation(generation)
+        {
+            cancelledSelectedGeneration = true
+            cancelledResumeAt = self.pendingSeeksByGeneration[generation] ?? cancelledResumeAt
+            for (identifier, navigation) in self.documentNavigations
+                where navigation.generation == generation
+            {
+                self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                    generation: generation,
+                    shouldReportFailure: true
+                )
+            }
+            self.documentNavigations = self.documentNavigations.filter {
+                $0.value.generation != generation
+            }
+            self.pendingSeeksByGeneration.removeValue(forKey: generation)
+            self.pendingSeekVideoIdsByGeneration.removeValue(forKey: generation)
+            self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: generation)
+            self.pendingSeekRetryCounts.removeValue(forKey: generation)
+            self.directSeekGenerations.remove(generation)
+            didCancelDocumentNavigation = true
+        }
+        let committedLoadingGenerations = self.documentNavigations.values.compactMap { navigation in
+            navigation.didCommit && navigation.generation == self.documentGeneration.currentGeneration
+                ? navigation.generation
+                : nil
+        }
+        if !committedLoadingGenerations.isEmpty {
+            self.documentNavigations = self.documentNavigations.filter { _, navigation in
+                !committedLoadingGenerations.contains(navigation.generation)
+            }
+            for generation in committedLoadingGenerations {
+                if !cancelledSelectedGeneration {
+                    cancelledResumeAt = self.pendingSeeksByGeneration[generation] ?? cancelledResumeAt
+                }
+                self.pendingSeeksByGeneration.removeValue(forKey: generation)
+                self.pendingSeekVideoIdsByGeneration.removeValue(forKey: generation)
+                self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: generation)
+                self.pendingSeekRetryCounts.removeValue(forKey: generation)
+                self.directSeekGenerations.remove(generation)
+            }
+            didCancelDocumentNavigation = true
+        }
+        if didCancelDocumentNavigation, let webView = self.webView {
+            // PlayerService already owns the newly selected video. Re-authorizing
+            // the outgoing document would split native/WebView identity, so keep
+            // the selected video as a deferred reload for explicit resume.
+            self.pauseSurvivingDocument(webView)
+            self.currentVideoId = nil
+            self.pendingSeek = nil
+            self.documentGeneration.invalidate()
+            self.coordinator?.playerService.handleWebNavigationCancellation(
+                resumeAtOverride: cancelledResumeAt
+            )
+            self.refreshDocumentUserScripts(on: webView)
+        }
         self.webView?.stopLoading()
+        return didCancelDocumentNavigation
     }
 
     private func load(videoId: String) {
@@ -139,43 +226,84 @@ final class YouTubeWatchWebView {
         }
 
         self.logger.info("Loading YouTube video: \(videoId) (was: \(self.currentVideoId ?? "none"))")
+        self.cancelActiveDocumentNavigation(on: webView)
         self.currentVideoId = videoId
 
         self.loadGeneration += 1
-        let myLoadGeneration = self.loadGeneration
-
+        let navigationPendingSeek = self.pendingSeek
+        let replacedGeneration = self.documentGeneration.currentGeneration
+        if let replacedAttemptID = self.pendingSeekAttemptIDsByGeneration[replacedGeneration] {
+            self.completePendingSeek(
+                generation: replacedGeneration,
+                attemptID: replacedAttemptID
+            )
+        }
+        self.pendingSeek = navigationPendingSeek
+        if let supersededGeneration = self.documentGeneration.pendingGeneration {
+            self.pendingSeeksByGeneration.removeValue(forKey: supersededGeneration)
+            self.pendingSeekVideoIdsByGeneration.removeValue(forKey: supersededGeneration)
+            self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: supersededGeneration)
+            self.pendingSeekRetryCounts.removeValue(forKey: supersededGeneration)
+            self.directSeekGenerations.remove(supersededGeneration)
+        }
+        let navigationGeneration = self.documentGeneration.beginNavigation()
+        if let navigationPendingSeek {
+            self.pendingSeeksByGeneration[navigationGeneration] = navigationPendingSeek
+            self.pendingSeekVideoIdsByGeneration[navigationGeneration] = videoId
+            self.pendingSeekRetryCounts[navigationGeneration] = 0
+            self.beginPendingSeekAttempt(generation: navigationGeneration)
+        }
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
         self.installUserScripts(
             on: webView.configuration.userContentController,
             targetVolume: targetVolume,
-            pendingSeek: self.pendingSeek
+            documentGeneration: navigationGeneration,
+            pendingSeek: navigationPendingSeek,
+            pendingSeekVideoId: navigationPendingSeek == nil ? nil : videoId,
+            pendingSeekAttemptID: self.pendingSeekAttemptIDsByGeneration[navigationGeneration]
         )
 
-        guard let url = URL(string: "https://www.youtube.com/watch?v=\(videoId)") else { return }
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()") { [weak self] _, _ in
-            guard let self, let webView = self.webView else { return }
-            // Bail if a newer load was requested while the pause callback was
-            // pending — otherwise this stale URL would navigate over the newer
-            // selection and the observer would follow the wrong video.
-            guard myLoadGeneration == self.loadGeneration,
-                  self.currentVideoId == videoId
-            else {
-                self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
-                return
-            }
-            webView.evaluateJavaScript("window.__kasetTargetVolume = \(targetVolume);", completionHandler: nil)
-            webView.load(URLRequest(url: url))
+        guard let url = Self.watchURL(
+            videoId: videoId,
+            documentGeneration: navigationGeneration
+        ) else {
+            self.handlePendingDocumentNavigationFailure(webView: webView)
+            return
         }
+        // Do not wait for WebContent to acknowledge suppression. A provisional
+        // process can defer the callback for seconds during rapid replacement;
+        // document-generation gates reject stale bridge events and the immediate
+        // navigation tears down outgoing media.
+        webView.evaluateJavaScript(
+            WebPlaybackDocumentGeneration.mediaSuppressionScript,
+            completionHandler: nil
+        )
+        webView.evaluateJavaScript(
+            "window.__kasetTargetVolume = \(targetVolume);",
+            completionHandler: nil
+        )
+        self.startDocumentNavigation(
+            on: webView,
+            request: URLRequest(url: url),
+            generation: navigationGeneration,
+            pendingSeek: navigationPendingSeek,
+            url: url
+        )
     }
 
     /// Stops playback and blanks the page (called when video playback is closed).
     func tearDown() {
+        let blankURL = self.beginBlankDocumentNavigation()
         guard let webView else { return }
         self.logger.info("Tearing down YouTube watch WebView")
         self.loadGeneration += 1
         self.currentVideoId = nil
-        webView.evaluateJavaScript("window.__kasetStopYTExtraction?.(); document.querySelector('video')?.pause()") { _, _ in }
-        webView.loadHTMLString("", baseURL: nil)
+        webView.evaluateJavaScript(
+            "window.__kasetStopYTExtraction?.(); document.querySelector('video')?.pause()"
+        ) { _, _ in }
+        if let blankURL {
+            webView.load(URLRequest(url: blankURL))
+        }
         webView.removeFromSuperview()
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .youtubeWatch)
         self.webView = nil
@@ -183,18 +311,564 @@ final class YouTubeWatchWebView {
         self.currentContainer = nil
         self.usesCookieFreeDataStore = nil
     }
+}
 
+extension YouTubeWatchWebView {
     // MARK: - User Scripts
 
-    private func installUserScripts(
+    private func beginBlankDocumentNavigation() -> URL? {
+        self.documentNavigations.removeAll()
+        self.cancelledDocumentNavigations.removeAll()
+        self.continuationGenerationsAwaitingStart.removeAll()
+        self.pendingSeeksByGeneration.removeAll()
+        self.pendingSeekVideoIdsByGeneration.removeAll()
+        self.pendingSeekAttemptIDsByGeneration.removeAll()
+        self.cancelledPendingSeekGenerations.removeAll()
+        self.directSeekGenerations.removeAll()
+        self.pendingSeekRetryCounts.removeAll()
+        let generation = self.documentGeneration.beginBlankNavigation()
+        return WebPlaybackDocumentGeneration.blankURL(generation: generation)
+    }
+
+    func recordAcceptedMainFrameResponse(_ response: URLResponse) {
+        guard let currentVideoId = self.currentVideoId else { return }
+        _ = self.documentGeneration.recordSuccessfulPlaybackResponse(
+            url: response.url,
+            host: "www.youtube.com",
+            videoID: currentVideoId
+        )
+    }
+
+    func decideNavigationPolicy(
+        webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        guard navigationAction.targetFrame?.isMainFrame == true else {
+            decisionHandler(.allow)
+            return
+        }
+
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(navigationAction.request.url) {
+            decisionHandler(
+                self.documentGeneration.ownsBlankNavigation(navigationAction.request.url)
+                    ? .allow
+                    : .cancel
+            )
+            return
+        }
+
+        if WebPlaybackDocumentGeneration.isFragmentOnlyNavigation(
+            from: webView.url,
+            to: navigationAction.request.url
+        ) {
+            self.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+            return
+        }
+
+        if self.documentGeneration.pendingGeneration != nil {
+            decisionHandler(.cancel)
+            return
+        }
+
+        if let inFlightGeneration = self.documentGeneration.inFlightGeneration {
+            guard WebPlaybackDocumentGeneration.requestBelongsToNavigationChain(
+                navigationAction.request,
+                currentURL: webView.url,
+                generation: inFlightGeneration,
+                playbackHost: "www.youtube.com",
+                committedIntermediaryGeneration: self.documentGeneration.committedIntermediaryGeneration
+            ) else {
+                decisionHandler(.cancel)
+                return
+            }
+            if WebPlaybackDocumentGeneration.generation(from: navigationAction.request.url)
+                != inFlightGeneration
+            {
+                decisionHandler(.cancel)
+                self.continuationGenerationsAwaitingStart.insert(inFlightGeneration)
+                if let boundRequest = WebPlaybackDocumentGeneration.requestByBindingGeneration(
+                    navigationAction.request,
+                    generation: inFlightGeneration
+                ) {
+                    Task { @MainActor in
+                        self.startBoundNavigationContinuation(
+                            on: webView,
+                            request: boundRequest,
+                            generation: inFlightGeneration
+                        )
+                    }
+                }
+                return
+            }
+            self.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+            return
+        }
+
+        decisionHandler(.cancel)
+    }
+
+    private func refreshDocumentUserScripts(on webView: WKWebView) {
+        let targetVolume = self.coordinator?.playerService.volume ?? 1.0
+        let scriptGeneration = self.documentGeneration.userScriptGeneration
+        let pendingSeek: Double? = if self.documentGeneration.pendingGeneration != nil
+            || self.documentGeneration.inFlightGeneration != nil
+        {
+            self.pendingSeek
+        } else {
+            nil
+        }
+        self.installUserScripts(
+            on: webView.configuration.userContentController,
+            targetVolume: targetVolume,
+            documentGeneration: scriptGeneration,
+            pendingSeek: pendingSeek,
+            pendingSeekVideoId: pendingSeek == nil ? nil : self.currentVideoId,
+            pendingSeekAttemptID: pendingSeek == nil
+                ? nil
+                : self.pendingSeekAttemptIDsByGeneration[scriptGeneration]
+        )
+    }
+
+    private func startDocumentNavigation(
+        on webView: WKWebView,
+        request: URLRequest,
+        generation: UInt64,
+        pendingSeek: Double?,
+        url: URL
+    ) {
+        guard webView === self.webView else {
+            if self.documentGeneration.pendingGeneration == generation {
+                self.handlePendingDocumentNavigationFailure(webView: webView)
+            }
+            return
+        }
+        guard self.documentGeneration.startNavigation(generation) else {
+            self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
+            return
+        }
+        guard let navigation = webView.load(request) else {
+            self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+            return
+        }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation,
+            pendingSeek: self.pendingSeeksByGeneration[generation] ?? pendingSeek
+        )
+    }
+
+    private func startBoundNavigationContinuation(
+        on webView: WKWebView,
+        request: URLRequest,
+        generation: UInt64
+    ) {
+        guard webView === self.webView,
+              self.documentGeneration.inFlightGeneration == generation,
+              self.documentGeneration.pendingGeneration == nil
+        else {
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            return
+        }
+        guard let navigation = webView.load(request) else {
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+            return
+        }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation,
+            pendingSeek: self.pendingSeeksByGeneration[generation]
+        )
+        self.continuationGenerationsAwaitingStart.remove(generation)
+    }
+
+    private func cancelActiveDocumentNavigation(on webView: WKWebView) {
+        guard let generation = self.documentGeneration.inFlightGeneration else { return }
+        for (identifier, navigation) in self.documentNavigations
+            where navigation.generation == generation
+        {
+            self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
+                generation: generation,
+                shouldReportFailure: false
+            )
+        }
+        self.documentNavigations = self.documentNavigations.filter {
+            $0.value.generation != generation
+        }
+        self.pendingSeeksByGeneration.removeValue(forKey: generation)
+        self.pendingSeekVideoIdsByGeneration.removeValue(forKey: generation)
+        self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: generation)
+        self.directSeekGenerations.remove(generation)
+        self.pendingSeekRetryCounts.removeValue(forKey: generation)
+        _ = self.documentGeneration.cancelInFlightNavigation(generation)
+        self.continuationGenerationsAwaitingStart.remove(generation)
+        webView.stopLoading()
+    }
+
+    func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView,
+              let navigation,
+              self.documentNavigations[ObjectIdentifier(navigation)] == nil,
+              let generation = WebPlaybackDocumentGeneration.generation(from: webView.url)
+              ?? (self.documentGeneration.committedIntermediaryGeneration
+                  == self.documentGeneration.inFlightGeneration
+                  && WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
+                      webView.url,
+                      playbackHost: "www.youtube.com"
+                  ) ? self.documentGeneration.inFlightGeneration : nil),
+              generation == self.documentGeneration.inFlightGeneration
+        else { return }
+        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+            generation: generation,
+            pendingSeek: self.pendingSeeksByGeneration[generation]
+        )
+    }
+
+    func handleDocumentNavigationRedirect(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView,
+              let navigation,
+              let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)],
+              trackedNavigation.generation == self.documentGeneration.inFlightGeneration,
+              self.documentGeneration.pendingGeneration == nil
+        else { return }
+        let targetVolume = self.coordinator?.playerService.volume ?? 1.0
+        self.installUserScripts(
+            on: webView.configuration.userContentController,
+            targetVolume: targetVolume,
+            documentGeneration: trackedNavigation.generation,
+            pendingSeek: trackedNavigation.pendingSeek,
+            pendingSeekVideoId: self.pendingSeekVideoIdsByGeneration[trackedNavigation.generation],
+            pendingSeekAttemptID: self.pendingSeekAttemptIDsByGeneration[trackedNavigation.generation]
+        )
+    }
+
+    func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
+        guard webView === self.webView else { return }
+        if let navigation,
+           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
+        {
+            if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
+                cancelledGeneration: cancelledNavigation.generation,
+                committedURL: webView.url,
+                pendingGeneration: self.documentGeneration.pendingGeneration,
+                inFlightGeneration: self.documentGeneration.inFlightGeneration,
+                currentGeneration: self.documentGeneration.currentGeneration
+            ) {
+                let replacementGeneration = self.documentGeneration.pendingGeneration
+                    ?? self.documentGeneration.inFlightGeneration
+                if let replacementGeneration,
+                   replacementGeneration != cancelledNavigation.generation
+                {
+                    self.suppressSurvivingDocumentMedia(webView)
+                } else {
+                    self.pauseSurvivingDocument(webView)
+                }
+            }
+            return
+        }
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
+            guard self.documentGeneration.ownsBlankNavigation(webView.url) else {
+                self.handleUnexpectedBlankDocumentCommit(navigation, webView: webView)
+                return
+            }
+            return
+        }
+        guard let navigation,
+              var trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+        else { return }
+        trackedNavigation.didCommit = true
+        if let currentVideoId = self.currentVideoId,
+           WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
+               webView.url,
+               host: "www.youtube.com",
+               videoID: currentVideoId
+           )
+        {
+            guard self.documentGeneration.commitNavigation(
+                trackedNavigation.generation,
+                expectedVideoID: currentVideoId
+            ) else { return }
+            trackedNavigation.didActivatePlaybackOrigin = true
+        } else if WebPlaybackDocumentGeneration.isTrustedIntermediaryURL(webView.url) {
+            guard self.documentGeneration.commitIntermediaryNavigation(
+                trackedNavigation.generation
+            ) else { return }
+        }
+        self.documentNavigations[ObjectIdentifier(navigation)] = trackedNavigation
+        if trackedNavigation.didActivatePlaybackOrigin {
+            if self.cancelledPendingSeekGenerations.remove(trackedNavigation.generation) != nil {
+                webView.evaluateJavaScript(
+                    Self.pendingSeekCancellationScript(
+                        documentGeneration: trackedNavigation.generation
+                    ),
+                    completionHandler: nil
+                )
+            } else {
+                self.injectPendingSeekIfNeeded(
+                    generation: trackedNavigation.generation,
+                    webView: webView
+                )
+            }
+        }
+    }
+
+    func consumeCancelledDocumentNavigation(
+        _ navigation: WKNavigation?
+    ) -> WebPlaybackCancelledNavigation? {
+        guard let navigation else { return nil }
+        return self.cancelledDocumentNavigations.removeValue(
+            forKey: ObjectIdentifier(navigation)
+        )
+    }
+
+    func finishDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
+        guard webView === self.webView else { return false }
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
+            guard self.documentGeneration.ownsBlankNavigation(webView.url) else {
+                self.handleUnexpectedBlankDocumentCommit(navigation, webView: webView)
+                return false
+            }
+            return true
+        }
+        guard let navigation,
+              let trackedNavigation = self.documentNavigations.removeValue(
+                  forKey: ObjectIdentifier(navigation)
+              )
+        else { return false }
+        guard trackedNavigation.didCommit else {
+            self.handleCurrentDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView
+            )
+            return false
+        }
+        if !trackedNavigation.didActivatePlaybackOrigin {
+            return WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
+                webView.url,
+                playbackHost: "www.youtube.com"
+            ) && trackedNavigation.generation == self.documentGeneration.inFlightGeneration
+        }
+        guard self.documentGeneration.canFinishNavigation(
+            trackedNavigation.generation
+        ) else { return false }
+        if trackedNavigation.pendingSeek == nil {
+            self.pendingSeeksByGeneration.removeValue(forKey: trackedNavigation.generation)
+            self.pendingSeekVideoIdsByGeneration.removeValue(forKey: trackedNavigation.generation)
+            self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: trackedNavigation.generation)
+            self.pendingSeekRetryCounts.removeValue(forKey: trackedNavigation.generation)
+            self.directSeekGenerations.remove(trackedNavigation.generation)
+        }
+        return true
+    }
+
+    private func handleUnexpectedBlankDocumentCommit(
+        _ navigation: WKNavigation?,
+        webView: WKWebView
+    ) {
+        guard webView === self.webView else { return }
+        if let navigation,
+           self.documentNavigations[ObjectIdentifier(navigation)] != nil
+        {
+            self.failDocumentNavigation(navigation, webView: webView)
+            return
+        }
+        if let generation = self.documentGeneration.inFlightGeneration {
+            let resumeAt = self.pendingSeeksByGeneration[generation]
+            self.documentNavigations = self.documentNavigations.filter {
+                $0.value.generation != generation
+            }
+            self.continuationGenerationsAwaitingStart.remove(generation)
+            self.handleCurrentDocumentNavigationFailure(
+                generation,
+                webView: webView,
+                resumeAtOverride: resumeAt
+            )
+        } else if self.documentGeneration.pendingGeneration != nil {
+            self.handlePendingDocumentNavigationFailure(webView: webView)
+        } else if self.currentVideoId != nil {
+            self.handleCommittedDocumentNavigationFailure(
+                self.documentGeneration.currentGeneration,
+                webView: webView,
+                resumeAtOverride: self.pendingSeek
+            )
+        }
+    }
+
+    private func failDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
+        if let navigation {
+            self.cancelledDocumentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+        }
+        guard webView === self.webView,
+              let navigation,
+              let trackedNavigation = self.documentNavigations.removeValue(
+                  forKey: ObjectIdentifier(navigation)
+              )
+        else { return }
+        let resumeAt = trackedNavigation.pendingSeek
+        self.pendingSeeksByGeneration.removeValue(forKey: trackedNavigation.generation)
+        self.pendingSeekVideoIdsByGeneration.removeValue(forKey: trackedNavigation.generation)
+        self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: trackedNavigation.generation)
+        self.pendingSeekRetryCounts.removeValue(forKey: trackedNavigation.generation)
+        self.directSeekGenerations.remove(trackedNavigation.generation)
+        if trackedNavigation.didActivatePlaybackOrigin {
+            self.handleCommittedDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView,
+                resumeAtOverride: resumeAt
+            )
+        } else {
+            self.handleCurrentDocumentNavigationFailure(
+                trackedNavigation.generation,
+                webView: webView,
+                resumeAtOverride: resumeAt
+            )
+        }
+    }
+
+    private func handleCurrentDocumentNavigationFailure(
+        _ generation: UInt64,
+        webView: WKWebView,
+        resumeAtOverride: Double? = nil
+    ) {
+        guard self.documentGeneration.cancelInFlightNavigation(generation) else { return }
+        self.pendingSeeksByGeneration.removeValue(forKey: generation)
+        self.pendingSeekVideoIdsByGeneration.removeValue(forKey: generation)
+        self.pendingSeekAttemptIDsByGeneration.removeValue(forKey: generation)
+        self.pendingSeekRetryCounts.removeValue(forKey: generation)
+        self.directSeekGenerations.remove(generation)
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.handleWebNavigationFailure(
+            resumeAtOverride: resumeAtOverride
+        )
+        self.refreshDocumentUserScripts(on: webView)
+    }
+
+    private func handlePendingDocumentNavigationFailure(webView: WKWebView) {
+        let resumeAt = self.pendingSeek
+            ?? self.documentGeneration.pendingGeneration.flatMap { self.pendingSeeksByGeneration[$0] }
+        self.documentGeneration.cancelPendingNavigation()
+        self.pendingSeeksByGeneration.removeAll()
+        self.pendingSeekVideoIdsByGeneration.removeAll()
+        self.pendingSeekAttemptIDsByGeneration.removeAll()
+        self.cancelledPendingSeekGenerations.removeAll()
+        self.directSeekGenerations.removeAll()
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.handleWebNavigationFailure(resumeAtOverride: resumeAt)
+        self.refreshDocumentUserScripts(on: webView)
+    }
+
+    private func handleCommittedDocumentNavigationFailure(
+        _ generation: UInt64,
+        webView: WKWebView,
+        resumeAtOverride: Double? = nil
+    ) {
+        guard self.documentGeneration.currentGeneration == generation,
+              self.documentGeneration.pendingGeneration == nil,
+              self.documentGeneration.inFlightGeneration == nil
+        else { return }
+        self.pauseSurvivingDocument(webView)
+        self.currentVideoId = nil
+        self.documentGeneration.invalidate()
+        self.coordinator?.playerService.handleWebNavigationFailure(
+            resumeAtOverride: resumeAtOverride
+        )
+        self.refreshDocumentUserScripts(on: webView)
+    }
+
+    func handleDocumentNavigationFailure(
+        _ navigation: WKNavigation?,
+        webView: WKWebView,
+        error: Error
+    ) {
+        if WebPlaybackNavigationFailure.isRetryableCancellation(error) {
+            guard let navigation,
+                  let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+            else {
+                if let navigation,
+                   let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
+                       forKey: ObjectIdentifier(navigation)
+                   )
+                {
+                    if cancelledNavigation.shouldReportFailure {
+                        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                    }
+                    return
+                }
+                self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                return
+            }
+            let hasSameGenerationSuccessor = self.documentNavigations.contains { key, candidate in
+                key != ObjectIdentifier(navigation)
+                    && candidate.generation == trackedNavigation.generation
+            }
+            if !trackedNavigation.didActivatePlaybackOrigin,
+               hasSameGenerationSuccessor
+               || self.continuationGenerationsAwaitingStart.contains(trackedNavigation.generation)
+            {
+                self.documentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+                self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+                return
+            }
+        }
+        self.failDocumentNavigation(navigation, webView: webView)
+        self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
+    }
+
+    private func pauseSurvivingDocument(_ webView: WKWebView) {
+        webView.stopLoading()
+        self.suppressSurvivingDocumentMedia(webView)
+    }
+
+    private func suppressSurvivingDocumentMedia(_ webView: WKWebView) {
+        webView.evaluateJavaScript(
+            WebPlaybackDocumentGeneration.mediaSuppressionScript,
+            completionHandler: nil
+        )
+    }
+
+    func beginContentProcessRecovery(webView: WKWebView) -> Bool {
+        guard webView === self.webView else { return false }
+        self.documentNavigations.removeAll()
+        self.cancelledDocumentNavigations.removeAll()
+        self.documentGeneration.invalidate()
+        self.pendingSeeksByGeneration.removeAll()
+        self.pendingSeekVideoIdsByGeneration.removeAll()
+        self.pendingSeekAttemptIDsByGeneration.removeAll()
+        self.directSeekGenerations.removeAll()
+        self.pendingSeekRetryCounts.removeAll()
+        self.currentVideoId = nil
+        return true
+    }
+
+    func installUserScripts(
         on contentController: WKUserContentController,
         targetVolume: Double,
-        pendingSeek: Double? = nil
+        documentGeneration: UInt64,
+        pendingSeek: Double? = nil,
+        pendingSeekVideoId: String? = nil,
+        pendingSeekAttemptID: UInt64? = nil
     ) {
         contentController.removeAllUserScripts()
 
         let bootstrap = WKUserScript(
-            source: Self.pageBootstrapScript(targetVolume: targetVolume, pendingSeek: pendingSeek),
+            source: Self.pageBootstrapScript(
+                targetVolume: targetVolume,
+                documentGeneration: documentGeneration,
+                pendingSeek: pendingSeek,
+                pendingSeekVideoId: pendingSeekVideoId,
+                pendingSeekAttemptID: pendingSeekAttemptID
+            ),
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         )
@@ -221,128 +895,5 @@ final class YouTubeWatchWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(extraction)
-    }
-
-    /// Document-start state handed to each new watch page.
-    ///
-    /// `pendingSeek`, when present, is a resume position (seconds) applied by the
-    /// observer once the `<video>` element exists and is seekable (see
-    /// `applyPendingSeek` in the observer script). Injected at document start so
-    /// it is in place before the player boots, and naturally scoped to this one
-    /// navigation.
-    nonisolated static func pageBootstrapScript(targetVolume: Double, pendingSeek: Double? = nil) -> String {
-        let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
-        var script = "window.__kasetTargetVolume = \(clamped);"
-        if let pendingSeek, pendingSeek.isFinite, pendingSeek >= 0 {
-            script += " window.__kasetPendingSeek = \(pendingSeek);"
-        }
-        return script
-    }
-
-    // MARK: - Coordinator
-
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
-        let playerService: YouTubePlayerService
-
-        init(playerService: YouTubePlayerService) {
-            self.playerService = playerService
-        }
-
-        func userContentController(_: WKUserContentController, didReceive message: WKScriptMessage) {
-            guard let body = message.body as? [String: Any],
-                  let type = body["type"] as? String
-            else { return }
-
-            switch type {
-            case "STATE_UPDATE":
-                let update = YouTubePlayerService.PlaybackUpdate(
-                    isPlaying: body["isPlaying"] as? Bool ?? false,
-                    progress: body["progress"] as? Double ?? 0,
-                    duration: body["duration"] as? Double ?? 0,
-                    videoId: (body["videoId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
-                    title: body["title"] as? String,
-                    isAd: body["isAd"] as? Bool ?? false
-                )
-                Task { @MainActor in
-                    self.playerService.updatePlaybackState(update)
-                }
-            case "VIDEO_ENDED":
-                let videoId = body["videoId"] as? String
-                Task { @MainActor in
-                    self.playerService.handleVideoEnded(videoId: videoId)
-                }
-            default:
-                return
-            }
-        }
-
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
-        ) {
-            guard navigationAction.targetFrame?.isMainFrame == true else {
-                decisionHandler(.allow)
-                return
-            }
-
-            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewWillNavigate(
-                webView,
-                to: navigationAction.request.url
-            )
-            decisionHandler(.allow)
-        }
-
-        func webView(_ webView: WKWebView, didStartProvisionalNavigation _: WKNavigation!) {
-            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidStartNavigation(webView)
-        }
-
-        func webView(_ webView: WKWebView, didFinish _: WKNavigation!) {
-            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
-            DiagnosticsLogger.player.info(
-                "YouTube watch WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
-            )
-
-            // The resume-seek for an identity-switch reload is applied by the
-            // observer's applyPendingSeek (gated on the <video> existing and being
-            // seekable), not here: at didFinish the element often does not exist
-            // yet, so a one-shot seek would be lost. Clear the Swift-side copy now
-            // that the per-load bootstrap has carried the value into the page.
-            YouTubeWatchWebView.shared.pendingSeek = nil
-
-            let savedVolume = self.playerService.volume
-            webView.evaluateJavaScript(
-                """
-                (function() {
-                    window.__kasetTargetVolume = \(savedVolume);
-                    const video = document.querySelector('video');
-                    if (video) { video.volume = \(savedVolume); }
-                    if (window.__kasetExtractVideo) { window.__kasetExtractVideo(); }
-                })();
-                """,
-                completionHandler: nil
-            )
-        }
-
-        func webView(_ webView: WKWebView, didFail _: WKNavigation!, withError _: Error) {
-            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
-        }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError _: Error) {
-            YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
-        }
-
-        func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            DiagnosticsLogger.player.error("YouTube watch WebView content process terminated, recovering")
-            let videoId = YouTubeWatchWebView.shared.currentVideoId
-            webView.reload()
-            if let videoId {
-                Task { @MainActor in
-                    try? await Task.sleep(for: .seconds(1))
-                    YouTubeWatchWebView.shared.currentVideoId = nil
-                    YouTubeWatchWebView.shared.loadVideo(videoId: videoId)
-                }
-            }
-        }
     }
 }

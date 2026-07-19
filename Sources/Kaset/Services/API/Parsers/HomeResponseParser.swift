@@ -372,7 +372,10 @@ enum HomeResponseParser {
             description: colorHex, // Store color hex in description for mood cards
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: nil
+            author: nil,
+            moodCategoryEndpoint: MoodCategory.isMoodCategory(browseId)
+                ? MoodCategoryEndpoint(browseId: browseId, params: params)
+                : nil
         )
         return .playlist(playlist)
     }

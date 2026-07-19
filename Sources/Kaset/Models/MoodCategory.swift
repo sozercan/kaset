@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+// MARK: - MoodCategoryEndpoint
+
+struct MoodCategoryEndpoint: Codable, Hashable {
+    let browseId: String
+    let params: String?
+}
+
 // MARK: - MoodCategory
 
 /// Represents a moods/genres category that can be navigated to.
@@ -61,5 +68,15 @@ struct MoodCategory: Identifiable, Hashable {
 
         // Fallback - use the whole thing as browseId
         return (combinedId, nil)
+    }
+}
+
+extension Playlist {
+    var resolvedMoodCategoryEndpoint: MoodCategoryEndpoint? {
+        if let moodCategoryEndpoint {
+            return moodCategoryEndpoint
+        }
+        guard let parsed = MoodCategory.parseId(self.id) else { return nil }
+        return MoodCategoryEndpoint(browseId: parsed.browseId, params: parsed.params)
     }
 }

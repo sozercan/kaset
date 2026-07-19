@@ -18,6 +18,12 @@ extension PlayerService {
     /// thumbnail, then installs `currentEpisode` through the player so the UI
     /// can gate live behavior before metadata loading suspends.
     func playEpisode(_ episode: ArtistEpisode) async {
+        let intent = self.beginMusicPlaybackIntent()
+        await self.playEpisode(episode, intent: intent)
+    }
+
+    func playEpisode(_ episode: ArtistEpisode, intent: MusicPlaybackIntent) async {
+        guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.info("Playing artist episode: \(episode.title) (live=\(episode.isLive))")
 
         // A standalone episode is a new playback context that replaces the queue: supersede any
@@ -43,6 +49,12 @@ extension PlayerService {
         // Pass the episode into `play` so episode state is installed before
         // any async metadata fetch can suspend. This prevents a stale episode
         // task from marking a later normal track as episode playback.
-        await self.play(song: representative, webLoadStrategy: .standard, episode: episode)
+        await self.play(
+            song: representative,
+            webLoadStrategy: .standard,
+            episode: episode,
+            queueEntryID: nil,
+            intent: intent
+        )
     }
 }

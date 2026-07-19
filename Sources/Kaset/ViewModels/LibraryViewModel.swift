@@ -13,6 +13,15 @@ import os
 final class LibraryMutationBroadcaster {
     static let shared = LibraryMutationBroadcaster()
 
+    struct PlaylistRemovalReceipt {
+        fileprivate struct Target {
+            let viewModel: LibraryViewModel
+            let playlistRevision: UInt64
+        }
+
+        fileprivate let targets: [Target]
+    }
+
     private final class WeakLibraryViewModelBox {
         weak var value: LibraryViewModel?
 
@@ -46,20 +55,65 @@ final class LibraryMutationBroadcaster {
         }
     }
 
-    func reconcileCreatedPlaylist(_ playlist: Playlist) async {
+    @discardableResult
+    func reconcileCreatedPlaylist(
+        _ playlist: Playlist,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
         for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else {
+                self.discardCreatedPlaylist(playlist)
+                return false
+            }
             await libraryViewModel.refresh()
+            guard isCurrent() else {
+                self.discardCreatedPlaylist(playlist)
+                return false
+            }
             if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
                 libraryViewModel.addToLibrary(playlist: playlist)
             }
             libraryViewModel.markNeedsReloadOnActivation()
         }
+        guard isCurrent() else {
+            self.discardCreatedPlaylist(playlist)
+            return false
+        }
+        return true
     }
 
-    func playlistRemoved(playlistId: String) {
+    func discardCreatedPlaylist(_ playlist: Playlist) {
         for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.discardOptimisticPlaylist(playlistId: playlist.id)
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+    }
+
+    @discardableResult
+    func playlistRemoved(playlistId: String) -> PlaylistRemovalReceipt {
+        let activeViewModels = self.activeLibraryViewModels
+        var targets: [PlaylistRemovalReceipt.Target] = []
+        for libraryViewModel in activeViewModels {
+            let wasInLibrary = libraryViewModel.isInLibrary(playlistId: playlistId)
             libraryViewModel.markNeedsReloadOnActivation()
             libraryViewModel.removeFromLibrary(playlistId: playlistId)
+            if wasInLibrary {
+                targets.append(PlaylistRemovalReceipt.Target(
+                    viewModel: libraryViewModel,
+                    playlistRevision: libraryViewModel.playlistMutationRevision(for: playlistId)
+                ))
+            }
+        }
+        return PlaylistRemovalReceipt(targets: targets)
+    }
+
+    func rollbackPlaylistRemoval(_ playlist: Playlist, receipt: PlaylistRemovalReceipt) {
+        for target in receipt.targets {
+            guard target.viewModel.rollbackPlaylistRemoval(
+                playlist,
+                expectedPlaylistRevision: target.playlistRevision
+            ) else { continue }
+            target.viewModel.markNeedsReloadOnActivation()
         }
     }
 
@@ -112,6 +166,11 @@ final class LibraryViewModel {
 
     /// Monotonic revision for local library state mutations.
     private var libraryStateRevision: UInt64 = 0
+    private var playlistMutationRevisionByID: [String: UInt64] = [:]
+
+    func playlistMutationRevision(for playlistId: String) -> UInt64 {
+        self.playlistMutationRevisionByID[LibraryContentIdentity.playlistKey(for: playlistId)] ?? 0
+    }
 
     /// Whether a fresh load should run again after the current in-flight load completes.
     private var needsReloadAfterCurrentLoad = false
@@ -168,6 +227,24 @@ final class LibraryViewModel {
         self.libraryStateRevision &+= 1
     }
 
+    private func markPlaylistStateChanged(_ playlistId: String) {
+        self.markLibraryStateChanged()
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
+        self.playlistMutationRevisionByID[playlistKey, default: 0] &+= 1
+    }
+
+    @discardableResult
+    func rollbackPlaylistRemoval(
+        _ playlist: Playlist,
+        expectedPlaylistRevision: UInt64
+    ) -> Bool {
+        guard self.playlistMutationRevision(for: playlist.id) == expectedPlaylistRevision,
+              !self.isInLibrary(playlistId: playlist.id)
+        else { return false }
+        self.addToLibrary(playlist: playlist)
+        return true
+    }
+
     private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) {
         let result = self.contentReconciler.apply(content, currentSnapshot: self.librarySnapshot)
         if result.preservedExistingArtists {
@@ -220,7 +297,7 @@ final class LibraryViewModel {
 
     /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
-        self.markLibraryStateChanged()
+        self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
         self.contentReconciler.addPlaylistId(playlistId, to: &snapshot)
         self.librarySnapshot = snapshot
@@ -229,9 +306,16 @@ final class LibraryViewModel {
     /// Adds a playlist to the library (called after successful add to library).
     /// Updates both the ID set and the playlists array for immediate UI update.
     func addToLibrary(playlist: Playlist) {
-        self.markLibraryStateChanged()
+        self.markPlaylistStateChanged(playlist.id)
         var snapshot = self.librarySnapshot
         self.contentReconciler.addPlaylist(playlist, to: &snapshot)
+        self.librarySnapshot = snapshot
+    }
+
+    func discardOptimisticPlaylist(playlistId: String) {
+        self.markPlaylistStateChanged(playlistId)
+        var snapshot = self.librarySnapshot
+        self.contentReconciler.discardAddedPlaylist(playlistId, from: &snapshot)
         self.librarySnapshot = snapshot
     }
 
@@ -271,7 +355,7 @@ final class LibraryViewModel {
 
     /// Removes a playlist ID from the library set (called after successful remove from library).
     func removeFromLibrarySet(playlistId: String) {
-        self.markLibraryStateChanged()
+        self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
         self.contentReconciler.removePlaylistId(playlistId, from: &snapshot)
         self.librarySnapshot = snapshot
@@ -280,7 +364,7 @@ final class LibraryViewModel {
     /// Removes a playlist from the library (called after successful remove from library).
     /// Updates both the ID set and the playlists array for immediate UI update.
     func removeFromLibrary(playlistId: String) {
-        self.markLibraryStateChanged()
+        self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
         self.contentReconciler.removePlaylist(playlistId, from: &snapshot)
         self.librarySnapshot = snapshot

@@ -260,6 +260,9 @@ struct HomeResponseParserTests {
         if case let .playlist(playlist) = item {
             #expect(playlist.title == "Chill")
             #expect(playlist.id == "FEmusic_moods_and_genres_category_chill_someEncodedParams")
+            #expect(playlist.moodCategoryEndpoint?.browseId == "FEmusic_moods_and_genres_category_chill")
+            #expect(playlist.moodCategoryEndpoint?.params == "someEncodedParams")
+            #expect(playlist.resolvedMoodCategoryEndpoint == playlist.moodCategoryEndpoint)
         } else {
             Issue.record("Expected playlist item from navigation button")
         }

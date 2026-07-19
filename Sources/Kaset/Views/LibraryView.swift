@@ -146,6 +146,7 @@ struct LibraryView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
@@ -353,7 +354,8 @@ struct LibraryView: View {
                     SongActionsHelper.confirmDeletePlaylist(
                         playlist,
                         client: self.viewModel.client,
-                        libraryViewModel: self.viewModel
+                        libraryViewModel: self.viewModel,
+                        playerService: self.playerService
                     )
                 } label: {
                     Label(String(localized: "Delete Playlist…"), systemImage: "trash")

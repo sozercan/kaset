@@ -91,10 +91,12 @@ struct PlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
-            guard let event else { return }
-            guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
-            self.viewModel.handleLikeStatusChange(event)
+        .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
+            guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
+            for event in batch.events {
+                guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
+                self.viewModel.handleLikeStatusChange(event)
+            }
         }
         .sheet(isPresented: self.$showRefineSheet) {
             if let detail = viewModel.playlistDetail {
@@ -517,10 +519,14 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
-                cleanedTracks, startingAt: index, deferringSmartShuffleFill: willDeferLoad
+                cleanedTracks,
+                startingAt: index,
+                deferringSmartShuffleFill: willDeferLoad,
+                intent: intent
             )
             // Not deferring (playlist already fully loaded): playQueue filled suggestions itself.
             guard let loadGeneration else { return }

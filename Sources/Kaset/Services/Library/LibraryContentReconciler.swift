@@ -114,6 +114,16 @@ struct LibraryContentReconciler {
         }
     }
 
+    /// Removes a locally-created playlist without recording a backend removal.
+    /// Used when the account that owned the optimistic creation is no longer active.
+    mutating func discardAddedPlaylist(_ playlistId: String, from snapshot: inout LibraryContentSnapshot) {
+        let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
+        self.pendingAddedPlaylists.removeValue(forKey: playlistKey)
+        self.pendingAddedPlaylistMatchCounts.removeValue(forKey: playlistKey)
+        snapshot.playlistIds = LibraryContentIdentity.removingPlaylist(playlistId, from: snapshot.playlistIds)
+        snapshot.playlists.removeAll { LibraryContentIdentity.playlistKey(for: $0.id) == playlistKey }
+    }
+
     mutating func removePlaylistId(_ playlistId: String, from snapshot: inout LibraryContentSnapshot) {
         let playlistKey = LibraryContentIdentity.playlistKey(for: playlistId)
         self.pendingAddedPlaylists.removeValue(forKey: playlistKey)

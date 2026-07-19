@@ -27,6 +27,10 @@ enum TestAccessibilityID {
         static func suggestion(index: Int) -> String {
             "searchView.suggestion.\(index)"
         }
+
+        static func resultRow(index: Int) -> String {
+            "searchView.result.\(index)"
+        }
     }
 
     enum MainWindow {
@@ -193,6 +197,8 @@ class KasetUITestCase: XCTestCase {
                 "title": "Search Result \(index)",
                 "artist": "Search Artist \(index)",
                 "videoId": "search-video-\(index)",
+                "albumId": "MPREbSearchAlbum\(index)",
+                "albumTitle": "Search Album \(index)",
             ]
         }
 

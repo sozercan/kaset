@@ -421,6 +421,11 @@ let body = ["browseId": "FEmusic_moods_and_genres"]
 
 Each item links to a playlist or browse endpoint for that mood/genre.
 
+As verified on July 13, 2026, mood and genre cards use the browse ID
+`FEmusic_moods_and_genres_category` with an opaque `params` value. Keep the
+browse ID and params as separate structured fields when parsing; concatenated
+display IDs are not a safe source for reconstructing navigation endpoints.
+
 ---
 
 #### History (`FEmusic_history`)
@@ -617,7 +622,19 @@ let body = ["feedbackTokens": [addToken]]
 _ = try await request("feedback", body: body)
 ```
 
-Tokens come from `getSong(videoId:)` response.
+Tokens come from `getSong(videoId:)` response. `FeedbackTokens.add` and
+`FeedbackTokens.remove` are action-specific: select the add token when the
+target state is in-library and the remove token when the target state is
+out-of-library. Keep the known pair stable across optimistic UI updates; do not
+swap the fields. A later authoritative metadata response may replace or rotate
+the pair.
+
+`api-explorer` reports library feedback action structure without printing token
+values. It can also inspect a saved response safely:
+
+```bash
+swift run api-explorer analyze-file path/to/response.json
+```
 
 ---
 
