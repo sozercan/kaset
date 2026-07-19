@@ -49,6 +49,10 @@ struct GeneralSettingsView: View {
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help(String(localized: "Provide tactile feedback for actions on Force Touch trackpads"))
 
+                // Lyrics & Queue drawer
+                Toggle("Open lyrics & queue as a side drawer", isOn: self.$settings.lyricsQueueDrawerEnabled)
+                    .help(String(localized: "Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel"))
+
                 // Default Launch Page
                 Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in

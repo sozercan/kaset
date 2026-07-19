@@ -398,66 +398,35 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     // MARK: - Main Content
 
     private var mainContent: some View {
-        ZStack(alignment: .trailing) {
-            // Main navigation content — sidebar and detail swap with the active source.
-            NavigationSplitView(columnVisibility: self.$columnVisibility) {
-                if self.settings.appSource == .music {
-                    Sidebar(
-                        selection: self.$navigationSelection,
-                        pinnedSelection: self.$selectedSidebarPinnedItem,
-                        client: self.client,
-                        onReselectNavigationItem: { item in
-                            self.sidebarNavigationReselectGenerations.wrappedValue[item, default: 0] += 1
-                            if item == .search {
-                                Task { @MainActor in
-                                    try? await Task.sleep(for: .milliseconds(100))
-                                    self.searchFocusTrigger.wrappedValue = true
-                                }
-                            }
-                        },
-                        onReselectPinnedItem: { item in
-                            guard !(self.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
-                            self.pinnedNavigationPaths[item.contentId] = NavigationPath()
-                        }
-                    )
-                } else {
-                    YouTubeSidebar(
-                        selection: self.$youtubeNavigationSelection,
-                        onReselect: { _ in
-                            self.youtubeStore.navigationPath = NavigationPath()
-                        }
-                    )
+        // A single stable HStack keeps the NavigationSplitView's identity across the drawer
+        // setting toggle (a branch swap would rebuild it and reset scroll). Floating mode
+        // overlays the panel on the content; drawer mode docks it as a sibling column that
+        // pushes the content aside like the left sidebar.
+        HStack(spacing: 0) {
+            self.navigationSplitContent
+                .overlay(alignment: .trailing) {
+                    if !self.settings.lyricsQueueDrawerEnabled {
+                        // Right sidebar overlay - either lyrics or queue (mutually exclusive)
+                        self.rightSidebarOverlay(client: self.client)
+                    }
                 }
-            } detail: {
-                if self.settings.appSource == .music {
-                    self.detailView(
-                        for: self.navigationSelection,
-                        pinnedItem: self.selectedSidebarPinnedItem,
-                        client: self.client
-                    )
-                } else {
-                    YouTubeContentView(
-                        selection: self.youtubeNavigationSelection,
-                        store: self.youtubeStore
-                    )
-                }
-            }
-            .id(self.contentResetID)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
-                if self.columnVisibility != .all {
-                    self.columnVisibility = .all
-                }
-            }
 
-            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
-            self.rightSidebarOverlay(client: self.client)
+            if self.settings.lyricsQueueDrawerEnabled,
+               self.playerService.showLyrics || self.playerService.showQueue
+            {
+                self.rightDrawerColumn(client: self.client)
+                    .transition(.move(edge: .trailing))
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
+            // The AI / command-bar button lives in the window toolbar (titlebar line) so it keeps
+            // the native toolbar size and stays clickable — the titlebar strip is the OS window-drag
+            // region, where a manual overlay button would be swallowed. With the drawer docked (its
+            // header sits below the titlebar), a trailing toolbar item no longer overlaps its
+            // controls.
             if self.supportsCommandBarUI {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -472,6 +441,101 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 }
             }
+        }
+    }
+
+    /// The main sidebar + detail navigation, shared by the floating-overlay and docked-drawer
+    /// layouts.
+    private var navigationSplitContent: some View {
+        NavigationSplitView(columnVisibility: self.$columnVisibility) {
+            if self.settings.appSource == .music {
+                Sidebar(
+                    selection: self.$navigationSelection,
+                    pinnedSelection: self.$selectedSidebarPinnedItem,
+                    client: self.client,
+                    onReselectNavigationItem: { item in
+                        self.sidebarNavigationReselectGenerations.wrappedValue[item, default: 0] += 1
+                        if item == .search {
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .milliseconds(100))
+                                self.searchFocusTrigger.wrappedValue = true
+                            }
+                        }
+                    },
+                    onReselectPinnedItem: { item in
+                        guard !(self.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
+                        self.pinnedNavigationPaths[item.contentId] = NavigationPath()
+                    }
+                )
+            } else {
+                YouTubeSidebar(
+                    selection: self.$youtubeNavigationSelection,
+                    onReselect: { _ in
+                        self.youtubeStore.navigationPath = NavigationPath()
+                    }
+                )
+            }
+        } detail: {
+            if self.settings.appSource == .music {
+                self.detailView(
+                    for: self.navigationSelection,
+                    pinnedItem: self.selectedSidebarPinnedItem,
+                    client: self.client
+                )
+            } else {
+                YouTubeContentView(
+                    selection: self.youtubeNavigationSelection,
+                    store: self.youtubeStore
+                )
+            }
+        }
+        .id(self.contentResetID)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
+            // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
+            if self.columnVisibility != .all {
+                self.columnVisibility = .all
+            }
+        }
+    }
+
+    /// Right drawer column (docked): lyrics or queue rendered flush against the trailing edge,
+    /// full height, pushing the content aside instead of floating over it.
+    private func rightDrawerColumn(client: any YTMusicClientProtocol) -> some View {
+        Group {
+            if self.playerService.showLyrics {
+                if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    LyricsView(client: client, docked: true)
+                } else {
+                    SimpleLyricsView(client: client, docked: true)
+                }
+            } else if self.playerService.showQueue {
+                if self.playerService.queueDisplayMode == .sidepanel {
+                    QueueSidePanelView(docked: true)
+                } else {
+                    QueueView(docked: true)
+                }
+            }
+        }
+        .frame(width: MainWindowLayout.rightDrawerWidth)
+        .frame(maxHeight: .infinity)
+        // Extend only the material (and its leading divider) up behind the transparent titlebar so
+        // the drawer reads as full-height like the left sidebar. The CONTENT deliberately stays
+        // within the safe area (below the titlebar) — the top strip is the window's drag region, so
+        // pushing the Up Next header up there made its Clear/Edit controls swallow clicks as window
+        // drags. Keeping content below the titlebar leaves those controls clickable.
+        .background {
+            Rectangle()
+                .fill(.regularMaterial)
+                .overlay(alignment: .leading) {
+                    // Explicit vertical hairline: a bare `Divider()` in an overlay has no stack axis
+                    // and would render as a horizontal rule across the middle, not a leading seam.
+                    Rectangle()
+                        .fill(Color(nsColor: .separatorColor))
+                        .frame(width: 1)
+                        .frame(maxHeight: .infinity)
+                }
+                .ignoresSafeArea(.container, edges: .top)
         }
     }
 

@@ -229,27 +229,25 @@ struct SimpleLyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    /// When true, renders flush content for the docked drawer (no fixed width / glass card);
+    /// the drawer container supplies the background.
+    var docked = false
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
 
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                if self.showsHeader {
-                    HStack {
-                        Text(String(localized: "Lyrics"))
-                            .font(.headline)
-                        Spacer()
-                    }
-                    .padding()
-                    Divider().opacity(0.3)
+        Group {
+            if self.docked {
+                self.contentStack
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                CompatGlassContainer(spacing: 0) {
+                    self.contentStack
+                        .frame(width: self.preferredWidth)
+                        .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
                 }
-
-                self.contentView
             }
-            .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
         }
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != self.lastLoadedVideoId {
@@ -271,6 +269,22 @@ struct SimpleLyricsView: View {
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)
+    }
+
+    private var contentStack: some View {
+        VStack(spacing: 0) {
+            if self.showsHeader {
+                HStack {
+                    Text(String(localized: "Lyrics"))
+                        .font(.headline)
+                    Spacer()
+                }
+                .padding()
+                Divider().opacity(0.3)
+            }
+
+            self.contentView
+        }
     }
 
     @ViewBuilder
