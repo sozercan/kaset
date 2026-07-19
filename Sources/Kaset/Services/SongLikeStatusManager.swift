@@ -579,9 +579,11 @@ final class SongLikeStatusManager {
     ///   - videoId: The video ID.
     ///   - status: The like status.
     func setStatus(_ status: LikeStatus, for videoId: String) {
-        self.setStatus(status, for: videoId, accountID: self.activeAccountID)
-        self.setConfirmedStatus(status, for: videoId, accountID: self.activeAccountID)
-        self.localRatingOverlayByAccount[self.activeAccountID]?.removeValue(forKey: videoId)
+        let accountID = self.activeAccountID
+        guard !self.shouldPreserveLocalRating(for: videoId, accountID: accountID) else { return }
+        self.setStatus(status, for: videoId, accountID: accountID)
+        self.setConfirmedStatus(status, for: videoId, accountID: accountID)
+        self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
     }
 
     /// Updates the visible cache without advancing the API-confirmed rollback baseline.
@@ -604,7 +606,10 @@ final class SongLikeStatusManager {
         let resolvedAccountID = accountID.map(Self.resolvedAccountID) ?? self.activeAccountID
         var cache = self.statusCacheByAccount[resolvedAccountID] ?? [:]
 
-        for videoId in videoIds {
+        for videoId in videoIds where !self.shouldPreserveLocalRating(
+            for: videoId,
+            accountID: resolvedAccountID
+        ) {
             cache[videoId] = status
             self.setConfirmedStatus(status, for: videoId, accountID: resolvedAccountID)
         }
@@ -662,17 +667,24 @@ final class SongLikeStatusManager {
     }
 
     private func restorePendingRatings(for accountID: String) -> [LikeStatusEvent] {
-        (self.pendingRatingByAccount[accountID] ?? [:]).map { videoId, pendingRating in
-            let confirmedStatus = self.confirmedStatus(for: videoId, accountID: accountID)
-            self.restoreStatus(confirmedStatus, for: videoId, accountID: accountID)
-            self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
-            return LikeStatusEvent(
-                videoId: videoId,
-                status: confirmedStatus ?? .indifferent,
-                song: pendingRating.song,
-                addsLikedMusicMembership: false
-            )
-        }
+        (self.pendingRatingByAccount[accountID] ?? [:])
+            .sorted { lhs, rhs in lhs.value.revision < rhs.value.revision }
+            .map { videoId, pendingRating in
+                let confirmedStatus = self.confirmedStatus(for: videoId, accountID: accountID)
+                self.restoreStatus(confirmedStatus, for: videoId, accountID: accountID)
+                self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
+                return LikeStatusEvent(
+                    videoId: videoId,
+                    status: confirmedStatus ?? .indifferent,
+                    song: pendingRating.song,
+                    addsLikedMusicMembership: false
+                )
+            }
+    }
+
+    private func shouldPreserveLocalRating(for videoId: String, accountID: String) -> Bool {
+        self.pendingRatingByAccount[accountID]?[videoId] != nil
+            || self.localRatingOverlayByAccount[accountID]?[videoId]?.protectedRequestIDs.isEmpty == false
     }
 
     func ratingRevision(for videoId: String, accountID: String? = nil) -> UInt64 {

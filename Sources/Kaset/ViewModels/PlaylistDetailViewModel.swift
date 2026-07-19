@@ -74,6 +74,7 @@ final class PlaylistDetailViewModel {
     private let playlist: Playlist
     /// The API client (exposed for add to library action).
     let client: any YTMusicClientProtocol
+    private let likeStatusManager: SongLikeStatusManager
     private let logger = DiagnosticsLogger.api
     private var continuationToken: String?
 
@@ -115,9 +116,14 @@ final class PlaylistDetailViewModel {
         LikedMusicPlaylist.matches(id: self.playlist.id)
     }
 
-    init(playlist: Playlist, client: any YTMusicClientProtocol) {
+    init(
+        playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        likeStatusManager: SongLikeStatusManager = .shared
+    ) {
         self.playlist = playlist
         self.client = client
+        self.likeStatusManager = likeStatusManager
     }
 
     var playlistID: String {
@@ -132,8 +138,9 @@ final class PlaylistDetailViewModel {
             liveSyncTask.task.cancel()
         }
         if let loadedLikedMusicScope {
-            Task { @MainActor in
-                SongLikeStatusManager.shared.finishLikedMusicRequest(loadedLikedMusicScope)
+            let likeStatusManager = self.likeStatusManager
+            Task { @MainActor [likeStatusManager, loadedLikedMusicScope] in
+                likeStatusManager.finishLikedMusicRequest(loadedLikedMusicScope)
             }
         }
     }
@@ -243,10 +250,10 @@ extension PlaylistDetailViewModel {
         self.loadGeneration += 1
         let previousLikedMusicScope = self.loadedLikedMusicScope
         let likedMusicSnapshot = self.isLikedMusicPlaylist
-            ? SongLikeStatusManager.shared.beginLikedMusicRequest()
+            ? self.likeStatusManager.beginLikedMusicRequest()
             : nil
         if let previousLikedMusicScope {
-            SongLikeStatusManager.shared.finishLikedMusicRequest(previousLikedMusicScope)
+            self.likeStatusManager.finishLikedMusicRequest(previousLikedMusicScope)
             self.loadedLikedMusicScope = nil
         }
         self.countedPlaylistRemovalSetVideoIDs = []
@@ -264,7 +271,7 @@ extension PlaylistDetailViewModel {
     private func finishInitialLoad(_ context: InitialLoadContext) {
         guard let snapshot = context.likedMusicSnapshot else { return }
         guard self.loadedLikedMusicScope != snapshot else { return }
-        SongLikeStatusManager.shared.finishLikedMusicRequest(snapshot)
+        self.likeStatusManager.finishLikedMusicRequest(snapshot)
     }
 
     private func fetchInitialLoadResult(_ context: InitialLoadContext) async throws -> InitialLoadResult? {
@@ -362,7 +369,7 @@ extension PlaylistDetailViewModel {
         _ detail: PlaylistDetail,
         snapshot: LikedMusicRequestSnapshot
     ) -> LikedMusicDetailResult? {
-        guard let reconciliation = SongLikeStatusManager.shared.reconcileLikedMusicTracks(
+        guard let reconciliation = self.likeStatusManager.reconcileLikedMusicTracks(
             detail.tracks,
             snapshot: snapshot,
             deduplicating: true
@@ -569,7 +576,7 @@ extension PlaylistDetailViewModel {
                 deferredMetadata: []
             )
         }
-        guard let reconciliation = SongLikeStatusManager.shared.reconcileLikedMusicTracks(
+        guard let reconciliation = self.likeStatusManager.reconcileLikedMusicTracks(
             tracks,
             snapshot: snapshot
         ) else { return nil }
@@ -601,7 +608,7 @@ extension PlaylistDetailViewModel {
     private func startDeferredLikedMusicMetadataTasks(_ metadata: [DeferredLikedMusicMetadata]) {
         for item in metadata {
             if let snapshot = self.liveSyncTasks[item.videoId]?.snapshot,
-               SongLikeStatusManager.shared.matchesCurrentScope(snapshot)
+               self.likeStatusManager.matchesCurrentScope(snapshot)
             {
                 continue
             }
@@ -836,12 +843,12 @@ extension PlaylistDetailViewModel {
 
     private func isCurrentLikedMusicScope(_ snapshot: LikedMusicRequestSnapshot?) -> Bool {
         guard let snapshot else { return true }
-        return SongLikeStatusManager.shared.matchesCurrentScope(snapshot)
+        return self.likeStatusManager.matchesCurrentScope(snapshot)
     }
 
     private func isLoadedLikedMusicAccountCurrent() -> Bool {
         guard let loadedLikedMusicAccountID else { return true }
-        return loadedLikedMusicAccountID == SongLikeStatusManager.shared.activeAccountID
+        return loadedLikedMusicAccountID == self.likeStatusManager.activeAccountID
     }
 
     private func invalidateLikedMusicPagination(generation: Int?) {
@@ -930,7 +937,7 @@ extension PlaylistDetailViewModel {
 
     private func releaseLoadedLikedMusicScope() {
         guard let loadedLikedMusicScope else { return }
-        SongLikeStatusManager.shared.finishLikedMusicRequest(loadedLikedMusicScope)
+        self.likeStatusManager.finishLikedMusicRequest(loadedLikedMusicScope)
         self.loadedLikedMusicScope = nil
     }
 
@@ -994,14 +1001,15 @@ extension PlaylistDetailViewModel {
     ) {
         let taskID = UUID()
         let snapshot = self.isLikedMusicPlaylist
-            ? SongLikeStatusManager.shared.beginLikedMusicRequest()
+            ? self.likeStatusManager.beginLikedMusicRequest()
             : nil
+        let likeStatusManager = self.likeStatusManager
         self.cancelLiveSyncTask(for: videoId)
 
-        let task = Task { @MainActor [weak self] in
+        let task = Task { @MainActor [weak self, likeStatusManager] in
             defer {
                 if let snapshot {
-                    SongLikeStatusManager.shared.finishLikedMusicRequest(snapshot)
+                    likeStatusManager.finishLikedMusicRequest(snapshot)
                 }
             }
             guard let self else { return }
@@ -1038,7 +1046,7 @@ extension PlaylistDetailViewModel {
             guard !Task.isCancelled else { return }
             guard self.liveSyncTasks[videoId]?.id == taskID else { return }
             guard self.isCurrentLikedMusicScope(snapshot) else { return }
-            guard SongLikeStatusManager.shared.status(for: videoId) == .like else { return }
+            guard self.likeStatusManager.status(for: videoId) == .like else { return }
             guard !Self.requiresMetadataFetchForLiveSync(song) else {
                 self.logger.warning("Live sync: skipping incomplete metadata for liked song \(videoId)")
                 return

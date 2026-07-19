@@ -395,6 +395,38 @@ struct SongLikeStatusManagerTests {
         _ = await rating.value
     }
 
+    @Test("Session invalidation publishes rollback events in submission order")
+    func sessionInvalidationPublishesRollbackEventsInSubmissionOrder() async throws {
+        let firstSong = TestFixtures.makeSong(id: "rollback-order-first", title: "First")
+        let secondSong = TestFixtures.makeSong(id: "rollback-order-second", title: "Second")
+        let releaseRequests = AsyncGate()
+        self.manager.setStatus(.like, for: firstSong.videoId)
+        self.manager.setStatus(.like, for: secondSong.videoId)
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await releaseRequests.wait()
+        }
+
+        let firstRating = self.manager.enqueueRating(
+            firstSong,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        let secondRating = self.manager.enqueueRating(
+            secondSong,
+            status: .indifferent,
+            client: self.mockClient
+        )
+
+        self.manager.invalidateSession(clearsActiveCache: false)
+        let batch = try #require(self.manager.lastLikeEventBatch)
+
+        #expect(batch.events.map(\.videoId) == [firstSong.videoId, secondSong.videoId])
+
+        await releaseRequests.open()
+        _ = await firstRating.value
+        _ = await secondRating.value
+    }
+
     @Test("Returning to an account does not revalidate its old Liked Music snapshot")
     func returningToAccountDoesNotRevalidateOldLikedMusicSnapshot() {
         let accountID = "snapshot-account"
@@ -466,6 +498,40 @@ struct SongLikeStatusManagerTests {
 
         #expect(await likeTask.value == .indifferent)
         #expect(self.manager.status(for: song.videoId) == .indifferent)
+    }
+
+    @Test("Status seeding preserves a protected optimistic overlay")
+    func statusSeedingPreservesProtectedOptimisticOverlay() async {
+        let song = TestFixtures.makeSong(id: "protected-status-seed")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.manager.setStatus(.like, for: song.videoId)
+        let snapshot = self.manager.beginLikedMusicRequest()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+
+        let rating = self.manager.enqueueRating(
+            song,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        await requestStarted.wait()
+
+        self.manager.setStatus(.like, for: song.videoId)
+        let reconciliation = self.manager.reconcileLikedMusicTracks(
+            [song],
+            snapshot: snapshot
+        )
+
+        #expect(self.manager.status(for: song.videoId) == .indifferent)
+        #expect(reconciliation?.tracks.isEmpty == true)
+        #expect(reconciliation?.filteredVideoIDs == [song.videoId])
+
+        await releaseRequest.open()
+        _ = await rating.value
+        self.manager.finishLikedMusicRequest(snapshot)
     }
 
     @Test("A delayed rating completion cannot overwrite a newer rating")

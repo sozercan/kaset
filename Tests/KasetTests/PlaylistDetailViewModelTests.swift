@@ -9,14 +9,18 @@ import Testing
 // swiftlint:disable:next type_body_length
 struct PlaylistDetailViewModelTests {
     var mockClient: MockYTMusicClient
+    var likeStatusManager: SongLikeStatusManager
     var viewModel: PlaylistDetailViewModel
 
     init() {
         self.mockClient = MockYTMusicClient()
+        self.likeStatusManager = SongLikeStatusManager()
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")
-        self.viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
-        SongLikeStatusManager.shared.clearCache()
-        SongLikeStatusManager.shared.setActiveAccountID(nil)
+        self.viewModel = PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
     }
 
     private func makeLikedMusicPlaylist(trackCount: Int? = nil) -> Playlist {
@@ -38,7 +42,11 @@ struct PlaylistDetailViewModelTests {
             duration: nil
         )
         self.mockClient.playlistDetails[playlist.id] = detail
-        return PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        return PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
     }
 
     private func waitUntil(
@@ -287,8 +295,8 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
         #expect(likedMusicViewModel.playlistDetail?.tracks[0].likeStatus == .like)
         #expect(likedMusicViewModel.playlistDetail?.tracks[1].likeStatus == .like)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-1") == .like)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-2") == .like)
+        #expect(self.likeStatusManager.status(for: "liked-1") == .like)
+        #expect(self.likeStatusManager.status(for: "liked-2") == .like)
     }
 
     @Test("Liked Music loadAllRemaining fetches every continuation")
@@ -517,7 +525,7 @@ struct PlaylistDetailViewModelTests {
             description: "overlapping delayed continuation to start"
         )
 
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let rating = manager.enqueueRating(
             initialTracks[0],
             status: .indifferent,
@@ -533,7 +541,7 @@ struct PlaylistDetailViewModelTests {
         )
 
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 1)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-1") != .like)
+        #expect(self.likeStatusManager.status(for: "liked-1") != .like)
     }
 
     @Test("Live-synced removal skips not-yet-loaded continuation track")
@@ -554,7 +562,7 @@ struct PlaylistDetailViewModelTests {
             description: "first delayed continuation to start"
         )
 
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let rating = manager.enqueueRating(
             futureSong,
             status: .indifferent,
@@ -573,7 +581,7 @@ struct PlaylistDetailViewModelTests {
         #expect(videoIds == ["liked-1", "liked-3"])
         #expect(videoIds.contains("future-unliked") == false)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
-        #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
+        #expect(self.likeStatusManager.status(for: "future-unliked") != .like)
     }
 
     @Test("Manual load more preserves live removal after background drain failure")
@@ -603,7 +611,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = nil
 
         #expect(likedMusicViewModel.hasMore == true)
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let requestStarted = AsyncGate()
         let releaseRequest = AsyncGate()
         self.mockClient.beforeRateSongReturn = { _, _ in
@@ -626,7 +634,7 @@ struct PlaylistDetailViewModelTests {
         #expect(videoIds == ["liked-1", "liked-3"])
         #expect(videoIds.contains("future-unliked") == false)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
-        #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
+        #expect(self.likeStatusManager.status(for: "future-unliked") != .like)
         #expect(likedMusicViewModel.hasMore == false)
     }
 
@@ -1140,7 +1148,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Failed unlike rollback restores the loaded track total")
     func failedUnlikeRollbackRestoresLoadedTrackTotal() async throws {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let song = TestFixtures.makeSong(id: "rollback-loaded-total", title: "Rollback Loaded")
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: [song], trackCount: 1)
         await likedMusicViewModel.load()
@@ -1189,7 +1197,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Liked Music optimistic insertion preserves the confirmed rollback baseline")
     func likedMusicOptimisticInsertionPreservesRollbackBaseline() async throws {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let accountID = "liked-music-rollback-\(UUID().uuidString)"
         manager.setActiveAccountID(accountID)
         defer { manager.setActiveAccountID(nil) }
@@ -1246,7 +1254,7 @@ struct PlaylistDetailViewModelTests {
             artists: [],
             videoId: videoId
         )
-        SongLikeStatusManager.shared.setCachedStatus(.like, for: videoId)
+        self.likeStatusManager.setCachedStatus(.like, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(videoId: videoId, status: .like, song: placeholderSong)
         )
@@ -1276,7 +1284,7 @@ struct PlaylistDetailViewModelTests {
             videoId: videoId
         )
 
-        SongLikeStatusManager.shared.setCachedStatus(.like, for: videoId)
+        self.likeStatusManager.setCachedStatus(.like, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(
                 videoId: videoId,
@@ -1287,7 +1295,7 @@ struct PlaylistDetailViewModelTests {
 
         try? await Task.sleep(for: .milliseconds(50))
 
-        SongLikeStatusManager.shared.setCachedStatus(.indifferent, for: videoId)
+        self.likeStatusManager.setCachedStatus(.indifferent, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(videoId: videoId, status: .indifferent, song: nil)
         )
@@ -1302,7 +1310,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Loaded unlike is counted once when an in-flight continuation returns the removed track")
     func loadedUnlikeIsCountedOnceAcrossContinuationOverlap() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let removedSong = TestFixtures.makeSong(id: "loaded-unlike", title: "Loaded Unlike")
         let continuationSong = TestFixtures.makeSong(id: "continuation-liked", title: "Continuation Liked")
         let reportedTotal = 2429
@@ -1354,7 +1362,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Completed unlike survives a later stale continuation from the initial Liked Music load")
     func completedUnlikeSurvivesLaterInitialContinuation() async throws {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let removedSong = TestFixtures.makeSong(id: "completed-unlike", title: "Completed Unlike")
         let continuationSong = TestFixtures.makeSong(id: "later-liked", title: "Later Liked")
         let reportedTotal = 2
@@ -1414,7 +1422,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Same-account invalidation keeps loaded Liked Music live sync active")
     func sameAccountInvalidationKeepsLoadedLikedMusicLiveSyncActive() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let accountID = "same-account-live-sync"
         manager.setActiveAccountID(accountID)
         defer { manager.setActiveAccountID(nil) }
@@ -1452,7 +1460,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Initial reconciliation increments the reported total once for an omitted pending complete like")
     func initialReconciliationCountsOmittedPendingCompleteLikeOnce() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let existingSong = TestFixtures.makeSong(id: "existing-liked", title: "Existing Liked")
         let pendingSong = Song(
             id: "pending-complete-like",
@@ -1507,7 +1515,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Initial reconciliation does not increment totals for a failed unlike rollback")
     func initialReconciliationDoesNotCountFailedUnlikeRollbackAsInsertion() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let existingSong = TestFixtures.makeSong(id: "rollback-existing", title: "Existing Song")
         let rollbackSong = TestFixtures.makeSong(id: "rollback-liked", title: "Rollback Liked")
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: [existingSong], trackCount: 2)
@@ -1536,7 +1544,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Deferred failed-unlike rollback metadata preserves the reported total")
     func deferredFailedUnlikeRollbackMetadataPreservesReportedTotal() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let existingSong = TestFixtures.makeSong(id: "deferred-rollback-existing", title: "Existing Song")
         let videoID = "deferred-rollback-liked"
         let placeholderSong = Song(
@@ -1582,7 +1590,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Initial reconciliation resolves an omitted pending placeholder like before insertion")
     func initialReconciliationResolvesOmittedPendingPlaceholderLike() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let existingSong = TestFixtures.makeSong(id: "existing-placeholder-base", title: "Existing Song")
         let videoID = "pending-placeholder-like"
         let placeholderSong = Song(
@@ -1657,7 +1665,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Continuation reconciliation reuses an in-flight placeholder metadata request")
     func continuationReconciliationReusesInFlightPlaceholderMetadataRequest() async {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let videoID = "reused-placeholder-metadata"
         let placeholderSong = Song(
             id: videoID,
@@ -1702,7 +1710,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Continuation response metadata for an optimistic like increments the reported total")
     func continuationResponseMetadataForOptimisticLikeIncrementsReportedTotal() async throws {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let existingSong = TestFixtures.makeSong(id: "existing-liked", title: "Existing Liked")
         let resolvedSong = Song(
             id: "response-backed-like",
