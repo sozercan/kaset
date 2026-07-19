@@ -578,12 +578,14 @@ final class SongLikeStatusManager {
     /// - Parameters:
     ///   - videoId: The video ID.
     ///   - status: The like status.
-    func setStatus(_ status: LikeStatus, for videoId: String) {
+    @discardableResult
+    func setStatus(_ status: LikeStatus, for videoId: String) -> Bool {
         let accountID = self.activeAccountID
-        guard !self.shouldPreserveLocalRating(for: videoId, accountID: accountID) else { return }
+        guard !self.shouldPreserveLocalRating(for: videoId, accountID: accountID) else { return false }
         self.setStatus(status, for: videoId, accountID: accountID)
         self.setConfirmedStatus(status, for: videoId, accountID: accountID)
         self.localRatingOverlayByAccount[accountID]?.removeValue(forKey: videoId)
+        return true
     }
 
     /// Updates the visible cache without advancing the API-confirmed rollback baseline.

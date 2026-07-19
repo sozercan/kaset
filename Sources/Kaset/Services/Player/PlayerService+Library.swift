@@ -440,9 +440,12 @@ extension PlayerService {
                 && self.accountSessionGeneration == accountSessionGeneration
                 && !libraryMutationWasPending
                 && self.pendingLibraryMutationCountsByKey[pendingMutationKey, default: 0] == 0
-            let resolvedLikeStatus = ratingRevisionIsCurrent
-                ? (songData.likeStatus ?? cachedLikeStatus)
-                : (cachedLikeStatus ?? self.currentTrackLikeStatus)
+            let resolvedLikeStatus = self.resolveFetchedLikeStatus(
+                videoId: videoId,
+                apiLikeStatus: songData.likeStatus,
+                cachedLikeStatus: cachedLikeStatus,
+                ratingRevisionIsCurrent: ratingRevisionIsCurrent
+            )
 
             // Update current track with full metadata if it's still the same song
             if self.currentTrack?.videoId == videoId {
@@ -474,11 +477,8 @@ extension PlayerService {
                 // Update service state and sync with SongLikeStatusManager.
                 // Unknown like status stays out of the cache so it cannot override
                 // a known rating from the WebView or a prior user action.
-                if ratingRevisionIsCurrent, let likeStatus = songData.likeStatus {
-                    self.currentTrackLikeStatus = likeStatus
-                    self.songLikeStatusManager.setStatus(likeStatus, for: videoId)
-                } else if let cachedLikeStatus {
-                    self.currentTrackLikeStatus = cachedLikeStatus
+                if let resolvedLikeStatus {
+                    self.currentTrackLikeStatus = resolvedLikeStatus
                 }
                 if libraryMutationIsCurrent {
                     self.applyLibraryState(
@@ -514,6 +514,21 @@ extension PlayerService {
         } catch {
             self.logger.warning("Failed to fetch song metadata: \(error.localizedDescription)")
         }
+    }
+
+    private func resolveFetchedLikeStatus(
+        videoId: String,
+        apiLikeStatus: LikeStatus?,
+        cachedLikeStatus: LikeStatus?,
+        ratingRevisionIsCurrent: Bool
+    ) -> LikeStatus? {
+        guard ratingRevisionIsCurrent, let apiLikeStatus else {
+            return cachedLikeStatus ?? self.currentTrackLikeStatus
+        }
+        let accepted = self.songLikeStatusManager.setStatus(apiLikeStatus, for: videoId)
+        return accepted
+            ? apiLikeStatus
+            : (self.songLikeStatusManager.status(for: videoId) ?? self.currentTrackLikeStatus)
     }
 
     private func applyFetchedMetadataToQueue(
