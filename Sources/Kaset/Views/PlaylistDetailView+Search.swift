@@ -129,9 +129,11 @@ extension PlaylistDetailView {
         }
     }
 
-    /// Plays exactly the given tracks (the current search matches) as the queue, starting at
-    /// `index` within them. Unlike ``playTrackInQueue(tracks:startingAt:fallbackArtist:fallbackAlbum:)``
-    /// it does NOT grow the queue to the full playlist — the queue is only the results.
+    /// Plays exactly the current search matches as the queue, starting at `index` within them.
+    /// Unlike ``playTrackInQueue(tracks:startingAt:fallbackArtist:fallbackAlbum:)`` the queue is only
+    /// the matches, not the whole playlist — but if the playlist is still paging in, the queue grows
+    /// with the matches that load later (re-filtered by the same query) so it isn't frozen at the
+    /// partial snapshot that was matched at tap time.
     func playSearchResults(
         _ tracks: [Song], startingAt index: Int, fallbackArtist: String? = nil,
         fallbackAlbum: Album? = nil
@@ -143,8 +145,51 @@ extension PlaylistDetailView {
             tracks, fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
         )
         guard cleanedTracks.indices.contains(playableIndex) else { return }
+
+        // Capture the query that produced these matches so late-loaded tracks are filtered by the
+        // same search when the queue grows.
+        let query = self.searchQuery
+        // Defensive: the caller only routes here for an active query. Guard it locally anyway —
+        // an empty query re-filters to the WHOLE playlist below, which would silently turn a
+        // match-only queue into a full-playlist one. Without a query there is nothing to grow, so
+        // fall back to a plain snapshot play.
+        guard !PlaylistTrackFilter.normalize(query).isEmpty else {
+            Task { @MainActor in
+                await self.playerService.playQueue(cleanedTracks, startingAt: playableIndex)
+            }
+            return
+        }
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task { @MainActor in
-            await self.playerService.playQueue(cleanedTracks, startingAt: playableIndex)
+            let willDeferLoad = self.viewModel.hasMore
+            let loadGeneration = await self.playerService.playQueue(
+                cleanedTracks,
+                startingAt: playableIndex,
+                deferringSmartShuffleFill: willDeferLoad,
+                intent: intent
+            )
+            // Playlist was already fully loaded: the snapshot is the complete match set.
+            guard let loadGeneration else { return }
+
+            await self.viewModel.loadAllRemaining()
+            await self.viewModel.waitForTrackRemovalToFinish()
+
+            // Stand down if a *different* playback superseded this load while it paged. (User edits
+            // such as removing a track keep the same load generation, so loading continues.)
+            guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
+
+            // Re-filter the now-complete playlist by the same query and append the matches that
+            // weren't in the initial snapshot, preserving playlist order.
+            let fullMatches = self.playableTracks(
+                PlaylistTrackFilter.filter(self.viewModel.playlistDetail?.tracks ?? [], query: query)
+                    .map(\.track),
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+            let remaining = PlaylistPlaybackActions.remainingTracks(
+                after: cleanedTracks, in: fullMatches
+            )
+            self.playerService.appendOriginalTracks(remaining)
+            await self.playerService.endQueueLoading(loadGeneration)
         }
     }
 
