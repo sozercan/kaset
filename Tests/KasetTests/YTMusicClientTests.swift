@@ -767,7 +767,9 @@ struct YTMusicClientContinuationResetTests {
 
         _ = try await client.getHome()
         async let staleContinuation = client.getHomeContinuation()
-        try? await Task.sleep(for: .milliseconds(30))
+        while continuationRequestCount.isEmpty {
+            await Task.yield()
+        }
         client.resetSessionStateForAccountSwitch()
 
         let staleResult = try await staleContinuation
@@ -815,7 +817,9 @@ struct YTMusicClientContinuationResetTests {
         )
 
         async let staleContinuation = client.getSearchContinuation(token: "page-1")
-        try? await Task.sleep(for: .milliseconds(30))
+        while requestCount.isEmpty {
+            await Task.yield()
+        }
         client.resetSessionStateForAccountSwitch()
 
         do {
