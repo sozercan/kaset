@@ -381,7 +381,7 @@ struct PlayerBarProgressLane: View {
                     .lineLimit(1)
             }
 
-            Text("\(String(localized: "Track")) \(segment.index + 1)/\(segment.count)  ·  \(segment.rangeText)")
+            Text(segment.detailText)
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
                 .monospacedDigit()
@@ -542,9 +542,9 @@ struct PlayerBarProgressSegmentGeometry: Equatable {
 
 // MARK: - PlayerBarProgressSegment
 
-/// A contiguous span of the seek bar corresponding to one sub-track of a mix. When a lane is given
-/// segments it renders a YouTube-style gapped track (one piece per segment) instead of the single
-/// continuous bar, and reveals the segment's label on hover.
+/// A contiguous span of the seek bar corresponding to one item, such as a mix track or video
+/// chapter. When a lane is given segments it renders a gapped track (one piece per segment) instead
+/// of the single continuous bar, and reveals the segment's label on hover.
 struct PlayerBarProgressSegment: Identifiable, Hashable {
     let id: String
     let start: Double
@@ -554,6 +554,7 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
     let title: String
     let subtitle: String?
     let rangeText: String
+    let itemLabel: String
 
     init(
         id: String,
@@ -563,6 +564,7 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
         count: Int,
         title: String,
         subtitle: String? = nil,
+        itemLabel: String = String(localized: "Track"),
         rangeText: String = ""
     ) {
         self.id = id
@@ -573,6 +575,7 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
         self.title = title
         self.subtitle = subtitle
         self.rangeText = rangeText
+        self.itemLabel = itemLabel
     }
 
     /// Whether the given progress fraction falls within this segment.
@@ -580,8 +583,14 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
         fraction >= self.start && fraction < self.end
     }
 
+    var detailText: String {
+        let ordinal = "\(self.itemLabel) \(self.index + 1)/\(self.count)"
+        guard !self.rangeText.isEmpty else { return ordinal }
+        return "\(ordinal)  ·  \(self.rangeText)"
+    }
+
     var accessibilityDescription: String {
-        var components = ["\(String(localized: "Track")) \(self.index + 1)/\(self.count)", self.title]
+        var components = ["\(self.itemLabel) \(self.index + 1)/\(self.count)", self.title]
         if let subtitle = self.subtitle, !subtitle.isEmpty {
             components.append(subtitle)
         }

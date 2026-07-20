@@ -19,6 +19,12 @@ struct YouTubePlayerBar: View {
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
 
+    private struct ChapterProgressSpan {
+        let chapter: YouTubeChapter
+        let start: TimeInterval
+        let end: TimeInterval
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @Environment(YouTubeViewModelStore.self) private var youtubeStore: YouTubeViewModelStore?
@@ -81,6 +87,11 @@ struct YouTubePlayerBar: View {
         .onChange(of: self.currentSeekIdentity) { _, _ in
             self.clearSeekHold()
             self.chapterPreviewMarker = nil
+        }
+        .onChange(of: self.youtubePlayer.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.chapterPreviewMarker = nil
+            }
         }
         .onChange(of: self.youtubePlayer.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -277,6 +288,7 @@ struct YouTubePlayerBar: View {
                 elapsedText: Self.formatTime(self.progressTextValue),
                 remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
                 markers: self.chapterProgressMarkers,
+                segments: self.chapterProgressSegments,
                 isLive: false,
                 canSeek: self.canSeek,
                 isLoading: self.isProgressLoading,
@@ -292,6 +304,9 @@ struct YouTubePlayerBar: View {
                 }
             )
             .padding(.top, 18)
+            // Match the music player's segmented lane layering so chapter tooltips stay above
+            // transport controls without intercepting their clicks.
+            .zIndex(1)
 
             self.youtubeTransportControls
                 .padding(.top, 2)
@@ -586,7 +601,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var chapterProgressMarkers: [PlayerBarProgressMarker] {
-        guard self.youtubePlayer.duration > 0 else { return [] }
+        guard self.youtubePlayer.duration > 0, !self.youtubePlayer.isShowingAd else { return [] }
         return self.youtubePlayer.chapters.compactMap { chapter in
             guard chapter.startTime > 0, chapter.startTime < self.youtubePlayer.duration else { return nil }
             return PlayerBarProgressMarker(
@@ -594,6 +609,70 @@ struct YouTubePlayerBar: View {
                 fraction: chapter.startTime / self.youtubePlayer.duration,
                 title: chapter.title,
                 subtitle: chapter.timeText ?? Self.formatTime(chapter.startTime)
+            )
+        }
+    }
+
+    private var chapterProgressSegments: [PlayerBarProgressSegment] {
+        guard !self.youtubePlayer.isShowingAd else { return [] }
+        return Self.chapterProgressSegments(
+            chapters: self.youtubePlayer.chapters,
+            duration: self.youtubePlayer.duration
+        )
+    }
+
+    /// Converts YouTube's chapter starts and optional bounds into the same normalized spans used by
+    /// the music player's segmented mix seek bar. Marker data remains separate so chapter snapping
+    /// and the existing metadata preview continue to work while segment visuals are active.
+    static func chapterProgressSegments(
+        chapters: [YouTubeChapter],
+        duration: TimeInterval
+    ) -> [PlayerBarProgressSegment] {
+        guard duration.isFinite, duration > 0 else { return [] }
+
+        let sortedChapters = chapters
+            .filter { chapter in
+                chapter.startTime.isFinite
+                    && chapter.startTime >= 0
+                    && chapter.startTime < duration
+            }
+            .sorted { lhs, rhs in
+                if lhs.startTime != rhs.startTime {
+                    return lhs.startTime < rhs.startTime
+                }
+                return lhs.title < rhs.title
+            }
+
+        var uniqueChapters: [YouTubeChapter] = []
+        for chapter in sortedChapters where uniqueChapters.last?.startTime != chapter.startTime {
+            uniqueChapters.append(chapter)
+        }
+
+        let resolvedChapters: [ChapterProgressSpan] = uniqueChapters.enumerated().compactMap { index, chapter in
+            let start = chapter.startTime
+            let nextStart = uniqueChapters.indices.contains(index + 1)
+                ? uniqueChapters[index + 1].startTime
+                : duration
+            let upperBound = min(nextStart, duration)
+            let explicitEnd = chapter.endTime.flatMap { endTime in
+                endTime.isFinite && endTime > start ? endTime : nil
+            }
+            let end = min(explicitEnd ?? upperBound, upperBound)
+            guard end > start else { return nil }
+            return ChapterProgressSpan(chapter: chapter, start: start, end: end)
+        }
+
+        let count = resolvedChapters.count
+        return resolvedChapters.enumerated().map { index, resolved in
+            PlayerBarProgressSegment(
+                id: resolved.chapter.id,
+                start: resolved.start / duration,
+                end: resolved.end / duration,
+                index: index,
+                count: count,
+                title: resolved.chapter.title,
+                itemLabel: String(localized: "Chapter"),
+                rangeText: "\(Self.formatTime(resolved.start)) – \(Self.formatTime(resolved.end))"
             )
         }
     }

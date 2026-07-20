@@ -118,11 +118,37 @@ struct PlayerBarProgressLaneTests {
         ))
     }
 
-    @Test("Accessibility value announces only the current mix segment")
+    @Test("Segment item label defaults to Track")
+    func segmentItemLabelDefaultsToTrack() {
+        let segment = self.gappedSegments[1]
+        #expect(segment.itemLabel == String(localized: "Track"))
+        #expect(segment.detailText == "\(String(localized: "Track")) 2/3  ·  1:00 – 2:00")
+        #expect(segment.accessibilityDescription.contains("\(String(localized: "Track")) 2/3"))
+    }
+
+    @Test("Custom segment item label appears in detail and accessibility text")
+    func customSegmentItemLabelAppearsInText() {
+        let segment = PlayerBarProgressSegment(
+            id: "chapter-2",
+            start: 0.25,
+            end: 0.5,
+            index: 1,
+            count: 3,
+            title: "Second chapter",
+            itemLabel: String(localized: "Chapter"),
+            rangeText: "1:00 – 2:00"
+        )
+
+        #expect(segment.detailText == "\(String(localized: "Chapter")) 2/3  ·  1:00 – 2:00")
+        #expect(segment.accessibilityDescription.contains("\(String(localized: "Chapter")) 2/3"))
+        #expect(!segment.accessibilityDescription.contains("\(String(localized: "Track")) 2/3"))
+    }
+
+    @Test("Accessibility value announces only the current segment")
     func accessibilityValueAnnouncesCurrentSegment() {
         let segment = self.gappedSegments[1]
         let description = segment.accessibilityDescription
-        #expect(description.contains("Track 2/3"))
+        #expect(description.contains("\(String(localized: "Track")) 2/3"))
         #expect(description.contains("Second"))
         #expect(description.contains("Artist B"))
         #expect(description.contains("1:00 – 2:00"))
