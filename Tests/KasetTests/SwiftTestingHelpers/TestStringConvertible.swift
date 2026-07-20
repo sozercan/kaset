@@ -148,14 +148,22 @@ extension SearchResultItem: CustomTestStringConvertible {
         switch self {
         case let .song(song):
             "SearchResult[Song]: \(song.testDescription)"
+        case let .video(video):
+            "SearchResult[Video]: \(video.testDescription)"
         case let .album(album):
             "SearchResult[Album]: \(album.testDescription)"
+        case let .audiobook(audiobook):
+            "SearchResult[Audiobook]: \(audiobook.testDescription)"
         case let .artist(artist):
             "SearchResult[Artist]: \(artist.testDescription)"
+        case let .profile(profile):
+            "SearchResult[Profile]: \(profile.testDescription)"
         case let .playlist(playlist):
             "SearchResult[Playlist]: \(playlist.testDescription)"
         case let .podcastShow(show):
             "SearchResult[Podcast]: \(show.testDescription)"
+        case let .podcastEpisode(episode):
+            "SearchResult[Episode]: \(episode.title) [\(episode.id)]"
         }
     }
 }

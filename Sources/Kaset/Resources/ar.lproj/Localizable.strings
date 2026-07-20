@@ -525,3 +525,10 @@
 "e.g., Remove slow songs, reorder by energy..." = "مثال: أزل الأغاني البطيئة، أعد الترتيب حسب الحيوية...";
 "songs" = "أغانٍ";
 "tracks" = "مقطوعات";
+"Profiles" = "الملفات الشخصية";
+"View Profile" = "عرض الملف الشخصي";
+"Audiobook" = "كتاب صوتي";
+"View Audiobook" = "عرض الكتاب الصوتي";
+"Song" = "أغنية";
+"Podcast" = "بودكاست";
+"Episode" = "حلقة";

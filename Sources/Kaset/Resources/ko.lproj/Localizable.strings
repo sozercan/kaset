@@ -525,3 +525,10 @@
 "e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
 "songs" = "곡";
 "tracks" = "트랙";
+"Profiles" = "프로필";
+"View Profile" = "프로필 보기";
+"Audiobook" = "오디오북";
+"View Audiobook" = "오디오북 보기";
+"Song" = "노래";
+"Podcast" = "팟캐스트";
+"Episode" = "에피소드";

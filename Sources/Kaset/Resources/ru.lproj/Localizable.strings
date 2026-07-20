@@ -525,3 +525,10 @@
 "e.g., Remove slow songs, reorder by energy..." = "например, убрать медленные треки, перестроить по энергии…";
 "songs" = "треков";
 "tracks" = "треков";
+"Profiles" = "Профили";
+"View Profile" = "Открыть профиль";
+"Audiobook" = "Аудиокнига";
+"View Audiobook" = "Открыть аудиокнигу";
+"Song" = "Трек";
+"Podcast" = "Подкаст";
+"Episode" = "Выпуск";

@@ -690,15 +690,17 @@ enum ParsingHelpers {
 
     /// Known content type keywords that should not be treated as artist names.
     private static let contentTypeKeywords: Set<String> = [
-        "Song", "Video", "Album", "Playlist", "Artist", "Episode", "Podcast",
+        "album", "artist", "audiobook", "ep", "episode", "playlist", "podcast",
+        "podcast episode", "profile", "single", "song", "video",
     ]
 
     private static func isArtistSeparator(_ text: String) -> Bool {
-        text == " • " || text == " & " || text == ", " || text == "•" || text == "&" || text == ","
+        text == " • " || text == " · " || text == " & " || text == ", "
+            || text == "•" || text == "·" || text == "&" || text == ","
     }
 
     private static func isMetadataText(_ text: String) -> Bool {
-        if self.contentTypeKeywords.contains(text) {
+        if self.contentTypeKeywords.contains(text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
             return true
         }
 

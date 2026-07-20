@@ -248,9 +248,9 @@ struct SearchView: View {
             switch self.viewModel.loadingState {
             case .idle:
                 self.emptyStateView
-            case .loading, .loadingMore:
+            case .loading:
                 LoadingView(String(localized: "Searching..."))
-            case .loaded:
+            case .loaded, .loadingMore:
                 if self.viewModel.filteredItems.isEmpty {
                     self.noResultsView
                 } else {
@@ -367,7 +367,7 @@ struct SearchView: View {
                             }
                     }
                     .frame(width: 48, height: 48)
-                    .clipShape(.rect(cornerRadius: item.isArtist ? 24 : 6))
+                    .clipShape(.rect(cornerRadius: item.usesCircularThumbnail ? 24 : 6))
 
                     // Info
                     VStack(alignment: .leading, spacing: 2) {
@@ -375,7 +375,7 @@ struct SearchView: View {
                             Text(item.title)
                                 .font(.system(size: 14))
                                 .lineLimit(1)
-                            if case let .song(song) = item, song.isExplicit == true {
+                            if let song = self.songResultPayload(for: item), song.isExplicit == true {
                                 ExplicitBadge()
                             }
                         }
@@ -401,7 +401,7 @@ struct SearchView: View {
                     Spacer()
 
                     // Favorite toggle for songs
-                    if case let .song(song) = item {
+                    if let song = self.songResultPayload(for: item) {
                         LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
                     }
 
@@ -427,16 +427,20 @@ struct SearchView: View {
     @ViewBuilder
     private func contextMenuItems(for item: SearchResultItem) -> some View {
         switch item {
-        case let .song(song):
+        case let .song(song), let .video(song):
             self.songContextMenu(song)
         case let .album(album):
             self.albumContextMenu(album)
-        case let .artist(artist):
+        case let .audiobook(audiobook):
+            self.albumContextMenu(audiobook, isAudiobook: true)
+        case let .artist(artist), let .profile(artist):
             self.artistContextMenu(artist)
         case let .playlist(playlist):
             self.playlistContextMenu(playlist)
         case let .podcastShow(show):
             self.podcastShowContextMenu(show)
+        case let .podcastEpisode(episode):
+            self.podcastEpisodeContextMenu(episode)
         }
     }
 
@@ -510,7 +514,10 @@ struct SearchView: View {
     }
 
     @ViewBuilder
-    private func albumContextMenu(_ album: Album) -> some View {
+    private func albumContextMenu(_ album: Album, isAudiobook: Bool = false) -> some View {
+        let viewTitle = isAudiobook ? String(localized: "View Audiobook") : String(localized: "View Album")
+        let icon = isAudiobook ? "books.vertical" : "square.stack"
+
         Button {
             let playlist = Playlist(
                 id: album.id,
@@ -522,12 +529,12 @@ struct SearchView: View {
             )
             self.navigationPath.append(playlist)
         } label: {
-            Label(String(localized: "View Album"), systemImage: "square.stack")
+            Label(viewTitle, systemImage: icon)
         }
 
         Divider()
 
-        // Play / Play Next / Add to Queue for albums
+        // Play / Play Next / Add to Queue for albums and audiobooks
         Button {
             SongActionsHelper.playAlbum(
                 album,
@@ -570,7 +577,12 @@ struct SearchView: View {
         Button {
             self.navigationPath.append(artist)
         } label: {
-            Label(String(localized: "View Artist"), systemImage: "person")
+            Label(
+                artist.profileKind == .profile
+                    ? String(localized: "View Profile")
+                    : String(localized: "View Artist"),
+                systemImage: artist.profileKind == .profile ? "person.crop.circle" : "person"
+            )
         }
 
         Divider()
@@ -626,33 +638,78 @@ struct SearchView: View {
         FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
     }
 
+    @ViewBuilder
+    private func podcastEpisodeContextMenu(_ episode: PodcastEpisode) -> some View {
+        let song = episode.playbackSong
+        Button {
+            Task { await self.playerService.play(song: song) }
+        } label: {
+            Label(String(localized: "Play"), systemImage: "play.fill")
+        }
+
+        Divider()
+
+        AddToQueueContextMenu(song: song, playerService: self.playerService)
+
+        Divider()
+
+        ShareContextMenu.menuItem(for: song)
+
+        if let showBrowseId = episode.showBrowseId,
+           let showTitle = episode.showTitle
+        {
+            Divider()
+
+            Button {
+                self.navigationPath.append(PodcastShow(
+                    id: showBrowseId,
+                    title: showTitle,
+                    author: nil,
+                    description: nil,
+                    thumbnailURL: episode.thumbnailURL,
+                    episodeCount: nil
+                ))
+            } label: {
+                Label(String(localized: "View Podcast"), systemImage: "mic.fill")
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func iconForItem(_ item: SearchResultItem) -> String {
         switch item {
         case .song:
             "music.note"
+        case .video:
+            "play.rectangle"
         case .album:
             "square.stack"
+        case .audiobook:
+            "books.vertical"
         case .artist:
             "person"
+        case .profile:
+            "person.crop.circle"
         case .playlist:
             "music.note.list"
         case .podcastShow:
             "mic.fill"
+        case .podcastEpisode:
+            "mic.badge.plus"
         }
     }
 
     private func handleItemTap(_ item: SearchResultItem) {
         switch item {
-        case let .song(song):
+        case let .song(song), let .video(song):
             // Play the song and fetch similar songs (radio queue) in the background
             Task {
                 await self.playerService.playWithRadio(song: song)
             }
-        case let .artist(artist):
+        case let .artist(artist), let .profile(artist):
             self.navigationPath.append(artist)
-        case let .album(album):
+        case let .album(album), let .audiobook(album):
             // Navigate as playlist for now
             let playlist = Playlist(
                 id: album.id,
@@ -667,16 +724,20 @@ struct SearchView: View {
             self.navigationPath.append(playlist)
         case let .podcastShow(show):
             self.navigationPath.append(show)
+        case let .podcastEpisode(episode):
+            Task {
+                await self.playerService.play(song: episode.playbackSong)
+            }
         }
     }
-}
 
-extension SearchResultItem {
-    var isArtist: Bool {
-        if case .artist = self {
-            return true
+    private func songResultPayload(for item: SearchResultItem) -> Song? {
+        switch item {
+        case let .song(song), let .video(song):
+            song
+        default:
+            nil
         }
-        return false
     }
 }
 

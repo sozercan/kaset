@@ -207,6 +207,56 @@ struct GuestModeAPIClientTests {
         #expect(requestCount == 0)
     }
 
+    @Test("YouTube Music filtered search and continuation remain public in logged-in guest mode")
+    @MainActor
+    func youTubeMusicFilteredSearchRemainsPublicInLoggedInGuestMode() async throws {
+        APICache.shared.invalidateAll()
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        authService.completeLogin(sapisid: "test-sapisid")
+        authService.enterGuestMode()
+
+        let session = MockURLProtocol.makeMockSession()
+        nonisolated(unsafe) var apiRequestCount = 0
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            apiRequestCount += 1
+            #expect(request.url?.host == "music.youtube.com")
+            #expect(request.url?.path == "/youtubei/v1/search")
+            let authHeader = ["Author", "ization"].joined()
+            let cookieHeader = ["Coo", "kie"].joined()
+            #expect(request.value(forHTTPHeaderField: authHeader) == nil)
+            #expect(request.value(forHTTPHeaderField: cookieHeader) == nil)
+            #expect(request.httpShouldHandleCookies == false)
+
+            let data = try JSONSerialization.data(withJSONObject: [:])
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            )!
+            return (response, data)
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: resolver
+        )
+
+        _ = try await client.searchVideos(query: "swift videos")
+        _ = try await client.searchProfiles(query: "swift profiles")
+        _ = try await client.searchEpisodes(query: "swift episodes")
+        _ = try await client.getSearchContinuation(token: "guest-mode-search-continuation")
+
+        #expect(apiRequestCount == 4)
+    }
+
     @Test("YouTube Music public requests omit auth headers in logged-in guest mode")
     @MainActor
     func youTubeMusicPublicRequestsOmitAuthHeadersInLoggedInGuestMode() async throws {

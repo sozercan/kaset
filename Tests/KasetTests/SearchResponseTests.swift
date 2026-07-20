@@ -12,6 +12,7 @@ struct SearchResponseTests {
         arguments: [
             ("song", "s1", "song-s1"),
             ("album", "a1", "album-a1"),
+            ("audiobook", "ab1", "audiobook-ab1"),
             ("artist", "ar1", "artist-ar1"),
             ("playlist", "p1", "playlist-p1"),
         ]
@@ -23,6 +24,8 @@ struct SearchResponseTests {
             item = .song(Song(id: id, title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: id))
         case "album":
             item = .album(Album(id: id, title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil))
+        case "audiobook":
+            item = .audiobook(Album(id: id, title: "Audiobook", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil))
         case "artist":
             item = .artist(Artist(id: id, name: "Artist"))
         case "playlist":
@@ -32,6 +35,31 @@ struct SearchResponseTests {
             return
         }
         #expect(item.id == expectedId)
+    }
+
+    @Test("Playlist browse aliases share one content identity")
+    func playlistAliasesShareContentIdentity() {
+        let browsePlaylist = Playlist(
+            id: "VLPLfixture",
+            title: "Fixture",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: nil,
+            author: nil
+        )
+        let rawPlaylist = Playlist(
+            id: "PLfixture",
+            title: "Fixture",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: nil,
+            author: nil
+        )
+
+        #expect(
+            SearchResultItem.playlist(browsePlaylist).contentIdentity
+                == SearchResultItem.playlist(rawPlaylist).contentIdentity
+        )
     }
 
     // MARK: - SearchResultItem Title Tests
@@ -169,7 +197,69 @@ struct SearchResponseTests {
         #expect(SearchResultItem.playlist(playlist).videoId == nil)
     }
 
+    @Test("Video, profile, and podcast episode results expose semantic metadata")
+    func semanticResultMetadata() {
+        let video = Song(
+            id: "video",
+            title: "Video",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "video",
+            musicVideoType: .omv
+        )
+        let profile = Artist(id: "UCprofile", name: "Profile", profileKind: .profile)
+        let episode = PodcastEpisode(
+            id: "episode",
+            title: "Episode",
+            showTitle: "Show",
+            showBrowseId: "MPSPPshow",
+            description: nil,
+            thumbnailURL: nil,
+            publishedDate: "Jul 19, 2026",
+            duration: nil,
+            durationSeconds: nil,
+            playbackProgress: 0,
+            isPlayed: false
+        )
+
+        let videoItem = SearchResultItem.video(video)
+        #expect(videoItem.resultType == "Video")
+        #expect(videoItem.videoId == "video")
+        #expect(videoItem.songPayload == video)
+
+        let profileItem = SearchResultItem.profile(profile)
+        #expect(profileItem.resultType == "Profile")
+        #expect(profileItem.usesCircularThumbnail)
+
+        let episodeItem = SearchResultItem.podcastEpisode(episode)
+        #expect(episodeItem.resultType == "Episode")
+        #expect(episodeItem.videoId == "episode")
+        #expect(episodeItem.songPayload == episode.playbackSong)
+        #expect(episodeItem.subtitle == "Jul 19, 2026 • Show")
+    }
+
     // MARK: - SearchResponse Tests
+
+    @Test("Audiobook results preserve semantic type and album-compatible metadata")
+    func audiobookResultMetadata() {
+        let narrator = Artist(id: "narrator", name: "Fixture Narrator")
+        let audiobook = Album(
+            id: "MPREb_audiobook",
+            title: "Fixture Audiobook",
+            artists: [narrator],
+            thumbnailURL: URL(string: "https://example.com/audiobook.jpg"),
+            year: "2026",
+            trackCount: 20
+        )
+        let item = SearchResultItem.audiobook(audiobook)
+        let response = SearchResponse(audiobooks: [audiobook])
+
+        #expect(item.id == "audiobook-MPREb_audiobook")
+        #expect(item.title == "Fixture Audiobook")
+        #expect(item.subtitle == "Fixture Narrator")
+        #expect(item.resultType == String(localized: "Audiobook"))
+        #expect(response.audiobooks.map(\.id) == ["MPREb_audiobook"])
+        #expect(response.albums.isEmpty)
+    }
 
     @Test("SearchResponse empty")
     func searchResponseEmpty() {
@@ -244,5 +334,49 @@ struct SearchResponseTests {
         let response = SearchResponse(songs: [song1, song2], albums: [album], artists: [], playlists: [])
 
         #expect(response.allItems.count == 3)
+    }
+
+    @Test("Ordered SearchResponse preserves server ranking and semantic projections")
+    func orderedSearchResponsePreservesRanking() {
+        let song = Song(id: "song", title: "Song", artists: [], videoId: "song")
+        let video = Song(
+            id: "video",
+            title: "Video",
+            artists: [],
+            videoId: "video",
+            musicVideoType: .ugc
+        )
+        let profile = Artist(id: "UCprofile", name: "Profile", profileKind: .profile)
+        let artist = Artist(id: "UCartist", name: "Artist", profileKind: .artist)
+        let episode = PodcastEpisode(
+            id: "episode",
+            title: "Episode",
+            showTitle: "Show",
+            showBrowseId: "MPSPPshow",
+            description: nil,
+            thumbnailURL: nil,
+            publishedDate: nil,
+            duration: nil,
+            durationSeconds: nil,
+            playbackProgress: 0,
+            isPlayed: false
+        )
+        let items: [SearchResultItem] = [
+            .profile(profile),
+            .video(video),
+            .podcastEpisode(episode),
+            .artist(artist),
+            .song(song),
+        ]
+
+        let response = SearchResponse(items: items, continuationToken: "next")
+
+        #expect(response.allItems.map(\.id) == items.map(\.id))
+        #expect(response.songs.map(\.id) == ["song"])
+        #expect(response.videos.map(\.id) == ["video"])
+        #expect(response.artists.map(\.id) == ["UCartist"])
+        #expect(response.profiles.map(\.id) == ["UCprofile"])
+        #expect(response.podcastEpisodes.map(\.id) == ["episode"])
+        #expect(response.continuationToken == "next")
     }
 }

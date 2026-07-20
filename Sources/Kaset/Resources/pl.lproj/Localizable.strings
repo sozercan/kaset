@@ -525,3 +525,10 @@
 "e.g., Remove slow songs, reorder by energy..." = "np. usuń wolne utwory, zmień kolejność według energii…";
 "songs" = "utworów";
 "tracks" = "utworami";
+"Profiles" = "Profile";
+"View Profile" = "Zobacz profil";
+"Audiobook" = "Audiobook";
+"View Audiobook" = "Zobacz audiobook";
+"Song" = "Utwór";
+"Podcast" = "Podcast";
+"Episode" = "Odcinek";

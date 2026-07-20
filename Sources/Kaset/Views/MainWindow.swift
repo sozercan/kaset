@@ -267,6 +267,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
             self.playerService.resetTrackStatus()
+            self.searchViewModel?.clear()
             self.podcastsViewModel?.configure(
                 availabilityService: self.podcastsAvailability,
                 accountId: newAccountId
