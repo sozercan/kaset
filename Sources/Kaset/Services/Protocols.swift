@@ -135,11 +135,17 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for songs only with pagination support.
     func searchSongsWithPagination(query: String) async throws -> SearchResponse
 
+    /// Searches for videos only (filtered search with pagination).
+    func searchVideos(query: String) async throws -> SearchResponse
+
     /// Searches for albums only (filtered search with pagination).
     func searchAlbums(query: String) async throws -> SearchResponse
 
     /// Searches for artists only (filtered search with pagination).
     func searchArtists(query: String) async throws -> SearchResponse
+
+    /// Searches for profiles only (filtered search with pagination).
+    func searchProfiles(query: String) async throws -> SearchResponse
 
     /// Searches for playlists only (filtered search with pagination).
     func searchPlaylists(query: String) async throws -> SearchResponse
@@ -153,15 +159,11 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for podcasts only (podcast shows).
     func searchPodcasts(query: String) async throws -> SearchResponse
 
-    /// Fetches the next batch of search results via continuation.
-    /// Returns nil if no more results are available.
-    func getSearchContinuation() async throws -> SearchResponse?
+    /// Searches for podcast episodes only (filtered search with pagination).
+    func searchEpisodes(query: String) async throws -> SearchResponse
 
-    /// Whether more search results are available to load.
-    var hasMoreSearchResults: Bool { get }
-
-    /// Clears the search continuation token.
-    func clearSearchContinuation()
+    /// Fetches the next batch of search results for an explicit continuation value.
+    func getSearchContinuation(token: String) async throws -> SearchResponse
 
     /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch()

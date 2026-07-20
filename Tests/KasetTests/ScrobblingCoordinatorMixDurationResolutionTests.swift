@@ -70,6 +70,14 @@ struct ScrobblingCoordinatorMixDurationResolutionTests {
         }
     }
 
+    private func isAwaitingDuration(_ coordinator: ScrobblingCoordinator) -> Bool {
+        if case .awaitingDuration = coordinator.mixDetectionState {
+            true
+        } else {
+            false
+        }
+    }
+
     @Test("Pending whole-track scrobbles survive an awaiting-duration parse")
     func awaitingDurationPreservesPendingWholeTrackScrobble() async throws {
         let dir = try self.makeTemporaryDirectory()
@@ -112,7 +120,8 @@ struct ScrobblingCoordinatorMixDurationResolutionTests {
         await self.waitUntil { coordinator.pendingWholeTrackPlays.count == 1 }
 
         await parseGate.open()
-        await self.waitUntil { mockYouTube.getWatchNextCompletionCount == 1 }
+        await self.waitUntil { self.isAwaitingDuration(coordinator) }
+        try #require(self.isAwaitingDuration(coordinator))
 
         playerService.currentTrack = TestFixtures.makeSong(id: "short1", title: "Regular Song", duration: 240)
         playerService.updatePlaybackState(
@@ -167,7 +176,8 @@ struct ScrobblingCoordinatorMixDurationResolutionTests {
         playerService.progress = 1
         await self.waitUntil { coordinator.pendingWholeTrackPlays.count == 1 }
         await parseGate.open()
-        await self.waitUntil { mockYouTube.getWatchNextCompletionCount == 1 }
+        await self.waitUntil { self.isAwaitingDuration(coordinator) }
+        try #require(self.isAwaitingDuration(coordinator))
 
         playerService.currentTrack = TestFixtures.makeSong(id: "next", title: "Next Song", duration: 200)
         playerService.updatePlaybackState(

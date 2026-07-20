@@ -14,7 +14,7 @@ enum SongActionsHelper {
 
     /// Whether a playlist card should expose direct playback.
     static func canQuickPlayPlaylist(_ playlist: Playlist) -> Bool {
-        !MoodCategory.isMoodCategory(playlist.id)
+        playlist.resolvedMoodCategoryEndpoint == nil
     }
 
     /// Likes a song via the API (does not play the song).

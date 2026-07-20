@@ -58,6 +58,7 @@ struct PodcastsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
@@ -466,23 +467,10 @@ struct PodcastShowView: View {
 
     /// Plays an episode and queues the remaining episodes from the show.
     private func playEpisodeInQueue(at index: Int) {
-        let songs = self.episodes.map { self.episodeToSong($0) }
+        let songs = self.episodes.map(\.playbackSong)
         Task {
             await self.playerService.playQueue(songs, startingAt: index)
         }
-    }
-
-    /// Converts a podcast episode to a Song for playback.
-    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
-        Song(
-            id: episode.id,
-            title: episode.title,
-            artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
-            album: nil,
-            duration: episode.durationSeconds.map { TimeInterval($0) },
-            thumbnailURL: episode.thumbnailURL,
-            videoId: episode.id
-        )
     }
 
     private func toggleSubscription() async {
@@ -676,23 +664,10 @@ struct AllEpisodesView: View {
 
     /// Plays an episode and queues the remaining episodes.
     private func playEpisodeInQueue(at index: Int) {
-        let songs = self.episodes.map { self.episodeToSong($0) }
+        let songs = self.episodes.map(\.playbackSong)
         Task {
             await self.playerService.playQueue(songs, startingAt: index)
         }
-    }
-
-    /// Converts a podcast episode to a Song for playback.
-    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
-        Song(
-            id: episode.id,
-            title: episode.title,
-            artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
-            album: nil,
-            duration: episode.durationSeconds.map { TimeInterval($0) },
-            thumbnailURL: episode.thumbnailURL,
-            videoId: episode.id
-        )
     }
 }
 

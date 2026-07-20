@@ -403,6 +403,27 @@ struct PlayerServiceQueueTests {
         #expect(newService.currentTrackFeedbackTokens == songs[1].feedbackTokens)
     }
 
+    @Test("Playback persistence rejects a duration from another video")
+    func playbackPersistenceRejectsMismatchedDuration() async {
+        let song = TestFixtures.makeSong(id: "short1", duration: 240)
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 3600,
+            observedVideoId: "old-mix"
+        )
+
+        self.playerService.saveQueueForPersistence()
+
+        let newService = PlayerService()
+        let restored = newService.restoreQueueFromPersistence()
+
+        #expect(restored)
+        #expect(newService.currentTrack?.videoId == "short1")
+        #expect(newService.duration == 240)
+    }
+
     @Test("Save and restore playback session preserves duplicate track index")
     func playbackSessionPersistencePreservesDuplicateTrackIndex() async {
         let duplicateSong = TestFixtures.makeSong(id: "dup", title: "Duplicate Song")

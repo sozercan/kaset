@@ -426,7 +426,7 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
         let response = SearchResponseParser.parse(data)
-        self.logger.info("Search found \(response.songs.count) songs, \(response.albums.count) albums, \(response.artists.count) artists, \(response.playlists.count) playlists")
+        self.logger.info("Search found \(response.allItems.count) ordered results")
         return response
     }
 
@@ -434,13 +434,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     func searchSongs(query: String) async throws -> [Song] {
         self.logger.info("Searching songs only for: \(query)")
 
-        // YouTube Music API params for songs filter
-        // Derived from: EgWKAQ (filtered) + II (songs) + AWoMEA4QChADEAQQCRAF (no spelling correction)
-        let songsFilterParams = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
-
         let body: [String: Any] = [
             "query": query,
-            "params": songsFilterParams,
+            "params": SearchFilterParams.songs,
         ]
 
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
@@ -455,8 +451,10 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Pattern: EgWKAQ (base) + filter code + AWoMEA4QChADEAQQCRAF (no spelling correction)
     private enum SearchFilterParams {
         static let songs = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
+        static let videos = "EgWKAQIQAWoMEA4QChADEAQQCRAF"
         static let albums = "EgWKAQIYAWoMEA4QChADEAQQCRAF"
         static let artists = "EgWKAQIgAWoMEA4QChADEAQQCRAF"
+        static let profiles = "EgWKAQJYAWoMEA4QChADEAQQCRAF"
         static let playlists = "EgWKAQIoAWoMEA4QChADEAQQCRAF"
         /// Featured playlists (first-party YouTube Music curated playlists)
         static let featuredPlaylists = "EgeKAQQoADgBagwQDhAKEAMQBBAJEAU="
@@ -464,14 +462,23 @@ final class YTMusicClient: YTMusicClientProtocol {
         static let communityPlaylists = "EgeKAQQoAEABagwQDhAKEAMQBBAJEAU="
         /// Podcasts (podcast shows)
         static let podcasts = "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
+        static let episodes = "EgWKAQJIAWoMEA4QChADEAQQCRAF"
     }
 
-    /// Continuation token for filtered search pagination.
-    private var searchContinuationToken: String?
+    /// Searches for videos only (filtered search with pagination).
+    func searchVideos(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching videos only for: \(query)")
 
-    /// Whether more search results are available to load.
-    var hasMoreSearchResults: Bool {
-        self.searchContinuationToken != nil
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.videos,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let response = SearchResponseParser.parse(data)
+
+        self.logger.info("Videos search found \(response.videos.count) videos, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for albums only (filtered search with pagination).
@@ -483,15 +490,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.albums,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (albums, token) = SearchResponseParser.parseAlbumsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Albums search found \(albums.count) albums, hasMore: \(token != nil)")
-        return SearchResponse(songs: [], albums: albums, artists: [], playlists: [], continuationToken: token)
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Albums search found \(response.albums.count) albums and \(response.audiobooks.count) audiobooks, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for artists only (filtered search with pagination).
@@ -503,15 +505,26 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.artists,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (artists, token) = SearchResponseParser.parseArtistsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Artists search found \(response.artists.count) artists, hasMore: \(response.hasMore)")
+        return response
+    }
 
-        self.logger.info("Artists search found \(artists.count) artists, hasMore: \(token != nil)")
-        return SearchResponse(songs: [], albums: [], artists: artists, playlists: [], continuationToken: token)
+    /// Searches for profiles only (filtered search with pagination).
+    func searchProfiles(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching profiles only for: \(query)")
+
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.profiles,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let response = SearchResponseParser.parse(data)
+
+        self.logger.info("Profiles search found \(response.profiles.count) profiles, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for playlists only (filtered search with pagination).
@@ -523,15 +536,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.playlists,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
-        return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Playlists search found \(response.playlists.count) playlists, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for featured playlists only (YouTube Music curated playlists).
@@ -543,15 +551,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.featuredPlaylists,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Featured playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
-        return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Featured playlists search found \(response.playlists.count) playlists, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for community playlists only (user-created playlists).
@@ -563,15 +566,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.communityPlaylists,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (playlists, token) = SearchResponseParser.parsePlaylistsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Community playlists search found \(playlists.count) playlists, hasMore: \(token != nil)")
-        return SearchResponse(songs: [], albums: [], artists: [], playlists: playlists, continuationToken: token)
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Community playlists search found \(response.playlists.count) playlists, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for podcasts only (podcast shows).
@@ -583,22 +581,10 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.podcasts,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (podcastShows, token) = SearchResponseParser.parsePodcastsOnly(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Podcasts search found \(podcastShows.count) shows, hasMore: \(token != nil)")
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: [],
-            podcastShows: podcastShows,
-            continuationToken: token
-        )
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Podcasts search found \(response.podcastShows.count) shows, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Searches for songs only with pagination support.
@@ -610,58 +596,54 @@ final class YTMusicClient: YTMusicClientProtocol {
             "params": SearchFilterParams.songs,
         ]
 
-        let generation = self.continuationGeneration
         let data = try await request("search", body: body, ttl: APICache.TTL.search)
-        let (songs, token) = SearchResponseParser.parseSongsWithContinuation(data)
-        if generation == self.continuationGeneration {
-            self.searchContinuationToken = token
-        }
-
-        self.logger.info("Songs search found \(songs.count) songs, hasMore: \(token != nil)")
-        return SearchResponse(songs: songs, albums: [], artists: [], playlists: [], continuationToken: token)
+        let response = SearchResponseParser.parse(data)
+        self.logger.info("Songs search found \(response.songs.count) songs, hasMore: \(response.hasMore)")
+        return response
     }
 
-    /// Fetches the next batch of search results via continuation.
-    /// Returns nil if no more results are available.
-    func getSearchContinuation() async throws -> SearchResponse? {
-        guard let token = searchContinuationToken else {
-            self.logger.debug("No search continuation token available")
-            return nil
-        }
+    /// Searches for podcast episodes only (filtered search with pagination).
+    func searchEpisodes(query: String) async throws -> SearchResponse {
+        self.logger.info("Searching podcast episodes only for: \(query)")
 
+        let body: [String: Any] = [
+            "query": query,
+            "params": SearchFilterParams.episodes,
+        ]
+
+        let data = try await request("search", body: body, ttl: APICache.TTL.search)
+        let response = SearchResponseParser.parse(data)
+
+        self.logger.info("Episodes search found \(response.podcastEpisodes.count) episodes, hasMore: \(response.hasMore)")
+        return response
+    }
+
+    /// Fetches the next batch of search results for an explicit continuation value.
+    func getSearchContinuation(token: String) async throws -> SearchResponse {
         self.logger.info("Fetching search continuation")
         let generation = self.continuationGeneration
 
-        do {
-            let continuationData = try await requestContinuation(token, ttl: APICache.TTL.search)
-            let response = SearchResponseParser.parseContinuation(continuationData)
-            guard generation == self.continuationGeneration else {
-                self.logger.info("Discarding stale search continuation after session reset")
-                return nil
-            }
-            self.searchContinuationToken = response.continuationToken
-
-            self.logger.info("Search continuation loaded: \(response.allItems.count) items, hasMore: \(response.hasMore)")
-            return response
-        } catch {
-            self.logger.warning("Failed to fetch search continuation: \(error.localizedDescription)")
-            self.searchContinuationToken = nil
-            throw error
+        let body: [String: Any] = [
+            "continuation": token,
+        ]
+        let continuationData = try await request("search", body: body, ttl: APICache.TTL.search)
+        guard generation == self.continuationGeneration else {
+            self.logger.info("Discarding stale search continuation after session reset")
+            throw CancellationError()
         }
-    }
+        let response = SearchResponseParser.parseContinuation(continuationData)
 
-    /// Clears the search continuation token.
-    func clearSearchContinuation() {
-        self.searchContinuationToken = nil
+        self.logger.info("Search continuation loaded: \(response.allItems.count) items, hasMore: \(response.hasMore)")
+        return response
     }
 
     /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
         self.continuationGeneration &+= 1
+        APICache.shared.invalidateAll()
         self.continuationTokens.removeAll()
         self.personalizedRecommendationsContinuationToken = nil
-        self.searchContinuationToken = nil
         self.likedSongsContinuationToken = nil
     }
 
@@ -1855,6 +1837,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         ttl: TimeInterval? = nil,
         authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
     ) async throws -> [String: Any] {
+        // Account and guest-mode transitions invalidate the shared API cache.
+        // Capture its generation before any auth/network await so stale responses
+        // cannot repopulate the cache after a session reset.
+        let cacheGeneration = APICache.shared.generation
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
 
@@ -1882,8 +1868,11 @@ final class YTMusicClient: YTMusicClientProtocol {
             )
         }
 
-        // Cache response if TTL specified.
-        if let ttl {
+        // Cache only if no account/guest transition happened while the
+        // request was in flight. YTMusicClient and APICache are both
+        // @MainActor, so this comparison and the synchronous set below are
+        // atomic relative to invalidateAll().
+        if let ttl, cacheGeneration == APICache.shared.generation {
             APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
         }
 

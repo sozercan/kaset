@@ -1,0 +1,83 @@
+{
+  "contents": {
+    "sectionListRenderer": {
+      "contents": [
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Radio Watch"
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Playlist"
+                }
+              ]
+            },
+            "onTap": {
+              "watchEndpoint": {
+                "videoId": "radio-preview",
+                "playlistId": "RDradio-watch"
+              }
+            }
+          }
+        },
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Playlist Action"
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Playlist"
+                }
+              ]
+            },
+            "navigationEndpoint": {
+              "watchPlaylistEndpoint": {
+                "playlistId": "VMplaylist-action"
+              }
+            }
+          }
+        },
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Canonical Album",
+                  "navigationEndpoint": {
+                    "watchPlaylistEndpoint": {
+                      "playlistId": "VMalbum-context"
+                    }
+                  }
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Album"
+                }
+              ]
+            },
+            "navigationEndpoint": {
+              "browseEndpoint": {
+                "browseId": "MPREcanonical-album"
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

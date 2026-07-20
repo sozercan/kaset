@@ -240,6 +240,248 @@ struct YTMusicClientTests {
     }
 }
 
+// MARK: - YTMusicClientSearchRequestTests
+
+@Suite(.serialized, .tags(.api))
+@MainActor
+struct YTMusicClientSearchRequestTests {
+    @Test("Filtered search and continuation route through search with exact parameters")
+    func filteredSearchAndContinuationRouting() async throws {
+        APICache.shared.invalidateAll()
+        let session = MockURLProtocol.makeMockSession()
+        let recorder = SearchRequestRecorder()
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            let url = try #require(request.url)
+            let bodyData = try Self.requestBodyData(request)
+            let body = try #require(
+                JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+            )
+            recorder.append(SearchRequestRecord(
+                path: url.path,
+                query: body["query"] as? String,
+                params: body["params"] as? String,
+                continuation: body["continuation"] as? String,
+                hasBrowseId: body["browseId"] != nil
+            ))
+
+            let payload: [String: Any]
+            if body["continuation"] != nil {
+                payload = Self.continuationSearchPayload(continuation: "continuation-next")
+            } else {
+                let continuation = switch body["params"] as? String {
+                case "EgWKAQIQAWoMEA4QChADEAQQCRAF": "video-next"
+                case "EgWKAQJYAWoMEA4QChADEAQQCRAF": "profile-next"
+                case "EgWKAQJIAWoMEA4QChADEAQQCRAF": "episode-next"
+                default: "unexpected-next"
+                }
+                payload = Self.firstPageSearchPayload(continuation: continuation)
+            }
+            let data = try JSONSerialization.data(withJSONObject: payload)
+            let response = try #require(
+                HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )
+            )
+            return (response, data)
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let client = self.makeClient(session: session)
+
+        let videos = try await client.searchVideos(query: "video query")
+        let profiles = try await client.searchProfiles(query: "profile query")
+        let episodes = try await client.searchEpisodes(query: "episode query")
+        let videoContinuation = try #require(videos.continuationToken)
+        let continuation = try await client.getSearchContinuation(token: videoContinuation)
+
+        #expect(videoContinuation == "video-next")
+        #expect(profiles.continuationToken == "profile-next")
+        #expect(episodes.continuationToken == "episode-next")
+        #expect(continuation.videos.map(\.videoId) == ["continued-video"])
+        #expect(continuation.continuationToken == "continuation-next")
+
+        let records = recorder.records
+        try #require(records.count == 4)
+        #expect(records.map(\.path) == Array(repeating: "/youtubei/v1/search", count: 4))
+        #expect(records.allSatisfy { !$0.hasBrowseId })
+        #expect(records[0] == SearchRequestRecord(
+            path: "/youtubei/v1/search",
+            query: "video query",
+            params: "EgWKAQIQAWoMEA4QChADEAQQCRAF",
+            continuation: nil,
+            hasBrowseId: false
+        ))
+        #expect(records[1] == SearchRequestRecord(
+            path: "/youtubei/v1/search",
+            query: "profile query",
+            params: "EgWKAQJYAWoMEA4QChADEAQQCRAF",
+            continuation: nil,
+            hasBrowseId: false
+        ))
+        #expect(records[2] == SearchRequestRecord(
+            path: "/youtubei/v1/search",
+            query: "episode query",
+            params: "EgWKAQJIAWoMEA4QChADEAQQCRAF",
+            continuation: nil,
+            hasBrowseId: false
+        ))
+        #expect(records[3] == SearchRequestRecord(
+            path: "/youtubei/v1/search",
+            query: nil,
+            params: nil,
+            continuation: "video-next",
+            hasBrowseId: false
+        ))
+    }
+
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func firstPageSearchPayload(continuation: String) -> [String: Any] {
+        [
+            "contents": [
+                "tabbedSearchResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [],
+                                            "continuations": [[
+                                                "nextContinuationData": [
+                                                    "continuation": continuation,
+                                                ],
+                                            ]],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func continuationSearchPayload(continuation: String) -> [String: Any] {
+        [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": [
+                        [
+                            "musicResponsiveListItemRenderer": [
+                                "playlistItemData": ["videoId": "continued-video"],
+                                "navigationEndpoint": [
+                                    "watchEndpoint": [
+                                        "videoId": "continued-video",
+                                        "watchEndpointMusicSupportedConfigs": [
+                                            "watchEndpointMusicConfig": [
+                                                "musicVideoType": "MUSIC_VIDEO_TYPE_UGC",
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                                "flexColumns": [
+                                    [
+                                        "musicResponsiveListItemFlexColumnRenderer": [
+                                            "text": ["runs": [["text": "Continued Video"]]],
+                                        ],
+                                    ],
+                                    [
+                                        "musicResponsiveListItemFlexColumnRenderer": [
+                                            "text": ["runs": [["text": "Video"]]],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                        [
+                            "continuationItemRenderer": [
+                                "continuationEndpoint": [
+                                    "continuationCommand": ["token": continuation],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ]],
+        ]
+    }
+
+    // URLSession may bridge `httpBody` to a stream before URLProtocol observes the request.
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func requestBodyData(_ request: URLRequest) throws -> Data {
+        if let body = request.httpBody {
+            return body
+        }
+
+        guard let stream = request.httpBodyStream else {
+            throw YTMusicError.parseError(message: "Search request body was missing")
+        }
+
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while true {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            if count < 0 {
+                throw stream.streamError ?? YTMusicError.parseError(message: "Search request body could not be read")
+            }
+            if count == 0 {
+                return data
+            }
+            data.append(buffer, count: count)
+        }
+    }
+
+    private func makeClient(session: URLSession) -> YTMusicClient {
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        return YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: resolver
+        )
+    }
+}
+
+// MARK: - SearchRequestRecord
+
+private struct SearchRequestRecord: Equatable, Sendable {
+    let path: String
+    let query: String?
+    let params: String?
+    let continuation: String?
+    let hasBrowseId: Bool
+}
+
+// MARK: - SearchRequestRecorder
+
+private final class SearchRequestRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storedRecords: [SearchRequestRecord] = []
+
+    var records: [SearchRequestRecord] {
+        self.lock.withLock { self.storedRecords }
+    }
+
+    func append(_ record: SearchRequestRecord) {
+        self.lock.withLock {
+            self.storedRecords.append(record)
+        }
+    }
+}
+
 // MARK: - YTMusicAPIKeyResolverTests
 
 /// Tests for runtime resolution of the YouTube Music web client API key.
@@ -536,6 +778,62 @@ struct YTMusicClientContinuationResetTests {
         #expect(continuationRequestCount.count == 1)
     }
 
+    @Test("Stale search continuation is discarded after reset")
+    func staleSearchContinuationIsDiscardedAfterReset() async throws {
+        APICache.shared.invalidateAll()
+        let session = MockURLProtocol.makeMockSession()
+        let requestCount = LockedCounter()
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            requestCount.increment()
+            Thread.sleep(forTimeInterval: 0.15)
+            let url = try #require(request.url)
+
+            let data = try JSONSerialization.data(
+                withJSONObject: Self.searchContinuationPayload(nextCursor: "page-2")
+            )
+            let response = try #require(
+                HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )
+            )
+            return (response, data)
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        let client = YTMusicClient(
+            authService: authService,
+            session: session,
+            apiKeyResolver: resolver
+        )
+
+        async let staleContinuation = client.getSearchContinuation(token: "page-1")
+        try? await Task.sleep(for: .milliseconds(30))
+        client.resetSessionStateForAccountSwitch()
+
+        do {
+            _ = try await staleContinuation
+            Issue.record("Expected stale search continuation to be cancelled")
+        } catch is CancellationError {
+            // Expected: reset invalidates any continuation already in flight.
+        } catch {
+            Issue.record("Expected CancellationError, got \(error)")
+        }
+
+        #expect(requestCount.count == 1)
+
+        let retry = try await client.getSearchContinuation(token: "page-1")
+        #expect(retry.continuationToken == "page-2")
+        #expect(requestCount.count == 2)
+    }
+
     // swiftlint:disable:next modifier_order
     private nonisolated static func homePayload(cursor: String) -> [String: Any] {
         [
@@ -553,6 +851,22 @@ struct YTMusicClientContinuationResetTests {
                                     ]],
                                 ],
                             ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    // swiftlint:disable:next modifier_order
+    private nonisolated static func searchContinuationPayload(nextCursor: String) -> [String: Any] {
+        [
+            "continuationContents": [
+                "musicShelfContinuation": [
+                    "contents": [],
+                    "continuations": [[
+                        "nextContinuationData": [
+                            "continuation": nextCursor,
                         ],
                     ]],
                 ],

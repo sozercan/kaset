@@ -421,6 +421,11 @@ let body = ["browseId": "FEmusic_moods_and_genres"]
 
 Each item links to a playlist or browse endpoint for that mood/genre.
 
+As verified on July 13, 2026, mood and genre cards use the browse ID
+`FEmusic_moods_and_genres_category` with an opaque `params` value. Keep the
+browse ID and params as separate structured fields when parsing; concatenated
+display IDs are not a safe source for reconstructing navigation endpoints.
+
 ---
 
 #### History (`FEmusic_history`)
@@ -457,7 +462,7 @@ Action endpoints perform operations or fetch specific data.
 
 | Endpoint | Name | Auth | Description |
 |----------|------|------|-------------|
-| `search` | Search | 🌐 | Search songs, albums, artists, playlists |
+| `search` | Search | 🌐 | Search songs, videos, albums/audiobooks, artists/profiles, playlists, podcasts, and episodes |
 | `music/get_search_suggestions` | Suggestions | 🌐 | Autocomplete for search |
 | `next` | Now Playing | 🌐 | Track info, lyrics ID, radio queue |
 | `like/like` | Like | 🔐 | Like a song/album/playlist |
@@ -478,10 +483,12 @@ let body = ["query": "never gonna give you up"]
 ```
 
 **Response Structure**:
-- `musicCardShelfRenderer` — **Top Result** section (single prominent result: song, album, artist, or playlist)
-- `musicShelfRenderer` — Regular results (mixed songs, albums, artists, playlists)
+- `musicCardShelfRenderer` — **Top Result** section. Its title can navigate through either `browseEndpoint` or `watchEndpoint`, and its `contents` can include additional rows.
+- `itemSectionRenderer.contents[]` — Current mixed-search rows. Each wrapper commonly contains one `musicResponsiveListItemRenderer`.
+- `musicShelfRenderer` — Filtered result lists and occasional direct mixed-search sections.
+- `musicResponsiveListItemRenderer` — Songs, videos, albums, audiobooks, artists, profiles, playlists, podcast shows, and podcast episodes.
 
-> ⚠️ **Important**: The Top Result (most relevant match) is returned in `musicCardShelfRenderer`, not `musicShelfRenderer`. This is often the artist/album the user is looking for. Always parse both renderer types.
+> ⚠️ **Important**: Revalidated on 2026-07-19, mixed search no longer consistently returns direct `musicShelfRenderer` sections. Parse `musicCardShelfRenderer`, its nested `contents`, direct `musicShelfRenderer`, and `itemSectionRenderer.contents`. Top Results can be directly playable `watchEndpoint` videos, not only browse destinations.
 
 **Top Result Example** (searching "manifest"):
 ```json
@@ -509,7 +516,30 @@ let body = ["query": "never gonna give you up"]
 }
 ```
 
-**Parser**: `SearchResponseParser` (handles both `musicCardShelfRenderer` and `musicShelfRenderer`)
+**Observed mixed result types (guest session, 2026-07-19)**:
+
+- `Song` — usually `MUSIC_VIDEO_TYPE_ATV`
+- `Video` — `MUSIC_VIDEO_TYPE_OMV` or `MUSIC_VIDEO_TYPE_UGC`
+- `Album`
+- `Audiobook` — `MUSIC_PAGE_TYPE_AUDIOBOOK`; currently uses an album-like `MPRE...` browse destination
+- `Artist`
+- `Profile` — `MUSIC_PAGE_TYPE_USER_CHANNEL`
+- `Playlist`
+- `Podcast` — `MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE`
+- `Episode` — `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` with an `MPED...` title destination
+
+Playable rows can expose the same video ID through several paths:
+
+```text
+playlistItemData.videoId
+navigationEndpoint.watchEndpoint.videoId
+flexColumns[0]...runs[0].navigationEndpoint.watchEndpoint.videoId
+overlay...musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId
+```
+
+Browse rows commonly use `musicResponsiveListItemRenderer.navigationEndpoint.browseEndpoint`.
+
+**Parser**: `SearchResponseParser`. The API shape audit command below reports which live rows the current parser can and cannot reach.
 
 **Filter Params** (base64-encoded filter values for `params` field):
 
@@ -523,7 +553,20 @@ let body = ["query": "never gonna give you up"]
 | Community Playlists | `EgeKAQQoAEABagwQDhAKEAMQBBAJEAU=` | User-created playlists |
 | Podcasts | `EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to podcast shows only |
 
-> **Filter Pattern**: `EgWKAQ` (base) + filter code + `AWoMEA4QChADEAQQCRAF` (no spelling correction suffix). The filter code encodes the content type (songs=II, albums=IY, artists=Ig, playlists=Io, podcasts=JQ).
+> **Static params vs. live chips**: The table above records Kaset's existing no-spelling-correction params. Live `chipCloudChipRenderer.navigationEndpoint.searchEndpoint.params` values are contextual: the same filter label had different complete suffixes for different queries on 2026-07-19. Do not assume one server-issued full params value is universal.
+
+Observed filter type codes in live chips:
+
+| Live Filter | Encoded Type Code | Current Kaset Filter |
+|-------------|-------------------|----------------------|
+| Songs | `II` | ✅ |
+| Videos | `IQ` | ✅ |
+| Albums | `IY` | ✅ |
+| Artists | `Ig` | ✅ |
+| Profiles | `JY` | ✅ |
+| Episodes | `JI` | ✅ |
+| Podcasts | `JQ` | ✅ |
+| Community / Featured playlists | Specialized playlist params | ✅ |
 
 **Usage Example** (podcasts):
 ```swift
@@ -532,6 +575,65 @@ let body: [String: Any] = [
     "params": "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
 ]
 ```
+
+**Filtered Search Continuation** (revalidated 2026-07-19):
+
+The first-page token is carried by the shelf, not the enclosing section list:
+
+```text
+contents.tabbedSearchResultsRenderer.tabs[0].tabRenderer.content
+  .sectionListRenderer.contents[].musicShelfRenderer
+  .continuations[0].nextContinuationData.continuation
+```
+
+Send that token back to the `search` endpoint:
+
+```swift
+let body = ["continuation": token]
+// POST /youtubei/v1/search
+```
+
+The common response uses:
+
+```text
+continuationContents.musicShelfContinuation.contents[]
+continuationContents.musicShelfContinuation.continuations[]
+```
+
+Search continuations can also use action envelopes. Preserve action order and parse both append and reload commands:
+
+```text
+onResponseReceivedActions[] | onResponseReceivedCommands[] | onResponseReceivedEndpoints[]
+  .appendContinuationItemsAction.continuationItems[]
+  .reloadContinuationItemsCommand.continuationItems[]
+```
+
+The `continuationItems` array can mix result renderers with a trailing `continuationItemRenderer` carrying the next token. `SearchResponseParser.parseContinuation` supports both the shelf envelope and these action envelopes.
+
+Sending the captured search token to `browse` returned unrelated browse/home sections in the same guest session, not the next search page.
+
+**Deep audit command**:
+
+```bash
+swift run api-explorer --guest search-audit "ambient electronic mix"
+```
+
+This probes the unfiltered response, every live filter chip, and one `/search` continuation page per filter when offered. It reports renderer wrappers, destination paths, content/page types, token carrier locations, and current mixed-parser coverage without printing continuation values.
+
+To compare a response against Kaset's currently configured WEB_REMIX version instead of the live web version resolved by API Explorer:
+
+```bash
+swift run api-explorer --guest --client-version 1.20231204.01.00 \
+  search-audit "ambient electronic mix"
+```
+
+`search-audit` labels the client-version source as `live`, `override`, or `fallback`. When it reports `fallback`, use `--client-version` before drawing a version-comparison conclusion. API Explorer also resolves the live version independently when the API key comes from its environment override.
+
+For this query, the live version `1.20260715.04.00` and Kaset's configured `1.20231204.01.00` showed no structural difference in section wrappers, result-type counts, filter chips, or continuation carriers. This does not prove that every result identity was identical or fully rule out version-specific behavior; it does show that the observed parser gaps reproduce with Kaset's configured version.
+
+A July 19, 2026 guest audit matrix covering the reported query, `Taylor Swift`, `The Daily podcast`, and `lofi hip hop` found no unhandled result rows after the parser update. It also exposed `MUSIC_PAGE_TYPE_AUDIOBOOK` inside mixed and Albums-filter results; Kaset now keeps those results semantically distinct as audiobooks while reusing the existing album payload and playlist-style detail navigation.
+
+`search-audit` labels the version source as `live`, `override`, or `fallback`. The audit performs a bounded live-version lookup even when `KASET_YTMUSIC_API_KEY` supplies the API key; unrelated API Explorer commands keep the environment override's immediate behavior. If web configuration discovery fails, the report explicitly identifies the configured fallback instead of presenting it as live.
 
 ---
 
@@ -1298,7 +1400,8 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 |---------|-------------|
 | `browse <id> [params]` | Explore a browse endpoint |
 | `action <endpoint> <json>` | Explore an action endpoint |
-| `continuation <token> [ep]` | Explore a continuation (`browse` or `next`) |
+| `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
+| `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
 | `auth` | Check authentication status |
 | `accounts` | Discover accounts via authuser header |
@@ -1309,10 +1412,11 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Option | Description |
 |--------|-------------|
-| `-v, --verbose` | Show full raw JSON response |
+| `-v, --verbose` | Show full raw JSON for browse/action/continuation commands; expand samples and filter params for `search-audit` |
 | `-o, --output <file>` | Save raw JSON to file |
 | `--authuser N` | Use Google account at index N |
 | `--brand <ID>` | Use brand account (21-digit ID) |
+| `--client-version <version>` | Override the resolved InnerTube client version for compatibility probes |
 | `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
 
 ---
@@ -1332,6 +1436,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-07-19 | Revalidated Music search: `itemSectionRenderer` mixed rows, watch-endpoint Top Results, audiobooks, videos/profiles/episodes filters, shelf and action-envelope continuations, and `/search` routing; added `search-audit` |
 | 2026-06-24 | Documented regular YouTube `--youtube` API Explorer mode alongside YouTube Music |
 | 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |

@@ -1,6 +1,9 @@
+// swiftlint:disable file_length
 import Foundation
 import Observation
 import os
+
+// MARK: - PlaylistDetailViewModel
 
 /// View model for the PlaylistDetailView.
 @MainActor
@@ -8,15 +11,46 @@ import os
 final class PlaylistDetailViewModel {
     private struct LiveSyncTask {
         let id: UUID
+        let snapshot: LikedMusicRequestSnapshot?
         let task: Task<Void, Never>
+    }
+
+    private struct DeferredLikedMusicMetadata {
+        let videoId: String
+        let addsLikedMusicMembership: Bool
     }
 
     private struct ContinuationDrainBatch {
         let generation: Int
         let continuation: String
         let currentDetail: PlaylistDetail
-        let isLikedMusicPlaylist: Bool
-        let requiresAuth: Bool
+        let likedMusicSnapshot: LikedMusicRequestSnapshot?
+    }
+
+    private struct ContinuationReconciliation {
+        let tracks: [Song]
+        let filteredVideoIDs: Set<String>
+        let insertedVideoIDs: Set<String>
+        let localOverlayVideoIDs: Set<String>
+        let newLikedMembershipVideoIDs: Set<String>
+        let deferredMetadata: [DeferredLikedMusicMetadata]
+    }
+
+    private struct InitialLoadContext {
+        let generation: Int
+        let likedMusicSnapshot: LikedMusicRequestSnapshot?
+    }
+
+    private struct InitialLoadResult {
+        let detail: PlaylistDetail
+        let hasMore: Bool
+        let continuationToken: String?
+        let deferredLikedMusicMetadata: [DeferredLikedMusicMetadata]
+    }
+
+    private struct LikedMusicDetailResult {
+        let detail: PlaylistDetail
+        let deferredMetadata: [DeferredLikedMusicMetadata]
     }
 
     struct PlaylistTrackRemovalSnapshot {
@@ -40,6 +74,7 @@ final class PlaylistDetailViewModel {
     private let playlist: Playlist
     /// The API client (exposed for add to library action).
     let client: any YTMusicClientProtocol
+    private let likeStatusManager: SongLikeStatusManager
     private let logger = DiagnosticsLogger.api
     private var continuationToken: String?
 
@@ -52,9 +87,17 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored
     private var loadedTrackVideoIds: Set<String> = []
 
-    private var removedLikedMusicVideoIDs: Set<String> = []
-    private var countedRemovedLikedMusicVideoIDs: Set<String> = []
-    private var insertedLikedMusicVideoIDs: Set<String> = []
+    @ObservationIgnored
+    private var seenContinuationTokens: Set<String> = []
+
+    @ObservationIgnored
+    private var loadedLikedMusicScope: LikedMusicRequestSnapshot?
+
+    @ObservationIgnored
+    private var loadedLikedMusicAccountID: String?
+
+    @ObservationIgnored
+    private var countedFilteredLikedMusicVideoIDs: Set<String> = []
 
     /// Successful occurrence removals remain tombstoned for this view model's lifetime so
     /// stale refreshes and continuation responses cannot restore them.
@@ -73,9 +116,14 @@ final class PlaylistDetailViewModel {
         LikedMusicPlaylist.matches(id: self.playlist.id)
     }
 
-    init(playlist: Playlist, client: any YTMusicClientProtocol) {
+    init(
+        playlist: Playlist,
+        client: any YTMusicClientProtocol,
+        likeStatusManager: SongLikeStatusManager = .shared
+    ) {
         self.playlist = playlist
         self.client = client
+        self.likeStatusManager = likeStatusManager
     }
 
     var playlistID: String {
@@ -83,8 +131,17 @@ final class PlaylistDetailViewModel {
     }
 
     deinit {
+        self.loadTask?.cancel()
+        self.fullLoadTask?.cancel()
+        self.pagingTask?.cancel()
         for liveSyncTask in self.liveSyncTasks.values {
             liveSyncTask.task.cancel()
+        }
+        if let loadedLikedMusicScope {
+            let likeStatusManager = self.likeStatusManager
+            Task { @MainActor [likeStatusManager, loadedLikedMusicScope] in
+                likeStatusManager.finishLikedMusicRequest(loadedLikedMusicScope)
+            }
         }
     }
 
@@ -162,7 +219,9 @@ final class PlaylistDetailViewModel {
             self.fullLoadTask = nil
         }
     }
+}
 
+extension PlaylistDetailViewModel {
     /// Loads the playlist details including tracks.
     func load() async {
         await self.load(restartingInFlightLoad: false)
@@ -171,129 +230,218 @@ final class PlaylistDetailViewModel {
     private func load(restartingInFlightLoad: Bool) async {
         guard restartingInFlightLoad || (self.loadingState != .loading && self.loadingState != .loadingMore) else { return }
 
-        self.cancelFullLoadTask()
-        self.loadGeneration += 1
-        let generation = self.loadGeneration
-        self.countedPlaylistRemovalSetVideoIDs = []
-        self.removedLikedMusicVideoIDs = []
-        self.countedRemovedLikedMusicVideoIDs = []
-        self.insertedLikedMusicVideoIDs = []
-
-        self.loadingState = .loading
-        self.continuationToken = nil
-        let playlistTitle = self.playlist.title
-        let playlistId = self.playlist.id
-        self.logger.info("Loading playlist: \(playlistTitle), ID: \(playlistId)")
+        let context = self.beginInitialLoad()
+        defer {
+            self.finishInitialLoad(context)
+        }
 
         do {
-            // For radio playlists (RDCLAK prefix), use the queue API to get all tracks at once
-            // This bypasses the broken continuation pagination for these playlists
-            // Check for both VL-prefixed and raw RDCLAK IDs
-            let isRadioPlaylist = playlistId.contains("RDCLAK") || playlistId.hasPrefix("RD")
-            self.logger.debug("Playlist ID: \(playlistId), isRadioPlaylist: \(isRadioPlaylist)")
-
-            let response = try await client.getPlaylist(id: self.playlist.id)
-            guard self.isCurrentLoadGeneration(generation) else { return }
-
-            var detail = response.detail
-            self.hasMore = response.hasMore
-            var nextContinuationToken = response.continuationToken
-
-            // If it's a radio playlist, always fetch all tracks via queue API
-            // The browse API often returns hasMore=false even when there are more tracks
-            if isRadioPlaylist {
-                self.logger.info("Radio playlist detected, fetching all tracks via queue API")
-                do {
-                    let allTracks = try await client.getPlaylistAllTracks(playlistId: self.playlist.id)
-                    guard self.isCurrentLoadGeneration(generation) else { return }
-
-                    if allTracks.count > detail.tracks.count {
-                        self.logger.info("Queue API returned \(allTracks.count) tracks (vs \(detail.tracks.count) from browse)")
-                        // Update the detail with all tracks from queue API
-                        let updatedPlaylist = Playlist(
-                            id: detail.id,
-                            title: detail.title,
-                            description: detail.description,
-                            thumbnailURL: detail.thumbnailURL,
-                            trackCount: allTracks.count,
-                            author: detail.author,
-                            canDelete: detail.canDelete || self.playlist.canDelete
-                        )
-                        detail = PlaylistDetail(
-                            playlist: updatedPlaylist,
-                            tracks: allTracks,
-                            duration: detail.duration
-                        )
-                        self.hasMore = false
-                        nextContinuationToken = nil
-                    }
-                } catch {
-                    // If queue API fails, fall back to browse results
-                    self.logger.warning("Queue API failed, using browse results: \(error.localizedDescription)")
-                }
-            }
-
-            // Determine the best thumbnail to use:
-            // 1. API response header thumbnail
-            // 2. Original playlist thumbnail (from navigation)
-            // 3. First track's thumbnail as fallback
-            let resolvedThumbnailURL = detail.thumbnailURL
-                ?? self.playlist.thumbnailURL
-                ?? detail.tracks.first?.thumbnailURL
-
-            // Check if we need to merge with original playlist info
-            let needsMerge = detail.title == "Unknown Playlist" && self.playlist.title != "Unknown Playlist"
-            let thumbnailMissing = detail.thumbnailURL == nil && resolvedThumbnailURL != nil
-
-            if needsMerge || thumbnailMissing {
-                let mergedTrackCount = max(
-                    detail.tracks.count,
-                    max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
-                )
-
-                // Merge with original playlist info or add fallback thumbnail
-                // Strip song counts from fallback author since we display the count separately
-                let mergedPlaylist = Playlist(
-                    id: playlist.id,
-                    title: needsMerge ? self.playlist.title : detail.title,
-                    description: detail.description ?? self.playlist.description,
-                    thumbnailURL: resolvedThumbnailURL,
-                    trackCount: mergedTrackCount,
-                    author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author),
-                    canDelete: detail.canDelete || self.playlist.canDelete
-                )
-                detail = PlaylistDetail(
-                    playlist: mergedPlaylist,
-                    tracks: detail.tracks,
-                    duration: detail.duration
-                )
-            }
-
-            if self.isLikedMusicPlaylist {
-                detail = self.normalizeLikedMusicDetail(detail)
-            }
-
-            detail = self.filterPlaylistRemovals(from: detail)
-
-            self.playlistDetail = detail
-            self.continuationToken = self.hasMore ? nextContinuationToken : nil
-            self.loadingState = .loaded
-            let loadedTrackCount = detail.tracks.count
-            let totalTrackCount = detail.trackCount ?? loadedTrackCount
-            self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(self.hasMore)")
-            self.replaceLoadedTrackVideoIds(with: detail.tracks)
+            guard let result = try await self.fetchInitialLoadResult(context) else { return }
+            self.applyInitialLoadResult(result, context: context)
         } catch is CancellationError {
-            guard self.isCurrentLoadGeneration(generation) else { return }
-
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            self.logger.debug("Playlist detail load cancelled")
-            self.loadingState = .idle
+            self.handleInitialLoadCancellation(context)
         } catch {
-            guard self.isCurrentLoadGeneration(generation) else { return }
-
-            self.logger.error("Failed to load playlist: \(error.localizedDescription)")
-            self.loadingState = .error(LoadingError(from: error))
+            self.handleInitialLoadError(error, context: context)
         }
+    }
+
+    private func beginInitialLoad() -> InitialLoadContext {
+        self.cancelFullLoadTask()
+        self.loadGeneration += 1
+        let previousLikedMusicScope = self.loadedLikedMusicScope
+        let likedMusicSnapshot = self.isLikedMusicPlaylist
+            ? self.likeStatusManager.beginLikedMusicRequest()
+            : nil
+        if let previousLikedMusicScope {
+            self.likeStatusManager.finishLikedMusicRequest(previousLikedMusicScope)
+            self.loadedLikedMusicScope = nil
+        }
+        self.countedPlaylistRemovalSetVideoIDs = []
+        self.countedFilteredLikedMusicVideoIDs = []
+        self.seenContinuationTokens = []
+        self.loadingState = .loading
+        self.continuationToken = nil
+        self.logger.info("Loading playlist: \(self.playlist.title), ID: \(self.playlist.id)")
+        return InitialLoadContext(
+            generation: self.loadGeneration,
+            likedMusicSnapshot: likedMusicSnapshot
+        )
+    }
+
+    private func finishInitialLoad(_ context: InitialLoadContext) {
+        guard let snapshot = context.likedMusicSnapshot else { return }
+        guard self.loadedLikedMusicScope != snapshot else { return }
+        self.likeStatusManager.finishLikedMusicRequest(snapshot)
+    }
+
+    private func fetchInitialLoadResult(_ context: InitialLoadContext) async throws -> InitialLoadResult? {
+        let response = try await self.client.getPlaylist(id: self.playlist.id)
+        guard self.canApplyInitialLoad(context) else { return nil }
+
+        var detail = response.detail
+        var hasMore = response.hasMore
+        var continuationToken = response.continuationToken
+        var deferredLikedMusicMetadata: [DeferredLikedMusicMetadata] = []
+
+        if let allTracks = try await self.fetchRadioPlaylistTracksIfNeeded() {
+            guard self.canApplyInitialLoad(context) else { return nil }
+            if allTracks.count > detail.tracks.count {
+                detail = self.detailByReplacingRadioTracks(in: detail, with: allTracks)
+                hasMore = false
+                continuationToken = nil
+            }
+        }
+
+        detail = self.detailByMergingOriginalPlaylistMetadata(into: detail)
+        if let snapshot = context.likedMusicSnapshot {
+            guard let reconciliation = self.reconciledLikedMusicDetail(detail, snapshot: snapshot) else {
+                self.loadingState = .idle
+                return nil
+            }
+            detail = reconciliation.detail
+            deferredLikedMusicMetadata = reconciliation.deferredMetadata
+        }
+
+        return InitialLoadResult(
+            detail: self.filterPlaylistRemovals(from: detail),
+            hasMore: hasMore,
+            continuationToken: continuationToken,
+            deferredLikedMusicMetadata: deferredLikedMusicMetadata
+        )
+    }
+
+    private func fetchRadioPlaylistTracksIfNeeded() async throws -> [Song]? {
+        let playlistID = self.playlist.id
+        let isRadioPlaylist = playlistID.contains("RDCLAK") || playlistID.hasPrefix("RD")
+        self.logger.debug("Playlist ID: \(playlistID), isRadioPlaylist: \(isRadioPlaylist)")
+        guard isRadioPlaylist else { return nil }
+
+        self.logger.info("Radio playlist detected, fetching all tracks via queue API")
+        do {
+            return try await self.client.getPlaylistAllTracks(playlistId: playlistID)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            self.logger.warning("Queue API failed, using browse results: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    private func detailByReplacingRadioTracks(in detail: PlaylistDetail, with allTracks: [Song]) -> PlaylistDetail {
+        self.logger.info("Queue API returned \(allTracks.count) tracks (vs \(detail.tracks.count) from browse)")
+        let playlist = Playlist(
+            id: detail.id,
+            title: detail.title,
+            description: detail.description,
+            thumbnailURL: detail.thumbnailURL,
+            trackCount: allTracks.count,
+            author: detail.author,
+            canDelete: detail.canDelete || self.playlist.canDelete
+        )
+        return PlaylistDetail(playlist: playlist, tracks: allTracks, duration: detail.duration)
+    }
+
+    private func detailByMergingOriginalPlaylistMetadata(into detail: PlaylistDetail) -> PlaylistDetail {
+        let resolvedThumbnailURL = detail.thumbnailURL
+            ?? self.playlist.thumbnailURL
+            ?? detail.tracks.first?.thumbnailURL
+        let needsMerge = detail.title == "Unknown Playlist" && self.playlist.title != "Unknown Playlist"
+        let thumbnailMissing = detail.thumbnailURL == nil && resolvedThumbnailURL != nil
+        guard needsMerge || thumbnailMissing else { return detail }
+
+        let mergedTrackCount = max(
+            detail.tracks.count,
+            max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
+        )
+        let playlist = Playlist(
+            id: self.playlist.id,
+            title: needsMerge ? self.playlist.title : detail.title,
+            description: detail.description ?? self.playlist.description,
+            thumbnailURL: resolvedThumbnailURL,
+            trackCount: mergedTrackCount,
+            author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author),
+            canDelete: detail.canDelete || self.playlist.canDelete
+        )
+        return PlaylistDetail(playlist: playlist, tracks: detail.tracks, duration: detail.duration)
+    }
+
+    private func reconciledLikedMusicDetail(
+        _ detail: PlaylistDetail,
+        snapshot: LikedMusicRequestSnapshot
+    ) -> LikedMusicDetailResult? {
+        guard let reconciliation = self.likeStatusManager.reconcileLikedMusicTracks(
+            detail.tracks,
+            snapshot: snapshot,
+            deduplicating: true
+        ) else { return nil }
+
+        let deferredMetadata: [DeferredLikedMusicMetadata] = reconciliation.tracks.compactMap { song in
+            guard reconciliation.insertedVideoIDs.contains(song.videoId),
+                  Self.requiresMetadataFetchForLiveSync(song)
+            else { return nil }
+            return DeferredLikedMusicMetadata(
+                videoId: song.videoId,
+                addsLikedMusicMembership: reconciliation.newLikedMembershipVideoIDs.contains(song.videoId)
+            )
+        }
+        let deferredMetadataVideoIDSet = Set(deferredMetadata.map(\.videoId))
+        let visibleTracks = reconciliation.tracks.filter {
+            !deferredMetadataVideoIDSet.contains($0.videoId)
+        }
+        let insertedTrackCount = reconciliation.insertedVideoIDs
+            .intersection(reconciliation.newLikedMembershipVideoIDs)
+            .subtracting(deferredMetadataVideoIDSet)
+            .count
+        self.countedFilteredLikedMusicVideoIDs.formUnion(reconciliation.filteredVideoIDs)
+        let adjustedTrackCount = self.adjustedTrackCount(
+            detail.trackCount,
+            skippedRemovalCount: reconciliation.filteredVideoIDs.count,
+            insertedTrackCount: insertedTrackCount
+        )
+        return LikedMusicDetailResult(
+            detail: self.updatedPlaylistDetail(
+                from: detail,
+                tracks: visibleTracks,
+                trackCount: max(adjustedTrackCount ?? 0, visibleTracks.count)
+            ),
+            deferredMetadata: deferredMetadata
+        )
+    }
+
+    private func applyInitialLoadResult(_ result: InitialLoadResult, context: InitialLoadContext) {
+        guard self.canApplyInitialLoad(context) else { return }
+        self.playlistDetail = result.detail
+        self.loadedLikedMusicAccountID = context.likedMusicSnapshot?.accountID
+        self.loadedLikedMusicScope = result.hasMore ? context.likedMusicSnapshot : nil
+        self.hasMore = result.hasMore
+        self.continuationToken = result.hasMore ? result.continuationToken : nil
+        self.loadingState = .loaded
+        let loadedTrackCount = result.detail.tracks.count
+        let totalTrackCount = result.detail.trackCount ?? loadedTrackCount
+        self.logger.info("Playlist loaded: \(loadedTrackCount) loaded tracks, total: \(totalTrackCount), hasMore: \(result.hasMore)")
+        self.replaceLoadedTrackVideoIds(with: result.detail.tracks)
+        self.startDeferredLikedMusicMetadataTasks(result.deferredLikedMusicMetadata)
+    }
+
+    private func handleInitialLoadCancellation(_ context: InitialLoadContext) {
+        guard self.canApplyInitialLoad(context) else { return }
+        self.logger.debug("Playlist detail load cancelled")
+        self.loadingState = .idle
+    }
+
+    private func handleInitialLoadError(_ error: any Error, context: InitialLoadContext) {
+        guard self.canApplyInitialLoad(context) else { return }
+        self.logger.error("Failed to load playlist: \(error.localizedDescription)")
+        self.loadingState = .error(LoadingError(from: error))
+    }
+
+    private func canApplyInitialLoad(_ context: InitialLoadContext) -> Bool {
+        guard self.isCurrentLoadGeneration(context.generation) else { return false }
+        guard self.isCurrentLikedMusicScope(context.likedMusicSnapshot) else {
+            self.loadingState = .idle
+            return false
+        }
+        return true
     }
 
     /// Loads more tracks via continuation.
@@ -317,20 +465,17 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func applyRemainingTracksResponse(_ response: PlaylistContinuationResponse, batch: ContinuationDrainBatch) -> Bool {
+    private func applyRemainingTracksResponse(
+        _ response: PlaylistContinuationResponse,
+        batch: ContinuationDrainBatch
+    ) -> Bool {
         guard batch.generation == self.loadGeneration,
               !Task.isCancelled,
+              self.isCurrentLikedMusicScope(batch.likedMusicSnapshot),
               let latestDetail = self.playlistDetail
         else { return false }
+        self.seenContinuationTokens.insert(batch.continuation)
 
-        let skippedRemovedVideoIDs = batch.isLikedMusicPlaylist
-            ? response.tracks.compactMap { song -> String? in
-                guard self.removedLikedMusicVideoIDs.contains(song.videoId),
-                      self.countedRemovedLikedMusicVideoIDs.insert(song.videoId).inserted
-                else { return nil }
-                return song.videoId
-            }
-            : []
         let skippedConfirmedPlaylistRemovalCount = response.tracks.reduce(into: 0) { count, track in
             guard let setVideoId = track.playlistSetVideoId,
                   self.isPlaylistRemovalTombstoned(setVideoId: setVideoId),
@@ -338,81 +483,149 @@ final class PlaylistDetailViewModel {
             else { return }
             count += 1
         }
-        let skippedRemovalCount = skippedRemovedVideoIDs.count + skippedConfirmedPlaylistRemovalCount
         let playlistFilteredTracks = response.tracks.filter { track in
             guard let setVideoId = track.playlistSetVideoId else { return true }
             return !self.isPlaylistRemovalTombstoned(setVideoId: setVideoId)
         }
-        let candidateTracks = batch.isLikedMusicPlaylist
-            ? playlistFilteredTracks.filter { !self.removedLikedMusicVideoIDs.contains($0.videoId) }
-            : playlistFilteredTracks
-        let skippedLiveRemovedTracks = candidateTracks.count != response.tracks.count
-        let responseContainsLiveInsertedTrack = batch.isLikedMusicPlaylist && response.tracks.contains { self.insertedLikedMusicVideoIDs.contains($0.videoId) }
+
+        guard let reconciliation = self.reconcileContinuationTracks(
+            playlistFilteredTracks,
+            snapshot: batch.likedMusicSnapshot
+        ) else { return false }
+        let skippedLikedMusicCount = reconciliation.filteredVideoIDs.reduce(into: 0) { count, videoId in
+            if self.countedFilteredLikedMusicVideoIDs.insert(videoId).inserted {
+                count += 1
+            }
+        }
+
         let originalExistingVideoIds = Set(batch.currentDetail.tracks.map(\.videoId))
-        let newTracks = candidateTracks.filter {
+        let newTracks = reconciliation.tracks.filter {
             !self.loadedTrackVideoIds.contains($0.videoId)
                 && !originalExistingVideoIds.contains($0.videoId)
         }
+        let skippedRemovalCount = skippedConfirmedPlaylistRemovalCount + skippedLikedMusicCount
+        let insertedTrackCount = newTracks.count {
+            reconciliation.newLikedMembershipVideoIDs.contains($0.videoId)
+                || self.countedFilteredLikedMusicVideoIDs.contains($0.videoId)
+        }
+        let continuationDidNotAdvance = response.continuationToken == nil
+            || response.continuationToken == batch.continuation
 
         if newTracks.isEmpty {
-            let duplicatesWereAlreadyPresent = candidateTracks.allSatisfy { originalExistingVideoIds.contains($0.videoId) }
-            if duplicatesWereAlreadyPresent, !skippedLiveRemovedTracks, !responseContainsLiveInsertedTrack {
-                self.hasMore = false
+            self.applySkippedRemovalCount(skippedRemovalCount, to: latestDetail)
+            self.startDeferredLikedMusicMetadataTasks(reconciliation.deferredMetadata)
+            if response.hasMore,
+               continuationDidNotAdvance
+            {
                 self.continuationToken = nil
+                self.hasMore = false
                 self.loadingState = .loaded
-                self.logger.info("No new unique tracks in continuation, stopping pagination")
+                self.releaseLoadedLikedMusicScope()
+                self.logger.warning("Stopping playlist pagination after a non-advancing duplicate page")
                 return false
             }
-
-            self.applySkippedRemovalCount(skippedRemovalCount, to: latestDetail)
             self.continuationToken = response.continuationToken
             self.hasMore = response.hasMore
             self.loadingState = .loaded
-            self.logger.info("Continuation tracks already live-synced; advancing cursor, hasMore: \(self.hasMore)")
+            if !self.hasMore {
+                self.releaseLoadedLikedMusicScope()
+            }
             return self.hasMore
         }
 
-        let normalizedNewTracks: [Song] = if batch.isLikedMusicPlaylist {
-            self.markSongsAsLiked(newTracks)
-        } else {
-            newTracks
-        }
-
         var allTracks = latestDetail.tracks
-        allTracks.reserveCapacity(latestDetail.tracks.count + normalizedNewTracks.count)
-        allTracks.append(contentsOf: normalizedNewTracks)
-        let adjustedTrackCount = self.adjustedTrackCount(latestDetail.trackCount, skippedRemovalCount: skippedRemovalCount)
+        allTracks.reserveCapacity(latestDetail.tracks.count + newTracks.count)
+        allTracks.append(contentsOf: newTracks)
+        let adjustedTrackCount = self.adjustedTrackCount(
+            latestDetail.trackCount,
+            skippedRemovalCount: skippedRemovalCount,
+            insertedTrackCount: insertedTrackCount
+        )
         let preservedTrackCount = max(allTracks.count, adjustedTrackCount ?? 0)
-        let updatedPlaylist = Playlist(
-            id: latestDetail.id,
-            title: latestDetail.title,
-            description: latestDetail.description,
-            thumbnailURL: latestDetail.thumbnailURL,
-            trackCount: preservedTrackCount,
-            author: latestDetail.author,
-            canDelete: latestDetail.canDelete
-        )
-        self.playlistDetail = PlaylistDetail(
-            playlist: updatedPlaylist,
+        self.playlistDetail = self.updatedPlaylistDetail(
+            from: latestDetail,
             tracks: allTracks,
-            duration: latestDetail.duration
+            trackCount: preservedTrackCount
         )
-        self.insertLoadedTrackVideoIds(from: normalizedNewTracks)
-
-        if batch.isLikedMusicPlaylist {
-            SongLikeStatusManager.shared.setStatus(.like, for: normalizedNewTracks.lazy.map(\.videoId))
+        self.insertLoadedTrackVideoIds(from: newTracks)
+        for track in newTracks {
+            self.countedFilteredLikedMusicVideoIDs.remove(track.videoId)
         }
-
+        self.startDeferredLikedMusicMetadataTasks(reconciliation.deferredMetadata)
         self.continuationToken = response.continuationToken
         self.hasMore = response.hasMore
         self.loadingState = .loaded
-        self.logger.info("Loaded \(normalizedNewTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
+        if !self.hasMore {
+            self.releaseLoadedLikedMusicScope()
+        }
+        self.logger.info("Loaded \(newTracks.count) new tracks (from \(response.tracks.count)), loaded total: \(allTracks.count), reported total: \(preservedTrackCount), hasMore: \(self.hasMore)")
         return self.hasMore
     }
 
-    private func adjustedTrackCount(_ trackCount: Int?, skippedRemovalCount: Int) -> Int? {
-        guard skippedRemovalCount > 0, let trackCount else { return trackCount }
-        return max(0, trackCount - skippedRemovalCount)
+    private func reconcileContinuationTracks(
+        _ tracks: [Song],
+        snapshot: LikedMusicRequestSnapshot?
+    ) -> ContinuationReconciliation? {
+        guard let snapshot else {
+            return ContinuationReconciliation(
+                tracks: tracks,
+                filteredVideoIDs: [],
+                insertedVideoIDs: [],
+                localOverlayVideoIDs: [],
+                newLikedMembershipVideoIDs: [],
+                deferredMetadata: []
+            )
+        }
+        guard let reconciliation = self.likeStatusManager.reconcileLikedMusicTracks(
+            tracks,
+            snapshot: snapshot
+        ) else { return nil }
+
+        let deferredMetadata: [DeferredLikedMusicMetadata] = reconciliation.tracks.compactMap { song in
+            guard reconciliation.insertedVideoIDs.contains(song.videoId),
+                  Self.requiresMetadataFetchForLiveSync(song)
+            else { return nil }
+            return DeferredLikedMusicMetadata(
+                videoId: song.videoId,
+                addsLikedMusicMembership: reconciliation.newLikedMembershipVideoIDs.contains(song.videoId)
+            )
+        }
+        let deferredMetadataVideoIDSet = Set(deferredMetadata.map(\.videoId))
+        return ContinuationReconciliation(
+            tracks: reconciliation.tracks.filter {
+                !deferredMetadataVideoIDSet.contains($0.videoId)
+            },
+            filteredVideoIDs: reconciliation.filteredVideoIDs,
+            insertedVideoIDs: reconciliation.insertedVideoIDs.subtracting(deferredMetadataVideoIDSet),
+            localOverlayVideoIDs: reconciliation.localOverlayVideoIDs,
+            newLikedMembershipVideoIDs: reconciliation.newLikedMembershipVideoIDs.subtracting(
+                deferredMetadataVideoIDSet
+            ),
+            deferredMetadata: deferredMetadata
+        )
+    }
+
+    private func startDeferredLikedMusicMetadataTasks(_ metadata: [DeferredLikedMusicMetadata]) {
+        for item in metadata {
+            if let snapshot = self.liveSyncTasks[item.videoId]?.snapshot,
+               self.likeStatusManager.matchesCurrentScope(snapshot)
+            {
+                continue
+            }
+            self.startLiveSyncTask(
+                for: item.videoId,
+                addsLikedMusicMembership: item.addsLikedMusicMembership
+            )
+        }
+    }
+
+    private func adjustedTrackCount(
+        _ trackCount: Int?,
+        skippedRemovalCount: Int,
+        insertedTrackCount: Int = 0
+    ) -> Int? {
+        guard let trackCount else { return nil }
+        return max(0, trackCount - skippedRemovalCount + insertedTrackCount)
     }
 
     private func applySkippedRemovalCount(_ skippedRemovalCount: Int, to detail: PlaylistDetail) {
@@ -451,6 +664,19 @@ final class PlaylistDetailViewModel {
               self.isCurrentLoadGeneration(generation)
         else { return false }
 
+        guard self.isCurrentLikedMusicScope(self.loadedLikedMusicScope) else {
+            self.invalidateLikedMusicPagination(generation: generation)
+            return false
+        }
+        guard !self.seenContinuationTokens.contains(continuationToken) else {
+            self.hasMore = false
+            self.continuationToken = nil
+            self.releaseLoadedLikedMusicScope()
+            self.logger.warning("Stopping playlist pagination after a repeated continuation cursor")
+            return false
+        }
+        let requestSnapshot = self.loadedLikedMusicScope
+
         self.loadingState = .loadingMore
         self.logger.info("Loading more playlist tracks")
 
@@ -460,21 +686,33 @@ final class PlaylistDetailViewModel {
                 token: continuation,
                 requiresAuth: currentDetail.requiresPersonalAccountForContinuations
             )
+            guard self.isCurrentLoadGeneration(generation) else { return false }
+            guard self.isCurrentLikedMusicScope(requestSnapshot) else {
+                self.invalidateLikedMusicPagination(generation: generation)
+                return false
+            }
             let batch = ContinuationDrainBatch(
                 generation: generation ?? self.loadGeneration,
                 continuation: continuation,
                 currentDetail: currentDetail,
-                isLikedMusicPlaylist: self.isLikedMusicPlaylist,
-                requiresAuth: currentDetail.requiresPersonalAccountForContinuations
+                likedMusicSnapshot: requestSnapshot
             )
             return self.applyRemainingTracksResponse(response, batch: batch)
         } catch is CancellationError {
             guard self.isCurrentLoadGeneration(generation) else { return false }
+            guard self.isCurrentLikedMusicScope(requestSnapshot) else {
+                self.invalidateLikedMusicPagination(generation: generation)
+                return false
+            }
             self.logger.debug("Playlist continuation cancelled")
             self.loadingState = .loaded
             return false
         } catch {
             guard self.isCurrentLoadGeneration(generation) else { return false }
+            guard self.isCurrentLikedMusicScope(requestSnapshot) else {
+                self.invalidateLikedMusicPagination(generation: generation)
+                return false
+            }
             self.logger.error("Failed to load more playlist tracks: \(error.localizedDescription)")
             // Keep loaded state so user can retry
             self.loadingState = .loaded
@@ -483,31 +721,32 @@ final class PlaylistDetailViewModel {
     }
 
     /// Handles like status updates for the Liked Music playlist.
+    /// Handles immediate optimistic updates for the loaded Liked Music UI.
+    /// Delayed API response correctness is owned by `SongLikeStatusManager` snapshots.
     func handleLikeStatusChange(_ event: LikeStatusEvent) {
         guard self.isLikedMusicPlaylist else { return }
         guard self.loadingState == .loaded || self.loadingState == .loadingMore else { return }
+        guard self.isLoadedLikedMusicAccountCurrent() else { return }
 
         switch event.status {
-        // - Liked songs are inserted at the top.
         case .like:
-            self.removedLikedMusicVideoIDs.remove(event.videoId)
-            self.countedRemovedLikedMusicVideoIDs.remove(event.videoId)
             if let song = event.song, !Self.requiresMetadataFetchForLiveSync(song) {
                 self.cancelLiveSyncTask(for: event.videoId)
-                self.insertLiveSyncedLikedSong(song)
+                self.insertLiveSyncedLikedSong(
+                    song,
+                    addsLikedMusicMembership: event.addsLikedMusicMembership ?? true
+                )
             } else {
                 guard !self.containsTrack(videoId: event.videoId) else { return }
-                self.startLiveSyncTask(for: event.videoId)
+                self.startLiveSyncTask(
+                    for: event.videoId,
+                    addsLikedMusicMembership: event.addsLikedMusicMembership ?? true
+                )
             }
-        // - Unliked/disliked songs are removed immediately.
         case .indifferent, .dislike:
-            let wasLoaded = self.containsTrack(videoId: event.videoId)
-            self.removedLikedMusicVideoIDs.insert(event.videoId)
-            if wasLoaded {
-                self.countedRemovedLikedMusicVideoIDs.insert(event.videoId)
+            if self.containsTrack(videoId: event.videoId) {
+                self.countedFilteredLikedMusicVideoIDs.insert(event.videoId)
             }
-            self.insertedLikedMusicVideoIDs.remove(event.videoId)
-            SongLikeStatusManager.shared.setCachedStatus(event.status, for: event.videoId)
             self.cancelLiveSyncTask(for: event.videoId)
             self.removeLiveSyncedLikedSong(videoId: event.videoId)
         }
@@ -602,6 +841,26 @@ final class PlaylistDetailViewModel {
         }
     }
 
+    private func isCurrentLikedMusicScope(_ snapshot: LikedMusicRequestSnapshot?) -> Bool {
+        guard let snapshot else { return true }
+        return self.likeStatusManager.matchesCurrentScope(snapshot)
+    }
+
+    private func isLoadedLikedMusicAccountCurrent() -> Bool {
+        guard let loadedLikedMusicAccountID else { return true }
+        return loadedLikedMusicAccountID == self.likeStatusManager.activeAccountID
+    }
+
+    private func invalidateLikedMusicPagination(generation: Int?) {
+        guard self.isCurrentLoadGeneration(generation) else { return }
+        self.loadGeneration += 1
+        self.fullLoadTask = nil
+        self.hasMore = false
+        self.continuationToken = nil
+        self.replacePlaylistDetail(nil)
+        self.loadingState = .idle
+    }
+
     private func cancelFullLoadTask() {
         self.fullLoadTask?.cancel()
         self.fullLoadTask = nil
@@ -610,18 +869,6 @@ final class PlaylistDetailViewModel {
     private func isCurrentLoadGeneration(_ generation: Int?) -> Bool {
         guard let generation else { return true }
         return generation == self.loadGeneration
-    }
-
-    private func normalizeLikedMusicDetail(_ detail: PlaylistDetail) -> PlaylistDetail {
-        let likedTracks = self.markSongsAsLiked(detail.tracks, deduplicating: true)
-        SongLikeStatusManager.shared.setStatus(.like, for: likedTracks.lazy.map(\.videoId))
-
-        let resolvedTrackCount = max(detail.trackCount ?? 0, likedTracks.count)
-        return self.updatedPlaylistDetail(
-            from: detail,
-            tracks: likedTracks,
-            trackCount: resolvedTrackCount
-        )
     }
 
     private func filterPlaylistRemovals(from detail: PlaylistDetail) -> PlaylistDetail {
@@ -657,20 +904,6 @@ final class PlaylistDetailViewModel {
         waiters.forEach { $0.resume() }
     }
 
-    private func markSongsAsLiked(_ tracks: [Song], deduplicating: Bool = false) -> [Song] {
-        var seenVideoIds = Set<String>()
-
-        return tracks.compactMap { song in
-            if deduplicating, !seenVideoIds.insert(song.videoId).inserted {
-                return nil
-            }
-
-            var likedSong = song
-            likedSong.likeStatus = .like
-            return likedSong
-        }
-    }
-
     private func updatedPlaylistDetail(from detail: PlaylistDetail, tracks: [Song], trackCount: Int?) -> PlaylistDetail {
         let updatedPlaylist = Playlist(
             id: detail.id,
@@ -695,7 +928,17 @@ final class PlaylistDetailViewModel {
 
     private func replacePlaylistDetail(_ detail: PlaylistDetail?) {
         self.playlistDetail = detail
+        if detail == nil {
+            self.releaseLoadedLikedMusicScope()
+            self.loadedLikedMusicAccountID = nil
+        }
         self.replaceLoadedTrackVideoIds(with: detail?.tracks ?? [])
+    }
+
+    private func releaseLoadedLikedMusicScope() {
+        guard let loadedLikedMusicScope else { return }
+        self.likeStatusManager.finishLikedMusicRequest(loadedLikedMusicScope)
+        self.loadedLikedMusicScope = nil
     }
 
     private func replaceLoadedTrackVideoIds(with tracks: [Song]) {
@@ -709,17 +952,20 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func insertLiveSyncedLikedSong(_ song: Song) {
+    private func insertLiveSyncedLikedSong(
+        _ song: Song,
+        addsLikedMusicMembership: Bool
+    ) {
         guard let currentDetail = self.playlistDetail else { return }
         guard !self.loadedTrackVideoIds.contains(song.videoId) else { return }
 
         var likedSong = song
         likedSong.likeStatus = .like
-        self.insertedLikedMusicVideoIDs.insert(song.videoId)
-
         let updatedTracks = [likedSong] + currentDetail.tracks
         let currentTotal = currentDetail.trackCount ?? currentDetail.tracks.count
-        let updatedTrackCount = max(currentTotal + 1, updatedTracks.count)
+        let restoresRemovedMembership = self.countedFilteredLikedMusicVideoIDs.contains(song.videoId)
+        let adjustedTotal = currentTotal + (addsLikedMusicMembership || restoresRemovedMembership ? 1 : 0)
+        let updatedTrackCount = max(adjustedTotal, updatedTracks.count)
 
         self.playlistDetail = self.updatedPlaylistDetail(
             from: currentDetail,
@@ -727,7 +973,7 @@ final class PlaylistDetailViewModel {
             trackCount: updatedTrackCount
         )
         self.loadedTrackVideoIds.insert(song.videoId)
-        SongLikeStatusManager.shared.setCachedStatus(.like, for: song.videoId)
+        self.countedFilteredLikedMusicVideoIDs.remove(song.videoId)
         self.logger.info("Live sync: added song \(song.videoId) to liked music")
     }
 
@@ -749,18 +995,40 @@ final class PlaylistDetailViewModel {
         self.logger.info("Live sync: removed song \(videoId) from liked music")
     }
 
-    private func startLiveSyncTask(for videoId: String) {
+    private func startLiveSyncTask(
+        for videoId: String,
+        addsLikedMusicMembership: Bool
+    ) {
         let taskID = UUID()
+        let snapshot = self.isLikedMusicPlaylist
+            ? self.likeStatusManager.beginLikedMusicRequest()
+            : nil
+        let likeStatusManager = self.likeStatusManager
         self.cancelLiveSyncTask(for: videoId)
 
-        let task = Task { [weak self] in
+        let task = Task { @MainActor [weak self, likeStatusManager] in
+            defer {
+                if let snapshot {
+                    likeStatusManager.finishLikedMusicRequest(snapshot)
+                }
+            }
             guard let self else { return }
-            await self.fetchAndInsertLiveSyncedLikedSong(videoId: videoId, taskID: taskID)
+            await self.fetchAndInsertLiveSyncedLikedSong(
+                videoId: videoId,
+                taskID: taskID,
+                snapshot: snapshot,
+                addsLikedMusicMembership: addsLikedMusicMembership
+            )
         }
-        self.liveSyncTasks[videoId] = LiveSyncTask(id: taskID, task: task)
+        self.liveSyncTasks[videoId] = LiveSyncTask(id: taskID, snapshot: snapshot, task: task)
     }
 
-    private func fetchAndInsertLiveSyncedLikedSong(videoId: String, taskID: UUID) async {
+    private func fetchAndInsertLiveSyncedLikedSong(
+        videoId: String,
+        taskID: UUID,
+        snapshot: LikedMusicRequestSnapshot?,
+        addsLikedMusicMembership: Bool
+    ) async {
         defer {
             if self.liveSyncTasks[videoId]?.id == taskID {
                 self.liveSyncTasks.removeValue(forKey: videoId)
@@ -769,6 +1037,7 @@ final class PlaylistDetailViewModel {
 
         guard self.liveSyncTasks[videoId]?.id == taskID else { return }
         guard !Task.isCancelled else { return }
+        guard self.isCurrentLikedMusicScope(snapshot) else { return }
         guard !self.containsTrack(videoId: videoId) else { return }
 
         do {
@@ -776,12 +1045,17 @@ final class PlaylistDetailViewModel {
 
             guard !Task.isCancelled else { return }
             guard self.liveSyncTasks[videoId]?.id == taskID else { return }
+            guard self.isCurrentLikedMusicScope(snapshot) else { return }
+            guard self.likeStatusManager.status(for: videoId) == .like else { return }
             guard !Self.requiresMetadataFetchForLiveSync(song) else {
                 self.logger.warning("Live sync: skipping incomplete metadata for liked song \(videoId)")
                 return
             }
 
-            self.insertLiveSyncedLikedSong(song)
+            self.insertLiveSyncedLikedSong(
+                song,
+                addsLikedMusicMembership: addsLikedMusicMembership
+            )
         } catch is CancellationError {
             return
         } catch {

@@ -360,6 +360,20 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(playerService.lastNonAdContentProgress(for: "video-b") == 0)
     }
 
+    @Test("A recovery clock without media identity does not inherit metadata identity")
+    func recoveryClockWithoutMediaIdentityDoesNotInheritMetadataIdentity() {
+        let playerService = PlayerService()
+        playerService.currentTrack = TestFixtures.makeSong(id: "metadata-video")
+        playerService.updateAdPlaybackState(
+            isShowingAd: false,
+            observedProgress: 42,
+            observedVideoId: nil,
+            isAuthoritativeContent: true
+        )
+
+        #expect(playerService.lastNonAdContentProgress(for: "metadata-video") == 0)
+    }
+
     @Test("Ready ad transport updates do not overwrite the content clock")
     func adTransportPreservesContentClock() {
         let playerService = PlayerService()
@@ -677,8 +691,20 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(source.contains("window.__kasetAutoplayRetryScheduled = false;"))
     }
 
-    @Test("Authoritative bridge clocks retain the observed video identity")
-    func authoritativeBridgeClockUsesObservedVideoIdentity() throws {
+    @Test("Authoritative bridge clocks use physical media identity")
+    func authoritativeBridgeClockUsesPhysicalMediaIdentity() throws {
+        #expect(SingletonPlayerWebView.Coordinator.playbackVideoId(from: [
+            "videoId": "leading-metadata",
+            "mediaVideoId": "physical-media",
+        ]) == "physical-media")
+        #expect(SingletonPlayerWebView.Coordinator.playbackVideoId(from: [
+            "videoId": "leading-metadata",
+            "mediaVideoId": "",
+        ]) == nil)
+        #expect(SingletonPlayerWebView.Coordinator.playbackVideoId(from: [
+            "videoId": "terminal-media",
+        ]) == "terminal-media")
+
         let source = try String(
             contentsOfFile: #filePath.replacingOccurrences(
                 of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
@@ -687,7 +713,10 @@ struct MusicPlaybackBridgeGenerationTests {
             encoding: .utf8
         )
 
-        #expect(source.contains("duration: Double(duration),\n                    observedVideoId: observedVideoId"))
+        #expect(source.contains("let playbackVideoId = Self.playbackVideoId(from: body)"))
+        #expect(source.contains("duration: Double(duration),\n                    observedVideoId: playbackVideoId"))
+        #expect(source.contains("videoId: Self.playbackVideoId(from: body)"))
+        #expect(source.contains("videoId: playbackVideoId"))
     }
 
     private func objectPayloads(in script: String, marker: String, terminator: String) -> [String] {

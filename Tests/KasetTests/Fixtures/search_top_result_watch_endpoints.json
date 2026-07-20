@@ -1,0 +1,120 @@
+{
+  "contents": {
+    "sectionListRenderer": {
+      "contents": [
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Title Endpoint Video",
+                  "navigationEndpoint": {
+                    "watchEndpoint": {
+                      "videoId": "title-endpoint-video",
+                      "watchEndpointMusicSupportedConfigs": {
+                        "watchEndpointMusicConfig": {
+                          "musicVideoType": "MUSIC_VIDEO_TYPE_OMV"
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Video"
+                },
+                {
+                  "text": " • "
+                },
+                {
+                  "text": "Fixture Artist"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "On Tap Video"
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Video"
+                },
+                {
+                  "text": " • "
+                },
+                {
+                  "text": "Fixture Creator"
+                }
+              ]
+            },
+            "onTap": {
+              "innertubeCommand": {
+                "watchEndpoint": {
+                  "videoId": "on-tap-video",
+                  "watchEndpointMusicSupportedConfigs": {
+                    "watchEndpointMusicConfig": {
+                      "musicVideoType": "MUSIC_VIDEO_TYPE_UGC"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "musicCardShelfRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Thumbnail Overlay Video"
+                }
+              ]
+            },
+            "subtitle": {
+              "runs": [
+                {
+                  "text": "Video"
+                },
+                {
+                  "text": " • "
+                },
+                {
+                  "text": "Fixture Label"
+                }
+              ]
+            },
+            "thumbnailOverlay": {
+              "musicItemThumbnailOverlayRenderer": {
+                "content": {
+                  "musicPlayButtonRenderer": {
+                    "playNavigationEndpoint": {
+                      "watchEndpoint": {
+                        "videoId": "thumbnail-overlay-video",
+                        "watchEndpointMusicSupportedConfigs": {
+                          "watchEndpointMusicConfig": {
+                            "musicVideoType": "MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

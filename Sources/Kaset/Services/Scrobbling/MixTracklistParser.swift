@@ -18,8 +18,45 @@ final class MixTracklistParser {
         case noTracklist
     }
 
+    private struct ParseResult {
+        let tracklist: MixTracklist?
+        let cacheEntry: CacheEntry?
+    }
+
+    private final class WaiterCancellationState: @unchecked Sendable {
+        private let lock = NSLock()
+        private var cancelled = false
+
+        var isCancelled: Bool {
+            self.lock.lock()
+            defer { self.lock.unlock() }
+            return self.cancelled
+        }
+
+        func cancel() {
+            self.lock.lock()
+            self.cancelled = true
+            self.lock.unlock()
+        }
+    }
+
+    private struct ParseWaiter {
+        let continuation: CheckedContinuation<MixTracklist?, Never>
+        let cancellationState: WaiterCancellationState
+    }
+
+    private struct InFlightParse {
+        let id: UUID
+        let task: Task<Void, Never>
+        var waiters: [UUID: ParseWaiter]
+    }
+
     private let youTubeClient: any YouTubeClientProtocol
     private var cache: [String: CacheEntry] = [:]
+    /// In-flight parses keyed by video id. Each caller owns a waiter while all callers for the
+    /// same video share one underlying task. The last cancelled waiter removes and cancels that
+    /// request so a same-video retry can start immediately.
+    private var inFlight: [String: InFlightParse] = [:]
     private let logger = DiagnosticsLogger.scrobbling
 
     init(youTubeClient: any YouTubeClientProtocol) {
@@ -28,8 +65,11 @@ final class MixTracklistParser {
 
     /// Parse a tracklist for a video. Returns nil if no tracklist is available.
     /// Results (including confirmed misses) are cached by video ID for the lifetime
-    /// of this parser instance; transient fetch failures are not cached.
+    /// of this parser instance; transient fetch failures are not cached. Concurrent
+    /// requests for the same video share a single in-flight fetch.
     func parseTracklist(videoId: String) async -> MixTracklist? {
+        guard !Task.isCancelled else { return nil }
+
         if let cached = self.cache[videoId] {
             return switch cached {
             case let .tracklist(tracklist):
@@ -39,18 +79,129 @@ final class MixTracklistParser {
             }
         }
 
+        let waiterID = UUID()
+        let cancellationState = WaiterCancellationState()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.registerWaiter(
+                    continuation,
+                    cancellationState: cancellationState,
+                    videoId: videoId,
+                    waiterID: waiterID
+                )
+            }
+        } onCancel: {
+            cancellationState.cancel()
+            Task { @MainActor [weak self] in
+                self?.cancelWaiter(videoId: videoId, waiterID: waiterID)
+            }
+        }
+    }
+
+    /// Whether this video has a confirmed cached result, including a confirmed non-mix result.
+    /// Transient fetch failures and cancelled requests deliberately remain uncached.
+    func hasCachedResult(for videoId: String) -> Bool {
+        self.cache[videoId] != nil
+    }
+
+    private func registerWaiter(
+        _ continuation: CheckedContinuation<MixTracklist?, Never>,
+        cancellationState: WaiterCancellationState,
+        videoId: String,
+        waiterID: UUID
+    ) {
+        guard !Task.isCancelled, !cancellationState.isCancelled else {
+            continuation.resume(returning: nil)
+            return
+        }
+
+        if var request = self.inFlight[videoId] {
+            self.pruneCancelledWaiters(from: &request)
+            if request.waiters.isEmpty {
+                self.inFlight.removeValue(forKey: videoId)
+                request.task.cancel()
+            } else {
+                request.waiters[waiterID] = ParseWaiter(
+                    continuation: continuation,
+                    cancellationState: cancellationState
+                )
+                self.inFlight[videoId] = request
+                return
+            }
+        }
+
+        let requestID = UUID()
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            let result = await self.performParse(videoId: videoId)
+            self.completeParse(result, videoId: videoId, requestID: requestID)
+        }
+        self.inFlight[videoId] = InFlightParse(
+            id: requestID,
+            task: task,
+            waiters: [
+                waiterID: ParseWaiter(
+                    continuation: continuation,
+                    cancellationState: cancellationState
+                ),
+            ]
+        )
+    }
+
+    private func pruneCancelledWaiters(from request: inout InFlightParse) {
+        let cancelledWaiterIDs = request.waiters.compactMap { waiterID, waiter in
+            waiter.cancellationState.isCancelled ? waiterID : nil
+        }
+        for waiterID in cancelledWaiterIDs {
+            request.waiters.removeValue(forKey: waiterID)?.continuation.resume(returning: nil)
+        }
+    }
+
+    private func cancelWaiter(videoId: String, waiterID: UUID) {
+        guard var request = self.inFlight[videoId],
+              let waiter = request.waiters.removeValue(forKey: waiterID)
+        else { return }
+
+        if request.waiters.isEmpty {
+            self.inFlight.removeValue(forKey: videoId)
+            request.task.cancel()
+        } else {
+            self.inFlight[videoId] = request
+        }
+        waiter.continuation.resume(returning: nil)
+    }
+
+    private func completeParse(_ result: ParseResult, videoId: String, requestID: UUID) {
+        guard let request = self.inFlight[videoId], request.id == requestID else { return }
+        self.inFlight.removeValue(forKey: videoId)
+
+        let hasActiveWaiter = request.waiters.values.contains { !$0.cancellationState.isCancelled }
+        if hasActiveWaiter, let cacheEntry = result.cacheEntry {
+            self.cache[videoId] = cacheEntry
+        }
+        if hasActiveWaiter, let tracklist = result.tracklist {
+            self.logger.info(
+                "Mix tracklist parsed from \(tracklist.source.rawValue): \(tracklist.entries.count) entries for \(videoId)"
+            )
+        }
+        for waiter in request.waiters.values {
+            waiter.continuation.resume(
+                returning: waiter.cancellationState.isCancelled ? nil : result.tracklist
+            )
+        }
+    }
+
+    private func performParse(videoId: String) async -> ParseResult {
         let watchNextData: WatchNextData
         do {
             watchNextData = try await self.youTubeClient.getWatchNext(videoId: videoId)
         } catch {
             self.logger.debug("Tracklist fetch failed for \(videoId): \(error.localizedDescription)")
-            return nil
+            return ParseResult(tracklist: nil, cacheEntry: nil)
         }
 
         if let tracklist = self.parseFromChapters(watchNextData, videoId: videoId) {
-            self.cache[videoId] = .tracklist(tracklist)
-            self.logger.info("Mix tracklist parsed from chapters: \(tracklist.entries.count) entries for \(videoId)")
-            return tracklist
+            return ParseResult(tracklist: tracklist, cacheEntry: .tracklist(tracklist))
         }
 
         if let tracklist = self.parseFromDescription(
@@ -58,13 +209,10 @@ final class MixTracklistParser {
             videoTitle: watchNextData.videoTitle,
             videoId: videoId
         ) {
-            self.cache[videoId] = .tracklist(tracklist)
-            self.logger.info("Mix tracklist parsed from description: \(tracklist.entries.count) entries for \(videoId)")
-            return tracklist
+            return ParseResult(tracklist: tracklist, cacheEntry: .tracklist(tracklist))
         }
 
-        self.cache[videoId] = .noTracklist
-        return nil
+        return ParseResult(tracklist: nil, cacheEntry: .noTracklist)
     }
 
     // MARK: - Tier 1: Chapter Extraction

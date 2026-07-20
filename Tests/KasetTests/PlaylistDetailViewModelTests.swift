@@ -9,14 +9,18 @@ import Testing
 // swiftlint:disable:next type_body_length
 struct PlaylistDetailViewModelTests {
     var mockClient: MockYTMusicClient
+    var likeStatusManager: SongLikeStatusManager
     var viewModel: PlaylistDetailViewModel
 
     init() {
         self.mockClient = MockYTMusicClient()
+        self.likeStatusManager = SongLikeStatusManager()
         let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Test Playlist")
-        self.viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
-        SongLikeStatusManager.shared.clearCache()
-        SongLikeStatusManager.shared.setActiveAccountID(nil)
+        self.viewModel = PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
     }
 
     private func makeLikedMusicPlaylist(trackCount: Int? = nil) -> Playlist {
@@ -38,7 +42,11 @@ struct PlaylistDetailViewModelTests {
             duration: nil
         )
         self.mockClient.playlistDetails[playlist.id] = detail
-        return PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        return PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
     }
 
     private func waitUntil(
@@ -287,8 +295,8 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.count == 2)
         #expect(likedMusicViewModel.playlistDetail?.tracks[0].likeStatus == .like)
         #expect(likedMusicViewModel.playlistDetail?.tracks[1].likeStatus == .like)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-1") == .like)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-2") == .like)
+        #expect(self.likeStatusManager.status(for: "liked-1") == .like)
+        #expect(self.likeStatusManager.status(for: "liked-2") == .like)
     }
 
     @Test("Liked Music loadAllRemaining fetches every continuation")
@@ -499,7 +507,7 @@ struct PlaylistDetailViewModelTests {
     }
 
     @Test("Live-synced loaded removal is not double-counted by continuation overlap")
-    func liveSyncedLoadedRemovalIsNotDoubleCountedByContinuationOverlap() async {
+    func liveSyncedLoadedRemovalIsNotDoubleCountedByContinuationOverlap() async throws {
         let initialTracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks, trackCount: 2)
         self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
@@ -517,26 +525,32 @@ struct PlaylistDetailViewModelTests {
             description: "overlapping delayed continuation to start"
         )
 
-        likedMusicViewModel.handleLikeStatusChange(
-            LikeStatusEvent(videoId: "liked-1", status: .indifferent, song: nil)
+        let manager = self.likeStatusManager
+        let rating = manager.enqueueRating(
+            initialTracks[0],
+            status: .indifferent,
+            client: self.mockClient
         )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
 
         await drainTask.value
+        _ = await rating.value
         await self.waitUntil(
             likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == ["liked-2"],
             description: "continuation drain to skip loaded unlike overlap"
         )
 
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 1)
-        #expect(SongLikeStatusManager.shared.status(for: "liked-1") != .like)
+        #expect(self.likeStatusManager.status(for: "liked-1") != .like)
     }
 
     @Test("Live-synced removal skips not-yet-loaded continuation track")
-    func liveSyncedRemovalSkipsNotYetLoadedContinuationTrack() async {
+    func liveSyncedRemovalSkipsNotYetLoadedContinuationTrack() async throws {
         let initialTracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks, trackCount: 3)
+        let futureSong = TestFixtures.makeSong(id: "future-unliked", title: "Future Unliked")
         self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
-            [TestFixtures.makeSong(id: "future-unliked", title: "Future Unliked")],
+            [futureSong],
             [TestFixtures.makeSong(id: "liked-3", title: "Liked 3")],
         ]
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
@@ -548,11 +562,16 @@ struct PlaylistDetailViewModelTests {
             description: "first delayed continuation to start"
         )
 
-        likedMusicViewModel.handleLikeStatusChange(
-            LikeStatusEvent(videoId: "future-unliked", status: .indifferent, song: nil)
+        let manager = self.likeStatusManager
+        let rating = manager.enqueueRating(
+            futureSong,
+            status: .indifferent,
+            client: self.mockClient
         )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
 
         await drainTask.value
+        _ = await rating.value
         await self.waitUntil(
             self.mockClient.getPlaylistContinuationCallCount == 2 && likedMusicViewModel.playlistDetail?.tracks.map(\.videoId).contains("liked-3") == true,
             description: "continuation drain to skip not-yet-loaded unlike"
@@ -562,15 +581,16 @@ struct PlaylistDetailViewModelTests {
         #expect(videoIds == ["liked-1", "liked-3"])
         #expect(videoIds.contains("future-unliked") == false)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
-        #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
+        #expect(self.likeStatusManager.status(for: "future-unliked") != .like)
     }
 
     @Test("Manual load more preserves live removal after background drain failure")
-    func manualLoadMorePreservesLiveRemovalAfterBackgroundDrainFailure() async {
+    func manualLoadMorePreservesLiveRemovalAfterBackgroundDrainFailure() async throws {
         let initialTracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
         let likedMusicViewModel = self.makeLikedMusicViewModel(with: initialTracks, trackCount: 3)
+        let futureSong = TestFixtures.makeSong(id: "future-unliked", title: "Future Unliked")
         self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
-            [TestFixtures.makeSong(id: "future-unliked", title: "Future Unliked")],
+            [futureSong],
             [TestFixtures.makeSong(id: "liked-3", title: "Liked 3")],
         ]
         self.mockClient.playlistContinuationDelay = .milliseconds(200)
@@ -591,18 +611,30 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationDelay = nil
 
         #expect(likedMusicViewModel.hasMore == true)
-        likedMusicViewModel.handleLikeStatusChange(
-            LikeStatusEvent(videoId: "future-unliked", status: .indifferent, song: nil)
+        let manager = self.likeStatusManager
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        let rating = manager.enqueueRating(
+            futureSong,
+            status: .indifferent,
+            client: self.mockClient
         )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
 
         await likedMusicViewModel.loadMore()
         await likedMusicViewModel.loadMore()
+        await releaseRequest.open()
+        _ = await rating.value
 
         let videoIds = likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) ?? []
         #expect(videoIds == ["liked-1", "liked-3"])
         #expect(videoIds.contains("future-unliked") == false)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
-        #expect(SongLikeStatusManager.shared.status(for: "future-unliked") != .like)
+        #expect(self.likeStatusManager.status(for: "future-unliked") != .like)
         #expect(likedMusicViewModel.hasMore == false)
     }
 
@@ -1114,6 +1146,32 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.playlistDetail?.tracks.first?.videoId == "liked-2")
     }
 
+    @Test("Failed unlike rollback restores the loaded track total")
+    func failedUnlikeRollbackRestoresLoadedTrackTotal() async throws {
+        let manager = self.likeStatusManager
+        let song = TestFixtures.makeSong(id: "rollback-loaded-total", title: "Rollback Loaded")
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [song], trackCount: 1)
+        await likedMusicViewModel.load()
+        manager.setStatus(.like, for: song.videoId)
+        self.mockClient.rateSongErrors = [
+            YTMusicError.networkError(underlying: URLError(.notConnectedToInternet)),
+        ]
+
+        let rating = manager.enqueueRating(
+            song,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 0)
+
+        #expect(await rating.value == .like)
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [song.videoId])
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 1)
+    }
+
     @Test("Liked Music live sync inserts liked song with complete metadata")
     func likedMusicLiveSyncInsertsLikedSongWithCompleteMetadata() async {
         let tracks = [TestFixtures.makeSong(id: "liked-1", title: "Liked 1")]
@@ -1139,7 +1197,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Liked Music optimistic insertion preserves the confirmed rollback baseline")
     func likedMusicOptimisticInsertionPreservesRollbackBaseline() async throws {
-        let manager = SongLikeStatusManager.shared
+        let manager = self.likeStatusManager
         let accountID = "liked-music-rollback-\(UUID().uuidString)"
         manager.setActiveAccountID(accountID)
         defer { manager.setActiveAccountID(nil) }
@@ -1196,6 +1254,7 @@ struct PlaylistDetailViewModelTests {
             artists: [],
             videoId: videoId
         )
+        self.likeStatusManager.setCachedStatus(.like, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(videoId: videoId, status: .like, song: placeholderSong)
         )
@@ -1225,6 +1284,7 @@ struct PlaylistDetailViewModelTests {
             videoId: videoId
         )
 
+        self.likeStatusManager.setCachedStatus(.like, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(
                 videoId: videoId,
@@ -1235,6 +1295,7 @@ struct PlaylistDetailViewModelTests {
 
         try? await Task.sleep(for: .milliseconds(50))
 
+        self.likeStatusManager.setCachedStatus(.indifferent, for: videoId)
         likedMusicViewModel.handleLikeStatusChange(
             LikeStatusEvent(videoId: videoId, status: .indifferent, song: nil)
         )
@@ -1243,6 +1304,513 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.mockClient.getSongVideoIds.contains(videoId))
         #expect(likedMusicViewModel.playlistDetail?.tracks.isEmpty == true)
+    }
+
+    // MARK: - Liked Music Reconciliation Regression Tests
+
+    @Test("Loaded unlike is counted once when an in-flight continuation returns the removed track")
+    func loadedUnlikeIsCountedOnceAcrossContinuationOverlap() async {
+        let manager = self.likeStatusManager
+        let removedSong = TestFixtures.makeSong(id: "loaded-unlike", title: "Loaded Unlike")
+        let continuationSong = TestFixtures.makeSong(id: "continuation-liked", title: "Continuation Liked")
+        let reportedTotal = 2429
+        let likedMusicViewModel = self.makeLikedMusicViewModel(
+            with: [removedSong],
+            trackCount: reportedTotal
+        )
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
+            [removedSong, continuationSong],
+        ]
+
+        let continuationStarted = AsyncGate()
+        let releaseContinuation = AsyncGate()
+        let releaseRating = AsyncGate()
+        self.mockClient.beforePlaylistContinuationReturn = { _ in
+            await continuationStarted.open()
+            await releaseContinuation.wait()
+        }
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await releaseRating.wait()
+        }
+
+        await likedMusicViewModel.load()
+        let drainTask = Task { await likedMusicViewModel.loadAllRemaining() }
+        await continuationStarted.wait()
+
+        let rating = manager.enqueueRating(
+            removedSong,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        if let event = manager.lastLikeEvent {
+            likedMusicViewModel.handleLikeStatusChange(event)
+        } else {
+            Issue.record("Expected an optimistic unlike event")
+        }
+
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal - 1)
+
+        await releaseContinuation.open()
+        await drainTask.value
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [continuationSong.videoId])
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal - 1)
+
+        await releaseRating.open()
+        #expect(await rating.value == .indifferent)
+    }
+
+    @Test("Completed unlike survives a later stale continuation from the initial Liked Music load")
+    func completedUnlikeSurvivesLaterInitialContinuation() async throws {
+        let manager = self.likeStatusManager
+        let removedSong = TestFixtures.makeSong(id: "completed-unlike", title: "Completed Unlike")
+        let continuationSong = TestFixtures.makeSong(id: "later-liked", title: "Later Liked")
+        let reportedTotal = 2
+        let likedMusicViewModel = self.makeLikedMusicViewModel(
+            with: [removedSong],
+            trackCount: reportedTotal
+        )
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [
+            [removedSong, continuationSong],
+        ]
+
+        let ratingStarted = AsyncGate()
+        let releaseRating = AsyncGate()
+        let continuationStarted = AsyncGate()
+        let releaseContinuation = AsyncGate()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await ratingStarted.open()
+            await releaseRating.wait()
+        }
+        self.mockClient.beforePlaylistContinuationReturn = { _ in
+            await continuationStarted.open()
+            await releaseContinuation.wait()
+        }
+
+        await likedMusicViewModel.load()
+        #expect(likedMusicViewModel.hasMore == true)
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+
+        let rating = manager.enqueueRating(
+            removedSong,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+        await ratingStarted.wait()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.isEmpty == true)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal - 1)
+
+        await releaseRating.open()
+        #expect(await rating.value == .indifferent)
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+
+        let continuationTask = Task { await likedMusicViewModel.loadMore() }
+        await continuationStarted.wait()
+        await releaseContinuation.open()
+        await continuationTask.value
+
+        let videoIDs = likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 1)
+        #expect(videoIDs == [continuationSong.videoId])
+        #expect(videoIDs.contains(removedSong.videoId) == false)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal - 1)
+        #expect(likedMusicViewModel.hasMore == false)
+    }
+
+    @Test("Same-account invalidation keeps loaded Liked Music live sync active")
+    func sameAccountInvalidationKeepsLoadedLikedMusicLiveSyncActive() async {
+        let manager = self.likeStatusManager
+        let accountID = "same-account-live-sync"
+        manager.setActiveAccountID(accountID)
+        defer { manager.setActiveAccountID(nil) }
+
+        let song = TestFixtures.makeSong(id: "same-account-unlike", title: "Same Account Unlike")
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [song], trackCount: 1)
+        let releaseRating = AsyncGate()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await releaseRating.wait()
+        }
+
+        await likedMusicViewModel.load()
+        manager.invalidateSession(clearsActiveCache: false)
+
+        let rating = manager.enqueueRating(
+            song,
+            status: .indifferent,
+            client: self.mockClient
+        )
+        if let batch = manager.lastLikeEventBatch {
+            #expect(batch.accountID == accountID)
+            for event in batch.events {
+                likedMusicViewModel.handleLikeStatusChange(event)
+            }
+        } else {
+            Issue.record("Expected a current-account unlike event batch")
+        }
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.isEmpty == true)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 0)
+
+        await releaseRating.open()
+        #expect(await rating.value == .indifferent)
+    }
+
+    @Test("Initial reconciliation increments the reported total once for an omitted pending complete like")
+    func initialReconciliationCountsOmittedPendingCompleteLikeOnce() async {
+        let manager = self.likeStatusManager
+        let existingSong = TestFixtures.makeSong(id: "existing-liked", title: "Existing Liked")
+        let pendingSong = Song(
+            id: "pending-complete-like",
+            title: "Pending Complete Like",
+            artists: [Artist(id: "pending-artist", name: "Pending Artist")],
+            videoId: "pending-complete-like"
+        )
+        let reportedTotal = 2429
+        let likedMusicViewModel = self.makeLikedMusicViewModel(
+            with: [existingSong],
+            trackCount: reportedTotal
+        )
+
+        let initialRequestStarted = AsyncGate()
+        let releaseInitialResponse = AsyncGate()
+        let releaseRating = AsyncGate()
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await initialRequestStarted.open()
+            await releaseInitialResponse.wait()
+        }
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await releaseRating.wait()
+        }
+
+        let loadTask = Task { await likedMusicViewModel.load() }
+        await initialRequestStarted.wait()
+
+        let rating = manager.enqueueRating(
+            pendingSong,
+            status: .like,
+            client: self.mockClient
+        )
+        await releaseInitialResponse.open()
+        await loadTask.value
+
+        let reconciledVideoIDs = likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) ?? []
+        #expect(reconciledVideoIDs.filter { $0 == pendingSong.videoId }.count == 1)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal + 1)
+
+        if let event = manager.lastLikeEvent {
+            likedMusicViewModel.handleLikeStatusChange(event)
+        } else {
+            Issue.record("Expected an optimistic like event")
+        }
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.filter { $0.videoId == pendingSong.videoId }.count == 1)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal + 1)
+
+        await releaseRating.open()
+        #expect(await rating.value == .like)
+    }
+
+    @Test("Initial reconciliation does not increment totals for a failed unlike rollback")
+    func initialReconciliationDoesNotCountFailedUnlikeRollbackAsInsertion() async {
+        let manager = self.likeStatusManager
+        let existingSong = TestFixtures.makeSong(id: "rollback-existing", title: "Existing Song")
+        let rollbackSong = TestFixtures.makeSong(id: "rollback-liked", title: "Rollback Liked")
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [existingSong], trackCount: 2)
+        manager.setStatus(.like, for: rollbackSong.videoId)
+        let initialRequestStarted = AsyncGate()
+        let releaseInitialResponse = AsyncGate()
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await initialRequestStarted.open()
+            await releaseInitialResponse.wait()
+        }
+
+        let loadTask = Task { await likedMusicViewModel.load() }
+        await initialRequestStarted.wait()
+        self.mockClient.rateSongErrors = [
+            YTMusicError.networkError(underlying: URLError(.notConnectedToInternet)),
+        ]
+
+        #expect(await manager.unlike(rollbackSong, client: self.mockClient) == .like)
+
+        await releaseInitialResponse.open()
+        await loadTask.value
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [rollbackSong.videoId, existingSong.videoId])
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
+    }
+
+    @Test("Deferred failed-unlike rollback metadata preserves the reported total")
+    func deferredFailedUnlikeRollbackMetadataPreservesReportedTotal() async {
+        let manager = self.likeStatusManager
+        let existingSong = TestFixtures.makeSong(id: "deferred-rollback-existing", title: "Existing Song")
+        let videoID = "deferred-rollback-liked"
+        let placeholderSong = Song(
+            id: videoID,
+            title: "Loading...",
+            artists: [],
+            videoId: videoID
+        )
+        let resolvedSong = Song(
+            id: videoID,
+            title: "Resolved Rollback Like",
+            artists: [Artist(id: "rollback-artist", name: "Rollback Artist")],
+            videoId: videoID
+        )
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [existingSong], trackCount: 2)
+        manager.setStatus(.like, for: videoID)
+        self.mockClient.songResponses[videoID] = resolvedSong
+        let initialRequestStarted = AsyncGate()
+        let releaseInitialResponse = AsyncGate()
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await initialRequestStarted.open()
+            await releaseInitialResponse.wait()
+        }
+
+        let loadTask = Task { await likedMusicViewModel.load() }
+        await initialRequestStarted.wait()
+        self.mockClient.rateSongErrors = [
+            YTMusicError.networkError(underlying: URLError(.notConnectedToInternet)),
+        ]
+
+        #expect(await manager.unlike(placeholderSong, client: self.mockClient) == .like)
+
+        await releaseInitialResponse.open()
+        await loadTask.value
+        await self.waitUntil(
+            likedMusicViewModel.playlistDetail?.tracks.contains { $0.videoId == videoID } == true,
+            description: "deferred rollback metadata insertion"
+        )
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.first?.title == resolvedSong.title)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
+    }
+
+    @Test("Initial reconciliation resolves an omitted pending placeholder like before insertion")
+    func initialReconciliationResolvesOmittedPendingPlaceholderLike() async {
+        let manager = self.likeStatusManager
+        let existingSong = TestFixtures.makeSong(id: "existing-placeholder-base", title: "Existing Song")
+        let videoID = "pending-placeholder-like"
+        let placeholderSong = Song(
+            id: videoID,
+            title: "Loading...",
+            artists: [],
+            videoId: videoID
+        )
+        let resolvedSong = Song(
+            id: videoID,
+            title: "Resolved Pending Like",
+            artists: [Artist(id: "resolved-artist", name: "Resolved Artist")],
+            thumbnailURL: URL(string: "https://example.com/resolved-pending.jpg"),
+            videoId: videoID
+        )
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [existingSong], trackCount: 1)
+        self.mockClient.songResponses[videoID] = resolvedSong
+
+        let initialRequestStarted = AsyncGate()
+        let releaseInitialResponse = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        let releaseRating = AsyncGate()
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await initialRequestStarted.open()
+            await releaseInitialResponse.wait()
+        }
+        self.mockClient.beforeGetSongReturn = { requestedVideoID in
+            guard requestedVideoID == videoID else { return }
+            await releaseMetadata.wait()
+        }
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await releaseRating.wait()
+        }
+
+        let loadTask = Task { await likedMusicViewModel.load() }
+        await initialRequestStarted.wait()
+
+        let rating = manager.enqueueRating(
+            placeholderSong,
+            status: .like,
+            client: self.mockClient
+        )
+        await releaseInitialResponse.open()
+        await self.waitUntil(
+            self.mockClient.getSongVideoIds.contains(videoID),
+            description: "pending placeholder metadata request"
+        )
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.contains { $0.videoId == videoID } == false)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.contains { $0.title == "Loading..." } == false)
+
+        await releaseMetadata.open()
+        await loadTask.value
+        await self.waitUntil(
+            likedMusicViewModel.playlistDetail?.tracks.contains {
+                $0.videoId == videoID && $0.title == resolvedSong.title
+            } == true,
+            description: "resolved pending placeholder insertion"
+        )
+
+        let resolvedTracks = likedMusicViewModel.playlistDetail?.tracks.filter { $0.videoId == videoID } ?? []
+        #expect(self.mockClient.getSongVideoIds.filter { $0 == videoID }.count == 1)
+        #expect(resolvedTracks.count == 1)
+        #expect(resolvedTracks.first?.title == resolvedSong.title)
+        #expect(resolvedTracks.first?.artistsDisplay == resolvedSong.artistsDisplay)
+        #expect(resolvedTracks.first?.likeStatus == .like)
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
+
+        await releaseRating.open()
+        #expect(await rating.value == .like)
+    }
+
+    @Test("Continuation reconciliation reuses an in-flight placeholder metadata request")
+    func continuationReconciliationReusesInFlightPlaceholderMetadataRequest() async {
+        let manager = self.likeStatusManager
+        let videoID = "reused-placeholder-metadata"
+        let placeholderSong = Song(
+            id: videoID,
+            title: "Loading...",
+            artists: [],
+            videoId: videoID
+        )
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [], trackCount: 0)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [[], []]
+        let ratingStarted = AsyncGate()
+        let releaseRating = AsyncGate()
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeRateSongReturn = { _, _ in
+            await ratingStarted.open()
+            await releaseRating.wait()
+        }
+        self.mockClient.beforeGetSongReturn = { requestedVideoID in
+            guard requestedVideoID == videoID else { return }
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let rating = manager.enqueueRating(
+            placeholderSong,
+            status: .like,
+            client: self.mockClient
+        )
+        await ratingStarted.wait()
+        await likedMusicViewModel.load()
+        await metadataStarted.wait()
+
+        await likedMusicViewModel.loadAllRemaining()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
+        #expect(self.mockClient.getSongVideoIds.filter { $0 == videoID }.count == 1)
+
+        await releaseMetadata.open()
+        await releaseRating.open()
+        _ = await rating.value
+    }
+
+    @Test("Continuation response metadata for an optimistic like increments the reported total")
+    func continuationResponseMetadataForOptimisticLikeIncrementsReportedTotal() async throws {
+        let manager = self.likeStatusManager
+        let existingSong = TestFixtures.makeSong(id: "existing-liked", title: "Existing Liked")
+        let resolvedSong = Song(
+            id: "response-backed-like",
+            title: "Response Backed Like",
+            artists: [Artist(id: "response-artist", name: "Response Artist")],
+            videoId: "response-backed-like"
+        )
+        let placeholderSong = Song(
+            id: resolvedSong.id,
+            title: "Loading...",
+            artists: [],
+            videoId: resolvedSong.videoId
+        )
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [existingSong], trackCount: 1)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [[resolvedSong]]
+        let continuationStarted = AsyncGate()
+        let releaseContinuation = AsyncGate()
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforePlaylistContinuationReturn = { _ in
+            await continuationStarted.open()
+            await releaseContinuation.wait()
+        }
+        self.mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        await likedMusicViewModel.load()
+        let continuationTask = Task { await likedMusicViewModel.loadMore() }
+        await continuationStarted.wait()
+
+        let rating = manager.enqueueRating(
+            placeholderSong,
+            status: .like,
+            client: self.mockClient
+        )
+        try likedMusicViewModel.handleLikeStatusChange(#require(manager.lastLikeEvent))
+        await metadataStarted.wait()
+
+        await releaseContinuation.open()
+        await continuationTask.value
+        _ = await rating.value
+
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [existingSong.videoId, resolvedSong.videoId])
+        #expect(likedMusicViewModel.playlistDetail?.trackCount == 2)
+
+        await releaseMetadata.open()
+    }
+
+    @Test("Continuation drain reaches a later unique page through advancing duplicate-only cursors")
+    func continuationDrainReachesUniquePageAfterAdvancingDuplicates() async {
+        let playlist = Playlist(
+            id: "VL-advancing-duplicate-pages",
+            title: "Advancing Duplicate Pages",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 2
+        )
+        let initialSong = TestFixtures.makeSong(id: "duplicate-page-song", title: "Initial Song")
+        let uniqueSong = TestFixtures.makeSong(id: "later-unique-song", title: "Later Unique Song")
+        let detail = PlaylistDetail(playlist: playlist, tracks: [initialSong], duration: nil)
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+        self.mockClient.playlistDetails[playlist.id] = detail
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            [initialSong],
+            [uniqueSong],
+        ]
+
+        await viewModel.loadAllRemaining()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == [initialSong.videoId, uniqueSong.videoId])
+        #expect(viewModel.hasMore == false)
+    }
+
+    @Test("Continuation drain stops before refetching a cyclic cursor")
+    func continuationDrainStopsBeforeRefetchingCyclicCursor() async {
+        let playlistID = "VL-cyclic-continuation"
+        let song = TestFixtures.makeSong(id: "cyclic-song", title: "Cyclic Song")
+        let playlist = TestFixtures.makePlaylist(id: playlistID, title: "Cyclic Playlist")
+        self.mockClient.playlistDetails[playlistID] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [song],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlistID] = [[song]]
+        let initialToken = "mock-playlist-continuation|\(playlistID)|0"
+        self.mockClient.forcedPlaylistContinuationResponses = [
+            PlaylistContinuationResponse(tracks: [song], continuationToken: "cycle-b"),
+            PlaylistContinuationResponse(tracks: [song], continuationToken: initialToken),
+        ]
+        let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
+
+        await viewModel.load()
+        await viewModel.loadAllRemaining()
+
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
+        #expect(self.mockClient.getPlaylistContinuationTokens == [initialToken, "cycle-b"])
+        #expect(viewModel.hasMore == false)
     }
 
     // MARK: - Refresh Tests
@@ -1276,7 +1844,7 @@ struct PlaylistDetailViewModelTests {
     func loadUsesOriginalPlaylistInfoForUnknownTitle() async {
         // Create a playlist detail with "Unknown Playlist" title
         let unknownPlaylist = Playlist(
-            id: "VL-test-playlist",
+            id: "test-playlist",
             title: "Unknown Playlist",
             description: nil,
             thumbnailURL: nil,
@@ -1293,6 +1861,7 @@ struct PlaylistDetailViewModelTests {
         await self.viewModel.load()
 
         // Should use original playlist title "Test Playlist" instead of "Unknown Playlist"
+        #expect(self.viewModel.playlistDetail?.id == "VL-test-playlist")
         #expect(self.viewModel.playlistDetail?.title == "Test Playlist")
     }
 

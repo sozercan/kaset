@@ -8,6 +8,14 @@ struct CommandExecutor {
         let queueGeneration: Int?
     }
 
+    private struct ResolvedContentRequest {
+        let intent: MusicIntent
+        let query: String
+        let description: String
+        let source: ContentSource
+        let groundingQuery: String
+    }
+
     enum Request: Equatable {
         case pause
         case resume
@@ -21,14 +29,14 @@ struct CommandExecutor {
         case playSearch(query: String, description: String)
         case queueSearch(query: String, description: String)
         case openSearch(query: String)
-        case musicIntent(MusicIntent)
+        case musicIntent(MusicIntent, originalQuery: String)
 
         var requiresPlaybackClaim: Bool {
             switch self {
             case .pause, .resume, .skip, .previous, .clearQueue, .shuffleQueue,
                  .toggleShuffle, .playSearch:
                 true
-            case let .musicIntent(intent):
+            case let .musicIntent(intent, _):
                 switch intent.action {
                 case .play, .shuffle, .skip, .previous, .pause, .resume:
                     true
@@ -44,7 +52,7 @@ struct CommandExecutor {
             switch self {
             case .queueSearch:
                 true
-            case let .musicIntent(intent):
+            case let .musicIntent(intent, _):
                 intent.action == .queue
             default:
                 false
@@ -55,7 +63,7 @@ struct CommandExecutor {
             switch self {
             case .like, .dislike:
                 true
-            case let .musicIntent(intent):
+            case let .musicIntent(intent, _):
                 intent.action == .like || intent.action == .dislike
             default:
                 false
@@ -109,7 +117,7 @@ struct CommandExecutor {
     let client: any YTMusicClientProtocol
     let playerService: any PlayerServiceProtocol
 
-    private let logger = DiagnosticsLogger.ai
+    let logger = DiagnosticsLogger.ai
 
     func execute(
         _ request: Request,
@@ -161,9 +169,10 @@ struct CommandExecutor {
             )
         case let .openSearch(query):
             return .openSearch(query)
-        case let .musicIntent(intent):
+        case let .musicIntent(intent, originalQuery):
             return await self.executeMusicIntent(
                 intent,
+                originalQuery: originalQuery,
                 ownership: QueueCommandOwnership(
                     playbackIntent: playbackIntent,
                     queueGeneration: queueGeneration
@@ -300,11 +309,13 @@ struct CommandExecutor {
 
     private func executeMusicIntent(
         _ intent: MusicIntent,
+        originalQuery: String,
         ownership: QueueCommandOwnership
     ) async -> Outcome {
-        let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent)
-        let description = ContentSourceResolver.queryDescription(for: intent)
-        let contentSource = ContentSourceResolver.suggestedContentSource(for: intent)
+        let intent = ContentSourceResolver.groundedIntent(intent, groundingQuery: originalQuery)
+        let searchQuery = ContentSourceResolver.buildSearchQuery(from: intent, groundingQuery: originalQuery)
+        let description = ContentSourceResolver.queryDescription(for: intent, groundingQuery: originalQuery)
+        let contentSource = ContentSourceResolver.suggestedContentSource(for: intent, groundingQuery: originalQuery)
 
         self.logger.info("Executing intent: \(intent.action.rawValue)")
         self.logger.info("  Raw query: \(intent.query)")
@@ -322,10 +333,13 @@ struct CommandExecutor {
             }
             guard let playbackIntent = ownership.playbackIntent else { return .ignored }
             return await self.playContent(
-                intent: intent,
-                query: searchQuery,
-                description: description,
-                source: contentSource,
+                ResolvedContentRequest(
+                    intent: intent,
+                    query: searchQuery,
+                    description: description,
+                    source: contentSource,
+                    groundingQuery: originalQuery
+                ),
                 playbackIntent: playbackIntent
             )
 
@@ -333,10 +347,13 @@ struct CommandExecutor {
             HapticService.success()
             if !searchQuery.isEmpty {
                 return await self.queueContent(
-                    intent: intent,
-                    query: searchQuery,
-                    description: description,
-                    source: contentSource,
+                    ResolvedContentRequest(
+                        intent: intent,
+                        query: searchQuery,
+                        description: description,
+                        source: contentSource,
+                        groundingQuery: originalQuery
+                    ),
                     ownership: ownership
                 )
             }
@@ -384,7 +401,8 @@ struct CommandExecutor {
 
         case .search:
             let fallbackQuery = intent.query.isEmpty ? searchQuery : intent.query
-            return .openSearch(fallbackQuery.trimmingCharacters(in: .whitespacesAndNewlines))
+            let queryToOpen = CommandIntentParser.explicitSearchQuery(from: originalQuery) ?? fallbackQuery
+            return .openSearch(queryToOpen.trimmingCharacters(in: .whitespacesAndNewlines))
         }
     }
 
@@ -463,15 +481,15 @@ struct CommandExecutor {
     }
 
     private func playContent(
-        intent: MusicIntent,
-        query: String,
-        description: String,
-        source: ContentSource,
+        _ request: ResolvedContentRequest,
         playbackIntent: MusicPlaybackIntent
     ) async -> Outcome {
-        switch source {
+        let intent = request.intent
+        let query = request.query
+        let description = request.description
+        switch request.source {
         case .moodsAndGenres:
-            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
+            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent, groundingQuery: request.groundingQuery), !songs.isEmpty {
                 guard self.commandStillOwnsPlayback(playbackIntent) else { return .ignored }
                 await self.playerService.playQueue(
                     songs,
@@ -518,15 +536,15 @@ struct CommandExecutor {
     }
 
     private func queueContent(
-        intent: MusicIntent,
-        query: String,
-        description: String,
-        source: ContentSource,
+        _ request: ResolvedContentRequest,
         ownership: QueueCommandOwnership
     ) async -> Outcome {
-        switch source {
+        let intent = request.intent
+        let query = request.query
+        let description = request.description
+        switch request.source {
         case .moodsAndGenres:
-            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent) {
+            if let songs = await self.findSongsFromMoodsAndGenres(intent: intent, groundingQuery: request.groundingQuery), !songs.isEmpty {
                 guard self.commandStillOwnsQueue(ownership) else { return .ignored }
                 if self.playerService.queue.isEmpty {
                     guard let playbackIntent = ownership.playbackIntent else { return .ignored }
@@ -582,118 +600,5 @@ struct CommandExecutor {
                 ownership: ownership
             )
         }
-    }
-
-    private func findSongsFromMoodsAndGenres(intent: MusicIntent) async -> [Song]? {
-        do {
-            let response = try await self.client.getMoodsAndGenres()
-            let searchTerms = self.buildSearchTerms(from: intent)
-            self.logger.info("Searching Moods & Genres with terms: \(searchTerms)")
-
-            for section in response.sections {
-                if self.matchesSearchTerms(section.title, searchTerms) {
-                    if let playlistItem = section.items.first(where: { $0.playlist != nil }),
-                       let playlist = playlistItem.playlist
-                    {
-                        return try await self.fetchPlaylistSongs(playlistId: playlist.id)
-                    }
-
-                    let songs = section.items.compactMap { item -> Song? in
-                        if case let .song(song) = item {
-                            return song
-                        }
-                        return nil
-                    }
-                    if !songs.isEmpty {
-                        return Array(songs.prefix(25))
-                    }
-                }
-
-                for item in section.items where self.matchesSearchTerms(item.title, searchTerms) {
-                    if let playlist = item.playlist {
-                        return try await self.fetchPlaylistSongs(playlistId: playlist.id)
-                    }
-                }
-            }
-
-            self.logger.info("No matching Moods & Genres content found")
-            return nil
-        } catch {
-            self.logger.error("Failed to fetch Moods & Genres: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    private func findSongsFromCharts() async -> [Song]? {
-        do {
-            let response = try await self.client.getCharts()
-
-            for section in response.sections {
-                let songs = section.items.compactMap { item -> Song? in
-                    if case let .song(song) = item {
-                        return song
-                    }
-                    return nil
-                }
-                if songs.count >= 5 {
-                    return Array(songs.prefix(25))
-                }
-            }
-
-            return nil
-        } catch {
-            self.logger.error("Failed to fetch Charts: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    private func fetchPlaylistSongs(playlistId: String) async throws -> [Song] {
-        let response = try await self.client.getPlaylist(id: playlistId)
-        return Array(response.detail.tracks.prefix(25))
-    }
-
-    private func buildSearchTerms(from intent: MusicIntent) -> [String] {
-        var terms: [String] = []
-
-        if !intent.mood.isEmpty {
-            let mood = intent.mood.lowercased()
-            terms.append(mood)
-            terms.append(contentsOf: self.moodSynonyms(for: mood))
-        }
-        if !intent.genre.isEmpty {
-            terms.append(intent.genre.lowercased())
-        }
-        if !intent.activity.isEmpty {
-            terms.append(intent.activity.lowercased())
-        }
-        if !intent.query.isEmpty {
-            terms.append(contentsOf: intent.query.lowercased().split(separator: " ").map { String($0) })
-        }
-
-        return terms
-    }
-
-    private func moodSynonyms(for mood: String) -> [String] {
-        switch mood {
-        case "chill", "relaxing", "calm":
-            ["chill", "relax", "calm", "peaceful", "ambient", "lo-fi", "lofi", "mellow"]
-        case "energetic", "upbeat", "happy":
-            ["energy", "upbeat", "happy", "pump", "hype", "workout", "party"]
-        case "sad", "melancholic":
-            ["sad", "melancholy", "heartbreak", "emotional", "moody"]
-        case "focus", "study":
-            ["focus", "study", "concentrate", "work", "productivity"]
-        case "romantic", "love":
-            ["romance", "romantic", "love", "date"]
-        case "sleep", "bedtime":
-            ["sleep", "bedtime", "night", "ambient", "calm"]
-        default:
-            []
-        }
-    }
-
-    private func matchesSearchTerms(_ title: String, _ terms: [String]) -> Bool {
-        let titleLower = title.lowercased()
-        return terms.contains { titleLower.contains($0) }
     }
 }
