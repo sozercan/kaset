@@ -128,6 +128,77 @@ struct SearchViewModelTests {
         #expect(filters.contains(.podcasts))
     }
 
+    @Test("Video, profile, and episode filters are available")
+    func newSemanticFiltersAreAvailable() {
+        let filters = SearchViewModel.SearchFilter.allCases
+        #expect(filters.contains(.videos))
+        #expect(filters.contains(.profiles))
+        #expect(filters.contains(.episodes))
+        #expect(SearchViewModel.SearchFilter.videos.displayName == String(localized: "Videos"))
+        #expect(SearchViewModel.SearchFilter.profiles.displayName == String(localized: "Profiles"))
+        #expect(SearchViewModel.SearchFilter.episodes.displayName == String(localized: "Episodes"))
+    }
+
+    @Test(
+        "New semantic filters route to their dedicated endpoints",
+        arguments: [
+            (SearchViewModel.SearchFilter.videos, MockYTMusicClient.SearchEndpoint.videos),
+            (SearchViewModel.SearchFilter.profiles, MockYTMusicClient.SearchEndpoint.profiles),
+            (SearchViewModel.SearchFilter.episodes, MockYTMusicClient.SearchEndpoint.episodes),
+        ]
+    )
+    func newSemanticFiltersRoute(
+        filter: SearchViewModel.SearchFilter,
+        endpoint: MockYTMusicClient.SearchEndpoint
+    ) async {
+        self.viewModel.query = "semantic"
+        self.viewModel.selectedFilter = filter
+
+        await self.waitUntil(
+            self.mockClient.completedSearchEndpoints.contains(endpoint),
+            description: "\(filter.rawValue) search endpoint"
+        )
+
+        #expect(self.viewModel.loadingState == .loaded)
+    }
+
+    @Test("Albums filter preserves audiobook semantics")
+    func albumsFilterIncludesAudiobooks() async {
+        let album = Album(
+            id: "MPREalbum",
+            title: "Album",
+            artists: nil,
+            thumbnailURL: nil,
+            year: nil,
+            trackCount: nil
+        )
+        let audiobook = Album(
+            id: "MPREb_audiobook",
+            title: "Audiobook",
+            artists: nil,
+            thumbnailURL: nil,
+            year: nil,
+            trackCount: nil
+        )
+        self.mockClient.albumsSearchResponse = SearchResponse(items: [
+            .album(album),
+            .audiobook(audiobook),
+        ])
+
+        self.viewModel.query = "spoken word"
+        self.viewModel.selectedFilter = .albums
+        self.viewModel.searchImmediately()
+        await self.waitUntil(
+            self.viewModel.filteredItems.count == 2,
+            description: "album and audiobook results"
+        )
+
+        #expect(self.viewModel.filteredItems.map(\.id) == [
+            "album-MPREalbum",
+            "audiobook-MPREb_audiobook",
+        ])
+    }
+
     @Test("Podcast filter has correct raw value")
     func podcastFilterRawValue() {
         #expect(SearchViewModel.SearchFilter.podcasts.rawValue == "Podcasts")
@@ -233,31 +304,74 @@ struct SearchViewModelTests {
             podcastShows: [TestFixtures.makePodcastShow()],
             continuationToken: nil
         )
+        let videosResponse = SearchResponse(videos: [Song(
+            id: "video",
+            title: "Video",
+            artists: [],
+            videoId: "video",
+            musicVideoType: .ugc
+        )])
+        let profilesResponse = SearchResponse(profiles: [Artist(
+            id: "UCprofile",
+            name: "Profile",
+            profileKind: .profile
+        )])
+        let episode = PodcastEpisode(
+            id: "episode",
+            title: "Episode",
+            showTitle: "Show",
+            showBrowseId: "MPSPPshow",
+            description: nil,
+            thumbnailURL: nil,
+            publishedDate: nil,
+            duration: nil,
+            durationSeconds: nil,
+            playbackProgress: 0,
+            isPlayed: false
+        )
+        let episodesResponse = SearchResponse(podcastEpisodes: [episode])
 
         self.mockClient.mixedSearchResponse = .empty
         self.mockClient.songsSearchResponse = songsResponse
+        self.mockClient.videosSearchResponse = videosResponse
         self.mockClient.albumsSearchResponse = albumsResponse
         self.mockClient.artistsSearchResponse = artistsResponse
+        self.mockClient.profilesSearchResponse = profilesResponse
         self.mockClient.featuredPlaylistsSearchResponse = playlistsResponse
         self.mockClient.communityPlaylistsSearchResponse = playlistsResponse
         self.mockClient.podcastsSearchResponse = podcastsResponse
+        self.mockClient.episodesSearchResponse = episodesResponse
 
         self.viewModel.query = "lofi"
         self.viewModel.selectedFilter = .all
         self.viewModel.searchImmediately()
         await self.waitUntil(
-            self.viewModel.filteredItems.count == 6,
+            self.viewModel.filteredItems.count == 9,
             description: "all-filter aggregate results"
         )
 
         #expect(self.viewModel.loadingState == .loaded)
-        #expect(self.viewModel.filteredItems.count == 6)
+        #expect(self.viewModel.filteredItems.count == 9)
+        #expect(self.viewModel.results.allItems.map(\.id) == [
+            "song-video-0",
+            "song-video-1",
+            "video-video",
+            "album-MPRE-search-0",
+            "artist-UC-search-0",
+            "profile-UCprofile",
+            "playlist-VL-search-0",
+            "podcast-MPSPPLXz2p9test123",
+            "episode-episode",
+        ])
         #expect(self.viewModel.results.songs.count == 2)
+        #expect(self.viewModel.results.videos.count == 1)
         #expect(self.viewModel.results.albums.count == 1)
         #expect(self.viewModel.results.artists.count == 1)
+        #expect(self.viewModel.results.profiles.count == 1)
         #expect(self.viewModel.results.playlists.count == 1)
         #expect(self.viewModel.results.podcastShows.count == 1)
-        #expect(self.mockClient.searchQueries.count == 7)
+        #expect(self.viewModel.results.podcastEpisodes.count == 1)
+        #expect(self.mockClient.searchQueries.count == 10)
     }
 
     @Test("All filter uses mixed response without category fanout when mixed has results")
@@ -364,6 +478,94 @@ struct SearchViewModelTests {
         #expect(error.title == "Connection Error")
         #expect(error.isRetryable)
         #expect(self.viewModel.results.isEmpty)
-        #expect(self.mockClient.searchQueries.count == 7)
+        #expect(self.mockClient.searchQueries.count == 10)
+    }
+
+    @Test("Mock reset clears the search continuation return hook")
+    func mockResetClearsSearchContinuationHook() {
+        self.mockClient.beforeSearchContinuationReturn = { _ in }
+
+        self.mockClient.reset()
+
+        #expect(self.mockClient.beforeSearchContinuationReturn == nil)
+        #expect(self.mockClient.getSearchContinuationTokens.isEmpty)
+    }
+
+    @Test("Stale pagination cannot append into a newer search")
+    func stalePaginationCannotCorruptNewerSearch() async {
+        let continuationGate = AsyncGate()
+        let oldSong = TestFixtures.makeSong(id: "old", title: "Old")
+        let staleSong = TestFixtures.makeSong(id: "stale", title: "Stale")
+        let newSong = TestFixtures.makeSong(id: "new", title: "New")
+
+        self.mockClient.songsSearchResponse = SearchResponse(
+            songs: [oldSong],
+            continuationToken: "old-page-two"
+        )
+        self.mockClient.searchContinuationResponses["old-page-two"] = SearchResponse(
+            songs: [staleSong],
+            continuationToken: nil
+        )
+        self.mockClient.beforeSearchContinuationReturn = { token in
+            if token == "old-page-two" {
+                await continuationGate.wait()
+            }
+        }
+
+        self.viewModel.query = "old"
+        self.viewModel.selectedFilter = .songs
+        await self.waitUntil(
+            self.viewModel.loadingState == .loaded && self.viewModel.results.hasMore,
+            description: "old paginated search"
+        )
+
+        let paginationTask = Task { await self.viewModel.loadMore() }
+        await self.waitUntil(
+            self.mockClient.getSearchContinuationTokens == ["old-page-two"],
+            description: "stale continuation request"
+        )
+        #expect(self.viewModel.loadingState == .loadingMore)
+        #expect(self.viewModel.results.allItems.map(\.id) == ["song-old"])
+
+        self.mockClient.songsSearchResponse = SearchResponse(songs: [newSong])
+        self.viewModel.query = "new"
+        self.viewModel.searchImmediately()
+        await self.waitUntil(
+            self.viewModel.results.songs.map(\.id) == ["new"],
+            description: "new search results"
+        )
+
+        await continuationGate.open()
+        await paginationTask.value
+
+        #expect(self.viewModel.results.allItems.map(\.id) == ["song-new"])
+        #expect(self.viewModel.loadingState == .loaded)
+    }
+
+    @Test("Load more uses explicit continuation and preserves first occurrence order")
+    func loadMoreUsesExplicitContinuationAndDeduplicates() async {
+        let first = TestFixtures.makeSong(id: "first", title: "First")
+        let second = TestFixtures.makeSong(id: "second", title: "Second")
+        self.mockClient.songsSearchResponse = SearchResponse(
+            songs: [first],
+            continuationToken: "page-two"
+        )
+        self.mockClient.searchContinuationResponses["page-two"] = SearchResponse(
+            songs: [first, second],
+            continuationToken: nil
+        )
+
+        self.viewModel.query = "ordered"
+        self.viewModel.selectedFilter = .songs
+        await self.waitUntil(
+            self.viewModel.loadingState == .loaded && self.viewModel.results.hasMore,
+            description: "initial paginated search"
+        )
+
+        await self.viewModel.loadMore()
+
+        #expect(self.mockClient.getSearchContinuationTokens == ["page-two"])
+        #expect(self.viewModel.results.allItems.map(\.id) == ["song-first", "song-second"])
+        #expect(self.viewModel.results.hasMore == false)
     }
 }

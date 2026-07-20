@@ -366,6 +366,65 @@ struct ParsingHelpersTests {
         #expect(artists.allSatisfy { !$0.hasNavigableId })
     }
 
+    @Test(
+        "Content type labels are not treated as plain artist names",
+        arguments: ["Audiobook", "Single", "EP", "Profile", "Podcast Episode"]
+    )
+    func contentTypeLabelsAreNotPlainArtists(label: String) {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Fixture Result"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": label],
+                                ["text": " • "],
+                                ["text": "Fixture Creator"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.map(\.name) == ["Fixture Creator"])
+    }
+
+    @Test("Middle-dot separators are excluded from plain artist fallback")
+    func middleDotSeparatorsAreNotArtists() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Fixture Video"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": "Video"],
+                                ["text": " · "],
+                                ["text": "Fixture Creator"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.map(\.name) == ["Fixture Creator"])
+    }
+
     // MARK: - Video ID Extraction
 
     @Test("Extract video ID from playlistItemData")

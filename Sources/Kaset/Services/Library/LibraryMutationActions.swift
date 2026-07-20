@@ -142,7 +142,8 @@ enum LibraryMutationActions {
         }
 
         let operationID = UUID()
-        let removedPins = SidebarPinnedItemsManager.shared.removePlaylistPins(matching: playlist.id)
+        let pinnedItemsManager = SidebarPinnedItemsManager.shared
+        let removedPins = pinnedItemsManager.stagePlaylistPinRemoval(matching: playlist.id)
         let removalReceipt = LibraryMutationBroadcaster.shared.playlistRemoved(
             playlistId: playlist.id
         )
@@ -152,6 +153,7 @@ enum LibraryMutationActions {
                 guard isCurrent() else { throw CancellationError() }
                 try await client.deletePlaylist(playlistId: playlist.id)
                 didDeleteRemotely = true
+                pinnedItemsManager.commitPlaylistPinRemoval(removedPins)
                 guard isCurrent() else { throw CancellationError() }
                 self.invalidateResponseCaches()
                 libraryViewModel?.markNeedsReloadOnActivation()
@@ -165,11 +167,11 @@ enum LibraryMutationActions {
             } catch {
                 guard isCurrent() else {
                     if !didDeleteRemotely {
-                        SidebarPinnedItemsManager.shared.restore(removedPins)
+                        pinnedItemsManager.restore(removedPins)
                     }
                     throw CancellationError()
                 }
-                SidebarPinnedItemsManager.shared.restore(removedPins)
+                pinnedItemsManager.restore(removedPins)
                 LibraryMutationBroadcaster.shared.rollbackPlaylistRemoval(
                     playlist,
                     receipt: removalReceipt

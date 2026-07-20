@@ -87,7 +87,15 @@ jobs:
         # (Xcode 26 + Sequoia) during XCTest discovery. The unit suite is
         # entirely Swift Testing; the only XCTest target is the manual
         # ParserPerformanceTests, which is invoked separately via xcodebuild.
-        run: swift test -q --skip KasetUITests --disable-xctest
+        # Swift Testing's cross-suite parallelism is also unstable on the
+        # macOS 15 runner because suites share process-wide app singletons.
+        # Keep Tahoe parallel, but serialize Sequoia to avoid unrelated flakes.
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-15" ]]; then
+            swift test -q --skip KasetUITests --disable-xctest --no-parallel
+          else
+            swift test -q --skip KasetUITests --disable-xctest
+          fi
 
   macos_ui_tests:
     name: macOS UI Tests (${{ matrix.os }})

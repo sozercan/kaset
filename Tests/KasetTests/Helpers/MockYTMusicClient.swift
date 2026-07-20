@@ -9,12 +9,15 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         case mixed
         case songs
         case songsWithPagination
+        case videos
         case albums
         case artists
+        case profiles
         case playlists
         case featuredPlaylists
         case communityPlaylists
         case podcasts
+        case episodes
     }
 
     private static func playlistContinuationToken(playlistId: String, index: Int) -> String {
@@ -52,13 +55,16 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var searchResponse: SearchResponse = .empty
     var mixedSearchResponse: SearchResponse?
     var songsSearchResponse: SearchResponse?
+    var videosSearchResponse: SearchResponse?
     var albumsSearchResponse: SearchResponse?
     var artistsSearchResponse: SearchResponse?
+    var profilesSearchResponse: SearchResponse?
     var playlistsSearchResponse: SearchResponse?
     var featuredPlaylistsSearchResponse: SearchResponse?
     var communityPlaylistsSearchResponse: SearchResponse?
     var podcastsSearchResponse: SearchResponse?
-    var searchContinuationResponses: [SearchResponse] = []
+    var episodesSearchResponse: SearchResponse?
+    var searchContinuationResponses: [String: SearchResponse] = [:]
     var searchSuggestions: [SearchSuggestion] = []
     var libraryPlaylists: [Playlist] = []
     var libraryArtists: [Artist] = []
@@ -100,10 +106,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var playlistDetails: [String: PlaylistDetail] = [:]
     var playlistAllTracks: [String: [Song]] = [:]
     var playlistContinuationTracks: [String: [[Song]]] = [:]
+    var forcedPlaylistContinuationResponses: [PlaylistContinuationResponse] = []
     var artistDetails: [String: ArtistDetail] = [:]
     var artistSongs: [String: [Song]] = [:]
     var artistSongsResponse: [Song] = []
     var moodCategoryResponse: HomeResponse = .init(sections: [])
+    var moodCategoryResponses: [String: HomeResponse] = [:]
+    var moodCategoryError: Error?
     var lyricsResponses: [String: Lyrics] = [:]
     var radioQueueSongs: [String: [Song]] = [:]
     var songResponses: [String: Song] = [:]
@@ -166,12 +175,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._likedSongsContinuationIndex < self.likedSongsContinuationSongs.count
     }
 
-    private var _searchContinuationIndex = 0
-
-    var hasMoreSearchResults: Bool {
-        self._searchContinuationIndex < self.searchContinuationResponses.count
-    }
-
     // MARK: - Call Tracking
 
     private(set) var getHomeCalled = false
@@ -197,8 +200,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var searchCalled = false
     private(set) var searchQueries: [String] = []
     private(set) var completedSearchEndpoints: [SearchEndpoint] = []
+    private(set) var getSearchContinuationTokens: [String] = []
 
     var beforeSearchReturn: (@Sendable (String, SearchEndpoint) async -> Void)?
+    var beforeSearchContinuationReturn: (@Sendable (String) async -> Void)?
     var beforeGetSongReturn: (@Sendable (String) async -> Void)?
     var beforeGetPlaylistReturn: (@Sendable (String) async -> Void)?
     var beforePlaylistContinuationReturn: (@Sendable (String) async -> Void)?
@@ -299,10 +304,15 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var getRadioQueueCalled = false
     private(set) var getRadioQueueVideoIds: [String] = []
     private(set) var moodCategoryCalled = false
+    private(set) var moodCategoryBrowseIds: [String] = []
+    private(set) var moodCategoryParams: [String?] = []
 
     // MARK: - Error Simulation
 
     var shouldThrowError: Error?
+
+    /// Per-call getSong errors, keyed by the one-based call ordinal.
+    var getSongErrorsByCallCount: [Int: Error] = [:]
 
     /// Per-seed radio errors: `getRadioQueue(videoId:)` throws the mapped error for that seed only,
     /// so tests can simulate a transient failure on one seed while others succeed.
@@ -525,7 +535,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func search(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .mixed)
         defer { self.completedSearchEndpoints.append(.mixed) }
         if let error = shouldThrowError {
@@ -548,158 +557,163 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func searchSongsWithPagination(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .songsWithPagination)
         defer { self.completedSearchEndpoints.append(.songsWithPagination) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.songsSearchResponse ?? self.searchResponse
         return SearchResponse(
             songs: response.songs,
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
+        )
+    }
+
+    func searchVideos(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        await self.waitBeforeSearchReturn(query: query, endpoint: .videos)
+        defer { self.completedSearchEndpoints.append(.videos) }
+        if let error = shouldThrowError {
+            throw error
+        }
+        let response = self.videosSearchResponse ?? self.searchResponse
+        return SearchResponse(
+            videos: response.videos,
+            continuationToken: response.continuationToken
         )
     }
 
     func searchAlbums(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .albums)
         defer { self.completedSearchEndpoints.append(.albums) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.albumsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
             albums: response.albums,
-            artists: [],
-            playlists: [],
-            continuationToken: hasMore ? "mock-token" : nil
+            audiobooks: response.audiobooks,
+            continuationToken: response.continuationToken
         )
     }
 
     func searchArtists(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .artists)
         defer { self.completedSearchEndpoints.append(.artists) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.artistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
-            albums: [],
             artists: response.artists,
-            playlists: [],
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
+        )
+    }
+
+    func searchProfiles(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        await self.waitBeforeSearchReturn(query: query, endpoint: .profiles)
+        defer { self.completedSearchEndpoints.append(.profiles) }
+        if let error = shouldThrowError {
+            throw error
+        }
+        let response = self.profilesSearchResponse ?? self.searchResponse
+        return SearchResponse(
+            profiles: response.profiles,
+            continuationToken: response.continuationToken
         )
     }
 
     func searchPlaylists(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .playlists)
         defer { self.completedSearchEndpoints.append(.playlists) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.playlistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
             playlists: response.playlists,
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
         )
     }
 
     func searchFeaturedPlaylists(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .featuredPlaylists)
         defer { self.completedSearchEndpoints.append(.featuredPlaylists) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.featuredPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
             playlists: response.playlists,
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
         )
     }
 
     func searchCommunityPlaylists(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .communityPlaylists)
         defer { self.completedSearchEndpoints.append(.communityPlaylists) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.communityPlaylistsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
             playlists: response.playlists,
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
         )
     }
 
     func searchPodcasts(query: String) async throws -> SearchResponse {
         self.searchCalled = true
         self.searchQueries.append(query)
-        self._searchContinuationIndex = 0
         await self.waitBeforeSearchReturn(query: query, endpoint: .podcasts)
         defer { self.completedSearchEndpoints.append(.podcasts) }
         if let error = shouldThrowError {
             throw error
         }
-        let hasMore = !self.searchContinuationResponses.isEmpty
         let response = self.podcastsSearchResponse ?? self.searchResponse
         return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: response.playlists,
             podcastShows: response.podcastShows,
-            continuationToken: hasMore ? "mock-token" : nil
+            continuationToken: response.continuationToken
         )
     }
 
-    func getSearchContinuation() async throws -> SearchResponse? {
+    func searchEpisodes(query: String) async throws -> SearchResponse {
+        self.searchCalled = true
+        self.searchQueries.append(query)
+        await self.waitBeforeSearchReturn(query: query, endpoint: .episodes)
+        defer { self.completedSearchEndpoints.append(.episodes) }
         if let error = shouldThrowError {
             throw error
         }
-        guard self._searchContinuationIndex < self.searchContinuationResponses.count else {
-            return nil
-        }
-        let response = self.searchContinuationResponses[self._searchContinuationIndex]
-        self._searchContinuationIndex += 1
-        return response
+        let response = self.episodesSearchResponse ?? self.searchResponse
+        return SearchResponse(
+            podcastEpisodes: response.podcastEpisodes,
+            continuationToken: response.continuationToken
+        )
     }
 
-    func clearSearchContinuation() {
-        self._searchContinuationIndex = 0
+    func getSearchContinuation(token: String) async throws -> SearchResponse {
+        self.getSearchContinuationTokens.append(token)
+        if let beforeSearchContinuationReturn {
+            await beforeSearchContinuationReturn(token)
+        }
+        if let error = shouldThrowError {
+            throw error
+        }
+        return self.searchContinuationResponses[token] ?? .empty
     }
 
     func resetSessionStateForAccountSwitch() {
@@ -713,7 +727,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self._historyContinuationIndex = 0
         self._podcastsContinuationIndex = 0
         self._likedSongsContinuationIndex = 0
-        self._searchContinuationIndex = 0
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
@@ -831,6 +844,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         if let error = shouldThrowError {
             throw error
+        }
+        if !self.forcedPlaylistContinuationResponses.isEmpty {
+            return self.forcedPlaylistContinuationResponses.removeFirst()
         }
         guard let (playlistId, index) = Self.parsePlaylistContinuationToken(token),
               let continuations = playlistContinuationTracks[playlistId],
@@ -1183,11 +1199,15 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getSong(videoId: String) async throws -> Song {
         self.getSongCalled = true
         self.getSongVideoIds.append(videoId)
+        let callCount = self.getSongVideoIds.count
         if let getSongDelay = self.getSongDelay {
             try? await Task.sleep(for: getSongDelay)
         }
         if let beforeGetSongReturn {
             await beforeGetSongReturn(videoId)
+        }
+        if let error = self.getSongErrorsByCallCount[callCount] {
+            throw error
         }
         if let error = shouldThrowError {
             throw error
@@ -1236,10 +1256,18 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.mixQueueContinuationResult
     }
 
-    func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
+    func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse {
         self.moodCategoryCalled = true
+        self.moodCategoryBrowseIds.append(browseId)
+        self.moodCategoryParams.append(params)
         if let error = shouldThrowError {
             throw error
+        }
+        if let moodCategoryError {
+            throw moodCategoryError
+        }
+        if let response = moodCategoryResponses[params ?? ""] {
+            return response
         }
         return self.moodCategoryResponse
     }
@@ -1289,7 +1317,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.searchCalled = false
         self.searchQueries = []
         self.completedSearchEndpoints = []
+        self.getSearchContinuationTokens = []
         self.beforeSearchReturn = nil
+        self.beforeSearchContinuationReturn = nil
         self.beforeGetSongReturn = nil
         self.beforeGetPlaylistReturn = nil
         self.beforePlaylistContinuationReturn = nil
@@ -1371,6 +1401,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getRadioQueueCalled = false
         self.getRadioQueueVideoIds = []
         self.moodCategoryCalled = false
+        self.moodCategoryBrowseIds = []
+        self.moodCategoryParams = []
         self.shouldThrowError = nil
     }
 }

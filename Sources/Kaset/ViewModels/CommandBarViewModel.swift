@@ -282,6 +282,7 @@ final class CommandBarViewModel {
             let parsedCommand = try await self.resolveCommand(query: query)
             await self.executeParsedCommand(
                 parsedCommand,
+                originalQuery: query,
                 playbackReservation: playbackReservation,
                 requestID: requestID
             )
@@ -321,6 +322,7 @@ final class CommandBarViewModel {
 
     private func executeParsedCommand(
         _ parsedCommand: CommandBarParseResult,
+        originalQuery: String,
         playbackReservation: MusicPlaybackReservation,
         requestID: UUID
     ) async {
@@ -345,7 +347,7 @@ final class CommandBarViewModel {
 
         self.phase = .executing
         await self.applyOutcome(self.executor.execute(
-            .musicIntent(intent),
+            .musicIntent(intent, originalQuery: originalQuery),
             reservation: playbackReservation
         ))
     }

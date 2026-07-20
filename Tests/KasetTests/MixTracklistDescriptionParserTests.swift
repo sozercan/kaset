@@ -721,4 +721,46 @@ struct MixTracklistDescriptionParserTests {
         #expect(tracklist?.entries.map(\.startTime) == [0, 195, 390])
         #expect(tracklist?.entries.map(\.title) == ["Track One", "Track Two", "Track Three"])
     }
+
+    /// The parser is shared by the seek bar and the scrobbler, which can both request the same video
+    /// before either fetch returns. Concurrent requests must coalesce onto a single watch-next call.
+    @MainActor
+    @Test("Concurrent parses for the same video issue a single fetch")
+    func coalescesConcurrentParsesForSameVideo() async {
+        let gate = AsyncGate()
+        let mockYouTube = MockYouTubeClient()
+        mockYouTube.watchNextData = WatchNextData(
+            videoTitle: "Concurrent Mix",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            chapters: (0 ..< 3).map { index in
+                YouTubeChapter(
+                    videoId: "mix",
+                    title: "Artist \(index) - Track \(index)",
+                    startTime: TimeInterval(index) * 600,
+                    endTime: TimeInterval(index + 1) * 600,
+                    timeText: nil,
+                    thumbnailURL: nil
+                )
+            }
+        )
+        mockYouTube.beforeWatchNextReturn = { _ in await gate.wait() }
+        let parser = MixTracklistParser(youTubeClient: mockYouTube)
+
+        async let first = parser.parseTracklist(videoId: "mix")
+        async let second = parser.parseTracklist(videoId: "mix")
+
+        // Let both requests reach the gated in-flight fetch, then release it.
+        while mockYouTube.getWatchNextCallCount == 0 {
+            await Task.yield()
+        }
+        await gate.open()
+
+        let (firstResult, secondResult) = await (first, second)
+        #expect(firstResult?.entries.count == 3)
+        #expect(secondResult?.entries.count == 3)
+        #expect(mockYouTube.getWatchNextCallCount == 1)
+    }
 }

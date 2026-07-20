@@ -122,9 +122,31 @@ enum AIErrorHandler {
             return aiError
         }
 
-        // Handle specific LanguageModelSession errors
+        // Xcode 27 splits generation failures across dedicated model, session, and parsing errors.
+        #if compiler(>=6.4)
+            if #available(macOS 27.0, *) {
+                if let languageModelError = error as? LanguageModelError {
+                    return Self.handleLanguageModelError(languageModelError)
+                }
+
+                if let sessionError = error as? LanguageModelSession.Error {
+                    return Self.handleSessionError(sessionError)
+                }
+
+                if error is GeneratedContent.ParsingError {
+                    Self.logger.warning("Failed to parse generated content")
+                    return .decodingFailure
+                }
+
+                if let systemModelError = error as? SystemLanguageModel.Error {
+                    return Self.handleSystemModelError(systemModelError)
+                }
+            }
+        #endif
+
+        // Xcode 26 builds and legacy macOS 26 APIs still throw GenerationError.
         if let generationError = error as? LanguageModelSession.GenerationError {
-            return self.handleGenerationError(generationError)
+            return Self.handleGenerationError(generationError)
         }
 
         // Handle cancellation
@@ -137,6 +159,84 @@ enum AIErrorHandler {
         self.logger.error("Unknown AI error: \(error.localizedDescription)")
         return .unknown(underlying: error)
     }
+
+    #if compiler(>=6.4)
+        @available(macOS 27.0, *)
+        private static func handleLanguageModelError(_ error: LanguageModelError) -> AIError {
+            switch error {
+            case .contextSizeExceeded:
+                self.logger.warning("Context window exceeded")
+                return .contextWindowExceeded
+
+            case .rateLimited:
+                self.logger.warning("Rate limited by model")
+                return .sessionBusy
+
+            case .guardrailViolation:
+                self.logger.warning("Content blocked by guardrails")
+                return .contentBlocked
+
+            case .refusal:
+                self.logger.warning("Model refused to respond")
+                return .contentBlocked
+
+            case .unsupportedLanguageOrLocale:
+                self.logger.warning("Unsupported language or locale")
+                return .notAvailable(reason: "Language not supported")
+
+            case .timeout:
+                self.logger.warning("Foundation Models request timed out")
+                return .timedOut
+
+            case .unsupportedCapability:
+                self.logger.error("Foundation Models capability is unsupported")
+                return .unknown(underlying: error)
+
+            case .unsupportedTranscriptContent:
+                self.logger.error("Foundation Models transcript content is unsupported")
+                return .unknown(underlying: error)
+
+            case .unsupportedGenerationGuide:
+                self.logger.error("Foundation Models generation guide is unsupported")
+                return .unknown(underlying: error)
+
+            @unknown default:
+                self.logger.error("Unknown language model error: \(error.localizedDescription)")
+                return .unknown(underlying: error)
+            }
+        }
+
+        @available(macOS 27.0, *)
+        private static func handleSessionError(_ error: LanguageModelSession.Error) -> AIError {
+            switch error {
+            case .concurrentRequests:
+                self.logger.warning("Concurrent request limit exceeded")
+                return .sessionBusy
+
+            case .transcriptMutationWhileResponding:
+                self.logger.error("Session transcript mutated while responding")
+                return .unknown(underlying: error)
+
+            @unknown default:
+                self.logger.error("Unknown session error: \(error.localizedDescription)")
+                return .unknown(underlying: error)
+            }
+        }
+
+        @available(macOS 27.0, *)
+        private static func handleSystemModelError(_ error: SystemLanguageModel.Error) -> AIError {
+            switch error {
+            case .assetsUnavailable:
+                // Match the legacy GenerationError mapping so SDK upgrades keep recovery messaging stable.
+                self.logger.warning("Model assets unavailable")
+                return .notAvailable(reason: "Model assets are not available")
+
+            @unknown default:
+                self.logger.error("Unknown system model error: \(error.localizedDescription)")
+                return .unknown(underlying: error)
+            }
+        }
+    #endif
 
     /// Handles specific GenerationError cases.
     private static func handleGenerationError(_ error: LanguageModelSession.GenerationError) -> AIError {

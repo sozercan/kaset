@@ -192,6 +192,46 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackLikeStatus == .like)
     }
 
+    @Test("Protected rating remains authoritative after stale metadata returns")
+    func protectedRatingRemainsAuthoritativeAfterStaleMetadata() async {
+        let song = TestFixtures.makeSong(id: "protected-metadata-rating")
+        let manager = self.playerService.songLikeStatusManager
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackLikeStatus = .like
+        manager.setStatus(.like, for: song.videoId)
+        let snapshot = manager.beginLikedMusicRequest()
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.id,
+            title: song.title,
+            artists: song.artists,
+            videoId: song.videoId,
+            likeStatus: .like
+        )
+        self.mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let metadataTask = Task { @MainActor in
+            await self.playerService.fetchSongMetadata(videoId: song.videoId, queueOwner: .none)
+        }
+        await metadataStarted.wait()
+
+        self.playerService.likeCurrentTrack()
+        _ = await self.waitUntilRateSongCallCount(1)
+        let settled = await self.waitUntilLikeStatus(.indifferent)
+        #expect(settled)
+
+        await releaseMetadata.open()
+        await metadataTask.value
+        manager.finishLikedMusicRequest(snapshot)
+
+        #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+        #expect(self.playerService.currentTrack?.likeStatus == .indifferent)
+    }
+
     @Test("likeCurrentTrack uses captured client even if singleton client changes before task runs")
     func likeCurrentTrackUsesCapturedClient() async {
         let replacementClient = MockYTMusicClient()

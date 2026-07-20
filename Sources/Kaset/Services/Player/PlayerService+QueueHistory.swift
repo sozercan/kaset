@@ -229,6 +229,7 @@ extension PlayerService {
         self.progress = progress
         self.currentTimeMs = Int(progress * 1000)
         self.duration = max(duration, song.duration ?? 0)
+        self.recordDurationObservation(videoId: song.videoId, duration: self.duration)
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
         self.resetAdPlaybackState()

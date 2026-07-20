@@ -1,4 +1,4 @@
-# ADR-0028: Account-Scoped Favorites Persistence
+# ADR-0030: Account-Scoped Favorites Persistence
 
 ## Status
 

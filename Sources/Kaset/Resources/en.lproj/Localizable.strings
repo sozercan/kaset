@@ -1,2 +1,9 @@
 "%@ %@" = "%1$@ %2$@";
 "%@, %@, %@" = "%1$@, %2$@, %3$@";
+"Profiles" = "Profiles";
+"View Profile" = "View Profile";
+"Audiobook" = "Audiobook";
+"View Audiobook" = "View Audiobook";
+"Song" = "Song";
+"Podcast" = "Podcast";
+"Episode" = "Episode";

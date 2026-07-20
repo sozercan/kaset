@@ -65,6 +65,49 @@ struct SidebarPinnedItemsManagerTests {
         self.manager.toggle(browsePlaylist)
 
         #expect(self.manager.items.isEmpty)
+        #expect(self.manager.committedRemovalGenerations["PL-playlist-1"] == 1)
+        #expect(self.manager.committedRemovalGenerations["VLPL-playlist-1"] == 1)
+    }
+
+    @Test("Pending playlist removal publishes only when committed")
+    func pendingPlaylistRemovalPublishesOnlyWhenCommitted() {
+        let playlist = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "VL-pending", title: "Pending"))
+        self.manager.add(playlist)
+        let initialRemovalGenerations = self.manager.committedRemovalGenerations
+
+        let removedPins = self.manager.stagePlaylistPinRemoval(matching: playlist.contentId)
+
+        #expect(self.manager.items.isEmpty)
+        #expect(self.manager.committedRemovalGenerations == initialRemovalGenerations)
+
+        self.manager.restore(removedPins)
+
+        #expect(self.manager.isPinned(playlist))
+        #expect(self.manager.committedRemovalGenerations == initialRemovalGenerations)
+
+        let committedPins = self.manager.stagePlaylistPinRemoval(matching: playlist.contentId)
+        self.manager.commitPlaylistPinRemoval(committedPins)
+
+        #expect(self.manager.committedRemovalGenerations[playlist.contentId] == 1)
+    }
+
+    @Test("Back-to-back removals preserve every content generation")
+    func backToBackRemovalsPreserveEveryContentGeneration() {
+        let first = SidebarPinnedItem.from(TestFixtures.makeAlbum(id: "MPRE-first", title: "First"))
+        let second = SidebarPinnedItem.from(TestFixtures.makeAlbum(id: "MPRE-second", title: "Second"))
+        self.manager.add(first)
+        self.manager.add(second)
+
+        self.manager.remove(contentId: first.contentId)
+        self.manager.remove(contentId: second.contentId)
+
+        #expect(self.manager.committedRemovalGenerations[first.contentId] == 1)
+        #expect(self.manager.committedRemovalGenerations[second.contentId] == 1)
+
+        self.manager.add(first)
+        self.manager.remove(contentId: first.contentId)
+
+        #expect(self.manager.committedRemovalGenerations[first.contentId] == 2)
     }
 
     @Test("Removes and restores every persisted alias of a playlist")

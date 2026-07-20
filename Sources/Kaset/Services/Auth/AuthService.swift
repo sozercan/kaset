@@ -194,6 +194,7 @@ final class AuthService: AuthServiceProtocol {
         self.advanceAccountIdentityGeneration()
         self.needsReauth = true
         self.isGuestModeEnabled = false
+        SongLikeStatusManager.shared.clearCache()
         self.state = .loggedOut
         self.stateBeforeLogin = nil
         // Drop cached personalized responses so a later login in the same

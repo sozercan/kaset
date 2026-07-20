@@ -1,6 +1,11 @@
 import AppKit
 import UserNotifications
 
+extension Notification.Name {
+    /// Posted by `AppDelegate` when the app receives deep-link URLs.
+    static let kasetOpenURLs = Notification.Name("kasetOpenURLs")
+}
+
 // MARK: - AppDelegate
 
 /// App delegate to control application lifecycle behavior.
@@ -11,6 +16,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set by KasetApp after initialization.
     weak var playerService: PlayerService?
     weak var scrobblingCoordinator: ScrobblingCoordinator?
+
+    /// URLs received before the SwiftUI scene is ready to observe deep links.
+    private var pendingOpenURLs: [URL] = []
+
+    /// True after `KasetApp` starts observing `.kasetOpenURLs`.
+    private var isOpenURLDeliveryReady = false
 
     /// Reference to the main window for reliable reopen behavior.
     /// Using strong reference to prevent deallocation when window is hidden.
@@ -253,6 +264,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Show main window when dock icon is clicked
         self.showMainWindowIfNeeded()
         return true
+    }
+
+    /// Deep-link entry point for custom URL schemes.
+    func application(_: NSApplication, open urls: [URL]) {
+        DiagnosticsLogger.app.info("AppDelegate: open \(urls.count) URL(s)")
+        self.deliverOpenURLs(urls)
+    }
+
+    /// Call once the main scene is observing `.kasetOpenURLs`.
+    func beginOpenURLDelivery() {
+        self.isOpenURLDeliveryReady = true
+        let pending = self.pendingOpenURLs
+        self.pendingOpenURLs.removeAll()
+        self.deliverOpenURLs(pending)
+    }
+
+    private func deliverOpenURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if self.isOpenURLDeliveryReady {
+            NotificationCenter.default.post(name: .kasetOpenURLs, object: urls)
+        } else {
+            self.pendingOpenURLs.append(contentsOf: urls)
+        }
     }
 
     private var isSwitchedToMiniPlayer: Bool {

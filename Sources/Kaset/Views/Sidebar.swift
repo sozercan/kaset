@@ -10,6 +10,8 @@ struct Sidebar: View {
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
     let client: any YTMusicClientProtocol
+    var onReselectNavigationItem: ((NavigationItem) -> Void)?
+    var onReselectPinnedItem: ((SidebarPinnedItem) -> Void)?
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
@@ -113,7 +115,11 @@ struct Sidebar: View {
 
     private func selectNavigationItem(_ item: NavigationItem) {
         let newSelection = SidebarSelection.navigation(item)
-        guard self.currentSidebarSelection != newSelection else { return }
+        if self.currentSidebarSelection == newSelection {
+            self.onReselectNavigationItem?(item)
+            HapticService.navigation()
+            return
+        }
         self.selection = item
         self.pinnedSelection = nil
         HapticService.navigation()
@@ -121,7 +127,11 @@ struct Sidebar: View {
 
     private func selectPinnedItem(_ item: SidebarPinnedItem) {
         let newSelection = SidebarSelection.pinned(item)
-        guard self.currentSidebarSelection != newSelection else { return }
+        if self.currentSidebarSelection == newSelection {
+            self.onReselectPinnedItem?(item)
+            HapticService.navigation()
+            return
+        }
         self.selection = nil
         self.pinnedSelection = item
         HapticService.navigation()

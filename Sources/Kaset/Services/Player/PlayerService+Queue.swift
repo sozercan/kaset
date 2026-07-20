@@ -971,16 +971,17 @@ extension PlayerService {
         }
 
         do {
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.sortedKeys]
-            let safeIndex: Int = {
-                if let currentID, let index = persistedEntries.firstIndex(where: { $0.id == currentID }) {
-                    return index
-                }
-                return min(max(self.currentIndex, 0), persistableQueue.count - 1)
-            }()
+            let encoder = Self.persistenceEncoder()
+            let safeIndex = self.persistedCurrentIndex(currentID: currentID, entries: persistedEntries)
             let currentVideoId = self.currentTrack?.videoId ?? persistableQueue[safe: safeIndex]?.videoId
-            let resolvedDuration = max(self.duration, self.currentTrack?.duration ?? persistableQueue[safe: safeIndex]?.duration ?? 0)
+            let queuedTrack = persistableQueue[safe: safeIndex]
+            let ownedQueueTrack = activeQueueEntryID.flatMap { activeID in
+                persistedEntries.first(where: { $0.id == activeID })?.song
+            }
+            let resolvedDuration = self.resolvedPersistenceDuration(
+                queuedTrack: queuedTrack,
+                ownedQueueTrack: ownedQueueTrack
+            )
             let clampedProgress = resolvedDuration > 0
                 ? min(max(self.progress, 0), resolvedDuration)
                 : max(self.progress, 0)
@@ -1030,6 +1031,34 @@ extension PlayerService {
         } catch {
             self.logger.error("Failed to save playback session: \(error.localizedDescription)")
         }
+    }
+
+    private static func persistenceEncoder() -> JSONEncoder {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }
+
+    private func persistedCurrentIndex(currentID: UUID?, entries: [QueueEntry]) -> Int {
+        if let currentID, let index = entries.firstIndex(where: { $0.id == currentID }) {
+            return index
+        }
+        return min(max(self.currentIndex, 0), entries.count - 1)
+    }
+
+    /// Resolves the persisted clock without borrowing metadata from a different queue occurrence.
+    private func resolvedPersistenceDuration(
+        queuedTrack: Song?,
+        ownedQueueTrack: Song?
+    ) -> TimeInterval {
+        let persistenceTrack = self.currentTrack ?? ownedQueueTrack ?? queuedTrack
+        let primaryDuration = self.bestKnownDuration(for: persistenceTrack)
+        guard primaryDuration <= 0 else { return primaryDuration }
+
+        // WebView metadata can temporarily replace the same queue song without a duration. Retain
+        // the queue/API duration only from the exact entry that owns playback, bypassing observation
+        // precedence because reaching this branch already proved no positive observation exists.
+        return self.positiveMetadataDuration(for: ownedQueueTrack)
     }
 
     static func songWithoutAccountMetadata(_ song: Song) -> Song {

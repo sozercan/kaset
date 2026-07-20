@@ -13,6 +13,7 @@ struct Playlist: Identifiable, Codable, Hashable {
     let trackCount: Int?
     let author: Artist?
     let canDelete: Bool
+    let moodCategoryEndpoint: MoodCategoryEndpoint?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -22,6 +23,7 @@ struct Playlist: Identifiable, Codable, Hashable {
         case trackCount
         case author
         case canDelete
+        case moodCategoryEndpoint
     }
 
     init(
@@ -31,7 +33,8 @@ struct Playlist: Identifiable, Codable, Hashable {
         thumbnailURL: URL?,
         trackCount: Int?,
         author: Artist? = nil,
-        canDelete: Bool = false
+        canDelete: Bool = false,
+        moodCategoryEndpoint: MoodCategoryEndpoint? = nil
     ) {
         self.id = id
         self.title = title
@@ -40,6 +43,7 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.trackCount = trackCount
         self.author = author
         self.canDelete = canDelete
+        self.moodCategoryEndpoint = moodCategoryEndpoint
     }
 
     init(from decoder: any Decoder) throws {
@@ -59,6 +63,10 @@ struct Playlist: Identifiable, Codable, Hashable {
         }
 
         self.canDelete = (try? container.decode(Bool.self, forKey: .canDelete)) ?? false
+        self.moodCategoryEndpoint = try container.decodeIfPresent(
+            MoodCategoryEndpoint.self,
+            forKey: .moodCategoryEndpoint
+        )
     }
 
     /// Whether this is an album (vs a playlist).
@@ -134,6 +142,7 @@ extension Playlist {
         }
 
         self.canDelete = data["canDelete"] as? Bool ?? false
+        self.moodCategoryEndpoint = nil
     }
 }
 

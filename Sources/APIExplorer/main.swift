@@ -12,15 +12,17 @@
 //  Commands:
 //    browse <browseId> [params]    - Explore a browse endpoint
 //    action <endpoint> <body>      - Explore an action endpoint (body as JSON)
-//    continuation <token> [ep]     - Explore a continuation (ep: browse or next)
+//    search-audit <query>          - Audit live YouTube Music search shapes and filters
+//    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
 //
 //  Options:
-//    -v, --verbose                 - Show full raw JSON response (not truncated)
+//    -v, --verbose                 - Show raw JSON, or expanded search-audit samples
 //    -o, --output <file>           - Save raw JSON response to a file
+//    --client-version <version>    - Override the resolved InnerTube client version
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
 //    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
@@ -52,6 +54,7 @@ let origin = "https://music.youtube.com"
 /// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
 nonisolated(unsafe) var youtubeMode = false
 nonisolated(unsafe) var cachedClientVersion: String?
+nonisolated(unsafe) var clientVersionWasForced = false
 nonisolated(unsafe) var forceUnauthenticatedRequests = false
 
 // Active request configuration. Defaults to YouTube Music (the constants
@@ -199,6 +202,18 @@ func computeSAPISIDHASH(sapisid: String) -> String {
 
 // MARK: - API Key Resolution
 
+private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLRequest {
+    var request = URLRequest(url: activeWebClientURL)
+    if let timeout {
+        request.timeoutInterval = timeout
+    }
+    request.setValue(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        forHTTPHeaderField: "User-Agent"
+    )
+    return request
+}
+
 func resolveAPIKey() async throws -> String {
     if let cachedAPIKey {
         return cachedAPIKey
@@ -212,11 +227,7 @@ func resolveAPIKey() async throws -> String {
         return trimmed
     }
 
-    var request = URLRequest(url: activeWebClientURL)
-    request.setValue(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        forHTTPHeaderField: "User-Agent"
-    )
+    let request = webClientConfigurationRequest()
     let (data, response) = try await URLSession.shared.data(for: request)
     if let httpResponse = response as? HTTPURLResponse,
        !(200 ... 399).contains(httpResponse.statusCode)
@@ -240,12 +251,34 @@ func resolveAPIKey() async throws -> String {
 
     // Opportunistically capture the live client version so requests
     // match what the web client currently sends.
-    if let version = extractInnertubeClientVersion(from: html) {
+    if cachedClientVersion == nil,
+       let version = extractInnertubeClientVersion(from: html)
+    {
         cachedClientVersion = version
     }
 
     cachedAPIKey = key
     return key
+}
+
+/// Resolves only the live client version when the API key came from an explicit
+/// environment override. Failure is non-fatal: callers can still use the
+/// configured fallback, and search-audit labels that source explicitly.
+func resolveLiveClientVersionIfNeeded() async {
+    guard cachedClientVersion == nil else { return }
+
+    let request = webClientConfigurationRequest(timeout: 5)
+
+    guard let (data, response) = try? await URLSession.shared.data(for: request),
+          let httpResponse = response as? HTTPURLResponse,
+          (200 ... 399).contains(httpResponse.statusCode),
+          let html = String(data: data, encoding: .utf8),
+          let version = extractInnertubeClientVersion(from: html)
+    else {
+        return
+    }
+
+    cachedClientVersion = version
 }
 
 func extractInnertubeAPIKey(from html: String) -> String? {
@@ -337,6 +370,11 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
     return headers
 }
 
+func hasUsableAuthMaterial() -> Bool {
+    guard let cookies = loadCookiesFromAppBackup() else { return false }
+    return getSAPISID(from: cookies) != nil && buildCookieHeader(from: cookies) != nil
+}
+
 // MARK: - API Request
 
 func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
@@ -386,7 +424,7 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
 
 // MARK: - Response Analysis
 
-private func joinedRunsText(_ data: [String: Any]?) -> String? {
+func joinedRunsText(_ data: [String: Any]?) -> String? {
     guard let data,
           let runs = data["runs"] as? [[String: Any]]
     else {
@@ -936,7 +974,11 @@ private func libraryFeedbackProbeSummary(_ data: [String: Any]) -> String {
     return output
 }
 
-func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
+func analyzeResponse(
+    _ data: [String: Any],
+    verbose: Bool = false,
+    searchAuditContext: SearchAuditContext = .automatic
+) -> String {
     var output = ""
 
     // Top-level keys
@@ -1025,6 +1067,13 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
     output += chapterProbeSummary(data)
 
     output += libraryFeedbackProbeSummary(data)
+
+    if !youtubeMode {
+        output += searchResponseAuditSummary(
+            data,
+            context: searchAuditContext
+        )
+    }
 
     output += rendererHistogram(data)
 
@@ -1211,7 +1260,11 @@ func exploreAction(
 
         print("✅ HTTP \(statusCode)")
         print()
-        print(analyzeResponse(data, verbose: verbose))
+        print(analyzeResponse(
+            data,
+            verbose: verbose,
+            searchAuditContext: endpoint == "search" && !youtubeMode ? .firstPage : .automatic
+        ))
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
@@ -1238,20 +1291,155 @@ func exploreAction(
     }
 }
 
+// swiftlint:disable no_print
+private func auditSearchFilter(
+    _ probe: SearchFilterProbe,
+    authenticated: Bool,
+    verbose: Bool
+) async {
+    do {
+        let (filterResponse, filterStatus) = try await makeRequest(
+            endpoint: "search",
+            body: [
+                "query": probe.query,
+                "params": probe.params,
+            ],
+            authenticated: authenticated
+        )
+        print("\n══ \(probe.label) — HTTP \(filterStatus) ══")
+        guard isSuccessfulAPIResponse(statusCode: filterStatus, data: filterResponse) else {
+            print("  ❌ Filter probe failed: \(apiFailureDescription(statusCode: filterStatus, data: filterResponse))")
+            return
+        }
+        if verbose {
+            print("   Params: \(terminalSafe(probe.params))")
+        }
+        let filterSummary = searchResponseAuditSummary(
+            filterResponse,
+            sampleLimit: verbose ? 12 : 4,
+            context: .firstPage
+        )
+        print(filterSummary.isEmpty ? "  ⚠️ No recognized YouTube Music search shape" : filterSummary)
+        if probe.label == "Podcasts" {
+            print("  • Kaset uses a dedicated podcast-show parser for this filter.")
+        }
+
+        guard let continuationValue = firstSearchContinuationValue(in: filterResponse) else {
+            print("  • Continuation probe: none offered")
+            return
+        }
+
+        let (continuationResponse, continuationStatus) = try await makeRequest(
+            endpoint: "search",
+            body: ["continuation": continuationValue],
+            authenticated: authenticated
+        )
+        print("  • Continuation probe via /search: HTTP \(continuationStatus)")
+        guard isSuccessfulAPIResponse(
+            statusCode: continuationStatus,
+            data: continuationResponse
+        ) else {
+            print("  ❌ Continuation probe failed: \(apiFailureDescription(statusCode: continuationStatus, data: continuationResponse))")
+            return
+        }
+        let continuationSummary = searchResponseAuditSummary(
+            continuationResponse,
+            sampleLimit: verbose ? 8 : 2,
+            context: .continuation
+        )
+        print(continuationSummary.isEmpty
+            ? "  ⚠️ Unrecognized search continuation response shape"
+            : continuationSummary)
+    } catch {
+        print("  ❌ \(probe.label) probe failed: \(error.localizedDescription)")
+    }
+}
+
+/// Audits the live YouTube Music search response, every filter chip returned by the
+/// service, and the first continuation page for each filter that offers one.
+func auditSearch(_ query: String, verbose: Bool = false) async {
+    guard !youtubeMode else {
+        print("❌ search-audit currently supports YouTube Music mode only")
+        print("   Use 'action search' for regular YouTube response inspection.")
+        return
+    }
+
+    let authenticated = !forceUnauthenticatedRequests && hasUsableAuthMaterial()
+    let mode = authenticated ? "cookie auth requested (validity unverified)" : "guest"
+    print("🔬 Auditing YouTube Music search")
+    print("   Query: \(terminalSafe(query))")
+    print("   Session: \(mode)")
+    print()
+
+    do {
+        if ProcessInfo.processInfo.environment[apiKeyEnvironmentVariable]?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).isEmpty == false {
+            await resolveLiveClientVersionIfNeeded()
+        }
+        let (baseResponse, baseStatus) = try await makeRequest(
+            endpoint: "search",
+            body: ["query": query],
+            authenticated: authenticated
+        )
+        let versionSource = if clientVersionWasForced {
+            "override"
+        } else if cachedClientVersion != nil {
+            "live"
+        } else {
+            "fallback"
+        }
+        print("   Client version: \(terminalSafe(cachedClientVersion ?? activeFallbackClientVersion)) (\(versionSource))")
+        print("══ Unfiltered search — HTTP \(baseStatus) ══")
+        guard isSuccessfulAPIResponse(statusCode: baseStatus, data: baseResponse) else {
+            print("  ❌ Unfiltered probe failed: \(apiFailureDescription(statusCode: baseStatus, data: baseResponse))")
+            return
+        }
+        let baseSummary = searchResponseAuditSummary(
+            baseResponse,
+            sampleLimit: verbose ? 20 : 8,
+            context: .firstPage
+        )
+        print(baseSummary.isEmpty ? "  ⚠️ No recognized YouTube Music search shape" : baseSummary)
+
+        let probes = searchFilterProbes(from: baseResponse)
+        guard !probes.isEmpty else {
+            print("\n⚠️ The unfiltered response exposed no navigable filter chips.")
+            return
+        }
+
+        print("\n🧭 Probing \(probes.count) live filter chip(s): \(probes.map(\.label).joined(separator: ", "))")
+        let unsupportedLabels = probes.map(\.label).filter { !kasetSearchFilterLabels.contains($0) }
+        if !unsupportedLabels.isEmpty {
+            print("   Filter chips without a dedicated Kaset filter: \(unsupportedLabels.joined(separator: ", "))")
+        }
+
+        for probe in probes {
+            await auditSearchFilter(probe, authenticated: authenticated, verbose: verbose)
+        }
+    } catch {
+        print("❌ Search audit failed: \(error.localizedDescription)")
+    }
+}
+
+// swiftlint:enable no_print
+
 /// Explores a continuation request to fetch more items.
 /// - Parameters:
 ///   - token: The continuation token
-///   - endpoint: The endpoint to use ("browse" for home/library, "next" for mix queues)
+///   - endpoint: The endpoint to use ("browse" for home/library, "search" for search, "next" for mix queues)
 func exploreContinuation(
     _ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil
 ) async {
     print("🔄 Exploring continuation request")
-    print("   Token: \(token.prefix(50))...")
+    print("   Token: present (value hidden)")
     print("   Endpoint: \(endpoint)")
     print()
 
     var body: [String: Any] = ["continuation": token]
-
+    // Preserve the caller's requested session mode: cookies are used when they
+    // are available, while --guest/--no-auth forces a signed-out continuation.
+    let authenticated = !forceUnauthenticatedRequests && hasUsableAuthMaterial()
     // For "next" endpoint continuations (mix queues), add required parameters
     if endpoint == "next" {
         body["enablePersistentPlaylistPanel"] = true
@@ -1259,9 +1447,8 @@ func exploreContinuation(
     }
 
     do {
-        // Always authenticate for continuations
         let (data, statusCode) = try await makeRequest(
-            endpoint: endpoint, body: body, authenticated: true
+            endpoint: endpoint, body: body, authenticated: authenticated
         )
 
         if statusCode == 401 || statusCode == 403 {
@@ -1271,7 +1458,11 @@ func exploreContinuation(
 
         print("✅ HTTP \(statusCode)")
         print()
-        print(analyzeResponse(data, verbose: verbose))
+        print(analyzeResponse(
+            data,
+            verbose: verbose,
+            searchAuditContext: endpoint == "search" && !youtubeMode ? .continuation : .automatic
+        ))
 
         // Analyze continuation-specific structure
         print("\n📊 Continuation Analysis:")
@@ -1308,19 +1499,18 @@ func exploreContinuation(
                     }
                 }
             }
-        } else if let actions = data["onResponseReceivedActions"] as? [[String: Any]] {
-            print("   Found onResponseReceivedActions (2025 format)")
-            for (idx, action) in actions.enumerated() {
-                print("   └─ Action \(idx) keys: \(Array(action.keys))")
-                if let appendAction = action["appendContinuationItemsAction"] as? [String: Any],
-                   let items = appendAction["continuationItems"] as? [[String: Any]]
-                {
-                    print("      └─ continuationItems: \(items.count) items")
-                }
-            }
         } else {
-            print("   ⚠️ No recognized continuation format found")
-            print("   Top-level keys: \(Array(data.keys))")
+            let actionGroups = searchContinuationActionGroups(in: data)
+            if !actionGroups.isEmpty {
+                print("   Found action-envelope continuation format")
+                for (index, group) in actionGroups.enumerated() {
+                    print("   └─ Group \(index): \(group.envelope).\(group.command)")
+                    print("      └─ continuationItems: \(group.items.count) items")
+                }
+            } else {
+                print("   ⚠️ No recognized continuation format found")
+                print("   Top-level keys: \(Array(data.keys))")
+            }
         }
 
         if verbose {
@@ -2274,7 +2464,8 @@ func showHelp() {
         Commands:
           browse <browseId> [params]     Explore a browse endpoint
           action <endpoint> <body>       Explore an action endpoint (body as JSON)
-          continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
+          search-audit <query>           Audit live Music search shapes, filters, and continuations
+          continuation <token> [ep]      Explore a continuation (ep: 'browse', 'search', or 'next')
           analyze-file <path>            Safely summarize a saved JSON response
           list                           List all known endpoints
           auth                           Check authentication status
@@ -2289,10 +2480,11 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show full raw JSON response (not truncated)
+          -v, --verbose                  Show raw JSON; expand samples/params for search-audit
           -o, --output <file>            Save raw JSON response to a file
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
+          --client-version <version>     Override the resolved InnerTube client version
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
           --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
@@ -2329,8 +2521,12 @@ func showHelp() {
           swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
           swift run api-explorer action next '{"playlistId":"RDEM...","videoId":"abc123"}'
 
+          # Deeply audit YouTube Music search response coverage
+          swift run api-explorer --guest search-audit "ambient electronic mix"
+
           # Continuation (for pagination / infinite mix)
           swift run api-explorer continuation <token>           # browse endpoint (default)
+          swift run api-explorer --guest continuation <token> search # guest filtered search results
           swift run api-explorer continuation <token> next      # next endpoint (for mix queues)
 
           # Safely inspect a saved response without printing raw token values
@@ -2402,6 +2598,26 @@ func runMain() async {
         }
     }
 
+    // Parse client version override. Keeping it in cachedClientVersion prevents
+    // live web configuration discovery from replacing the explicit probe value.
+    for (index, arg) in args.enumerated() {
+        guard arg == "--client-version" else { continue }
+        guard index + 1 < args.count else {
+            print("❌ --client-version requires a value")
+            return
+        }
+
+        let value = args[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, !value.hasPrefix("-") else {
+            print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
+            return
+        }
+
+        cachedClientVersion = value
+        clientVersionWasForced = true
+        break
+    }
+
     // Parse YouTube mode option (target www.youtube.com / WEB client)
     if args.contains("--youtube") || args.contains("--yt") {
         activateYouTubeMode()
@@ -2428,7 +2644,9 @@ func runMain() async {
         {
             continue
         }
-        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {
+        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand"
+            || arg == "--client-version"
+        {
             skipNext = true
             continue
         }
@@ -2460,10 +2678,21 @@ func runMain() async {
         let bodyJson = filteredArgs[2]
         await exploreAction(endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile)
 
+    case "search-audit":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: search-audit <query>")
+            print("   Example: search-audit \"ambient electronic mix\"")
+            return
+        }
+        if outputFile != nil {
+            print("⚠️ --output is ignored by search-audit; use 'action search' to save raw JSON")
+        }
+        await auditSearch(filteredArgs[1], verbose: verbose)
+
     case "continuation":
         guard filteredArgs.count >= 2 else {
             print("❌ Usage: continuation <token> [endpoint]")
-            print("   endpoint: 'browse' (default) for home/library, 'next' for mix queues")
+            print("   endpoint: 'browse' (default), 'search' for search, or 'next' for mix queues")
             print("   Get the token from a browse response's continuationItemRenderer or")
             print("   from a next response's nextRadioContinuationData.continuation")
             return
