@@ -109,6 +109,7 @@ Manages authentication state:
 - `checkLoginStatus()` — Checks cookies for valid session
 - `startLogin()` — Presents login sheet
 - `sessionExpired()` — Handles 401/403 from API
+- Authentication-boundary cleanup — Account session mutations are fenced and drained before sign-out or reauthentication clears/samples shared WebKit cookies
 
 ### YTMusicClient
 
@@ -312,12 +313,18 @@ Manages user-curated Favorites section on Home view:
 - `toggle(_:)` — Adds if not pinned, removes if pinned
 - `move(from:to:)` — Reorders via drag-and-drop
 - `isPinned(contentId:)` — Checks if item is in Favorites
+- `setActiveAccountScopeID(_:)` — Switches signed-in scope; `nil` clears the visible list (sign-out)
+- `enterGuestMode()` / `exitGuestMode()` — Use a separate guest scope and restore the last signed-in scope; account switching keeps guest data visible and grants only the account-list refresh scoped access to the preserved session until commit
 
 **Persistence**:
-- **Location**: `~/Library/Application Support/Kaset/favorites.json`
+- **Location**: `~/Library/Application Support/Kaset/favorites-<opaqueScopeId>.json`
+- **Scope**: SHA-256-derived from a local canonical owner UUID plus the selected primary/brand account ID; guest is separate
+- **Owner identity**: A local owner UUID is bound to hashed auth and email fingerprints in `UserDefaults` plus an atomic Application Support backup manifest; raw credentials and email are never persisted, while account IDs remain only for scope derivation and migration bookkeeping
 - **Format**: JSON-encoded `[FavoriteItem]`
-- **Writes**: Async on background thread via `Task.detached`
-- **Reads**: Synchronous at init (one-time on app launch)
+- **Writes**: Debounced async; flushed before account switch
+- **Account discovery**: Credential aliases remain inactive until a matching email corroborates the owner in the current auth generation; staged prepare/commit/finalize migration reconciles auth and email fingerprints, and persisted pending-finalization records resume interrupted cleanup
+- **Reads**: Deferred until account discovery selects a scope; signed-out state has no persistence target
+- **Upgrade**: Old shared `favorites.json` is claimed by the first resolved scope, and every prior `favorites-<accountId>.json` file in the verified account list is atomically claimed by its corresponding opaque scope so interrupted cleanup cannot replay it into another user
 
 **Related Files**:
 - `Sources/Kaset/Models/FavoriteItem.swift` — Data model with `ItemType` enum

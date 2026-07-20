@@ -117,12 +117,15 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var radioQueueSongs: [String: [Song]] = [:]
     var songResponses: [String: Song] = [:]
     var accountsListResponse: AccountsListResponse = .init(googleEmail: "test@gmail.com", accounts: [])
+    var accountsListStartedGate: AsyncGate?
+    var accountsListReleaseGate: AsyncGate?
 
     // MARK: - Call Tracking
 
     private(set) var getSongCalled = false
     private(set) var getSongVideoIds: [String] = []
     private(set) var getPlaylistContinuationReturnCount = 0
+    private(set) var fetchAccountsListCallCount = 0
 
     // MARK: - Continuation State
 
@@ -1269,7 +1272,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.moodCategoryResponse
     }
 
-    func fetchAccountsList() async throws -> AccountsListResponse {
+    func fetchAccountsList(allowGuestMode _: Bool) async throws -> AccountsListResponse {
+        self.fetchAccountsListCallCount += 1
+        await self.accountsListStartedGate?.open()
+        await self.accountsListReleaseGate?.wait()
         if let error = shouldThrowError {
             throw error
         }
@@ -1335,6 +1341,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.onGetLibraryContent = nil
         self.beforeGetHomeReturn = nil
         self.beforeGetHomeContinuationReturn = nil
+        self.fetchAccountsListCallCount = 0
+        self.accountsListStartedGate = nil
+        self.accountsListReleaseGate = nil
         self.getLibraryPlaylistsCalled = false
         self.getLikedSongsCalled = false
         self.getLikedSongsContinuationCalled = false

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import os
 
@@ -15,7 +16,7 @@ import os
 /// Unlike the music client, no API key is attached: the `key=` query
 /// parameter is no longer required by InnerTube (confirmed June 2026).
 @MainActor
-final class YouTubeClient: YouTubeClientProtocol {
+final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this type_body_length
     private let authService: AuthService
     private let webKitManager: WebKitManager
     private let session: URLSession
@@ -120,13 +121,22 @@ final class YouTubeClient: YouTubeClientProtocol {
         let cacheKey = self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated)
 
         if let cacheKey, let cached = self.cachedHomeData(key: cacheKey) {
-            return try await Self.parseHomeBundle(from: cached)
+            let bundle = try await Self.parseHomeBundle(from: cached)
+            try self.validateAuthIdentity(
+                authenticated: homeAuth.authenticated,
+                generation: homeAuth.authIdentityGeneration
+            )
+            return bundle
         }
 
         let data = try await self.requestData("browse", body: homeBody, requestAuth: homeAuth)
         // Parse off-main; this throws on a non-JSON 200, so we never cache bytes
         // that don't parse.
         let bundle = try await Self.parseHomeBundle(from: data)
+        try self.validateAuthIdentity(
+            authenticated: homeAuth.authenticated,
+            generation: homeAuth.authIdentityGeneration
+        )
 
         // Cache only if no account switch / sign-out happened during the fetch
         // (key AND generation unchanged).
@@ -456,6 +466,7 @@ final class YouTubeClient: YouTubeClientProtocol {
     private struct RequestAuthHeaders {
         let headers: [String: String]
         let authenticated: Bool
+        let authIdentityGeneration: UInt64?
     }
 
     private func authPolicy(forEndpoint endpoint: String, body: [String: Any]) -> RequestAuthPolicy {
@@ -481,18 +492,39 @@ final class YouTubeClient: YouTubeClientProtocol {
 
     private func buildRequestHeaders(authPolicy: RequestAuthPolicy) async throws -> RequestAuthHeaders {
         if self.authService.hasPersonalAccount {
+            let authIdentityGeneration = self.authService.accountIdentityGeneration
             do {
                 let headers = try await self.buildAuthHeaders()
-                return RequestAuthHeaders(headers: headers, authenticated: true)
+                guard authIdentityGeneration == self.authService.accountIdentityGeneration,
+                      self.authService.hasPersonalAccount
+                else {
+                    throw CancellationError()
+                }
+                return RequestAuthHeaders(
+                    headers: headers,
+                    authenticated: true,
+                    authIdentityGeneration: authIdentityGeneration
+                )
             } catch {
-                self.authService.sessionExpired()
+                if error is CancellationError {
+                    throw error
+                }
+                try self.validateAuthIdentity(
+                    authenticated: true,
+                    generation: authIdentityGeneration
+                )
+                self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
                 throw YTMusicError.authExpired
             }
         } else if authPolicy == .required {
             throw YTMusicError.notAuthenticated
         }
 
-        return RequestAuthHeaders(headers: Self.unauthenticatedHeaders, authenticated: false)
+        return RequestAuthHeaders(
+            headers: Self.unauthenticatedHeaders,
+            authenticated: false,
+            authIdentityGeneration: nil
+        )
     }
 
     private static let unauthenticatedHeaders: [String: String] = [
@@ -620,7 +652,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                     endpoint,
                     fullBody: fullBody,
                     headers: requestAuth.headers,
-                    authenticated: requestAuth.authenticated
+                    authenticated: requestAuth.authenticated,
+                    authIdentityGeneration: requestAuth.authIdentityGeneration
                 )
             }
         } else {
@@ -628,7 +661,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                 endpoint,
                 fullBody: fullBody,
                 headers: requestAuth.headers,
-                authenticated: requestAuth.authenticated
+                authenticated: requestAuth.authenticated,
+                authIdentityGeneration: requestAuth.authIdentityGeneration
             )
         }
 
@@ -711,7 +745,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                     endpoint,
                     fullBody: fullBody,
                     headers: requestAuth.headers,
-                    authenticated: requestAuth.authenticated
+                    authenticated: requestAuth.authenticated,
+                    authIdentityGeneration: requestAuth.authIdentityGeneration
                 )
             }
         }
@@ -719,7 +754,8 @@ final class YouTubeClient: YouTubeClientProtocol {
             endpoint,
             fullBody: fullBody,
             headers: requestAuth.headers,
-            authenticated: requestAuth.authenticated
+            authenticated: requestAuth.authenticated,
+            authIdentityGeneration: requestAuth.authIdentityGeneration
         )
     }
 
@@ -754,8 +790,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ endpoint: String,
         fullBody: [String: Any],
         headers: [String: String],
-        authenticated: Bool
+        authenticated: Bool,
+        authIdentityGeneration: UInt64?
     ) async throws -> [String: Any] {
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
             URLQueryItem(name: "prettyPrint", value: "false"),
@@ -777,6 +818,10 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.logger.debug("Making YouTube request to \(endpoint)")
 
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
 
         switch result {
         case let .success(data):
@@ -787,7 +832,9 @@ final class YouTubeClient: YouTubeClientProtocol {
         case let .authError(statusCode):
             self.logger.error("YouTube auth error: HTTP \(statusCode)")
             if authenticated {
-                self.authService.sessionExpired()
+                if let authIdentityGeneration {
+                    self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
+                }
                 throw YTMusicError.authExpired
             }
             throw YTMusicError.notAuthenticated
@@ -805,8 +852,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ endpoint: String,
         fullBody: [String: Any],
         headers: [String: String],
-        authenticated: Bool
+        authenticated: Bool,
+        authIdentityGeneration: UInt64?
     ) async throws -> Data {
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
             URLQueryItem(name: "prettyPrint", value: "false"),
@@ -828,6 +880,10 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.logger.debug("Making YouTube request (data) to \(endpoint)")
 
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
 
         switch result {
         case let .success(data):
@@ -835,7 +891,9 @@ final class YouTubeClient: YouTubeClientProtocol {
         case let .authError(statusCode):
             self.logger.error("YouTube auth error: HTTP \(statusCode)")
             if authenticated {
-                self.authService.sessionExpired()
+                if let authIdentityGeneration {
+                    self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
+                }
                 throw YTMusicError.authExpired
             }
             throw YTMusicError.notAuthenticated
@@ -844,6 +902,16 @@ final class YouTubeClient: YouTubeClientProtocol {
             throw YTMusicError.apiError(message: "HTTP \(statusCode)", code: statusCode)
         case let .networkError(error):
             throw YTMusicError.networkError(underlying: error)
+        }
+    }
+
+    private func validateAuthIdentity(authenticated: Bool, generation: UInt64?) throws {
+        guard authenticated else { return }
+        guard let generation,
+              generation == self.authService.accountIdentityGeneration,
+              self.authService.hasPersonalAccount
+        else {
+            throw CancellationError()
         }
     }
 

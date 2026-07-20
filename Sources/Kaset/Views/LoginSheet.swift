@@ -3,6 +3,7 @@ import SwiftUI
 /// Login sheet presented when authentication is required.
 struct LoginSheet: View {
     @Environment(AuthService.self) private var authService
+    @Environment(AccountService.self) private var accountService
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(\.dismiss) private var dismiss
 
@@ -20,10 +21,17 @@ struct LoginSheet: View {
 
             Divider()
 
-            // WebView
-            LoginWebView(onNavigationToYouTubeMusic: {
-                self.checkForSuccessfulLogin()
-            })
+            // Do not create the login WebView until reauthentication has drained
+            // old session mutations and established its cookie baseline.
+            if self.didCaptureInitialSAPISID {
+                LoginWebView(onNavigationToYouTubeMusic: {
+                    self.checkForSuccessfulLogin()
+                })
+            } else {
+                ProgressView()
+                    .controlSize(.regular)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .frame(width: 500, height: 650)
         .onChange(of: self.webKitManager.cookiesDidChange) { _, _ in
@@ -35,6 +43,8 @@ struct LoginSheet: View {
         .task {
             self.isActive = true
             if self.authService.needsReauth {
+                await self.accountService.prepareForReauthentication()
+                guard !Task.isCancelled, self.isActive, self.authService.needsReauth else { return }
                 await self.webKitManager.clearAuthCookies()
             }
             self.initialSAPISID = await self.webKitManager.getSAPISID()
@@ -137,7 +147,10 @@ struct LoginSheet: View {
 }
 
 #Preview {
+    let authService = AuthService()
+    let client = YTMusicClient(authService: authService)
     LoginSheet()
-        .environment(AuthService())
+        .environment(authService)
+        .environment(AccountService(ytMusicClient: client, authService: authService))
         .environment(WebKitManager.shared)
 }

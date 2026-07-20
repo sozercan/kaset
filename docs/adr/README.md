@@ -64,3 +64,4 @@ What becomes easier or more difficult because of this change?
 | [0027](0027-native-music-playback-intents-and-queue-entry-identity.md) | Native Music Playback Intents and Queue-Entry Identity | Accepted |
 | [0028](0028-ordered-semantic-music-search-results.md) | Ordered Semantic YouTube Music Search Results | Accepted |
 | [0029](0029-now-playing-tracklist-provider.md) | Shared Now-Playing Mix Tracklist Provider | Accepted |
+| [0030](0030-account-scoped-favorites.md) | Account-Scoped Favorites Persistence | Accepted |

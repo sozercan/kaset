@@ -9,6 +9,7 @@ enum FavoritesContextMenu {
     static func menuItem(for song: Song, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(song: song),
+            canMutate: manager.canMutate,
             toggle: { manager.toggle(song: song) }
         )
     }
@@ -17,6 +18,7 @@ enum FavoritesContextMenu {
     static func menuItem(for album: Album, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(album: album),
+            canMutate: manager.canMutate,
             toggle: { manager.toggle(album: album) }
         )
     }
@@ -25,6 +27,7 @@ enum FavoritesContextMenu {
     static func menuItem(for playlist: Playlist, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(playlist: playlist),
+            canMutate: manager.canMutate,
             toggle: { manager.toggle(playlist: playlist) }
         )
     }
@@ -33,6 +36,7 @@ enum FavoritesContextMenu {
     static func menuItem(for artist: Artist, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(artist: artist),
+            canMutate: manager.canMutate,
             toggle: { manager.toggle(artist: artist) }
         )
     }
@@ -41,6 +45,7 @@ enum FavoritesContextMenu {
     static func menuItem(for podcastShow: PodcastShow, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(podcastShow: podcastShow),
+            canMutate: manager.canMutate,
             toggle: { manager.toggle(podcastShow: podcastShow) }
         )
     }
@@ -84,12 +89,13 @@ enum FavoritesContextMenu {
 
 private struct FavoriteContextMenuItem: View {
     let isPinned: Bool
+    let canMutate: Bool
     let toggle: @MainActor () -> Void
 
     @Environment(AuthService.self) private var authService
 
     var body: some View {
-        if self.authService.hasPersonalAccount {
+        if self.authService.hasPersonalAccount, self.canMutate {
             Button {
                 self.toggle()
             } label: {

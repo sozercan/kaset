@@ -292,10 +292,15 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches the list of available accounts (primary + brand accounts).
     /// Used for account switching functionality.
-    func fetchAccountsList() async throws -> AccountsListResponse
+    func fetchAccountsList(allowGuestMode: Bool) async throws -> AccountsListResponse
 }
 
 extension YTMusicClientProtocol {
+    /// Fetches accounts using normal personal-mode authentication.
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        try await self.fetchAccountsList(allowGuestMode: false)
+    }
+
     /// Fetches a public playlist continuation by default.
     func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
         try await self.getPlaylistContinuation(token: token, requiresAuth: false)

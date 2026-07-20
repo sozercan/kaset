@@ -503,7 +503,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return HomeResponse(sections: [section])
     }
 
-    func fetchAccountsList() async throws -> AccountsListResponse {
+    func fetchAccountsList(allowGuestMode _: Bool) async throws -> AccountsListResponse {
         if UITestConfig.environmentValue(for: UITestConfig.mockAccountLoadingDelayKey) == "true" {
             try? await Task.sleep(for: .milliseconds(800))
         } else {

@@ -413,8 +413,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             guard row >= 0, let entry = entries[safe: row] else { return nil }
             let song = entry.song
             let menu = NSMenu()
-            if self.allowsLikeActions {
-                let manager = self.favoritesManager
+            let manager = self.favoritesManager
+            let canMutateFavorites = MainActor.assumeIsolated { manager.canMutate }
+            if self.allowsLikeActions, canMutateFavorites {
                 let isPinned = MainActor.assumeIsolated { manager.isPinned(song: song) }
 
                 let favoritesItem = NSMenuItem(
@@ -461,7 +462,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         @objc private func contextMenuFavorites(_ sender: NSMenuItem) {
             guard self.allowsLikeActions, let song = sender.representedObject as? Song else { return }
             let manager = self.favoritesManager
-            MainActor.assumeIsolated { manager.toggle(song: song) }
+            MainActor.assumeIsolated {
+                guard manager.canMutate else { return }
+                manager.toggle(song: song)
+            }
         }
 
         @objc private func contextMenuStartRadio(_ sender: NSMenuItem) {

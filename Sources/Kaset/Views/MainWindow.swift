@@ -154,11 +154,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
-            .task {
-                DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
-                await self.authService.checkLoginStatus()
-                DiagnosticsLogger.app.info("MainWindow: Login check complete")
-            }
 
             // Persistent WebView - always present once a video has been requested.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
@@ -710,6 +705,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
+        self.accountService.authenticationIdentityDidChange()
         switch newState {
         case .initializing:
             // Still checking login status, do nothing
