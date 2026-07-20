@@ -14,10 +14,16 @@ enum LibraryMutationActions {
         let task: Task<Void, Error>
     }
 
+    private struct PendingAlbumMutation {
+        let id: UUID
+        let task: Task<Void, Error>
+    }
+
     static var artistReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
 
     private static var artistReconciliationTasks: [String: Task<Void, Never>] = [:]
     private static var pendingPlaylistDeletions: [PlaylistDeletionKey: PendingPlaylistDeletion] = [:]
+    private static var pendingAlbumMutations: [String: PendingAlbumMutation] = [:]
 
     /// Adds a song to a playlist.
     static func addSongToPlaylist(
@@ -130,7 +136,29 @@ enum LibraryMutationActions {
         _ album: Album,
         targetPlaylistId: String,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        reconciliationDelay: Duration = .milliseconds(500)
+    ) async throws {
+        try await self.enqueueAlbumMutation(
+            albumId: album.id,
+            targetPlaylistId: targetPlaylistId
+        ) {
+            try await Self.performAddAlbumToLibrary(
+                album,
+                targetPlaylistId: targetPlaylistId,
+                client: client,
+                libraryViewModel: libraryViewModel,
+                reconciliationDelay: reconciliationDelay
+            )
+        }
+    }
+
+    private static func performAddAlbumToLibrary(
+        _ album: Album,
+        targetPlaylistId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?,
+        reconciliationDelay: Duration
     ) async throws {
         do {
             try await client.subscribeToPlaylist(playlistId: targetPlaylistId)
@@ -147,7 +175,7 @@ enum LibraryMutationActions {
             libraryViewModel?.markNeedsReloadOnActivation()
             LibraryMutationBroadcaster.shared.albumAdded(libraryAlbum)
 
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: reconciliationDelay)
             await LibraryMutationBroadcaster.shared.reconcileAddedAlbum(libraryAlbum)
             self.invalidateResponseCaches()
             DiagnosticsLogger.api.info("Added album to library: \(album.title)")
@@ -162,7 +190,29 @@ enum LibraryMutationActions {
         _ album: Album,
         targetPlaylistId: String,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        reconciliationDelay: Duration = .milliseconds(500)
+    ) async throws {
+        try await self.enqueueAlbumMutation(
+            albumId: album.id,
+            targetPlaylistId: targetPlaylistId
+        ) {
+            try await Self.performRemoveAlbumFromLibrary(
+                album,
+                targetPlaylistId: targetPlaylistId,
+                client: client,
+                libraryViewModel: libraryViewModel,
+                reconciliationDelay: reconciliationDelay
+            )
+        }
+    }
+
+    private static func performRemoveAlbumFromLibrary(
+        _ album: Album,
+        targetPlaylistId: String,
+        client: any YTMusicClientProtocol,
+        libraryViewModel: LibraryViewModel?,
+        reconciliationDelay: Duration
     ) async throws {
         do {
             try await client.unsubscribeFromPlaylist(playlistId: targetPlaylistId)
@@ -173,7 +223,7 @@ enum LibraryMutationActions {
                 targetPlaylistId: targetPlaylistId
             )
 
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: reconciliationDelay)
             await LibraryMutationBroadcaster.shared.reconcileRemovedAlbum(
                 albumId: album.id,
                 targetPlaylistId: targetPlaylistId
@@ -184,6 +234,37 @@ enum LibraryMutationActions {
             DiagnosticsLogger.api.error("Failed to remove album from library: \(error.localizedDescription)")
             throw error
         }
+    }
+
+    private static func enqueueAlbumMutation(
+        albumId: String,
+        targetPlaylistId: String,
+        operation: @MainActor @escaping () async throws -> Void
+    ) async throws {
+        let identity = LibraryContentIdentity.albumKey(
+            albumId: albumId,
+            targetPlaylistId: targetPlaylistId
+        )
+        let previousTask = self.pendingAlbumMutations[identity]?.task
+        let mutationId = UUID()
+        let task = Task { @MainActor in
+            if let previousTask {
+                _ = try? await previousTask.value
+            }
+            try await operation()
+        }
+
+        self.pendingAlbumMutations[identity] = PendingAlbumMutation(
+            id: mutationId,
+            task: task
+        )
+        defer {
+            if self.pendingAlbumMutations[identity]?.id == mutationId {
+                self.pendingAlbumMutations.removeValue(forKey: identity)
+            }
+        }
+
+        try await task.value
     }
 
     /// Permanently deletes a playlist owned by the user.

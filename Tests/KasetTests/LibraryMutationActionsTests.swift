@@ -355,6 +355,89 @@ struct LibraryMutationActionsTests {
         #expect(!self.libraryViewModel.isInLibrary(albumId: "MPRE-album"))
     }
 
+    @Test("Newer album removal wins over delayed add reconciliation")
+    func newerAlbumRemovalWinsOverDelayedAddReconciliation() async throws {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-overlap",
+            title: "Overlap Album",
+            libraryTargetId: "OLAK-overlap"
+        )
+        self.mockClient.shouldAutoUpdatePlaylistLibraryOnMutation = false
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], albums: [], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], albums: [], artists: [], podcastShows: []),
+        ]
+        self.mockClient.libraryContentResponseDelays = [.milliseconds(100), .zero]
+
+        async let add: Void = LibraryMutationActions.addAlbumToLibrary(
+            album,
+            targetPlaylistId: "OLAK-overlap",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel,
+            reconciliationDelay: .milliseconds(50)
+        )
+
+        #expect(await self.waitUntil(self.libraryViewModel.isInLibrary(albumId: album.id)))
+
+        async let remove: Void = LibraryMutationActions.removeAlbumFromLibrary(
+            album,
+            targetPlaylistId: "OLAK-overlap",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel,
+            reconciliationDelay: .milliseconds(50)
+        )
+
+        try await remove
+        try await add
+
+        #expect(!self.libraryViewModel.isInLibrary(albumId: album.id))
+        #expect(self.mockClient.subscribeToPlaylistIds == ["OLAK-overlap"])
+        #expect(self.mockClient.unsubscribeFromPlaylistIds == ["OLAK-overlap"])
+        #expect(self.mockClient.getLibraryContentCallCount == 2)
+    }
+
+    @Test("Newer album add wins over delayed removal reconciliation")
+    func newerAlbumAddWinsOverDelayedRemovalReconciliation() async throws {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-overlap",
+            title: "Overlap Album",
+            libraryTargetId: "OLAK-overlap"
+        )
+        self.libraryViewModel.addToLibrary(album: album)
+        self.mockClient.shouldAutoUpdatePlaylistLibraryOnMutation = false
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], albums: [album], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], albums: [album], artists: [], podcastShows: []),
+        ]
+        self.mockClient.libraryContentResponseDelays = [.milliseconds(100), .zero]
+
+        async let remove: Void = LibraryMutationActions.removeAlbumFromLibrary(
+            album,
+            targetPlaylistId: "OLAK-overlap",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel,
+            reconciliationDelay: .milliseconds(50)
+        )
+
+        #expect(await self.waitUntil(!self.libraryViewModel.isInLibrary(albumId: album.id)))
+
+        async let add: Void = LibraryMutationActions.addAlbumToLibrary(
+            album,
+            targetPlaylistId: "OLAK-overlap",
+            client: self.mockClient,
+            libraryViewModel: self.libraryViewModel,
+            reconciliationDelay: .milliseconds(50)
+        )
+
+        try await add
+        try await remove
+
+        #expect(self.libraryViewModel.isInLibrary(albumId: album.id))
+        #expect(self.mockClient.unsubscribeFromPlaylistIds == ["OLAK-overlap"])
+        #expect(self.mockClient.subscribeToPlaylistIds == ["OLAK-overlap"])
+        #expect(self.mockClient.getLibraryContentCallCount == 2)
+    }
+
     @Test("Failed album add leaves visible library unchanged")
     func failedAlbumAddLeavesLibraryUnchanged() async {
         let album = TestFixtures.makeAlbum(id: "MPRE-album", title: "Album")
