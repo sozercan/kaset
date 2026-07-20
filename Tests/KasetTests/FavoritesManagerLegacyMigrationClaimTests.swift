@@ -419,6 +419,311 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
     }
 
+    @Test("A committed claim with failed cleanup keeps its scope read-only until recovery completes")
+    func committedClaimCleanupFailureKeepsScopeReadOnly() throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer {
+            for claimURL in (try? self.legacyClaimURLs(in: directory)) ?? [] {
+                try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: claimURL.path)
+            }
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let accountID = "primary"
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: accountID)
+        let scopedURL = directory.appendingPathComponent("favorites-\(scopeID).json")
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let existingItem = FavoriteItem.from(TestFixtures.makeSong(id: "cleanup-existing"))
+        let recoveredItem = FavoriteItem.from(TestFixtures.makeSong(id: "cleanup-recovered"))
+
+        try Data("not-json".utf8).write(to: scopedURL)
+        try JSONEncoder().encode([recoveredItem]).write(to: legacyURL)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        let claimURL = try #require(self.legacyClaimURLs(in: directory).first)
+        try JSONEncoder().encode([existingItem]).write(to: scopedURL, options: .atomic)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: claimURL.path)
+
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(manager.isPinned(contentId: recoveredItem.contentId))
+        #expect(!manager.canMutate)
+        manager.remove(contentId: recoveredItem.contentId)
+        #expect(manager.isPinned(contentId: recoveredItem.contentId))
+
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: claimURL.path)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(manager.canMutate)
+        #expect(!FileManager.default.fileExists(atPath: claimURL.path))
+
+        manager.remove(contentId: recoveredItem.contentId)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(!manager.isPinned(contentId: recoveredItem.contentId))
+    }
+
+    @Test("Pending snapshot retry completes legacy recovery before restoring mutability")
+    func pendingSnapshotRetryCompletesLegacyRecovery() async throws {
+        let parentDirectory = try self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: parentDirectory) }
+
+        let blockedStorageURL = parentDirectory.appendingPathComponent("blocked-storage")
+        try Data("not-a-directory".utf8).write(to: blockedStorageURL)
+
+        let diskManager = FavoritesManager(storageDirectory: blockedStorageURL)
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: "primary")
+        let pendingItem = FavoriteItem.from(TestFixtures.makeSong(id: "pending-retry"))
+        let legacyItem = FavoriteItem.from(TestFixtures.makeSong(id: "legacy-during-retry"))
+        let laterItem = FavoriteItem.from(TestFixtures.makeSong(id: "after-retry"))
+
+        diskManager.setActiveAccountScopeID(scopeID, legacyAccountID: "primary")
+        diskManager.add(pendingItem)
+        diskManager.setActiveAccountScopeID(nil)
+        diskManager.setActiveAccountScopeID(scopeID, legacyAccountID: "primary")
+        #expect(!diskManager.canMutate)
+
+        // Keep storage unavailable through the first retry so bounded backoff
+        // must schedule another full recovery attempt.
+        try await Task.sleep(for: .milliseconds(180))
+        try FileManager.default.removeItem(at: blockedStorageURL)
+        try FileManager.default.createDirectory(at: blockedStorageURL, withIntermediateDirectories: true)
+        try JSONEncoder().encode([legacyItem])
+            .write(to: blockedStorageURL.appendingPathComponent("favorites.json"))
+        try await Task.sleep(for: .milliseconds(500))
+
+        #expect(diskManager.canMutate)
+        #expect(diskManager.isPinned(contentId: pendingItem.contentId))
+        #expect(diskManager.isPinned(contentId: legacyItem.contentId))
+        #expect(!FileManager.default.fileExists(atPath: blockedStorageURL.appendingPathComponent("favorites.json").path))
+        diskManager.add(laterItem)
+        diskManager.setActiveAccountScopeID(nil)
+        diskManager.setActiveAccountScopeID(scopeID, legacyAccountID: "primary")
+        #expect(diskManager.isPinned(contentId: laterItem.contentId))
+        #expect(diskManager.isPinned(contentId: legacyItem.contentId))
+    }
+
+    @Test("Malformed uncommitted legacy data does not lock a valid canonical scope")
+    func malformedLegacyDataLeavesValidScopeMutable() throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let accountID = "primary"
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: accountID)
+        let scopedURL = directory.appendingPathComponent("favorites-\(scopeID).json")
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let existingItem = FavoriteItem.from(TestFixtures.makeSong(id: "valid-canonical"))
+        let addedItem = FavoriteItem.from(TestFixtures.makeSong(id: "valid-after-malformed-legacy"))
+        try JSONEncoder().encode([existingItem]).write(to: scopedURL)
+        try Data("not-json".utf8).write(to: legacyURL)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+
+        #expect(manager.canMutate)
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
+        #expect(try self.legacyClaimURLs(in: directory).count == 1)
+
+        manager.add(addedItem)
+        manager.setActiveAccountScopeID(nil)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(manager.isPinned(contentId: addedItem.contentId))
+    }
+
+    @Test("Inactive legacy recovery retries for its reserved destination")
+    func inactiveLegacyRecoveryKeepsOriginalDestination() async throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let accountID = "primary"
+        let originalScopeID = FavoritesManager.accountScopeID(ownerID: "original-owner", accountID: accountID)
+        let competingScopeID = FavoritesManager.accountScopeID(ownerID: "competing-owner", accountID: accountID)
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let originalTargetURL = directory.appendingPathComponent("favorites-\(originalScopeID).json")
+        let competingTargetURL = directory.appendingPathComponent("favorites-\(competingScopeID).json")
+        let legacyItem = FavoriteItem.from(TestFixtures.makeSong(id: "inactive-reserved"))
+        try JSONEncoder().encode([legacyItem]).write(to: legacyURL)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: directory.path)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: originalScopeID)
+        manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: competingScopeID)
+
+        // Let the first retry fail while the directory remains unavailable.
+        try await Task.sleep(for: .milliseconds(180))
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+        try await Task.sleep(for: .milliseconds(500))
+
+        #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
+        #expect(FileManager.default.fileExists(atPath: originalTargetURL.path))
+        #expect(!FileManager.default.fileExists(atPath: competingTargetURL.path))
+        let recoveredItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: originalTargetURL))
+        #expect(recoveredItems.map(\.contentId) == [legacyItem.contentId])
+    }
+
+    @Test("Transient legacy claim read failures keep the canonical scope read-only")
+    func transientClaimReadFailureRemainsRetryable() throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let accountID = "primary"
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: accountID)
+        let scopedURL = directory.appendingPathComponent("favorites-\(scopeID).json")
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let existingItem = FavoriteItem.from(TestFixtures.makeSong(id: "read-existing"))
+        let recoveredItem = FavoriteItem.from(TestFixtures.makeSong(id: "read-recovered"))
+        try Data("not-json".utf8).write(to: scopedURL)
+        try JSONEncoder().encode([recoveredItem]).write(to: legacyURL)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        let claimURL = try #require(self.legacyClaimURLs(in: directory).first)
+        let claimData = try Data(contentsOf: claimURL)
+        try FileManager.default.removeItem(at: claimURL)
+        try FileManager.default.createDirectory(at: claimURL, withIntermediateDirectories: true)
+        try JSONEncoder().encode([existingItem]).write(to: scopedURL, options: .atomic)
+
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(!manager.canMutate)
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+
+        try FileManager.default.removeItem(at: claimURL)
+        try claimData.write(to: claimURL)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+
+        #expect(manager.canMutate)
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(manager.isPinned(contentId: recoveredItem.contentId))
+        #expect(!FileManager.default.fileExists(atPath: claimURL.path))
+    }
+
+    @Test("Pending legacy recovery follows a finalized owner scope")
+    func pendingRecoveryRetargetsAfterOwnerFinalization() async throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let accountID = "primary"
+        let provisionalOwnerID = "provisional-owner"
+        let resolvedOwnerID = "resolved-owner"
+        let provisionalScopeID = FavoritesManager.accountScopeID(ownerID: provisionalOwnerID, accountID: accountID)
+        let resolvedScopeID = FavoritesManager.accountScopeID(ownerID: resolvedOwnerID, accountID: accountID)
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let provisionalTargetURL = directory.appendingPathComponent("favorites-\(provisionalScopeID).json")
+        let resolvedTargetURL = directory.appendingPathComponent("favorites-\(resolvedScopeID).json")
+        let legacyItem = FavoriteItem.from(TestFixtures.makeSong(id: "retargeted-recovery"))
+        try JSONEncoder().encode([legacyItem]).write(to: legacyURL)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: directory.path)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: provisionalScopeID)
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+
+        #expect(manager.prepareAccountScopeMerge(
+            fromOwnerID: provisionalOwnerID,
+            intoOwnerID: resolvedOwnerID,
+            accountIDs: [accountID]
+        ))
+        #expect(manager.commitAccountScopeMerge(
+            fromOwnerID: provisionalOwnerID,
+            intoOwnerID: resolvedOwnerID,
+            accountIDs: [accountID]
+        ))
+        #expect(manager.finalizeAccountScopeMerge(
+            fromOwnerID: provisionalOwnerID,
+            intoOwnerID: resolvedOwnerID,
+            accountIDs: [accountID]
+        ))
+        try await Task.sleep(for: .milliseconds(300))
+
+        #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
+        #expect(!FileManager.default.fileExists(atPath: provisionalTargetURL.path))
+        let recoveredItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: resolvedTargetURL))
+        #expect(recoveredItems.map(\.contentId) == [legacyItem.contentId])
+    }
+
+    @Test("Foreground activation supersedes an inactive recovery retry")
+    func foregroundActivationCancelsInactiveRetry() async throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let accountID = "primary"
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: accountID)
+        let scopedURL = directory.appendingPathComponent("favorites-\(scopeID).json")
+        let legacyURL = directory.appendingPathComponent("favorites-\(accountID).json")
+        let existingItem = FavoriteItem.from(TestFixtures.makeSong(id: "foreground-existing"))
+        let legacyItem = FavoriteItem.from(TestFixtures.makeSong(id: "foreground-legacy"))
+        let addedItem = FavoriteItem.from(TestFixtures.makeSong(id: "foreground-added"))
+        try JSONEncoder().encode([existingItem]).write(to: scopedURL)
+        try JSONEncoder().encode([legacyItem]).write(to: legacyURL)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: directory.path)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: scopeID)
+        try await Task.sleep(for: .milliseconds(60))
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        manager.add(addedItem)
+        try await Task.sleep(for: .milliseconds(80))
+
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(manager.isPinned(contentId: legacyItem.contentId))
+        #expect(manager.isPinned(contentId: addedItem.contentId))
+        manager.setActiveAccountScopeID(nil)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(manager.isPinned(contentId: addedItem.contentId))
+    }
+
+    @Test("Delayed scope recovery flushes edits made after account recovery unlocks the scope")
+    func scopeRecoveryRetryFlushesNewActiveEdits() async throws {
+        let directory = try self.makeTemporaryDirectory()
+        defer {
+            try? FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+            try? FileManager.default.removeItem(at: directory)
+        }
+
+        let accountID = "primary"
+        let scopeID = FavoritesManager.accountScopeID(ownerID: "owner", accountID: accountID)
+        let scopedURL = directory.appendingPathComponent("favorites-\(scopeID).json")
+        let globalLegacyURL = directory.appendingPathComponent("favorites.json")
+        let existingItem = FavoriteItem.from(TestFixtures.makeSong(id: "scope-retry-existing"))
+        let legacyItem = FavoriteItem.from(TestFixtures.makeSong(id: "scope-retry-legacy"))
+        let addedItem = FavoriteItem.from(TestFixtures.makeSong(id: "scope-retry-added"))
+        try JSONEncoder().encode([existingItem]).write(to: scopedURL)
+        try JSONEncoder().encode([legacyItem]).write(to: globalLegacyURL)
+        try FileManager.default.setAttributes([.immutable: true], ofItemAtPath: directory.path)
+
+        let manager = FavoritesManager(storageDirectory: directory)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(!manager.canMutate)
+
+        try await Task.sleep(for: .milliseconds(60))
+        try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
+        manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: scopeID)
+        #expect(manager.canMutate)
+        manager.add(addedItem)
+        try await Task.sleep(for: .milliseconds(160))
+
+        #expect(manager.isPinned(contentId: existingItem.contentId))
+        #expect(manager.isPinned(contentId: legacyItem.contentId))
+        #expect(manager.isPinned(contentId: addedItem.contentId))
+        manager.setActiveAccountScopeID(nil)
+        manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
+        #expect(manager.isPinned(contentId: legacyItem.contentId))
+        #expect(manager.isPinned(contentId: addedItem.contentId))
+    }
+
     private func makeTemporaryDirectory() throws -> URL {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("FavoritesManagerTestsLegacyMigrationClaims-\(UUID().uuidString)", isDirectory: true)

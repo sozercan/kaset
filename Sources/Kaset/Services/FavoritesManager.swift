@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 import Observation
 
@@ -19,12 +18,8 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     private(set) var items: [FavoriteItem] = []
     private(set) var activeScopeID: String?
 
-    var isVisible: Bool {
-        !self.items.isEmpty
-    }
-
     private let skipPersistence: Bool
-    private let storageDirectory: URL
+    let storageDirectory: URL
     /// In-memory store for `skipPersistence` test instances.
     private var itemsByScope: [String: [FavoriteItem]] = [:]
     /// Latest snapshots that could not be written during a scope transition.
@@ -35,12 +30,10 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     private var lastLegacyAccountID: String?
     private var pendingInitialItems: [FavoriteItem]?
     private var saveTask: Task<Void, Never>?
+    var recoveryRetryTasks: [String: Task<Void, Never>] = [:]
+    var legacyRecoveryScopeBySourceName: [String: String] = [:]
     /// False when `items` is only an empty fallback after a failed scope load.
-    private var canPersistActiveSnapshot = false
-
-    private static var defaultStorageDirectory: URL {
-        URL.applicationSupportDirectory.appendingPathComponent("Kaset", isDirectory: true)
-    }
+    var canPersistActiveSnapshot = false
 
     private init() {
         let isUITest = UITestConfig.isUITestMode
@@ -62,30 +55,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     init(storageDirectory: URL) {
         self.skipPersistence = false
         self.storageDirectory = storageDirectory
-    }
-
-    /// Builds an opaque identifier for a provider identity or local alias.
-    static func identityID(for identity: String) -> String {
-        let data = Data(identity.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().utf8)
-        return Self.hashID(for: data)
-    }
-
-    /// Builds an opaque identifier without altering case-sensitive identity material.
-    static func opaqueIdentityID(for identity: String) -> String {
-        self.hashID(for: Data(identity.utf8))
-    }
-
-    /// Builds an opaque persistence scope from a canonical owner ID and selected YouTube account.
-    static func accountScopeID(ownerID: String, accountID: String) -> String {
-        var data = Data(ownerID.utf8)
-        data.append(0)
-        data.append(Data(accountID.utf8))
-        return Self.hashID(for: data)
-    }
-
-    private static func hashID(for data: Data) -> String {
-        let hash = SHA256.hash(data: data)
-        return hash.prefix(16).map { String(format: "%02x", $0) }.joined()
     }
 
     /// Switches the signed-in account scope. `nil` clears visible favorites without deleting files.
@@ -114,17 +83,64 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
 
     /// Claims a prior account-ID-scoped favorites file for its resolved opaque scope.
     func recoverLegacyAccountFavorites(accountID: String, toScopeID scopeID: String) {
-        guard !self.skipPersistence else { return }
+        guard !self.skipPersistence,
+              let legacyURL = self.legacyAccountFavoritesURL(accountID: accountID),
+              self.reserveLegacySource(legacyURL, for: scopeID)
+        else { return }
 
+        let retryKey = Self.accountRecoveryRetryKey(accountID: accountID, scopeID: scopeID)
+        self.cancelRecoveryRetry(key: retryKey)
         let reloadActiveScope = self.activeScopeID == scopeID
         if reloadActiveScope, !self.flushActiveScope() {
+            self.scheduleAccountRecoveryRetry(accountID: accountID, scopeID: scopeID, attempt: 0)
             return
         }
-        guard self.materializePendingItemsIfNeeded(for: scopeID) else { return }
+        guard self.materializePendingItemsIfNeeded(for: scopeID) else {
+            if reloadActiveScope {
+                self.loadScopeAfterFailedRecovery(scopeID)
+            }
+            self.scheduleAccountRecoveryRetry(accountID: accountID, scopeID: scopeID, attempt: 0)
+            return
+        }
 
-        self.migrateLegacyAccountFavoritesIfNeeded(accountID: accountID, toScopeID: scopeID)
-        if reloadActiveScope {
+        let migrationResult = self.migrateLegacyAccountFavoritesIfNeeded(
+            accountID: accountID,
+            toScopeID: scopeID
+        )
+        if migrationResult.requiresReadOnlyRetry {
+            if reloadActiveScope {
+                self.loadScopeAfterFailedRecovery(scopeID)
+            }
+            self.scheduleAccountRecoveryRetry(accountID: accountID, scopeID: scopeID, attempt: 0)
+        } else if reloadActiveScope {
             self.load(scopeID: scopeID)
+        }
+    }
+
+    private func scheduleAccountRecoveryRetry(accountID: String, scopeID: String, attempt: Int) {
+        let key = Self.accountRecoveryRetryKey(accountID: accountID, scopeID: scopeID)
+        self.scheduleRecoveryRetry(key: key, attempt: attempt) { [weak self] in
+            guard let self else { return true }
+            if self.activeScopeID == scopeID, !self.flushActiveScope() {
+                return false
+            }
+            guard let legacyURL = self.legacyAccountFavoritesURL(accountID: accountID),
+                  self.reserveLegacySource(legacyURL, for: scopeID),
+                  self.materializePendingItemsIfNeeded(for: scopeID)
+            else { return false }
+
+            let result = self.migrateLegacyAccountFavoritesIfNeeded(
+                accountID: accountID,
+                toScopeID: scopeID
+            )
+            if self.activeScopeID == scopeID {
+                if result.requiresReadOnlyRetry {
+                    self.loadScopeAfterFailedRecovery(scopeID)
+                } else {
+                    self.load(scopeID: scopeID)
+                }
+            }
+            return !result.requiresReadOnlyRetry
         }
     }
 
@@ -202,6 +218,11 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
             ) else {
                 return false
             }
+            self.retargetPendingLegacyRecovery(
+                from: sourceScopeID,
+                into: targetScopeID,
+                accountID: accountID
+            )
             if !self.cleanupPreparedScopeMerge(
                 from: sourceScopeID,
                 into: targetScopeID,
@@ -231,15 +252,28 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         migratesLegacyFavorites: Bool,
         legacyAccountID: String?
     ) {
+        if let scopeID {
+            self.cancelRecoveryRetry(key: Self.scopeRecoveryRetryKey(scopeID: scopeID))
+            if let legacyAccountID {
+                self.cancelRecoveryRetry(
+                    key: Self.accountRecoveryRetryKey(accountID: legacyAccountID, scopeID: scopeID)
+                )
+            }
+        }
         guard self.activeScopeID != scopeID else {
             if let scopeID {
                 _ = self.flushActiveScope()
-                self.recoverScope(
+                let didRecover = self.recoverScope(
                     scopeID,
                     migratesLegacyFavorites: migratesLegacyFavorites,
                     legacyAccountID: legacyAccountID
                 )
-                self.load(scopeID: scopeID)
+                self.finishScopeRecovery(
+                    scopeID: scopeID,
+                    didRecover: didRecover,
+                    migratesLegacyFavorites: migratesLegacyFavorites,
+                    legacyAccountID: legacyAccountID
+                )
             } else {
                 self.items = []
             }
@@ -255,20 +289,83 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
             return
         }
 
-        self.recoverScope(
+        let didRecover = self.recoverScope(
             scopeID,
             migratesLegacyFavorites: migratesLegacyFavorites,
             legacyAccountID: legacyAccountID
         )
+        self.finishScopeRecovery(
+            scopeID: scopeID,
+            didRecover: didRecover,
+            migratesLegacyFavorites: migratesLegacyFavorites,
+            legacyAccountID: legacyAccountID
+        )
+    }
 
-        self.load(scopeID: scopeID)
+    private func finishScopeRecovery(
+        scopeID: String,
+        didRecover: Bool,
+        migratesLegacyFavorites: Bool,
+        legacyAccountID: String?
+    ) {
+        if didRecover {
+            self.load(scopeID: scopeID)
+            return
+        }
+
+        self.loadScopeAfterFailedRecovery(scopeID)
+        self.scheduleScopeRecoveryRetry(
+            scopeID: scopeID,
+            migratesLegacyFavorites: migratesLegacyFavorites,
+            legacyAccountID: legacyAccountID,
+            attempt: 0
+        )
+    }
+
+    private func loadScopeAfterFailedRecovery(_ scopeID: String) {
+        self.saveTask?.cancel()
+        self.saveTask = nil
+        if let pendingItems = self.pendingItemsByScope[scopeID] {
+            self.items = pendingItems
+        } else {
+            self.load(scopeID: scopeID)
+        }
+        self.canPersistActiveSnapshot = false
+    }
+
+    func scheduleScopeRecoveryRetry(
+        scopeID: String,
+        migratesLegacyFavorites: Bool,
+        legacyAccountID: String?,
+        attempt: Int
+    ) {
+        let key = Self.scopeRecoveryRetryKey(scopeID: scopeID)
+        self.scheduleRecoveryRetry(key: key, attempt: attempt) { [weak self] in
+            guard let self else { return true }
+            if self.activeScopeID == scopeID, !self.flushActiveScope() {
+                return false
+            }
+            let didRecover = self.recoverScope(
+                scopeID,
+                migratesLegacyFavorites: migratesLegacyFavorites,
+                legacyAccountID: legacyAccountID
+            )
+            if self.activeScopeID == scopeID {
+                if didRecover {
+                    self.load(scopeID: scopeID)
+                } else {
+                    self.loadScopeAfterFailedRecovery(scopeID)
+                }
+            }
+            return didRecover
+        }
     }
 
     private func recoverScope(
         _ scopeID: String,
         migratesLegacyFavorites: Bool,
         legacyAccountID: String?
-    ) {
+    ) -> Bool {
         if self.skipPersistence {
             if migratesLegacyFavorites,
                let pendingInitialItems = self.pendingInitialItems,
@@ -278,25 +375,35 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
                 self.pendingInitialItems = nil
             }
         } else if migratesLegacyFavorites {
-            if self.materializePendingItemsIfNeeded(for: scopeID) {
-                self.migrateLegacyFavoritesIfNeeded(toScopeID: scopeID)
-                if let legacyAccountID {
-                    self.migrateLegacyAccountFavoritesIfNeeded(
-                        accountID: legacyAccountID,
-                        toScopeID: scopeID
-                    )
-                }
+            let globalLegacyURL = self.storageDirectory.appendingPathComponent("favorites.json")
+            let canRecoverGlobalFavorites = self.reserveLegacySource(globalLegacyURL, for: scopeID)
+            let accountLegacyURL = legacyAccountID.flatMap { self.legacyAccountFavoritesURL(accountID: $0) }
+            let canRecoverAccountFavorites = accountLegacyURL.map {
+                self.reserveLegacySource($0, for: scopeID)
+            } ?? true
+            guard self.materializePendingItemsIfNeeded(for: scopeID) else { return false }
+            let globalResult = canRecoverGlobalFavorites
+                ? self.migrateLegacyFavoritesIfNeeded(toScopeID: scopeID)
+                : .deferred
+            let accountResult = if let legacyAccountID, canRecoverAccountFavorites {
+                self.migrateLegacyAccountFavoritesIfNeeded(
+                    accountID: legacyAccountID,
+                    toScopeID: scopeID
+                )
+            } else {
+                LegacyMigrationResult.completed
             }
+            return !globalResult.requiresReadOnlyRetry && !accountResult.requiresReadOnlyRetry
         }
+        return true
     }
 
     private func flushActiveScope() -> Bool {
-        guard let activeScopeID = self.activeScopeID,
-              self.canPersistActiveSnapshot
-        else { return true }
+        guard let activeScopeID = self.activeScopeID else { return true }
 
         self.saveTask?.cancel()
         self.saveTask = nil
+        guard self.canPersistActiveSnapshot else { return true }
 
         if self.skipPersistence {
             self.itemsByScope[activeScopeID] = self.items
@@ -414,58 +521,102 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         return true
     }
 
-    private func migrateLegacyFavoritesIfNeeded(toScopeID targetScopeID: String) {
+    private func migrateLegacyFavoritesIfNeeded(toScopeID targetScopeID: String) -> LegacyMigrationResult {
         let legacyURL = self.storageDirectory.appendingPathComponent("favorites.json")
-        self.migrateLegacyFileIfNeeded(from: legacyURL, toScopeID: targetScopeID)
+        return self.migrateLegacyFileIfNeeded(from: legacyURL, toScopeID: targetScopeID)
     }
 
-    private func migrateLegacyAccountFavoritesIfNeeded(accountID: String, toScopeID targetScopeID: String) {
-        guard let legacyURL = self.legacyAccountFavoritesURL(accountID: accountID) else { return }
-        self.migrateLegacyFileIfNeeded(from: legacyURL, toScopeID: targetScopeID)
+    private func migrateLegacyAccountFavoritesIfNeeded(
+        accountID: String,
+        toScopeID targetScopeID: String
+    ) -> LegacyMigrationResult {
+        guard let legacyURL = self.legacyAccountFavoritesURL(accountID: accountID) else { return .completed }
+        return self.migrateLegacyFileIfNeeded(from: legacyURL, toScopeID: targetScopeID)
     }
 
-    private func migrateLegacyFileIfNeeded(from legacyURL: URL, toScopeID targetScopeID: String) {
+    private func migrateLegacyFileIfNeeded(
+        from legacyURL: URL,
+        toScopeID targetScopeID: String
+    ) -> LegacyMigrationResult {
+        guard self.reserveLegacySource(legacyURL, for: targetScopeID) else { return .deferred }
+        defer { self.releaseLegacySourceIfBoundOrAbsent(legacyURL, from: targetScopeID) }
+
         let targetURL = self.fileURL(for: targetScopeID)
-        guard legacyURL != targetURL else { return }
+        guard legacyURL != targetURL else { return .completed }
 
         let claimURL = self.legacyClaimURL(for: legacyURL, boundTo: targetScopeID)
         guard FileManager.default.fileExists(atPath: legacyURL.path)
             || FileManager.default.fileExists(atPath: claimURL.path)
-        else { return }
+        else { return .completed }
 
         do {
             try FileManager.default.createDirectory(at: self.storageDirectory, withIntermediateDirectories: true)
 
             if FileManager.default.fileExists(atPath: claimURL.path) {
-                try self.commitLegacyClaim(at: claimURL, to: targetURL)
+                let result = self.commitLegacyClaim(at: claimURL, to: targetURL)
+                guard result == .completed else { return result }
             }
 
-            guard FileManager.default.fileExists(atPath: legacyURL.path) else { return }
+            guard FileManager.default.fileExists(atPath: legacyURL.path) else { return .completed }
             guard FileManager.default.fileExists(atPath: targetURL.path) else {
                 try FileManager.default.moveItem(at: legacyURL, to: targetURL)
-                return
+                return .completed
             }
 
             // Consume the globally discoverable name before changing an existing destination.
             // A failed commit or cleanup can then only be resumed by this destination scope.
             try FileManager.default.moveItem(at: legacyURL, to: claimURL)
-            try self.commitLegacyClaim(at: claimURL, to: targetURL)
+            return self.commitLegacyClaim(at: claimURL, to: targetURL)
         } catch {
             DiagnosticsLogger.ui.error("Failed to migrate favorites: \(error.localizedDescription)")
+            return .requiresReadOnlyRetry
         }
     }
 
-    private func commitLegacyClaim(at claimURL: URL, to targetURL: URL) throws {
+    private func commitLegacyClaim(at claimURL: URL, to targetURL: URL) -> LegacyMigrationResult {
         guard FileManager.default.fileExists(atPath: targetURL.path) else {
-            try FileManager.default.moveItem(at: claimURL, to: targetURL)
-            return
+            do {
+                try FileManager.default.moveItem(at: claimURL, to: targetURL)
+                return .completed
+            } catch {
+                DiagnosticsLogger.ui.error("Failed to promote favorites claim: \(error.localizedDescription)")
+                return .requiresReadOnlyRetry
+            }
         }
 
-        let claimedItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: claimURL))
-        let existingItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: targetURL))
-        try JSONEncoder().encode(Self.merging(existingItems, appending: claimedItems))
-            .write(to: targetURL, options: .atomic)
-        try FileManager.default.removeItem(at: claimURL)
+        let claimData: Data
+        do {
+            claimData = try Data(contentsOf: claimURL)
+        } catch {
+            DiagnosticsLogger.ui.error("Cannot read legacy favorites claim: \(error.localizedDescription)")
+            return .requiresReadOnlyRetry
+        }
+
+        let claimedItems: [FavoriteItem]
+        do {
+            claimedItems = try JSONDecoder().decode([FavoriteItem].self, from: claimData)
+        } catch {
+            DiagnosticsLogger.ui.error("Deferring malformed legacy favorites claim: \(error.localizedDescription)")
+            return .deferred
+        }
+
+        let existingItems: [FavoriteItem]
+        do {
+            existingItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: targetURL))
+        } catch {
+            DiagnosticsLogger.ui.error("Cannot merge favorites into an invalid target: \(error.localizedDescription)")
+            return .requiresReadOnlyRetry
+        }
+
+        do {
+            try JSONEncoder().encode(Self.merging(existingItems, appending: claimedItems))
+                .write(to: targetURL, options: .atomic)
+            try FileManager.default.removeItem(at: claimURL)
+            return .completed
+        } catch {
+            DiagnosticsLogger.ui.error("Failed to commit favorites claim: \(error.localizedDescription)")
+            return .requiresReadOnlyRetry
+        }
     }
 
     private func canFinalizeScopeMerge(
@@ -664,28 +815,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         return didCleanup
     }
 
-    private func legacyAccountFavoritesURL(accountID: String) -> URL? {
-        guard accountID.range(of: #"^[A-Za-z0-9_-]+$"#, options: .regularExpression) != nil else {
-            return nil
-        }
-        return self.storageDirectory.appendingPathComponent("favorites-\(accountID).json")
-    }
-
-    private func legacyClaimURL(for legacyURL: URL, boundTo targetScopeID: String) -> URL {
-        let sourceID = Self.hashID(for: Data(legacyURL.lastPathComponent.utf8))
-        return self.storageDirectory.appendingPathComponent(
-            ".favorites-legacy-claim-\(targetScopeID)-\(sourceID).json"
-        )
-    }
-
-    private func legacyClaimURLs(boundTo scopeID: String, legacyAccountID: String) -> [URL] {
-        var legacyURLs = [self.storageDirectory.appendingPathComponent("favorites.json")]
-        if let legacyAccountURL = self.legacyAccountFavoritesURL(accountID: legacyAccountID) {
-            legacyURLs.append(legacyAccountURL)
-        }
-        return legacyURLs.map { self.legacyClaimURL(for: $0, boundTo: scopeID) }
-    }
-
     private func mergeBaselineURL(for key: ScopeMergeKey) -> URL {
         self.storageDirectory.appendingPathComponent(
             ".favorites-merge-\(key.sourceScopeID)-to-\(key.targetScopeID)-baseline.json"
@@ -696,37 +825,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         self.storageDirectory.appendingPathComponent(
             ".favorites-merge-\(key.sourceScopeID)-to-\(key.targetScopeID)-prepared.json"
         )
-    }
-
-    private static func merging(_ preferredItems: [FavoriteItem], appending additionalItems: [FavoriteItem]) -> [FavoriteItem] {
-        var seenContentIDs = Set(preferredItems.map(\.contentId))
-        return preferredItems + additionalItems.filter { seenContentIDs.insert($0.contentId).inserted }
-    }
-
-    private static func targetOwnedItems(
-        baselineItems: [FavoriteItem],
-        currentTargetItems: [FavoriteItem],
-        previousPreparedItems: [FavoriteItem]?
-    ) -> [FavoriteItem] {
-        guard let previousPreparedItems else { return currentTargetItems }
-        let baselineItemIDs = Set(baselineItems.map(\.id))
-        let previousPreparedItemIDs = Set(previousPreparedItems.map(\.id))
-        return currentTargetItems.filter { item in
-            baselineItemIDs.contains(item.id)
-                || !previousPreparedItemIDs.contains(item.id)
-        }
-    }
-
-    @discardableResult
-    private static func write(_ items: [FavoriteItem], to url: URL) -> Bool {
-        do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(items).write(to: url, options: .atomic)
-            return true
-        } catch {
-            DiagnosticsLogger.ui.error("Failed to save favorites: \(error.localizedDescription)")
-            return false
-        }
     }
 
     // MARK: - Actions
@@ -743,14 +841,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         guard let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
         self.items.remove(at: index)
         self.save()
-    }
-
-    func toggle(_ item: FavoriteItem) {
-        if self.isPinned(contentId: item.contentId) {
-            self.remove(contentId: item.contentId)
-        } else {
-            self.add(item)
-        }
     }
 
     func move(from source: IndexSet, to destination: Int) {
@@ -779,46 +869,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         self.items.contains { $0.contentId == contentId }
     }
 
-    func isPinned(song: Song) -> Bool {
-        self.isPinned(contentId: song.videoId)
-    }
-
-    func isPinned(album: Album) -> Bool {
-        self.isPinned(contentId: album.id)
-    }
-
-    func isPinned(playlist: Playlist) -> Bool {
-        self.isPinned(contentId: playlist.id)
-    }
-
-    func isPinned(artist: Artist) -> Bool {
-        self.isPinned(contentId: artist.id)
-    }
-
-    func isPinned(podcastShow: PodcastShow) -> Bool {
-        self.isPinned(contentId: podcastShow.id)
-    }
-
-    func toggle(song: Song) {
-        self.toggle(.from(song))
-    }
-
-    func toggle(album: Album) {
-        self.toggle(.from(album))
-    }
-
-    func toggle(playlist: Playlist) {
-        self.toggle(.from(playlist))
-    }
-
-    func toggle(artist: Artist) {
-        self.toggle(.from(artist))
-    }
-
-    func toggle(podcastShow: PodcastShow) {
-        self.toggle(.from(podcastShow))
-    }
-
     // MARK: - Testing Support
 
     private func loadMockData() {
@@ -843,9 +893,5 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         guard self.canMutate else { return }
         self.items = items
         self.save()
-    }
-
-    var canMutate: Bool {
-        self.activeScopeID != nil && self.canPersistActiveSnapshot
     }
 }
