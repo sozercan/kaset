@@ -283,6 +283,10 @@ final class AccountService { // swiftlint:disable:this type_body_length
             self.pendingFavoritesOwnerFinalizations.remove(finalization)
         }
         _ = self.persistFavoritesOwnerIdentity()
+        // A persisted credential alias is not sufficient after a new auth
+        // generation because Google can reuse one SAPISID across multi-login
+        // identities. Require current-generation email corroboration first;
+        // later partial responses in that same generation may omit email.
         guard self.verifiedFavoritesOwnerID == ownerID else { return nil }
         return self.activatableFavoritesOwnerID(ownerID)
     }

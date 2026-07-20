@@ -46,9 +46,12 @@ Favorites use an opaque, local ownership model:
    corroboration; conflicting or unclaimed changed emails are not persisted.
 3. Each primary or brand identity gets a deterministic scope derived from the
    owner UUID and the selected YouTube account ID.
-4. When email is unavailable, the auth fingerprint still restores the same
-   owner across launches. If a later email alias resolves to a different known
-   owner, migration uses prepare → commit → bind → finalize phases. Baseline
+4. Across launches, the auth fingerprint restores a candidate owner mapping,
+   but activation still waits for matching email corroboration in the current
+   authentication generation because Google can reuse one SAPISID across
+   multi-login identities. After that corroboration, later partial responses
+   in the same generation may omit email. If a later email alias resolves to a
+   different known owner, migration uses prepare → commit → bind → finalize phases. Baseline
    and staged files keep retries authoritative until every target is durable
    and the alias registry has committed. The same registry persists pending
    finalization records so interrupted source/claim cleanup resumes on launch.
@@ -95,9 +98,10 @@ the unreadable file cannot be overwritten from an empty fallback snapshot.
 
 - Different Google users and brand identities no longer share local favorites.
 - Logout and reauthentication cannot erase or reactivate another user's pins.
-- First-time email-less sessions remain fail-closed until ownership is
-  corroborated, while returning email-bound sessions can use their hashed auth
-  alias. Later email reconciliation is retryable and crash-tolerant.
+- Email-less sessions after a new authentication boundary remain fail-closed
+  until ownership is corroborated in that generation. Returning email-bound
+  sessions then keep using their hashed auth alias for later partial responses.
+  Email reconciliation is retryable and crash-tolerant.
 - Account lifecycle code carries an additional authentication-generation
   invariant that must be checked by future asynchronous account commits.
 - The owner alias registry adds redundant local metadata in `UserDefaults` and

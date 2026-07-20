@@ -346,6 +346,57 @@ struct AccountServiceTests {
         #expect(FavoritesManager.shared.canMutate)
     }
 
+    @Test @MainActor func persistedVerifiedOwnerRequiresCurrentGenerationEmailCorroboration() async throws {
+        let suiteName = "AccountServiceTests.verified-relaunch.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let primary = UserAccount.from(
+            name: "Persistent Primary",
+            handle: "@persistent-primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let favorite = FavoriteItem.from(TestFixtures.makeSong(id: "persisted-verified-owner"))
+
+        let firstServices = Self.createService(favoritesOwnerDefaults: defaults)
+        firstServices.auth.completeLogin(sapisid: "reused-multilogin-cookie")
+        firstServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary]
+        )
+        await firstServices.account.fetchAccounts()
+        let resolvedScope = try #require(firstServices.account.currentFavoritesScopeID)
+        FavoritesManager.shared.add(favorite)
+
+        let restoredServices = Self.createService(favoritesOwnerDefaults: defaults)
+        restoredServices.auth.completeLogin(sapisid: "reused-multilogin-cookie")
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+
+        #expect(restoredServices.account.currentFavoritesScopeID == nil)
+        #expect(!FavoritesManager.shared.canMutate)
+        #expect(!FavoritesManager.shared.isPinned(contentId: favorite.contentId))
+
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+        #expect(restoredServices.account.currentFavoritesScopeID == resolvedScope)
+        #expect(FavoritesManager.shared.isPinned(contentId: favorite.contentId))
+
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+        #expect(restoredServices.account.currentFavoritesScopeID == resolvedScope)
+    }
+
     @Test @MainActor func pendingOwnerFinalizationResumesFromPersistedState() throws {
         let suiteName = "AccountServiceTests.finalization.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
