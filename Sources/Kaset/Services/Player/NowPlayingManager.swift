@@ -113,9 +113,9 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
 
 // MARK: - NowPlayingManager
 
-/// Manages remote command center integration for media key support.
-/// Note: Now Playing info display is handled natively by WKWebView's media session.
-/// This class only sets up remote command handlers to route media keys to our PlayerService.
+/// Manages remote-command routing and the app's Now Playing ownership.
+/// WebKit publishes the rich card during confirmed playback; Kaset publishes tagged minimal
+/// metadata during paused or loading gaps so media keys continue routing to the active source.
 @MainActor
 @Observable
 final class NowPlayingManager {
@@ -300,7 +300,7 @@ final class NowPlayingManager {
         self.setupRemoteCommands()
         self.syncMediaControlSetting()
         self.syncPlaybackAudioQualitySetting()
-        self.logger.info("NowPlayingManager configured (remote commands only)")
+        self.logger.info("NowPlayingManager configured")
 
         self.observeSettingsChanges()
 
