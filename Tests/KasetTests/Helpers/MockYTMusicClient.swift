@@ -1290,6 +1290,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.completedSearchEndpoints = []
         self.getSearchContinuationTokens = []
         self.beforeSearchReturn = nil
+        self.beforeSearchContinuationReturn = nil
         self.beforeGetSongReturn = nil
         self.beforeGetPlaylistReturn = nil
         self.beforePlaylistContinuationReturn = nil

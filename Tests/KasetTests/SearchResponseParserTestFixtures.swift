@@ -264,8 +264,20 @@ extension SearchResponseParserTests {
         ]
     }
 
-    static func makeRelativeDateEpisodeData() -> [String: Any] {
-        [
+    static func makeRelativeDateEpisodeData(
+        showTitle: String = "Fixture Podcast",
+        showBrowseId: String? = "MPSPPrelative-date",
+        publishedDate: String = "2 hours ago",
+        duration: String = "36 min"
+    ) -> [String: Any] {
+        var showRun: [String: Any] = ["text": showTitle]
+        if let showBrowseId {
+            showRun["navigationEndpoint"] = [
+                "browseEndpoint": ["browseId": showBrowseId],
+            ]
+        }
+
+        return [
             "contents": [
                 "sectionListRenderer": [
                     "contents": [[
@@ -303,18 +315,11 @@ extension SearchResponseParserTests {
                                                     "runs": [
                                                         ["text": "Episode"],
                                                         ["text": " • "],
-                                                        [
-                                                            "text": "Fixture Podcast",
-                                                            "navigationEndpoint": [
-                                                                "browseEndpoint": [
-                                                                    "browseId": "MPSPPrelative-date",
-                                                                ],
-                                                            ],
-                                                        ],
+                                                        showRun,
                                                         ["text": " • "],
-                                                        ["text": "2 hours ago"],
+                                                        ["text": publishedDate],
                                                         ["text": " • "],
-                                                        ["text": "36 min"],
+                                                        ["text": duration],
                                                     ],
                                                 ],
                                             ],

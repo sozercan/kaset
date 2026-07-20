@@ -264,6 +264,47 @@ struct SearchResponseParserTests {
         #expect(episode?.durationSeconds == 2160)
     }
 
+    @Test(
+        "Localized episode dates and durations preserve metadata",
+        arguments: [
+            ("2시간 전", "36분", 2160),
+            ("vor 2 Stunden", "45 Min", 2700),
+            ("منذ ٣ ساعات", "٣٦ دقيقة", 2160),
+            ("19 lipca", "36 min", 2160),
+            ("19 июля", "36 мин.", 2160),
+            ("12 maart", "36 min", 2160),
+            ("12 aprile", "36 min", 2160),
+        ]
+    )
+    func localizedEpisodeMetadataParses(
+        publishedDate: String,
+        duration: String,
+        expectedSeconds: Int
+    ) {
+        let response = SearchResponseParser.parse(Self.makeRelativeDateEpisodeData(
+            publishedDate: publishedDate,
+            duration: duration
+        ))
+
+        let episode = response.podcastEpisodes.first
+        #expect(episode?.publishedDate == publishedDate)
+        #expect(episode?.duration == duration)
+        #expect(episode?.durationSeconds == expectedSeconds)
+    }
+
+    @Test(
+        "Fallback show names containing count words are preserved",
+        arguments: ["Song Exploder", "Gameplay"]
+    )
+    func countWordsWithoutNumbersRemainShowNames(showTitle: String) {
+        let response = SearchResponseParser.parse(Self.makeRelativeDateEpisodeData(
+            showTitle: showTitle,
+            showBrowseId: nil
+        ))
+
+        #expect(response.podcastEpisodes.first?.showTitle == showTitle)
+    }
+
     @Test("Radio browse IDs remain playlists ahead of watch fallbacks")
     func radioBrowseIdsPreservePlaylistSemantics() {
         let response = SearchResponseParser.parse(Self.makeRadioBrowseData(

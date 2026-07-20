@@ -481,6 +481,16 @@ struct SearchViewModelTests {
         #expect(self.mockClient.searchQueries.count == 10)
     }
 
+    @Test("Mock reset clears the search continuation return hook")
+    func mockResetClearsSearchContinuationHook() {
+        self.mockClient.beforeSearchContinuationReturn = { _ in }
+
+        self.mockClient.reset()
+
+        #expect(self.mockClient.beforeSearchContinuationReturn == nil)
+        #expect(self.mockClient.getSearchContinuationTokens.isEmpty)
+    }
+
     @Test("Stale pagination cannot append into a newer search")
     func stalePaginationCannotCorruptNewerSearch() async {
         let continuationGate = AsyncGate()

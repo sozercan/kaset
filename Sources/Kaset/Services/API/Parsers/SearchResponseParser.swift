@@ -835,33 +835,6 @@ private extension SearchResponseParser {
         return [Artist.inline(name: fallbackName, namespace: "search-artist")]
     }
 
-    private static let countMetadataUnits: Set<String> = [
-        "subscriber", "subscribers", "view", "views", "play", "plays", "episode", "episodes", "song", "songs",
-        "track", "tracks", "حلقة", "الحلقات", "أغنية", "أغاني", "أغانٍ", "مقطوعات", "folge", "folgen",
-        "titel", "titeln", "episodio", "episodios", "canción", "canciones", "pista", "pistas", "épisode",
-        "épisodes", "morceau", "morceaux", "titre", "titres", "lagu", "trek", "episodi", "brano", "brani",
-        "에피소드", "노래", "곡", "트랙", "aflevering", "afleveringen", "nummer", "nummers", "odcinek",
-        "odcinki", "utwór", "utwory", "utworów", "utworami", "episódio", "episódios", "música", "músicas",
-        "faixa", "faixas", "выпуск", "выпуски", "трек", "треки", "треков", "avsnitt", "låt", "låtar",
-        "spår", "bölüm", "bölümler", "şarkı", "şarkılar", "parça", "епізод", "епізоди", "пісня",
-        "пісні", "пісень", "треків",
-    ]
-
-    private static func hasLocalizedCountUnit(_ text: String) -> Bool {
-        let normalized = text
-            .replacingOccurrences(of: "\u{00A0}", with: " ")
-            .replacingOccurrences(of: "\u{202F}", with: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        guard normalized.contains(where: \.isNumber),
-              let unit = normalized.split(whereSeparator: { character in
-                  character.isWhitespace || character.isNumber || character == "." || character == ","
-              }).last.map(String.init)
-        else { return false }
-        return Self.countMetadataUnits.contains(unit)
-            || ["выпуск", "odcin", "епізод"].contains { unit.hasPrefix($0) }
-    }
-
     private static func fallbackCreatorName(from renderer: [String: Any]) -> String? {
         self.metadataComponents(from: renderer).first { component in
             !Self.isNonArtistMetadata(component)
