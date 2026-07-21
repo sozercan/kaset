@@ -189,6 +189,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Whether the expanded Now Playing view is visible.
+    /// Independent of `showLyrics`/`showQueue` so the right-sidebar state is
+    /// restored when the expanded player closes.
+    var showExpandedPlayer: Bool = false
+
     /// Whether the current track has video available.
     var currentTrackHasVideo: Bool = false
 

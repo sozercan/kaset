@@ -495,6 +495,7 @@ extension PlayerService {
         self.currentTrack = nil
         self.progress = 0
         self.duration = 0
+        self.showExpandedPlayer = false
     }
 
     /// Show the AirPlay picker for selecting audio output devices.

@@ -69,6 +69,23 @@ extension URL {
 
         return URL(string: urlString)
     }
+
+    /// Returns a square thumbnail URL sized to `side`×`side` pixels.
+    ///
+    /// Google-hosted thumbnails (lh3.googleusercontent.com, ytimg.com) encode the
+    /// size as a `w{width}-h{height}` path segment and serve arbitrary sizes, so any
+    /// existing size segment is rewritten. Non-Google hosts are returned unchanged.
+    func squareThumbnailURL(side: Int) -> URL? {
+        guard host?.contains("ytimg.com") == true || host?.contains("googleusercontent.com") == true else {
+            return self
+        }
+
+        let urlString = absoluteString.replacing(#/w\d+-h\d+/#) { _ in
+            "w\(side)-h\(side)"
+        }
+
+        return URL(string: urlString)
+    }
 }
 
 // MARK: - String Extensions

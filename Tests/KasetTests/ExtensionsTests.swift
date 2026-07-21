@@ -116,6 +116,52 @@ struct ExtensionsTests {
         #expect(highQuality?.absoluteString == "https://i.ytimg.com/vi/abc/w400-h400-l90-rj")
     }
 
+    // MARK: - URL Square Thumbnail Tests
+
+    @Test(
+        "Rewrites any size segment to the requested square side",
+        arguments: [
+            "https://lh3.googleusercontent.com/abc=w60-h60-l90-rj",
+            "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj",
+            "https://i.ytimg.com/vi/abc/w226-h226-l90-rj",
+        ]
+    )
+    func squareThumbnailRewritesSizeSegment(urlString: String) throws {
+        let url = try #require(URL(string: urlString))
+        let resized = url.squareThumbnailURL(side: 544)
+        #expect(try #require(resized?.absoluteString.contains("w544-h544")))
+    }
+
+    @Test("Returns original URL for non-Google hosts")
+    func squareThumbnailNonGoogleHost() throws {
+        let url = try #require(URL(string: "https://example.com/image-w60-h60.jpg"))
+        #expect(url.squareThumbnailURL(side: 544) == url)
+    }
+
+    @Test("Leaves Google URLs without a size segment unchanged")
+    func squareThumbnailNoSizeSegment() throws {
+        let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/hqdefault.jpg"))
+        #expect(url.squareThumbnailURL(side: 544)?.absoluteString == url.absoluteString)
+    }
+
+    @Test("Song.largeThumbnailURL falls back to public thumbnail when API URL is missing")
+    func largeThumbnailFallback() {
+        let song = Song(id: "vid123", title: "Test", artists: [], videoId: "vid123")
+        #expect(song.largeThumbnailURL == song.fallbackThumbnailURL)
+    }
+
+    @Test("Song.largeThumbnailURL upgrades API thumbnail to 544px")
+    func largeThumbnailUpgradesSize() throws {
+        let song = Song(
+            id: "vid123",
+            title: "Test",
+            artists: [],
+            thumbnailURL: URL(string: "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj"),
+            videoId: "vid123"
+        )
+        #expect(try #require(song.largeThumbnailURL?.absoluteString.contains("w544-h544")))
+    }
+
     // MARK: - String Truncated Tests
 
     @Test("Returns full string when shorter than limit")

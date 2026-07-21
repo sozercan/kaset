@@ -43,6 +43,31 @@ enum AccessibilityID {
         static let trackTitle = "playerBar.trackTitle"
         static let trackArtist = "playerBar.trackArtist"
         static let thumbnail = "playerBar.thumbnail"
+        static let nowPlayingButton = "playerBar.nowPlaying"
+    }
+
+    // MARK: - Expanded Player
+
+    enum ExpandedPlayer {
+        static let container = "expandedPlayer"
+        static let closeButton = "expandedPlayer.close"
+        static let artwork = "expandedPlayer.artwork"
+        static let trackTitle = "expandedPlayer.trackTitle"
+        static let trackArtist = "expandedPlayer.trackArtist"
+        static let seekSlider = "expandedPlayer.seekSlider"
+        static let playPauseButton = "expandedPlayer.playPause"
+        static let previousButton = "expandedPlayer.previous"
+        static let nextButton = "expandedPlayer.next"
+        static let shuffleButton = "expandedPlayer.shuffle"
+        static let repeatButton = "expandedPlayer.repeat"
+        static let volumeSlider = "expandedPlayer.volumeSlider"
+        static let queueToggleButton = "expandedPlayer.queueToggle"
+        static let queuePanel = "expandedPlayer.queuePanel"
+        static let queueClearButton = "expandedPlayer.queueClear"
+
+        static func queueRow(index: Int) -> String {
+            "expandedPlayer.queueRow.\(index)"
+        }
     }
 
     // MARK: - Mini Player

@@ -479,7 +479,11 @@ extension PlayerService {
     func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId observedVideoId: String?) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
         let thumbnailURL = URL(string: thumbnailUrl)
-        let artistObj = Artist(id: "unknown", name: artist)
+        // The WebView byline can carry a view-count tail (e.g. "Artist • 1.3M views");
+        // strip it so it never surfaces as the displayed artist name. The id stays
+        // non-navigable ("unknown") because this is an unresolved placeholder — the
+        // resolved, navigable identity arrives from `fetchSongMetadata`.
+        let artistObj = Artist(id: "unknown", name: Self.normalizedWebArtistName(artist))
         let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
         let trackChanged = self.currentTrack?.title != title
             || self.currentTrack?.artistsDisplay != artist
@@ -541,10 +545,22 @@ extension PlayerService {
             return
         }
 
+        // Preserve an already-resolved, navigable artist for the same video so the
+        // clickable artist name doesn't flip to the non-navigable web placeholder.
+        let resolvedArtists: [Artist]
+        if let existing = self.currentTrack,
+           existing.videoId == resolvedVideoId,
+           existing.artists.contains(where: { $0.hasNavigableId })
+        {
+            resolvedArtists = existing.artists
+        } else {
+            resolvedArtists = [artistObj]
+        }
+
         self.currentTrack = Song(
             id: resolvedVideoId,
             title: title,
-            artists: [artistObj],
+            artists: resolvedArtists,
             album: nil,
             duration: self.duration > 0 ? self.duration : nil,
             thumbnailURL: thumbnailURL,
@@ -558,5 +574,23 @@ extension PlayerService {
                 self.currentTrackLikeStatus = cachedStatus
             }
         }
+    }
+
+    /// Normalizes a WebView-reported byline into a clean artist name.
+    ///
+    /// YouTube can report video bylines with a trailing view-count segment
+    /// (e.g. "Artist • 1.3M views"). Those segments must never surface as the
+    /// displayed artist name, so any " • …views" / " • …view" tail is removed.
+    static func normalizedWebArtistName(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let segments = trimmed.components(separatedBy: " • ")
+        guard segments.count > 1 else { return trimmed }
+
+        let cleaned = segments.filter { segment in
+            let lower = segment.lowercased()
+            return !lower.hasSuffix("views") && !lower.hasSuffix("view")
+        }
+        let result = cleaned.joined(separator: " • ").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.isEmpty ? trimmed : result
     }
 }

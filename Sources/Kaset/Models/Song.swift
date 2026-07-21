@@ -137,6 +137,13 @@ struct Song: Identifiable, Codable, Hashable {
         URL(string: "https://i.ytimg.com/vi/\(self.videoId)/hqdefault.jpg")
     }
 
+    /// Large square thumbnail (544×544) for the expanded Now Playing artwork.
+    /// Falls back to YouTube's public hqdefault thumbnail, which is non-square
+    /// and center-cropped by the displaying view.
+    var largeThumbnailURL: URL? {
+        self.thumbnailURL?.squareThumbnailURL(side: 544) ?? self.fallbackThumbnailURL
+    }
+
     /// YouTube's public high-quality 16:9 thumbnail for wide video cards.
     var wideHighQualityThumbnailURL: URL? {
         var components = URLComponents(string: "https://i.ytimg.com/vi/\(self.videoId)/hq720.jpg")

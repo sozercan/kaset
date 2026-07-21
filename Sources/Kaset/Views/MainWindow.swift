@@ -39,6 +39,11 @@ struct MainWindow: View {
     @State private var whatsNewToPresent: PresentedWhatsNew?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
 
+    /// Artist page presented from a global surface (e.g. the expanded player),
+    /// shown in the detail column regardless of the selected tab — mirrors the
+    /// `selectedSidebarPinnedItem` override.
+    @State private var presentedArtist: Artist?
+
     // MARK: - Cached ViewModels (persist across tab switches)
 
     @State private var homeViewModel: HomeViewModel?
@@ -198,6 +203,13 @@ struct MainWindow: View {
         .onChange(of: self.navigationSelection) { _, newValue in
             if newValue != nil {
                 self.selectedSidebarPinnedItem = nil
+                self.presentedArtist = nil
+            }
+        }
+        .onChange(of: self.selectedSidebarPinnedItem) { _, newValue in
+            // Selecting a pinned sidebar item dismisses a globally-presented artist page.
+            if newValue != nil {
+                self.presentedArtist = nil
             }
         }
         .onChange(of: self.authService.state) { oldState, newState in
@@ -356,9 +368,47 @@ struct MainWindow: View {
                     self.columnVisibility = .all
                 }
             }
+            // Page content is always the bottom layer. Explicit zIndex values are
+            // required on every ZStack child here: the conditional overlays below
+            // use transitions, and without a stable zIndex SwiftUI loses the draw
+            // order across insert/remove animations — leaving the reappearing
+            // player/queue stuck *behind* this page content after the expanded
+            // player slides away.
+            .zIndex(0)
 
-            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
-            self.rightSidebarOverlay(client: self.client)
+            // Right sidebar overlay - either lyrics or queue (mutually exclusive).
+            // Hidden while the expanded player is open (its state is preserved).
+            if !self.playerService.showExpandedPlayer {
+                self.rightSidebarOverlay(client: self.client)
+                    .zIndex(1)
+            }
+
+            // Expanded Now Playing view covering the whole window.
+            // A pure opaque slide (no fade) so the app never shows through it
+            // mid-transition. Driven solely by the `withAnimation` at each
+            // toggle site — no implicit `.animation(value:)` here, which would
+            // otherwise compete and cause the slide to look doubled/janky.
+            if self.playerService.showExpandedPlayer {
+                ExpandedPlayerView(onNavigateToArtist: self.presentArtist)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .transition(.move(edge: .bottom))
+                    .zIndex(2)
+                    .background {
+                        // Escape closes the expanded player. Key equivalents fire
+                        // before focused-view key handling, so this must yield to
+                        // the command bar's own Escape dismissal while it is open.
+                        if !self.isCommandBarPresented {
+                            Button("") {
+                                withAnimation(AppAnimation.smooth) {
+                                    self.playerService.showExpandedPlayer = false
+                                }
+                            }
+                            .keyboardShortcut(.escape, modifiers: [])
+                            .opacity(0)
+                            .accessibilityHidden(true)
+                        }
+                    }
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
@@ -425,13 +475,27 @@ struct MainWindow: View {
         }
     }
 
+    /// Presents an artist's page in the detail column, dismissing the expanded
+    /// player. Navigates from global surfaces (the expanded "now playing" view)
+    /// that live outside any tab's `NavigationStack`.
+    private func presentArtist(_ artist: Artist) {
+        withAnimation(AppAnimation.smooth) {
+            self.playerService.showExpandedPlayer = false
+        }
+        self.navigationSelection = nil
+        self.selectedSidebarPinnedItem = nil
+        self.presentedArtist = artist
+    }
+
     private func detailView(
         for item: NavigationItem?,
         pinnedItem: SidebarPinnedItem?,
         client: any YTMusicClientProtocol
     ) -> some View {
         Group {
-            if let pinnedItem {
+            if let presentedArtist = self.presentedArtist {
+                self.viewForPresentedArtist(presentedArtist, client: client)
+            } else if let pinnedItem {
                 self.viewForSidebarPinnedItem(pinnedItem, client: client)
             } else if let item {
                 self.viewForNavigationItem(item)
@@ -441,6 +505,25 @@ struct MainWindow: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func viewForPresentedArtist(
+        _ artist: Artist,
+        client: any YTMusicClientProtocol
+    ) -> some View {
+        NavigationStack {
+            ArtistDetailView(
+                artist: artist,
+                viewModel: ArtistDetailViewModel(
+                    artist: artist,
+                    client: client,
+                    libraryViewModel: self.libraryViewModel
+                )
+            )
+            .id(artist.id)
+            .navigationDestinations(client: client)
+        }
+        .environment(self.libraryViewModel)
     }
 
     @ViewBuilder

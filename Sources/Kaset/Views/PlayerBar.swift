@@ -15,7 +15,20 @@ struct PlayerBar: View {
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
 
-    @State private var isHoveringSeekBar = false
+    /// Whether the pointer is hovering the title/name area (expands the seek bar
+    /// and gates scroll-to-skip). Independent of the album-cover hover.
+    @State private var isBarHovering = false
+
+    /// Whether the pointer is hovering the album cover (shows the expand
+    /// affordance). Independent of the name-area hover so one never triggers
+    /// the other.
+    @State private var isHoveringArtwork = false
+
+    /// Local scroll-wheel monitor token for horizontal swipe-to-skip.
+    @State private var scrollMonitor: Any?
+
+    /// Accumulates scroll deltas into one-shot next/previous skip actions.
+    @State private var swipeDetector = HorizontalSwipeSkipDetector()
 
     /// Local seek value for smooth slider dragging without network calls on every change.
     @State private var seekValue: Double = 0
@@ -27,12 +40,6 @@ struct PlayerBar: View {
 
     @State private var playerBarWidth: CGFloat = 0
 
-    /// Cached formatted progress string to avoid repeated formatting.
-    @State private var formattedProgress: String = "0:00"
-    @State private var formattedRemaining: String = "-0:00"
-    /// Last integer second of progress to reduce string formatting frequency.
-    @State private var lastProgressSecond: Int = -1
-
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             HStack(spacing: 0) {
@@ -41,7 +48,8 @@ struct PlayerBar: View {
 
                 Spacer()
 
-                // Center section: Track info OR seek bar (on hover)
+                // Center section: track info + thin progress line, revealing an
+                // interactive scrubber on hover; click opens the expanded player.
                 self.centerSection
 
                 Spacer()
@@ -113,16 +121,9 @@ struct PlayerBar: View {
             }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
-            // Sync local seek value when not actively seeking
+            // Keep the scrubber in sync with playback unless the user is dragging.
             if !self.isSeeking, self.playerService.duration > 0 {
                 self.seekValue = newValue / self.playerService.duration
-            }
-            // Only update formatted strings when the second changes to reduce Text view updates
-            let currentSecond = Int(newValue)
-            if currentSecond != self.lastProgressSecond {
-                self.lastProgressSecond = currentSecond
-                self.formattedProgress = self.formatTime(newValue)
-                self.formattedRemaining = "-\(self.formatTime(self.playerService.duration - newValue))"
             }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
@@ -132,11 +133,96 @@ struct PlayerBar: View {
             }
         }
         .onAppear {
-            // Sync local volume value from saved state on initial load
+            // Sync local values from saved/playback state on initial load
             self.volumeValue = self.playerService.volume
             if self.playerService.duration > 0 {
                 self.seekValue = self.playerService.progress / self.playerService.duration
             }
+            // Horizontal swipe-to-skip over the center section. A local monitor
+            // (rather than an NSView in the hierarchy) because SwiftUI has no
+            // scroll-wheel modifier; gating on `isBarHovering` scopes it to the
+            // title/scrubber region and to the one visible PlayerBar instance.
+            if self.scrollMonitor == nil {
+                self.scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                    // The handler runs on the main thread but is typed
+                    // non-isolated, so `NSEvent` (not Sendable) must not cross
+                    // into the MainActor hop. Extract Sendable scalars here.
+                    let phase = event.phase
+                    // Pre-gesture bookkeeping events carry no motion; ignore
+                    // them so they don't pollute the legacy-wheel accumulator.
+                    if phase.contains(.mayBegin) || phase.contains(.stationary) {
+                        return event
+                    }
+                    let mappedPhase: HorizontalSwipeSkipDetector.Phase =
+                        if phase.contains(.began) { .began }
+                        else if phase.contains(.changed) { .changed }
+                        else if phase.contains(.ended) { .ended }
+                        else if phase.contains(.cancelled) { .cancelled }
+                        else { .none }
+                    let deltaX = event.scrollingDeltaX
+                    let deltaY = event.scrollingDeltaY
+                    let momentumActive = event.momentumPhase != []
+                    let inverted = event.isDirectionInvertedFromDevice
+                    let timestamp = event.timestamp
+                    MainActor.assumeIsolated {
+                        self.handleScroll(
+                            deltaX: deltaX,
+                            deltaY: deltaY,
+                            phase: mappedPhase,
+                            momentumActive: momentumActive,
+                            isDirectionInverted: inverted,
+                            timestamp: timestamp
+                        )
+                    }
+                    return event
+                }
+            }
+        }
+        .onDisappear {
+            if let monitor = self.scrollMonitor {
+                NSEvent.removeMonitor(monitor)
+                self.scrollMonitor = nil
+            }
+        }
+    }
+
+    /// Feeds scalar scroll values (extracted from the `NSEvent` on the main
+    /// thread) into the swipe detector; one committed swipe skips one track.
+    /// Never touches `seekValue`/`isSeeking`, so scroll can only skip, not seek.
+    private func handleScroll(
+        deltaX: CGFloat,
+        deltaY: CGFloat,
+        phase: HorizontalSwipeSkipDetector.Phase,
+        momentumActive: Bool,
+        isDirectionInverted: Bool,
+        timestamp: TimeInterval
+    ) {
+        guard self.isBarHovering,
+              self.playerService.currentTrack != nil,
+              self.playerService.currentEpisode == nil,
+              !self.isSeeking
+        else {
+            return
+        }
+
+        let action = self.swipeDetector.process(
+            deltaX: deltaX,
+            deltaY: deltaY,
+            phase: phase,
+            hasMomentumPhase: momentumActive,
+            isDirectionInvertedFromDevice: isDirectionInverted,
+            timestamp: timestamp
+        )
+
+        switch action {
+        case .next:
+            HapticService.playback()
+            Task { await self.playerService.next() }
+        case .previous:
+            HapticService.playback()
+            Task { await self.playerService.previous() }
+        case nil:
+            break
         }
     }
 
@@ -156,7 +242,7 @@ struct PlayerBar: View {
         .accessibilityHidden(true)
     }
 
-    // MARK: - Center Section (track info blurs, seek bar appears on hover)
+    // MARK: - Center Section (track info ↔ hover scrubber; click opens the expanded player)
 
     private var centerSection: some View {
         ZStack {
@@ -164,15 +250,30 @@ struct PlayerBar: View {
             if case let .error(message) = playerService.state {
                 self.errorView(message: message)
             } else {
-                // Track info (blurred when hovering and track is playing)
-                self.trackInfoView
-                    .blur(radius: self.showsSeekControls ? 8 : 0)
-                    .opacity(self.showsSeekControls ? 0 : 1)
+                HStack(spacing: 10) {
+                    // Artwork stays fixed and is always clickable to expand.
+                    self.artworkExpandButton
 
-                if self.playerService.currentTrack != nil {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-                        self.seekInteractionLayer
+                    if self.playerService.currentTrack != nil {
+                        // Title/artist cross-fades with the hover scrubber in place.
+                        // Hover is tracked here (not on the whole center section)
+                        // so hovering the cover never reveals the scrubber.
+                        ZStack {
+                            self.titleColumn
+                                .opacity(self.showsScrubber ? 0 : 1)
+                                .allowsHitTesting(!self.showsScrubber)
+
+                            self.scrubberRow
+                                .opacity(self.showsScrubber ? 1 : 0)
+                                .allowsHitTesting(self.showsScrubber)
+                        }
+                        .frame(maxWidth: 280)
+                        .contentShape(Rectangle())
+                        .onHover { hovering in
+                            self.isBarHovering = hovering
+                        }
+                        // Single driver for the thin-line ↔ expanded-scrubber morph.
+                        .animation(.easeInOut(duration: 0.18), value: self.isBarHovering)
                     }
                 }
             }
@@ -185,43 +286,205 @@ struct PlayerBar: View {
         }
     }
 
-    private var showsSeekControls: Bool {
-        self.isHoveringSeekBar && self.playerService.currentTrack != nil
+    /// Whether the expanded scrubber should replace the title area.
+    private var showsScrubber: Bool {
+        self.isBarHovering && self.playerService.currentTrack != nil
     }
 
     private var isCompactLayout: Bool {
         self.playerBarWidth > 0 && self.playerBarWidth < Self.compactLayoutThreshold
     }
 
-    private var seekInteractionLayer: some View {
-        ZStack {
-            if self.playerService.isCurrentItemLive {
-                self.liveIndicatorView
-                    .opacity(self.showsSeekControls ? 1 : 0)
-                    .transition(.opacity)
-            } else {
-                self.seekBarView
-                    .opacity(self.showsSeekControls ? 1 : 0)
-                    .allowsHitTesting(self.showsSeekControls)
+    // MARK: - Artwork (click to expand)
 
-                self.compactProgressView
-                    .opacity(self.showsSeekControls ? 0 : 1)
+    private var artworkExpandButton: some View {
+        Button {
+            HapticService.toggle()
+            withAnimation(AppAnimation.smooth) {
+                self.playerService.showExpandedPlayer = true
             }
+        } label: {
+            self.artworkView
+                .overlay {
+                    // Expand-to-fullscreen affordance, fades in on hover.
+                    ZStack {
+                        Color.black.opacity(0.4)
+                        Image(systemName: "arrow.up.left.and.arrow.down.right")
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(.white)
+                    }
+                    .clipShape(.rect(cornerRadius: 4))
+                    .opacity(self.isHoveringArtwork ? 1 : 0)
+                }
+                // Scale via transform so neighbouring controls never shift.
+                .scaleEffect(self.isHoveringArtwork ? 1.08 : 1.0)
+                .animation(AppAnimation.spring, value: self.isHoveringArtwork)
+                .contentShape(Rectangle())
         }
-        .frame(height: self.showsSeekControls ? 28 : 10, alignment: .bottom)
-        .contentShape(Rectangle())
+        .buttonStyle(.plain)
+        .disabled(self.playerService.currentTrack == nil)
+        // Cover-only hover: reveals the expand affordance, never the scrubber.
         .onHover { hovering in
-            withAnimation(.easeInOut(duration: 0.15)) {
-                self.isHoveringSeekBar = hovering
+            self.isHoveringArtwork = hovering && self.playerService.currentTrack != nil
+        }
+        .accessibilityIdentifier(AccessibilityID.PlayerBar.nowPlayingButton)
+        .accessibilityLabel(String(localized: "Open Now Playing"))
+        .help(String(localized: "Open Now Playing"))
+    }
+
+    @ViewBuilder
+    private var artworkView: some View {
+        if let track = self.playerService.currentTrack {
+            SongThumbnailView(song: track, size: 36, cornerRadius: 4)
+        } else {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.quaternary)
+                .overlay {
+                    CassetteIcon(size: 20)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(width: 36, height: 36)
+        }
+    }
+
+    // MARK: - Title Column (normal state: title/artist + thin progress line)
+
+    private var titleColumn: some View {
+        Button {
+            HapticService.toggle()
+            withAnimation(AppAnimation.smooth) {
+                self.playerService.showExpandedPlayer = true
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                if let track = self.playerService.currentTrack {
+                    Text(track.title)
+                        .font(.system(size: 12, weight: .medium))
+                        .lineLimit(1)
+                        .foregroundStyle(.primary)
+
+                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
+                        .font(.system(size: 10))
+                        .lineLimit(1)
+                        .foregroundStyle(.secondary)
+                }
+
+                self.thinProgressLine
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
+        .accessibilityLabel(String(localized: "Open Now Playing"))
+    }
+
+    /// A minimal 2pt progress indicator shown beneath the title in the normal state.
+    @ViewBuilder
+    private var thinProgressLine: some View {
+        if self.playerService.duration > 0, !self.playerService.isCurrentItemLive {
+            GeometryReader { proxy in
+                let fraction = min(max(self.playerService.progress / self.playerService.duration, 0), 1)
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(.primary.opacity(0.18))
+
+                    Capsule()
+                        .fill(Self.brandAccent)
+                        .frame(width: proxy.size.width * fraction)
+                }
+            }
+            .frame(height: 2)
+            .accessibilityHidden(true)
+        } else {
+            // Reserve the same height so the layout doesn't shift between tracks.
+            Color.clear.frame(height: 2)
+        }
+    }
+
+    // MARK: - Scrubber Row (hover state: elapsed | expanding seek bar | remaining)
+
+    @ViewBuilder
+    private var scrubberRow: some View {
+        if self.playerService.isCurrentItemLive {
+            self.liveIndicatorView
+                .frame(maxWidth: .infinity)
+        } else {
+            HStack(spacing: 8) {
+                Text(self.elapsedText)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .frame(minWidth: 38, alignment: .trailing)
+
+                ExpandingSeekBar(
+                    fraction: self.seekFraction,
+                    isExpanded: self.showsScrubber,
+                    accent: Self.brandAccent,
+                    onScrubChanged: { fraction in
+                        self.isSeeking = true
+                        self.seekValue = fraction
+                    },
+                    onScrubEnded: { fraction in
+                        self.seekValue = fraction
+                        self.performSeek()
+                    }
+                )
+
+                Text(self.remainingText)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+                    .frame(minWidth: 38, alignment: .leading)
             }
         }
     }
 
-    private var compactProgressView: some View {
-        Rectangle()
-            .fill(.clear)
-            .frame(height: 10)
-            .accessibilityHidden(true)
+    /// Played fraction (0...1) for the seek bar — tracks the drag while seeking.
+    private var seekFraction: Double {
+        if self.isSeeking { return self.seekValue }
+        guard self.playerService.duration > 0 else { return 0 }
+        return min(max(self.playerService.progress / self.playerService.duration, 0), 1)
+    }
+
+    /// Elapsed playback time, tracking the scrubber position while seeking.
+    private var currentElapsed: TimeInterval {
+        self.isSeeking ? self.seekValue * self.playerService.duration : self.playerService.progress
+    }
+
+    private var elapsedText: String {
+        self.currentElapsed.formattedDuration
+    }
+
+    private var remainingText: String {
+        "-\(max(0, self.playerService.duration - self.currentElapsed).formattedDuration)"
+    }
+
+    /// Performs the actual seek operation after slider interaction ends.
+    private func performSeek() {
+        guard self.isSeeking else { return }
+        let seekTime = self.seekValue * self.playerService.duration
+        Task {
+            await self.playerService.seek(to: seekTime)
+            self.isSeeking = false
+        }
+    }
+
+    // MARK: - Live Indicator (replaces the scrubber for live streams)
+
+    private var liveIndicatorView: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(.red)
+                .frame(width: 8, height: 8)
+
+            Text("LIVE", comment: "Label shown on the player bar when playing a live radio stream")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.red)
+                .tracking(0.5)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(String(localized: "Live stream"))
     }
 
     // MARK: - Current Song Context Menu
@@ -290,23 +553,6 @@ struct PlayerBar: View {
         }
     }
 
-    // MARK: - Live Indicator View (replaces seek bar for live streams)
-
-    private var liveIndicatorView: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(.red)
-                .frame(width: 8, height: 8)
-
-            Text("LIVE", comment: "Label shown on the player bar when playing a live radio stream")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.red)
-                .tracking(0.5)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(String(localized: "Live stream"))
-    }
-
     // MARK: - Error View
 
     private func errorView(message: String) -> some View {
@@ -335,98 +581,6 @@ struct PlayerBar: View {
             .padding(.vertical, 4)
             .background(.quaternary)
             .clipShape(.capsule)
-        }
-    }
-
-    // MARK: - Track Info View
-
-    private var trackInfoView: some View {
-        HStack(spacing: 10) {
-            // Thumbnail
-            if let track = self.playerService.currentTrack {
-                SongThumbnailView(song: track, size: 36, cornerRadius: 4)
-            } else {
-                RoundedRectangle(cornerRadius: 4)
-                    .fill(.quaternary)
-                    .overlay {
-                        CassetteIcon(size: 20)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(width: 36, height: 36)
-            }
-
-            // Track info
-            if let track = playerService.currentTrack {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(track.title)
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                        .foregroundStyle(.primary)
-
-                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
-                        .font(.system(size: 10))
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: 200, alignment: .leading)
-            }
-        }
-    }
-
-    // MARK: - Seek Bar View (replaces track info on hover)
-
-    private var seekBarView: some View {
-        HStack(spacing: 10) {
-            // Elapsed time - use cached formatted string when not seeking
-            Text(self.isSeeking ? self.formatTime(self.seekValue * self.playerService.duration) : self.formattedProgress)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .trailing)
-                .monospacedDigit()
-
-            // Seek slider
-            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
-                if editing {
-                    // User started dragging
-                    self.isSeeking = true
-                } else {
-                    // User finished dragging - perform seek
-                    self.performSeek()
-                }
-            }
-            .controlSize(.small)
-            .tint(Self.brandAccent)
-
-            // Remaining time - use cached formatted string when not seeking
-            Text(self.isSeeking ? "-\(self.formatTime(self.playerService.duration - self.seekValue * self.playerService.duration))" : self.formattedRemaining)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(minWidth: 45, alignment: .leading)
-                .monospacedDigit()
-        }
-    }
-
-    /// Performs the actual seek operation after slider interaction ends.
-    private func performSeek() {
-        guard self.isSeeking else { return }
-        let seekTime = self.seekValue * self.playerService.duration
-        Task {
-            await self.playerService.seek(to: seekTime)
-            self.isSeeking = false
-        }
-    }
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let mins = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, mins, secs)
-        } else {
-            return String(format: "%d:%02d", mins, secs)
         }
     }
 
@@ -883,5 +1037,66 @@ private struct PlayerBarWidthPreferenceKey: PreferenceKey {
 
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
+    }
+}
+
+// MARK: - ExpandingSeekBar
+
+/// Apple Music-style seek bar that stays a thin line by default and grows into a
+/// thicker, fully-interactive scrubber (with a draggable circular handle) when
+/// `isExpanded` is true. The row reserves a fixed height so growing the bar never
+/// shifts surrounding controls; only the bar thickness and handle animate.
+private struct ExpandingSeekBar: View {
+    /// Played fraction in 0...1.
+    let fraction: Double
+    let isExpanded: Bool
+    let accent: Color
+    /// Called continuously while dragging, with the target fraction (0...1).
+    let onScrubChanged: (Double) -> Void
+    /// Called once when the drag/click ends, with the final fraction (0...1).
+    let onScrubEnded: (Double) -> Void
+
+    private var barHeight: CGFloat { self.isExpanded ? 5 : 3 }
+    private var handleSize: CGFloat { self.isExpanded ? 11 : 0 }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let clampedFraction = min(max(self.fraction, 0), 1)
+            let playedWidth = width * clampedFraction
+
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.primary.opacity(0.18))
+                    .frame(height: self.barHeight)
+
+                Capsule()
+                    .fill(self.accent)
+                    .frame(width: playedWidth, height: self.barHeight)
+
+                Circle()
+                    .fill(.white)
+                    .frame(width: self.handleSize, height: self.handleSize)
+                    .shadow(color: .black.opacity(0.25), radius: 1.5, y: 0.5)
+                    .offset(x: min(max(playedWidth - self.handleSize / 2, 0), width - self.handleSize))
+                    .opacity(self.isExpanded ? 1 : 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { value in
+                        self.onScrubChanged(min(max(value.location.x / width, 0), 1))
+                    }
+                    .onEnded { value in
+                        self.onScrubEnded(min(max(value.location.x / width, 0), 1))
+                    }
+            )
+        }
+        // Fixed row height keeps the player-bar layout stable while the bar grows.
+        .frame(height: 16)
+        .accessibilityElement()
+        .accessibilityLabel(String(localized: "Seek"))
+        .accessibilityValue(Text(self.fraction, format: .percent.precision(.fractionLength(0))))
     }
 }

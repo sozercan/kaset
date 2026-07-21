@@ -210,9 +210,22 @@ extension PlayerService {
 
             // Update current track with full metadata if it's still the same song
             if self.currentTrack?.videoId == videoId {
-                // Preserve the title/artist from WebView if they're better
+                // Preserve the title from WebView if it's better
                 let title = self.currentTrack?.title == "Loading..." ? songData.title : (self.currentTrack?.title ?? songData.title)
-                let artists = self.currentTrack?.artists.isEmpty == true ? songData.artists : (self.currentTrack?.artists ?? songData.artists)
+
+                // Artist identity: the API result is the resolved source of truth.
+                // Prefer it whenever it carries a navigable artist so the clickable
+                // artist name stays stable and never falls back to the WebView's
+                // non-navigable placeholder (which also avoids the view-count flash).
+                let existingArtists = self.currentTrack?.artists ?? []
+                let artists: [Artist]
+                if songData.artists.contains(where: { $0.hasNavigableId }) {
+                    artists = songData.artists
+                } else if existingArtists.isEmpty {
+                    artists = songData.artists
+                } else {
+                    artists = existingArtists
+                }
 
                 self.currentTrack = Song(
                     id: videoId,
