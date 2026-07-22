@@ -18,7 +18,7 @@ The coordinator that keeps YouTube Music and regular YouTube from playing over e
 
 ## Library
 
-The signed-in user's saved YouTube Music collection. Kaset surfaces Music Library content as playlists, followed artists, subscribed podcast shows, and uploaded songs. Regular YouTube has separate library-like surfaces such as subscriptions, Watch Later, liked videos, history, and playlists.
+The signed-in user's saved YouTube Music collection. Kaset surfaces Music Library content as playlists, saved albums, followed artists, subscribed podcast shows, and uploaded songs. Regular YouTube has separate library-like surfaces such as subscriptions, Watch Later, liked videos, history, and playlists.
 
 ## Library Content Identity
 
@@ -43,6 +43,10 @@ The rules for preparing songs before they enter Kaset's native queue. This inclu
 ## Album Playback Actions
 
 The workflows that fetch album tracks from YouTube Music playlist details, prepare them as queue-ready songs, and either insert them into the queue or replace playback with the album.
+
+## Album Library Identity
+
+The two identifiers required for album Library behavior. An `MPRE...` browse ID identifies the album detail page and the visible saved album, while an `OLAK...` playlist ID is the target sent to YouTube Music's add/remove Library mutation endpoints.
 
 ## Playlist Playback Actions
 

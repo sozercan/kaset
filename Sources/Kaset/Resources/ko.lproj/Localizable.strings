@@ -288,6 +288,7 @@
 "No Playlists" = "재생목록 없음";
 "No playlists" = "재생목록 없음";
 "No playlists yet" = "아직 재생목록이 없습니다";
+"No albums yet" = "아직 앨범이 없습니다";
 "No podcasts yet" = "아직 팟캐스트가 없습니다";
 "No Queue" = "대기열 없음";
 "No recommendations yet" = "아직 추천이 없습니다";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "가사 로마자 표시";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고 팟캐스트를 구독하세요.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고, 아티스트를 구독하고, 팟캐스트를 구독하세요.";
+"Save albums on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 앨범을 저장하세요.";
 "Save shuffle and repeat settings across app restarts" = "앱을 다시 시작해도 셔플 및 반복 설정 유지";
 "Save the current queue as a new private playlist." = "현재 대기열을 새 비공개 재생목록으로 저장합니다.";
 "Save to Playlist" = "재생목록에 저장";

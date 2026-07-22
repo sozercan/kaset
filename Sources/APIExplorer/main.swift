@@ -974,6 +974,31 @@ private func libraryFeedbackProbeSummary(_ data: [String: Any]) -> String {
     return output
 }
 
+private func collectAlbumPlaylistTargets(in value: Any, targets: inout Set<String>) {
+    if let dictionary = value as? [String: Any] {
+        if let playlistId = dictionary["playlistId"] as? String,
+           playlistId.hasPrefix("OLAK")
+        {
+            targets.insert(playlistId)
+        }
+        for child in dictionary.values {
+            collectAlbumPlaylistTargets(in: child, targets: &targets)
+        }
+    } else if let array = value as? [Any] {
+        for child in array {
+            collectAlbumPlaylistTargets(in: child, targets: &targets)
+        }
+    }
+}
+
+private func albumLibraryTargetSummary(_ data: [String: Any]) -> String {
+    var targets = Set<String>()
+    collectAlbumPlaylistTargets(in: data, targets: &targets)
+    guard !targets.isEmpty else { return "" }
+
+    return "\n💾 Album library target:\n  • Found \(targets.count) unique OLAK playlist target(s) for album mutations\n"
+}
+
 func analyzeResponse(
     _ data: [String: Any],
     verbose: Bool = false,
@@ -1064,6 +1089,8 @@ func analyzeResponse(
 
     output += playlistSetVideoIdSourceSummary(data)
 
+    output += albumLibraryTargetSummary(data)
+
     output += chapterProbeSummary(data)
 
     output += libraryFeedbackProbeSummary(data)
@@ -1085,10 +1112,10 @@ func analyzeResponse(
 /// Known endpoints that require authentication
 let authRequiredEndpoints = Set([
     "FEmusic_liked_playlists",
+    "FEmusic_liked_albums",
     "FEmusic_liked_videos",
     "FEmusic_history",
     "FEmusic_library_landing",
-    "FEmusic_library_albums",
     "FEmusic_library_artists",
     "FEmusic_library_corpus_artists",
     "FEmusic_library_corpus_track_artists",
@@ -1138,6 +1165,11 @@ func needsAuthentication(_ browseId: String) -> Bool {
     // Podcast shows (MPSPP...) require authentication for episode data
     if browseId.hasPrefix("MPSPP") {
         return true
+    }
+    // Album pages are public, but authenticated requests expose personalized
+    // Save/Remove library controls and their OLAK mutation targets.
+    if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+        return loadCookiesFromAppBackup() != nil
     }
     return false
 }
@@ -2288,10 +2320,10 @@ func listEndpoints() {
         🔐 AUTHENTICATED (Requires Sign-in)
         ───────────────────────────────────────────────────────────────────────────────
         FEmusic_liked_playlists       User's saved/created playlists
+        FEmusic_liked_albums          User's saved albums
         FEmusic_liked_videos          Liked songs (returns playlist format)
         FEmusic_history               Listening history (organized by time)
         FEmusic_library_landing       Library overview page
-        FEmusic_library_albums        Saved albums (requires params*)
         FEmusic_library_artists       Rejected with HTTP 400 in current sessions
         FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
         FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
@@ -2390,16 +2422,15 @@ func listEndpoints() {
                                       Body: {}
 
         ═══════════════════════════════════════════════════════════════════════════════
-        📌 LIBRARY PARAMS (for library_albums, library_artists, library_songs)
+        📌 OPTIONAL LIBRARY SORT PARAMS
         ═══════════════════════════════════════════════════════════════════════════════
 
-        ggMGKgQIARAA    Recently Added
-        ggMGKgQIAhAA    Recently Played
-        ggMGKgQIAxAA    Alphabetical A-Z
-        ggMGKgQIBBAA    Alphabetical Z-A
-        ggMCCAE         Default Sort
+        ggMGKgQIARAA    Alphabetical A-Z
+        ggMGKgQIARAB    Alphabetical Z-A
+        ggMGKgQIABAB    Recently Added
 
-        Example: swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
+        Saved albums use FEmusic_liked_albums and do not require params for the default order.
+        Example: swift run api-explorer browse FEmusic_liked_albums
 
         FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
         It requires sign-in for useful content but does not need sort params.

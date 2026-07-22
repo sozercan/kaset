@@ -47,6 +47,14 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Returns nil for primary account, brand ID string for brand accounts.
     var brandIdProvider: (() -> String?)?
 
+    /// Provider for the selected account's opaque owner-and-account scope.
+    ///
+    /// Primary Google accounts all use the literal ID `"primary"`, so brand
+    /// identity alone cannot distinguish a different signed-in Google account.
+    /// AccountService supplies a collision-resistant scope derived from the
+    /// authenticated Google owner and selected YouTube identity.
+    var accountScopeProvider: (() -> String?)?
+
     /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
@@ -683,6 +691,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Fetches the user's library content including playlists, artists, and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.logger.info("Fetching library content")
+        let accountScope = self.cacheScope(authenticated: true)
 
         let landingData = try await self.request(
             "browse",
@@ -692,19 +701,23 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
         let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
+        let (albums, albumsSource) = try await self.fetchLibraryAlbums(fallback: landingContent.albums)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
         let uploadedSongsPlaylist = try await self.fetchUploadedSongsPlaylist()
         let content = PlaylistParser.LibraryContent(
             playlists: playlists,
+            albums: albums,
             artists: artists,
             podcastShows: landingContent.podcastShows,
             uploadedSongsPlaylist: uploadedSongsPlaylist,
-            artistsSource: artistsSource
+            albumsSource: albumsSource,
+            artistsSource: artistsSource,
+            accountScope: accountScope
         )
 
         let hasUploadedSongs = content.uploadedSongsPlaylist != nil
         self.logger.info(
-            "Parsed \(content.playlists.count) library playlists, \(content.artists.count) artists, \(content.podcastShows.count) podcasts, uploads: \(hasUploadedSongs)"
+            "Parsed \(content.playlists.count) library playlists, \(content.albums.count) albums, \(content.artists.count) artists, \(content.podcastShows.count) podcasts, uploads: \(hasUploadedSongs)"
         )
         return content
     }
@@ -733,6 +746,90 @@ final class YTMusicClient: YTMusicClientProtocol {
         } catch {
             self.logger.warning("Library playlists endpoint failed, falling back to landing preview: \(error.localizedDescription)")
             return fallbackPlaylists
+        }
+    }
+
+    /// Fetches saved albums from the dedicated browse endpoint with graceful fallback to the Library landing preview.
+    private func fetchLibraryAlbums(
+        fallback fallbackAlbums: [Album]
+    ) async throws -> ([Album], PlaylistParser.LibraryAlbumsSource) {
+        do {
+            let albumsData = try await self.request(
+                "browse",
+                body: ["browseId": "FEmusic_liked_albums"],
+                ttl: APICache.TTL.library
+            )
+            let firstPage = PlaylistParser.parseLibraryAlbumsPage(albumsData)
+            if !firstPage.isRecognized,
+               firstPage.albums.isEmpty,
+               firstPage.nextPages.isEmpty
+            {
+                self.logger.warning("Saved albums endpoint returned an unrecognized response, falling back to landing preview")
+                return (fallbackAlbums, .landingFallback)
+            }
+
+            var dedicatedAlbums = firstPage.albums
+            var pendingCursors = firstPage.nextPages
+            var requestedCursors = Set<String>()
+            var completedPagination = firstPage.isRecognized
+
+            while !pendingCursors.isEmpty {
+                let cursor = pendingCursors.removeFirst()
+                guard requestedCursors.insert(cursor).inserted else {
+                    completedPagination = false
+                    self.logger.warning("Saved albums pagination repeated a continuation token, keeping partial results")
+                    continue
+                }
+
+                do {
+                    let continuationData = try await self.requestContinuation(
+                        cursor,
+                        ttl: APICache.TTL.library,
+                        authPolicy: .required
+                    )
+                    let page = PlaylistParser.parseLibraryAlbumsContinuation(continuationData)
+                    if !page.isRecognized {
+                        completedPagination = false
+                        self.logger.warning("Saved albums continuation was only partially recognized, keeping partial results")
+                    }
+                    dedicatedAlbums = PlaylistParser.mergedLibraryAlbums(
+                        dedicated: dedicatedAlbums,
+                        fallback: page.albums
+                    )
+                    pendingCursors.append(contentsOf: page.nextPages)
+                } catch is CancellationError {
+                    throw CancellationError()
+                } catch {
+                    completedPagination = false
+                    self.logger.warning("Saved albums continuation failed, keeping \(dedicatedAlbums.count) loaded albums: \(error.localizedDescription)")
+                }
+            }
+
+            if dedicatedAlbums.isEmpty {
+                if completedPagination {
+                    self.logger.info("Saved albums endpoint returned an authoritative empty collection")
+                    return ([], .dedicated)
+                }
+
+                return (fallbackAlbums, .partial)
+            }
+
+            if completedPagination {
+                return (dedicatedAlbums, .dedicated)
+            }
+
+            return (
+                PlaylistParser.mergedLibraryAlbums(
+                    dedicated: dedicatedAlbums,
+                    fallback: fallbackAlbums
+                ),
+                .partial
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            self.logger.warning("Saved albums endpoint failed, falling back to landing preview: \(error.localizedDescription)")
+            return (fallbackAlbums, .landingFallback)
         }
     }
 
@@ -1749,16 +1846,19 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     private func cacheScope(authenticated: Bool) -> String {
         guard authenticated else { return "guest" }
+        if let accountScope = self.accountScopeProvider?(), !accountScope.isEmpty {
+            return accountScope
+        }
         let brandId = self.brandIdProvider?() ?? ""
         return brandId.isEmpty ? "primary" : brandId
     }
 
     private static let authRequiredBrowseIds: Set<String> = [
         "FEmusic_liked_playlists",
+        "FEmusic_liked_albums",
         "FEmusic_liked_videos",
         "FEmusic_history",
         "FEmusic_library_landing",
-        "FEmusic_library_albums",
         "FEmusic_library_artists",
         "FEmusic_library_corpus_artists",
         "FEmusic_library_corpus_track_artists",
@@ -1889,11 +1989,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let cacheScope = self.cacheScope(authenticated: requestAuth.authenticated)
         let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: cacheScope)
-        self.logger.debug("Request \(endpoint): cacheScope=\(cacheScope), cacheKey=\(cacheKey)")
+        self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
 
         // Check cache first.
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(endpoint) (cacheScope=\(cacheScope))")
+            self.logger.debug("Cache hit for \(endpoint)")
             return cached
         }
 
@@ -2002,6 +2102,9 @@ final class YTMusicClient: YTMusicClientProtocol {
                 code: statusCode
             )
         case let .networkError(error):
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                throw CancellationError()
+            }
             throw YTMusicError.networkError(underlying: error)
         }
     }

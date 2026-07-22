@@ -874,57 +874,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "add-token", remove: "remove-token"))
     }
 
-    @Test("A stale account owner cannot create a captured queue playlist")
-    func staleAccountOwnerCannotCreateCapturedQueuePlaylist() async {
-        let songs = [TestFixtures.makeSong(id: "stale-playlist-owner")]
-        let owner = self.playerService.currentAccountMutationOwner
-        self.playerService.songLikeStatusManager.setActiveAccountID("brand-account")
-
-        await #expect(throws: CancellationError.self) {
-            _ = try await self.playerService.saveQueueAsPlaylist(
-                title: "Stale Snapshot",
-                songs: songs,
-                owner: owner
-            )
-        }
-
-        #expect(self.mockClient.createPlaylistCalls.isEmpty)
-    }
-
-    @Test("An account switch during playlist reconciliation removes the stale optimistic playlist")
-    func accountSwitchDuringPlaylistReconciliationRemovesOptimisticPlaylist() async {
-        let libraryViewModel = LibraryViewModel(client: self.mockClient)
-        let songs = [TestFixtures.makeSong(id: "reconcile-account-switch")]
-        let owner = self.playerService.currentAccountMutationOwner
-        self.mockClient.shouldWaitForLibraryContentResponse = true
-
-        var saveTask: Task<Playlist, any Error>!
-        await withCheckedContinuation { continuation in
-            self.mockClient.onGetLibraryContent = {
-                self.mockClient.onGetLibraryContent = nil
-                continuation.resume()
-            }
-            saveTask = Task { @MainActor in
-                try await self.playerService.saveQueueAsPlaylist(
-                    title: "Old Account Playlist",
-                    songs: songs,
-                    owner: owner
-                )
-            }
-        }
-
-        #expect(libraryViewModel.isInLibrary(playlistId: "PLCREATED"))
-        self.playerService.songLikeStatusManager.setActiveAccountID("brand-account")
-        self.mockClient.shouldWaitForLibraryContentResponse = false
-        self.mockClient.resumeNextLibraryContentResponse()
-
-        await #expect(throws: CancellationError.self) {
-            _ = try await saveTask.value
-        }
-        #expect(!libraryViewModel.isInLibrary(playlistId: "PLCREATED"))
-        #expect(!libraryViewModel.playlists.contains { $0.id == "PLCREATED" })
-    }
-
     // MARK: - Update Like Status Tests
 
     @Test("updateLikeStatus updates status")

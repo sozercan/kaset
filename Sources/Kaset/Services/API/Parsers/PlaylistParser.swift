@@ -17,6 +17,7 @@ enum PlaylistParser {
         var duration: String?
     }
 
+    typealias LibraryAlbumsSource = LibraryContentParser.LibraryAlbumsSource
     typealias LibraryArtistsSource = LibraryContentParser.LibraryArtistsSource
     typealias LibraryContent = LibraryContentParser.LibraryContent
 
@@ -25,7 +26,22 @@ enum PlaylistParser {
         LibraryContentParser.parseLibraryPlaylists(data)
     }
 
-    /// Parses library content from browse response, returning playlists, artists, and podcast shows.
+    /// Parses albums from the dedicated saved-albums browse response.
+    static func parseLibraryAlbums(_ data: [String: Any]) -> [Album] {
+        LibraryContentParser.parseLibraryAlbums(data)
+    }
+
+    /// Parses the first saved-albums page and its continuation token.
+    static func parseLibraryAlbumsPage(_ data: [String: Any]) -> LibraryContentParser.LibraryAlbumsPage {
+        LibraryContentParser.parseLibraryAlbumsPage(data)
+    }
+
+    /// Parses a saved-albums continuation response.
+    static func parseLibraryAlbumsContinuation(_ data: [String: Any]) -> LibraryContentParser.LibraryAlbumsPage {
+        LibraryContentParser.parseLibraryAlbumsContinuation(data)
+    }
+
+    /// Parses library content from browse response, returning playlists, albums, artists, and podcast shows.
     static func parseLibraryContent(_ data: [String: Any]) -> LibraryContent {
         LibraryContentParser.parseLibraryContent(data)
     }
@@ -33,6 +49,11 @@ enum PlaylistParser {
     /// Merges library playlists using the dedicated endpoint as authoritative while retaining landing-only items.
     static func mergedLibraryPlaylists(dedicated dedicatedPlaylists: [Playlist], fallback fallbackPlaylists: [Playlist]) -> [Playlist] {
         LibraryContentParser.mergedLibraryPlaylists(dedicated: dedicatedPlaylists, fallback: fallbackPlaylists)
+    }
+
+    /// Merges dedicated saved albums with any landing-page preview albums.
+    static func mergedLibraryAlbums(dedicated dedicatedAlbums: [Album], fallback fallbackAlbums: [Album]) -> [Album] {
+        LibraryContentParser.mergedLibraryAlbums(dedicated: dedicatedAlbums, fallback: fallbackAlbums)
     }
 
     /// Parses artists from the dedicated library artists browse response.
@@ -63,7 +84,12 @@ enum PlaylistParser {
             canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
 
-        return PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
+        return PlaylistDetail(
+            playlist: playlist,
+            tracks: tracks,
+            duration: header.duration,
+            libraryTargetId: Self.extractAlbumLibraryTargetId(from: data, albumId: playlistId)
+        )
     }
 
     /// Parses playlist detail from browse response with pagination support.
@@ -84,7 +110,12 @@ enum PlaylistParser {
             canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
 
-        let detail = PlaylistDetail(playlist: playlist, tracks: tracks, duration: header.duration)
+        let detail = PlaylistDetail(
+            playlist: playlist,
+            tracks: tracks,
+            duration: header.duration,
+            libraryTargetId: Self.extractAlbumLibraryTargetId(from: data, albumId: playlistId)
+        )
         let continuationToken = Self.extractPlaylistContinuationToken(from: data)
 
         Self.logger.debug("parsePlaylistWithContinuation: tracks=\(tracks.count), hasToken=\(continuationToken != nil)")
@@ -1344,6 +1375,29 @@ enum PlaylistParser {
                 }
             }
         }
+        return nil
+    }
+
+    private static func extractAlbumLibraryTargetId(from data: [String: Any], albumId: String) -> String? {
+        if albumId.hasPrefix("OLAK") {
+            return albumId
+        }
+        guard albumId.hasPrefix("MPRE") else { return nil }
+
+        let headerRendererNames = [
+            "musicResponsiveHeaderRenderer",
+            "musicDetailHeaderRenderer",
+            "musicImmersiveHeaderRenderer",
+            "musicVisualHeaderRenderer",
+        ]
+        for rendererName in headerRendererNames {
+            if let headerRenderer = ResponseTreeSearch.firstDictionary(named: rendererName, in: data),
+               let targetId = ParsingHelpers.extractAlbumLibraryTargetId(from: headerRenderer)
+            {
+                return targetId
+            }
+        }
+
         return nil
     }
 

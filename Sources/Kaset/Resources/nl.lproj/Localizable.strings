@@ -288,6 +288,7 @@
 "No Playlists" = "Geen afspeellijsten";
 "No playlists" = "Geen afspeellijsten";
 "No playlists yet" = "Nog geen afspeellijsten";
+"No albums yet" = "Nog geen albums";
 "No podcasts yet" = "Nog geen podcasts";
 "No Queue" = "Geen wachtrij";
 "No recommendations yet" = "Nog geen aanbevelingen";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Songteksten romaniseren";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Bewaar afspeellijsten en abonneer je op podcasts op YouTube Music om ze hier te zien.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Bewaar afspeellijsten, volg artiesten en abonneer je op podcasts op YouTube Music om ze hier te zien.";
+"Save albums on YouTube Music to see them here." = "Bewaar albums op YouTube Music om ze hier te zien.";
 "Save shuffle and repeat settings across app restarts" = "Bewaar shuffle- en herhaalinstellingen tussen appstarts";
 "Save the current queue as a new private playlist." = "Sla de huidige wachtrij op als een nieuwe privé-afspeellijst.";
 "Save to Playlist" = "Opslaan in afspeellijst";

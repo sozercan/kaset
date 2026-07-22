@@ -271,6 +271,31 @@ enum ParsingHelpers {
         return artists
     }
 
+    /// Finds the OLAK playlist target used by album Library mutations.
+    static func extractAlbumLibraryTargetId(from value: Any) -> String? {
+        if let dictionary = value as? [String: Any] {
+            if let playlistId = dictionary["playlistId"] as? String,
+               playlistId.hasPrefix("OLAK")
+            {
+                return playlistId
+            }
+
+            for child in dictionary.values {
+                if let playlistId = self.extractAlbumLibraryTargetId(from: child) {
+                    return playlistId
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                if let playlistId = self.extractAlbumLibraryTargetId(from: child) {
+                    return playlistId
+                }
+            }
+        }
+
+        return nil
+    }
+
     /// Extracts subtitle text from data.
     /// Returns the full subtitle text including song counts (e.g., "Playlist • YouTube Music • 145 songs").
     static func extractSubtitle(from data: [String: Any]) -> String? {

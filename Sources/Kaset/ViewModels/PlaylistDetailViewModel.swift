@@ -338,7 +338,12 @@ extension PlaylistDetailViewModel {
             author: detail.author,
             canDelete: detail.canDelete || self.playlist.canDelete
         )
-        return PlaylistDetail(playlist: playlist, tracks: allTracks, duration: detail.duration)
+        return PlaylistDetail(
+            playlist: playlist,
+            tracks: allTracks,
+            duration: detail.duration,
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
+        )
     }
 
     private func detailByMergingOriginalPlaylistMetadata(into detail: PlaylistDetail) -> PlaylistDetail {
@@ -362,7 +367,12 @@ extension PlaylistDetailViewModel {
             author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author),
             canDelete: detail.canDelete || self.playlist.canDelete
         )
-        return PlaylistDetail(playlist: playlist, tracks: detail.tracks, duration: detail.duration)
+        return PlaylistDetail(
+            playlist: playlist,
+            tracks: detail.tracks,
+            duration: detail.duration,
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
+        )
     }
 
     private func reconciledLikedMusicDetail(
@@ -918,7 +928,8 @@ extension PlaylistDetailViewModel {
         return PlaylistDetail(
             playlist: updatedPlaylist,
             tracks: tracks,
-            duration: detail.duration
+            duration: detail.duration,
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )
     }
 

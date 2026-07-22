@@ -288,6 +288,7 @@
 "No Playlists" = "لا توجد قوائم تشغيل";
 "No playlists" = "لا توجد قوائم تشغيل";
 "No playlists yet" = "لا توجد قوائم تشغيل بعد";
+"No albums yet" = "لا توجد ألبومات بعد";
 "No podcasts yet" = "لا توجد بودكاست بعد";
 "No Queue" = "لا توجد قائمة انتظار";
 "No recommendations yet" = "لا توجد توصيات بعد";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "رومنة كلمات الأغاني";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا.";
+"Save albums on YouTube Music to see them here." = "احفظ الألبومات على YouTube Music لتراها هنا.";
 "Save shuffle and repeat settings across app restarts" = "حفظ إعدادات الخلط والتكرار عند إعادة تشغيل التطبيق";
 "Save the current queue as a new private playlist." = "احفظ قائمة الانتظار الحالية كقائمة تشغيل خاصة جديدة.";
 "Save to Playlist" = "حفظ في قائمة تشغيل";

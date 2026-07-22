@@ -26,6 +26,10 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
+    @Entry var libraryViewModel: LibraryViewModel?
+}
+
+extension EnvironmentValues {
     @Entry var onPlaylistDeleted: (() -> Void)?
 }
 
@@ -109,10 +113,32 @@ struct KasetApp: App {
 
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth, webKitManager: webkit)
+        let beginAccountBoundary: @MainActor @Sendable () -> Void = {
+            LibraryMutationActions.beginAccountBoundary()
+        }
+        let endAccountBoundary: @MainActor @Sendable () -> Void = {
+            LibraryMutationActions.endAccountBoundary()
+        }
+        let drainAccountBoundary: @MainActor @Sendable () async -> Void = {
+            await LibraryMutationActions.awaitAccountBoundaryDrain()
+        }
+        auth.setAccountBoundaryHandlers(
+            willBegin: beginAccountBoundary,
+            didEnd: endAccountBoundary,
+            drain: drainAccountBoundary
+        )
+        account.setAccountBoundaryHandlers(
+            willBegin: beginAccountBoundary,
+            didEnd: endAccountBoundary,
+            drain: drainAccountBoundary
+        )
 
         // Wire up brand account provider so API requests use the correct account
         realClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
+        }
+        realClient.accountScopeProvider = { [weak account] in
+            account?.currentAccountScopeID
         }
 
         // YouTube (video) client — same login, www.youtube.com origin

@@ -288,6 +288,7 @@
 "No Playlists" = "Çalma listesi yok";
 "No playlists" = "Çalma listesi yok";
 "No playlists yet" = "Henüz çalma listesi yok";
+"No albums yet" = "Henüz albüm yok";
 "No podcasts yet" = "Henüz podcast yok";
 "No Queue" = "Sıra Boş";
 "No recommendations yet" = "Henüz öneri yok";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Şarkı Sözlerini Romanize Et";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Burada görmek için YouTube Music'te çalma listeleri kaydedin ve podcastlere abone olun.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Burada görmek için YouTube Music'te çalma listeleri kaydedin, sanatçıları takip edin ve podcastlere abone olun.";
+"Save albums on YouTube Music to see them here." = "Burada görmek için YouTube Music'te albümleri kaydedin.";
 "Save shuffle and repeat settings across app restarts" = "Uygulama yeniden başlatıldığında karıştırma ve tekrar ayarlarını koru";
 "Save the current queue as a new private playlist." = "Geçerli kuyruğu yeni bir özel oynatma listesi olarak kaydet.";
 "Save to Playlist" = "Çalma listesine kaydet";

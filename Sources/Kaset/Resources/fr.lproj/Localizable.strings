@@ -288,6 +288,7 @@
 "No Playlists" = "Aucune playlist";
 "No playlists" = "Aucune playlist";
 "No playlists yet" = "Aucune playlist pour le moment";
+"No albums yet" = "Aucun album pour le moment";
 "No podcasts yet" = "Aucun podcast pour le moment";
 "No Queue" = "Aucune file d'attente";
 "No recommendations yet" = "Pas encore de recommandations";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Romaniser les paroles";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Enregistrez des playlists et abonnez-vous à des podcasts sur YouTube Music pour les voir ici.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Enregistrez des playlists, suivez des artistes et abonnez-vous à des podcasts sur YouTube Music pour les voir ici.";
+"Save albums on YouTube Music to see them here." = "Enregistrez des albums sur YouTube Music pour les voir ici.";
 "Save shuffle and repeat settings across app restarts" = "Conserver les réglages de lecture aléatoire et de répétition entre les redémarrages";
 "Save the current queue as a new private playlist." = "Enregistrez la file d'attente actuelle comme nouvelle playlist privée.";
 "Save to Playlist" = "Enregistrer dans la playlist";

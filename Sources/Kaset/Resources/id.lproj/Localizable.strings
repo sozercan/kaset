@@ -288,6 +288,7 @@
 "No Playlists" = "Tidak Ada Playlist";
 "No playlists" = "Tidak ada playlist";
 "No playlists yet" = "Belum ada daftar putar";
+"No albums yet" = "Belum ada album";
 "No podcasts yet" = "Belum ada podcast";
 "No Queue" = "Tidak Ada Antrean";
 "No recommendations yet" = "Belum ada rekomendasi";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Romanisasi Lirik";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar, ikuti artis, dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
+"Save albums on YouTube Music to see them here." = "Simpan album di YouTube Music untuk melihatnya di sini.";
 "Save shuffle and repeat settings across app restarts" = "Simpan pengaturan acak dan ulangi setelah aplikasi dimulai ulang";
 "Save the current queue as a new private playlist." = "Simpan antrean saat ini sebagai playlist pribadi baru.";
 "Save to Playlist" = "Simpan ke Playlist";

@@ -27,6 +27,26 @@ enum LibraryContentIdentity {
         self.artistKey(for: artist.id)
     }
 
+    static func albumKey(albumId: String, targetPlaylistId: String? = nil) -> String {
+        targetPlaylistId ?? albumId
+    }
+
+    static func albumKey(for album: Album) -> String {
+        self.albumKey(albumId: album.id, targetPlaylistId: album.libraryTargetId)
+    }
+
+    static func albumKeys(for album: Album) -> Set<String> {
+        var keys = Set([album.id])
+        if let libraryTargetId = album.libraryTargetId {
+            keys.insert(libraryTargetId)
+        }
+        return keys
+    }
+
+    static func albumsMatch(_ lhs: Album, _ rhs: Album) -> Bool {
+        !self.albumKeys(for: lhs).isDisjoint(with: self.albumKeys(for: rhs))
+    }
+
     static func canonicalArtist(_ artist: Artist, libraryArtistID: String? = nil) -> Artist {
         let canonicalArtistID = self.artistKey(for: libraryArtistID ?? artist.id)
         if artist.id == canonicalArtistID {
@@ -65,6 +85,20 @@ enum LibraryContentIdentity {
         }
 
         return deduplicatedArtists
+    }
+
+    static func deduplicatedAlbums(_ albums: [Album]) -> [Album] {
+        var seenAlbumKeys: Set<String> = []
+        var deduplicatedAlbums: [Album] = []
+
+        for album in albums {
+            let albumKeys = self.albumKeys(for: album)
+            guard seenAlbumKeys.isDisjoint(with: albumKeys) else { continue }
+            seenAlbumKeys.formUnion(albumKeys)
+            deduplicatedAlbums.append(album)
+        }
+
+        return deduplicatedAlbums
     }
 
     static func containsPlaylist(_ playlistID: String, in libraryPlaylistIDs: Set<String>) -> Bool {

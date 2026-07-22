@@ -76,6 +76,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let provisionalContentScope = try #require(services.account.currentAccountScopeID)
         #expect(!FavoritesManager.shared.canMutate)
 
         services.client.accountsListResponse = AccountsListResponse(
@@ -84,6 +85,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         let resolvedScope = try #require(services.account.currentFavoritesScopeID)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
 
         let renamedPrimary = UserAccount.from(
             name: "Renamed Profile",
@@ -98,6 +100,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "different@example.test",
@@ -105,6 +108,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != provisionalContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "owner@example.test",
@@ -112,6 +117,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        let recoveredContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(recoveredContentScope != conflictedContentScope)
 
         services.auth.sessionExpired()
         services.account.authenticationIdentityDidChange()
@@ -122,6 +129,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let newAuthenticationContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(newAuthenticationContentScope != recoveredContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "owner@example.test",
@@ -129,6 +138,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == newAuthenticationContentScope)
     }
 
     @Test @MainActor func unverifiedEmailChangeDoesNotBecomeOwnerAlias() async throws {
@@ -147,6 +157,13 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         let initialScope = try #require(services.account.currentFavoritesScopeID)
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {}
+        )
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "different@example.test",
@@ -154,6 +171,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        #expect(begins.count == 1)
+        #expect(ends.count == 1)
 
         services.auth.sessionExpired()
         services.account.authenticationIdentityDidChange()
@@ -199,14 +218,33 @@ struct AccountServiceTests {
         services.account.authenticationIdentityDidChange()
         services.auth.completeLogin(sapisid: "first-session")
         services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let unresolvedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(services.account.currentFavoritesScopeID == nil)
+
+        services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "second@example.test",
             accounts: [primary]
         )
         await services.account.fetchAccounts()
 
         #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != unresolvedContentScope)
         #expect(!FavoritesManager.shared.canMutate)
         #expect(!FavoritesManager.shared.isPinned(contentId: "first-owner-favorite"))
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == firstScope)
+        #expect(services.account.currentAccountScopeID != conflictedContentScope)
     }
 
     @Test @MainActor func reauthenticationDoesNotReuseOwnerForEmailLessResponse() async throws {
@@ -486,6 +524,67 @@ struct AccountServiceTests {
         #expect(services.account.currentFavoritesScopeID == nil)
     }
 
+    @Test @MainActor func staleAccountFetchCannotPublishWhileBoundaryDrainIsPending() async {
+        let services = Self.createService()
+        services.auth.completeLogin(sapisid: "first-session")
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        let primary = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        services.account.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let staleFetch = Task { @MainActor in
+            await services.account.fetchAccounts()
+        }
+        await drainStarted.wait()
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+
+        services.auth.sessionExpired()
+        services.auth.completeLogin(sapisid: "second-session")
+        await releaseDrain.open()
+        await staleFetch.value
+
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.currentFavoritesScopeID == nil)
+    }
+
+    @Test @MainActor func sameAccountRefreshDoesNotOpenMutationBoundary() async {
+        let services = Self.createService()
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        let primary = MockUserAccountData.primaryAccount
+        await Self.populateAccounts(services, accounts: [primary])
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {}
+        )
+
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentAccount?.id == primary.id)
+        #expect(begins.isEmpty)
+        #expect(ends.isEmpty)
+    }
+
     // MARK: - Switch Account Tests
 
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
@@ -583,6 +682,42 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCalled == true)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
         #expect(services.account.currentAccount == brandAccount)
+    }
+
+    @Test @MainActor func accountTransitionPreparationRunsBeforeSessionNavigation() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        let primary = MockUserAccountData.primaryAccount
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand])
+
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+        mockWebKit.switchSessionIdentityGate = {
+            #expect(begins.count > ends.count)
+        }
+
+        let switchTask = Task {
+            try await services.account.switchAccount(to: brand)
+        }
+        await drainStarted.wait()
+        #expect(!mockWebKit.switchSessionIdentityCalled)
+        await releaseDrain.open()
+        try await switchTask.value
+
+        #expect(begins.count >= 1)
+        #expect(ends.count == begins.count)
+        #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [brand.brandId])
     }
 
     @Test @MainActor func failedSessionSwitchRevertsToPreviousAccount() async throws {
@@ -1284,7 +1419,7 @@ struct AccountServiceTests {
         await services.account.awaitRestoredSessionPinForTesting()
         mockWebKit.reset()
 
-        services.auth.enterGuestMode()
+        await services.auth.enterGuestMode()
         #expect(services.auth.isGuestModeEnabled)
 
         try await services.account.switchAccount(to: brand)
@@ -1312,7 +1447,7 @@ struct AccountServiceTests {
             nil,
         ]
 
-        services.auth.enterGuestMode()
+        await services.auth.enterGuestMode()
         await #expect(throws: SessionSwitchError.self) {
             try await services.account.switchAccount(to: brand)
         }
@@ -1392,6 +1527,53 @@ struct AccountServiceTests {
         #expect(services.account.verifiedAccountId == primaryAccount.id)
         #expect(services.account.lastError != nil)
         #expect(SongLikeStatusManager.shared.activeAccountID == primaryAccount.id)
+    }
+
+    @Test @MainActor func staleRestoredBrandFallbackCannotRecreateSignedOutSession() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let fallbackDrainStarted = AsyncGate()
+        let releaseFallbackDrain = AsyncGate()
+        let drainCount = LockedCounter()
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://example.com/mock-signin")
+        )
+        let brandAccount = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brandAccount.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        services.account.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                drainCount.increment()
+                if drainCount.count == 3 {
+                    await fallbackDrainStarted.open()
+                    await releaseFallbackDrain.wait()
+                }
+            }
+        )
+        mockWebKit.switchSessionIdentityErrorQueue = [
+            SessionSwitchError.identityNotApplied(expectedBrandId: brandAccount.brandId),
+            nil,
+        ]
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "test@gmail.com",
+            accounts: [primaryAccount, brandAccount]
+        )
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+        await fallbackDrainStarted.wait()
+
+        services.auth.sessionExpired()
+        await releaseFallbackDrain.open()
+        await services.account.awaitRestoredSessionPinForTesting()
+
+        #expect(services.auth.state == .loggedOut)
+        #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
+        #expect(services.account.currentAccount?.id == brandAccount.id)
+        #expect(services.account.verifiedAccountId == nil)
     }
 
     @Test @MainActor func restoredBrandWithoutSigninURLFallsBackToPrimary() async {
