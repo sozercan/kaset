@@ -1416,10 +1416,15 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Used for account switching functionality.
     /// - Returns: AccountsListResponse containing all available accounts
     /// - Throws: YTMusicError if not authenticated or request fails
-    func fetchAccountsList() async throws -> AccountsListResponse {
+    func fetchAccountsList(allowGuestMode: Bool) async throws -> AccountsListResponse {
         self.logger.info("Fetching accounts list")
 
-        let data = try await request("account/accounts_list", body: [:])
+        let data = try await request(
+            "account/accounts_list",
+            body: [:],
+            authPolicy: .required,
+            allowGuestAuthentication: allowGuestMode
+        )
         let response = AccountsListParser.parse(data)
 
         self.logger.info("Accounts list loaded: \(response.accounts.count) accounts")
@@ -1752,6 +1757,8 @@ final class YTMusicClient: YTMusicClientProtocol {
     private struct RequestAuthHeaders {
         let headers: [String: String]
         let authenticated: Bool
+        let authIdentityGeneration: UInt64?
+        let allowsGuestAuthentication: Bool
     }
 
     private func authPolicy(forEndpoint endpoint: String, body: [String: Any]) -> RequestAuthPolicy {
@@ -1772,20 +1779,48 @@ final class YTMusicClient: YTMusicClientProtocol {
         return .optional
     }
 
-    private func buildRequestHeaders(authPolicy: RequestAuthPolicy) async throws -> RequestAuthHeaders {
-        if self.authService.hasPersonalAccount {
+    private func buildRequestHeaders(
+        authPolicy: RequestAuthPolicy,
+        allowGuestAuthentication: Bool
+    ) async throws -> RequestAuthHeaders {
+        let canAuthenticate = self.canUseAuthenticatedSession(allowGuestAuthentication: allowGuestAuthentication)
+        if canAuthenticate {
+            let authIdentityGeneration = self.authService.accountIdentityGeneration
             do {
                 let headers = try await self.buildAuthHeaders()
-                return RequestAuthHeaders(headers: headers, authenticated: true)
+                try self.validateAuthIdentity(
+                    authenticated: true,
+                    generation: authIdentityGeneration,
+                    allowGuestAuthentication: allowGuestAuthentication
+                )
+                return RequestAuthHeaders(
+                    headers: headers,
+                    authenticated: true,
+                    authIdentityGeneration: authIdentityGeneration,
+                    allowsGuestAuthentication: allowGuestAuthentication
+                )
             } catch {
-                self.authService.sessionExpired()
+                if error is CancellationError {
+                    throw error
+                }
+                try self.validateAuthIdentity(
+                    authenticated: true,
+                    generation: authIdentityGeneration,
+                    allowGuestAuthentication: allowGuestAuthentication
+                )
+                self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
                 throw YTMusicError.authExpired
             }
         } else if authPolicy == .required {
             throw YTMusicError.notAuthenticated
         }
 
-        return RequestAuthHeaders(headers: self.buildUnauthenticatedHeaders(), authenticated: false)
+        return RequestAuthHeaders(
+            headers: self.buildUnauthenticatedHeaders(),
+            authenticated: false,
+            authIdentityGeneration: nil,
+            allowsGuestAuthentication: false
+        )
     }
 
     private func buildUnauthenticatedHeaders() -> [String: String] {
@@ -1920,14 +1955,18 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ endpoint: String,
         body: [String: Any],
         ttl: TimeInterval? = nil,
-        authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
+        authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil,
+        allowGuestAuthentication: Bool = false
     ) async throws -> [String: Any] {
         // Account and guest-mode transitions invalidate the shared API cache.
         // Capture its generation before any auth/network await so stale responses
         // cannot repopulate the cache after a session reset.
         let cacheGeneration = APICache.shared.generation
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
-        let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
+        let requestAuth = try await self.buildRequestHeaders(
+            authPolicy: authPolicy,
+            allowGuestAuthentication: allowGuestAuthentication
+        )
 
         // Build request body with context so cache keys reflect the actual request.
         var fullBody = body
@@ -1948,8 +1987,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             try await self.performRequest(
                 endpoint,
                 fullBody: fullBody,
-                headers: requestAuth.headers,
-                authenticated: requestAuth.authenticated
+                requestAuth: requestAuth
             )
         }
 
@@ -1968,10 +2006,22 @@ final class YTMusicClient: YTMusicClientProtocol {
     private func performRequest(
         _ endpoint: String,
         fullBody: [String: Any],
-        headers: [String: String],
-        authenticated: Bool
+        requestAuth: RequestAuthHeaders
     ) async throws -> [String: Any] {
+        let authenticated = requestAuth.authenticated
+        let authIdentityGeneration = requestAuth.authIdentityGeneration
+        let allowGuestAuthentication = requestAuth.allowsGuestAuthentication
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration,
+            allowGuestAuthentication: allowGuestAuthentication
+        )
         let apiKey = try await self.resolveAPIKey()
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration,
+            allowGuestAuthentication: allowGuestAuthentication
+        )
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
             URLQueryItem(name: "key", value: apiKey),
@@ -1985,7 +2035,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         request.httpMethod = "POST"
         request.httpShouldHandleCookies = authenticated
 
-        for (key, value) in headers {
+        for (key, value) in requestAuth.headers {
             request.setValue(value, forHTTPHeaderField: key)
         }
 
@@ -2004,6 +2054,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         // Perform network I/O off the main thread
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration,
+            allowGuestAuthentication: allowGuestAuthentication
+        )
 
         // Handle errors back on main actor
         switch result {
@@ -2019,7 +2074,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         case let .authError(statusCode):
             self.logger.error("Auth error: HTTP \(statusCode)")
             if authenticated {
-                self.authService.sessionExpired()
+                if let authIdentityGeneration {
+                    self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
+                }
                 throw YTMusicError.authExpired
             }
             throw YTMusicError.notAuthenticated
@@ -2031,6 +2088,27 @@ final class YTMusicClient: YTMusicClientProtocol {
             )
         case let .networkError(error):
             throw YTMusicError.networkError(underlying: error)
+        }
+    }
+
+    private func canUseAuthenticatedSession(allowGuestAuthentication: Bool) -> Bool {
+        self.authService.hasPersonalAccount
+            || (allowGuestAuthentication
+                && self.authService.state.isLoggedIn
+                && self.authService.isGuestModeEnabled)
+    }
+
+    private func validateAuthIdentity(
+        authenticated: Bool,
+        generation: UInt64?,
+        allowGuestAuthentication: Bool
+    ) throws {
+        guard authenticated else { return }
+        guard let generation,
+              generation == self.authService.accountIdentityGeneration,
+              self.canUseAuthenticatedSession(allowGuestAuthentication: allowGuestAuthentication)
+        else {
+            throw CancellationError()
         }
     }
 

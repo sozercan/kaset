@@ -207,6 +207,63 @@ struct GuestModeAPIClientTests {
         #expect(requestCount == 0)
     }
 
+    @Test("Account-list refresh can use the preserved session in guest mode")
+    @MainActor
+    func accountListRefreshUsesPreservedGuestSession() async throws {
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authCookie = try #require(HTTPCookie(properties: [
+            .name: "__Secure-3PAPISID",
+            .value: "mock-token",
+            .domain: ".youtube.com",
+            .path: "/",
+        ]))
+        await webKitManager.dataStore.httpCookieStore.setCookie(authCookie)
+        let authService = AuthService(webKitManager: webKitManager)
+        authService.completeLogin(sapisid: "mock-token")
+        authService.enterGuestMode()
+
+        let session = MockURLProtocol.makeMockSession()
+        nonisolated(unsafe) var accountRequestCount = 0
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            if request.url?.path.contains("account/accounts_list") == true {
+                accountRequestCount += 1
+                #expect(request.value(forHTTPHeaderField: "Authorization") != nil)
+                #expect(request.value(forHTTPHeaderField: "Cookie") != nil)
+                #expect(request.httpShouldHandleCookies)
+
+                let data = try JSONSerialization.data(withJSONObject: [:])
+                let response = HTTPURLResponse(
+                    url: request.url!,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "application/json"]
+                )!
+                return (response, data)
+            }
+
+            let html = #"{"INNERTUBE_API_KEY":"mock-token"}"#
+            let response = HTTPURLResponse(
+                url: request.url!,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "text/html"]
+            )!
+            return (response, Data(html.utf8))
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session
+        )
+
+        _ = try await client.fetchAccountsList(allowGuestMode: true)
+
+        #expect(authService.isGuestModeEnabled)
+        #expect(accountRequestCount == 1)
+    }
+
     @Test("YouTube Music filtered search and continuation remain public in logged-in guest mode")
     @MainActor
     func youTubeMusicFilteredSearchRemainsPublicInLoggedInGuestMode() async throws {

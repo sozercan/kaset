@@ -126,7 +126,7 @@ Brand accounts (YouTube channels) can be accessed by setting `context.user.onBeh
 
 #### Discovering Brand Accounts
 
-Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs:
+Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs. An unauthenticated call can still return HTTP 200, but only with a sign-in/select response; account identities require SAPISIDHASH authentication. During an explicit account switch from Guest Mode, Kaset authorizes only this account-list refresh with the preserved signed-in session while keeping guest content published until the switch commits:
 
 ```bash
 swift run api-explorer brandaccounts
