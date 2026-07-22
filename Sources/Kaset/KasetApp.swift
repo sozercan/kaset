@@ -118,6 +118,9 @@ struct KasetApp: App {
         realClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
+        realClient.accountScopeProvider = { [weak account] in
+            account?.currentAccountScopeID
+        }
 
         // YouTube (video) client — same login, www.youtube.com origin
         let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit)

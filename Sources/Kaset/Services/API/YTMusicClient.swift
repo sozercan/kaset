@@ -47,6 +47,14 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Returns nil for primary account, brand ID string for brand accounts.
     var brandIdProvider: (() -> String?)?
 
+    /// Provider for the selected account's opaque owner-and-account scope.
+    ///
+    /// Primary Google accounts all use the literal ID `"primary"`, so brand
+    /// identity alone cannot distinguish a different signed-in Google account.
+    /// AccountService supplies a collision-resistant scope derived from the
+    /// authenticated Google owner and selected YouTube identity.
+    var accountScopeProvider: (() -> String?)?
+
     /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
@@ -1838,6 +1846,9 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     private func cacheScope(authenticated: Bool) -> String {
         guard authenticated else { return "guest" }
+        if let accountScope = self.accountScopeProvider?(), !accountScope.isEmpty {
+            return accountScope
+        }
         let brandId = self.brandIdProvider?() ?? ""
         return brandId.isEmpty ? "primary" : brandId
     }
@@ -1978,11 +1989,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let cacheScope = self.cacheScope(authenticated: requestAuth.authenticated)
         let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: cacheScope)
-        self.logger.debug("Request \(endpoint): cacheScope=\(cacheScope), cacheKey=\(cacheKey)")
+        self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
 
         // Check cache first.
         if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
-            self.logger.debug("Cache hit for \(endpoint) (cacheScope=\(cacheScope))")
+            self.logger.debug("Cache hit for \(endpoint)")
             return cached
         }
 

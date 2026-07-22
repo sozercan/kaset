@@ -344,12 +344,17 @@ struct YTMusicClientLibraryRequestTests {
         }
         defer { MockURLProtocol.reset(session: session) }
 
+        let primaryAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "primary-owner",
+            accountID: "primary"
+        )
         let client = try await Self.makeAuthenticatedClient(session: session)
+        client.accountScopeProvider = { primaryAccountScope }
         let content = try await client.getLibraryContent()
 
         #expect(content.albums.map(\.id) == ["MPREFALLBACK"])
         #expect(content.albumsSource == .landingFallback)
-        #expect(content.accountScope == "primary")
+        #expect(content.accountScope == primaryAccountScope)
     }
 
     @Test("Library content treats a recognized empty saved-albums page as authoritative")

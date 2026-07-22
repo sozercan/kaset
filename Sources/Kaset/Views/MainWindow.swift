@@ -260,10 +260,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 VideoWindowController.shared.close()
             }
         }
-        .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
+        .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
+            let currentAccount = self.accountService.currentAccount
+            let newAccountId = self.accountService.currentAccount?.id
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.likeStatusManager.clearCache()
             LibraryMutationActions.cancelPendingAlbumMutations(for: self.libraryViewModel)
-            let accountScope = self.accountService.currentAccount.map { $0.brandId ?? "primary" }
-            self.libraryViewModel?.activateAccountScope(accountScope)
+            self.libraryViewModel?.activateAccountScope(
+                newAccountScope,
+                isPrimary: currentAccount?.isPrimary == true
+            )
             self.playerService.resetTrackStatus()
             self.searchViewModel?.clear()
             self.podcastsViewModel?.configure(
@@ -824,8 +831,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             client: self.client
         )
         let libraryViewModel = LibraryViewModel(client: self.client)
-        let accountScope = self.accountService.currentAccount.map { $0.brandId ?? "primary" }
-        libraryViewModel.activateAccountScope(accountScope)
+        let currentAccount = self.accountService.currentAccount
+        libraryViewModel.activateAccountScope(
+            self.accountService.currentAccountScopeID,
+            isPrimary: currentAccount?.isPrimary == true
+        )
         self.libraryViewModel = libraryViewModel
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()

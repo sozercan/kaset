@@ -36,13 +36,17 @@ struct LibraryViewModelTests {
 
     @Test("Activating the first account scope preserves pending optimistic state")
     func firstAccountScopePreservesPendingMutations() async {
+        let primaryAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "primary-owner",
+            accountID: "primary"
+        )
         let album = TestFixtures.makeAlbum(
             id: "MPRE-pending",
             title: "Pending Album",
             libraryTargetId: "OLAK-pending"
         )
         self.viewModel.addToLibrary(album: album)
-        self.viewModel.activateAccountScope("primary")
+        self.viewModel.activateAccountScope(primaryAccountScope, isPrimary: true)
         self.mockClient.libraryContentResponses = [
             PlaylistParser.LibraryContent(
                 playlists: [],
@@ -50,7 +54,7 @@ struct LibraryViewModelTests {
                 artists: [],
                 podcastShows: [],
                 albumsSource: .dedicated,
-                accountScope: "primary"
+                accountScope: primaryAccountScope
             ),
         ]
 
@@ -86,6 +90,46 @@ struct LibraryViewModelTests {
 
         self.viewModel.activateAccountScope("account-b")
 
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Switching between primary account identities clears prior library state")
+    func primaryAccountIdentityChangeClearsLibraryState() {
+        let firstAccount = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let secondAccount = UserAccount.from(
+            name: "Second User",
+            handle: "@second",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let firstAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "first-owner",
+            accountID: firstAccount.id
+        )
+        let secondAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "second-owner",
+            accountID: secondAccount.id
+        )
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-first-primary",
+            title: "First Primary Album",
+            libraryTargetId: "OLAK-first-primary"
+        )
+        self.viewModel.activateAccountScope(firstAccountScope, isPrimary: true)
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope(secondAccountScope, isPrimary: true)
+
+        #expect(firstAccount.id == secondAccount.id)
+        #expect(firstAccountScope != secondAccountScope)
         #expect(self.viewModel.albums.isEmpty)
         #expect(!self.viewModel.isInLibrary(albumId: album.id))
     }

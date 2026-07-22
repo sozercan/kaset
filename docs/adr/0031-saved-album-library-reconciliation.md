@@ -43,9 +43,16 @@ Saved albums use an explicit identity and reconciliation model:
    stronger existing album snapshot. Partial data may enrich or append albums,
    while pending optimistic additions and removals remain applied.
 5. Album mutations are serialized per canonical album identity and initiating
-   Library model. A generation invalidates pending work at account or model
-   replacement boundaries. Reconciliation checks that generation before and
-   after every awaited refresh.
+   Library model. Library snapshots use `AccountService.currentAccountScopeID`,
+   an opaque scope derived from the authenticated Google owner and selected
+   YouTube identity (with an authentication-generation fallback until the owner
+   is resolved). Promoting that provisional scope to a durable owner keeps the
+   initially-issued in-memory identifier stable. A known owner conflict rotates
+   the provisional scope and rotates again when an owner is resolved, preventing
+   ambiguous-session data from joining either owner. Switching between primary
+   Google accounts is therefore an account boundary too. A generation invalidates
+   pending work at account or model replacement boundaries. Reconciliation checks
+   that generation before and after every awaited refresh.
 6. The UI disables duplicate mutation clicks only until the server accepts the
    mutation and the optimistic state is applied. Delayed backend reconciliation
    continues without keeping the control disabled.

@@ -76,6 +76,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let provisionalContentScope = try #require(services.account.currentAccountScopeID)
         #expect(!FavoritesManager.shared.canMutate)
 
         services.client.accountsListResponse = AccountsListResponse(
@@ -84,6 +85,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         let resolvedScope = try #require(services.account.currentFavoritesScopeID)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
 
         let renamedPrimary = UserAccount.from(
             name: "Renamed Profile",
@@ -98,6 +100,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "different@example.test",
@@ -105,6 +108,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != provisionalContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "owner@example.test",
@@ -112,6 +117,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        let recoveredContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(recoveredContentScope != conflictedContentScope)
 
         services.auth.sessionExpired()
         services.account.authenticationIdentityDidChange()
@@ -122,6 +129,8 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == nil)
+        let newAuthenticationContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(newAuthenticationContentScope != recoveredContentScope)
 
         services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "owner@example.test",
@@ -129,6 +138,7 @@ struct AccountServiceTests {
         )
         await services.account.fetchAccounts()
         #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == newAuthenticationContentScope)
     }
 
     @Test @MainActor func unverifiedEmailChangeDoesNotBecomeOwnerAlias() async throws {
@@ -199,14 +209,33 @@ struct AccountServiceTests {
         services.account.authenticationIdentityDidChange()
         services.auth.completeLogin(sapisid: "first-session")
         services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let unresolvedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(services.account.currentFavoritesScopeID == nil)
+
+        services.client.accountsListResponse = AccountsListResponse(
             googleEmail: "second@example.test",
             accounts: [primary]
         )
         await services.account.fetchAccounts()
 
         #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != unresolvedContentScope)
         #expect(!FavoritesManager.shared.canMutate)
         #expect(!FavoritesManager.shared.isPinned(contentId: "first-owner-favorite"))
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == firstScope)
+        #expect(services.account.currentAccountScopeID != conflictedContentScope)
     }
 
     @Test @MainActor func reauthenticationDoesNotReuseOwnerForEmailLessResponse() async throws {

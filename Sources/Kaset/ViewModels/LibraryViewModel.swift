@@ -292,12 +292,12 @@ final class LibraryViewModel {
         self.librarySnapshot.hasLoadedContent
     }
 
-    func activateAccountScope(_ accountScope: String?) {
+    func activateAccountScope(_ accountScope: String?, isPrimary: Bool = false) {
         guard self.libraryAccountScope != accountScope else { return }
 
         self.markLibraryStateChanged()
         let shouldClearState = self.libraryAccountScope != nil
-            || (accountScope != nil && accountScope != "primary")
+            || (accountScope != nil && !isPrimary && accountScope != "primary")
         if shouldClearState {
             self.librarySnapshot = .empty
             self.contentReconciler = LibraryContentReconciler()

@@ -48,6 +48,17 @@ final class AccountService { // swiftlint:disable:this type_body_length
         var pendingFinalizations: [FavoritesOwnerFinalization]?
     }
 
+    private struct AccountContentScope {
+        enum ProvisionalKind {
+            case initialUnresolved
+            case ownerConflict
+        }
+
+        let id: String
+        var durableScopeID: String?
+        var provisionalKind: ProvisionalKind?
+    }
+
     // MARK: - Dependencies
 
     private let ytMusicClient: any YTMusicClientProtocol
@@ -105,6 +116,15 @@ final class AccountService { // swiftlint:disable:this type_body_length
         self.currentAccount?.brandId
     }
 
+    /// Opaque owner-and-account scope for personalized in-memory state.
+    ///
+    /// Unlike `UserAccount.id`, this distinguishes two different Google owners
+    /// whose selected YouTube identity is the primary account in both sessions.
+    var currentAccountScopeID: String? {
+        guard let currentAccount = self.currentAccount else { return nil }
+        return self.contentScopeByAccountID[currentAccount.id]?.id
+    }
+
     var currentFavoritesScopeID: String? {
         self.favoritesScopeID(for: self.currentAccount)
     }
@@ -115,6 +135,9 @@ final class AccountService { // swiftlint:disable:this type_body_length
     private let selectedBrandIdKey = "selectedBrandId"
     private static let favoritesOwnerStateKey = "favorites.ownerState"
     private var favoritesScopeByAccountID: [String: String] = [:]
+    private var contentScopeByAccountID: [String: AccountContentScope] = [:]
+    private var contentScopeGeneration: UInt64 = 0
+    private var didDetectFavoritesOwnerConflict = false
     private var favoritesOwnerID: String?
     private var favoritesOwnerIDByAliasID: [String: String] = [:]
     private var favoritesAccountIDsByOwnerID: [String: Set<String>] = [:]
@@ -174,27 +197,108 @@ final class AccountService { // swiftlint:disable:this type_body_length
     }
 
     private func updateFavoritesScopes(from response: AccountsListResponse) {
-        guard let ownerID = self.resolveFavoritesOwnerID(from: response) else {
-            self.favoritesScopeByAccountID = [:]
-            return
-        }
-
-        var scopes: [String: String] = [:]
-        for account in response.accounts {
-            scopes[account.id] = FavoritesManager.accountScopeID(
-                ownerID: ownerID,
-                accountID: account.id
-            )
-        }
-        self.favoritesScopeByAccountID = scopes
-        for account in response.accounts {
-            if let scopeID = scopes[account.id] {
-                FavoritesManager.shared.recoverLegacyAccountFavorites(
-                    accountID: account.id,
-                    toScopeID: scopeID
+        self.didDetectFavoritesOwnerConflict = false
+        if let ownerID = self.resolveFavoritesOwnerID(from: response) {
+            var scopes: [String: String] = [:]
+            for account in response.accounts {
+                scopes[account.id] = FavoritesManager.accountScopeID(
+                    ownerID: ownerID,
+                    accountID: account.id
                 )
             }
+            self.favoritesScopeByAccountID = scopes
+            for account in response.accounts {
+                if let scopeID = scopes[account.id] {
+                    FavoritesManager.shared.recoverLegacyAccountFavorites(
+                        accountID: account.id,
+                        toScopeID: scopeID
+                    )
+                }
+            }
+        } else {
+            self.favoritesScopeByAccountID = [:]
         }
+
+        self.updateContentScopes(
+            for: response.accounts,
+            ownerConflict: self.didDetectFavoritesOwnerConflict
+        )
+    }
+
+    private func updateContentScopes(
+        for accounts: [UserAccount],
+        ownerConflict: Bool
+    ) {
+        let accountIDs = Set(accounts.map(\.id))
+        self.contentScopeByAccountID = self.contentScopeByAccountID.filter { accountIDs.contains($0.key) }
+
+        for account in accounts {
+            let durableScopeID = self.favoritesScopeByAccountID[account.id]
+            guard var existingScope = self.contentScopeByAccountID[account.id] else {
+                let provisionalKind: AccountContentScope.ProvisionalKind? = if durableScopeID != nil {
+                    nil
+                } else if ownerConflict {
+                    .ownerConflict
+                } else {
+                    .initialUnresolved
+                }
+                self.contentScopeByAccountID[account.id] = AccountContentScope(
+                    id: durableScopeID ?? self.issueProvisionalContentScopeID(for: account.id),
+                    durableScopeID: durableScopeID,
+                    provisionalKind: provisionalKind
+                )
+                continue
+            }
+
+            if ownerConflict, durableScopeID == nil {
+                if existingScope.provisionalKind != .ownerConflict {
+                    self.contentScopeByAccountID[account.id] = AccountContentScope(
+                        id: self.issueProvisionalContentScopeID(for: account.id),
+                        durableScopeID: nil,
+                        provisionalKind: .ownerConflict
+                    )
+                }
+                continue
+            }
+
+            switch (existingScope.durableScopeID, durableScopeID) {
+            case let (existing?, resolved?) where existing != resolved:
+                self.contentScopeByAccountID[account.id] = AccountContentScope(
+                    id: resolved,
+                    durableScopeID: resolved,
+                    provisionalKind: nil
+                )
+            case (_?, nil):
+                self.contentScopeByAccountID[account.id] = AccountContentScope(
+                    id: self.issueProvisionalContentScopeID(for: account.id),
+                    durableScopeID: nil,
+                    provisionalKind: .ownerConflict
+                )
+            case (nil, let resolved?):
+                if existingScope.provisionalKind == .ownerConflict {
+                    self.contentScopeByAccountID[account.id] = AccountContentScope(
+                        id: resolved,
+                        durableScopeID: resolved,
+                        provisionalKind: nil
+                    )
+                } else {
+                    // Keep the initially-issued in-memory scope stable when
+                    // owner metadata is merely promoted to durable.
+                    existingScope.durableScopeID = resolved
+                    existingScope.provisionalKind = nil
+                    self.contentScopeByAccountID[account.id] = existingScope
+                }
+            case (nil, nil), _:
+                break
+            }
+        }
+    }
+
+    private func issueProvisionalContentScopeID(for accountID: String) -> String {
+        self.contentScopeGeneration &+= 1
+        return FavoritesManager.opaqueIdentityID(
+            for: "session-account\u{1F}\(self.authService.accountIdentityGeneration)\u{1F}\(self.contentScopeGeneration)\u{1F}\(accountID)"
+        )
     }
 
     private func resolveFavoritesOwnerID(from response: AccountsListResponse) -> String? {
@@ -303,6 +407,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
             guard !authBoundOwnerHasEmail else {
                 self.logger.warning("AccountService: Conflicting durable favorites identities; leaving scope unresolved")
                 self.verifiedFavoritesOwnerID = nil
+                self.didDetectFavoritesOwnerConflict = true
                 return nil
             }
             return emailOwnerID
@@ -461,6 +566,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
         self.favoritesScopeByAccountID = [:]
+        self.contentScopeByAccountID = [:]
         self.verifiedFavoritesOwnerID = nil
         self.clearActiveFavoritesOwnerIdentity()
         FavoritesManager.shared.setActiveAccountScopeID(nil)
@@ -1310,6 +1416,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
         SongLikeStatusManager.shared.setActiveAccountID(nil)
         FavoritesManager.shared.setActiveAccountScopeID(nil)
         self.favoritesScopeByAccountID = [:]
+        self.contentScopeByAccountID = [:]
         self.verifiedFavoritesOwnerID = nil
         self.clearActiveFavoritesOwnerIdentity()
         self.observedAuthIdentityGeneration = self.authService.accountIdentityGeneration
