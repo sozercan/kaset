@@ -623,6 +623,93 @@ struct YTMusicClientLibraryRequestTests {
         ])
         #expect(content.albumsSource == .partial)
     }
+
+    @Test("Library content propagates initial saved-albums cancellation")
+    func libraryContentPropagatesInitialAlbumCancellation() async throws {
+        APICache.shared.invalidateAll()
+        let session = MockURLProtocol.makeMockSession()
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            let url = try #require(request.url)
+            if request.httpMethod == "GET" {
+                let response = try #require(HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "text/html"]
+                ))
+                return (response, Data(#"ytcfg.set({"INNERTUBE_API_KEY":"REDACTED"});"#.utf8))
+            }
+
+            let bodyData = try LibraryRequestTestSupport.bodyData(from: request)
+            let body = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            if body["browseId"] as? String == "FEmusic_liked_albums" {
+                throw URLError(.cancelled)
+            }
+
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            ))
+            return (response, Data("{}".utf8))
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let client = try await Self.makeAuthenticatedClient(session: session)
+        await #expect(throws: CancellationError.self) {
+            try await client.getLibraryContent()
+        }
+    }
+
+    @Test("Library content propagates saved-albums continuation cancellation")
+    func libraryContentPropagatesAlbumContinuationCancellation() async throws {
+        APICache.shared.invalidateAll()
+        let session = MockURLProtocol.makeMockSession()
+
+        MockURLProtocol.setRequestHandler(for: session) { request in
+            let url = try #require(request.url)
+            if request.httpMethod == "GET" {
+                let response = try #require(HTTPURLResponse(
+                    url: url,
+                    statusCode: 200,
+                    httpVersion: nil,
+                    headerFields: ["Content-Type": "text/html"]
+                ))
+                return (response, Data(#"ytcfg.set({"INNERTUBE_API_KEY":"REDACTED"});"#.utf8))
+            }
+
+            let bodyData = try LibraryRequestTestSupport.bodyData(from: request)
+            let body = try #require(JSONSerialization.jsonObject(with: bodyData) as? [String: Any])
+            if body["continuation"] != nil {
+                throw URLError(.cancelled)
+            }
+
+            let payload: [String: Any] = if body["browseId"] as? String == "FEmusic_liked_albums" {
+                Self.libraryAlbumsPagePayload(
+                    albumID: "MPRECANCEL",
+                    title: "Cancellation Album",
+                    nextPage: "cancelled-page"
+                )
+            } else {
+                [:]
+            }
+            let response = try #require(HTTPURLResponse(
+                url: url,
+                statusCode: 200,
+                httpVersion: nil,
+                headerFields: ["Content-Type": "application/json"]
+            ))
+            return try (response, JSONSerialization.data(withJSONObject: payload))
+        }
+        defer { MockURLProtocol.reset(session: session) }
+
+        let client = try await Self.makeAuthenticatedClient(session: session)
+        await #expect(throws: CancellationError.self) {
+            try await client.getLibraryContent()
+        }
+    }
 }
 
 private extension YTMusicClientLibraryRequestTests {

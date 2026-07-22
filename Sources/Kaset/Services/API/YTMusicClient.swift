@@ -789,6 +789,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                         fallback: page.albums
                     )
                     pendingCursors.append(contentsOf: page.nextPages)
+                } catch is CancellationError {
+                    throw CancellationError()
                 } catch {
                     completedPagination = false
                     self.logger.warning("Saved albums continuation failed, keeping \(dedicatedAlbums.count) loaded albums: \(error.localizedDescription)")
@@ -815,6 +817,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                 ),
                 .partial
             )
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             self.logger.warning("Saved albums endpoint failed, falling back to landing preview: \(error.localizedDescription)")
             return (fallbackAlbums, .landingFallback)
@@ -2087,6 +2091,9 @@ final class YTMusicClient: YTMusicClientProtocol {
                 code: statusCode
             )
         case let .networkError(error):
+            if let urlError = error as? URLError, urlError.code == .cancelled {
+                throw CancellationError()
+            }
             throw YTMusicError.networkError(underlying: error)
         }
     }

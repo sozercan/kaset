@@ -65,3 +65,4 @@ What becomes easier or more difficult because of this change?
 | [0028](0028-ordered-semantic-music-search-results.md) | Ordered Semantic YouTube Music Search Results | Accepted |
 | [0029](0029-now-playing-tracklist-provider.md) | Shared Now-Playing Mix Tracklist Provider | Accepted |
 | [0030](0030-account-scoped-favorites.md) | Account-Scoped Favorites Persistence | Accepted |
+| [0031](0031-saved-album-library-reconciliation.md) | Saved-Album Library Identity and Reconciliation | Accepted |
