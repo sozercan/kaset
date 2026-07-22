@@ -14,11 +14,13 @@ struct PlaylistDetailView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
     @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
     /// Whether the refine playlist sheet is visible.
     @State var showRefineSheet: Bool = false
+    /// Whether an add/remove Library request is currently in flight.
+    @State var isUpdatingLibrary: Bool = false
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.

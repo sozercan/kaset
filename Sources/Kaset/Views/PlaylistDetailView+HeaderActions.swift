@@ -149,7 +149,7 @@ extension PlaylistDetailView {
             }
             .buttonStyle(.bordered)
             .controlSize(.large)
-            .disabled(detail.isAlbum && detail.libraryTargetId == nil)
+            .disabled(self.isUpdatingLibrary || (detail.isAlbum && detail.libraryTargetId == nil))
         }
     }
 

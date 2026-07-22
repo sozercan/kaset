@@ -26,6 +26,10 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
+    @Entry var libraryViewModel: LibraryViewModel?
+}
+
+extension EnvironmentValues {
     @Entry var onPlaylistDeleted: (() -> Void)?
 }
 

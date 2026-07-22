@@ -17,6 +17,7 @@ enum PlaylistParser {
         var duration: String?
     }
 
+    typealias LibraryAlbumsSource = LibraryContentParser.LibraryAlbumsSource
     typealias LibraryArtistsSource = LibraryContentParser.LibraryArtistsSource
     typealias LibraryContent = LibraryContentParser.LibraryContent
 

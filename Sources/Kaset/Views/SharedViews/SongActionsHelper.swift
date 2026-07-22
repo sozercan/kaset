@@ -94,12 +94,14 @@ enum SongActionsHelper {
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        onMutationApplied: @MainActor () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.addPlaylistToLibrary(
             playlist,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            onMutationApplied: onMutationApplied
         )
     }
 
@@ -107,12 +109,14 @@ enum SongActionsHelper {
     static func removePlaylistFromLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        onMutationApplied: @MainActor () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.removePlaylistFromLibrary(
             playlist,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            onMutationApplied: onMutationApplied
         )
     }
 
@@ -121,13 +125,15 @@ enum SongActionsHelper {
         _ album: Album,
         targetPlaylistId: String,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.addAlbumToLibrary(
             album,
             targetPlaylistId: targetPlaylistId,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            onMutationApplied: onMutationApplied
         )
     }
 
@@ -136,13 +142,15 @@ enum SongActionsHelper {
         _ album: Album,
         targetPlaylistId: String,
         client: any YTMusicClientProtocol,
-        libraryViewModel: LibraryViewModel?
+        libraryViewModel: LibraryViewModel?,
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.removeAlbumFromLibrary(
             album,
             targetPlaylistId: targetPlaylistId,
             client: client,
-            libraryViewModel: libraryViewModel
+            libraryViewModel: libraryViewModel,
+            onMutationApplied: onMutationApplied
         )
     }
 

@@ -4,8 +4,15 @@ import SwiftUI
 @available(macOS 26.0, *)
 extension PlaylistDetailView {
     func toggleLibrary(_ detail: PlaylistDetail) {
+        guard !self.isUpdatingLibrary else { return }
+
         let currentlyInLibrary = self.isInLibrary
-        Task {
+        self.isUpdatingLibrary = true
+        Task { @MainActor in
+            defer { self.isUpdatingLibrary = false }
+            let mutationApplied: @MainActor @Sendable () -> Void = {
+                self.isUpdatingLibrary = false
+            }
             do {
                 if detail.isAlbum {
                     guard let targetPlaylistId = detail.libraryTargetId else {
@@ -30,31 +37,37 @@ extension PlaylistDetailView {
                             album,
                             targetPlaylistId: targetPlaylistId,
                             client: self.viewModel.client,
-                            libraryViewModel: self.libraryViewModel
+                            libraryViewModel: self.libraryViewModel,
+                            onMutationApplied: mutationApplied
                         )
                     } else {
                         try await SongActionsHelper.addAlbumToLibrary(
                             album,
                             targetPlaylistId: targetPlaylistId,
                             client: self.viewModel.client,
-                            libraryViewModel: self.libraryViewModel
+                            libraryViewModel: self.libraryViewModel,
+                            onMutationApplied: mutationApplied
                         )
                     }
                 } else if currentlyInLibrary {
                     try await SongActionsHelper.removePlaylistFromLibrary(
                         self.playlist,
                         client: self.viewModel.client,
-                        libraryViewModel: self.libraryViewModel
+                        libraryViewModel: self.libraryViewModel,
+                        onMutationApplied: mutationApplied
                     )
                 } else {
                     try await SongActionsHelper.addPlaylistToLibrary(
                         self.playlist,
                         client: self.viewModel.client,
-                        libraryViewModel: self.libraryViewModel
+                        libraryViewModel: self.libraryViewModel,
+                        onMutationApplied: mutationApplied
                     )
                 }
 
                 HapticService.success()
+            } catch is CancellationError {
+                return
             } catch {
                 DiagnosticsLogger.api.error("Failed to update library status: \(error.localizedDescription)")
                 HapticService.error()

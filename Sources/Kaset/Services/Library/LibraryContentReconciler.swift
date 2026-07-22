@@ -12,6 +12,8 @@ struct LibraryContentSnapshot {
     var playlistIds: Set<String>
     var artistIds: Set<String>
     var podcastIds: Set<String>
+    var accountScope: String?
+    var albumsSource: LibraryContentParser.LibraryAlbumsSource?
 
     static let empty = LibraryContentSnapshot(
         playlists: [],
@@ -21,13 +23,19 @@ struct LibraryContentSnapshot {
         uploadedSongsPlaylist: nil,
         playlistIds: [],
         artistIds: [],
-        podcastIds: []
+        podcastIds: [],
+        accountScope: nil,
+        albumsSource: nil
     )
 
     var hasVisibleContent: Bool {
         !self.playlists.isEmpty || !self.albums.isEmpty || !self.artists.isEmpty || !self.podcastShows.isEmpty
             || self.uploadedSongsPlaylist != nil
             || !self.playlistIds.isEmpty || !self.artistIds.isEmpty || !self.podcastIds.isEmpty
+    }
+
+    var hasLoadedContent: Bool {
+        self.hasVisibleContent || self.albumsSource != nil
     }
 }
 
@@ -41,6 +49,7 @@ struct LibraryContentSnapshot {
 struct LibraryContentReconciler {
     struct Result {
         let snapshot: LibraryContentSnapshot
+        let preservedExistingAlbums: Bool
         let preservedExistingArtists: Bool
     }
 
@@ -58,6 +67,12 @@ struct LibraryContentReconciler {
     private var pendingRemovedAlbumIdentities: [String: Set<String>] = [:]
     private var pendingRemovedAlbumMissCounts: [String: Int] = [:]
 
+    private struct AlbumReconciliationResult {
+        let albums: [Album]
+        let preservedExistingAlbums: Bool
+        let albumsSource: LibraryContentParser.LibraryAlbumsSource
+    }
+
     private struct ArtistReconciliationResult {
         let artists: [Artist]
         let artistKeys: Set<String>
@@ -73,24 +88,57 @@ struct LibraryContentReconciler {
         _ content: LibraryContentParser.LibraryContent,
         currentSnapshot: LibraryContentSnapshot
     ) -> Result {
+        self.resetPendingMutationsIfAccountChanged(
+            from: currentSnapshot.accountScope,
+            to: content.accountScope
+        )
+
         let playlists = self.reconciledPlaylists(from: content.playlists)
-        let albums = self.reconciledAlbums(from: content.albums)
+        let albumResult = self.reconciledAlbums(from: content, currentSnapshot: currentSnapshot)
         let artistResult = self.reconciledArtists(from: content, currentSnapshot: currentSnapshot)
         let podcastShows = content.podcastShows
 
         return Result(
             snapshot: LibraryContentSnapshot(
                 playlists: playlists,
-                albums: albums,
+                albums: albumResult.albums,
                 artists: artistResult.artists,
                 podcastShows: podcastShows,
                 uploadedSongsPlaylist: content.uploadedSongsPlaylist,
                 playlistIds: Set(playlists.map(\.id)),
                 artistIds: artistResult.artistKeys,
-                podcastIds: Set(podcastShows.map(\.id))
+                podcastIds: Set(podcastShows.map(\.id)),
+                accountScope: content.accountScope,
+                albumsSource: albumResult.albumsSource
             ),
+            preservedExistingAlbums: albumResult.preservedExistingAlbums,
             preservedExistingArtists: artistResult.preservedExistingArtists
         )
+    }
+
+    private mutating func resetPendingMutationsIfAccountChanged(
+        from currentAccountScope: String?,
+        to newAccountScope: String?
+    ) {
+        guard let currentAccountScope,
+              let newAccountScope,
+              currentAccountScope != newAccountScope
+        else { return }
+
+        self.pendingAddedPlaylists.removeAll()
+        self.pendingAddedPlaylistMatchCounts.removeAll()
+        self.pendingRemovedPlaylistKeys.removeAll()
+        self.pendingRemovedPlaylistMissCounts.removeAll()
+
+        self.pendingAddedAlbums.removeAll()
+        self.pendingAddedAlbumMatchCounts.removeAll()
+        self.pendingRemovedAlbumIdentities.removeAll()
+        self.pendingRemovedAlbumMissCounts.removeAll()
+
+        self.pendingAddedArtists.removeAll()
+        self.pendingAddedArtistMatchCounts.removeAll()
+        self.pendingRemovedArtistKeys.removeAll()
+        self.pendingRemovedArtistMissCounts.removeAll()
     }
 
     func needsArtistReconciliation(artistIds: [String], expectedInLibrary: Bool) -> Bool {
@@ -313,11 +361,44 @@ struct LibraryContentReconciler {
         }
     }
 
-    private mutating func reconciledAlbums(from backendAlbums: [Album]) -> [Album] {
-        self.updatePendingAlbumAdditions(backendAlbums: backendAlbums)
-        self.updatePendingAlbumRemovals(backendAlbums: backendAlbums)
+    private mutating func reconciledAlbums(
+        from content: LibraryContentParser.LibraryContent,
+        currentSnapshot: LibraryContentSnapshot
+    ) -> AlbumReconciliationResult {
+        let sameAccount = content.accountScope == currentSnapshot.accountScope
+        let currentSource = currentSnapshot.albumsSource
+        let sourceAlbums: [Album]
+        let snapshotSource: LibraryContentParser.LibraryAlbumsSource
+        let preservedExistingAlbums: Bool
 
-        var albums = backendAlbums.filter { album in
+        switch content.albumsSource {
+        case .dedicated:
+            sourceAlbums = content.albums
+            snapshotSource = .dedicated
+            preservedExistingAlbums = false
+        case .partial where sameAccount && (currentSource == .dedicated || currentSource == .partial):
+            sourceAlbums = Self.mergedPartialAlbums(
+                existing: currentSnapshot.albums,
+                incoming: content.albums
+            )
+            snapshotSource = .partial
+            preservedExistingAlbums = true
+        case .landingFallback where sameAccount && (currentSource == .dedicated || currentSource == .partial):
+            sourceAlbums = currentSnapshot.albums
+            snapshotSource = currentSource ?? .landingFallback
+            preservedExistingAlbums = true
+        case .partial, .landingFallback:
+            sourceAlbums = content.albums
+            snapshotSource = content.albumsSource
+            preservedExistingAlbums = false
+        }
+
+        if content.albumsSource.isAuthoritative {
+            self.updatePendingAlbumAdditions(backendAlbums: content.albums)
+            self.updatePendingAlbumRemovals(backendAlbums: content.albums)
+        }
+
+        var albums = sourceAlbums.filter { album in
             let albumIdentities = LibraryContentIdentity.albumKeys(for: album)
             return self.pendingRemovedAlbumIdentities.values.allSatisfy { identities in
                 albumIdentities.isDisjoint(with: identities)
@@ -329,7 +410,52 @@ struct LibraryContentReconciler {
             albums.insert(album, at: 0)
         }
 
-        return albums
+        return AlbumReconciliationResult(
+            albums: albums,
+            preservedExistingAlbums: preservedExistingAlbums,
+            albumsSource: snapshotSource
+        )
+    }
+
+    private static func mergedPartialAlbums(
+        existing: [Album],
+        incoming: [Album]
+    ) -> [Album] {
+        var merged = existing
+        for album in incoming {
+            if let index = merged.firstIndex(where: { LibraryContentIdentity.albumsMatch($0, album) }) {
+                merged[index] = Self.mergedAlbum(existing: merged[index], incoming: album)
+            } else {
+                merged.append(album)
+            }
+        }
+        return merged
+    }
+
+    private static func mergedAlbum(existing: Album, incoming: Album) -> Album {
+        let incomingArtists = incoming.artists?.isEmpty == false ? incoming.artists : nil
+        let incomingTitle = incoming.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = incomingTitle.isEmpty || incomingTitle == "Unknown Album"
+            ? existing.title
+            : incoming.title
+        let albumId = if existing.id.hasPrefix("MPRE") {
+            existing.id
+        } else if incoming.id.hasPrefix("MPRE") {
+            incoming.id
+        } else {
+            incoming.id
+        }
+        let idBasedLibraryTarget = [incoming.id, existing.id].first { $0.hasPrefix("OLAK") }
+
+        return Album(
+            id: albumId,
+            title: title,
+            artists: incomingArtists ?? existing.artists,
+            thumbnailURL: incoming.thumbnailURL ?? existing.thumbnailURL,
+            year: incoming.year ?? existing.year,
+            trackCount: incoming.trackCount ?? existing.trackCount,
+            libraryTargetId: incoming.libraryTargetId ?? existing.libraryTargetId ?? idBasedLibraryTarget
+        )
     }
 
     private mutating func updatePendingAlbumAdditions(backendAlbums: [Album]) {
@@ -370,7 +496,9 @@ struct LibraryContentReconciler {
         from content: LibraryContentParser.LibraryContent,
         currentSnapshot: LibraryContentSnapshot
     ) -> ArtistReconciliationResult {
-        let preservedExistingArtists = content.artistsSource == .landingFallback && !currentSnapshot.artists.isEmpty
+        let preservedExistingArtists = content.artistsSource == .landingFallback
+            && content.accountScope == currentSnapshot.accountScope
+            && !currentSnapshot.artists.isEmpty
         let sourceArtists = preservedExistingArtists ? currentSnapshot.artists : content.artists
         let canonicalArtists = sourceArtists.map { LibraryContentIdentity.canonicalArtist($0) }
         let rawArtistKeys = Set(canonicalArtists.map(\.id))

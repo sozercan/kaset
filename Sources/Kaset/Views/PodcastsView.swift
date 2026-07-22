@@ -261,7 +261,7 @@ struct PodcastShowView: View {
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
 
     @State private var episodes: [PodcastEpisode] = []
     @State private var continuationToken: String?

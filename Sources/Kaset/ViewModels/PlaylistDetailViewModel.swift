@@ -342,7 +342,7 @@ extension PlaylistDetailViewModel {
             playlist: playlist,
             tracks: allTracks,
             duration: detail.duration,
-            libraryTargetId: detail.libraryTargetId
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )
     }
 
@@ -371,7 +371,7 @@ extension PlaylistDetailViewModel {
             playlist: playlist,
             tracks: detail.tracks,
             duration: detail.duration,
-            libraryTargetId: detail.libraryTargetId
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )
     }
 
@@ -929,7 +929,7 @@ extension PlaylistDetailViewModel {
             playlist: updatedPlaylist,
             tracks: tracks,
             duration: detail.duration,
-            libraryTargetId: detail.libraryTargetId
+            libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )
     }
 

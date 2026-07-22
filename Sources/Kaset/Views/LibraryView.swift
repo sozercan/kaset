@@ -96,6 +96,7 @@ struct LibraryView: View {
                         ),
                         playerBarNavigationAction: self.playerBarNavigationAction
                     )
+                    .environment(\.libraryViewModel, self.viewModel)
                 } else {
                     SimplePlaylistDetailView(
                         playlist: playlist,
@@ -105,6 +106,7 @@ struct LibraryView: View {
                         ),
                         playerBarNavigationAction: self.playerBarNavigationAction
                     )
+                    .environment(\.libraryViewModel, self.viewModel)
                 }
             }
             .navigationDestination(for: Artist.self) { artist in
@@ -132,7 +134,7 @@ struct LibraryView: View {
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
-        .environment(self.viewModel)
+        .environment(\.libraryViewModel, self.viewModel)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
                 .playerBarMusicNavigation(path: self.$navigationPath)
@@ -472,7 +474,8 @@ struct LibraryView: View {
             trackCount: album.trackCount,
             author: album.artistsDisplay.isEmpty
                 ? nil
-                : Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
+                : Artist.inline(name: album.artistsDisplay, namespace: "album-artist"),
+            libraryTargetId: album.libraryTargetId
         )
     }
 

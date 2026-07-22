@@ -9,7 +9,7 @@ struct SearchView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(AuthService.self) private var authService
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 

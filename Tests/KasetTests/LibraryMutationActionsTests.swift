@@ -337,6 +337,33 @@ struct LibraryMutationActionsTests {
         #expect(self.libraryViewModel.isInLibrary(albumId: "MPRE-album"))
     }
 
+    @Test("Album mutation callback fires before delayed reconciliation completes")
+    func albumMutationCallbackPrecedesReconciliation() async {
+        let album = TestFixtures.makeAlbum(id: "MPRE-callback", title: "Callback Album")
+        let applied = LockedCounter()
+        let completed = LockedCounter()
+        self.mockClient.shouldAutoUpdatePlaylistLibraryOnMutation = false
+
+        let task = Task {
+            defer { completed.increment() }
+            try await LibraryMutationActions.addAlbumToLibrary(
+                album,
+                targetPlaylistId: "OLAK-callback",
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel,
+                reconciliationDelay: .seconds(10),
+                onMutationApplied: { applied.increment() }
+            )
+        }
+
+        #expect(await self.waitUntil(applied.count == 1))
+        #expect(completed.isEmpty)
+        #expect(self.libraryViewModel.isInLibrary(albumId: album.id))
+
+        LibraryMutationActions.cancelPendingAlbumMutations(for: self.libraryViewModel)
+        await #expect(throws: CancellationError.self) { try await task.value }
+    }
+
     @Test("Remove album uses OLAK target and updates visible library")
     func removeAlbumUsesLibraryTarget() async throws {
         let album = TestFixtures.makeAlbum(id: "MPRE-album", title: "Album")
@@ -353,6 +380,77 @@ struct LibraryMutationActionsTests {
 
         #expect(self.mockClient.unsubscribeFromPlaylistIds == ["OLAK-album-target"])
         #expect(!self.libraryViewModel.isInLibrary(albumId: "MPRE-album"))
+    }
+
+    @Test("Cancelling pending album add prevents an account-crossing update")
+    func cancellingPendingAlbumAddPreventsAccountCrossingUpdate() async {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-cancelled-add",
+            title: "Cancelled Add",
+            libraryTargetId: "OLAK-cancelled-add"
+        )
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.mockClient.beforeSubscribeToPlaylistReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        self.mockClient.shouldAutoUpdatePlaylistLibraryOnMutation = false
+
+        let task = Task {
+            try await LibraryMutationActions.addAlbumToLibrary(
+                album,
+                targetPlaylistId: "OLAK-cancelled-add",
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel,
+                reconciliationDelay: .zero
+            )
+        }
+
+        await requestStarted.wait()
+        LibraryMutationActions.cancelPendingAlbumMutations(for: self.libraryViewModel)
+        await releaseRequest.open()
+
+        await #expect(throws: CancellationError.self) {
+            try await task.value
+        }
+        #expect(!self.libraryViewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Cancelling pending album removal preserves the next account snapshot")
+    func cancellingPendingAlbumRemovalPreservesSnapshot() async {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-cancelled-remove",
+            title: "Cancelled Remove",
+            libraryTargetId: "OLAK-cancelled-remove"
+        )
+        self.libraryViewModel.addToLibrary(album: album)
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        self.mockClient.beforeUnsubscribeFromPlaylistReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        self.mockClient.shouldAutoUpdatePlaylistLibraryOnMutation = false
+
+        let task = Task {
+            try await LibraryMutationActions.removeAlbumFromLibrary(
+                album,
+                targetPlaylistId: "OLAK-cancelled-remove",
+                client: self.mockClient,
+                libraryViewModel: self.libraryViewModel,
+                reconciliationDelay: .zero
+            )
+        }
+
+        await requestStarted.wait()
+        LibraryMutationActions.cancelPendingAlbumMutations(for: self.libraryViewModel)
+        await releaseRequest.open()
+
+        await #expect(throws: CancellationError.self) {
+            try await task.value
+        }
+        #expect(self.libraryViewModel.isInLibrary(albumId: album.id))
     }
 
     @Test("Newer album removal wins over delayed add reconciliation")
@@ -441,6 +539,7 @@ struct LibraryMutationActionsTests {
     @Test("Failed album add leaves visible library unchanged")
     func failedAlbumAddLeavesLibraryUnchanged() async {
         let album = TestFixtures.makeAlbum(id: "MPRE-album", title: "Album")
+        let applied = LockedCounter()
         self.mockClient.shouldThrowError = YTMusicError.apiError(message: "Rejected", code: 400)
 
         await #expect(throws: YTMusicError.self) {
@@ -448,11 +547,13 @@ struct LibraryMutationActionsTests {
                 album,
                 targetPlaylistId: "OLAK-album-target",
                 client: self.mockClient,
-                libraryViewModel: self.libraryViewModel
+                libraryViewModel: self.libraryViewModel,
+                onMutationApplied: { applied.increment() }
             )
         }
 
         #expect(!self.libraryViewModel.isInLibrary(albumId: "MPRE-album"))
+        #expect(applied.isEmpty)
     }
 
     @Test("Failed playlist removal propagates and preserves membership")

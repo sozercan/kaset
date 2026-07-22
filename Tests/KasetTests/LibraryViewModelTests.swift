@@ -1,6 +1,9 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Kaset
+
+// MARK: - LibraryViewModelTests
 
 /// Tests for LibraryViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
@@ -29,6 +32,62 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.libraryArtistIds.isEmpty)
         #expect(self.viewModel.libraryPodcastIds.isEmpty)
         #expect(self.viewModel.selectedPlaylistDetail == nil)
+    }
+
+    @Test("Activating the first account scope preserves pending optimistic state")
+    func firstAccountScopePreservesPendingMutations() async {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-pending",
+            title: "Pending Album",
+            libraryTargetId: "OLAK-pending"
+        )
+        self.viewModel.addToLibrary(album: album)
+        self.viewModel.activateAccountScope("primary")
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .dedicated,
+                accountScope: "primary"
+            ),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.albums == [album])
+    }
+
+    @Test("Activating a brand scope clears unscoped optimistic state")
+    func firstBrandScopeClearsPendingMutations() {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-unscoped",
+            title: "Unscoped Album",
+            libraryTargetId: "OLAK-unscoped"
+        )
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope("brand-account")
+
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Changing known account scopes clears prior library state")
+    func accountScopeChangeClearsLibraryState() {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-account-a",
+            title: "Account A Album",
+            libraryTargetId: "OLAK-account-a"
+        )
+        self.viewModel.activateAccountScope("account-a")
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope("account-b")
+
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
     }
 
     @Test("Load success sets library content and ID sets")
@@ -86,6 +145,7 @@ struct LibraryViewModelTests {
 
     @Test("Load error sets error state")
     func loadError() async {
+        self.viewModel.activateAccountScope("primary")
         self.mockClient.shouldThrowError = YTMusicError.authExpired
 
         await self.viewModel.load()
@@ -367,6 +427,81 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.artists.first?.id == "UC-channel-1")
     }
 
+    @Test("refresh preserves existing albums when refresh falls back to landing preview")
+    func refreshPreservesAlbumsDuringLandingFallback() async {
+        let authoritativeAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-authoritative",
+            title: "Authoritative Album",
+            libraryTargetId: "OLAK-authoritative"
+        )
+        let fallbackPreviewAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-preview",
+            title: "Preview Album",
+            libraryTargetId: "OLAK-preview"
+        )
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [authoritativeAlbum],
+                artists: [],
+                podcastShows: []
+            ),
+        ]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [fallbackPreviewAlbum],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .landingFallback
+            ),
+        ]
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.albums == [authoritativeAlbum])
+    }
+
+    @Test("refresh preserves an authoritative empty album snapshot during fallback")
+    func refreshPreservesAuthoritativeEmptyAlbumsDuringFallback() async {
+        let stalePreviewAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-stale-preview",
+            title: "Stale Preview",
+            libraryTargetId: "OLAK-stale-preview"
+        )
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .dedicated,
+                accountScope: "primary"
+            ),
+        ]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [stalePreviewAlbum],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .landingFallback,
+                accountScope: "primary"
+            ),
+        ]
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.albums.isEmpty)
+    }
+
     @Test("refresh preserves existing artists when refresh falls back to landing preview")
     func refreshPreservesArtistsDuringLandingFallback() async {
         let authoritativeArtist = TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1")
@@ -595,5 +730,25 @@ struct LibraryViewModelTests {
     @Test("isInLibrary returns false for non-added podcast")
     func isInLibraryForNonAddedPodcast() {
         #expect(self.viewModel.isInLibrary(podcastId: "MPSPPLXz2p9test123") == false)
+    }
+}
+
+// MARK: - LibraryViewModelEnvironmentTests
+
+@Suite(.tags(.viewModel))
+@MainActor
+struct LibraryViewModelEnvironmentTests {
+    @Test("Library view model environment stores the active model")
+    func environmentStoresActiveModel() {
+        var environment = EnvironmentValues()
+        #expect(environment.libraryViewModel == nil)
+
+        let viewModel = LibraryViewModel(
+            client: MockYTMusicClient(),
+            registerForLibraryMutations: false
+        )
+        environment.libraryViewModel = viewModel
+
+        #expect(environment.libraryViewModel === viewModel)
     }
 }

@@ -134,17 +134,25 @@ final class LibraryMutationBroadcaster {
         }
     }
 
-    func reconcileAddedAlbum(_ album: Album) async {
+    @discardableResult
+    func reconcileAddedAlbum(
+        _ album: Album,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
         for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else { return false }
             await libraryViewModel.refresh()
+            guard isCurrent() else { return false }
             if !libraryViewModel.isInLibrary(
                 albumId: album.id,
                 targetPlaylistId: album.libraryTargetId
             ) {
+                guard isCurrent() else { return false }
                 libraryViewModel.addToLibrary(album: album)
             }
             libraryViewModel.markNeedsReloadOnActivation()
         }
+        return isCurrent()
     }
 
     func albumRemoved(albumId: String, targetPlaylistId: String?) {
@@ -154,14 +162,23 @@ final class LibraryMutationBroadcaster {
         }
     }
 
-    func reconcileRemovedAlbum(albumId: String, targetPlaylistId: String?) async {
+    @discardableResult
+    func reconcileRemovedAlbum(
+        albumId: String,
+        targetPlaylistId: String?,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
         for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else { return false }
             await libraryViewModel.refresh()
+            guard isCurrent() else { return false }
             if libraryViewModel.isInLibrary(albumId: albumId, targetPlaylistId: targetPlaylistId) {
+                guard isCurrent() else { return false }
                 libraryViewModel.removeFromLibrary(albumId: albumId, targetPlaylistId: targetPlaylistId)
             }
             libraryViewModel.markNeedsReloadOnActivation()
         }
+        return isCurrent()
     }
 }
 
@@ -197,6 +214,12 @@ final class LibraryViewModel {
 
     /// Set of followed artist IDs normalized to channel IDs (for quick lookup).
     private(set) var libraryArtistIds: Set<String> = []
+
+    /// Account scope that produced the current Library snapshot.
+    private var libraryAccountScope: String?
+
+    /// Strength of the response that produced the current album snapshot.
+    private var libraryAlbumsSource: LibraryContentParser.LibraryAlbumsSource?
 
     /// Selected playlist detail.
     private(set) var selectedPlaylistDetail: PlaylistDetail?
@@ -246,7 +269,9 @@ final class LibraryViewModel {
                 uploadedSongsPlaylist: self.uploadedSongsPlaylist,
                 playlistIds: self.libraryPlaylistIds,
                 artistIds: self.libraryArtistIds,
-                podcastIds: self.libraryPodcastIds
+                podcastIds: self.libraryPodcastIds,
+                accountScope: self.libraryAccountScope,
+                albumsSource: self.libraryAlbumsSource
             )
         }
         set {
@@ -258,11 +283,26 @@ final class LibraryViewModel {
             self.libraryPlaylistIds = newValue.playlistIds
             self.libraryArtistIds = newValue.artistIds
             self.libraryPodcastIds = newValue.podcastIds
+            self.libraryAccountScope = newValue.accountScope
+            self.libraryAlbumsSource = newValue.albumsSource
         }
     }
 
     private var hasLibrarySnapshot: Bool {
-        self.librarySnapshot.hasVisibleContent
+        self.librarySnapshot.hasLoadedContent
+    }
+
+    func activateAccountScope(_ accountScope: String?) {
+        guard self.libraryAccountScope != accountScope else { return }
+
+        self.markLibraryStateChanged()
+        let shouldClearState = self.libraryAccountScope != nil
+            || (accountScope != nil && accountScope != "primary")
+        if shouldClearState {
+            self.librarySnapshot = .empty
+            self.contentReconciler = LibraryContentReconciler()
+        }
+        self.libraryAccountScope = accountScope
     }
 
     private func markLibraryStateChanged() {
@@ -289,6 +329,9 @@ final class LibraryViewModel {
 
     private func applyLibraryContent(_ content: PlaylistParser.LibraryContent) {
         let result = self.contentReconciler.apply(content, currentSnapshot: self.librarySnapshot)
+        if result.preservedExistingAlbums {
+            self.logger.debug("Preserving existing album snapshot because refresh fell back to landing preview")
+        }
         if result.preservedExistingArtists {
             self.logger.debug("Preserving existing artist snapshot because refresh fell back to landing preview")
         }

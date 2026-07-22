@@ -80,6 +80,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var onGetPodcasts: (@MainActor () -> Void)?
     var beforeGetHomeReturn: (@MainActor () async -> Void)?
     var beforeGetHomeContinuationReturn: (@MainActor () async -> Void)?
+    var beforeSubscribeToPlaylistReturn: (@MainActor (String) async -> Void)?
+    var beforeUnsubscribeFromPlaylistReturn: (@MainActor (String) async -> Void)?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
@@ -963,6 +965,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func subscribeToPlaylist(playlistId: String) async throws {
         self.subscribeToPlaylistCalled = true
         self.subscribeToPlaylistIds.append(playlistId)
+        if let beforeSubscribeToPlaylistReturn {
+            await beforeSubscribeToPlaylistReturn(playlistId)
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -1090,6 +1095,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func unsubscribeFromPlaylist(playlistId: String) async throws {
         self.unsubscribeFromPlaylistCalled = true
         self.unsubscribeFromPlaylistIds.append(playlistId)
+        if let beforeUnsubscribeFromPlaylistReturn {
+            await beforeUnsubscribeFromPlaylistReturn(playlistId)
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -1373,6 +1381,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
         self.unsubscribeFromPlaylistCalled = false
         self.unsubscribeFromPlaylistIds = []
+        self.beforeSubscribeToPlaylistReturn = nil
+        self.beforeUnsubscribeFromPlaylistReturn = nil
         self.subscribeToArtistCalled = false
         self.subscribeToArtistIds = []
         self.unsubscribeFromArtistCalled = false

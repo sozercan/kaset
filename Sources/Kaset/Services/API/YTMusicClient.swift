@@ -683,6 +683,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     /// Fetches the user's library content including playlists, artists, and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.logger.info("Fetching library content")
+        let accountScope = self.cacheScope(authenticated: true)
 
         let landingData = try await self.request(
             "browse",
@@ -692,7 +693,7 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let landingContent = PlaylistParser.parseLibraryContent(landingData)
         let playlists = try await self.fetchLibraryPlaylists(fallback: landingContent.playlists)
-        let albums = try await self.fetchLibraryAlbums(fallback: landingContent.albums)
+        let (albums, albumsSource) = try await self.fetchLibraryAlbums(fallback: landingContent.albums)
         let (artists, artistsSource) = try await self.fetchLibraryArtists(fallback: landingContent.artists)
         let uploadedSongsPlaylist = try await self.fetchUploadedSongsPlaylist()
         let content = PlaylistParser.LibraryContent(
@@ -701,7 +702,9 @@ final class YTMusicClient: YTMusicClientProtocol {
             artists: artists,
             podcastShows: landingContent.podcastShows,
             uploadedSongsPlaylist: uploadedSongsPlaylist,
-            artistsSource: artistsSource
+            albumsSource: albumsSource,
+            artistsSource: artistsSource,
+            accountScope: accountScope
         )
 
         let hasUploadedSongs = content.uploadedSongsPlaylist != nil
@@ -739,7 +742,9 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 
     /// Fetches saved albums from the dedicated browse endpoint with graceful fallback to the Library landing preview.
-    private func fetchLibraryAlbums(fallback fallbackAlbums: [Album]) async throws -> [Album] {
+    private func fetchLibraryAlbums(
+        fallback fallbackAlbums: [Album]
+    ) async throws -> ([Album], PlaylistParser.LibraryAlbumsSource) {
         do {
             let albumsData = try await self.request(
                 "browse",
@@ -747,13 +752,27 @@ final class YTMusicClient: YTMusicClientProtocol {
                 ttl: APICache.TTL.library
             )
             let firstPage = PlaylistParser.parseLibraryAlbumsPage(albumsData)
-            var dedicatedAlbums = firstPage.albums
-            var nextPage = firstPage.nextPage
-            var requestedContinuationTokens = Set<String>()
-
-            while let cursor = nextPage,
-                  requestedContinuationTokens.insert(cursor).inserted
+            if !firstPage.isRecognized,
+               firstPage.albums.isEmpty,
+               firstPage.nextPages.isEmpty
             {
+                self.logger.warning("Saved albums endpoint returned an unrecognized response, falling back to landing preview")
+                return (fallbackAlbums, .landingFallback)
+            }
+
+            var dedicatedAlbums = firstPage.albums
+            var pendingCursors = firstPage.nextPages
+            var requestedCursors = Set<String>()
+            var completedPagination = firstPage.isRecognized
+
+            while !pendingCursors.isEmpty {
+                let cursor = pendingCursors.removeFirst()
+                guard requestedCursors.insert(cursor).inserted else {
+                    completedPagination = false
+                    self.logger.warning("Saved albums pagination repeated a continuation token, keeping partial results")
+                    continue
+                }
+
                 do {
                     let continuationData = try await self.requestContinuation(
                         cursor,
@@ -761,31 +780,44 @@ final class YTMusicClient: YTMusicClientProtocol {
                         authPolicy: .required
                     )
                     let page = PlaylistParser.parseLibraryAlbumsContinuation(continuationData)
+                    if !page.isRecognized {
+                        completedPagination = false
+                        self.logger.warning("Saved albums continuation was only partially recognized, keeping partial results")
+                    }
                     dedicatedAlbums = PlaylistParser.mergedLibraryAlbums(
                         dedicated: dedicatedAlbums,
                         fallback: page.albums
                     )
-                    nextPage = page.nextPage
+                    pendingCursors.append(contentsOf: page.nextPages)
                 } catch {
+                    completedPagination = false
                     self.logger.warning("Saved albums continuation failed, keeping \(dedicatedAlbums.count) loaded albums: \(error.localizedDescription)")
-                    break
                 }
             }
 
             if dedicatedAlbums.isEmpty {
-                if !fallbackAlbums.isEmpty {
-                    self.logger.warning("Saved albums endpoint returned no albums, falling back to landing preview")
+                if completedPagination {
+                    self.logger.info("Saved albums endpoint returned an authoritative empty collection")
+                    return ([], .dedicated)
                 }
-                return fallbackAlbums
+
+                return (fallbackAlbums, .partial)
             }
 
-            return PlaylistParser.mergedLibraryAlbums(
-                dedicated: dedicatedAlbums,
-                fallback: fallbackAlbums
+            if completedPagination {
+                return (dedicatedAlbums, .dedicated)
+            }
+
+            return (
+                PlaylistParser.mergedLibraryAlbums(
+                    dedicated: dedicatedAlbums,
+                    fallback: fallbackAlbums
+                ),
+                .partial
             )
         } catch {
             self.logger.warning("Saved albums endpoint failed, falling back to landing preview: \(error.localizedDescription)")
-            return fallbackAlbums
+            return (fallbackAlbums, .landingFallback)
         }
     }
 

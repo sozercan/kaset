@@ -894,6 +894,36 @@ struct PlaylistDetailViewModelTests {
         #expect(albumViewModel.playlistDetail?.libraryTargetId == "OLAK-test-album")
     }
 
+    @Test("Album load preserves a known route mutation target")
+    func albumLoadPreservesRouteMutationTarget() async {
+        let routeAlbum = Playlist(
+            id: "MPRE-route-album",
+            title: "Route Album",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 1,
+            author: Artist.inline(name: "Route Artist", namespace: "playlist-author"),
+            libraryTargetId: "OLAK-route-album"
+        )
+        let loadedAlbum = Playlist(
+            id: routeAlbum.id,
+            title: routeAlbum.title,
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 1,
+            author: routeAlbum.author
+        )
+        self.mockClient.playlistDetails[routeAlbum.id] = PlaylistDetail(
+            playlist: loadedAlbum,
+            tracks: [TestFixtures.makeSong(id: "route-track")]
+        )
+
+        let viewModel = PlaylistDetailViewModel(playlist: routeAlbum, client: self.mockClient)
+        await viewModel.load()
+
+        #expect(viewModel.playlistDetail?.libraryTargetId == "OLAK-route-album")
+    }
+
     // MARK: - Load More Tests
 
     @Test("Load more appends tracks")
