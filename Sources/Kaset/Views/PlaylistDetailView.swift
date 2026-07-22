@@ -20,7 +20,7 @@ struct PlaylistDetailView: View {
     /// Whether the refine playlist sheet is visible.
     @State var showRefineSheet: Bool = false
     /// Whether an add/remove Library request is currently in flight.
-    @State var isUpdatingLibrary: Bool = false
+    @State var libraryMutationActivity = PlaylistDetailLibraryMutationActivity()
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.
@@ -38,6 +38,10 @@ struct PlaylistDetailView: View {
             ) ?? false
         }
         return self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
+    }
+
+    var isUpdatingLibrary: Bool {
+        self.libraryMutationActivity.isActive
     }
 
     var hasPersonalAccount: Bool {

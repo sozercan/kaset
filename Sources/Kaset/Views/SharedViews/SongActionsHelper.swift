@@ -95,7 +95,7 @@ enum SongActionsHelper {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
-        onMutationApplied: @MainActor () -> Void = {}
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.addPlaylistToLibrary(
             playlist,
@@ -110,7 +110,7 @@ enum SongActionsHelper {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
-        onMutationApplied: @MainActor () -> Void = {}
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
         try await LibraryMutationActions.removePlaylistFromLibrary(
             playlist,
@@ -324,45 +324,48 @@ enum SongActionsHelper {
         }
 
         do {
-            let playlistId = try await request.client.createPlaylist(
-                title: title,
-                description: nil,
-                privacyStatus: .private,
-                videoIds: request.videoIds
-            )
-            guard !Task.isCancelled, request.isValid() else {
-                throw CancellationError()
-            }
-            let playlist = Playlist(
-                id: playlistId,
-                title: title,
-                description: nil,
-                thumbnailURL: request.thumbnailURL,
-                trackCount: request.videoIds.count,
-                canDelete: true
-            )
+            let playlist = try await LibraryMutationActions.withAccountBoundaryTracking {
+                let playlistId = try await request.client.createPlaylist(
+                    title: title,
+                    description: nil,
+                    privacyStatus: .private,
+                    videoIds: request.videoIds
+                )
+                guard !Task.isCancelled, request.isValid() else {
+                    throw CancellationError()
+                }
+                let playlist = Playlist(
+                    id: playlistId,
+                    title: title,
+                    description: nil,
+                    thumbnailURL: request.thumbnailURL,
+                    trackCount: request.videoIds.count,
+                    canDelete: true
+                )
 
-            Self.invalidateLibraryResponseCaches()
-            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
+                Self.invalidateLibraryResponseCaches()
+                LibraryMutationBroadcaster.shared.playlistCreated(playlist)
 
-            // Library browse responses can lag briefly behind a successful playlist creation.
-            // Refresh in the background, but keep the optimistic playlist visible if the
-            // cache/backend still returns a stale snapshot.
-            try? await Task.sleep(for: .milliseconds(500))
-            guard !Task.isCancelled, request.isValid() else {
-                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-                throw CancellationError()
+                // Library browse responses can lag briefly behind a successful playlist creation.
+                // Refresh in the background, but keep the optimistic playlist visible if the
+                // cache/backend still returns a stale snapshot.
+                try? await Task.sleep(for: .milliseconds(500))
+                guard !Task.isCancelled, request.isValid() else {
+                    LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                    throw CancellationError()
+                }
+                Self.invalidateLibraryResponseCaches()
+                let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
+                    playlist,
+                    whileValid: { !Task.isCancelled && request.isValid() }
+                )
+                guard didReconcile, !Task.isCancelled, request.isValid() else {
+                    LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                    throw CancellationError()
+                }
+                Self.invalidateLibraryResponseCaches()
+                return playlist
             }
-            Self.invalidateLibraryResponseCaches()
-            let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
-                playlist,
-                whileValid: request.isValid
-            )
-            guard didReconcile, !Task.isCancelled, request.isValid() else {
-                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-                throw CancellationError()
-            }
-            Self.invalidateLibraryResponseCaches()
 
             completion(.success(playlist))
         } catch is CancellationError {

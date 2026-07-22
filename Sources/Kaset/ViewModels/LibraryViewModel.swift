@@ -17,6 +17,7 @@ final class LibraryMutationBroadcaster {
         fileprivate struct Target {
             let viewModel: LibraryViewModel
             let playlistRevision: UInt64
+            let accountScopeGeneration: UInt64
         }
 
         fileprivate let targets: [Target]
@@ -55,6 +56,13 @@ final class LibraryMutationBroadcaster {
         }
     }
 
+    func playlistAdded(_ playlist: Playlist) {
+        for libraryViewModel in self.activeLibraryViewModels {
+            libraryViewModel.markNeedsReloadOnActivation()
+            libraryViewModel.addToLibrary(playlist: playlist)
+        }
+    }
+
     @discardableResult
     func reconcileCreatedPlaylist(
         _ playlist: Playlist,
@@ -82,6 +90,23 @@ final class LibraryMutationBroadcaster {
         return true
     }
 
+    @discardableResult
+    func reconcileAddedPlaylist(
+        _ playlist: Playlist,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
+        for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else { return false }
+            await libraryViewModel.refresh()
+            guard isCurrent() else { return false }
+            if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
+                libraryViewModel.addToLibrary(playlist: playlist)
+            }
+            libraryViewModel.markNeedsReloadOnActivation()
+        }
+        return isCurrent()
+    }
+
     func discardCreatedPlaylist(_ playlist: Playlist) {
         for libraryViewModel in self.activeLibraryViewModels {
             libraryViewModel.discardOptimisticPlaylist(playlistId: playlist.id)
@@ -100,7 +125,8 @@ final class LibraryMutationBroadcaster {
             if wasInLibrary {
                 targets.append(PlaylistRemovalReceipt.Target(
                     viewModel: libraryViewModel,
-                    playlistRevision: libraryViewModel.playlistMutationRevision(for: playlistId)
+                    playlistRevision: libraryViewModel.playlistMutationRevision(for: playlistId),
+                    accountScopeGeneration: libraryViewModel.currentAccountScopeGeneration
                 ))
             }
         }
@@ -109,6 +135,7 @@ final class LibraryMutationBroadcaster {
 
     func rollbackPlaylistRemoval(_ playlist: Playlist, receipt: PlaylistRemovalReceipt) {
         for target in receipt.targets {
+            guard target.viewModel.currentAccountScopeGeneration == target.accountScopeGeneration else { continue }
             guard target.viewModel.rollbackPlaylistRemoval(
                 playlist,
                 expectedPlaylistRevision: target.playlistRevision
@@ -117,14 +144,21 @@ final class LibraryMutationBroadcaster {
         }
     }
 
-    func reconcileRemovedPlaylist(playlistId: String) async {
+    @discardableResult
+    func reconcileRemovedPlaylist(
+        playlistId: String,
+        whileValid isCurrent: () -> Bool = { true }
+    ) async -> Bool {
         for libraryViewModel in self.activeLibraryViewModels {
+            guard isCurrent() else { return false }
             await libraryViewModel.refresh()
+            guard isCurrent() else { return false }
             if libraryViewModel.isInLibrary(playlistId: playlistId) {
                 libraryViewModel.removeFromLibrary(playlistId: playlistId)
             }
             libraryViewModel.markNeedsReloadOnActivation()
         }
+        return isCurrent()
     }
 
     func albumAdded(_ album: Album) {
@@ -217,6 +251,15 @@ final class LibraryViewModel {
 
     /// Account scope that produced the current Library snapshot.
     private var libraryAccountScope: String?
+    private var accountScopeGeneration: UInt64 = 0
+
+    var currentAccountScope: String? {
+        self.libraryAccountScope
+    }
+
+    var currentAccountScopeGeneration: UInt64 {
+        self.accountScopeGeneration
+    }
 
     /// Strength of the response that produced the current album snapshot.
     private var libraryAlbumsSource: LibraryContentParser.LibraryAlbumsSource?
@@ -299,6 +342,7 @@ final class LibraryViewModel {
         let shouldClearState = self.libraryAccountScope != nil
             || (accountScope != nil && !isPrimary && accountScope != "primary")
         if shouldClearState {
+            self.accountScopeGeneration &+= 1
             self.librarySnapshot = .empty
             self.contentReconciler = LibraryContentReconciler()
         }

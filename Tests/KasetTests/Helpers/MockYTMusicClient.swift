@@ -80,8 +80,14 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var onGetPodcasts: (@MainActor () -> Void)?
     var beforeGetHomeReturn: (@MainActor () async -> Void)?
     var beforeGetHomeContinuationReturn: (@MainActor () async -> Void)?
+    var beforeCreatePlaylistReturn: (@MainActor () async -> Void)?
     var beforeSubscribeToPlaylistReturn: (@MainActor (String) async -> Void)?
     var beforeUnsubscribeFromPlaylistReturn: (@MainActor (String) async -> Void)?
+    var beforeDeletePlaylistReturn: (@MainActor (String) async -> Void)?
+    var beforeSubscribeToPodcastReturn: (@MainActor (String) async -> Void)?
+    var beforeUnsubscribeFromPodcastReturn: (@MainActor (String) async -> Void)?
+    var subscribeToPodcastDelay: Duration?
+    var unsubscribeFromPodcastDelay: Duration?
     var subscribeToArtistDelay: Duration?
     var unsubscribeFromArtistDelay: Duration?
     var rateSongDelay: Duration?
@@ -986,6 +992,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func deletePlaylist(playlistId: String) async throws {
         self.deletePlaylistCalled = true
         self.deletePlaylistIds.append(playlistId)
+        if let beforeDeletePlaylistReturn {
+            await beforeDeletePlaylistReturn(playlistId)
+            try Task.checkCancellation()
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -1020,6 +1030,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
             privacyStatus: privacyStatus,
             videoIds: videoIds
         ))
+        await self.beforeCreatePlaylistReturn?()
         if let error = shouldThrowError {
             throw error
         }
@@ -1112,6 +1123,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func subscribeToPodcast(showId: String) async throws {
+        if let beforeSubscribeToPodcastReturn {
+            await beforeSubscribeToPodcastReturn(showId)
+        }
+        if let subscribeToPodcastDelay {
+            try? await Task.sleep(for: subscribeToPodcastDelay)
+        }
+        try Task.checkCancellation()
         if let error = shouldThrowError {
             throw error
         }
@@ -1134,6 +1152,13 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func unsubscribeFromPodcast(showId: String) async throws {
+        if let beforeUnsubscribeFromPodcastReturn {
+            await beforeUnsubscribeFromPodcastReturn(showId)
+        }
+        if let unsubscribeFromPodcastDelay {
+            try? await Task.sleep(for: unsubscribeFromPodcastDelay)
+        }
+        try Task.checkCancellation()
         if let error = shouldThrowError {
             throw error
         }
@@ -1159,6 +1184,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let delay = self.subscribeToArtistDelay {
             try? await Task.sleep(for: delay)
         }
+        try Task.checkCancellation()
         if let error = shouldThrowError {
             throw error
         }
@@ -1180,6 +1206,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let delay = self.unsubscribeFromArtistDelay {
             try? await Task.sleep(for: delay)
         }
+        try Task.checkCancellation()
         if let error = shouldThrowError {
             throw error
         }
@@ -1385,6 +1412,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.deletePlaylistIds = []
         self.getAddToPlaylistOptionsVideoIds = []
         self.createPlaylistCalls = []
+        self.beforeCreatePlaylistReturn = nil
         self.addSongToPlaylistCalls = []
         self.addToPlaylistMenus = [:]
         self.defaultAddToPlaylistMenu = AddToPlaylistMenu(title: nil, options: [], canCreatePlaylist: false)
@@ -1392,6 +1420,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.unsubscribeFromPlaylistIds = []
         self.beforeSubscribeToPlaylistReturn = nil
         self.beforeUnsubscribeFromPlaylistReturn = nil
+        self.beforeDeletePlaylistReturn = nil
+        self.beforeSubscribeToPodcastReturn = nil
+        self.beforeUnsubscribeFromPodcastReturn = nil
+        self.subscribeToPodcastDelay = nil
+        self.unsubscribeFromPodcastDelay = nil
+        self.subscribeToArtistDelay = nil
         self.subscribeToArtistCalled = false
         self.subscribeToArtistIds = []
         self.unsubscribeFromArtistCalled = false

@@ -479,7 +479,7 @@ struct PlayerServiceQueueTests {
     func authenticatedStartupClearsGuestOwnedRestoredPlayback() async {
         let authService = AuthService(webKitManager: MockWebKitManager())
         authService.completeLogin(sapisid: "placeholder")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
         self.playerService.setAuthService(authService)
         let songs = TestFixtures.makeSongs(count: 2)
         await self.playerService.playQueue(songs, startingAt: 1)
@@ -501,7 +501,7 @@ struct PlayerServiceQueueTests {
     func authDataStoreReloadDoesNotRetagDeferredGuestRestoreBeforeStartupCleanup() async {
         let authService = AuthService(webKitManager: MockWebKitManager())
         authService.completeLogin(sapisid: "placeholder")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
         self.playerService.setAuthService(authService)
         let songs = TestFixtures.makeSongs(count: 2)
         await self.playerService.playQueue(songs, startingAt: 1)
@@ -525,7 +525,7 @@ struct PlayerServiceQueueTests {
     func authDataStoreReloadMarksRestoredGuestPlaybackAuthenticated() async {
         let authService = AuthService(webKitManager: MockWebKitManager())
         authService.completeLogin(sapisid: "placeholder")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
         self.playerService.setAuthService(authService)
         let songs = TestFixtures.makeSongs(count: 2)
         await self.playerService.playQueue(songs, startingAt: 1)

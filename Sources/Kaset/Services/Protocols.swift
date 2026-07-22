@@ -331,8 +331,8 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     /// Signs out the user by clearing all cookies and data.
     func signOut() async
 
-    /// Called when login completes successfully.
-    func completeLogin(sapisid: String)
+    /// Called when login completes successfully and account-scoped work has drained.
+    func completeLoginAfterDraining(sapisid: String) async
 }
 
 // MARK: - PlayerServiceProtocol

@@ -137,7 +137,7 @@ struct LoginSheet: View {
             }
 
             self.didCompleteLogin = true
-            self.authService.completeLogin(sapisid: sapisid)
+            await self.authService.completeLoginAfterDraining(sapisid: sapisid)
             self.pollTask?.cancel()
             self.dismiss()
         }

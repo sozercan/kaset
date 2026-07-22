@@ -64,8 +64,10 @@ struct AccountSwitcherPopover: View {
 
     private var guestModeRow: some View {
         Button {
-            self.authService.enterGuestMode()
-            self.dismiss()
+            Task { @MainActor in
+                await self.authService.enterGuestMode()
+                self.dismiss()
+            }
         } label: {
             HStack(spacing: 12) {
                 Circle()

@@ -266,7 +266,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             self.client.resetSessionStateForAccountSwitch()
             self.youtubeClient.resetSessionStateForAccountSwitch()
             self.likeStatusManager.clearCache()
-            LibraryMutationActions.cancelPendingAlbumMutations(for: self.libraryViewModel)
+            LibraryMutationActions.cancelAllPendingLibraryMutations()
             self.libraryViewModel?.activateAccountScope(
                 newAccountScope,
                 isPrimary: currentAccount?.isPrimary == true
@@ -816,7 +816,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func rebuildMusicViewModels(accountId: String? = nil) {
-        LibraryMutationActions.cancelAllPendingAlbumMutations()
+        LibraryMutationActions.cancelAllPendingLibraryMutations()
         self.homeViewModel = HomeViewModel(client: self.client)
         self.exploreViewModel = ExploreViewModel(client: self.client)
         self.searchViewModel = SearchViewModel(client: self.client)

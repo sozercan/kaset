@@ -1,8 +1,11 @@
+// swiftlint:disable file_length
+
 import Foundation
 
 /// Orchestrates Library mutations that need optimistic UI updates, cache invalidation,
 /// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
+// swiftlint:disable:next type_body_length
 enum LibraryMutationActions {
     private struct PlaylistDeletionKey: Hashable {
         let playlistId: String
@@ -15,8 +18,36 @@ enum LibraryMutationActions {
     }
 
     private struct PendingAlbumMutation {
-        let id: UUID
+        let owner: AlbumMutationOwner
         let task: Task<Void, Error>
+    }
+
+    private struct PendingPlaylistMutation {
+        let owner: PlaylistMutationOwner
+        let task: Task<Void, Error>
+    }
+
+    private struct PendingArtistReconciliation {
+        let task: Task<Void, Never>
+    }
+
+    private enum TrackedMutationResult<Value> {
+        case pending
+        case value(Value)
+    }
+
+    private enum PlaylistMutationOwner: Hashable {
+        case viewModel(ObjectIdentifier)
+        case unscoped
+    }
+
+    private struct PlaylistMutationContext {
+        let owner: PlaylistMutationOwner
+        let generation: UInt64
+    }
+
+    private struct PlaylistMutationKey: Hashable {
+        let identity: String
     }
 
     private enum AlbumMutationOwner: Hashable {
@@ -26,7 +57,6 @@ enum LibraryMutationActions {
 
     private struct AlbumMutationKey: Hashable {
         let identity: String
-        let owner: AlbumMutationOwner
     }
 
     private struct AlbumMutationContext {
@@ -45,16 +75,191 @@ enum LibraryMutationActions {
 
     static var artistReconciliationRetryDelays: [Duration] = [.seconds(2), .seconds(3)]
 
-    private static var artistReconciliationTasks: [String: Task<Void, Never>] = [:]
+    private static var artistReconciliationTasks: [String: PendingArtistReconciliation] = [:]
+    private static var latestArtistReconciliationIDs: [String: String] = [:]
     private static var pendingPlaylistDeletions: [PlaylistDeletionKey: PendingPlaylistDeletion] = [:]
-    private static var pendingAlbumMutations: [AlbumMutationKey: PendingAlbumMutation] = [:]
+    private static var pendingPlaylistMutations: [UUID: PendingPlaylistMutation] = [:]
+    private static var latestPlaylistMutationIDs: [PlaylistMutationKey: UUID] = [:]
+    private static var playlistMutationGenerations: [PlaylistMutationOwner: UInt64] = [:]
+    private static var pendingAlbumMutations: [UUID: PendingAlbumMutation] = [:]
+    private static var latestAlbumMutationIDs: [AlbumMutationKey: UUID] = [:]
     private static var albumMutationGenerations: [AlbumMutationOwner: UInt64] = [:]
+    private static var accountBoundaryGeneration: UInt64 = 0
+    private static var accountBoundaryDepth: Int = 0
+    private static var pendingAccountBoundaryMutations: [UUID: Task<Void, Error>] = [:]
+    private static var accountBoundaryDrainTask: Task<Void, Never>?
+
+    static func beginAccountBoundary() {
+        self.accountBoundaryDepth += 1
+        let throwingTasks = self.pendingPlaylistMutations.values.map(\.task)
+            + self.pendingAlbumMutations.values.map(\.task)
+            + self.pendingPlaylistDeletions.values.map(\.task)
+            + Array(self.pendingAccountBoundaryMutations.values)
+        let nonthrowingTasks = self.artistReconciliationTasks.values.map(\.task)
+        self.cancelAllPendingLibraryMutations()
+        guard self.accountBoundaryDrainTask == nil else { return }
+        guard !throwingTasks.isEmpty || !nonthrowingTasks.isEmpty else { return }
+        let drainTask = Task { @MainActor in
+            for task in throwingTasks {
+                _ = try? await task.value
+            }
+            for task in nonthrowingTasks {
+                await task.value
+            }
+        }
+        self.accountBoundaryDrainTask = drainTask
+        Task { @MainActor in
+            await drainTask.value
+            if self.accountBoundaryDrainTask == drainTask {
+                self.accountBoundaryDrainTask = nil
+            }
+        }
+    }
+
+    static func endAccountBoundary() {
+        precondition(self.accountBoundaryDepth > 0, "Unbalanced Library account boundary")
+        self.accountBoundaryDepth -= 1
+    }
+
+    static func awaitAccountBoundaryDrain() async {
+        while let drainTask = self.accountBoundaryDrainTask {
+            await drainTask.value
+            if self.accountBoundaryDrainTask == drainTask {
+                self.accountBoundaryDrainTask = nil
+            }
+        }
+    }
+
+    static func cancelPendingLibraryMutations(for libraryViewModel: LibraryViewModel?) {
+        self.cancelPendingPlaylistMutations(for: libraryViewModel)
+        self.cancelPendingAlbumMutations(for: libraryViewModel)
+    }
+
+    static func cancelAllPendingLibraryMutations() {
+        self.accountBoundaryGeneration &+= 1
+        self.cancelAllPendingPlaylistMutations()
+        self.cancelAllPendingAlbumMutations()
+        self.cancelAllPendingPlaylistDeletions()
+        self.cancelAllArtistReconciliationTasks()
+        self.cancelAllPendingAccountBoundaryMutations()
+    }
+
+    static func cancelPendingPlaylistMutations(for libraryViewModel: LibraryViewModel?) {
+        let owner = self.playlistMutationOwner(for: libraryViewModel)
+        self.playlistMutationGenerations[owner, default: 0] &+= 1
+        let matchingIDs = self.pendingPlaylistMutations.compactMap { id, mutation in
+            mutation.owner == owner ? id : nil
+        }
+        let tasks = matchingIDs.compactMap { self.pendingPlaylistMutations[$0]?.task }
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    static func cancelAllPendingPlaylistMutations() {
+        let owners = Set(self.playlistMutationGenerations.keys)
+            .union(self.pendingPlaylistMutations.values.map(\.owner))
+            .union([.unscoped])
+        for owner in owners {
+            self.playlistMutationGenerations[owner, default: 0] &+= 1
+        }
+
+        let tasks = self.pendingPlaylistMutations.values.map(\.task)
+        self.pendingPlaylistMutations.removeAll()
+        self.latestPlaylistMutationIDs.removeAll()
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    private static func cancelAllPendingPlaylistDeletions() {
+        let tasks = self.pendingPlaylistDeletions.values.map(\.task)
+        self.pendingPlaylistDeletions.removeAll()
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    private static func cancelAllArtistReconciliationTasks() {
+        let tasks = self.artistReconciliationTasks.values.map(\.task)
+        self.artistReconciliationTasks.removeAll()
+        self.latestArtistReconciliationIDs.removeAll()
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    private static func cancelAllPendingAccountBoundaryMutations() {
+        let tasks = self.pendingAccountBoundaryMutations.values
+        self.pendingAccountBoundaryMutations.removeAll()
+        for task in tasks {
+            task.cancel()
+        }
+    }
+
+    private static func checkAccountBoundary(_ generation: UInt64) throws {
+        try Task.checkCancellation()
+        guard self.accountBoundaryDepth == 0,
+              self.accountBoundaryDrainTask == nil,
+              generation == self.accountBoundaryGeneration
+        else { throw CancellationError() }
+    }
+
+    private static func isAccountBoundaryCurrent(_ generation: UInt64) -> Bool {
+        !Task.isCancelled
+            && self.accountBoundaryDepth == 0
+            && self.accountBoundaryDrainTask == nil
+            && generation == self.accountBoundaryGeneration
+    }
+
+    private static func runTrackedAccountBoundaryMutation(
+        _ operation: @MainActor @escaping () async throws -> Void
+    ) async throws {
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try self.checkAccountBoundary(boundaryGeneration)
+        let operationID = UUID()
+        let task = Task { @MainActor in
+            try self.checkAccountBoundary(boundaryGeneration)
+            try await operation()
+        }
+        self.pendingAccountBoundaryMutations[operationID] = task
+        defer { self.pendingAccountBoundaryMutations.removeValue(forKey: operationID) }
+
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    static func withAccountBoundaryTracking<Value>(
+        _ operation: @MainActor @escaping () async throws -> Value
+    ) async throws -> Value {
+        let boundaryGeneration = self.accountBoundaryGeneration
+        var result: TrackedMutationResult<Value> = .pending
+        try await self.runTrackedAccountBoundaryMutation {
+            do {
+                let value = try await operation()
+                try self.checkAccountBoundary(boundaryGeneration)
+                result = .value(value)
+            } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration) else {
+                    throw CancellationError()
+                }
+                throw error
+            }
+        }
+        guard case let .value(value) = result else { throw CancellationError() }
+        return value
+    }
 
     static func cancelPendingAlbumMutations(for libraryViewModel: LibraryViewModel?) {
         let owner = self.albumMutationOwner(for: libraryViewModel)
         self.albumMutationGenerations[owner, default: 0] &+= 1
-        let matchingKeys = self.pendingAlbumMutations.keys.filter { $0.owner == owner }
-        let tasks = matchingKeys.compactMap { self.pendingAlbumMutations.removeValue(forKey: $0)?.task }
+        let matchingIDs = self.pendingAlbumMutations.compactMap { id, mutation in
+            mutation.owner == owner ? id : nil
+        }
+        let tasks = matchingIDs.compactMap { self.pendingAlbumMutations[$0]?.task }
         for task in tasks {
             task.cancel()
         }
@@ -62,7 +267,7 @@ enum LibraryMutationActions {
 
     static func cancelAllPendingAlbumMutations() {
         let owners = Set(self.albumMutationGenerations.keys)
-            .union(self.pendingAlbumMutations.keys.map(\.owner))
+            .union(self.pendingAlbumMutations.values.map(\.owner))
             .union([.unscoped])
         for owner in owners {
             self.albumMutationGenerations[owner, default: 0] &+= 1
@@ -70,6 +275,7 @@ enum LibraryMutationActions {
 
         let tasks = self.pendingAlbumMutations.values.map(\.task)
         self.pendingAlbumMutations.removeAll()
+        self.latestAlbumMutationIDs.removeAll()
         for task in tasks {
             task.cancel()
         }
@@ -81,15 +287,23 @@ enum LibraryMutationActions {
         playlist: AddToPlaylistOption,
         client: any YTMusicClientProtocol
     ) async {
+        let boundaryGeneration = self.accountBoundaryGeneration
         do {
-            try await client.addSongToPlaylist(
-                videoId: song.videoId,
-                playlistId: playlist.playlistId,
-                allowDuplicate: false
-            )
-            self.invalidateResponseCaches()
-            DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
+            try await self.runTrackedAccountBoundaryMutation {
+                try self.checkAccountBoundary(boundaryGeneration)
+                try await client.addSongToPlaylist(
+                    videoId: song.videoId,
+                    playlistId: playlist.playlistId,
+                    allowDuplicate: false
+                )
+                try self.checkAccountBoundary(boundaryGeneration)
+                self.invalidateResponseCaches()
+                DiagnosticsLogger.api.info("Added song '\(song.title)' to playlist '\(playlist.title)'")
+            }
+        } catch is CancellationError {
+            return
         } catch {
+            guard self.isAccountBoundaryCurrent(boundaryGeneration) else { return }
             DiagnosticsLogger.api.error("Failed to add song to playlist: \(error.localizedDescription)")
         }
     }
@@ -106,25 +320,46 @@ enum LibraryMutationActions {
             HapticService.error()
             return
         }
-        guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
 
+        let boundaryGeneration = self.accountBoundaryGeneration
         do {
-            try Task.checkCancellation()
-            try await client.removeSongFromPlaylist(
-                videoId: song.videoId,
-                setVideoId: setVideoId,
-                playlistId: viewModel.playlistID
-            )
-            Self.invalidateResponseCaches()
-            viewModel.confirmTrackRemoval(removal)
-            HapticService.success()
-            DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+            try await self.runTrackedAccountBoundaryMutation {
+                try self.checkAccountBoundary(boundaryGeneration)
+                guard let removal = viewModel.beginOptimisticTrackRemoval(setVideoId: setVideoId) else { return }
+
+                var didMutateRemotely = false
+                do {
+                    try await client.removeSongFromPlaylist(
+                        videoId: song.videoId,
+                        setVideoId: setVideoId,
+                        playlistId: viewModel.playlistID
+                    )
+                    didMutateRemotely = true
+                    viewModel.confirmTrackRemoval(removal)
+                    try self.checkAccountBoundary(boundaryGeneration)
+                    Self.invalidateResponseCaches()
+                    HapticService.success()
+                    DiagnosticsLogger.api.info("Removed song '\(song.title)' from playlist")
+                } catch is CancellationError {
+                    if !didMutateRemotely {
+                        await viewModel.rollbackTrackRemoval(removal)
+                    }
+                    throw CancellationError()
+                } catch {
+                    guard self.isAccountBoundaryCurrent(boundaryGeneration) else {
+                        if !didMutateRemotely {
+                            await viewModel.rollbackTrackRemoval(removal)
+                        }
+                        throw CancellationError()
+                    }
+                    await viewModel.rollbackTrackRemoval(removal)
+                    HapticService.error()
+                    DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
+                }
+            }
         } catch is CancellationError {
-            await viewModel.rollbackTrackRemoval(removal)
             return
         } catch {
-            await viewModel.rollbackTrackRemoval(removal)
-            HapticService.error()
             DiagnosticsLogger.api.error("Failed to remove song from playlist: \(error.localizedDescription)")
         }
     }
@@ -134,31 +369,38 @@ enum LibraryMutationActions {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
-        onMutationApplied: @MainActor () -> Void = {}
+        reconciliationDelay: Duration = .milliseconds(500),
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
-        do {
-            try await client.subscribeToPlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            if let libraryViewModel {
-                libraryViewModel.addToLibrary(playlist: playlist)
-            }
-            onMutationApplied()
-            if let libraryViewModel {
-                // Library browse responses can lag briefly behind a successful add.
-                try? await Task.sleep(for: .milliseconds(500))
-                await libraryViewModel.refresh()
+        try await self.enqueuePlaylistMutation(
+            playlistId: playlist.id,
+            libraryViewModel: libraryViewModel
+        ) { context in
+            do {
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
+                try await client.subscribeToPlaylist(playlistId: playlist.id)
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
                 self.invalidateResponseCaches()
+                LibraryMutationBroadcaster.shared.playlistAdded(playlist)
+                onMutationApplied()
 
-                if !libraryViewModel.isInLibrary(playlistId: playlist.id) {
-                    libraryViewModel.addToLibrary(playlist: playlist)
-                    self.invalidateResponseCaches()
-                }
+                // Library browse responses can lag briefly behind a successful add.
+                try await Task.sleep(for: reconciliationDelay)
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
+                let reconciled = await LibraryMutationBroadcaster.shared.reconcileAddedPlaylist(
+                    playlist,
+                    whileValid: { Self.isPlaylistMutationCurrent(context) }
+                )
+                guard reconciled else { throw CancellationError() }
+                self.invalidateResponseCaches()
+                DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                guard Self.isPlaylistMutationCurrent(context) else { throw CancellationError() }
+                DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
+                throw error
             }
-            DiagnosticsLogger.api.info("Added playlist to library: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to add playlist to library: \(error.localizedDescription)")
-            throw error
         }
     }
 
@@ -167,24 +409,103 @@ enum LibraryMutationActions {
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?,
-        onMutationApplied: @MainActor () -> Void = {}
+        reconciliationDelay: Duration = .milliseconds(500),
+        onMutationApplied: @MainActor @escaping () -> Void = {}
     ) async throws {
-        do {
-            try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            libraryViewModel?.markNeedsReloadOnActivation()
-            LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
-            onMutationApplied()
+        try await self.enqueuePlaylistMutation(
+            playlistId: playlist.id,
+            libraryViewModel: libraryViewModel
+        ) { context in
+            do {
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
+                try await client.unsubscribeFromPlaylist(playlistId: playlist.id)
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
+                self.invalidateResponseCaches()
+                libraryViewModel?.markNeedsReloadOnActivation()
+                LibraryMutationBroadcaster.shared.playlistRemoved(playlistId: playlist.id)
+                onMutationApplied()
 
-            // Library browse responses can lag briefly behind a successful removal.
-            try? await Task.sleep(for: .milliseconds(500))
-            await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
-            self.invalidateResponseCaches()
-            DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
-        } catch {
-            DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
-            throw error
+                // Library browse responses can lag briefly behind a successful removal.
+                try await Task.sleep(for: reconciliationDelay)
+                try self.checkPlaylistMutationIsCurrent(context.generation, owner: context.owner)
+                let reconciled = await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(
+                    playlistId: playlist.id,
+                    whileValid: { Self.isPlaylistMutationCurrent(context) }
+                )
+                guard reconciled else { throw CancellationError() }
+                self.invalidateResponseCaches()
+                DiagnosticsLogger.api.info("Removed playlist from library: \(playlist.title)")
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                guard Self.isPlaylistMutationCurrent(context) else { throw CancellationError() }
+                DiagnosticsLogger.api.error("Failed to remove playlist from library: \(error.localizedDescription)")
+                throw error
+            }
         }
+    }
+
+    private static func enqueuePlaylistMutation(
+        playlistId: String,
+        libraryViewModel: LibraryViewModel?,
+        operation: @MainActor @escaping (PlaylistMutationContext) async throws -> Void
+    ) async throws {
+        let owner = self.playlistMutationOwner(for: libraryViewModel)
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try self.checkAccountBoundary(boundaryGeneration)
+        let key = PlaylistMutationKey(
+            identity: LibraryContentIdentity.playlistKey(for: playlistId)
+        )
+        let previousTask = self.latestPlaylistMutationIDs[key]
+            .flatMap { self.pendingPlaylistMutations[$0]?.task }
+        let operationID = UUID()
+        let generation = self.playlistMutationGenerations[owner, default: 0]
+        let task = Task { @MainActor in
+            if let previousTask {
+                _ = try? await previousTask.value
+            }
+            try self.checkAccountBoundary(boundaryGeneration)
+            try self.checkPlaylistMutationIsCurrent(generation, owner: owner)
+            try await operation(PlaylistMutationContext(owner: owner, generation: generation))
+        }
+
+        self.pendingPlaylistMutations[operationID] = PendingPlaylistMutation(
+            owner: owner,
+            task: task
+        )
+        self.latestPlaylistMutationIDs[key] = operationID
+        defer {
+            self.pendingPlaylistMutations.removeValue(forKey: operationID)
+            if self.latestPlaylistMutationIDs[key] == operationID {
+                self.latestPlaylistMutationIDs.removeValue(forKey: key)
+            }
+        }
+
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+    }
+
+    private static func checkPlaylistMutationIsCurrent(
+        _ generation: UInt64,
+        owner: PlaylistMutationOwner
+    ) throws {
+        try Task.checkCancellation()
+        guard generation == self.playlistMutationGenerations[owner, default: 0] else {
+            throw CancellationError()
+        }
+    }
+
+    private static func isPlaylistMutationCurrent(_ context: PlaylistMutationContext) -> Bool {
+        !Task.isCancelled
+            && context.generation == self.playlistMutationGenerations[context.owner, default: 0]
+    }
+
+    private static func playlistMutationOwner(for libraryViewModel: LibraryViewModel?) -> PlaylistMutationOwner {
+        guard let libraryViewModel else { return .unscoped }
+        return .viewModel(ObjectIdentifier(libraryViewModel))
     }
 
     /// Adds an album to the library using its OLAK playlist target.
@@ -247,6 +568,7 @@ enum LibraryMutationActions {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            guard self.isAlbumMutationCurrent(context) else { throw CancellationError() }
             DiagnosticsLogger.api.error("Failed to add album to library: \(error.localizedDescription)")
             throw error
         }
@@ -307,6 +629,7 @@ enum LibraryMutationActions {
         } catch is CancellationError {
             throw CancellationError()
         } catch {
+            guard self.isAlbumMutationCurrent(context) else { throw CancellationError() }
             DiagnosticsLogger.api.error("Failed to remove album from library: \(error.localizedDescription)")
             throw error
         }
@@ -323,29 +646,39 @@ enum LibraryMutationActions {
             targetPlaylistId: targetPlaylistId
         )
         let owner = self.albumMutationOwner(for: libraryViewModel)
-        let key = AlbumMutationKey(identity: identity, owner: owner)
-        let previousTask = self.pendingAlbumMutations[key]?.task
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try self.checkAccountBoundary(boundaryGeneration)
+        let key = AlbumMutationKey(identity: identity)
+        let previousTask = self.latestAlbumMutationIDs[key]
+            .flatMap { self.pendingAlbumMutations[$0]?.task }
         let mutationId = UUID()
         let mutationGeneration = self.albumMutationGenerations[owner, default: 0]
         let task = Task { @MainActor in
             if let previousTask {
                 _ = try? await previousTask.value
             }
+            try self.checkAccountBoundary(boundaryGeneration)
             try self.checkAlbumMutationIsCurrent(mutationGeneration, owner: owner)
             try await operation(AlbumMutationContext(owner: owner, generation: mutationGeneration))
         }
 
-        self.pendingAlbumMutations[key] = PendingAlbumMutation(
-            id: mutationId,
+        self.pendingAlbumMutations[mutationId] = PendingAlbumMutation(
+            owner: owner,
             task: task
         )
+        self.latestAlbumMutationIDs[key] = mutationId
         defer {
-            if self.pendingAlbumMutations[key]?.id == mutationId {
-                self.pendingAlbumMutations.removeValue(forKey: key)
+            self.pendingAlbumMutations.removeValue(forKey: mutationId)
+            if self.latestAlbumMutationIDs[key] == mutationId {
+                self.latestAlbumMutationIDs.removeValue(forKey: key)
             }
         }
 
-        try await task.value
+        try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
     }
 
     private static func checkAlbumMutationIsCurrent(
@@ -377,6 +710,8 @@ enum LibraryMutationActions {
         whileValid isCurrent: @escaping () -> Bool = { true }
     ) async throws {
         guard isCurrent() else { throw CancellationError() }
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try self.checkAccountBoundary(boundaryGeneration)
         let key = PlaylistDeletionKey(
             playlistId: LibraryContentIdentity.playlistKey(for: playlist.id),
             owner: owner
@@ -395,21 +730,47 @@ enum LibraryMutationActions {
         let task = Task { @MainActor in
             var didDeleteRemotely = false
             do {
+                try self.checkAccountBoundary(boundaryGeneration)
                 guard isCurrent() else { throw CancellationError() }
                 try await client.deletePlaylist(playlistId: playlist.id)
                 didDeleteRemotely = true
                 pinnedItemsManager.commitPlaylistPinRemoval(removedPins)
+                try self.checkAccountBoundary(boundaryGeneration)
                 guard isCurrent() else { throw CancellationError() }
                 self.invalidateResponseCaches()
                 libraryViewModel?.markNeedsReloadOnActivation()
                 DiagnosticsLogger.api.info("Deleted playlist: \(playlist.title)")
 
                 // Library browse responses can lag briefly behind a successful deletion.
-                try? await Task.sleep(for: .milliseconds(500))
+                try await Task.sleep(for: .milliseconds(500))
+                try self.checkAccountBoundary(boundaryGeneration)
                 guard isCurrent() else { throw CancellationError() }
-                await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(playlistId: playlist.id)
+                let reconciled = await LibraryMutationBroadcaster.shared.reconcileRemovedPlaylist(
+                    playlistId: playlist.id,
+                    whileValid: { Self.isAccountBoundaryCurrent(boundaryGeneration) && isCurrent() }
+                )
+                guard reconciled else { throw CancellationError() }
                 self.invalidateResponseCaches()
+            } catch is CancellationError {
+                if !didDeleteRemotely {
+                    pinnedItemsManager.restore(removedPins)
+                    LibraryMutationBroadcaster.shared.rollbackPlaylistRemoval(
+                        playlist,
+                        receipt: removalReceipt
+                    )
+                }
+                throw CancellationError()
             } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration), isCurrent() else {
+                    if !didDeleteRemotely {
+                        pinnedItemsManager.restore(removedPins)
+                        LibraryMutationBroadcaster.shared.rollbackPlaylistRemoval(
+                            playlist,
+                            receipt: removalReceipt
+                        )
+                    }
+                    throw CancellationError()
+                }
                 guard isCurrent() else {
                     if !didDeleteRemotely {
                         pinnedItemsManager.restore(removedPins)
@@ -443,23 +804,37 @@ enum LibraryMutationActions {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        try await client.subscribeToPodcast(showId: show.id)
-        self.invalidateResponseCaches()
-        libraryViewModel?.markNeedsReloadOnActivation()
-        if let libraryViewModel {
-            libraryViewModel.addToLibrary(podcast: show)
-
-            // Library browse responses can lag briefly behind a successful subscribe.
-            try? await Task.sleep(for: .milliseconds(500))
-            await libraryViewModel.refresh()
-            self.invalidateResponseCaches()
-
-            if !libraryViewModel.isInLibrary(podcastId: show.id) {
-                libraryViewModel.addToLibrary(podcast: show)
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try await self.runTrackedAccountBoundaryMutation {
+            do {
+                try self.checkAccountBoundary(boundaryGeneration)
+                try await client.subscribeToPodcast(showId: show.id)
+                try self.checkAccountBoundary(boundaryGeneration)
                 self.invalidateResponseCaches()
+                libraryViewModel?.markNeedsReloadOnActivation()
+                if let libraryViewModel {
+                    libraryViewModel.addToLibrary(podcast: show)
+
+                    // Library browse responses can lag briefly behind a successful subscribe.
+                    try await Task.sleep(for: .milliseconds(500))
+                    try self.checkAccountBoundary(boundaryGeneration)
+                    await libraryViewModel.refresh()
+                    try self.checkAccountBoundary(boundaryGeneration)
+                    self.invalidateResponseCaches()
+
+                    if !libraryViewModel.isInLibrary(podcastId: show.id) {
+                        libraryViewModel.addToLibrary(podcast: show)
+                        self.invalidateResponseCaches()
+                    }
+                }
+                DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration) else { throw CancellationError() }
+                throw error
             }
         }
-        DiagnosticsLogger.api.info("Subscribed to podcast: \(show.title)")
     }
 
     /// Unsubscribes from a podcast show (removes from library).
@@ -469,23 +844,37 @@ enum LibraryMutationActions {
         libraryViewModel: LibraryViewModel?
     ) async throws {
         DiagnosticsLogger.api.debug("Attempting to unsubscribe from podcast: \(show.id), libraryViewModel is \(libraryViewModel == nil ? "nil" : "present")")
-        try await client.unsubscribeFromPodcast(showId: show.id)
-        self.invalidateResponseCaches()
-        libraryViewModel?.markNeedsReloadOnActivation()
-        if let libraryViewModel {
-            libraryViewModel.removeFromLibrary(podcastId: show.id)
-
-            // Library browse responses can lag briefly behind a successful removal.
-            try? await Task.sleep(for: .milliseconds(500))
-            await libraryViewModel.refresh()
-            self.invalidateResponseCaches()
-
-            if libraryViewModel.isInLibrary(podcastId: show.id) {
-                libraryViewModel.removeFromLibrary(podcastId: show.id)
+        let boundaryGeneration = self.accountBoundaryGeneration
+        try await self.runTrackedAccountBoundaryMutation {
+            do {
+                try self.checkAccountBoundary(boundaryGeneration)
+                try await client.unsubscribeFromPodcast(showId: show.id)
+                try self.checkAccountBoundary(boundaryGeneration)
                 self.invalidateResponseCaches()
+                libraryViewModel?.markNeedsReloadOnActivation()
+                if let libraryViewModel {
+                    libraryViewModel.removeFromLibrary(podcastId: show.id)
+
+                    // Library browse responses can lag briefly behind a successful removal.
+                    try await Task.sleep(for: .milliseconds(500))
+                    try self.checkAccountBoundary(boundaryGeneration)
+                    await libraryViewModel.refresh()
+                    try self.checkAccountBoundary(boundaryGeneration)
+                    self.invalidateResponseCaches()
+
+                    if libraryViewModel.isInLibrary(podcastId: show.id) {
+                        libraryViewModel.removeFromLibrary(podcastId: show.id)
+                        self.invalidateResponseCaches()
+                    }
+                }
+                DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration) else { throw CancellationError() }
+                throw error
             }
         }
-        DiagnosticsLogger.api.info("Unsubscribed from podcast: \(show.title)")
     }
 
     /// Subscribes to an artist (adds to library).
@@ -495,30 +884,58 @@ enum LibraryMutationActions {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        if let libraryViewModel {
-            self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-            libraryViewModel.markNeedsReloadOnActivation()
-        }
-
-        do {
-            try await client.subscribeToArtist(channelId: channelId)
-            Self.invalidateResponseCaches()
+        let boundaryGeneration = self.accountBoundaryGeneration
+        let accountScopeGeneration = libraryViewModel?.currentAccountScopeGeneration
+        try await self.runTrackedAccountBoundaryMutation {
+            try self.checkAccountBoundary(boundaryGeneration)
             if let libraryViewModel {
-                Self.scheduleArtistReconciliation(
-                    artist,
-                    channelId: channelId,
-                    expectedInLibrary: true,
-                    libraryViewModel: libraryViewModel
-                )
-            }
-            DiagnosticsLogger.api.info("Subscribed to artist: \(artist.name)")
-        } catch {
-            if let libraryViewModel {
-                Self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
                 libraryViewModel.markNeedsReloadOnActivation()
             }
-            DiagnosticsLogger.api.error("Failed to subscribe to artist: \(error.localizedDescription)")
-            throw error
+
+            var didMutateRemotely = false
+            do {
+                try await client.subscribeToArtist(channelId: channelId)
+                didMutateRemotely = true
+                try self.checkAccountBoundary(boundaryGeneration)
+                Self.invalidateResponseCaches()
+                if let libraryViewModel {
+                    Self.scheduleArtistReconciliation(
+                        artist,
+                        channelId: channelId,
+                        expectedInLibrary: true,
+                        libraryViewModel: libraryViewModel,
+                        boundaryGeneration: boundaryGeneration
+                    )
+                }
+                DiagnosticsLogger.api.info("Subscribed to artist: \(artist.name)")
+            } catch is CancellationError {
+                if !didMutateRemotely,
+                   let libraryViewModel,
+                   libraryViewModel.currentAccountScopeGeneration == accountScopeGeneration
+                {
+                    Self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                    libraryViewModel.markNeedsReloadOnActivation()
+                }
+                throw CancellationError()
+            } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration) else {
+                    if !didMutateRemotely,
+                       let libraryViewModel,
+                       libraryViewModel.currentAccountScopeGeneration == accountScopeGeneration
+                    {
+                        Self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                        libraryViewModel.markNeedsReloadOnActivation()
+                    }
+                    throw CancellationError()
+                }
+                if let libraryViewModel {
+                    Self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                    libraryViewModel.markNeedsReloadOnActivation()
+                }
+                DiagnosticsLogger.api.error("Failed to subscribe to artist: \(error.localizedDescription)")
+                throw error
+            }
         }
     }
 
@@ -529,30 +946,58 @@ enum LibraryMutationActions {
         client: any YTMusicClientProtocol,
         libraryViewModel: LibraryViewModel?
     ) async throws {
-        if let libraryViewModel {
-            self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
-            libraryViewModel.markNeedsReloadOnActivation()
-        }
-
-        do {
-            try await client.unsubscribeFromArtist(channelId: channelId)
-            Self.invalidateResponseCaches()
+        let boundaryGeneration = self.accountBoundaryGeneration
+        let accountScopeGeneration = libraryViewModel?.currentAccountScopeGeneration
+        try await self.runTrackedAccountBoundaryMutation {
+            try self.checkAccountBoundary(boundaryGeneration)
             if let libraryViewModel {
-                Self.scheduleArtistReconciliation(
-                    artist,
-                    channelId: channelId,
-                    expectedInLibrary: false,
-                    libraryViewModel: libraryViewModel
-                )
-            }
-            DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
-        } catch {
-            if let libraryViewModel {
-                Self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                self.removeArtistFromLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
                 libraryViewModel.markNeedsReloadOnActivation()
             }
-            DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")
-            throw error
+
+            var didMutateRemotely = false
+            do {
+                try await client.unsubscribeFromArtist(channelId: channelId)
+                didMutateRemotely = true
+                try self.checkAccountBoundary(boundaryGeneration)
+                Self.invalidateResponseCaches()
+                if let libraryViewModel {
+                    Self.scheduleArtistReconciliation(
+                        artist,
+                        channelId: channelId,
+                        expectedInLibrary: false,
+                        libraryViewModel: libraryViewModel,
+                        boundaryGeneration: boundaryGeneration
+                    )
+                }
+                DiagnosticsLogger.api.info("Unsubscribed from artist: \(artist.name)")
+            } catch is CancellationError {
+                if !didMutateRemotely,
+                   let libraryViewModel,
+                   libraryViewModel.currentAccountScopeGeneration == accountScopeGeneration
+                {
+                    Self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                    libraryViewModel.markNeedsReloadOnActivation()
+                }
+                throw CancellationError()
+            } catch {
+                guard self.isAccountBoundaryCurrent(boundaryGeneration) else {
+                    if !didMutateRemotely,
+                       let libraryViewModel,
+                       libraryViewModel.currentAccountScopeGeneration == accountScopeGeneration
+                    {
+                        Self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                        libraryViewModel.markNeedsReloadOnActivation()
+                    }
+                    throw CancellationError()
+                }
+                if let libraryViewModel {
+                    Self.addArtistToLibrary(artist, channelId: channelId, libraryViewModel: libraryViewModel)
+                    libraryViewModel.markNeedsReloadOnActivation()
+                }
+                DiagnosticsLogger.api.error("Failed to unsubscribe from artist: \(error.localizedDescription)")
+                throw error
+            }
         }
     }
 
@@ -567,25 +1012,35 @@ enum LibraryMutationActions {
         _ artist: Artist,
         channelId: String,
         expectedInLibrary: Bool,
-        libraryViewModel: LibraryViewModel
+        libraryViewModel: LibraryViewModel,
+        boundaryGeneration: UInt64
     ) {
         let normalizedArtistId = Artist.publicChannelId(for: channelId) ?? channelId
-        Self.artistReconciliationTasks[normalizedArtistId]?.cancel()
-
-        Self.artistReconciliationTasks[normalizedArtistId] = Task { @MainActor in
-            defer { Self.artistReconciliationTasks.removeValue(forKey: normalizedArtistId) }
+        if let previousID = Self.latestArtistReconciliationIDs[normalizedArtistId] {
+            Self.artistReconciliationTasks[previousID]?.task.cancel()
+        }
+        let operationID = UUID().uuidString
+        let task = Task { @MainActor in
+            defer {
+                Self.artistReconciliationTasks.removeValue(forKey: operationID)
+                if Self.latestArtistReconciliationIDs[normalizedArtistId] == operationID {
+                    Self.latestArtistReconciliationIDs.removeValue(forKey: normalizedArtistId)
+                }
+            }
 
             for delay in Self.artistReconciliationRetryDelays {
+                guard Self.isAccountBoundaryCurrent(boundaryGeneration) else { return }
                 do {
                     try await Task.sleep(for: delay)
                 } catch {
                     return
                 }
 
-                guard !Task.isCancelled else { return }
+                guard Self.isAccountBoundaryCurrent(boundaryGeneration) else { return }
 
                 Self.invalidateResponseCaches()
                 await libraryViewModel.refresh()
+                guard Self.isAccountBoundaryCurrent(boundaryGeneration) else { return }
                 Self.invalidateResponseCaches()
 
                 let needsReconciliation = libraryViewModel.needsArtistLibraryReconciliation(
@@ -621,6 +1076,8 @@ enum LibraryMutationActions {
                 libraryViewModel.markNeedsReloadOnActivation()
             }
         }
+        Self.artistReconciliationTasks[operationID] = PendingArtistReconciliation(task: task)
+        Self.latestArtistReconciliationIDs[normalizedArtistId] = operationID
     }
 
     private static func addArtistToLibrary(

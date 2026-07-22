@@ -42,8 +42,14 @@ Saved albums use an explicit identity and reconciliation model:
 4. Same-account `.partial` and `.landingFallback` snapshots cannot replace a
    stronger existing album snapshot. Partial data may enrich or append albums,
    while pending optimistic additions and removals remain applied.
-5. Album mutations are serialized per canonical album identity and initiating
-   Library model. Library snapshots use `AccountService.currentAccountScopeID`,
+5. Album mutations are serialized by canonical album identity across active
+   Library models, while model-owned generations provide scoped cancellation.
+   Playlist mutations use the same generation fence plus a shared per-playlist
+   ordering tail because additions and removals reconcile across all active
+   Library models. Account/auth services synchronously cancel every tracked
+   Library mutation and reconciliation registry before session cookies or guest
+   mode can change, so in-flight requests and delayed reconciliation cannot cross
+   account/model boundaries. Library snapshots use `AccountService.currentAccountScopeID`,
    an opaque scope derived from the authenticated Google owner and selected
    YouTube identity (with an authentication-generation fallback until the owner
    is resolved). Promoting that provisional scope to a durable owner keeps the
@@ -54,8 +60,10 @@ Saved albums use an explicit identity and reconciliation model:
    pending work at account or model replacement boundaries. Reconciliation checks
    that generation before and after every awaited refresh.
 6. The UI disables duplicate mutation clicks only until the server accepts the
-   mutation and the optimistic state is applied. Delayed backend reconciliation
-   continues without keeping the control disabled.
+   mutation and the optimistic state is applied. Each click owns an operation
+   token, so an older delayed reconciliation cannot clear a newer click's loading
+   state. Delayed backend reconciliation continues without keeping the control
+   disabled.
 7. Cancellation is propagated through initial and continuation requests rather
    than converted into fallback or partial success.
 

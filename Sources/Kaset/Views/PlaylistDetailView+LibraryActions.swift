@@ -1,17 +1,41 @@
+import Foundation
 import os
 import SwiftUI
+
+// MARK: - PlaylistDetailLibraryMutationActivity
+
+struct PlaylistDetailLibraryMutationActivity {
+    private(set) var operationID: UUID?
+
+    var isActive: Bool {
+        self.operationID != nil
+    }
+
+    mutating func begin() -> UUID? {
+        guard self.operationID == nil else { return nil }
+        let operationID = UUID()
+        self.operationID = operationID
+        return operationID
+    }
+
+    mutating func finish(_ operationID: UUID) {
+        guard self.operationID == operationID else { return }
+        self.operationID = nil
+    }
+}
 
 @available(macOS 26.0, *)
 extension PlaylistDetailView {
     func toggleLibrary(_ detail: PlaylistDetail) {
-        guard !self.isUpdatingLibrary else { return }
+        var activity = self.libraryMutationActivity
+        guard let operationID = activity.begin() else { return }
+        self.libraryMutationActivity = activity
 
         let currentlyInLibrary = self.isInLibrary
-        self.isUpdatingLibrary = true
         Task { @MainActor in
-            defer { self.isUpdatingLibrary = false }
+            defer { self.finishLibraryMutation(operationID) }
             let mutationApplied: @MainActor @Sendable () -> Void = {
-                self.isUpdatingLibrary = false
+                self.finishLibraryMutation(operationID)
             }
             do {
                 if detail.isAlbum {
@@ -73,5 +97,11 @@ extension PlaylistDetailView {
                 HapticService.error()
             }
         }
+    }
+
+    private func finishLibraryMutation(_ operationID: UUID) {
+        var activity = self.libraryMutationActivity
+        activity.finish(operationID)
+        self.libraryMutationActivity = activity
     }
 }

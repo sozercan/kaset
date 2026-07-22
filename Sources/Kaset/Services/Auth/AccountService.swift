@@ -64,6 +64,9 @@ final class AccountService { // swiftlint:disable:this type_body_length
     private let ytMusicClient: any YTMusicClientProtocol
     private let authService: AuthService
     private let favoritesOwnerDefaults: UserDefaults?
+    private var accountBoundaryWillBegin: (@MainActor @Sendable () -> Void)?
+    private var accountBoundaryDidEnd: (@MainActor @Sendable () -> Void)?
+    private var accountBoundaryDrain: (@MainActor @Sendable () async -> Void)?
 
     /// WebKit session manager used to re-point the playback session's active
     /// delegated identity on account switch. Optional so SwiftUI previews and
@@ -127,6 +130,16 @@ final class AccountService { // swiftlint:disable:this type_body_length
 
     var currentFavoritesScopeID: String? {
         self.favoritesScopeID(for: self.currentAccount)
+    }
+
+    func setAccountBoundaryHandlers(
+        willBegin: @escaping @MainActor @Sendable () -> Void,
+        didEnd: @escaping @MainActor @Sendable () -> Void,
+        drain: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        self.accountBoundaryWillBegin = willBegin
+        self.accountBoundaryDidEnd = didEnd
+        self.accountBoundaryDrain = drain
     }
 
     // MARK: - Private
@@ -582,6 +595,17 @@ final class AccountService { // swiftlint:disable:this type_body_length
         to signinURL: URL,
         expectedBrandId: String?
     ) async throws {
+        let expectedSwitchGeneration = self.switchGeneration
+        let expectedAccountDataGeneration = self.accountDataGeneration
+        let expectedAuthIdentityGeneration = self.authService.accountIdentityGeneration
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
+        await self.accountBoundaryDrain?()
+        guard expectedSwitchGeneration == self.switchGeneration,
+              expectedAccountDataGeneration == self.accountDataGeneration,
+              expectedAuthIdentityGeneration == self.authService.accountIdentityGeneration,
+              !self.isAuthenticationBoundaryInProgress
+        else { throw CancellationError() }
         let navigation = Task { @MainActor in
             try await webKitManager.switchSessionIdentity(
                 to: signinURL,
@@ -683,28 +707,31 @@ final class AccountService { // swiftlint:disable:this type_body_length
                 return
             }
 
+            let nextAccount = self.restoredAccount(from: response)
+            let requiresBoundary = self.accountFetchRequiresBoundary(
+                response: response,
+                nextAccount: nextAccount
+            )
+            if requiresBoundary {
+                self.accountBoundaryWillBegin?()
+                defer { self.accountBoundaryDidEnd?() }
+                await self.accountBoundaryDrain?()
+                guard fetchGeneration == self.accountDataGeneration,
+                      fetchAuthIdentityGeneration == self.authService.accountIdentityGeneration,
+                      fetchSwitchGeneration == self.switchGeneration,
+                      self.manualSwitchInFlightCount == 0,
+                      self.authService.hasPersonalAccount,
+                      !self.isAuthenticationBoundaryInProgress
+                else {
+                    self.logger.info("AccountService: Account fetch became stale while draining Library mutations")
+                    return
+                }
+            }
+
             self.updateFavoritesScopes(from: response)
             self.accounts = response.accounts
             self.accountsAuthIdentityGeneration = fetchAuthIdentityGeneration
-
-            // Restore previously selected account if stored
-            if let savedBrandId = UserDefaults.standard.string(forKey: self.selectedBrandIdKey) {
-                self.logger.debug("AccountService: Found saved brand ID: \(savedBrandId)")
-
-                // Find the account with the saved brand ID
-                if let savedAccount = self.accounts.first(where: { $0.id == savedBrandId }) {
-                    self.currentAccount = savedAccount
-                    self.logger.info("AccountService: Restored previous account: \(savedAccount.name)")
-                } else {
-                    // Saved account no longer available, use API-selected
-                    self.currentAccount = response.selectedAccount ?? self.accounts.first
-                    self.logger.debug("AccountService: Saved account not found, using API-selected")
-                }
-            } else {
-                // Default to the currently selected account from API response
-                self.currentAccount = response.selectedAccount ?? self.accounts.first
-                self.logger.debug("AccountService: Using API-selected account")
-            }
+            self.currentAccount = nextAccount
 
             SongLikeStatusManager.shared.setActiveAccountID(self.currentAccount?.id)
             FavoritesManager.shared.setActiveAccountScopeID(
@@ -739,6 +766,46 @@ final class AccountService { // swiftlint:disable:this type_body_length
             self.lastErrorWasFetch = true
             self.errorSequence += 1
         }
+    }
+
+    private func restoredAccount(from response: AccountsListResponse) -> UserAccount? {
+        guard let savedAccountID = UserDefaults.standard.string(forKey: self.selectedBrandIdKey) else {
+            self.logger.debug("AccountService: Using API-selected account")
+            return response.selectedAccount ?? response.accounts.first
+        }
+
+        self.logger.debug("AccountService: Found saved brand ID: \(savedAccountID)")
+        guard let savedAccount = response.accounts.first(where: { $0.id == savedAccountID }) else {
+            self.logger.debug("AccountService: Saved account not found, using API-selected")
+            return response.selectedAccount ?? response.accounts.first
+        }
+
+        self.logger.info("AccountService: Restored previous account: \(savedAccount.name)")
+        return savedAccount
+    }
+
+    private func accountFetchRequiresBoundary(
+        response: AccountsListResponse,
+        nextAccount: UserAccount?
+    ) -> Bool {
+        guard let currentAccount = self.currentAccount,
+              let nextAccount,
+              currentAccount.id == nextAccount.id,
+              let currentScope = self.contentScopeByAccountID[currentAccount.id]
+        else { return true }
+
+        if currentScope.provisionalKind == .ownerConflict {
+            return true
+        }
+
+        guard let authFingerprintID = Self.favoritesAuthFingerprintID(from: self.authService.state),
+              let emailAliasID = Self.favoritesEmailAliasID(from: response.googleEmail),
+              let authBoundOwnerID = self.favoritesOwnerIDByAliasID[authFingerprintID]
+        else { return false }
+
+        let emailOwnerID = self.favoritesOwnerIDByAliasID[emailAliasID]
+        return self.favoritesOwnerHasEmailAlias(authBoundOwnerID)
+            && emailOwnerID != authBoundOwnerID
     }
 
     // swiftlint:disable cyclomatic_complexity function_body_length
@@ -847,6 +914,17 @@ final class AccountService { // swiftlint:disable:this type_body_length
                   self.authService.hasPersonalAccount,
                   !self.isAuthenticationBoundaryInProgress
             else { return }
+            self.accountBoundaryWillBegin?()
+            defer { self.accountBoundaryDidEnd?() }
+            await self.accountBoundaryDrain?()
+            guard !Task.isCancelled,
+                  self.sessionPinGeneration == pinGeneration,
+                  pinAuthIdentityGeneration == self.authService.accountIdentityGeneration,
+                  self.authService.hasPersonalAccount,
+                  !self.isAuthenticationBoundaryInProgress,
+                  self.currentAccount?.id == accountId,
+                  self.switchGeneration == switchGenerationAtPinStart
+            else { return }
             do {
                 try await webKitManager.switchSessionIdentity(to: signinURL, expectedBrandId: expectedBrandId)
                 guard !Task.isCancelled else { return }
@@ -904,6 +982,20 @@ final class AccountService { // swiftlint:disable:this type_body_length
         guard let fallback, fallback.id != account.id
         else { return }
 
+        let expectedSwitchGeneration = self.switchGeneration
+        let expectedAccountDataGeneration = self.accountDataGeneration
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
+        await self.accountBoundaryDrain?()
+        guard !Task.isCancelled,
+              pinGeneration == self.sessionPinGeneration,
+              expectedSwitchGeneration == self.switchGeneration,
+              expectedAccountDataGeneration == self.accountDataGeneration,
+              authIdentityGeneration == self.authService.accountIdentityGeneration,
+              self.authService.hasPersonalAccount,
+              !self.isAuthenticationBoundaryInProgress,
+              self.currentAccount?.id == account.id
+        else { return }
         var didVerifyFallback = false
         if let webKitManager = self.webKitManager, let fallbackSigninURL = fallback.signinURL {
             do {
@@ -917,9 +1009,14 @@ final class AccountService { // swiftlint:disable:this type_body_length
                 self.logger.error("AccountService: Could not restore fallback session identity: \(error.localizedDescription)")
             }
         }
-        guard self.sessionPinGeneration == pinGeneration,
+        guard !Task.isCancelled,
+              self.sessionPinGeneration == pinGeneration,
+              expectedSwitchGeneration == self.switchGeneration,
+              expectedAccountDataGeneration == self.accountDataGeneration,
               authIdentityGeneration == self.authService.accountIdentityGeneration,
-              self.authService.hasPersonalAccount
+              self.authService.hasPersonalAccount,
+              !self.isAuthenticationBoundaryInProgress,
+              self.currentAccount?.id == account.id
         else { return }
 
         self.ytMusicClient.resetSessionStateForAccountSwitch()
@@ -959,7 +1056,10 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// Drains old WebView session-identity mutations before reauthentication clears
     /// or samples cookies. The expired auth state already prevents new mutations.
     func prepareForReauthentication() async {
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
         self.isAuthenticationBoundaryInProgress = true
+        await self.accountBoundaryDrain?()
         self.resetFavoritesOwnerIfAuthenticationBoundaryChanged()
         await self.invalidateAndDrainSessionMutations()
     }
@@ -968,9 +1068,12 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// clears cookies/data. This prevents an in-flight hidden `/signin` navigation
     /// from writing cookies back into the shared data store after sign-out cleanup.
     func prepareForSignOut() async {
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
         // Set the fence before the first suspension. AuthService is still logged in
         // until this method returns, so its state alone cannot reject new work.
         self.isAuthenticationBoundaryInProgress = true
+        await self.accountBoundaryDrain?()
         await self.invalidateAndDrainSessionMutations()
     }
 
@@ -999,6 +1102,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// - Parameter account: The account to switch to.
     /// - Throws: An error if the switch fails.
     func switchAccount(to account: UserAccount) async throws {
+        self.authService.cancelPendingGuestModeTransition()
         let shouldExitGuestModeOnSuccess = self.authService.isGuestModeEnabled
         guard self.authService.state.isLoggedIn, !self.isAuthenticationBoundaryInProgress else {
             self.logger.info("AccountService: Rejecting account switch while authentication is unavailable")
@@ -1045,7 +1149,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
                   self.currentAccount?.id == account.id
             else { throw CancellationError() }
             guard account.signinURL != nil else {
-                self.completeGuestModeAccountSelectionIfNeeded(
+                await self.completeGuestModeAccountSelectionIfNeeded(
                     shouldExitGuestModeOnSuccess,
                     accountID: account.id
                 )
@@ -1055,7 +1159,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
         }
         guard !isSameAccount || (account.signinURL != nil && self.verifiedAccountId != account.id && self.webKitManager != nil) else {
             self.logger.debug("AccountService: Already using account \(account.name)")
-            self.completeGuestModeAccountSelectionIfNeeded(
+            await self.completeGuestModeAccountSelectionIfNeeded(
                 shouldExitGuestModeOnSuccess,
                 accountID: account.id
             )
@@ -1092,6 +1196,18 @@ final class AccountService { // swiftlint:disable:this type_body_length
         let myGeneration = self.switchGeneration
         let myAccountDataGeneration = self.accountDataGeneration
         var cancelledPriorSessionMutation = false
+
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
+        await self.accountBoundaryDrain?()
+        guard myGeneration == self.switchGeneration,
+              myAccountDataGeneration == self.accountDataGeneration,
+              switchAuthIdentityGeneration == self.authService.accountIdentityGeneration,
+              !self.isAuthenticationBoundaryInProgress
+        else {
+            self.logger.info("AccountService: Switch to \(account.name) superseded while draining Library mutations")
+            throw CancellationError()
+        }
 
         // Now cancel and await any in-flight session mutation (a cold-launch brand
         // restore pin AND/OR a prior manual switch's navigation) so neither can
@@ -1236,7 +1352,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
             // The session identity is now verified for this account; signal
             // observers (e.g. MainWindow) to re-point in-flight playback.
             self.markIdentityVerified(account.id)
-            self.completeGuestModeAccountSelectionIfNeeded(
+            await self.completeGuestModeAccountSelectionIfNeeded(
                 shouldExitGuestModeOnSuccess,
                 accountID: account.id
             )
@@ -1370,9 +1486,9 @@ final class AccountService { // swiftlint:disable:this type_body_length
     private func completeGuestModeAccountSelectionIfNeeded(
         _ shouldExitGuestMode: Bool,
         accountID: String
-    ) {
+    ) async {
         guard shouldExitGuestMode else { return }
-        self.authService.exitGuestMode(activeAccountID: accountID)
+        await self.authService.exitGuestMode(activeAccountID: accountID)
     }
 
     private func refreshAccountForRollback(matching account: UserAccount) async -> UserAccount? {

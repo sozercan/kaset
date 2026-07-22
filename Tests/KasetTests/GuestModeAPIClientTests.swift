@@ -151,7 +151,7 @@ struct GuestModeAPIClientTests {
         let webKitManager = MockWebKitManager()
         let authService = AuthService(webKitManager: webKitManager)
         authService.completeLogin(sapisid: "test-sapisid")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
 
         let session = MockURLProtocol.makeMockSession()
         nonisolated(unsafe) var apiRequestCount = 0
@@ -188,7 +188,7 @@ struct GuestModeAPIClientTests {
         let webKitManager = MockWebKitManager()
         let authService = AuthService(webKitManager: webKitManager)
         authService.completeLogin(sapisid: "test-sapisid")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
 
         let session = MockURLProtocol.makeMockSession()
         nonisolated(unsafe) var requestCount = 0
@@ -220,7 +220,7 @@ struct GuestModeAPIClientTests {
         await webKitManager.dataStore.httpCookieStore.setCookie(authCookie)
         let authService = AuthService(webKitManager: webKitManager)
         authService.completeLogin(sapisid: "mock-token")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
 
         let session = MockURLProtocol.makeMockSession()
         nonisolated(unsafe) var accountRequestCount = 0
@@ -271,7 +271,7 @@ struct GuestModeAPIClientTests {
         let webKitManager = WebKitManager.makeTestInstance()
         let authService = AuthService(webKitManager: webKitManager)
         authService.completeLogin(sapisid: "test-sapisid")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
 
         let session = MockURLProtocol.makeMockSession()
         nonisolated(unsafe) var apiRequestCount = 0
@@ -321,7 +321,7 @@ struct GuestModeAPIClientTests {
         let webKitManager = WebKitManager.makeTestInstance()
         let authService = AuthService(webKitManager: webKitManager)
         authService.completeLogin(sapisid: "test-sapisid")
-        authService.enterGuestMode()
+        await authService.enterGuestMode()
 
         let session = MockURLProtocol.makeMockSession()
         nonisolated(unsafe) var apiRequestCount = 0
