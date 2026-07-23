@@ -1025,6 +1025,16 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(fetchedArtists.allSatisfy { !$0.hasNavigableId })
         #expect(self.playerService.currentTrack?.artists == fetchedArtists)
         #expect(self.playerService.queue.first?.artists == fetchedArtists)
+
+        self.playerService.updateTrackMetadata(
+            title: queueSong.title,
+            artist: "Transient WebView Author",
+            thumbnailUrl: "",
+            videoId: videoId
+        )
+
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
     }
 
     // MARK: - Reset Track Status Tests

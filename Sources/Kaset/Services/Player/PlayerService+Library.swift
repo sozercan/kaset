@@ -529,7 +529,7 @@ extension PlayerService {
         }
 
         let existingIsWebPlaceholder = !existing.isEmpty
-            && existing.allSatisfy { $0.id == "unknown" }
+            && existing.allSatisfy(\.isUnresolvedPlaceholder)
         return existing.isEmpty || existingIsWebPlaceholder ? fetched : existing
     }
 

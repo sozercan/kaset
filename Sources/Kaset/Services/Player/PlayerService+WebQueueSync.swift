@@ -748,7 +748,7 @@ extension PlayerService {
               currentTrack.videoId == normalizedObservedVideoId
         else { return false }
 
-        let hasResolvedArtists = currentTrack.artists.contains(where: \.hasNavigableId)
+        let hasResolvedArtists = currentTrack.artists.contains { !$0.isUnresolvedPlaceholder }
         let observedArtistIsEmpty = artist.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // WebView/player metadata remains the display-title source of truth; artist
         // identity resolves independently. Preserve navigable artists and ignore
