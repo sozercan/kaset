@@ -241,34 +241,69 @@ enum ParsingHelpers {
 
     /// Extracts artists from subtitle data.
     static func extractArtists(from data: [String: Any]) -> [Artist] {
-        var artists: [Artist] = []
-
-        if let subtitleData = data["subtitle"] as? [String: Any],
-           let runs = subtitleData["runs"] as? [[String: Any]]
-        {
-            for run in runs {
-                if let text = run["text"] as? String,
-                   text != " • ", text != " & ", text != ", "
-                {
-                    if let endpoint = run["navigationEndpoint"] as? [String: Any],
-                       let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
-                       let artistId = browseEndpoint["browseId"] as? String
-                    {
-                        artists.append(Artist(
-                            id: artistId,
-                            name: text,
-                            profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
-                        ))
-                    } else if !text.isEmpty {
-                        // Generate stable ID from artist name when no browse ID available
-                        let stableArtistId = Self.stableId(title: "artist", components: text)
-                        artists.append(Artist(id: stableArtistId, name: text))
-                    }
-                }
-            }
+        guard let subtitleData = data["subtitle"] as? [String: Any],
+              let runs = subtitleData["runs"] as? [[String: Any]]
+        else {
+            return []
         }
 
-        return artists
+        // Home-family subtitles use bullets/middle dots between metadata
+        // fields; co-artists stay within one field via ampersands or commas.
+        let fields = runs.split(whereSeparator: { run in
+            guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                return false
+            }
+            return text == "•" || text == "·"
+        })
+
+        let parsedFields = fields.map { field -> (artists: [Artist], hasLinkedArtist: Bool) in
+            var artists: [Artist] = []
+            var hasLinkedArtist = false
+
+            for run in field {
+                guard let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !artistName.isEmpty,
+                      !Self.isArtistSeparator(artistName)
+                else {
+                    continue
+                }
+
+                if let endpoint = run["navigationEndpoint"] as? [String: Any],
+                   let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any]
+                {
+                    if let artist = Self.extractArtist(from: browseEndpoint, name: artistName) {
+                        artists.append(artist)
+                        hasLinkedArtist = true
+                    }
+                } else if run["navigationEndpoint"] == nil,
+                          !Self.isMetadataText(artistName)
+                {
+                    artists.append(Artist(
+                        id: Self.stableId(title: "artist", components: artistName),
+                        name: artistName
+                    ))
+                }
+            }
+
+            return (artists, hasLinkedArtist)
+        }
+
+        // Fields with artist endpoints are authoritative, but preserve any
+        // endpoint-less co-artists in those same fields. Neighboring fields
+        // remain metadata and are deliberately not inferred as co-artists.
+        let linkedFieldArtists = parsedFields.reduce(into: [Artist]()) { artists, field in
+            if field.hasLinkedArtist {
+                artists.append(contentsOf: field.artists)
+            }
+        }
+        if !linkedFieldArtists.isEmpty {
+            return linkedFieldArtists
+        }
+
+        // Without artist endpoints, use the first artist-like field and ignore
+        // every later album/count/date field. This keeps localized metadata out
+        // without needing to recognize its wording.
+        return parsedFields.first(where: { !$0.artists.isEmpty })?.artists ?? []
     }
 
     /// Extracts subtitle text from data.
@@ -688,29 +723,19 @@ enum ParsingHelpers {
         return nil
     }
 
-    /// Known content type keywords that should not be treated as artist names.
-    private static let contentTypeKeywords: Set<String> = [
-        "album", "artist", "audiobook", "ep", "episode", "playlist", "podcast",
-        "podcast episode", "profile", "single", "song", "video",
-    ]
-
     private static func isArtistSeparator(_ text: String) -> Bool {
         text == " • " || text == " · " || text == " & " || text == ", "
             || text == "•" || text == "·" || text == "&" || text == ","
     }
 
     private static func isMetadataText(_ text: String) -> Bool {
-        if self.contentTypeKeywords.contains(text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
+        if self.isLocalizedContentTypeText(text) {
             return true
         }
 
         let lowercased = text.lowercased()
 
-        if lowercased.contains(" views")
-            || lowercased.contains(" plays")
-            || lowercased.contains(" subscribers")
-            || lowercased.contains("episodes")
-        {
+        if self.isEnglishEngagementCount(text) {
             return true
         }
 
