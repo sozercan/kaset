@@ -749,12 +749,14 @@ extension PlayerService {
         else { return false }
 
         let hasResolvedArtists = currentTrack.artists.contains(where: \.hasNavigableId)
+        let observedArtistIsEmpty = artist.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         // WebView/player metadata remains the display-title source of truth; artist
-        // navigation resolves independently. Reject only transient placeholders.
+        // identity resolves independently. Preserve navigable artists and ignore
+        // transient empty observations without pinning generated parser placeholders.
         let resolvedTitle = Self.resolvedObservedTitle(current: currentTrack.title, observed: title)
         self.currentTrack = currentTrack.replacingDisplayMetadata(
             title: resolvedTitle,
-            artists: hasResolvedArtists ? currentTrack.artists : [artist],
+            artists: hasResolvedArtists || observedArtistIsEmpty ? currentTrack.artists : [artist],
             thumbnailURL: thumbnailURL ?? currentTrack.thumbnailURL
         )
         return true
@@ -778,7 +780,7 @@ extension PlayerService {
         guard segments.count > 1,
               let trailingSegment = segments.last?.trimmingCharacters(in: .whitespacesAndNewlines),
               trailingSegment.range(
-                  of: #"^\p{N}[\p{N}\p{P}\p{Zs}]*[kmbt]?\s+views?$"#,
+                  of: #"^(?:no|\p{N}[\p{N}\p{P}\p{Zs}]*[kmbt]?)\s+views?$"#,
                   options: [.regularExpression, .caseInsensitive]
               ) != nil
         else { return trimmed }

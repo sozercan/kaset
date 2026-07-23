@@ -10,6 +10,7 @@ struct PlayerServiceArtistNameTests {
     func stripsViewCount() {
         #expect(PlayerService.normalizedWebArtistName("Artist • 1.3M views") == "Artist")
         #expect(PlayerService.normalizedWebArtistName("Artist • 1 view") == "Artist")
+        #expect(PlayerService.normalizedWebArtistName("Artist • No views") == "Artist")
     }
 
     @Test("Leaves a plain artist name unchanged")
@@ -119,6 +120,48 @@ struct PlayerServiceArtistNameTests {
 
             #expect(playerService.currentTrack?.title == "Resolved Song")
         }
+    }
+
+    @Test("Same-video empty bylines preserve API-resolved inline artists")
+    func sameVideoEmptyBylinePreservesInlineArtist() {
+        let playerService = PlayerService()
+        let inlineArtist = Artist.inline(name: "Uploaded Artist", namespace: "upload")
+        playerService.currentTrack = Song(
+            id: "video",
+            title: "Uploaded Song",
+            artists: [inlineArtist],
+            videoId: "video"
+        )
+
+        playerService.updateTrackMetadata(
+            title: "Uploaded Song",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "video"
+        )
+
+        #expect(playerService.currentTrack?.artists == [inlineArtist])
+    }
+
+    @Test("Same-video observed artists replace generated unknown placeholders")
+    func sameVideoObservedArtistReplacesGeneratedUnknownArtist() throws {
+        let playerService = PlayerService()
+        let unknownArtist = try #require(Artist(from: [:]))
+        playerService.currentTrack = Song(
+            id: "video",
+            title: "Resolved Song",
+            artists: [unknownArtist],
+            videoId: "video"
+        )
+
+        playerService.updateTrackMetadata(
+            title: "Resolved Song",
+            artist: "Observed Artist",
+            thumbnailUrl: "",
+            videoId: "video"
+        )
+
+        #expect(playerService.currentTrack?.artists == [Artist(id: "unknown", name: "Observed Artist")])
     }
 
     @Test("A real WebView title refreshes the same resolved track")
