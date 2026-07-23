@@ -623,21 +623,26 @@ extension PlayerService {
     ) {
         self.logger.debug("Track metadata updated: \(title) - \(artist)")
         let thumbnailURL = URL(string: thumbnailUrl)
+        let normalizedArtistName = Self.normalizedWebArtistName(artist)
         // The WebView byline can carry a view-count tail (e.g. "Artist • 1.3M views");
         // strip it so it never surfaces as the displayed artist name. The id stays
         // non-navigable ("unknown") because this is an unresolved placeholder — the
         // resolved, navigable identity arrives from `fetchSongMetadata`.
-        let artistObj = Artist(id: "unknown", name: Self.normalizedWebArtistName(artist))
+        let artistObj = Artist(id: "unknown", name: normalizedArtistName)
+        let normalizedObservedVideoId = self.normalizedPlaybackVideoId(observedVideoId)
         let resolvedVideoId = self.resolvedObservedVideoId(observedVideoId)
-        let trackChanged = self.currentTrack?.title != title
-            || self.currentTrack?.artistsDisplay != artist
-            || self.currentTrack?.videoId != resolvedVideoId
+        let trackChanged = if let normalizedObservedVideoId {
+            self.currentTrack?.videoId != normalizedObservedVideoId
+        } else {
+            self.currentTrack?.title != title
+                || self.currentTrack?.artistsDisplay != normalizedArtistName
+        }
 
         if self.suppressUnexpectedAutoplayAfterQueueEndIfNeeded(
             trackChanged: trackChanged,
             observedVideoId: observedVideoId,
             title: title,
-            artist: artist,
+            artist: normalizedArtistName,
             thumbnailUrl: thumbnailUrl
         ) {
             return
@@ -646,7 +651,7 @@ extension PlayerService {
         if self.handleKasetInitiatedPlaybackMetadata(
             observedVideoId: observedVideoId,
             title: title,
-            artist: artist,
+            artist: normalizedArtistName,
             thumbnailUrl: thumbnailUrl,
             trackChanged: trackChanged
         ) {
@@ -656,7 +661,7 @@ extension PlayerService {
         if self.handleNearEndTrackChangeIfNeeded(
             observedVideoId: observedVideoId,
             title: title,
-            artist: artist,
+            artist: normalizedArtistName,
             thumbnailUrl: thumbnailUrl,
             trackChanged: trackChanged,
             playbackOccurrence: playbackOccurrence
@@ -667,7 +672,7 @@ extension PlayerService {
         if self.handleUnexpectedQueueDriftIfNeeded(
             observedVideoId: observedVideoId,
             title: title,
-            artist: artist,
+            artist: normalizedArtistName,
             thumbnailUrl: thumbnailUrl,
             trackChanged: trackChanged
         ) {
@@ -677,7 +682,7 @@ extension PlayerService {
         if self.finalRepeatOneSafetyNetIfNeeded(
             observedVideoId: observedVideoId,
             title: title,
-            artist: artist,
+            artist: normalizedArtistName,
             thumbnailUrl: thumbnailUrl,
             trackChanged: trackChanged
         ) {
@@ -690,52 +695,96 @@ extension PlayerService {
             return
         }
 
-        // Preserve an already-resolved, navigable artist for the same video so the
-        // clickable artist name doesn't flip to the non-navigable web placeholder.
-        let resolvedArtists: [Artist]
-        if let existing = self.currentTrack,
-           existing.videoId == resolvedVideoId,
-           existing.artists.contains(where: { $0.hasNavigableId })
-        {
-            resolvedArtists = existing.artists
-        } else {
-            resolvedArtists = [artistObj]
+        if self.updateCurrentTrackForMatchingVideoIfNeeded(
+            normalizedObservedVideoId: normalizedObservedVideoId,
+            title: title,
+            artist: artistObj,
+            thumbnailURL: thumbnailURL
+        ) {
+            return
+        }
+
+        // The WebView can resend the same track when only its volatile byline tail
+        // changes. Keep the resolved metadata and status, but still accept a newly
+        // available thumbnail from the DOM.
+        guard trackChanged else {
+            guard let currentTrack = self.currentTrack,
+                  let thumbnailURL,
+                  currentTrack.thumbnailURL != thumbnailURL
+            else { return }
+            self.currentTrack = currentTrack.replacingDisplayMetadata(
+                title: currentTrack.title,
+                artists: currentTrack.artists,
+                thumbnailURL: thumbnailURL
+            )
+            return
         }
 
         self.currentTrack = Song(
             id: resolvedVideoId,
             title: title,
-            artists: resolvedArtists,
+            artists: [artistObj],
             album: nil,
             duration: self.observedDuration(for: resolvedVideoId),
             thumbnailURL: thumbnailURL,
             videoId: resolvedVideoId
         )
 
-        if trackChanged {
-            self.resetTrackStatus()
-            // Immediately restore like status from SongLikeStatusManager cache
-            if let cachedStatus = self.songLikeStatusManager.status(for: resolvedVideoId) {
-                self.currentTrackLikeStatus = cachedStatus
-            }
+        self.resetTrackStatus()
+        // Immediately restore like status from SongLikeStatusManager cache
+        if let cachedStatus = self.songLikeStatusManager.status(for: resolvedVideoId) {
+            self.currentTrackLikeStatus = cachedStatus
         }
+    }
+
+    private func updateCurrentTrackForMatchingVideoIfNeeded(
+        normalizedObservedVideoId: String?,
+        title: String,
+        artist: Artist,
+        thumbnailURL: URL?
+    ) -> Bool {
+        guard let currentTrack = self.currentTrack,
+              let normalizedObservedVideoId,
+              currentTrack.videoId == normalizedObservedVideoId
+        else { return false }
+
+        let hasResolvedArtists = currentTrack.artists.contains(where: \.hasNavigableId)
+        // WebView/player metadata remains the display-title source of truth; artist
+        // navigation resolves independently. Reject only transient placeholders.
+        let resolvedTitle = Self.resolvedObservedTitle(current: currentTrack.title, observed: title)
+        self.currentTrack = currentTrack.replacingDisplayMetadata(
+            title: resolvedTitle,
+            artists: hasResolvedArtists ? currentTrack.artists : [artist],
+            thumbnailURL: thumbnailURL ?? currentTrack.thumbnailURL
+        )
+        return true
+    }
+
+    private static func resolvedObservedTitle(current: String, observed: String) -> String {
+        let observed = observed.trimmingCharacters(in: .whitespacesAndNewlines)
+        let placeholders = ["", "Loading..."]
+        guard !placeholders.contains(observed) else { return current }
+        return observed
     }
 
     /// Normalizes a WebView-reported byline into a clean artist name.
     ///
-    /// YouTube can report video bylines with a trailing view-count segment
-    /// (e.g. "Artist • 1.3M views"). Those segments must never surface as the
-    /// displayed artist name, so any " • …views" / " • …view" tail is removed.
+    /// The observer normally supplies the structured player author, which is
+    /// locale-independent. As a DOM fallback, remove only an unambiguous trailing
+    /// English view-count segment without discarding names such as "21 Savage".
     static func normalizedWebArtistName(_ raw: String) -> String {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        let segments = trimmed.components(separatedBy: " • ")
-        guard segments.count > 1 else { return trimmed }
+        let segments = trimmed.split(separator: "•", omittingEmptySubsequences: false)
+        guard segments.count > 1,
+              let trailingSegment = segments.last?.trimmingCharacters(in: .whitespacesAndNewlines),
+              trailingSegment.range(
+                  of: #"^\p{N}[\p{N}\p{P}\p{Zs}]*[kmbt]?\s+views?$"#,
+                  options: [.regularExpression, .caseInsensitive]
+              ) != nil
+        else { return trimmed }
 
-        let cleaned = segments.filter { segment in
-            let lower = segment.lowercased()
-            return !lower.hasSuffix("views") && !lower.hasSuffix("view")
-        }
-        let result = cleaned.joined(separator: " • ").trimmingCharacters(in: .whitespacesAndNewlines)
-        return result.isEmpty ? trimmed : result
+        return segments.dropLast()
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .joined(separator: " • ")
     }
 }

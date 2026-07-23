@@ -98,9 +98,11 @@ enum SongMetadataParser {
         else { return artists }
 
         for run in runs {
-            guard let text = run["text"] as? String,
-                  text != " • ", text != " & ", text != ", ", text != " · "
-            else { continue }
+            guard let text = run["text"] as? String else { continue }
+            if text == " • " || text == " · " {
+                break
+            }
+            guard text != " & ", text != ", " else { continue }
 
             let artistId: String = if let navEndpoint = run["navigationEndpoint"] as? [String: Any],
                                       let browseEndpoint = navEndpoint["browseEndpoint"] as? [String: Any],

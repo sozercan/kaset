@@ -996,6 +996,51 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrack?.likeStatus == .like)
     }
 
+    @Test("fetchSongMetadata applies parsed co-artists to the track and owning queue")
+    func fetchSongMetadataAppliesParsedArtistsToOwningQueue() async {
+        let videoId = "mixed-api-byline"
+        let fetchedArtists = SongMetadataParser.parseArtists(from: [
+            "longBylineText": [
+                "runs": [
+                    [
+                        "text": "Resolved Artist",
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": "UCresolved",
+                            ],
+                        ],
+                    ],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": " • "],
+                    ["text": "1.3M views"],
+                ],
+            ],
+        ])
+        let queueSong = Song(
+            id: videoId,
+            title: "Song",
+            artists: [Artist(id: "unknown", name: "Resolved Artist • 1.3M views")],
+            thumbnailURL: URL(string: "https://example.com/queue.jpg"),
+            videoId: videoId
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: queueSong)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = queueSong
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Song",
+            artists: fetchedArtists,
+            videoId: videoId
+        )
+
+        await self.playerService.fetchSongMetadata(videoId: videoId)
+
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
+    }
+
     // MARK: - Reset Track Status Tests
 
     @Test("resetTrackStatus resets all status properties")

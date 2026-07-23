@@ -528,6 +528,35 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
+private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
+    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data),
+          let byline = renderer["longBylineText"] as? [String: Any],
+          let runs = byline["runs"] as? [[String: Any]],
+          !runs.isEmpty
+    else { return "" }
+
+    var output = "\n🎤 Playlist-panel long byline runs:\n"
+    for (index, run) in runs.enumerated() {
+        let text = run["text"] as? String ?? ""
+        let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
+        let browseKind = if let browseId {
+            if browseId.hasPrefix("MPLAUC") {
+                "MPLAUC…"
+            } else if browseId.hasPrefix("UC") {
+                "UC…"
+            } else if browseId.hasPrefix("MPRE") {
+                "MPRE…"
+            } else {
+                "other"
+            }
+        } else {
+            "none"
+        }
+        output += "  [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+    }
+    return output
+}
+
 /// Recursively counts renderer/viewModel dictionary keys in a response.
 /// Invaluable for mapping which renderers a YouTube surface currently serves
 /// (e.g. legacy `videoRenderer` vs. the newer `lockupViewModel`).
@@ -1067,6 +1096,8 @@ func analyzeResponse(
     output += chapterProbeSummary(data)
 
     output += libraryFeedbackProbeSummary(data)
+
+    output += playlistPanelBylineSummary(data)
 
     if !youtubeMode {
         output += searchResponseAuditSummary(

@@ -456,15 +456,7 @@ extension PlayerService {
                 // Prefer it whenever it carries a navigable artist so the clickable
                 // artist name stays stable and never falls back to the WebView's
                 // non-navigable placeholder (which also avoids the view-count flash).
-                let existingArtists = self.currentTrack?.artists ?? []
-                let artists: [Artist]
-                if songData.artists.contains(where: { $0.hasNavigableId }) {
-                    artists = songData.artists
-                } else if existingArtists.isEmpty {
-                    artists = songData.artists
-                } else {
-                    artists = existingArtists
-                }
+                let artists = Self.resolvedFetchedArtists(existing: self.currentTrack?.artists ?? [], fetched: songData.artists)
 
                 self.currentTrack = Song(
                     id: self.currentTrack?.id ?? videoId,
@@ -529,6 +521,13 @@ extension PlayerService {
         }
     }
 
+    private static func resolvedFetchedArtists(existing: [Artist], fetched: [Artist]) -> [Artist] {
+        if fetched.contains(where: \.hasNavigableId) {
+            return fetched
+        }
+        return existing.isEmpty ? fetched : existing
+    }
+
     private func resolveFetchedLikeStatus(
         videoId: String,
         apiLikeStatus: LikeStatus?,
@@ -558,6 +557,15 @@ extension PlayerService {
         var enrichedQueueSong = Self.songNeedsQueueEnrichment(currentQueueSong)
             ? Self.mergingQueueMetadata(current: currentQueueSong, response: response)
             : currentQueueSong
+        if response.artists.contains(where: \.hasNavigableId),
+           enrichedQueueSong.artists != response.artists
+        {
+            enrichedQueueSong = enrichedQueueSong.replacingDisplayMetadata(
+                title: enrichedQueueSong.title,
+                artists: response.artists,
+                thumbnailURL: enrichedQueueSong.thumbnailURL
+            )
+        }
         enrichedQueueSong.likeStatus = resolvedLikeStatus
         if entryID == self.activePlaybackQueueEntryID {
             enrichedQueueSong.isInLibrary = self.currentTrackInLibrary
