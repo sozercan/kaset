@@ -522,10 +522,15 @@ extension PlayerService {
     }
 
     private static func resolvedFetchedArtists(existing: [Artist], fetched: [Artist]) -> [Artist] {
+        guard !fetched.isEmpty else { return existing }
+
         if fetched.contains(where: \.hasNavigableId) {
             return fetched
         }
-        return existing.isEmpty ? fetched : existing
+
+        let existingIsWebPlaceholder = !existing.isEmpty
+            && existing.allSatisfy { $0.id == "unknown" }
+        return existing.isEmpty || existingIsWebPlaceholder ? fetched : existing
     }
 
     private func resolveFetchedLikeStatus(
@@ -557,12 +562,14 @@ extension PlayerService {
         var enrichedQueueSong = Self.songNeedsQueueEnrichment(currentQueueSong)
             ? Self.mergingQueueMetadata(current: currentQueueSong, response: response)
             : currentQueueSong
-        if response.artists.contains(where: \.hasNavigableId),
-           enrichedQueueSong.artists != response.artists
-        {
+        let resolvedQueueArtists = Self.resolvedFetchedArtists(
+            existing: enrichedQueueSong.artists,
+            fetched: response.artists
+        )
+        if enrichedQueueSong.artists != resolvedQueueArtists {
             enrichedQueueSong = enrichedQueueSong.replacingDisplayMetadata(
                 title: enrichedQueueSong.title,
-                artists: response.artists,
+                artists: resolvedQueueArtists,
                 thumbnailURL: enrichedQueueSong.thumbnailURL
             )
         }

@@ -990,6 +990,43 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.queue.first?.artists == fetchedArtists)
     }
 
+    @Test("fetchSongMetadata replaces a WebView placeholder with an unlinked API artist")
+    func fetchSongMetadataAppliesUnlinkedAPIArtistToOwningQueue() async {
+        let videoId = "unlinked-api-byline"
+        let fetchedArtists = SongMetadataParser.parseArtists(from: [
+            "longBylineText": [
+                "runs": [
+                    ["text": "Uploaded Artist"],
+                    ["text": " • "],
+                    ["text": "No views"],
+                ],
+            ],
+        ])
+        let queueSong = Song(
+            id: videoId,
+            title: "Uploaded Song",
+            artists: [Artist(id: "unknown", name: "Uploaded Artist • No views")],
+            videoId: videoId
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: queueSong)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = queueSong
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: queueSong.title,
+            artists: fetchedArtists,
+            videoId: videoId
+        )
+
+        await self.playerService.fetchSongMetadata(videoId: videoId)
+
+        #expect(!fetchedArtists.isEmpty)
+        #expect(fetchedArtists.allSatisfy { !$0.hasNavigableId })
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
+    }
+
     // MARK: - Reset Track Status Tests
 
     @Test("resetTrackStatus resets all status properties")
