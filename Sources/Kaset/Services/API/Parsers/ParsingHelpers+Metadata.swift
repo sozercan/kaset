@@ -42,4 +42,65 @@ extension ParsingHelpers {
         "música", "трек", "låt", "şarkı", "пісня",
         "video", "فيديو", "vídeo", "vidéo", "동영상", "wideo", "видео", "відео",
     ]
+    static func isMetadataText(_ text: String) -> Bool {
+        if self.isLocalizedContentTypeText(text) {
+            return true
+        }
+
+        let lowercased = text.lowercased()
+
+        if self.isEnglishEngagementCount(text) {
+            return true
+        }
+
+        if text.contains(":"), self.parseDuration(text) != nil {
+            return true
+        }
+
+        if self.containsDurationUnit(in: lowercased), self.isNaturalLanguageDuration(text) {
+            return true
+        }
+
+        if lowercased.contains("song") || lowercased.contains("track") {
+            if self.extractSongCount(from: text) != nil {
+                return true
+            }
+        }
+
+        return self.isStandaloneYear(text)
+    }
+
+    private static func isStandaloneYear(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count == 4,
+              trimmed.allSatisfy(\.isNumber),
+              let year = Int(trimmed)
+        else {
+            return false
+        }
+
+        return (1900 ... 2100).contains(year)
+    }
+
+    private static func isNaturalLanguageDuration(_ text: String) -> Bool {
+        let lowercased = text.lowercased()
+
+        guard Self.containsDurationUnit(in: lowercased) else {
+            return false
+        }
+
+        return lowercased.allSatisfy { character in
+            character.isNumber
+                || character.isWhitespace
+                || character == ","
+                || Self.durationUnitCharacters.contains(character)
+        }
+    }
+
+    private static let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
+    private static let durationUnitCharacters = Set("secondsecondsminuteminuteshourhours")
+
+    private static func containsDurationUnit(in lowercasedText: String) -> Bool {
+        self.durationUnits.contains { lowercasedText.contains($0) }
+    }
 }
