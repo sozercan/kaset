@@ -24,11 +24,12 @@ struct PlayerServiceArtistNameTests {
         #expect(PlayerService.normalizedWebArtistName("Artist • Topic") == "Artist • Topic")
     }
 
-    @Test("Observer isolates the artist portion of a localized DOM byline")
-    func observerIsolatesDOMArtist() {
+    @Test("Observer preserves the DOM fallback and prefers a structured artist")
+    func observerArtistSelectionContract() {
         let script = SingletonPlayerWebView.observerScript
-        #expect(script.contains("artistEl.textContent.trim().split(/\\s+•\\s+/u, 1)[0].trim()"))
-        #expect(script.contains("if (!artist && playerArtist) artist = playerArtist;"))
+        #expect(script.contains("const domArtist = artistEl ? artistEl.textContent.trim() : '';"))
+        #expect(script.contains("const artist = playerArtist || domArtist;"))
+        #expect(!script.contains(".split(/\\s+•\\s+/u, 1)"))
     }
 
     @Test("Preserves artist names containing view")
