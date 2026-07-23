@@ -273,7 +273,12 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         try? await Task.sleep(for: .milliseconds(100))
-        return PlaylistParser.LibraryContent(playlists: self.playlists, artists: [], podcastShows: [])
+        return PlaylistParser.LibraryContent(
+            playlists: self.playlists,
+            albums: Self.defaultLibraryAlbums(),
+            artists: [],
+            podcastShows: []
+        )
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -287,20 +292,70 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        let playlist = self.playlists.first { $0.id == id } ?? Playlist(
-            id: id,
-            title: "Test Playlist",
-            description: "A test playlist",
-            thumbnailURL: nil,
-            trackCount: 10,
-            author: Artist.inline(name: "Test User", namespace: "playlist-author")
-        )
+        let libraryAlbum = Self.defaultLibraryAlbums().first { $0.id == id }
+        let playlist = libraryAlbum.map(Self.playlist(from:))
+            ?? self.playlists.first { $0.id == id }
+            ?? Playlist(
+                id: id,
+                title: "Test Playlist",
+                description: "A test playlist",
+                thumbnailURL: nil,
+                trackCount: 10,
+                author: Artist.inline(name: "Test User", namespace: "playlist-author")
+            )
         let detail = PlaylistDetail(
             playlist: playlist,
             tracks: Self.defaultSongs(count: 10),
-            duration: "30 minutes"
+            duration: "30 minutes",
+            libraryTargetId: Self.libraryTargetId(for: playlist, libraryAlbum: libraryAlbum)
         )
         return PlaylistTracksResponse(detail: detail, continuationToken: nil)
+    }
+
+    private static func defaultLibraryAlbums() -> [Album] {
+        (0 ..< 4).map { index in
+            let ordinal = index + 1
+            let browseId = "MPREbMockLibraryAlbum\(ordinal)"
+            return Album(
+                id: browseId,
+                title: "Test Album \(ordinal)",
+                artists: [Artist(id: "UCMockLibraryAlbumArtist\(ordinal)", name: "Album Artist \(ordinal)")],
+                thumbnailURL: nil,
+                year: "2024",
+                trackCount: 9 + ordinal,
+                libraryTargetId: Self.libraryTargetId(forAlbumId: browseId)
+            )
+        }
+    }
+
+    private static func playlist(from album: Album) -> Playlist {
+        Playlist(
+            id: album.id,
+            title: album.title,
+            description: "A mock saved album",
+            thumbnailURL: album.thumbnailURL,
+            trackCount: album.trackCount,
+            author: album.artistsDisplay.isEmpty
+                ? nil
+                : Artist.inline(name: album.artistsDisplay, namespace: "mock-library-album-artist")
+        )
+    }
+
+    private static func libraryTargetId(for playlist: Playlist, libraryAlbum: Album?) -> String? {
+        if let libraryTargetId = libraryAlbum?.libraryTargetId {
+            return libraryTargetId
+        }
+        if playlist.id.hasPrefix("OLAK") {
+            return playlist.id
+        }
+        if playlist.id.hasPrefix("MPRE") {
+            return Self.libraryTargetId(forAlbumId: playlist.id)
+        }
+        return nil
+    }
+
+    private static func libraryTargetId(forAlbumId albumId: String) -> String {
+        "OLAK5uy_l\(albumId.dropFirst(4))"
     }
 
     func getPlaylistContinuation(token _: String, requiresAuth _: Bool) async throws -> PlaylistContinuationResponse {

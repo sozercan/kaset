@@ -83,6 +83,10 @@ final class AuthService: AuthServiceProtocol {
     private var loginCheckGeneration: UInt64 = 0
     private var signOutTask: Task<Void, Never>?
     private var signOutPreparation: (@MainActor @Sendable () async -> Void)?
+    private var accountBoundaryWillBegin: (@MainActor @Sendable () -> Void)?
+    private var accountBoundaryDidEnd: (@MainActor @Sendable () -> Void)?
+    private var accountBoundaryDrain: (@MainActor @Sendable () async -> Void)?
+    private var guestModeTransitionGeneration: UInt64 = 0
 
     init(webKitManager: WebKitManagerProtocol = WebKitManager.shared) {
         self.webKitManager = webKitManager
@@ -104,9 +108,22 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Temporarily uses public guest mode while preserving the signed-in session.
-    func enterGuestMode() {
+    func enterGuestMode() async {
         guard self.state.isLoggedIn else { return }
         guard !self.isGuestModeEnabled else { return }
+        self.guestModeTransitionGeneration &+= 1
+        let transitionGeneration = self.guestModeTransitionGeneration
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
+        await self.accountBoundaryDrain?()
+        guard transitionGeneration == self.guestModeTransitionGeneration,
+              self.state.isLoggedIn,
+              !self.isGuestModeEnabled
+        else { return }
+        self.applyGuestMode()
+    }
+
+    private func applyGuestMode() {
         self.logger.info("Entering guest mode")
         self.clearAPIResponseCaches()
         SongLikeStatusManager.shared.setActiveAccountID(SongLikeStatusManager.guestAccountID)
@@ -115,8 +132,24 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Leaves guest mode and resumes the signed-in personal account.
-    func exitGuestMode(activeAccountID: String? = nil) {
+    func exitGuestMode(activeAccountID: String? = nil) async {
         guard self.isGuestModeEnabled else { return }
+        self.guestModeTransitionGeneration &+= 1
+        let transitionGeneration = self.guestModeTransitionGeneration
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
+        await self.accountBoundaryDrain?()
+        guard transitionGeneration == self.guestModeTransitionGeneration,
+              self.isGuestModeEnabled
+        else { return }
+        self.applyPersonalMode(activeAccountID: activeAccountID)
+    }
+
+    func cancelPendingGuestModeTransition() {
+        self.guestModeTransitionGeneration &+= 1
+    }
+
+    private func applyPersonalMode(activeAccountID: String?) {
         self.logger.info("Leaving guest mode")
         self.clearAPIResponseCaches()
         SongLikeStatusManager.shared.setActiveAccountID(activeAccountID)
@@ -152,6 +185,18 @@ final class AuthService: AuthServiceProtocol {
         self.signOutPreparation = preparation
     }
 
+    /// Registers synchronous cancellation for account-scoped work before cookies,
+    /// guest mode, or authenticated identity can change.
+    func setAccountBoundaryHandlers(
+        willBegin: @escaping @MainActor @Sendable () -> Void,
+        didEnd: @escaping @MainActor @Sendable () -> Void,
+        drain: @escaping @MainActor @Sendable () async -> Void
+    ) {
+        self.accountBoundaryWillBegin = willBegin
+        self.accountBoundaryDidEnd = didEnd
+        self.accountBoundaryDrain = drain
+    }
+
     /// Checks if the user is logged in based on existing cookies.
     /// Waits for the initial Keychain restore before reading WebKit cookies.
     func checkLoginStatus() async {
@@ -176,7 +221,10 @@ final class AuthService: AuthServiceProtocol {
                   checkGeneration == self.loginCheckGeneration
             else { return }
 
-            self.transitionToResolvedState(resolvedState)
+            guard await self.transitionToResolvedState(
+                resolvedState,
+                expectedLoginCheckGeneration: checkGeneration
+            ) else { return }
             if resolvedState.isLoggedIn {
                 self.needsReauth = false
             }
@@ -189,6 +237,9 @@ final class AuthService: AuthServiceProtocol {
 
     /// Called when a session expires (e.g., 401/403 from API).
     func sessionExpired() {
+        self.cancelPendingGuestModeTransition()
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
         self.logger.warning("Session expired, requiring re-authentication")
         self.invalidateLoginCheck()
         self.advanceAccountIdentityGeneration()
@@ -216,10 +267,10 @@ final class AuthService: AuthServiceProtocol {
             return
         }
         self.logger.info("Signing out user")
+        self.cancelPendingGuestModeTransition()
+        self.accountBoundaryWillBegin?()
 
-        // Fence authenticated work synchronously before the account-owned drain
-        // can suspend. The drain prevents old WebKit mutations from outliving the
-        // later cookie deletion; this state change prevents new API mutations.
+        // Fence authenticated work synchronously before the first suspension.
         self.invalidateLoginCheck()
         self.advanceAccountIdentityGeneration()
         self.clearAPIResponseCaches()
@@ -231,6 +282,8 @@ final class AuthService: AuthServiceProtocol {
         let preparation = self.signOutPreparation
         let task = Task { @MainActor [weak self] in
             guard let self else { return }
+            defer { self.accountBoundaryDidEnd?() }
+            await self.accountBoundaryDrain?()
             await preparation?()
             await self.webKitManager.clearAllData()
             self.clearAPIResponseCaches()
@@ -249,15 +302,50 @@ final class AuthService: AuthServiceProtocol {
     }
 
     /// Called when login completes successfully (from LoginSheet observation).
-    func completeLogin(sapisid: String) {
+    func completeLoginAfterDraining(sapisid: String) async {
         self.logger.info("Login completed successfully")
         guard self.signOutTask == nil else {
             self.logger.info("Ignoring login completion while sign-out is in progress")
             return
         }
+        self.cancelPendingGuestModeTransition()
+        self.accountBoundaryWillBegin?()
+        defer { self.accountBoundaryDidEnd?() }
         self.invalidateLoginCheck()
+        let completionGeneration = self.loginCheckGeneration
+        await self.accountBoundaryDrain?()
+        guard self.signOutTask == nil,
+              completionGeneration == self.loginCheckGeneration
+        else {
+            self.logger.info("Ignoring login completion superseded while draining account work")
+            return
+        }
+        self.applyCompletedLogin(sapisid: sapisid)
+    }
+
+    #if DEBUG
+        /// Test-only fast path for isolated AuthService instances with no account-boundary wiring.
+        func completeLogin(sapisid: String) {
+            precondition(
+                self.accountBoundaryWillBegin == nil
+                    && self.accountBoundaryDidEnd == nil
+                    && self.accountBoundaryDrain == nil,
+                "Use completeLoginAfterDraining(sapisid:) when account-boundary handlers are installed"
+            )
+            self.logger.info("Login completed successfully")
+            guard self.signOutTask == nil else {
+                self.logger.info("Ignoring login completion while sign-out is in progress")
+                return
+            }
+            self.cancelPendingGuestModeTransition()
+            self.invalidateLoginCheck()
+            self.applyCompletedLogin(sapisid: sapisid)
+        }
+    #endif
+
+    private func applyCompletedLogin(sapisid: String) {
         if self.isGuestModeEnabled {
-            self.exitGuestMode()
+            self.applyPersonalMode(activeAccountID: nil)
         }
         // Login completion is an explicit identity boundary even when Google
         // reuses the same SAPISID across multi-login accounts. Fence every older
@@ -273,18 +361,38 @@ final class AuthService: AuthServiceProtocol {
         self.accountIdentityGeneration &+= 1
     }
 
-    private func transitionToResolvedState(_ newState: State) {
+    private func transitionToResolvedState(
+        _ newState: State,
+        expectedLoginCheckGeneration: UInt64
+    ) async -> Bool {
         let previousIdentity = self.activeAuthenticationIdentity
         let nextIdentity: String? = if case let .loggedIn(sapisid) = newState {
             sapisid
         } else {
             nil
         }
-        if let previousIdentity, previousIdentity != nextIdentity {
+        let identityChanged = previousIdentity != nil && previousIdentity != nextIdentity
+        if identityChanged {
+            self.cancelPendingGuestModeTransition()
+            self.accountBoundaryWillBegin?()
+        }
+        defer {
+            if identityChanged {
+                self.accountBoundaryDidEnd?()
+            }
+        }
+        if identityChanged {
+            await self.accountBoundaryDrain?()
+        }
+        guard expectedLoginCheckGeneration == self.loginCheckGeneration,
+              !Task.isCancelled
+        else { return false }
+        if identityChanged {
             self.advanceAccountIdentityGeneration()
             self.clearAPIResponseCaches()
         }
         self.state = newState
+        return true
     }
 
     private var activeAuthenticationIdentity: String? {

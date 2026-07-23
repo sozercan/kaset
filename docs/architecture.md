@@ -127,6 +127,7 @@ Makes authenticated requests to YouTube Music's internal API:
 - `getExplore()` → Explore page (new releases, charts, moods)
 - `search(query:)` → Search results
 - `getLibraryPlaylists()` → User's playlists
+- `getLibraryContent()` → User's playlists, saved albums, followed artists, podcasts, and uploads
 - `getLikedSongs()` → User's liked songs (with pagination via `getLikedSongsContinuation()`)
 - `getPlaylist(id:)` → Playlist details (with pagination via `getPlaylistContinuation()`)
 - `getPlaylistAllTracks(playlistId:)` → All tracks via queue API (for radio playlists)
@@ -176,7 +177,7 @@ Response parsing is extracted into specialized modules:
 | `ResponseTreeSearch.swift` | Recursive search helpers for nested YouTube Music response trees |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `LibraryContentParser.swift` | Library browse content, including playlists, followed artists, podcast shows, and uploaded-song virtual tile parsing |
+| `LibraryContentParser.swift` | Library browse content, including playlists, saved albums, followed artists, podcast shows, and uploaded-song virtual tile parsing |
 | `PlaylistEditability.swift` | Playlist ownership/delete affordance detection |
 | `PlaylistParser.swift` | Playlist details, queue tracks, pagination, add-to-playlist menu options, and create-playlist IDs |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |

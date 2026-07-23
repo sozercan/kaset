@@ -81,6 +81,21 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(playlists[0].title == "Dedicated Title")
     }
 
+    @Test("Merge dedicated saved albums preserves order and removes fallback duplicates")
+    func mergedLibraryAlbumsPreservesDedicatedOrder() {
+        let dedicatedAlbum = TestFixtures.makeAlbum(id: "MPRE-dedicated", title: "Dedicated Album")
+        let fallbackDuplicate = TestFixtures.makeAlbum(id: "MPRE-dedicated", title: "Fallback Title")
+        let fallbackOnlyAlbum = TestFixtures.makeAlbum(id: "MPRE-fallback", title: "Fallback Album")
+
+        let albums = PlaylistParser.mergedLibraryAlbums(
+            dedicated: [dedicatedAlbum],
+            fallback: [fallbackDuplicate, fallbackOnlyAlbum]
+        )
+
+        #expect(albums.map(\.id) == ["MPRE-dedicated", "MPRE-fallback"])
+        #expect(albums.map(\.title) == ["Dedicated Album", "Fallback Album"])
+    }
+
     @Test("Parse library playlist delete eligibility")
     func parseLibraryPlaylistDeleteEligibility() {
         let data: [String: Any] = [
@@ -149,12 +164,444 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(content.playlists.map(\.title) == ["Grid Playlist", "Shelf Playlist"])
         #expect(content.playlists.map(\.author?.name) == ["Grid Curator", "Shelf Curator"])
 
+        #expect(content.albums.map(\.id) == ["MPREGRIDALBUM123", "MPRESHELFALBUM456"])
+        #expect(content.albums.map(\.title) == ["Grid Album", "Shelf Album"])
+        #expect(content.albums.map(\.artistsDisplay) == ["Grid Album Artist", "Shelf Album Artist"])
+        #expect(content.albums.map(\.year) == ["2024", "2023"])
+        #expect(content.albums.map(\.libraryTargetId) == ["OLAKGRIDALBUM123", "OLAKSHELFALBUM456"])
+
         #expect(content.artists.map(\.id) == ["MPLAUCGRIDARTIST123", "MPLAUCSHELFARTIST456"])
         #expect(content.artists.map(\.name) == ["Grid Artist", "Shelf Artist"])
 
         #expect(content.podcastShows.map(\.id) == ["MPSPPGRID123", "MPSPPSHELF456"])
         #expect(content.podcastShows.map(\.title) == ["Grid Podcast", "Shelf Podcast"])
         #expect(content.podcastShows.map(\.author) == ["Grid Host", "Shelf Host"])
+
+        let page = PlaylistParser.parseLibraryAlbumsPage(data)
+        #expect(page.albums == content.albums)
+
+        let dedicatedAlbums = PlaylistParser.parseLibraryAlbums(data)
+        #expect(dedicatedAlbums == content.albums)
+    }
+
+    @Test("Parse saved albums from both grid and shelf sections")
+    func parseLibraryAlbumsPageFromGridAndShelf() {
+        let page = PlaylistParser.parseLibraryAlbumsPage(
+            self.makeLibraryAlbumsGridAndShelfData()
+        )
+
+        #expect(page.albums.map(\.id) == ["MPREGRIDALBUM789", "MPRESHELFALBUM456"])
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse initial saved albums page with continuation token")
+    func parseLibraryAlbumsPage() {
+        let page = PlaylistParser.parseLibraryAlbumsPage(
+            self.makeLibraryAlbumsPageData(
+                albumID: "MPREINITIAL123",
+                title: "Initial Album",
+                continuationToken: "albums-page-2"
+            )
+        )
+
+        #expect(page.albums.map(\.id) == ["MPREINITIAL123"])
+        #expect(page.albums.map(\.artistsDisplay) == ["Initial Album Artist"])
+        #expect(page.albums.map(\.year) == ["2022"])
+        #expect(page.nextPage == "albums-page-2")
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse legacy saved albums continuation")
+    func parseLibraryAlbumsLegacyContinuation() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation(
+            self.makeLibraryAlbumsLegacyContinuationData(continuationToken: "albums-page-3")
+        )
+
+        #expect(page.albums.map(\.id) == ["MPRELEGACY456"])
+        #expect(page.nextPage == "albums-page-3")
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse saved albums shelf continuation")
+    func parseLibraryAlbumsShelfContinuation() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation(
+            self.makeLibraryAlbumsShelfContinuationData(continuationToken: "albums-page-4")
+        )
+
+        #expect(page.albums.map(\.id) == ["MPRESHELFALBUM456"])
+        #expect(page.nextPage == "albums-page-4")
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse command-executor saved albums continuation")
+    func parseLibraryAlbumsCommandExecutorContinuation() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation([
+            "continuationContents": [
+                "musicShelfContinuation": [
+                    "contents": [
+                        self.makeLibraryAlbumItem(
+                            id: "MPRECOMMANDEXECUTOR",
+                            title: "Command Executor Album",
+                            artist: "Command Executor Artist",
+                            year: "2026"
+                        ),
+                        [
+                            "continuationItemRenderer": [
+                                "continuationEndpoint": [
+                                    "commandExecutorCommand": [
+                                        "commands": [[
+                                            "continuationCommand": [
+                                                "token": "albums-command-executor-page",
+                                            ],
+                                        ]],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPRECOMMANDEXECUTOR"])
+        #expect(page.nextPage == "albums-command-executor-page")
+        #expect(page.isRecognized)
+    }
+
+    @Test("Mark malformed saved-album shelf continuation as partial")
+    func markMalformedShelfContinuationAsPartial() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation([
+            "continuationContents": [
+                "musicShelfContinuation": [
+                    "contents": [
+                        self.makeLibraryAlbumItem(
+                            id: "MPRECONTINUED",
+                            title: "Continued Album",
+                            artist: "Continued Artist",
+                            year: "2026"
+                        ),
+                        [
+                            "continuationItemRenderer": [
+                                "continuationEndpoint": [
+                                    "commandExecutorCommand": [:],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPRECONTINUED"])
+        #expect(page.nextPages.isEmpty)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Mark malformed renderer-level continuation page as partial")
+    func markMalformedRendererContinuationPageAsPartial() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation([
+            "continuationContents": [
+                "gridContinuation": [
+                    "items": [self.makeLibraryAlbumItem(
+                        id: "MPREMALFORMEDPAGE",
+                        title: "Malformed Page Album",
+                        artist: "Test Artist",
+                        year: "2026"
+                    )],
+                    "continuations": [["nextContinuationData": [:]]],
+                ],
+            ],
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPREMALFORMEDPAGE"])
+        #expect(page.nextPages.isEmpty)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Mark malformed renderer-level continuation as partial")
+    func markMalformedRendererContinuationAsPartial() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "gridRenderer": [
+                                            "items": [self.makeLibraryAlbumItem(
+                                                id: "MPREMALFORMEDCONTINUATION",
+                                                title: "Malformed Continuation Album",
+                                                artist: "Test Artist",
+                                                year: "2026"
+                                            )],
+                                            "continuations": [["nextContinuationData": [:]]],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPREMALFORMEDCONTINUATION"])
+        #expect(page.nextPages.isEmpty)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Parse append-action saved albums continuation")
+    func parseLibraryAlbumsAppendActionContinuation() {
+        let page = PlaylistParser.parseLibraryAlbumsContinuation(
+            self.makeLibraryAlbumsAppendContinuationData(continuationToken: "albums-page-4")
+        )
+
+        #expect(page.albums.map(\.id) == ["MPREAPPEND789"])
+        #expect(page.nextPage == "albums-page-4")
+        #expect(page.isRecognized)
+    }
+
+    @Test("Reject an ambiguous saved-albums tab shell without a renderer")
+    func rejectAmbiguousLibraryAlbumsTabShell() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [:],
+                    ]],
+                ],
+            ],
+            "responseContext": Self.loggedInResponseContext(value: "1"),
+        ])
+
+        #expect(page.albums.isEmpty)
+        #expect(page.nextPage == nil)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Reject a signed-out message response as an album collection")
+    func rejectSignedOutLibraryAlbumsResponse() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "itemSectionRenderer": [
+                                            "contents": [[
+                                                "messageRenderer": [
+                                                    "button": [
+                                                        "buttonRenderer": [
+                                                            "navigationEndpoint": [
+                                                                "signInEndpoint": [:],
+                                                            ],
+                                                        ],
+                                                    ],
+                                                ],
+                                            ]],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+            "responseContext": Self.loggedInResponseContext(value: "0"),
+        ])
+
+        #expect(page.albums.isEmpty)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Aggregate albums across multiple saved-album shelves")
+    func parseLibraryAlbumsAcrossMultipleShelves() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [[
+                                                    "musicResponsiveListItemRenderer": [
+                                                        "navigationEndpoint": [
+                                                            "browseEndpoint": ["browseId": "VLPLAYLIST"],
+                                                        ],
+                                                        "flexColumns": [[
+                                                            "musicResponsiveListItemFlexColumnRenderer": [
+                                                                "text": ["runs": [["text": "Playlist"]]],
+                                                            ],
+                                                        ]],
+                                                    ],
+                                                ]],
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [
+                                                    self.makeLibraryResponsiveAlbumItem(
+                                                        id: "MPRESHELFONE",
+                                                        title: "Shelf One"
+                                                    ),
+                                                ],
+                                                "continuations": [[
+                                                    "nextContinuationData": ["continuation": "shelf-one-next"],
+                                                ]],
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [
+                                                    self.makeLibraryResponsiveAlbumItem(
+                                                        id: "MPRESHELFTWO",
+                                                        title: "Shelf Two"
+                                                    ),
+                                                ],
+                                                "continuations": [[
+                                                    "nextContinuationData": ["continuation": "shelf-two-next"],
+                                                ]],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPRESHELFONE", "MPRESHELFTWO"])
+        #expect(page.nextPages == ["shelf-one-next", "shelf-two-next"])
+        #expect(page.isRecognized)
+    }
+
+    @Test("Recognize an empty saved-albums shelf")
+    func recognizeEmptyLibraryAlbumsShelf() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+            "responseContext": Self.loggedInResponseContext(value: "1"),
+        ])
+
+        #expect(page.albums.isEmpty)
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse saved album rows from a non-grid shelf")
+    func parseLibraryAlbumsShelfPage() {
+        let page = PlaylistParser.parseLibraryAlbumsPage([
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [[
+                                        "musicShelfRenderer": [
+                                            "contents": [self.makeMixedLibraryShelfAlbumItem()],
+                                        ],
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+            "responseContext": Self.loggedInResponseContext(value: "1"),
+        ])
+
+        #expect(page.albums.map(\.id) == ["MPRESHELFALBUM456"])
+        #expect(page.isRecognized)
+    }
+
+    @Test("Parse responsive saved album rows directly from the grid")
+    func parseResponsiveLibraryAlbumsPage() {
+        let data = self.makeLibraryAlbumsGridData(items: [self.makeMixedLibraryShelfAlbumItem()])
+        let page = PlaylistParser.parseLibraryAlbumsPage(data)
+
+        #expect(page.albums.map(\.id) == ["MPRESHELFALBUM456"])
+        #expect(page.isRecognized)
+        #expect(PlaylistParser.parseLibraryAlbums(data).map(\.id) == ["MPRESHELFALBUM456"])
+    }
+
+    @Test("Mark a mixed supported and unknown album grid as partial")
+    func markPartiallyParsedLibraryAlbumsGrid() {
+        let page = PlaylistParser.parseLibraryAlbumsPage(
+            self.makeLibraryAlbumsGridData(
+                items: [
+                    self.makeLibraryAlbumItem(
+                        id: "MPREPARSED",
+                        title: "Parsed Album",
+                        artist: "Parsed Artist",
+                        year: "2026"
+                    ),
+                    ["unknownRenderer": [:]],
+                ],
+                nextPage: "albums-page-2"
+            )
+        )
+
+        #expect(page.albums.map(\.id) == ["MPREPARSED"])
+        #expect(page.nextPages == ["albums-page-2"])
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Mark an unconsumed continuation sentinel as partial")
+    func markMalformedAlbumContinuationAsPartial() {
+        let page = PlaylistParser.parseLibraryAlbumsPage(
+            self.makeLibraryAlbumsGridData(items: [
+                self.makeLibraryAlbumItem(
+                    id: "MPREPARSED",
+                    title: "Parsed Album",
+                    artist: "Parsed Artist",
+                    year: "2026"
+                ),
+                [
+                    "continuationItemRenderer": [
+                        "continuationEndpoint": [
+                            "commandExecutorCommand": [:],
+                        ],
+                    ],
+                ],
+            ])
+        )
+
+        #expect(page.albums.map(\.id) == ["MPREPARSED"])
+        #expect(page.nextPages.isEmpty)
+        #expect(!page.isRecognized)
+    }
+
+    @Test("Reject an album grid whose nonempty items cannot be parsed")
+    func rejectUnrecognizedLibraryAlbumsGrid() {
+        let page = PlaylistParser.parseLibraryAlbumsPage(
+            self.makeLibraryAlbumsGridData(items: [["unknownRenderer": [:]]])
+        )
+
+        #expect(page.albums.isEmpty)
+        #expect(!page.isRecognized)
     }
 
     @Test("Parse dedicated library artists response")
@@ -236,6 +683,47 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(detail.author?.name == "Album Artist")
         #expect(detail.author?.id == "UCALBUMARTIST")
         #expect(detail.trackCount == 1)
+    }
+
+    @Test("Parse album library target playlist ID")
+    func parseAlbumLibraryTargetPlaylistID() {
+        var data = self.makePlaylistDetailData(
+            title: "Album Title",
+            description: nil,
+            author: "Album Artist",
+            trackCount: 1
+        )
+        data["albumHeader"] = [
+            "musicResponsiveHeaderRenderer": [
+                "buttons": [[
+                    "musicPlayButtonRenderer": [
+                        "playNavigationEndpoint": [
+                            "watchPlaylistEndpoint": ["playlistId": "OLAK-library-target"],
+                        ],
+                    ],
+                ]],
+            ],
+        ]
+        data["relatedAlbum"] = ["playlistId": "OLAK-unrelated-target"]
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE-album")
+
+        #expect(detail.libraryTargetId == "OLAK-library-target")
+    }
+
+    @Test("Ignore album library targets outside the album header")
+    func ignoreAlbumLibraryTargetOutsideHeader() {
+        var data = self.makePlaylistDetailData(
+            title: "Album Title",
+            description: nil,
+            author: "Album Artist",
+            trackCount: 1
+        )
+        data["relatedAlbum"] = ["playlistId": "OLAK-unrelated-target"]
+
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE-album")
+
+        #expect(detail.libraryTargetId == nil)
     }
 
     @Test("Parse responsive album detail uses strapline artist and ignores duration metadata")
@@ -1172,6 +1660,55 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
             ],
             [
                 "musicTwoRowItemRenderer": [
+                    "title": ["runs": [["text": "Grid Album"]]],
+                    "subtitle": [
+                        "runs": [
+                            ["text": "Album"],
+                            ["text": " • "],
+                            [
+                                "text": "Grid Album Artist",
+                                "navigationEndpoint": [
+                                    "browseEndpoint": [
+                                        "browseId": "UCGRIDALBUMARTIST123",
+                                        "browseEndpointContextSupportedConfigs": [
+                                            "browseEndpointContextMusicConfig": [
+                                                "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                            ["text": " • "],
+                            ["text": "2024"],
+                        ],
+                    ],
+                    "navigationEndpoint": [
+                        "browseEndpoint": [
+                            "browseId": "MPREGRIDALBUM123",
+                            "browseEndpointContextSupportedConfigs": [
+                                "browseEndpointContextMusicConfig": [
+                                    "pageType": "MUSIC_PAGE_TYPE_ALBUM",
+                                ],
+                            ],
+                        ],
+                    ],
+                    "menu": [
+                        "menuRenderer": [
+                            "items": [[
+                                "toggleMenuServiceItemRenderer": [
+                                    "toggledServiceEndpoint": [
+                                        "likeEndpoint": [
+                                            "target": ["playlistId": "OLAKGRIDALBUM123"],
+                                        ],
+                                    ],
+                                ],
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                "musicTwoRowItemRenderer": [
                     "title": ["runs": [["text": "Grid Artist"]]],
                     "navigationEndpoint": [
                         "browseEndpoint": ["browseId": "MPLAUCGRIDARTIST123"],
@@ -1211,6 +1748,7 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                     ],
                 ],
             ],
+            self.makeMixedLibraryShelfAlbumItem(),
             [
                 "musicResponsiveListItemRenderer": [
                     "navigationEndpoint": [
@@ -1239,6 +1777,320 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                         [
                             "musicResponsiveListItemFlexColumnRenderer": [
                                 "text": ["runs": [["text": "Shelf Host"]]],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeMixedLibraryShelfAlbumItem() -> [String: Any] {
+        [
+            "musicResponsiveListItemRenderer": [
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": "MPRESHELFALBUM456",
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_ALBUM",
+                            ],
+                        ],
+                    ],
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Shelf Album"]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": [
+                                "runs": [
+                                    [
+                                        "text": "Shelf Album Artist",
+                                        "navigationEndpoint": [
+                                            "browseEndpoint": [
+                                                "browseId": "UCSHELFALBUMARTIST456",
+                                                "browseEndpointContextSupportedConfigs": [
+                                                    "browseEndpointContextMusicConfig": [
+                                                        "pageType": "MUSIC_PAGE_TYPE_ARTIST",
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                    ["text": " • "],
+                                    ["text": "2023"],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                "menu": [
+                    "menuRenderer": [
+                        "items": [[
+                            "toggleMenuServiceItemRenderer": [
+                                "toggledServiceEndpoint": [
+                                    "likeEndpoint": [
+                                        "target": ["playlistId": "OLAKSHELFALBUM456"],
+                                    ],
+                                ],
+                            ],
+                        ]],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryResponsiveAlbumItem(id: String, title: String) -> [String: Any] {
+        [
+            "musicResponsiveListItemRenderer": [
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": id,
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_ALBUM",
+                            ],
+                        ],
+                    ],
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": title]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": [
+                                "runs": [
+                                    ["text": "Album"],
+                                    ["text": " • "],
+                                    ["text": "Test Artist"],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryAlbumsGridAndShelfData() -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [
+                                        [
+                                            "gridRenderer": [
+                                                "items": [
+                                                    self.makeLibraryAlbumItem(
+                                                        id: "MPREGRIDALBUM789",
+                                                        title: "Grid Album",
+                                                        artist: "Grid Artist",
+                                                        year: "2025"
+                                                    ),
+                                                ],
+                                            ],
+                                        ],
+                                        [
+                                            "musicShelfRenderer": [
+                                                "contents": [self.makeMixedLibraryShelfAlbumItem()],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private static func loggedInResponseContext(value: String) -> [String: Any] {
+        [
+            "serviceTrackingParams": [[
+                "params": [
+                    [
+                        "key": "logged_in",
+                        "value": value,
+                    ],
+                    [
+                        "key": "browse_id",
+                        "value": "FEmusic_liked_albums",
+                    ],
+                ],
+            ]],
+        ]
+    }
+
+    private func makeLibraryAlbumsGridData(
+        items: [[String: Any]],
+        nextPage: String? = nil
+    ) -> [String: Any] {
+        var gridRenderer: [String: Any] = [
+            "items": items,
+        ]
+        if let nextPage {
+            gridRenderer["continuations"] = [[
+                "nextContinuationData": ["continuation": nextPage],
+            ]]
+        }
+
+        return [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [["gridRenderer": gridRenderer]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryAlbumsPageData(
+        albumID: String,
+        title: String,
+        continuationToken: String?
+    ) -> [String: Any] {
+        var gridRenderer: [String: Any] = [
+            "items": [self.makeLibraryAlbumItem(id: albumID, title: title, artist: "Initial Album Artist", year: "2022")],
+        ]
+        if let continuationToken {
+            gridRenderer["continuations"] = [[
+                "nextContinuationData": ["continuation": continuationToken],
+            ]]
+        }
+
+        return [
+            "contents": [
+                "singleColumnBrowseResultsRenderer": [
+                    "tabs": [[
+                        "tabRenderer": [
+                            "content": [
+                                "sectionListRenderer": [
+                                    "contents": [["gridRenderer": gridRenderer]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryAlbumsShelfContinuationData(continuationToken: String?) -> [String: Any] {
+        var contents = [self.makeMixedLibraryShelfAlbumItem()]
+        if let continuationToken {
+            contents.append([
+                "continuationItemRenderer": [
+                    "continuationEndpoint": [
+                        "continuationCommand": ["token": continuationToken],
+                    ],
+                ],
+            ])
+        }
+
+        return [
+            "continuationContents": [
+                "musicShelfContinuation": [
+                    "contents": contents,
+                ],
+            ],
+        ]
+    }
+
+    private func makeLibraryAlbumsLegacyContinuationData(continuationToken: String?) -> [String: Any] {
+        var gridContinuation: [String: Any] = [
+            "items": [
+                self.makeLibraryAlbumItem(
+                    id: "MPRELEGACY456",
+                    title: "Legacy Continuation Album",
+                    artist: "Legacy Artist",
+                    year: "2021"
+                ),
+            ],
+        ]
+        if let continuationToken {
+            gridContinuation["continuations"] = [[
+                "nextContinuationData": ["continuation": continuationToken],
+            ]]
+        }
+
+        return [
+            "continuationContents": [
+                "gridContinuation": gridContinuation,
+            ],
+        ]
+    }
+
+    private func makeLibraryAlbumsAppendContinuationData(continuationToken: String?) -> [String: Any] {
+        var continuationItems = [
+            self.makeLibraryAlbumItem(
+                id: "MPREAPPEND789",
+                title: "Append Continuation Album",
+                artist: "Append Artist",
+                year: "2020"
+            ),
+        ]
+        if let continuationToken {
+            continuationItems.append([
+                "continuationItemRenderer": [
+                    "continuationEndpoint": [
+                        "continuationCommand": ["token": continuationToken],
+                    ],
+                ],
+            ])
+        }
+
+        return [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": continuationItems,
+                ],
+            ]],
+        ]
+    }
+
+    private func makeLibraryAlbumItem(
+        id: String,
+        title: String,
+        artist: String,
+        year: String
+    ) -> [String: Any] {
+        [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": title]]],
+                "subtitle": [
+                    "runs": [
+                        ["text": "Album"],
+                        ["text": " • "],
+                        ["text": artist],
+                        ["text": " • "],
+                        ["text": year],
+                    ],
+                ],
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": id,
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_ALBUM",
                             ],
                         ],
                     ],

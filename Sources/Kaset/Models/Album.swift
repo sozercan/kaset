@@ -10,6 +10,25 @@ struct Album: Identifiable, Codable, Hashable {
     let thumbnailURL: URL?
     let year: String?
     let trackCount: Int?
+    let libraryTargetId: String?
+
+    init(
+        id: String,
+        title: String,
+        artists: [Artist]?,
+        thumbnailURL: URL?,
+        year: String?,
+        trackCount: Int?,
+        libraryTargetId: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.artists = artists
+        self.thumbnailURL = thumbnailURL
+        self.year = year
+        self.trackCount = trackCount
+        self.libraryTargetId = libraryTargetId
+    }
 
     /// Display string for artists (comma-separated).
     var artistsDisplay: String {
@@ -38,6 +57,7 @@ extension Album {
                 self.thumbnailURL = nil
                 self.year = nil
                 self.trackCount = nil
+                self.libraryTargetId = nil
                 return
             }
             return nil
@@ -71,5 +91,7 @@ extension Album {
         } else {
             self.trackCount = nil
         }
+
+        self.libraryTargetId = data["playlistId"] as? String
     }
 }

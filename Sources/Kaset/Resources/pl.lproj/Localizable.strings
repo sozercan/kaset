@@ -288,6 +288,7 @@
 "No Playlists" = "Brak playlist";
 "No playlists" = "Brak playlist";
 "No playlists yet" = "Nie ma jeszcze playlist";
+"No albums yet" = "Nie ma jeszcze albumów";
 "No podcasts yet" = "Nie ma jeszcze podcastów";
 "No Queue" = "Brak kolejki";
 "No recommendations yet" = "Nie ma jeszcze rekomendacji";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Romanizuj tekst";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Zapisuj playlisty i subskrybuj podcasty w YouTube Music, aby zobaczyć je tutaj.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Zapisuj playlisty, obserwuj artystów i subskrybuj podcasty w YouTube Music, aby zobaczyć je tutaj.";
+"Save albums on YouTube Music to see them here." = "Zapisuj albumy w YouTube Music, aby zobaczyć je tutaj.";
 "Save shuffle and repeat settings across app restarts" = "Zapisuj ustawienia losowania i powtarzania między ponownymi uruchomieniami aplikacji";
 "Save the current queue as a new private playlist." = "Zapisz bieżącą kolejkę jako nową prywatną playlistę.";
 "Save to Playlist" = "Zapisz do playlisty";

@@ -14,13 +14,13 @@ struct PlaylistDetailView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
     @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
-    /// Tracks whether this playlist has been added to library in this session.
-    @State var isAddedToLibrary: Bool = false
     /// Whether the refine playlist sheet is visible.
     @State var showRefineSheet: Bool = false
+    /// Whether an add/remove Library request is currently in flight.
+    @State var libraryMutationActivity = PlaylistDetailLibraryMutationActivity()
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.
@@ -31,7 +31,17 @@ struct PlaylistDetailView: View {
     @State private var refineError: String?
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
-        self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
+        if self.playlist.isAlbum {
+            return self.libraryViewModel?.isInLibrary(
+                albumId: self.playlist.id,
+                targetPlaylistId: self.viewModel.playlistDetail?.libraryTargetId
+            ) ?? false
+        }
+        return self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
+    }
+
+    var isUpdatingLibrary: Bool {
+        self.libraryMutationActivity.isActive
     }
 
     var hasPersonalAccount: Bool {
@@ -616,28 +626,6 @@ struct PlaylistDetailView: View {
                 isPlayable: song.isPlayable,
                 playlistSetVideoId: song.playlistSetVideoId
             )
-        }
-    }
-
-    func toggleLibrary() {
-        let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-        HapticService.success()
-        Task {
-            if currentlyInLibrary {
-                await SongActionsHelper.removePlaylistFromLibrary(
-                    self.playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
-                self.isAddedToLibrary = false
-            } else {
-                await SongActionsHelper.addPlaylistToLibrary(
-                    self.playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
-                self.isAddedToLibrary = true
-            }
         }
     }
 

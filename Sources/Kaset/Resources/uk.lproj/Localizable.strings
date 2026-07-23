@@ -288,6 +288,7 @@
 "No Playlists" = "Немає плейлистів";
 "No playlists" = "Немає плейлистів";
 "No playlists yet" = "Поки що немає плейлистів";
+"No albums yet" = "Поки що немає альбомів";
 "No podcasts yet" = "Поки що немає подкастів";
 "No Queue" = "Черга порожня";
 "No recommendations yet" = "Рекомендацій ще немає";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Романізувати текст пісні";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Зберігайте плейлисти та підписуйтеся на подкасти в YouTube Music, щоб побачити їх тут.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Зберігайте плейлисти, підписуйтеся на виконавців і подкасти в YouTube Music, щоб побачити їх тут.";
+"Save albums on YouTube Music to see them here." = "Зберігайте альбоми в YouTube Music, щоб побачити їх тут.";
 "Save shuffle and repeat settings across app restarts" = "Зберігати налаштування перемішування та повтору між перезапусками програми";
 "Save the current queue as a new private playlist." = "Збережіть поточну чергу як новий приватний плейлист.";
 "Save to Playlist" = "Зберегти до плейлиста";

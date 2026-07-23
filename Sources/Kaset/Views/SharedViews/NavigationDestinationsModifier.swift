@@ -7,7 +7,7 @@ import SwiftUI
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
     let playerBarNavigationAction: PlayerBarNavigationAction
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     // swiftlint:disable:next function_body_length
@@ -39,6 +39,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 ),
                                 playerBarNavigationAction: self.playerBarNavigationAction
                             )
+                            .environment(\.libraryViewModel, self.libraryViewModel)
                         } else {
                             SimplePlaylistDetailView(
                                 playlist: playlist,
@@ -48,6 +49,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 ),
                                 playerBarNavigationAction: self.playerBarNavigationAction
                             )
+                            .environment(\.libraryViewModel, self.libraryViewModel)
                         }
                     }
                 } else {
@@ -60,6 +62,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             ),
                             playerBarNavigationAction: self.playerBarNavigationAction
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
                         SimplePlaylistDetailView(
                             playlist: playlist,
@@ -69,6 +72,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             ),
                             playerBarNavigationAction: self.playerBarNavigationAction
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     }
                 }
             }
@@ -99,7 +103,7 @@ struct NavigationDestinationsModifier: ViewModifier {
             }
             .navigationDestination(for: PodcastShow.self) { [libraryViewModel] show in
                 PodcastShowView(show: show, client: self.client)
-                    .environment(libraryViewModel)
+                    .environment(\.libraryViewModel, libraryViewModel)
             }
             .navigationDestination(for: ArtistSeeAllDestination.self) { destination in
                 switch destination.endpoint.pageType {

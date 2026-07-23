@@ -206,8 +206,9 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 | `FEmusic_charts` | Charts | 🌐 | Top songs, albums by country/genre | `HomeResponseParser` |
 | `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | Browse by mood/genre grids | `HomeResponseParser` |
 | `FEmusic_new_releases` | New Releases | 🌐 | Recent albums, singles, videos | `HomeResponseParser` |
-| `FEmusic_library_landing` | Library Landing | 🔐 | All library content (playlists, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
+| `FEmusic_library_landing` | Library Landing | 🔐 | Library content previews (playlists, albums, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
 | `FEmusic_liked_playlists` | Library Playlists | 🔐 | User's saved/created playlists | `PlaylistParser` |
+| `FEmusic_liked_albums` | Library Albums | 🔐 | User's saved albums | `PlaylistParser.parseLibraryAlbumsPage` / `parseLibraryAlbumsContinuation` |
 | `FEmusic_library_privately_owned_tracks` | Uploaded Songs | 🔐 | User-uploaded songs with playlist-style rows and continuation | `PlaylistParser` |
 | `VLLM` | Liked Songs | 🔐 | All songs user has liked (with pagination) | `PlaylistParser` |
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
@@ -270,6 +271,21 @@ let body = ["browseId": "FEmusic_liked_playlists"]
 
 ---
 
+#### Library Albums (`FEmusic_liked_albums`)
+
+```swift
+let body = ["browseId": "FEmusic_liked_albums"]
+// Requires authentication; params are optional for the default order
+```
+
+**Returns**: A paginated grid of saved albums with album browse IDs, artwork, artist metadata, and release year. Kaset follows grid continuation tokens until the saved-album collection is exhausted.
+
+**Parser**: Uses `PlaylistParser.parseLibraryAlbumsPage()` for the initial response and `PlaylistParser.parseLibraryAlbumsContinuation()` for subsequent grid pages, then merges any landing-page preview albums as a fallback.
+
+**Library mutations**: Album detail navigation uses an `MPRE...` browse ID, but `like/like` and `like/removelike` must target the album's `OLAK...` playlist ID. Album browse responses expose that playlist ID through play/queue endpoints even when the personalized Save button is unavailable.
+
+---
+
 #### Liked Songs (`VLLM`)
 
 > ⚠️ **Use `VLLM`, not `FEmusic_liked_videos`** — The `FEmusic_liked_videos` browse ID returns only ~13 songs with NO continuation token. To fetch all liked songs, use `VLLM` (VL prefix + LM playlist ID) which returns the full list with proper pagination.
@@ -297,7 +313,6 @@ These endpoints are functional but not yet implemented in Kaset.
 |-----------|------|------|----------|-------|
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
 | `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
-| `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_corpus_track_artists` | Library Artists (Artists chip) | 🔐 | Medium | Sign-in backed; returns `MPLAUC...` library artist pages |
 | `FEmusic_library_artists` | Library Artists (param-based) | 🔐 | Medium | Requires auth + params*; distinct from the Artists chip |
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
@@ -307,7 +322,9 @@ These endpoints are functional but not yet implemented in Kaset.
 
 > `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
 >
-> \* `FEmusic_library_albums`, `FEmusic_library_artists`, and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
+> `FEmusic_library_albums` is a legacy browse ID that currently returns HTTP 400. Saved albums use `FEmusic_liked_albums`; optional sorting params are not required for the default order.
+>
+> \* `FEmusic_library_artists` and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
 
 #### Uploaded Songs (`FEmusic_library_privately_owned_tracks`)
 
@@ -1141,7 +1158,7 @@ All parsers are located in `Sources/Kaset/Services/API/Parsers/`. Each parser is
 | `HomeResponseParser` | `HomeResponseParser.swift` | Home/Explore browse response | `HomeResponse` with `[HomeSection]` | `FEmusic_home`, `FEmusic_explore` |
 | `SearchResponseParser` | `SearchResponseParser.swift` | Search response | `SearchResponse` with songs, albums, artists, playlists | `search` endpoint |
 | `SearchSuggestionsParser` | `SearchSuggestionsParser.swift` | Suggestions response | `[SearchSuggestion]` | `music/get_search_suggestions` |
-| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_library_landing` |
+| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `[Album]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_liked_albums`, `FEmusic_library_landing` |
 | `ArtistParser` | `ArtistParser.swift` | Artist browse response | `ArtistDetail` with songs, albums | `UC{channelId}` |
 | `LyricsParser` | `LyricsParser.swift` | Next/lyrics response | `Lyrics` or lyrics browse ID | `next`, `MPLYt{id}` |
 | `PodcastParser` | `PodcastParser.swift` | Podcast browse response | `[PodcastSection]`, `PodcastShowDetail` | `FEmusic_podcasts`, `MPSPP{id}` |
@@ -1261,7 +1278,7 @@ let result = try await RetryPolicy.execute(
 
 | Feature | Endpoint | Effort | Impact |
 |---------|----------|--------|--------|
-| Library Albums | `FEmusic_library_albums` | Medium | Medium |
+| Library Albums | `FEmusic_liked_albums` | Implemented | Medium |
 | Library Artists | `FEmusic_library_corpus_track_artists` | Medium | Medium |
 | Add to Playlist | `playlist/get_add_to_playlist` + `browse/edit_playlist` | Implemented | Medium |
 
@@ -1377,7 +1394,7 @@ swift run api-explorer auth
 # If authenticated, explore library endpoints
 swift run api-explorer browse FEmusic_liked_playlists
 swift run api-explorer browse FEmusic_history
-swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
+swift run api-explorer browse FEmusic_liked_albums
 ```
 
 Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
@@ -1581,6 +1598,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 | Endpoint | Status | Notes |
 |----------|--------|-------|
 | `FEmusic_liked_playlists` | HTTP 200 | Works with session cookies |
+| `FEmusic_liked_albums` | HTTP 200* | Returns saved album rows with current auth; stale or missing auth returns a sign-in prompt |
 | `FEmusic_liked_videos` | HTTP 200 | Works with session cookies |
 | `FEmusic_history` | HTTP 200 | Returns login prompt without full auth |
 
@@ -1590,7 +1608,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 |----------|--------|-------|
 | `FEmusic_history` | HTTP 200* | Returns content with full auth, login prompt without |
 | `FEmusic_library_corpus_track_artists` | HTTP 200* | Returns library artist rows with full auth, sign-in prompt without |
-| `FEmusic_library_albums` | HTTP 400 | Needs auth + specific `params` value |
+| `FEmusic_library_albums` | HTTP 400 | Legacy saved-albums browse ID; use `FEmusic_liked_albums` |
 | `FEmusic_library_artists` | HTTP 400 | Rejected as invalid argument in current authenticated sessions |
 | `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |

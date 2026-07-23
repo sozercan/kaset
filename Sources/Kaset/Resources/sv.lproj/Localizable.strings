@@ -288,6 +288,7 @@
 "No Playlists" = "Inga spellistor";
 "No playlists" = "Inga spellistor";
 "No playlists yet" = "Inga spellistor ännu";
+"No albums yet" = "Inga album ännu";
 "No podcasts yet" = "Inga poddar ännu";
 "No Queue" = "Ingen kö";
 "No recommendations yet" = "Inga rekommendationer än";
@@ -395,6 +396,7 @@
 "Romanize Lyrics" = "Romanisera sångtext";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Spara spellistor och prenumerera på poddar i YouTube Music för att se dem här.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Spara spellistor, följ artister och prenumerera på poddar i YouTube Music för att se dem här.";
+"Save albums on YouTube Music to see them here." = "Spara album i YouTube Music för att se dem här.";
 "Save shuffle and repeat settings across app restarts" = "Spara inställningar för blandning och upprepning mellan omstarter";
 "Save the current queue as a new private playlist." = "Spara den aktuella kön som en ny privat spellista.";
 "Save to Playlist" = "Spara i spellista";

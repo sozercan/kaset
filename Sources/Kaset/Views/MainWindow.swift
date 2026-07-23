@@ -260,7 +260,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 VideoWindowController.shared.close()
             }
         }
-        .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
+        .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
+            let currentAccount = self.accountService.currentAccount
+            let newAccountId = self.accountService.currentAccount?.id
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.likeStatusManager.clearCache()
+            LibraryMutationActions.cancelAllPendingLibraryMutations()
+            self.libraryViewModel?.activateAccountScope(
+                newAccountScope,
+                isPrimary: currentAccount?.isPrimary == true
+            )
             self.playerService.resetTrackStatus()
             self.searchViewModel?.clear()
             self.podcastsViewModel?.configure(
@@ -597,12 +607,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             }
                         }
                         .navigationDestinations(
@@ -630,7 +642,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
     }
 
     private var hasPersonalAccount: Bool {
@@ -672,6 +684,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 } else {
                     SimplePlaylistDetailView(
                         playlist: item.playlistRoute,
@@ -680,12 +693,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 }
             }
             .id(item.contentId)
             .navigationDestinations(client: client)
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
             self.selectedSidebarPinnedItem = nil
             self.navigationSelection = .home
@@ -802,6 +816,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func rebuildMusicViewModels(accountId: String? = nil) {
+        LibraryMutationActions.cancelAllPendingLibraryMutations()
         self.homeViewModel = HomeViewModel(client: self.client)
         self.exploreViewModel = ExploreViewModel(client: self.client)
         self.searchViewModel = SearchViewModel(client: self.client)
@@ -815,7 +830,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             playlist: LikedMusicPlaylist.playlist,
             client: self.client
         )
-        self.libraryViewModel = LibraryViewModel(client: self.client)
+        let libraryViewModel = LibraryViewModel(client: self.client)
+        let currentAccount = self.accountService.currentAccount
+        libraryViewModel.activateAccountScope(
+            self.accountService.currentAccountScopeID,
+            isPrimary: currentAccount?.isPrimary == true
+        )
+        self.libraryViewModel = libraryViewModel
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()
         self.pinnedNavigationPaths = [:]
