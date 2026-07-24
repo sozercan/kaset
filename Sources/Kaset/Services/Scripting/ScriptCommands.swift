@@ -184,6 +184,33 @@ final class SetVolumeCommand: NSScriptCommand {
     }
 }
 
+// MARK: - SeekCommand
+
+/// Seek command: jump to a position (in seconds) in the current track.
+@objc(KasetSeekCommand)
+final class SeekCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let seconds = (directParameter as? NSNumber)?.doubleValue else {
+            logger.error("Seek command failed: invalid position parameter")
+            scriptErrorNumber = errAECoercionFail
+            scriptErrorString = "Position must be a number of seconds."
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("Seek command failed: PlayerService.shared is nil")
+            scriptErrorNumber = errPlayerNotAvailable
+            scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+        logger.info("Executing seek command to position: \(seconds)")
+        Task { @MainActor in
+            await playerService.seek(to: max(0, seconds))
+        }
+        return nil
+    }
+}
+
 // MARK: - ToggleShuffleCommand
 
 /// ToggleShuffle command: toggle shuffle mode.
