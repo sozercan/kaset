@@ -655,7 +655,8 @@ extension SingletonPlayerWebView {
                         : '';
 
                     let title = titleEl ? titleEl.textContent.trim() : '';
-                    let artist = artistEl ? artistEl.textContent.trim() : '';
+                    const domArtist = artistEl ? artistEl.textContent.trim() : '';
+                    const artist = playerArtist || domArtist;
                     const videoId = currentVideoId();
                     if (video) bindVideoIdentity(video, false);
                     const isAd = isAdShowing();
@@ -667,13 +668,13 @@ extension SingletonPlayerWebView {
                     }
                     let thumbnailUrl = '';
 
-                    // Prefer player API metadata when the DOM appears to be lagging behind the actual video.
+                    // Prefer player API title metadata when the DOM appears to be lagging behind the actual video.
+                    // Artist selection already prefers the structured author, which is locale-independent and
+                    // excludes volatile DOM byline metadata such as localized view counts.
                     if (playerTitle && title && playerTitle !== title) {
                         title = playerTitle;
-                        if (playerArtist) artist = playerArtist;
                     } else {
                         if (!title && playerTitle) title = playerTitle;
-                        if (!artist && playerArtist) artist = playerArtist;
                     }
 
                     // Get the thumbnail URL from the image element

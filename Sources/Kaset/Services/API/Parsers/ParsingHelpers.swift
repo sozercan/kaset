@@ -241,34 +241,69 @@ enum ParsingHelpers {
 
     /// Extracts artists from subtitle data.
     static func extractArtists(from data: [String: Any]) -> [Artist] {
-        var artists: [Artist] = []
-
-        if let subtitleData = data["subtitle"] as? [String: Any],
-           let runs = subtitleData["runs"] as? [[String: Any]]
-        {
-            for run in runs {
-                if let text = run["text"] as? String,
-                   text != " • ", text != " & ", text != ", "
-                {
-                    if let endpoint = run["navigationEndpoint"] as? [String: Any],
-                       let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
-                       let artistId = browseEndpoint["browseId"] as? String
-                    {
-                        artists.append(Artist(
-                            id: artistId,
-                            name: text,
-                            profileKind: Artist.profileKind(forPageType: Self.extractPageType(from: browseEndpoint))
-                        ))
-                    } else if !text.isEmpty {
-                        // Generate stable ID from artist name when no browse ID available
-                        let stableArtistId = Self.stableId(title: "artist", components: text)
-                        artists.append(Artist(id: stableArtistId, name: text))
-                    }
-                }
-            }
+        guard let subtitleData = data["subtitle"] as? [String: Any],
+              let runs = subtitleData["runs"] as? [[String: Any]]
+        else {
+            return []
         }
 
-        return artists
+        // Home-family subtitles use bullets/middle dots between metadata
+        // fields; co-artists stay within one field via ampersands or commas.
+        let fields = runs.split(whereSeparator: { run in
+            guard let text = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+                return false
+            }
+            return text == "•" || text == "·"
+        })
+
+        let parsedFields = fields.map { field -> (artists: [Artist], hasLinkedArtist: Bool) in
+            var artists: [Artist] = []
+            var hasLinkedArtist = false
+
+            for run in field {
+                guard let artistName = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      !artistName.isEmpty,
+                      !Self.isArtistSeparator(artistName)
+                else {
+                    continue
+                }
+
+                if let endpoint = run["navigationEndpoint"] as? [String: Any],
+                   let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any]
+                {
+                    if let artist = Self.extractArtist(from: browseEndpoint, name: artistName) {
+                        artists.append(artist)
+                        hasLinkedArtist = true
+                    }
+                } else if run["navigationEndpoint"] == nil,
+                          !Self.isMetadataText(artistName)
+                {
+                    artists.append(Artist(
+                        id: Self.stableId(title: "artist", components: artistName),
+                        name: artistName
+                    ))
+                }
+            }
+
+            return (artists, hasLinkedArtist)
+        }
+
+        // Fields with artist endpoints are authoritative, but preserve any
+        // endpoint-less co-artists in those same fields. Neighboring fields
+        // remain metadata and are deliberately not inferred as co-artists.
+        let linkedFieldArtists = parsedFields.reduce(into: [Artist]()) { artists, field in
+            if field.hasLinkedArtist {
+                artists.append(contentsOf: field.artists)
+            }
+        }
+        if !linkedFieldArtists.isEmpty {
+            return linkedFieldArtists
+        }
+
+        // Without artist endpoints, use the first artist-like field and ignore
+        // every later album/count/date field. This keeps localized metadata out
+        // without needing to recognize its wording.
+        return parsedFields.first(where: { !$0.artists.isEmpty })?.artists ?? []
     }
 
     /// Finds the OLAK playlist target used by album Library mutations.
@@ -713,81 +748,9 @@ enum ParsingHelpers {
         return nil
     }
 
-    /// Known content type keywords that should not be treated as artist names.
-    private static let contentTypeKeywords: Set<String> = [
-        "album", "artist", "audiobook", "ep", "episode", "playlist", "podcast",
-        "podcast episode", "profile", "single", "song", "video",
-    ]
-
     private static func isArtistSeparator(_ text: String) -> Bool {
         text == " • " || text == " · " || text == " & " || text == ", "
             || text == "•" || text == "·" || text == "&" || text == ","
-    }
-
-    private static func isMetadataText(_ text: String) -> Bool {
-        if self.contentTypeKeywords.contains(text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()) {
-            return true
-        }
-
-        let lowercased = text.lowercased()
-
-        if lowercased.contains(" views")
-            || lowercased.contains(" plays")
-            || lowercased.contains(" subscribers")
-            || lowercased.contains("episodes")
-        {
-            return true
-        }
-
-        if text.contains(":"), self.parseDuration(text) != nil {
-            return true
-        }
-
-        if self.containsDurationUnit(in: lowercased), self.isNaturalLanguageDuration(text) {
-            return true
-        }
-
-        if lowercased.contains("song") || lowercased.contains("track") {
-            if self.extractSongCount(from: text) != nil {
-                return true
-            }
-        }
-
-        return self.isStandaloneYear(text)
-    }
-
-    private static func isStandaloneYear(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count == 4,
-              trimmed.allSatisfy(\.isNumber),
-              let year = Int(trimmed)
-        else {
-            return false
-        }
-
-        return (1900 ... 2100).contains(year)
-    }
-
-    private static func isNaturalLanguageDuration(_ text: String) -> Bool {
-        let lowercased = text.lowercased()
-
-        guard Self.containsDurationUnit(in: lowercased) else {
-            return false
-        }
-
-        return lowercased.allSatisfy { character in
-            character.isNumber
-                || character.isWhitespace
-                || character == ","
-                || Self.durationUnitCharacters.contains(character)
-        }
-    }
-
-    private static let durationUnits = ["second", "seconds", "minute", "minutes", "hour", "hours"]
-    private static let durationUnitCharacters = Set("secondsecondsminuteminuteshourhours")
-
-    private static func containsDurationUnit(in lowercasedText: String) -> Bool {
-        self.durationUnits.contains { lowercasedText.contains($0) }
     }
 
     /// Extracts artists from flex columns.
