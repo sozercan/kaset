@@ -33,11 +33,19 @@ struct AccountSwitcherPopover: View {
 
                 // Accounts list
                 self.accountsListView
+
+                Divider()
+                    .opacity(0.3)
+                    .padding(.horizontal, 12)
+
+                self.signOutButton
             }
             .padding(10)
             .frame(minWidth: 280)
             .compatGlass(interactive: true, in: .rect(cornerRadius: 14))
             .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
+            // List-style rows; avoid the accent focus ring landing on Guest Mode when the popover opens.
+            .focusEffectDisabled()
         }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.container)
     }
@@ -133,7 +141,8 @@ struct AccountSwitcherPopover: View {
                     VStack(spacing: 0) {
                         AccountRowView(
                             account: account,
-                            isSelected: account == self.accountService.currentAccount,
+                            isSelected: !self.authService.isGuestModeEnabled
+                                && account == self.accountService.currentAccount,
                             onSelect: {
                                 Task {
                                     do {
@@ -162,6 +171,29 @@ struct AccountSwitcherPopover: View {
         .frame(maxHeight: 300)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountsList)
     }
+
+    private var signOutButton: some View {
+        Button {
+            Task {
+                await self.accountService.prepareForSignOut()
+                await self.authService.signOut()
+                self.dismiss()
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 40, height: 40)
+                Text(String(localized: "Sign Out"))
+                    .font(.body)
+                Spacer()
+            }
+            .foregroundStyle(.red)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(AccessibilityID.AccountSwitcher.signOutButton)
+    }
 }
 
 // MARK: - AccessibilityID.AccountSwitcher
@@ -172,6 +204,7 @@ extension AccessibilityID {
         static let header = "accountSwitcher.header"
         static let accountsList = "accountSwitcher.accountsList"
         static let guestModeRow = "accountSwitcher.guestMode"
+        static let signOutButton = "accountSwitcher.signOut"
 
         static func accountRow(index: Int) -> String {
             "accountSwitcher.account.\(index)"
