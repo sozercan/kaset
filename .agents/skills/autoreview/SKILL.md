@@ -17,8 +17,11 @@ Use when:
 - after non-trivial code edits, before final/commit/ship
 - reviewing a local branch or PR branch after fixes
 
-Flags, panels, non-macOS invocation, and operational edge cases live in
-[`reference.md`](reference.md) — read it when you need one, not upfront.
+Flags, panels, non-macOS invocation, helper locations for other checkouts, and
+operational edge cases live in [`reference.md`](reference.md). Read it when you need
+one — and read it before reviewing a **security-audit suppression** change or
+establishing **regression provenance**, because those two rules live there and are
+triggered by what you are reviewing rather than by a flag you went looking for.
 
 ## Contract
 
@@ -66,7 +69,7 @@ Flags, panels, non-macOS invocation, and operational edge cases live in
 Dirty local work:
 
 ```bash
-<autoreview-helper> --mode local
+.agents/skills/autoreview/scripts/autoreview --mode local
 ```
 
 Use this only when the patch is actually unstaged/staged/untracked in the current
@@ -77,14 +80,14 @@ first. A clean local review only proves there is no local patch.
 Branch/PR work:
 
 ```bash
-<autoreview-helper> --mode branch --base origin/main
+.agents/skills/autoreview/scripts/autoreview --mode branch --base origin/main
 ```
 
 If an open PR exists, use its actual base:
 
 ```bash
 base=$(gh pr view --json baseRefName --jq .baseRefName)
-<autoreview-helper> --mode branch --base "origin/$base"
+.agents/skills/autoreview/scripts/autoreview --mode branch --base "origin/$base"
 ```
 
 Committed single change:

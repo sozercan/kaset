@@ -6,6 +6,9 @@ edge cases below.
 
 ## Helper Locations
 
+`<autoreview-helper>` in the examples below stands for whichever of these paths exists
+in your environment. In this repo it is the repo-local one.
+
 Repo-local (preferred in this checkout):
 
 ```bash
