@@ -33,6 +33,7 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let lyricsQueueDrawerEnabled = "settings.lyricsQueueDrawerEnabled"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -412,6 +413,15 @@ final class SettingsManager {
         }
     }
 
+    /// When enabled, the Lyrics and Queue panels dock as a right-hand drawer that pushes the
+    /// content aside (like the left sidebar) instead of floating over it. Defaults to `false`
+    /// (the floating overlay).
+    var lyricsQueueDrawerEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.lyricsQueueDrawerEnabled, forKey: Keys.lyricsQueueDrawerEnabled)
+        }
+    }
+
     /// The style the YouTube watch page should request: the chosen style when
     /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
     /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
@@ -490,6 +500,7 @@ final class SettingsManager {
         )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.lyricsQueueDrawerEnabled = UserDefaults.standard.object(forKey: Keys.lyricsQueueDrawerEnabled) as? Bool ?? false
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif

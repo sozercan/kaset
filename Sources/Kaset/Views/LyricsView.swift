@@ -10,6 +10,9 @@ struct LyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    /// When true, renders flush content for the docked drawer (no fixed width / glass card);
+    /// the drawer container supplies the background.
+    var docked = false
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -27,23 +30,20 @@ struct LyricsView: View {
     @Namespace private var lyricsNamespace
 
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                if self.showsHeader {
-                    self.headerView
-
-                    Divider()
-                        .opacity(0.3)
+        Group {
+            if self.docked {
+                self.contentStack
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                CompatGlassContainer(spacing: 0) {
+                    self.contentStack
+                        .frame(width: self.preferredWidth)
+                        .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+                        .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
                 }
-
-                // Content
-                self.contentView
+                .compatGlassTransition(.materialize)
             }
-            .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
-            .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
         }
-        .compatGlassTransition(.materialize)
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != lastLoadedVideoId {
                 // Reset explanation when track changes
@@ -69,6 +69,20 @@ struct LyricsView: View {
         }
         .onAppear {
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+        }
+    }
+
+    private var contentStack: some View {
+        VStack(spacing: 0) {
+            if self.showsHeader {
+                self.headerView
+
+                Divider()
+                    .opacity(0.3)
+            }
+
+            // Content
+            self.contentView
         }
     }
 
