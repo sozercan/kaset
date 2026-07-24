@@ -222,12 +222,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
             if newValue {
-                // Manual trigger from Help menu — fetch release notes, bypass version store
+                // Manual trigger from Help menu — fetch exact-version release notes, bypass version store
                 Task { @MainActor in
-                    await self.presentCurrentWhatsNew(
-                        respectingPresentedVersions: false,
-                        allowsGenericFallback: true
-                    )
+                    await self.presentCurrentWhatsNew(respectingPresentedVersions: false)
                 }
                 self.showWhatsNew.wrappedValue = false
             }
@@ -880,15 +877,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     @MainActor
-    private func presentCurrentWhatsNew(
-        respectingPresentedVersions: Bool = true,
-        allowsGenericFallback: Bool = false
-    ) async {
+    private func presentCurrentWhatsNew(respectingPresentedVersions: Bool = true) async {
         let currentVersion = WhatsNew.Version.current()
         let whatsNew = await WhatsNewProvider.fetchWhatsNew(
             for: currentVersion,
             respectingPresentedVersions: respectingPresentedVersions
-        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
+        )
 
         guard let whatsNew else { return }
 

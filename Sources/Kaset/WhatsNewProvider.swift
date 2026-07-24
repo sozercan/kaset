@@ -41,8 +41,8 @@ enum WhatsNewProvider {
 
     // MARK: - Fetch from GitHub
 
-    /// Fetches the release notes for the current app version from GitHub.
-    /// Falls back to the static collection if the network request fails.
+    /// Fetches release notes pinned to the current app version from GitHub.
+    /// Falls back only to a static entry for that exact version.
     static func fetchWhatsNew(
         for currentVersion: WhatsNew.Version = .current(),
         store: WhatsNewVersionStore = WhatsNewVersionStore(),
@@ -76,16 +76,7 @@ enum WhatsNewProvider {
             return nil
         }
 
-        if let exact = fallbackCollection.first(where: { $0.version == currentVersion }) {
-            return exact
-        }
-
-        let minorVersion = currentVersion.minorRelease
-        if respectingPresentedVersions, store.hasPresented(minorVersion) {
-            return nil
-        }
-
-        return Self.fallbackCollection.first { $0.version == minorVersion }
+        return self.fallbackCollection.first { $0.version == currentVersion }
     }
 
     // MARK: - GitHub API
@@ -94,24 +85,40 @@ enum WhatsNewProvider {
         for version: WhatsNew.Version,
         session: URLSession = .shared
     ) async -> WhatsNew? {
-        // Try exact tag (v1.2.3), then minor (v1.2.0)
-        var tags: [String] = []
-
-        for candidate in [version, version.minorRelease] {
-            let tag = "v\(candidate.description)"
-            if !tags.contains(tag) {
-                tags.append(tag)
+        for tag in self.releaseTags(for: version) {
+            guard let whatsNew = await fetchRelease(tag: tag, session: session) else {
+                continue
             }
+
+            guard whatsNew.version == version else {
+                DiagnosticsLogger.app.debug(
+                    "Ignoring release notes for \(whatsNew.version.description); expected \(version.description)"
+                )
+                continue
+            }
+
+            return whatsNew
         }
 
-        for tag in tags {
-            if let whatsNew = await Self.fetchRelease(tag: tag, session: session) {
-                return whatsNew
-            }
+        return nil
+    }
+
+    /// Returns semantically equivalent tag spellings without considering another app version.
+    private static func releaseTags(for version: WhatsNew.Version) -> [String] {
+        let canonicalCore = "\(version.major).\(version.minor).\(version.patch)"
+        let suffix = version.description.dropFirst(canonicalCore.count)
+        var tags = ["v\(version.description)"]
+
+        guard version.patch == 0 else {
+            return tags
         }
 
-        // Try latest release as last resort
-        return await Self.fetchLatestRelease(session: session)
+        tags.append("v\(version.major).\(version.minor)\(suffix)")
+        if version.minor == 0 {
+            tags.append("v\(version.major)\(suffix)")
+        }
+
+        return tags
     }
 
     /// Fetches a release by tag — useful for testing a specific version.
@@ -123,12 +130,6 @@ enum WhatsNewProvider {
 
     private static func fetchRelease(tag: String, session: URLSession = .shared) async -> WhatsNew? {
         await self.fetchForTag(tag, session: session)
-    }
-
-    private static func fetchLatestRelease(session: URLSession = .shared) async -> WhatsNew? {
-        let urlString = "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/latest"
-        guard let url = URL(string: urlString) else { return nil }
-        return await Self.performRequest(url: url, session: session)
     }
 
     private static func performRequest(url: URL, session: URLSession = .shared) async -> WhatsNew? {
