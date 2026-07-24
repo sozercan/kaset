@@ -161,6 +161,10 @@ enum AccessibilityID {
         static let shuffleButton = "playlistDetailView.shuffleButton"
         static let tracksList = "playlistDetailView.tracksList"
         static let loadingIndicator = "playlistDetailView.loading"
+        static let searchPill = "playlistDetailView.searchPill"
+        static let searchField = "playlistDetailView.searchField"
+        static let clearSearchButton = "playlistDetailView.clearSearchButton"
+        static let searchEmptyState = "playlistDetailView.searchEmptyState"
 
         static func trackRow(index: Int) -> String {
             "playlistDetailView.track.\(index)"
