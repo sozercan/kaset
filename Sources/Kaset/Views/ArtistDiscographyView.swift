@@ -3,6 +3,7 @@ import SwiftUI
 /// View displaying an artist's full discography behind an Albums-shelf "See all".
 struct ArtistDiscographyView: View {
     @State var viewModel: ArtistDiscographyViewModel
+    @Environment(PlayerService.self) private var playerService
 
     var body: some View {
         Group {
@@ -44,12 +45,25 @@ struct ArtistDiscographyView: View {
             ) {
                 ForEach(self.viewModel.albums) { album in
                     NavigationLink(value: self.playlistFromAlbum(album)) {
-                        self.albumCard(album)
+                        PlayableArtistCard(playAction: self.quickPlayAction(for: album), thumbnailSize: 160) {
+                            self.albumCard(album)
+                        }
                     }
                     .buttonStyle(.plain)
                 }
             }
             .padding(24)
+        }
+    }
+
+    /// Quick-play action for an album card's hover play button.
+    private func quickPlayAction(for album: Album) -> () -> Void {
+        {
+            SongActionsHelper.playAlbum(
+                album,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
         }
     }
 

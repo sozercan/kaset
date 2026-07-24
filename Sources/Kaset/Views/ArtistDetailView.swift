@@ -2,6 +2,8 @@
 
 import SwiftUI
 
+// MARK: - ArtistDetailView
+
 /// Detail view for an artist showing their songs and albums.
 struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
@@ -485,7 +487,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             self.sectionHeader(title: title, shelfKind: shelfKind)
         } itemContent: { album in
             NavigationLink(value: self.playlistFromAlbum(album)) {
-                self.albumCard(album)
+                PlayableArtistCard(playAction: self.quickPlayAction(for: album), thumbnailSize: 140) {
+                    self.albumCard(album)
+                }
             }
             .buttonStyle(.plain)
         }
@@ -500,7 +504,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             self.sectionHeader(title: title, shelfKind: .playlistsByArtist)
         } itemContent: { playlist in
             NavigationLink(value: playlist) {
-                self.playlistCard(playlist)
+                PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: 140) {
+                    self.playlistCard(playlist)
+                }
             }
             .buttonStyle(.plain)
         }
@@ -530,6 +536,30 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             trackCount: album.trackCount,
             author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
         )
+    }
+
+    /// Quick-play action for an album card's hover play button.
+    private func quickPlayAction(for album: Album) -> () -> Void {
+        {
+            SongActionsHelper.playAlbum(
+                album,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
+
+    /// Quick-play action for a playlist card's hover play button. Nil for
+    /// mood-category tiles, which navigate rather than play.
+    private func quickPlayAction(for playlist: Playlist) -> (() -> Void)? {
+        guard SongActionsHelper.canQuickPlayPlaylist(playlist) else { return nil }
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
     }
 
     private func albumCard(_ album: Album) -> some View {
@@ -767,7 +797,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             self.sectionHeader(title: "Singles & EPs", shelfKind: .singles)
         } itemContent: { album in
             NavigationLink(value: self.playlistFromAlbum(album)) {
-                self.albumCard(album)
+                PlayableArtistCard(playAction: self.quickPlayAction(for: album), thumbnailSize: 140) {
+                    self.albumCard(album)
+                }
             }
             .buttonStyle(.plain)
         }
@@ -784,28 +816,32 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             self.sectionHeader(title: "Playlists", shelfKind: .playlistsByArtist)
         } itemContent: { playlist in
             NavigationLink(value: playlist) {
-                VStack(alignment: .leading, spacing: 8) {
-                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
-                        image
+                PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: 140) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        CachedAsyncImage(
+                            url: playlist.thumbnailURL?.highQualityThumbnailURL,
+                            targetSize: CGSize(width: 140, height: 140)
+                        ) { image in image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle()
-                            .fill(.quaternary)
-                            .overlay {
-                                Image(systemName: "music.note.list")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                            }
-                    }
-                    .frame(width: 140, height: 140)
-                    .clipShape(.rect(cornerRadius: 8))
+                        } placeholder: {
+                            Rectangle()
+                                .fill(.quaternary)
+                                .overlay {
+                                    Image(systemName: "music.note.list")
+                                        .font(.largeTitle)
+                                        .foregroundStyle(.secondary)
+                                }
+                        }
+                        .frame(width: 140, height: 140)
+                        .clipShape(.rect(cornerRadius: 8))
 
-                    Text(playlist.title)
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .frame(width: 140, alignment: .leading)
+                        Text(playlist.title)
+                            .font(.system(size: 12, weight: .medium))
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .frame(width: 140, alignment: .leading)
+                    }
                 }
             }
             .buttonStyle(.plain)

@@ -323,44 +323,67 @@ struct LibraryView: View {
         }
     }
 
+    private func quickPlayAction(for playlist: Playlist) -> (() -> Void)? {
+        guard SongActionsHelper.canQuickPlayPlaylist(playlist) else { return nil }
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
+
+    private func quickPlayAction(for album: Album) -> () -> Void {
+        {
+            SongActionsHelper.playAlbum(
+                album,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
+
     private func playlistCard(_ playlist: Playlist) -> some View {
         Button {
             self.navigationPath.append(playlist)
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
-                CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "music.note.list")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
-                .clipShape(.rect(cornerRadius: 8))
+            PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: self.libraryItemSize) {
+                VStack(alignment: .leading, spacing: 8) {
+                    // Thumbnail
+                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .overlay {
+                                Image(systemName: "music.note.list")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    .frame(width: self.libraryItemSize, height: self.libraryItemSize)
+                    .clipShape(.rect(cornerRadius: 8))
 
-                // Title
-                Text(playlist.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, alignment: .topLeading)
+                    // Title
+                    Text(playlist.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                // Track count
-                if let count = playlist.trackCount {
-                    Text("\(count) songs", comment: "Playlist track count")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: self.libraryItemSize, alignment: .leading)
+                    // Track count
+                    if let count = playlist.trackCount {
+                        Text("\(count) songs", comment: "Playlist track count")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: self.libraryItemSize, alignment: .leading)
+                    }
                 }
+                .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
             }
-            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -387,36 +410,38 @@ struct LibraryView: View {
         return Button {
             self.navigationPath.append(self.playlist(from: album))
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "square.stack")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
-                        }
+            PlayableArtistCard(playAction: self.quickPlayAction(for: album), thumbnailSize: self.libraryItemSize) {
+                VStack(alignment: .leading, spacing: 8) {
+                    CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .overlay {
+                                Image(systemName: "square.stack")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    .frame(width: self.libraryItemSize, height: self.libraryItemSize)
+                    .clipShape(.rect(cornerRadius: 8))
+
+                    Text(album.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: self.libraryItemSize, alignment: .topLeading)
+
+                    Text(metadata.isEmpty ? String(localized: "Album") : metadata)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .frame(width: self.libraryItemSize, alignment: .leading)
                 }
-                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
-                .clipShape(.rect(cornerRadius: 8))
-
-                Text(album.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, alignment: .topLeading)
-
-                Text(metadata.isEmpty ? String(localized: "Album") : metadata)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: self.libraryItemSize, alignment: .leading)
+                .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
             }
-            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
         .contextMenu {
@@ -483,42 +508,44 @@ struct LibraryView: View {
         Button {
             self.navigationPath.append(playlist)
         } label: {
-            VStack(alignment: .leading, spacing: 8) {
-                CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                        .overlay {
-                            Image(systemName: "tray.and.arrow.up.fill")
-                                .font(.largeTitle)
-                                .foregroundStyle(.secondary)
-                        }
-                }
-                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
-                .clipShape(.rect(cornerRadius: 8))
+            PlayableArtistCard(playAction: self.quickPlayAction(for: playlist), thumbnailSize: self.libraryItemSize) {
+                VStack(alignment: .leading, spacing: 8) {
+                    CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Rectangle()
+                            .fill(.quaternary)
+                            .overlay {
+                                Image(systemName: "tray.and.arrow.up.fill")
+                                    .font(.largeTitle)
+                                    .foregroundStyle(.secondary)
+                            }
+                    }
+                    .frame(width: self.libraryItemSize, height: self.libraryItemSize)
+                    .clipShape(.rect(cornerRadius: 8))
 
-                Text(playlist.title)
-                    .font(.system(size: 13, weight: .medium))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.leading)
-                    .frame(width: self.libraryItemSize, alignment: .topLeading)
+                    Text(playlist.title)
+                        .font(.system(size: 13, weight: .medium))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                        .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                if let count = playlist.trackCount {
-                    Text("\(count) songs", comment: "Uploaded songs count")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: self.libraryItemSize, alignment: .leading)
-                } else {
-                    Text(String(localized: "Uploads"))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                        .frame(width: self.libraryItemSize, alignment: .leading)
+                    if let count = playlist.trackCount {
+                        Text("\(count) songs", comment: "Uploaded songs count")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: self.libraryItemSize, alignment: .leading)
+                    } else {
+                        Text(String(localized: "Uploads"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .frame(width: self.libraryItemSize, alignment: .leading)
+                    }
                 }
+                .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
             }
-            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
     }
