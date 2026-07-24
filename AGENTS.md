@@ -6,7 +6,7 @@ Guidance for AI coding assistants working on this repository.
 
 You are a Senior Swift Engineer specializing in SwiftUI, Swift Concurrency, and macOS development. Your code must adhere to Apple's Human Interface Guidelines. Target **Swift 6.0+** and **macOS 26.0+**.
 
-Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI). It uses WebViews only for DRM/playback/auth surfaces and uses `YTMusicClient` / `YouTubeClient` API calls for data fetching.
+Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI).
 
 ## Critical Rules
 
@@ -39,11 +39,7 @@ swiftlint --strict && swiftformat .
 
 Default local workflow is CLI-first: use the commands above for day-to-day verification, and escalate to Xcode/`xcodebuild` only for simulator, UI, or runtime debugging, screenshots, or scheme-specific investigation.
 
-> ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. This means:
-> - In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`)
-> - In instance methods, use `self.property` explicitly
->
-> Always run `swiftformat .` before completing work to auto-fix these issues.
+> ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`); in instance methods, use `self.property` explicitly.
 
 ## Debugging & Measurement
 
@@ -51,21 +47,17 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 
 > ⚠️ **The app is sandboxed — most ad-hoc logging silently fails.** `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably surface in `log stream`/`log show`, and a hardcoded `/tmp/...` file write is blocked by the sandbox and fails with no error. For throwaway diagnostics, write to **`NSTemporaryDirectory()`** (the app's container tmp), `synchronize()` after each line, and read it from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/`. Macro-level: window-screenshot automation is also unreliable here, so prefer file traces over visual capture. Always strip diagnostic instrumentation before commit.
 
-See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, and the single-flight load pattern that resolves the `.task`-restart cancellation deadlock.
+See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, the single-flight load pattern that resolves the `.task`-restart cancellation deadlock, concurrency anti-patterns, and the pre-submit checklist.
 
 > 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`.
 
 ## Continuous Review
 
-For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out.
-
-- Treat review output as advisory: verify every finding against the real code path before changing code.
-- If review-triggered fixes change code, rerun focused tests and rerun `$autoreview`.
-- Format before review when formatting can move line locations; focused tests and review may run in parallel only after formatting is stable.
+For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out. The skill owns the review contract — how to verify findings, when to rerun, and how to sequence formatting, tests, and review.
 
 ## API Discovery
 
-> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using `swift run api-explorer`. Do NOT guess or assume API response structures.
+> ⚠️ **Explore endpoints before writing code against them.** YouTube's response shapes are undocumented and change without notice, so a plausible-looking parser written from inference will compile and silently return nothing. Verify the real response with `swift run api-explorer` before adding or changing a parser.
 
 ```bash
 swift run api-explorer auth          # Check auth status
@@ -77,20 +69,19 @@ Put repeatable, repo-specific workflows in `.agents/skills/` so `AGENTS.md` stay
 
 ## Coding Rules
 
-These are project-specific rules that differ from standard Swift/SwiftUI conventions:
+These are project-specific rules that differ from standard Swift/SwiftUI conventions and are not mechanically checked:
 
 | ❌ Avoid | ✅ Use | Why |
 |----------|--------|-----|
-| `print()` | `DiagnosticsLogger` | Project-specific logging |
 | `.background(.ultraThinMaterial)` | `.glassEffect()` | macOS 26+ Liquid Glass |
-| `DispatchQueue` | Swift concurrency (`async`/`await`) | Strict concurrency policy |
 | Force unwraps (`!`) | Optional handling or `guard` | Project policy |
 
 - Mark `@Observable` classes with `@MainActor`
 - Use Swift Testing (`@Test`, `#expect`) for all new unit tests
 - Throw `YTMusicError.authExpired` on HTTP 401/403
 - Use `.task` instead of `.onAppear { Task { } }`
-- See `docs/common-bug-patterns.md` for concurrency anti-patterns and pre-submit checklists
+
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
 
 ## Task Planning
 
