@@ -106,6 +106,17 @@ enum RadioQueueParser {
             let artists = self.parseArtists(from: panelVideoRenderer)
             let thumbnailURL = self.parseThumbnail(from: panelVideoRenderer)
             let duration = self.parseDuration(from: panelVideoRenderer)
+            // Decode each row's like status from the same menu that SongMetadataParser
+            // reads for the seed track. Without this, queued songs carry likeStatus == nil
+            // and the queue's thumb resolves solely from the global like-status cache —
+            // which is seeded incrementally by unrelated Liked Music pagination, so rows
+            // would light up as liked only as more batches loaded. Only likeStatus is taken:
+            // the library/feedback fields are left unset because they gate other paths that
+            // assume the authoritative single-track fetch fills them — a non-nil
+            // feedbackTokens would suppress that metadata fetch (it fires only when
+            // feedbackTokens == nil) and a non-nil isInLibrary would block queue enrichment
+            // from merging the value from getSong. likeStatus has no such gate.
+            let likeStatus = SongMetadataParser.parseMenuData(from: panelVideoRenderer).likeStatus
 
             let song = Song(
                 id: videoId,
@@ -115,6 +126,7 @@ enum RadioQueueParser {
                 duration: duration,
                 thumbnailURL: thumbnailURL,
                 videoId: videoId,
+                likeStatus: likeStatus,
                 isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
             )
             songs.append(song)
