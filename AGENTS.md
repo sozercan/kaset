@@ -53,7 +53,11 @@ See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbo
 
 ## Continuous Review
 
-For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out. The skill owns the review contract — how to verify findings, when to rerun, and how to sequence formatting, tests, and review.
+For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out.
+
+- Treat review output as advisory: verify every finding against the real code path before changing code.
+- If review-triggered fixes change code, rerun focused tests and rerun `$autoreview`.
+- Format before review when formatting can move line locations; focused tests and review may run in parallel only after formatting is stable.
 
 ## API Discovery
 
