@@ -18,10 +18,10 @@ Use when:
 - reviewing a local branch or PR branch after fixes
 
 Flags, panels, non-macOS invocation, helper locations for other checkouts, and
-operational edge cases live in [`reference.md`](reference.md). Read it when you need
-one — and read it before reviewing a **security-audit suppression** change or
-establishing **regression provenance**, because those two rules live there and are
-triggered by what you are reviewing rather than by a flag you went looking for.
+operational recovery live in [`reference.md`](reference.md). Read it when you need one,
+when `gh`/Gitcrawl reports a cache, manifest, or database health error, or before
+reviewing a **security-audit suppression** change or establishing **regression
+provenance**. The latter two rules are triggered by review content rather than by a flag.
 
 ## Contract
 
@@ -59,9 +59,9 @@ triggered by what you are reviewing rather than by a flag you went looking for.
   and `review still running: ... elapsed=... pid=...` heartbeats are healthy progress, not
   a hang. Inspect the process only after missing multiple expected heartbeats, after 30
   minutes, or after an obviously failed subprocess.
-- Do not invoke built-in `codex review`, nested reviewers, or reviewer panels from inside
-  the review. The helper builds one bundle, calls one engine, validates one structured
-  result, and stops.
+- Do not invoke built-in `codex review` or spawn nested reviewers or panels from inside a
+  review. The helper builds one bundle, invokes the selected reviewer or explicitly
+  configured reviewer set, validates the structured result, and stops.
 - Do not push just to review. Push only when the user requested push/ship/PR update.
 
 ## Pick Target

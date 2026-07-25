@@ -57,7 +57,7 @@ For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKIL
 
 ## API Discovery
 
-> ⚠️ **Explore endpoints before writing code against them.** YouTube's response shapes are undocumented and change without notice, so a plausible-looking parser written from inference will compile and silently return nothing. Verify the real response with `swift run api-explorer` before adding or changing a parser.
+> ⚠️ **Explore endpoints before writing code against them.** YouTube's response shapes are undocumented and change without notice, so a plausible-looking parser written from inference will compile and silently return nothing. Verify the real request and response with `swift run api-explorer` before adding or modifying an API call, request shape, or response parser. Prefer read-only probes; for mutations, prefer sanitized captured responses or disposable resources, and get explicit human approval before sending a live action that changes account data.
 
 ```bash
 swift run api-explorer auth          # Check auth status

@@ -27,10 +27,16 @@ Global helper from `agent-scripts`:
 ~/.codex/skills/agent-scripts/autoreview/scripts/autoreview --help
 ```
 
-On native Windows, invoke the extensionless Python helper through Python:
+On native Windows, invoke the repo-local extensionless Python helper through Python:
 
 ```powershell
-python skills\autoreview\scripts\autoreview --help
+python -I -X utf8 .agents\skills\autoreview\scripts\autoreview --help
+```
+
+From the root of an `agent-scripts` checkout, use its `skills\...` path instead:
+
+```powershell
+python -I -X utf8 skills\autoreview\scripts\autoreview --help
 ```
 
 ## Helper Behavior
@@ -45,14 +51,15 @@ The helper:
 - resolves bare `git`, `gh`, reviewer, and PowerShell shell commands from absolute `PATH` entries only, never from the reviewed checkout; explicit relative `--*-bin` paths are refused
 - use `--mode commit --commit <ref>` for already-committed work, especially clean `main` after landing
 - should be left in `--mode auto` or forced to `--mode branch` for PR/branch work; do not force `--mode local` after committing
-- writes only to stdout unless `--output`, `--json-output`, or live streamed engine stderr is set
+- writes the human report to stdout; progress and diagnostics may use stderr; writes persistent output files only with explicit `--output` or `--json-output` flags
 - supports `--dry-run`, `--parallel-tests`, `--parallel-tests-shell`, `--prompt`, `--prompt-file`, `--dataset`, `--no-tools`, `--no-web-search`, and commit refs
 - supports `--stream-engine-output` or `AUTOREVIEW_STREAM_ENGINE_OUTPUT=1` for live engine text while preserving structured validation; Codex and Claude hide tool/file event details, emit compact activity summaries, and report usage at turn completion
 - supports opt-in review panels with `--panel` / `--reviewers`, plus per-engine `--model` and `--thinking`
 - allows read-only tools and web search by default where the selected CLI supports them; runs reviewers from a sanitized temporary workspace containing the review prompt instead of the real checkout; forbids nested review in the prompt; Codex is run through `codex exec` with read-only sandbox and structured output
 - prints `review still running: <engine> elapsed=<seconds>s pid=<pid>` to stderr at long-running intervals while waiting, unless streamed output or compact Codex activity has been visible recently
-- prints `autoreview clean: no accepted/actionable findings reported` when the selected review command exits 0
-- exits nonzero when accepted/actionable findings are present
+- prints `autoreview clean: no accepted/actionable findings reported` when the validated report is clean; the banner does not guarantee the final process exit status
+- in normal review mode, exits nonzero for accepted/actionable findings or an overall incorrect verdict; review or validation failures and failed parallel tests also fail the process, except that `--allow-partial-panel` permits success when at least one usable reviewer report remains
+- harness modes intentionally differ: `--expect-findings` treats findings as success and no findings as failure, while `--dry-run` exits successfully after target/configuration resolution without running a review
 
 Tools are useful in review mode: read-only inspection and web search are on by default
 so reviewers can check dependency contracts, upstream docs, and current behavior from
@@ -103,14 +110,24 @@ Python `shell=True`. Use `--parallel-tests-shell powershell` or
 
 ## Smoke Harness
 
-Thin shell wrappers over a shared Python implementation:
+Repo-local thin shell wrappers over a shared Python implementation:
 
 ```bash
 .agents/skills/autoreview/scripts/test-review-harness --fixture benign --engine codex
 ```
 
 ```powershell
-skills\autoreview\scripts\test-review-harness.ps1 -Fixture benign -Engine codex
+& .\.agents\skills\autoreview\scripts\test-review-harness.ps1 -Fixture benign -Engine codex
+```
+
+From the root of an `agent-scripts` checkout, use its `skills/...` paths:
+
+```bash
+skills/autoreview/scripts/test-review-harness --fixture benign --engine codex
+```
+
+```powershell
+& .\skills\autoreview\scripts\test-review-harness.ps1 -Fixture benign -Engine codex
 ```
 
 ## Security-Audit Suppression Changes
