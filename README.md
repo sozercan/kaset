@@ -19,23 +19,19 @@
 
 ## Features
 
+### Music & Video
+
 - 🎵 **Native macOS Experience** — Apple Music-style UI with Liquid Glass player bars, clean sidebar navigation, and a source toggle for Music ↔ YouTube
 - 🎧 **YouTube Music Support** — Full playback of DRM-protected YouTube Music content via your existing Premium subscription
 - ▶️ **[YouTube Support](docs/youtube.md)** — Browse regular YouTube recommendations, search, subscriptions, Shorts, Watch Later, history, comments, and video playback with native controls, captions, quality selection, and picture in picture
-- 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
-- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
+
+### Playback
+
 - 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to WebKit playback output
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
-- 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home) and [SponsorBlock](https://github.com/ajayyy/SponsorBlock)
-
-<details>
-<summary><strong>More features</strong></summary>
-
-### Playback & Audio
-
-- 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 🔀 **Smart Shuffle** — Beyond plain shuffle: blends suggested tracks into the queue based on what you're playing, with cadence and how many are queued ahead configurable in Settings
+- 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
 - 🎶 **Track Notifications** — Get notified when a new track starts playing
 
 ### Library & Discovery
@@ -48,17 +44,18 @@
 
 ### macOS Integration
 
+- 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
+- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
 - 🌍 **Localized** — UI available in 15 languages (Arabic, Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
 
-### Automation
+### Automation & Extensibility
 
+- 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home) and [SponsorBlock](https://github.com/ajayyy/SponsorBlock)
 - 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`; app-targeted YouTube watch and `youtu.be` links play in YouTube mode
 - 🤖 **[AppleScript Support](docs/applescript.md)** — Automate playback with scripts, Raycast, Alfred, and Shortcuts
-
-</details>
 
 ## Requirements
 
