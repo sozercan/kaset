@@ -1,6 +1,10 @@
-# Kaset
+<h1 align="center">Kaset</h1>
 
-A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.
+<p align="center">A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.</p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/16570?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-16570"><img src="https://trendshift.io/api/badge/repositories/16570" alt="sozercan/kaset | Trendshift" width="200" height="44"/></a>
+</p>
 
 <table>
   <tr>
