@@ -57,7 +57,7 @@ The helper:
 - supports opt-in review panels with `--panel` / `--reviewers`, plus per-engine `--model` and `--thinking`
 - allows read-only tools and web search by default where the selected CLI supports them; runs reviewers from a sanitized temporary workspace containing the review prompt instead of the real checkout; forbids nested review in the prompt; Codex is run through `codex exec` with read-only sandbox and structured output
 - prints `review still running: <engine> elapsed=<seconds>s pid=<pid>` to stderr at long-running intervals while waiting, unless streamed output or compact Codex activity has been visible recently
-- prints `autoreview clean: no accepted/actionable findings reported` when the validated report is clean; the banner does not guarantee the final process exit status
+- prints `<label> clean: no accepted/actionable findings reported` when the validated report is clean, where `<label>` is `autoreview` for one reviewer and `autoreview panel` for a panel; the banner does not guarantee the final process exit status
 - in normal review mode, exits nonzero for accepted/actionable findings or an overall incorrect verdict; review or validation failures and failed parallel tests also fail the process, except that `--allow-partial-panel` permits success when at least one usable reviewer report remains
 - harness modes intentionally differ: `--expect-findings` treats findings as success and no findings as failure, while `--dry-run` exits successfully after target/configuration resolution without running a review
 
