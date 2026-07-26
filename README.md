@@ -1,6 +1,10 @@
-# Kaset
+<h1 align="center">Kaset</h1>
 
-A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.
+<p align="center">A native macOS client for YouTube Music and YouTube, built with Swift and SwiftUI.</p>
+
+<p align="center">
+  <a href="https://trendshift.io/repositories/16570?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-16570"><img src="https://trendshift.io/api/badge/repositories/16570" alt="sozercan/kaset | Trendshift" width="200" height="44"/></a>
+</p>
 
 <table>
   <tr>
@@ -15,29 +19,43 @@ A native macOS client for YouTube Music and YouTube, built with Swift and SwiftU
 
 ## Features
 
+### Music & Video
+
 - 🎵 **Native macOS Experience** — Apple Music-style UI with Liquid Glass player bars, clean sidebar navigation, and a source toggle for Music ↔ YouTube
 - 🎧 **YouTube Music Support** — Full playback of DRM-protected YouTube Music content via your existing Premium subscription
 - ▶️ **[YouTube Support](docs/youtube.md)** — Browse regular YouTube recommendations, search, subscriptions, Shorts, Watch Later, history, comments, and video playback with native controls, captions, quality selection, and picture in picture
-- 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
-- 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
-- 🎶 **Track Notifications** — Get notified when a new track starts playing
-- 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
+
+### Playback
+
 - 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to WebKit playback output
-- ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
-- 🧭 **Explore** — Discover new releases, charts, and moods & genres
-- 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
-- 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
-- 🕓 **History** — Revisit recently played tracks
-- 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
-- 🌍 **Localized** — UI available in 15 languages (Arabic, Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
-- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
 - 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
 - 🔀 **Smart Shuffle** — Beyond plain shuffle: blends suggested tracks into the queue based on what you're playing, with cadence and how many are queued ahead configurable in Settings
+- 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
+- 🎶 **Track Notifications** — Get notified when a new track starts playing
+
+### Library & Discovery
+
+- 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
+- 🧭 **Explore** — Discover new releases, charts, and moods & genres
+- 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
+- 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
+- 🕓 **History** — Revisit recently played tracks
+
+### macOS Integration
+
+- 🎛️ **System Integration** — Now Playing in Control Center, media key support, Dock menu controls
+- ✨ **Apple Intelligence** — On-device AI for natural language commands, lyrics explanations, and playlist refinement on macOS 26+
+- ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
+- 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
+- 🌍 **Localized** — UI available in 15 languages (Arabic, Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
+
+### Automation & Extensibility
+
+- 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home) and [SponsorBlock](https://github.com/ajayyy/SponsorBlock)
 - 🔗 **[URL Scheme](docs/url-scheme.md)** — Open songs directly with `kaset://play?v=VIDEO_ID`; app-targeted YouTube watch and `youtu.be` links play in YouTube mode
 - 🤖 **[AppleScript Support](docs/applescript.md)** — Automate playback with scripts, Raycast, Alfred, and Shortcuts
-- 🧩 **[Extensions](docs/extensions.md)** — Load WebKit Web Extensions, including [uBlock Origin Lite](https://github.com/uBlockOrigin/uBOL-home) and [SponsorBlock](https://github.com/ajayyy/SponsorBlock)
 
 ## Requirements
 
