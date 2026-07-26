@@ -708,13 +708,17 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
         #expect(!manager.canMutate)
 
-        try await Task.sleep(for: .milliseconds(60))
         try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
         manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: scopeID)
         #expect(manager.canMutate)
         manager.add(addedItem)
-        try await Task.sleep(for: .milliseconds(160))
 
+        let didRecover = await self.waitUntil(timeout: .seconds(2)) {
+            manager.isPinned(contentId: legacyItem.contentId)
+                && manager.isPinned(contentId: addedItem.contentId)
+        }
+
+        #expect(didRecover)
         #expect(manager.isPinned(contentId: existingItem.contentId))
         #expect(manager.isPinned(contentId: legacyItem.contentId))
         #expect(manager.isPinned(contentId: addedItem.contentId))
@@ -729,6 +733,21 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
             .appendingPathComponent("FavoritesManagerTestsLegacyMigrationClaims-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory
+    }
+
+    private func waitUntil(
+        timeout: Duration,
+        condition: @escaping @MainActor () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while clock.now < deadline {
+            if condition() {
+                return true
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        return condition()
     }
 
     private func legacyClaimURLs(in directory: URL) throws -> [URL] {

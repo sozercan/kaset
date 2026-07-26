@@ -1,11 +1,10 @@
 import Foundation
 import Testing
 
-/// The `.lproj` files are what SwiftPM ships — `Localizable.xcstrings` is
-/// excluded from the target and only compiled over them by `build-app.sh`.
-/// A catalog edit that never reaches the `.strings` files is therefore
-/// invisible in the packaged app but wrong in every SwiftPM/Xcode run, so the
-/// two have to be checked against each other.
+/// Packaged builds compile `Localizable.xcstrings` directly, while SwiftPM and
+/// Xcode runtime builds ship the checked-in `.lproj` mirrors. An edit that only
+/// reaches one side is therefore visible in one build path but stale or missing
+/// in the other, so the two have to be checked against each other.
 @Suite("Localization catalog parity")
 struct LocalizationCatalogParityTests {
     @Test("Every .lproj value matches the string catalog")
@@ -64,10 +63,19 @@ struct LocalizationCatalogParityTests {
                 }
             }
 
-            // The other direction: a key dropped from the catalog but left in
-            // the .strings file ships a string nothing can update.
-            for key in shippedStrings.keys.sorted() where !catalogKeys.contains(key) {
-                problems.append("\(language): \"\(key)\" is in .lproj but no longer in the catalog")
+            // The other direction: a translated key dropped from this locale
+            // but left in its .strings file would silently ship a stale value.
+            // The source locale may intentionally override a subset of catalog
+            // keys because untranslated source keys are their own values.
+            let expectedShippedKeys = language == sourceLanguage
+                ? catalogKeys
+                : Set(catalogEntries.keys)
+            for key in shippedStrings.keys.sorted() where !expectedShippedKeys.contains(key) {
+                if language == sourceLanguage {
+                    problems.append("\(language): \"\(key)\" is in .lproj but no longer in the catalog")
+                } else {
+                    problems.append("\(language): \"\(key)\" is in .lproj but missing from that catalog locale")
+                }
             }
         }
 
