@@ -719,7 +719,7 @@ struct YouTubeWatchScriptTests {
     }
 }
 
-private extension YouTubeWatchScriptTests {
+extension YouTubeWatchScriptTests {
     func makeObserverContext(paused: Bool) throws -> JSContext {
         let context = try #require(JSContext())
         try self.evaluate(

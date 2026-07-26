@@ -115,7 +115,7 @@ extension YouTubeWatchWebView {
                     const hasMediaError = !!video.error;
                     const data = videoData();
                     const isLive = !!(
-                        (data && (data.isLive === true || data.isLiveContent === true))
+                        (data && data.isLive === true)
                         || (hasReadyMedia && !isFinite(video.duration))
                     );
                     const pendingSeekApplied = window.__kasetPendingSeekApplied === true;
