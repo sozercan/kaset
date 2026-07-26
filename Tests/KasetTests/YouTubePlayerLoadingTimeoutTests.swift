@@ -4,8 +4,8 @@ import Testing
 @Suite("YouTube loading timeout", .serialized, .tags(.service))
 @MainActor
 struct YouTubePlayerLoadingTimeoutTests {
-    @Test("Settled empty media clears loading after the bounded fallback")
-    func emptyMediaClearsLoadingAfterTimeout() async throws {
+    @Test("Settled empty media becomes reloadable after the bounded fallback")
+    func emptyMediaBecomesReloadableAfterTimeout() async throws {
         let controller = MockYouTubeWatchPlaybackController()
         let service = YouTubePlayerService(
             playbackController: controller,
@@ -24,6 +24,13 @@ struct YouTubePlayerLoadingTimeoutTests {
         #expect(service.isPlaybackLoading)
         try await self.waitUntil { !service.isPlaybackLoading }
         #expect(!service.isPlaybackLoading)
+        #expect(service.pendingPausedIdentityReloadVideoId == "abc")
+
+        service.playPause()
+
+        #expect(controller.reloadedVideoIds == ["abc"])
+        #expect(controller.playCount == 0)
+        #expect(controller.pauseCount == 0)
     }
 
     @Test("A pre-ready SPA drift restarts the bounded loading fallback")

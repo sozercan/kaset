@@ -151,7 +151,7 @@ extension YouTubeWatchWebView {
             const mediaPrototype = typeof HTMLMediaElement !== 'undefined'
                 ? HTMLMediaElement.prototype
                 : null;
-            function guardMediaAccessor(name, marker, mutedValue) {
+            function guardMediaAccessor(name, marker, valueForTarget) {
                 if (!mediaPrototype
                     || Object.prototype.hasOwnProperty.call(mediaPrototype, marker)) {
                     return;
@@ -169,9 +169,9 @@ extension YouTubeWatchWebView {
                         configurable: descriptor.configurable,
                         enumerable: descriptor.enumerable,
                         get: descriptor.get,
-                        set: function(value) {
+                        set: function() {
                             const target = resolvedTarget();
-                            descriptor.set.call(this, target <= 0 ? mutedValue : value);
+                            descriptor.set.call(this, valueForTarget(target));
                         }
                     });
                     Object.defineProperty(mediaPrototype, marker, {
@@ -180,8 +180,16 @@ extension YouTubeWatchWebView {
                     });
                 } catch (e) {}
             }
-            guardMediaAccessor('volume', '__kasetOriginalVolumeDescriptor', 0);
-            guardMediaAccessor('muted', '__kasetOriginalMutedDescriptor', true);
+            guardMediaAccessor(
+                'volume',
+                '__kasetOriginalVolumeDescriptor',
+                function(target) { return target; }
+            );
+            guardMediaAccessor(
+                'muted',
+                '__kasetOriginalMutedDescriptor',
+                function(target) { return target <= 0; }
+            );
 
             if (mediaPrototype && typeof mediaPrototype.play === 'function'
                 && !mediaPrototype.__kasetOriginalPlay) {

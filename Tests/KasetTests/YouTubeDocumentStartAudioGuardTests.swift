@@ -102,6 +102,27 @@ struct YouTubeDocumentStartAudioGuardTests {
         #expect(!context.evaluateScript("mutedAtPlay").toBool())
     }
 
+    @Test("An audible target rejects persisted volume and mute writes synchronously")
+    func audibleDocumentBlocksPersistedStateRestoration() throws {
+        for restorationScript in [
+            "video.volume = 0.91; video.muted = true;",
+            "video.muted = true; video.volume = 0.91;",
+        ] {
+            let context = try #require(JSContext())
+            context.evaluateScript(Self.mediaHarness)
+            context.evaluateScript(YouTubeWatchWebView.pageBootstrapScript(
+                targetVolume: 0.4,
+                documentGeneration: 1
+            ))
+            context.evaluateScript(
+                "video = new HTMLMediaElement(); video.play(); \(restorationScript)"
+            )
+
+            #expect(abs(context.evaluateScript("video.volume").toDouble() - 0.4) < 0.001)
+            #expect(!context.evaluateScript("video.muted").toBool())
+        }
+    }
+
     @Test("The document-start guard synchronizes the YouTube player API")
     func audioGuardSynchronizesPlayerAPI() throws {
         let context = try #require(JSContext())

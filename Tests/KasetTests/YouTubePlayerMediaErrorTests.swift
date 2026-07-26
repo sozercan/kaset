@@ -32,6 +32,24 @@ struct YouTubePlayerMediaErrorTests {
         #expect(self.controller.reloadedVideoIds == ["abc"])
     }
 
+    @Test("An active-document media error recovers before video identity is available")
+    func unboundMediaErrorDefersCurrentVideo() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            hasMediaError: true
+        ))
+
+        #expect(!self.sut.isPlaybackLoading)
+        #expect(self.sut.pendingPausedIdentityReloadVideoId == "abc")
+
+        self.sut.resume()
+        #expect(self.controller.reloadedVideoIds == ["abc"])
+    }
+
     @Test("A stale outgoing media error does not defer the newly reported video")
     func staleOutgoingMediaErrorDoesNotDeferNewVideo() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))

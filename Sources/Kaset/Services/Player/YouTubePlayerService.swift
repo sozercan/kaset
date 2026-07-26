@@ -1106,8 +1106,7 @@ extension YouTubePlayerService {
                   self.isPlaybackLoading,
                   self.currentVideo?.videoId == videoId
             else { return }
-            self.isPlaybackLoading = false
-            self.playbackLoadingTimeoutTask = nil
+            self.deferCurrentVideoReload()
         }
     }
 
@@ -1361,10 +1360,14 @@ extension YouTubePlayerService {
     private func mediaErrorBelongsToCurrentContent(_ update: PlaybackUpdate) -> Bool {
         guard update.hasMediaError,
               !update.isAd,
-              let currentVideoId = self.currentVideo?.videoId,
-              update.boundVideoId == currentVideoId
+              let currentVideoId = self.currentVideo?.videoId
         else { return false }
 
+        if let boundVideoId = update.boundVideoId,
+           boundVideoId != currentVideoId
+        {
+            return false
+        }
         return update.videoId == nil || update.videoId == currentVideoId
     }
 
