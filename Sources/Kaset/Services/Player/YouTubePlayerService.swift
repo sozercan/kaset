@@ -1478,7 +1478,7 @@ extension YouTubePlayerService {
         let readyMediaBelongsToDriftedVideo = update.hasReadyMedia
             && !update.hasMediaError
             && update.boundVideoId == videoId
-        if self.isPlaybackLoading, !readyMediaBelongsToDriftedVideo {
+        if !readyMediaBelongsToDriftedVideo {
             // The previous timeout was keyed to the outgoing video. Start a
             // fresh bound for the drifted document so an empty replacement
             // cannot strand loading indefinitely.

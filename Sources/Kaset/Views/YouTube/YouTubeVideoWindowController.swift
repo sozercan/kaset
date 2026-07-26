@@ -189,10 +189,11 @@ final class YouTubeVideoWindowController {
     ///   the inline watch view), exiting fullscreen docks the video back
     ///   into the app instead of leaving the pop-out window around.
     func toggleFullscreen(returnInlineOnExit: Bool = false) {
-        if returnInlineOnExit, self.window?.styleMask.contains(.fullScreen) != true {
+        guard let window = self.window else { return }
+        if returnInlineOnExit, !window.styleMask.contains(.fullScreen) {
             self.fullscreenIntent.requestReturnInlineOnExit()
         }
-        self.window?.toggleFullScreen(nil)
+        window.toggleFullScreen(nil)
     }
 
     /// Shows/hides the traffic lights with the hover overlay so the video

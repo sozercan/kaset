@@ -57,6 +57,37 @@ struct YouTubePlayerLoadingTimeoutTests {
         #expect(!service.isPlaybackLoading)
     }
 
+    @Test("An unready SPA drift starts loading after outgoing media was ready")
+    func unreadyDriftStartsLoadingAfterReadyOutgoingMedia() {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(
+            playbackController: controller,
+            playbackLoadingTimeout: .seconds(1)
+        )
+        service.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        service.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 15,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "a",
+            boundVideoId: "a"
+        ))
+        #expect(!service.isPlaybackLoading)
+
+        service.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            videoId: "b",
+            boundVideoId: "a"
+        ))
+
+        #expect(service.currentVideo?.videoId == "b")
+        #expect(service.isPlaybackLoading)
+    }
+
     @Test("Ready outgoing media does not clear the incoming video's loading cycle")
     func readyOutgoingMediaDoesNotClearIncomingLoading() {
         let controller = MockYouTubeWatchPlaybackController()

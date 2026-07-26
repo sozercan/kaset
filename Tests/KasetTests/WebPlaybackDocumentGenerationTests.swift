@@ -653,6 +653,45 @@ struct WebPlaybackDocumentGenerationTests {
         ))
     }
 
+    @Test("A trusted intermediary POST redirect rebinds its tokenless playback GET")
+    func trustedIntermediaryPostRedirectRebindsTokenlessGet() throws {
+        let consentURL = try #require(URL(string: "https://consent.youtube.com/m"))
+        var postRequest = try URLRequest(url: #require(URL(string: "https://consent.youtube.com/s")))
+        postRequest.httpMethod = "POST"
+        #expect(WebPlaybackDocumentGeneration.shouldAllowTrustedIntermediaryFormSubmission(
+            postRequest,
+            currentURL: consentURL,
+            generation: 42,
+            playbackHost: "www.youtube.com",
+            committedIntermediaryGeneration: 42
+        ))
+
+        let redirectedGet = try URLRequest(url: #require(URL(
+            string: "https://www.youtube.com/watch?v=video"
+        )))
+        #expect(WebPlaybackDocumentGeneration.requestBelongsToNavigationChain(
+            redirectedGet,
+            currentURL: consentURL,
+            generation: 42,
+            playbackHost: "www.youtube.com",
+            committedIntermediaryGeneration: 42
+        ))
+        #expect(!WebPlaybackDocumentGeneration.shouldAllowTrustedIntermediaryFormSubmission(
+            redirectedGet,
+            currentURL: consentURL,
+            generation: 42,
+            playbackHost: "www.youtube.com",
+            committedIntermediaryGeneration: 42
+        ))
+
+        let rebound = try #require(WebPlaybackDocumentGeneration.requestByBindingGeneration(
+            redirectedGet,
+            generation: 42
+        ))
+        #expect(WebPlaybackDocumentGeneration.generation(from: rebound.url) == 42)
+        #expect(WebPlaybackDocumentGeneration.generation(from: rebound.mainDocumentURL) == 42)
+    }
+
     @Test("Bridge generation decoding rejects malformed values")
     func bridgeGenerationDecoding() {
         let generation = WebPlaybackDocumentGeneration()

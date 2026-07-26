@@ -64,9 +64,11 @@ Every full-page playback navigation receives a monotonically increasing
   intermediary generation matches, both the current and destination URLs are
   trusted intermediaries, and any `mainDocumentURL` generation is absent or
   matching. This narrow exception preserves form bodies that WebKit omits from
-  the navigation-policy request. Untrusted origins, captive portals, unrelated
-  error pages, and unsupported challenges remain in the cancellation/retry
-  path.
+  the navigation-policy request. A server-redirected tokenless GET re-enters
+  navigation-action policy and is cancelled and restarted with the generation
+  token before response validation. Untrusted origins, captive portals,
+  unrelated error pages, and unsupported challenges remain in the
+  cancellation/retry path.
 - Starting a newer explicit load cancels the previous provisional load before
   replacing the WebView-wide user-script list. Server redirects refresh the
   bootstrap fallback; redirect requests remain associated through the original
