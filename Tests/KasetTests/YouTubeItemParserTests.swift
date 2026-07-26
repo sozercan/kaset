@@ -350,6 +350,57 @@ struct YouTubeItemParserTests {
         #expect(short.title == "A Short Title")
         #expect(short.viewCountText == "2.1M views")
         #expect(short.isShort)
+        #expect(short.thumbnailURL?.absoluteString == "https://example.com/short.jpg")
+    }
+
+    @Test("Parses a shortsLockupViewModel with a nested thumbnailViewModel")
+    func parsesShortsLockupNestedThumbnail() throws {
+        let lockup: [String: Any] = [
+            "entityId": "shorts-shelf-item-X4dGtpUD3gA",
+            "onTap": [
+                "innertubeCommand": [
+                    "reelWatchEndpoint": ["videoId": "X4dGtpUD3gA"],
+                ],
+            ],
+            "overlayMetadata": [
+                "primaryText": ["content": "A Short Title"],
+            ],
+            "thumbnailViewModel": [
+                "thumbnailViewModel": [
+                    "image": [
+                        "sources": [
+                            ["url": "https://example.com/oardefault.jpg", "width": 405, "height": 720],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let short = try #require(YouTubeItemParser.short(fromShortsLockup: lockup))
+        #expect(short.thumbnailURL?.absoluteString == "https://example.com/oardefault.jpg")
+    }
+
+    @Test("Parses a playlist lockup's collectionThumbnailViewModel poster")
+    func parsesCollectionThumbnailLockup() throws {
+        let lockup: [String: Any] = [
+            "contentImage": [
+                "collectionThumbnailViewModel": [
+                    "primaryThumbnail": [
+                        "thumbnailViewModel": [
+                            "image": [
+                                "sources": [
+                                    ["url": "https://example.com/small.jpg", "width": 360, "height": 202],
+                                    ["url": "https://example.com/hq720.jpg", "width": 720, "height": 404],
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let url = try #require(YouTubeItemParser.thumbnailURL(fromLockup: lockup))
+        #expect(url.absoluteString == "https://example.com/hq720.jpg")
     }
 
     @Test("Feed collection separates Shorts from regular videos")
@@ -392,4 +443,63 @@ struct YouTubeItemParserTests {
         #expect(YouTubeItemParser.text(from: nil) == nil)
         #expect(YouTubeItemParser.text(from: ["runs": [[String: Any]]()]) == nil)
     }
+
+    // MARK: - Recorded payloads
+
+    /// Guards the lockup thumbnail key paths against the shapes InnerTube
+    /// actually sends, which handwritten payloads have drifted from before.
+    @Test("Recorded Shorts and playlist lockups yield thumbnails")
+    func recordedLockupsYieldThumbnails() throws {
+        let watchNext = try Self.loadFixture("youtube_watch_next")
+        let shortsLockups = Self.collect(key: "shortsLockupViewModel", in: watchNext)
+        #expect(!shortsLockups.isEmpty)
+        for lockup in shortsLockups {
+            let short = try #require(YouTubeItemParser.short(fromShortsLockup: lockup))
+            #expect(short.thumbnailURL != nil, "Short \(short.videoId) parsed without a thumbnail")
+        }
+
+        let playlists = try Self.loadFixture("youtube_search_playlists")
+        let collectionLockups = Self.collect(key: "lockupViewModel", in: playlists)
+            .filter {
+                ($0["contentImage"] as? [String: Any])?["collectionThumbnailViewModel"] != nil
+            }
+        #expect(!collectionLockups.isEmpty)
+        for lockup in collectionLockups {
+            #expect(YouTubeItemParser.thumbnailURL(fromLockup: lockup) != nil)
+        }
+    }
+
+    // MARK: - Fixture Helpers
+
+    static func loadFixture(_ name: String) throws -> [String: Any] {
+        guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
+            throw FixtureError.notFound(name)
+        }
+        guard let fixture = try JSONSerialization
+            .jsonObject(with: Data(contentsOf: url)) as? [String: Any]
+        else {
+            throw FixtureError.invalidJSON(name)
+        }
+        return fixture
+    }
+
+    /// Every dictionary stored under `key`, at any depth.
+    static func collect(key: String, in value: Any) -> [[String: Any]] {
+        var found: [[String: Any]] = []
+        if let dict = value as? [String: Any] {
+            if let match = dict[key] as? [String: Any] {
+                found.append(match)
+            }
+            for nested in dict.values {
+                found.append(contentsOf: self.collect(key: key, in: nested))
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                found.append(contentsOf: self.collect(key: key, in: element))
+            }
+        }
+        return found
+    }
+
+    enum FixtureError: Error { case notFound(String), invalidJSON(String) }
 }

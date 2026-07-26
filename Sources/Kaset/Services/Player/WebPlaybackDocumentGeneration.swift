@@ -352,6 +352,14 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return host == playbackHost.lowercased() || Self.trustedRedirectHosts.contains(host)
     }
 
+    // Google's "unusual traffic" challenge (`www.google.com/sorry/…`) is
+    // deliberately NOT trusted here. Allowing the URL alone does not make it
+    // reachable: the challenge is commonly served as HTTP 429, which
+    // `acceptsMainFrameResponse` rejects before commit, and clearing it posts
+    // `g-recaptcha-response` as a form body that `requestByBindingGeneration`
+    // cannot carry across a generation rebind. Supporting it needs both of
+    // those handled together.
+
     static func isTrustedIntermediaryURL(_ url: URL?) -> Bool {
         guard let url,
               url.scheme?.lowercased() == "https",
@@ -382,6 +390,31 @@ struct WebPlaybackDocumentGeneration: Equatable {
         }
         return committedIntermediaryGeneration == generation
             && Self.isAllowedPlaybackNavigationURL(currentURL, playbackHost: playbackHost)
+    }
+
+    /// A form submission from a committed trusted intermediary must keep the
+    /// original WebKit navigation so its HTTP body is preserved. GET
+    /// continuations can be rebound with a generation token, but WebKit omits
+    /// form bodies from the navigation-policy request used to reconstruct them.
+    static func shouldAllowTrustedIntermediaryFormSubmission(
+        _ request: URLRequest,
+        currentURL: URL?,
+        generation: UInt64,
+        playbackHost: String,
+        committedIntermediaryGeneration: UInt64?
+    ) -> Bool {
+        guard request.httpMethod?.uppercased() == "POST",
+              committedIntermediaryGeneration == generation,
+              self.isTrustedIntermediaryURL(currentURL),
+              self.isTrustedIntermediaryURL(request.url),
+              Self.generation(from: request.url) == nil
+        else { return false }
+
+        let mainDocumentGeneration = Self.generation(from: request.mainDocumentURL)
+        guard mainDocumentGeneration == nil || mainDocumentGeneration == generation else {
+            return false
+        }
+        return Self.isAllowedPlaybackNavigationURL(request.url, playbackHost: playbackHost)
     }
 
     static func requestByBindingGeneration(

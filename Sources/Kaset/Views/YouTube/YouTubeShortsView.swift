@@ -79,7 +79,10 @@ struct YouTubeShortsView: View {
             }
             .scrollTargetLayout()
         }
-        .scrollTargetBehavior(.paging)
+        // Viewport-relative `.paging` accumulates the asymmetric navigation-bar
+        // and player-bar safe-area offset on every page. Align the explicit
+        // row targets instead so repeated wheel gestures cannot drift mid-page.
+        .scrollTargetBehavior(.viewAligned(limitBehavior: .alwaysByOne))
         .scrollPosition(id: self.$currentShortId)
         .scrollIndicators(.hidden)
         .background(.black)
@@ -152,7 +155,7 @@ private struct ShortPage: View {
     var body: some View {
         Group {
             if self.isActive {
-                YouTubeWatchSurfaceView()
+                YouTubeWatchSurfaceView(expectedVideoId: self.short.videoId)
             } else {
                 CachedAsyncImage(
                     url: self.short.thumbnailURL,

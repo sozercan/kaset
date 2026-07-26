@@ -308,7 +308,7 @@ struct AppLocalizationTests {
         let title = String(format: localizedText, locale: Locale(identifier: "it"), "34.6M")
 
         #expect(artist == "Artista")
-        #expect(title.hasPrefix("Abbonati"))
+        #expect(title.hasPrefix("Iscriviti"))
         #expect(title.contains("34.6M"))
     }
 

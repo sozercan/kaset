@@ -45,6 +45,14 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 >
 > Always run `swiftformat .` before completing work to auto-fix these issues.
 
+## Localization
+
+> 🌐 **`Sources/Kaset/Resources/Localizable.xcstrings` is the localization source of truth.** Packaged builds compile the catalog directly, but SwiftPM/Xcode runtime builds use the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` mirrors.
+
+- When adding localization keys or changing translations, update the catalog first and update the corresponding checked-in `.lproj/Localizable.strings` files in the same change. Never update only one side.
+- Run `swift test --skip KasetUITests --filter LocalizationCatalogParityTests` after localization changes.
+- When adding a locale, also register its `.lproj` in `Package.swift`, add the `SettingsManager.ContentLanguage` case, and extend localization tests.
+
 ## Debugging & Measurement
 
 > 🔬 **Measure before you fix — never guess at runtime behavior.** For any bug about *timing, lifecycle, or "why didn't this run/load/update"* (SwiftUI `.task`/state churn, cold-launch ordering, perceived latency), instrument the real code path and observe before changing anything. Reasoning about SwiftUI lifecycle or async ordering from the source alone is unreliable; a 10-line timestamped trace settles in one launch what hours of hypothesizing cannot. Add the trace → reproduce → read the evidence → fix the thing the data points at → re-measure to confirm → remove the instrumentation.

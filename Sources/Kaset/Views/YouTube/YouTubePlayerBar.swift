@@ -19,6 +19,13 @@ struct YouTubePlayerBar: View {
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
 
+    /// Below this the details block leaves the transport controls too little
+    /// room and they collide with the elapsed/remaining labels, so it is
+    /// dropped entirely. Only the pop-out window — which can be dragged down
+    /// to 512pt of content — ever gets this narrow; the main window's own
+    /// minimum keeps its bar well above this.
+    private static let hiddenVideoDetailsBreakpoint: CGFloat = 580
+
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
         let start: TimeInterval
@@ -46,13 +53,18 @@ struct YouTubePlayerBar: View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
                 let usesCompactDetails = proxy.size.width <= PlayerBarLayout.compactDetailsBreakpoint
+                let hidesDetails = proxy.size.width <= Self.hiddenVideoDetailsBreakpoint
 
                 HStack(spacing: 10) {
-                    self.videoDetailsSection(usesCompactDetails: usesCompactDetails)
-                        .frame(
-                            width: usesCompactDetails ? Self.compactVideoDetailsWidth : Self.fullVideoDetailsWidth,
-                            height: 52
-                        )
+                    if !hidesDetails {
+                        self.videoDetailsSection(usesCompactDetails: usesCompactDetails)
+                            .frame(
+                                width: usesCompactDetails
+                                    ? Self.compactVideoDetailsWidth
+                                    : Self.fullVideoDetailsWidth,
+                                height: 52
+                            )
+                    }
 
                     self.youtubeProgressSection
                         .frame(maxWidth: .infinity)
@@ -506,7 +518,7 @@ struct YouTubePlayerBar: View {
                 Button {
                     self.youtubePlayer.selectQuality(level)
                 } label: {
-                    if self.youtubePlayer.currentQuality == level {
+                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
                         Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
                     } else {
                         Text(YouTubeQuality.displayName(for: level))

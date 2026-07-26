@@ -83,7 +83,7 @@ final class YouTubeWatchWebView {
             documentGeneration: Self.userScriptDocumentGeneration(from: self.documentGeneration)
         )
 
-        let newWebView = WKWebView(frame: .zero, configuration: configuration)
+        let newWebView = ScrollForwardingWebView(frame: .zero, configuration: configuration)
         newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
         self.webKitManager = webKitManager
@@ -104,13 +104,20 @@ final class YouTubeWatchWebView {
     }
 
     /// Ensures the WebView fills the given container (reparenting if needed).
-    func ensureInHierarchy(container: NSView) {
+    func ensureInHierarchy(
+        container: NSView,
+        expectedVideoId: String? = nil,
+        selectedVideoId: String? = nil
+    ) {
         guard let webView else { return }
+        guard YouTubeWatchSurfaceAttachment.claim(
+            surface: webView,
+            in: container,
+            expectedVideoId: expectedVideoId,
+            currentVideoId: selectedVideoId
+        ) else { return }
         self.currentContainer = container
         self.webKitManager?.extensionHostWebViewDidBecomeActive(webView)
-        guard webView.superview !== container else { return }
-        webView.removeFromSuperview()
-        container.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = true
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
@@ -339,83 +346,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    func decideNavigationPolicy(
-        webView: WKWebView,
-        navigationAction: WKNavigationAction,
-        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
-    ) {
-        guard navigationAction.targetFrame?.isMainFrame == true else {
-            decisionHandler(.allow)
-            return
-        }
-
-        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(navigationAction.request.url) {
-            decisionHandler(
-                self.documentGeneration.ownsBlankNavigation(navigationAction.request.url)
-                    ? .allow
-                    : .cancel
-            )
-            return
-        }
-
-        if WebPlaybackDocumentGeneration.isFragmentOnlyNavigation(
-            from: webView.url,
-            to: navigationAction.request.url
-        ) {
-            self.webKitManager?.extensionHostWebViewWillNavigate(
-                webView,
-                to: navigationAction.request.url
-            )
-            decisionHandler(.allow)
-            return
-        }
-
-        if self.documentGeneration.pendingGeneration != nil {
-            decisionHandler(.cancel)
-            return
-        }
-
-        if let inFlightGeneration = self.documentGeneration.inFlightGeneration {
-            guard WebPlaybackDocumentGeneration.requestBelongsToNavigationChain(
-                navigationAction.request,
-                currentURL: webView.url,
-                generation: inFlightGeneration,
-                playbackHost: "www.youtube.com",
-                committedIntermediaryGeneration: self.documentGeneration.committedIntermediaryGeneration
-            ) else {
-                decisionHandler(.cancel)
-                return
-            }
-            if WebPlaybackDocumentGeneration.generation(from: navigationAction.request.url)
-                != inFlightGeneration
-            {
-                decisionHandler(.cancel)
-                self.continuationGenerationsAwaitingStart.insert(inFlightGeneration)
-                if let boundRequest = WebPlaybackDocumentGeneration.requestByBindingGeneration(
-                    navigationAction.request,
-                    generation: inFlightGeneration
-                ) {
-                    Task { @MainActor in
-                        self.startBoundNavigationContinuation(
-                            on: webView,
-                            request: boundRequest,
-                            generation: inFlightGeneration
-                        )
-                    }
-                }
-                return
-            }
-            self.webKitManager?.extensionHostWebViewWillNavigate(
-                webView,
-                to: navigationAction.request.url
-            )
-            decisionHandler(.allow)
-            return
-        }
-
-        decisionHandler(.cancel)
-    }
-
     private func refreshDocumentUserScripts(on webView: WKWebView) {
         let targetVolume = self.coordinator?.playerService.volume ?? 1.0
         let scriptGeneration = self.documentGeneration.userScriptGeneration
@@ -465,7 +395,7 @@ extension YouTubeWatchWebView {
         )
     }
 
-    private func startBoundNavigationContinuation(
+    func startBoundNavigationContinuation(
         on webView: WKWebView,
         request: URLRequest,
         generation: UInt64

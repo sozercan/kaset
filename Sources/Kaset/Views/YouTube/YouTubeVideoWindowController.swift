@@ -30,9 +30,8 @@ final class YouTubeVideoWindowController {
     /// window's lifetime and torn down in `performCleanup`.
     private var resizeGuard: YouTubeVideoWindowResizeGuard?
 
-    /// When fullscreen was entered from the inline watch view, exiting it
-    /// docks the video back inline instead of leaving the small pop-out.
-    private var returnInlineOnExitFullscreen = false
+    /// Tracks whether the current fullscreen request should dock inline on exit.
+    private var fullscreenIntent = YouTubeVideoWindowFullscreenIntentState()
 
     private init() {}
 
@@ -80,7 +79,14 @@ final class YouTubeVideoWindowController {
         // safe-area corner-inset update raise an uncaught NSException in the
         // display-cycle commit (SIGABRT). A windowWillResize clamp is the single
         // sizing authority, so the two constraints can't fight.
-        let resizeGuard = YouTubeVideoWindowResizeGuard(minContentSize: Self.minContentSize)
+        // AppKit reports failed fullscreen entry through NSWindowDelegate
+        // rather than NotificationCenter, so the resize delegate relays it.
+        let resizeGuard = YouTubeVideoWindowResizeGuard(
+            minContentSize: Self.minContentSize,
+            onDidFailToEnterFullScreen: { [weak self] window in
+                self?.handleFailedFullscreenEntry(window)
+            }
+        )
         self.resizeGuard = resizeGuard
         window.delegate = resizeGuard
         // Harmless backstop now that nothing competes with it.
@@ -118,6 +124,12 @@ final class YouTubeVideoWindowController {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(self.windowWillEnterFullScreen),
+            name: NSWindow.willEnterFullScreenNotification,
+            object: window
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(self.windowDidEnterFullScreen),
             name: NSWindow.didEnterFullScreenNotification,
             object: window
@@ -130,16 +142,46 @@ final class YouTubeVideoWindowController {
         )
     }
 
+    /// Suspends automatic frame autosaving before the window takes on screen
+    /// geometry. `setFrameAutosaveName` persists on every frame change, so
+    /// without this the fullscreen size is written to defaults and becomes the
+    /// restored size for the next pop-out — guarding only the explicit
+    /// close-time save is too late.
+    @objc private func windowWillEnterFullScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        self.applyFrameAutosaveTransition(.willEnterFullScreen, to: window)
+    }
+
     @objc private func windowDidEnterFullScreen(_: Notification) {
         self.youtubePlayerService?.isWindowFullscreen = true
     }
 
-    @objc private func windowDidExitFullScreen(_: Notification) {
+    @objc private func windowDidExitFullScreen(_ notification: Notification) {
+        if let window = notification.object as? NSWindow {
+            self.applyFrameAutosaveTransition(.didExitFullScreen, to: window)
+        }
         self.youtubePlayerService?.isWindowFullscreen = false
-        if self.returnInlineOnExitFullscreen {
-            self.returnInlineOnExitFullscreen = false
+        if self.fullscreenIntent.consumeReturnInlineOnExit() {
             self.youtubePlayerService?.requestPopIn()
         }
+    }
+
+    private func handleFailedFullscreenEntry(_ window: NSWindow) {
+        self.applyFrameAutosaveTransition(.didFailToEnterFullScreen, to: window)
+        self.fullscreenIntent.cancelReturnInlineOnExit()
+        self.youtubePlayerService?.isWindowFullscreen = false
+    }
+
+    private func applyFrameAutosaveTransition(
+        _ transition: YouTubeVideoWindowFrameAutosaveState.Transition,
+        to window: NSWindow
+    ) {
+        var state = YouTubeVideoWindowFrameAutosaveState(
+            restorableName: self.frameAutosaveKey,
+            currentName: window.frameAutosaveName
+        )
+        state.handle(transition)
+        window.setFrameAutosaveName(state.currentName)
     }
 
     /// Toggles fullscreen on the floating window.
@@ -148,7 +190,7 @@ final class YouTubeVideoWindowController {
     ///   into the app instead of leaving the pop-out window around.
     func toggleFullscreen(returnInlineOnExit: Bool = false) {
         if returnInlineOnExit, self.window?.styleMask.contains(.fullScreen) != true {
-            self.returnInlineOnExitFullscreen = true
+            self.fullscreenIntent.requestReturnInlineOnExit()
         }
         self.window?.toggleFullScreen(nil)
     }
@@ -169,9 +211,16 @@ final class YouTubeVideoWindowController {
 
         self.isClosing = true
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
-        window.saveFrame(usingName: self.frameAutosaveKey)
+        self.saveFrameIfRestorable(window)
         self.performCleanup()
         window.close()
+    }
+
+    /// Persists the window frame unless it is the screen-sized fullscreen one,
+    /// which would otherwise become the restored size for the next pop-out.
+    private func saveFrameIfRestorable(_ window: NSWindow) {
+        guard !window.styleMask.contains(.fullScreen) else { return }
+        window.saveFrame(usingName: self.frameAutosaveKey)
     }
 
     /// Red-X close: closing the floating window stops video playback.
@@ -180,7 +229,7 @@ final class YouTubeVideoWindowController {
         self.isClosing = true
 
         if let window = notification.object as? NSWindow {
-            window.saveFrame(usingName: self.frameAutosaveKey)
+            self.saveFrameIfRestorable(window)
         }
 
         let service = self.youtubePlayerService
@@ -193,12 +242,17 @@ final class YouTubeVideoWindowController {
 
     private func performCleanup() {
         self.youtubePlayerService?.isWindowFullscreen = false
-        self.returnInlineOnExitFullscreen = false
+        self.fullscreenIntent.cancelReturnInlineOnExit()
         // Remove the fullscreen observers registered in show() so they don't
         // stack on the shared singleton across show/close cycles. (The willClose
         // observer is removed on the close paths before cleanup runs.) Scoped to
         // the window object, mirroring how show() registered them.
         if let window = self.window {
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willEnterFullScreenNotification,
+                object: window
+            )
             NotificationCenter.default.removeObserver(
                 self,
                 name: NSWindow.didEnterFullScreenNotification,
@@ -210,6 +264,9 @@ final class YouTubeVideoWindowController {
                 object: window
             )
         }
+        // Clear the delegate-only fullscreen failure callback before releasing
+        // the guard, alongside the NotificationCenter observer cleanup above.
+        self.resizeGuard?.invalidate()
         self.window?.delegate = nil
         self.resizeGuard = nil
         self.window = nil
@@ -231,6 +288,56 @@ final class YouTubeVideoWindowController {
     }
 }
 
+// MARK: - YouTubeVideoWindowFullscreenIntentState
+
+struct YouTubeVideoWindowFullscreenIntentState: Equatable {
+    private(set) var returnsInlineOnExit = false
+
+    mutating func requestReturnInlineOnExit() {
+        self.returnsInlineOnExit = true
+    }
+
+    mutating func cancelReturnInlineOnExit() {
+        self.returnsInlineOnExit = false
+    }
+
+    mutating func consumeReturnInlineOnExit() -> Bool {
+        let shouldReturn = self.returnsInlineOnExit
+        self.returnsInlineOnExit = false
+        return shouldReturn
+    }
+}
+
+// MARK: - YouTubeVideoWindowFrameAutosaveState
+
+/// Pure fullscreen transition state for the floating window's frame autosave
+/// name. AppKit can fail fullscreen entry after `willEnterFullScreen`, so both
+/// failure and successful exit must restore the normal autosave name.
+struct YouTubeVideoWindowFrameAutosaveState: Equatable {
+    enum Transition {
+        case willEnterFullScreen
+        case didFailToEnterFullScreen
+        case didExitFullScreen
+    }
+
+    let restorableName: String
+    private(set) var currentName: String
+
+    init(restorableName: String, currentName: String? = nil) {
+        self.restorableName = restorableName
+        self.currentName = currentName ?? restorableName
+    }
+
+    mutating func handle(_ transition: Transition) {
+        switch transition {
+        case .willEnterFullScreen:
+            self.currentName = ""
+        case .didFailToEnterFullScreen, .didExitFullScreen:
+            self.currentName = self.restorableName
+        }
+    }
+}
+
 // MARK: - YouTubeVideoWindowResizeGuard
 
 /// Window delegate that keeps the floating video window at 16:9 and never lets
@@ -246,10 +353,23 @@ final class YouTubeVideoWindowController {
 @MainActor
 final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
     private let minContentSize: NSSize
+    private var onDidFailToEnterFullScreen: ((NSWindow) -> Void)?
 
-    init(minContentSize: NSSize) {
+    init(
+        minContentSize: NSSize,
+        onDidFailToEnterFullScreen: ((NSWindow) -> Void)? = nil
+    ) {
         self.minContentSize = minContentSize
+        self.onDidFailToEnterFullScreen = onDidFailToEnterFullScreen
         super.init()
+    }
+
+    func invalidate() {
+        self.onDidFailToEnterFullScreen = nil
+    }
+
+    func windowDidFailToEnterFullScreen(_ window: NSWindow) {
+        self.onDidFailToEnterFullScreen?(window)
     }
 
     /// Floors a proposed content size and snaps it to 16:9. Pure function so

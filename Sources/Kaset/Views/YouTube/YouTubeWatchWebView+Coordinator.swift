@@ -1,5 +1,7 @@
 import WebKit
 
+// MARK: - YouTubeWatchWebView.Coordinator
+
 extension YouTubeWatchWebView {
     // MARK: - Coordinator
 
@@ -49,11 +51,13 @@ extension YouTubeWatchWebView {
                 progress: body["progress"] as? Double ?? 0,
                 duration: body["duration"] as? Double ?? 0,
                 hasReadyMedia: body["hasReadyMedia"] as? Bool ?? false,
+                hasMediaError: body["hasMediaError"] as? Bool ?? false,
                 videoId: (body["videoId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
                 boundVideoId: (body["boundVideoId"] as? String)
                     .flatMap { $0.isEmpty ? nil : $0 },
                 title: body["title"] as? String,
                 isAd: body["isAd"] as? Bool ?? false,
+                isLive: body["isLive"] as? Bool ?? false,
                 didApplyPendingSeek: body["pendingSeekApplied"] as? Bool ?? false,
                 didFailPendingSeek: body["pendingSeekFailed"] as? Bool ?? false,
                 pendingSeekTarget: body["pendingSeekTarget"] as? Double,
@@ -243,6 +247,22 @@ extension YouTubeWatchWebView {
                 return
             }
             YouTubeWatchWebView.shared.webKitManager?.extensionHostWebViewDidFinishNavigation(webView)
+
+            // A trusted interstitial (consent, sign-in) is allowed to commit
+            // here so the user can read and act on it, but the document-start
+            // blackout leaves it invisible and un-hit-testable. Reveal it, then
+            // fall through — it is not a playback URL, so the guard below returns.
+            //
+            // Trusted same-generation form POSTs are admitted unchanged by the
+            // navigation policy so their bodies survive; subsequent GET
+            // continuations are rebound with the generation token as before.
+            if WebPlaybackDocumentGeneration.isTrustedIntermediaryURL(webView.url) {
+                webView.evaluateJavaScript(
+                    YouTubeWatchWebView.revealInterstitialScript,
+                    completionHandler: nil
+                )
+            }
+
             guard WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
                 webView.url,
                 host: "www.youtube.com"
@@ -263,8 +283,20 @@ extension YouTubeWatchWebView {
                 """
                 (function() {
                     window.__kasetTargetVolume = \(savedVolume);
-                    const video = document.querySelector('video');
-                    if (video) { video.volume = \(savedVolume); }
+                    if (typeof window.__kasetApplyTargetVolumeToAllMedia === 'function') {
+                        window.__kasetApplyTargetVolumeToAllMedia();
+                    } else {
+                        const video = document.querySelector('video');
+                        if (video) {
+                            if (\(savedVolume) <= 0) {
+                                video.muted = true;
+                                video.volume = 0;
+                            } else {
+                                video.volume = \(savedVolume);
+                                video.muted = false;
+                            }
+                        }
+                    }
                     if (window.__kasetExtractVideo) { window.__kasetExtractVideo(); }
                 })();
                 """,
@@ -288,5 +320,99 @@ extension YouTubeWatchWebView {
                 resumeAtOverride: resumeAt
             )
         }
+    }
+}
+
+extension YouTubeWatchWebView {
+    func decideNavigationPolicy(
+        webView: WKWebView,
+        navigationAction: WKNavigationAction,
+        decisionHandler: @escaping @MainActor (WKNavigationActionPolicy) -> Void
+    ) {
+        guard navigationAction.targetFrame?.isMainFrame == true else {
+            decisionHandler(.allow)
+            return
+        }
+
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(navigationAction.request.url) {
+            decisionHandler(
+                self.documentGeneration.ownsBlankNavigation(navigationAction.request.url)
+                    ? .allow
+                    : .cancel
+            )
+            return
+        }
+
+        if WebPlaybackDocumentGeneration.isFragmentOnlyNavigation(
+            from: webView.url,
+            to: navigationAction.request.url
+        ) {
+            self.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+            return
+        }
+
+        if self.documentGeneration.pendingGeneration != nil {
+            decisionHandler(.cancel)
+            return
+        }
+
+        if let inFlightGeneration = self.documentGeneration.inFlightGeneration {
+            guard WebPlaybackDocumentGeneration.requestBelongsToNavigationChain(
+                navigationAction.request,
+                currentURL: webView.url,
+                generation: inFlightGeneration,
+                playbackHost: "www.youtube.com",
+                committedIntermediaryGeneration: self.documentGeneration.committedIntermediaryGeneration
+            ) else {
+                decisionHandler(.cancel)
+                return
+            }
+            if WebPlaybackDocumentGeneration.generation(from: navigationAction.request.url)
+                != inFlightGeneration
+            {
+                if WebPlaybackDocumentGeneration.shouldAllowTrustedIntermediaryFormSubmission(
+                    navigationAction.request,
+                    currentURL: webView.url,
+                    generation: inFlightGeneration,
+                    playbackHost: "www.youtube.com",
+                    committedIntermediaryGeneration: self.documentGeneration
+                        .committedIntermediaryGeneration
+                ) {
+                    self.webKitManager?.extensionHostWebViewWillNavigate(
+                        webView,
+                        to: navigationAction.request.url
+                    )
+                    decisionHandler(.allow)
+                    return
+                }
+                decisionHandler(.cancel)
+                self.continuationGenerationsAwaitingStart.insert(inFlightGeneration)
+                if let boundRequest = WebPlaybackDocumentGeneration.requestByBindingGeneration(
+                    navigationAction.request,
+                    generation: inFlightGeneration
+                ) {
+                    Task { @MainActor in
+                        self.startBoundNavigationContinuation(
+                            on: webView,
+                            request: boundRequest,
+                            generation: inFlightGeneration
+                        )
+                    }
+                }
+                return
+            }
+            self.webKitManager?.extensionHostWebViewWillNavigate(
+                webView,
+                to: navigationAction.request.url
+            )
+            decisionHandler(.allow)
+            return
+        }
+
+        decisionHandler(.cancel)
     }
 }
