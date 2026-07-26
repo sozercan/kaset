@@ -122,28 +122,6 @@ struct YouTubeShortsView: View {
     }
 }
 
-// MARK: - ShortsScrollForwarder
-
-/// Transparent overlay that hands trackpad scrolls to the enclosing
-/// pager — the WKWebView under it would otherwise swallow them.
-private struct ShortsScrollForwarder: NSViewRepresentable {
-    final class ForwardingView: NSView {
-        override func scrollWheel(with event: NSEvent) {
-            if let scrollView = self.enclosingScrollView {
-                scrollView.scrollWheel(with: event)
-            } else {
-                self.nextResponder?.scrollWheel(with: event)
-            }
-        }
-    }
-
-    func makeNSView(context _: Context) -> ForwardingView {
-        ForwardingView()
-    }
-
-    func updateNSView(_: ForwardingView, context _: Context) {}
-}
-
 // MARK: - ShortPage
 
 /// One full-height page of the Shorts pager: the live 9:16 surface when
@@ -175,13 +153,9 @@ private struct ShortPage: View {
             }
         }
         .aspectRatio(9 / 16, contentMode: .fit)
-        .overlay {
-            // The video WebView consumes trackpad scrolls; forward them so
-            // the pager keeps paging while the cursor is over the short.
-            ShortsScrollForwarder()
-        }
         .overlay(alignment: .bottom) {
             self.infoOverlay
+                .allowsHitTesting(false)
         }
         .clipShape(.rect(cornerRadius: 12))
         .frame(maxWidth: .infinity, maxHeight: .infinity)

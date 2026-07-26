@@ -558,7 +558,13 @@ final class YouTubePlayerService {
         self.userUpdatedPendingPausedIdentityReloadSeek = false
         self.isIdentityReloadInFlight = false
         self.desiredPlaybackIntent = .paused
+        // A navigation may have finished before its media became ready, leaving
+        // no tracked load for the controller to cancel. Keep late playing
+        // samples from re-authorizing that document or consuming the deferred
+        // reload before an explicit user resume.
+        self.isExplicitPauseIntentActive = true
         self.isAwaitingResumeConfirmation = false
+        self.hasObservedPausedMedia = true
         self.isPlaying = false
         self.finishPlaybackLoading()
     }
@@ -1106,7 +1112,9 @@ extension YouTubePlayerService {
                   self.isPlaybackLoading,
                   self.currentVideo?.videoId == videoId
             else { return }
-            self.deferCurrentVideoReload()
+            if !self.playbackController.cancelPendingLoad() {
+                self.deferCurrentVideoReload()
+            }
         }
     }
 

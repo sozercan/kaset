@@ -24,6 +24,7 @@ struct YouTubePlayerLoadingTimeoutTests {
         #expect(service.isPlaybackLoading)
         try await self.waitUntil { !service.isPlaybackLoading }
         #expect(!service.isPlaybackLoading)
+        #expect(controller.cancelPendingLoadCount == 1)
         #expect(service.pendingPausedIdentityReloadVideoId == "abc")
 
         service.playPause()
@@ -55,6 +56,71 @@ struct YouTubePlayerLoadingTimeoutTests {
         #expect(service.isPlaybackLoading)
         try await self.waitUntil { !service.isPlaybackLoading }
         #expect(!service.isPlaybackLoading)
+    }
+
+    @Test("A timed-out active navigation is cancelled before it is deferred")
+    func timedOutActiveNavigationIsCancelled() async throws {
+        let controller = MockYouTubeWatchPlaybackController()
+        controller.cancelPendingLoadResult = true
+        let service = YouTubePlayerService(
+            playbackController: controller,
+            playbackLoadingTimeout: .milliseconds(10)
+        )
+        controller.onCancelPendingLoad = { [weak service] in
+            service?.handleWebNavigationCancellation()
+        }
+        service.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        service.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            hasMediaError: false,
+            videoId: "abc"
+        ))
+
+        try await self.waitUntil { !service.isPlaybackLoading }
+
+        #expect(controller.cancelPendingLoadCount == 1)
+        #expect(service.pendingPausedIdentityReloadVideoId == "abc")
+        service.playPause()
+        #expect(controller.reloadedVideoIds == ["abc"])
+    }
+
+    @Test("A late playing update cannot consume a timed-out deferred reload")
+    func latePlayingUpdateCannotConsumeTimedOutReload() async throws {
+        let controller = MockYouTubeWatchPlaybackController()
+        let service = YouTubePlayerService(
+            playbackController: controller,
+            playbackLoadingTimeout: .milliseconds(10)
+        )
+        service.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        service.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            hasMediaError: false,
+            videoId: "abc"
+        ))
+        try await self.waitUntil { !service.isPlaybackLoading }
+
+        service.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 0,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "abc",
+            boundVideoId: "abc"
+        ))
+
+        #expect(service.pendingPausedIdentityReloadVideoId == "abc")
+        #expect(controller.reloadedVideoIds.isEmpty)
+        #expect(!service.isPlaying)
+        #expect(controller.pauseCount == 1)
+
+        service.playPause()
+        #expect(controller.reloadedVideoIds == ["abc"])
     }
 
     @Test("An unready SPA drift starts loading after outgoing media was ready")

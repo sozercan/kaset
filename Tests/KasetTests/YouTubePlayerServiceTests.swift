@@ -24,6 +24,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
     private(set) var prepareCount = 0
     private(set) var cancelPendingLoadCount = 0
     var cancelPendingLoadResult = false
+    var onCancelPendingLoad: (() -> Void)?
     var onLoadVideo: ((String) -> Void)?
     var onSeek: ((Double) -> Void)?
 
@@ -43,6 +44,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
 
     func cancelPendingLoad() -> Bool {
         self.cancelPendingLoadCount += 1
+        self.onCancelPendingLoad?()
         return self.cancelPendingLoadResult
     }
 
