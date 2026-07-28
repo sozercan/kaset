@@ -208,6 +208,8 @@
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset tworzy nową sesję SI dla każdego żądania. Odśwież stan, jeśli Apple Intelligence zakończy pobieranie lub stanie się dostępne, gdy aplikacja jest otwarta.";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset działa bez logowania w przypadku publicznego przeglądania, wyszukiwania i odtwarzania. Zaloguj się, aby uzyskać dostęp do osobistych kolekcji muzyki.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset działa bez logowania w przypadku publicznego wyszukiwania, odkrywania i odtwarzania w YouTube. Zaloguj się, aby uzyskać dostęp do osobistych kolekcji wideo.";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset nie mógł bezpiecznie usunąć zapisanych danych logowania. Spróbuj ponownie przed kolejnym logowaniem.";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset nie mógł usunąć zapisanych danych logowania. Spróbuj wylogować się ponownie przed zamknięciem aplikacji.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Utrzymuj odtwarzany film w pływającym oknie po opuszczeniu strony. Gdy opcja jest wyłączona, film zatrzyma się.";
 "Keep listening even when the window is closed" = "Kontynuuj słuchanie nawet po zamknięciu okna";
 "Keep Mini Player on Top" = "Trzymaj mini odtwarzacz na wierzchu";
@@ -437,6 +439,8 @@
 "Sign in to YouTube Music" = "Zaloguj się do YouTube Music";
 "Sign in with Google" = "Zaloguj się przez Google";
 "Sign Out" = "Wyloguj";
+"Sign-In Cleanup Required" = "Wymagane oczyszczenie logowania";
+"Sign Out Incomplete" = "Wylogowanie nie zostało ukończone";
 "Signed in to YouTube" = "Zalogowano do YouTube";
 "Singles & EPs" = "Single i EP-ki";
 "Skip Forward/Backward" = "Przewiń do przodu/do tyłu";

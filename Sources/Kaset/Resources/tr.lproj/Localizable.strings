@@ -208,6 +208,8 @@
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset her istek için yeni bir yapay zeka oturumu oluşturur. Uygulama açıkken Apple Intelligence indirmesi tamamlanırsa veya kullanılabilir hale gelirse durumu yenileyin.";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset, herkese açık gezinme, arama ve oynatma için giriş yapmadan çalışır. Kişisel müzik koleksiyonlarına erişmek için giriş yapın.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset, herkese açık YouTube araması, keşif ve oynatma için giriş yapmadan çalışır. Kişisel video koleksiyonlarına erişmek için giriş yapın.";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kayıtlı oturum açma verilerini güvenli bir şekilde temizleyemedi. Yeniden oturum açmadan önce tekrar deneyin.";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kayıtlı oturum açma verilerini kaldıramadı. Uygulamadan çıkmadan önce yeniden çıkış yapmayı deneyin.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Sayfadan ayrıldığınızda oynatılan videoyu kayan bir pencerede tutar. Kapalıysa video bunun yerine durur.";
 "Keep listening even when the window is closed" = "Pencere kapalıyken bile dinlemeye devam edin";
 "Keep Mini Player on Top" = "Mini Oynatıcıyı Üstte Tut";
@@ -437,6 +439,8 @@
 "Sign in to YouTube Music" = "YouTube Music'te oturum aç";
 "Sign in with Google" = "Google ile giriş yap";
 "Sign Out" = "Çıkış Yap";
+"Sign-In Cleanup Required" = "Oturum Açma Temizliği Gerekli";
+"Sign Out Incomplete" = "Çıkış Tamamlanmadı";
 "Signed in to YouTube" = "YouTube'da oturum açık";
 "Singles & EPs" = "Single'lar ve EP'ler";
 "Skip Forward/Backward" = "İleri/Geri Atla";

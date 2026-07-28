@@ -208,6 +208,8 @@
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "ينشئ Kaset جلسات ذكاء اصطناعي جديدة لكل طلب. حدّث الحالة إذا انتهى تنزيل Apple Intelligence أو أصبح متاحًا أثناء فتح التطبيق.";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "يعمل Kaset من دون تسجيل دخول للتصفح العام والبحث والتشغيل. سجّل الدخول للوصول إلى مجموعات الموسيقى الشخصية.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "يعمل Kaset من دون تسجيل دخول للبحث العام في YouTube والاكتشاف والتشغيل. سجّل الدخول للوصول إلى مجموعات الفيديو الشخصية.";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "تعذّر على Kaset مسح بيانات تسجيل الدخول المحفوظة بأمان. أعد المحاولة قبل تسجيل الدخول مرة أخرى.";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "تعذّر على Kaset إزالة بيانات تسجيل الدخول المحفوظة. حاول تسجيل الخروج مرة أخرى قبل إنهاء التطبيق.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "أبقِ الفيديو الجاري تشغيله في نافذة عائمة عند مغادرة الصفحة. عند إيقافه، سيتوقف الفيديو بدلًا من ذلك.";
 "Keep listening even when the window is closed" = "استمر في الاستماع حتى عند إغلاق النافذة";
 "Keep Mini Player on Top" = "إبقاء المشغّل المصغّر في المقدمة";
@@ -437,6 +439,8 @@
 "Sign in to YouTube Music" = "تسجيل الدخول إلى YouTube Music";
 "Sign in with Google" = "تسجيل الدخول باستخدام Google";
 "Sign Out" = "تسجيل الخروج";
+"Sign-In Cleanup Required" = "يلزم تنظيف تسجيل الدخول";
+"Sign Out Incomplete" = "لم يكتمل تسجيل الخروج";
 "Signed in to YouTube" = "تم تسجيل الدخول إلى YouTube";
 "Singles & EPs" = "الأغاني المنفردة وEPs";
 "Skip Forward/Backward" = "تخطي للأمام/للخلف";

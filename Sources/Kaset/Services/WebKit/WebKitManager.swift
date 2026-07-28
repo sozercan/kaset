@@ -3,6 +3,65 @@ import os
 import Security
 import WebKit
 
+// MARK: - AuthCookieOperationFence
+
+struct AuthCookieOperationFence {
+    private(set) var generation: UInt64 = 0
+
+    mutating func invalidate() {
+        self.generation &+= 1
+    }
+
+    func isCurrent(_ expectedGeneration: UInt64) -> Bool {
+        expectedGeneration == self.generation
+    }
+}
+
+// MARK: - LiveAuthCookieClearResult
+
+struct LiveAuthCookieClearResult: Equatable {
+    let didClear: Bool
+    let usedCookieStoreFallback: Bool
+}
+
+// MARK: - LiveAuthCookieStoreClearer
+
+@MainActor
+enum LiveAuthCookieStoreClearer {
+    struct Operations {
+        let readCookies: @MainActor () async -> [HTTPCookie]
+        let deleteCookie: @MainActor (HTTPCookie) async -> Void
+        let removeAllCookies: @MainActor () async -> Void
+    }
+
+    static func clear(
+        maximumDeletePasses: Int = 3,
+        operations: Operations
+    ) async -> LiveAuthCookieClearResult {
+        for _ in 0 ..< max(maximumDeletePasses, 0) {
+            let cookies = await operations.readCookies()
+            for cookie in cookies where KeychainCookieStorage.isLoginSessionCookie(cookie) {
+                await operations.deleteCookie(cookie)
+            }
+            let remainingCookies = await operations.readCookies()
+            if !remainingCookies.contains(where: KeychainCookieStorage.isLoginSessionCookie) {
+                return LiveAuthCookieClearResult(
+                    didClear: true,
+                    usedCookieStoreFallback: false
+                )
+            }
+            await Task.yield()
+        }
+
+        await operations.removeAllCookies()
+        let remainingCookies = await operations.readCookies()
+        return LiveAuthCookieClearResult(
+            didClear: !remainingCookies.contains(where: KeychainCookieStorage.isLoginSessionCookie),
+            usedCookieStoreFallback: true
+        )
+    }
+}
+
 // MARK: - WebKitManager
 
 /// Manages WebKit data store for persistent cookies and session management.
@@ -23,17 +82,48 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Timestamp of the last cookie change (for observation).
     private(set) var cookiesDidChange: Date = .distantPast
 
+    func recordCookieChange() {
+        self.cookiesDidChange = Date()
+    }
+
     /// Flag to prevent cookie backups while restoring from Keychain.
-    private var isRestoringCookies = false
+    var isRestoringCookies = false
+
+    /// Flag to prevent observer-driven backups while auth cookies are being cleared.
+    var isClearingAuthCookies = false
+
+    /// Serializes and coalesces every auth-cookie/data clearing operation.
+    let authCookieClearCoordinator = AuthCookieClearCoordinator()
 
     /// Task for debouncing cookie change handling.
-    private var cookieDebounceTask: Task<Void, Never>?
+    var cookieDebounceTask: Task<Void, Never>?
+
+    /// Coalesces callers that require the latest cookie snapshot to be persisted.
+    var forcedCookieBackupTask: Task<Bool, Never>?
+
+    /// Suppresses observer-driven persistence while a login baseline is captured.
+    var isPreparingLoginCookieBackup = false
+
+    /// Suppresses observer-driven persistence while a login backup is staged.
+    var activeLoginCookieBackupTransaction: CookieBackupTransaction?
+
+    /// Whether transaction setup failed to restore its prior durable state.
+    var loginCookieBackupSetupRequiresCleanup = false
+
+    /// Records cookie changes delivered while a forced snapshot is being persisted.
+    var forcedCookieBackupDirty = false
 
     /// Task for the one-time startup restore from Keychain into WebKit.
-    private var initialCookieRestoreTask: Task<Void, Never>?
+    private var initialCookieRestoreTask: Task<Bool, Never>?
+
+    /// Whether startup left authentication cookies safe to evaluate.
+    private var initialCookieRestoreAllowsAuthentication = true
+
+    /// Invalidates startup restores and backups that began before an auth-cookie clear.
+    var authCookieOperationFence = AuthCookieOperationFence()
 
     /// Minimum interval between cookie backup operations (in seconds).
-    private static let cookieDebounceInterval: Duration = .seconds(5)
+    static let cookieDebounceInterval: Duration = .seconds(5)
 
     /// The YouTube Music origin URL.
     static let origin = "https://music.youtube.com"
@@ -50,7 +140,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Custom user agent to appear as Safari to avoid "browser not supported" errors.
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
-    private let logger = DiagnosticsLogger.webKit
+    let logger = DiagnosticsLogger.webKit
 
     private var extensionContexts: [String: WKWebExtensionContext] = [:]
 
@@ -74,9 +164,14 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Restore auth cookies on startup.
         // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
         if restoresCookies, !UITestConfig.isRunningUnitTests {
+            let restoreGeneration = self.authCookieOperationFence.generation
             self.initialCookieRestoreTask = Task { @MainActor in
-                await self.restoreAuthCookiesFromBackup()
+                let allowsAuthentication = await self.restoreAuthCookiesFromBackup(
+                    expectedGeneration: restoreGeneration
+                )
+                self.initialCookieRestoreAllowsAuthentication = allowsAuthentication
                 self.initialCookieRestoreTask = nil
+                return allowsAuthentication
             }
         }
 
@@ -121,63 +216,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
             }
         #endif
         return nil
-    }
-
-    /// Restores auth cookies from Keychain to WebKit.
-    /// Handles migration from legacy file-based storage on first run.
-    private func restoreAuthCookiesFromBackup() async {
-        self.isRestoringCookies = true
-        defer { isRestoringCookies = false }
-
-        // Wait a moment for WebKit to fully initialize
-        try? await Task.sleep(for: .milliseconds(100))
-
-        // Migrate from legacy file-based storage if needed (one-time operation).
-        // Perform file I/O off the main actor.
-        _ = await Task(priority: .utility) {
-            LegacyCookieMigration.migrateIfNeeded()
-        }.value
-
-        let existingCookies = await dataStore.httpCookieStore.allCookies()
-        self.logger.info("WebKit has \(existingCookies.count) cookies on startup")
-
-        // Load cookies from Keychain.
-        // Perform Keychain I/O off the main actor; decode on main actor.
-        let archiveData = await Task(priority: .utility) {
-            KeychainCookieStorage.loadArchiveData()
-        }.value
-
-        guard let archiveData else {
-            self.logger.info("No cookies found in Keychain (first run or signed out)")
-            return
-        }
-
-        let keychainCookies = KeychainCookieStorage.decodeCookies(from: archiveData)
-        guard !keychainCookies.isEmpty else {
-            self.logger.info("No valid cookies found in Keychain")
-            return
-        }
-
-        #if DEBUG
-            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
-        #endif
-
-        self.logger.info("Restoring \(keychainCookies.count) auth cookies from Keychain")
-
-        // Set each cookie in WebKit
-        for cookie in keychainCookies {
-            await self.dataStore.httpCookieStore.setCookie(cookie)
-        }
-
-        // Verify restore
-        let cookies = await dataStore.httpCookieStore.allCookies()
-        let hasAuth = cookies.contains { $0.name == "SAPISID" || $0.name == "__Secure-3PAPISID" }
-
-        if hasAuth {
-            self.logger.info("✓ Auth cookies restored from Keychain (\(cookies.count) total cookies)")
-        } else {
-            self.logger.error("✗ Failed to restore auth cookies - Keychain data may be corrupted")
-        }
     }
 
     /// Loads all enabled extensions from `ExtensionsManager`.
@@ -419,10 +457,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 
     /// Waits for the one-time startup cookie restore to finish.
-    func waitForInitialCookieRestore() async {
+    func waitForInitialCookieRestore() async -> Bool {
         if let restoreTask = self.initialCookieRestoreTask {
-            await restoreTask.value
+            return await restoreTask.value
         }
+        return self.initialCookieRestoreAllowsAuthentication
     }
 
     /// Retrieves all cookies from the HTTP cookie store.
@@ -519,106 +558,107 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 
     /// Clears only authentication cookies, preserving public WebKit cache/data.
-    func clearAuthCookies() async {
-        self.logger.info("Clearing WebKit auth cookies")
-        let cookies = await self.dataStore.httpCookieStore.allCookies()
-        for cookie in cookies where KeychainCookieStorage.authCookieNames.contains(cookie.name) {
-            await self.dataStore.httpCookieStore.deleteCookie(cookie)
+    @discardableResult
+    func clearAuthCookies() async -> Bool {
+        await self.authCookieClearCoordinator.run(scope: .authenticationCookies) { [weak self] in
+            guard let self else { return false }
+            return await self.performAuthCookieClear()
         }
-        KeychainCookieStorage.deleteCookies()
+    }
+
+    private func performAuthCookieClear() async -> Bool {
+        self.logger.info("Clearing WebKit auth cookies")
+        self.isClearingAuthCookies = true
+        defer { self.isClearingAuthCookies = false }
+
+        await self.fenceAuthCookieOperationsAndInvalidateBackup()
+
+        // Invalidate once more after the initial fence so no operation that was
+        // already queued before it can leave a durable stale snapshot. All live
+        // verification happens after this final persistence suspension.
+        let didInvalidatePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+
+        let liveClearResult = await LiveAuthCookieStoreClearer.clear(
+            operations: LiveAuthCookieStoreClearer.Operations(
+                readCookies: {
+                    await self.dataStore.httpCookieStore.allCookies()
+                },
+                deleteCookie: { cookie in
+                    await self.dataStore.httpCookieStore.deleteCookie(cookie)
+                },
+                removeAllCookies: {
+                    await self.dataStore.removeData(
+                        ofTypes: [WKWebsiteDataTypeCookies],
+                        modifiedSince: .distantPast
+                    )
+                }
+            )
+        )
+        if liveClearResult.usedCookieStoreFallback {
+            self.logger.warning("Escalated authentication cleanup to the WebKit cookie data store")
+        }
+        if !liveClearResult.didClear {
+            self.logger.error("Could not clear live authentication cookies")
+        }
+
+        let didClear = liveClearResult.didClear && didInvalidatePersistedCookies
+        self.initialCookieRestoreAllowsAuthentication = didClear
+        self.loginCookieBackupSetupRequiresCleanup = !didClear
         self.cookiesDidChange = Date()
+        return didClear
     }
 
     /// Clears all website data (cookies, cache, etc.).
-    func clearAllData() async {
+    @discardableResult
+    func clearAllData() async -> Bool {
+        await self.authCookieClearCoordinator.run(scope: .allWebsiteData) { [weak self] in
+            guard let self else { return false }
+            return await self.performAllWebsiteDataClear()
+        }
+    }
+
+    private func performAllWebsiteDataClear() async -> Bool {
         let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let dateFrom = Date.distantPast
 
         self.logger.info("Clearing all WebKit data")
+        self.isClearingAuthCookies = true
+        defer { self.isClearingAuthCookies = false }
 
+        await self.fenceAuthCookieOperationsAndInvalidateBackup()
         await self.dataStore.removeData(ofTypes: allTypes, modifiedSince: dateFrom)
 
-        // Also clear cookies from Keychain
-        KeychainCookieStorage.deleteCookies()
-
-        self.logger.info("WebKit data cleared successfully")
+        // Repeat the invalidation after WebKit finishes clearing to close the
+        // window for any already-enqueued observer or backup work.
+        let didInvalidatePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+        let remainingCookies = await self.dataStore.httpCookieStore.allCookies()
+        let didClearLiveCookies = !remainingCookies.contains(where: KeychainCookieStorage.isLoginDomainCookie)
+        let didClear = didInvalidatePersistedCookies && didClearLiveCookies
+        self.initialCookieRestoreAllowsAuthentication = didClear
+        self.loginCookieBackupSetupRequiresCleanup = !didClear
+        if didClear {
+            self.logger.info("WebKit data cleared successfully")
+        } else {
+            self.logger.error("WebKit data or durable cookie invalidation could not be cleared")
+        }
+        self.cookiesDidChange = Date()
+        return didClear
     }
 
-    /// Forces an immediate save of all YouTube/Google cookies to Keychain.
-    /// Call this after successful login to ensure cookies are persisted.
-    func forceBackupCookies() async {
-        let cookies = await dataStore.httpCookieStore.allCookies()
-        self.logger.info("Force backup: found \(cookies.count) total cookies")
+    private func fenceAuthCookieOperationsAndInvalidateBackup() async {
+        self.authCookieOperationFence.invalidate()
+        self.activeLoginCookieBackupTransaction = nil
+        self.cookieDebounceTask?.cancel()
+        self.cookieDebounceTask = nil
 
-        // Filter for YouTube/Google auth cookies
-        let authCookies = cookies.filter { cookie in
-            let domain = cookie.domain.lowercased()
-            return domain.hasSuffix("youtube.com") || domain.hasSuffix("google.com")
-        }
+        let restoreTask = self.initialCookieRestoreTask
+        let backupTask = self.forcedCookieBackupTask
+        restoreTask?.cancel()
+        backupTask?.cancel()
 
-        self.logger.info("Force backup: \(authCookies.count) YouTube/Google cookies to Keychain")
-        guard let archive = KeychainCookieStorage.makeArchiveData(from: authCookies) else { return }
-
-        // Perform Keychain/file I/O off the main actor.
-        // Fire-and-forget: failures are handled inside KeychainCookieStorage.
-        Task(priority: .utility) {
-            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
-            #if DEBUG
-                DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
-            #endif
-        }
-    }
-}
-
-// MARK: WKHTTPCookieStoreObserver
-
-extension WebKitManager: WKHTTPCookieStoreObserver {
-    nonisolated func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
-        Task { @MainActor in
-            self.cookiesDidChange = Date()
-
-            guard !self.isRestoringCookies else { return }
-
-            // Debounce cookie backup to avoid excessive writes
-            // WebKit fires this callback for each individual cookie change,
-            // which can result in dozens of calls in rapid succession
-            self.cookieDebounceTask?.cancel()
-            self.cookieDebounceTask = Task {
-                do {
-                    try await Task.sleep(for: Self.cookieDebounceInterval)
-                } catch is CancellationError {
-                    // Task was cancelled (new cookie change came in), skip backup
-                    return
-                } catch {
-                    // Unexpected error during sleep - log and continue with backup
-                    self.logger.warning("Unexpected error during cookie debounce: \(error.localizedDescription)")
-                }
-
-                // Perform debounced backup
-                await self.performCookieBackup(cookieStore: cookieStore)
-            }
-        }
-    }
-
-    /// Performs the actual cookie backup after debouncing.
-    private func performCookieBackup(cookieStore: WKHTTPCookieStore) async {
-        let cookies = await cookieStore.allCookies()
-
-        // Filter for YouTube/Google auth cookies
-        let authCookies = cookies.filter { cookie in
-            let domain = cookie.domain.lowercased()
-            return domain.hasSuffix("youtube.com") || domain.hasSuffix("google.com")
-        }
-
-        guard let archive = KeychainCookieStorage.makeArchiveData(from: authCookies) else { return }
-
-        // Perform Keychain/file I/O off the main thread.
-        Task.detached(priority: .utility) {
-            _ = KeychainCookieStorage.saveArchiveData(archive.data, cookieCount: archive.cookieCount)
-            #if DEBUG
-                DebugCookieFileExporter.exportAuthCookiesArchiveData(archive.data)
-            #endif
-        }
+        _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+        _ = await restoreTask?.value
+        _ = await backupTask?.value
     }
 }
 

@@ -8,3 +8,9 @@
 "Podcast" = "Podcast";
 "Episode" = "Episode";
 "Chapter" = "Chapter";
+
+// Sign-out durability
+"Sign Out Incomplete" = "Sign Out Incomplete";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset could not remove saved sign-in data. Try signing out again before quitting.";
+"Sign-In Cleanup Required" = "Sign-In Cleanup Required";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset could not safely clear saved sign-in data. Retry before signing in again.";

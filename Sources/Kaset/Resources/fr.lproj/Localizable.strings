@@ -208,6 +208,8 @@
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset crée une nouvelle session d'IA pour chaque demande. Actualisez l'état si Apple Intelligence finit de se télécharger ou devient disponible pendant que l'app est ouverte.";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset fonctionne sans connexion pour la navigation publique, la recherche et la lecture. Connectez-vous pour accéder à vos collections musicales personnelles.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset fonctionne sans connexion pour la recherche publique, la découverte et la lecture sur YouTube. Connectez-vous pour accéder à vos collections vidéo personnelles.";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset n’a pas pu effacer en toute sécurité les données de connexion enregistrées. Réessayez avant de vous reconnecter.";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset n’a pas pu supprimer les données de connexion enregistrées. Essayez de vous déconnecter à nouveau avant de quitter.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Garde une vidéo en cours de lecture dans une fenêtre flottante quand vous quittez la page. Sinon, la vidéo s'arrête.";
 "Keep listening even when the window is closed" = "Continuer l'écoute même lorsque la fenêtre est fermée";
 "Keep Mini Player on Top" = "Garder le mini lecteur au premier plan";
@@ -437,6 +439,8 @@
 "Sign in to YouTube Music" = "Se connecter à YouTube Music";
 "Sign in with Google" = "Se connecter avec Google";
 "Sign Out" = "Se déconnecter";
+"Sign-In Cleanup Required" = "Nettoyage de connexion requis";
+"Sign Out Incomplete" = "Déconnexion incomplète";
 "Signed in to YouTube" = "Connecté à YouTube";
 "Singles & EPs" = "Singles et EP";
 "Skip Forward/Backward" = "Avancer/Reculer";

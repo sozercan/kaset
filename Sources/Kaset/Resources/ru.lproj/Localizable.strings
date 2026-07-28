@@ -208,6 +208,8 @@
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset создаёт новую сессию ИИ для каждого запроса. Обновите статус, если Apple Intelligence завершит загрузку или станет доступен, пока приложение открыто.";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset работает без входа для публичного просмотра, поиска и воспроизведения. Войдите, чтобы получить доступ к личным музыкальным коллекциям.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset работает без входа для публичного поиска, рекомендаций и воспроизведения на YouTube. Войдите, чтобы получить доступ к личным коллекциям видео.";
+"Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset не удалось безопасно удалить сохранённые данные для входа. Повторите попытку перед новым входом.";
+"Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset не удалось удалить сохранённые данные для входа. Попробуйте выйти ещё раз перед завершением работы.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Оставляет воспроизводящееся видео в плавающем окне, когда вы покидаете страницу. Если выключено, видео останавливается.";
 "Keep listening even when the window is closed" = "Продолжайте слушать, даже когда окно закрыто";
 "Keep Mini Player on Top" = "Держать мини-плеер поверх окон";
@@ -437,6 +439,8 @@
 "Sign in to YouTube Music" = "Войти в YouTube Music";
 "Sign in with Google" = "Войти через Google";
 "Sign Out" = "Выйти";
+"Sign-In Cleanup Required" = "Требуется очистка данных входа";
+"Sign Out Incomplete" = "Выход не завершён";
 "Signed in to YouTube" = "Вход в YouTube выполнен";
 "Singles & EPs" = "Синглы и EP";
 "Skip Forward/Backward" = "Перемотка вперед/назад";

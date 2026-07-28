@@ -246,6 +246,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.showLoginSheet = true
             }
         }
+        .onChange(of: self.authService.loginCleanupRequired) { _, cleanupRequired in
+            guard cleanupRequired else { return }
+            self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: true)
+            self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
+        }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
             DiagnosticsLogger.player.debug("showVideo onChange triggered: \(showVideo)")
             if showVideo {

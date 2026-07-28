@@ -10961,6 +10961,194 @@
     },
     "Item %lld": {},
     "Kaset": {},
+    "Kaset could not safely clear saved sign-in data. Retry before signing in again.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر على Kaset مسح بيانات تسجيل الدخول المحفوظة بأمان. أعد المحاولة قبل تسجيل الدخول مرة أخرى."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset konnte die gespeicherten Anmeldedaten nicht sicher löschen. Versuche es erneut, bevor du dich wieder anmeldest."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset could not safely clear saved sign-in data. Retry before signing in again."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset no pudo borrar de forma segura los datos de inicio de sesión guardados. Reinténtalo antes de volver a iniciar sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset n’a pas pu effacer en toute sécurité les données de connexion enregistrées. Réessayez avant de vous reconnecter."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset tidak dapat menghapus data masuk yang tersimpan dengan aman. Coba lagi sebelum masuk kembali."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset non ha potuto eliminare in modo sicuro i dati di accesso salvati. Riprova prima di accedere di nuovo."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset이 저장된 로그인 데이터를 안전하게 지우지 못했습니다. 다시 로그인하기 전에 재시도하세요."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kon de opgeslagen aanmeldgegevens niet veilig wissen. Probeer het opnieuw voordat je je weer aanmeldt."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset nie mógł bezpiecznie usunąć zapisanych danych logowania. Spróbuj ponownie przed kolejnym logowaniem."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Kaset não conseguiu limpar em segurança os dados de início de sessão guardados. Tente novamente antes de iniciar sessão outra vez."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не удалось безопасно удалить сохранённые данные для входа. Повторите попытку перед новым входом."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kunde inte rensa sparade inloggningsdata på ett säkert sätt. Försök igen innan du loggar in på nytt."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kayıtlı oturum açma verilerini güvenli bir şekilde temizleyemedi. Yeniden oturum açmadan önce tekrar deneyin."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не вдалося безпечно видалити збережені дані входу. Повторіть спробу перед новим входом."
+          }
+        }
+      }
+    },
+    "Kaset could not remove saved sign-in data. Try signing out again before quitting.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر على Kaset إزالة بيانات تسجيل الدخول المحفوظة. حاول تسجيل الخروج مرة أخرى قبل إنهاء التطبيق."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset konnte die gespeicherten Anmeldedaten nicht entfernen. Versuche vor dem Beenden erneut, dich abzumelden."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset could not remove saved sign-in data. Try signing out again before quitting."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset no pudo eliminar los datos de inicio de sesión guardados. Intenta cerrar sesión de nuevo antes de salir."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset n’a pas pu supprimer les données de connexion enregistrées. Essayez de vous déconnecter à nouveau avant de quitter."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset tidak dapat menghapus data masuk yang tersimpan. Coba keluar lagi sebelum menutup aplikasi."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset non ha potuto rimuovere i dati di accesso salvati. Prova a disconnetterti di nuovo prima di uscire."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset이 저장된 로그인 데이터를 제거하지 못했습니다. 앱을 종료하기 전에 다시 로그아웃해 보세요."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kon de opgeslagen aanmeldgegevens niet verwijderen. Probeer opnieuw af te melden voordat je stopt."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset nie mógł usunąć zapisanych danych logowania. Spróbuj wylogować się ponownie przed zamknięciem aplikacji."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Kaset não conseguiu remover os dados de início de sessão guardados. Tente terminar sessão novamente antes de sair."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не удалось удалить сохранённые данные для входа. Попробуйте выйти ещё раз перед завершением работы."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kunde inte ta bort sparade inloggningsdata. Försök logga ut igen innan du avslutar."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kayıtlı oturum açma verilerini kaldıramadı. Uygulamadan çıkmadan önce yeniden çıkış yapmayı deneyin."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не вдалося видалити збережені дані входу. Спробуйте вийти ще раз перед завершенням роботи."
+          }
+        }
+      }
+    },
     "Keep listening even when the window is closed": {
       "localizations": {
         "ar": {
@@ -21706,6 +21894,194 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вийти"
+          }
+        }
+      }
+    },
+    "Sign-In Cleanup Required": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "يلزم تنظيف تسجيل الدخول"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmeldebereinigung erforderlich"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-In Cleanup Required"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Se requiere limpiar el inicio de sesión"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nettoyage de connexion requis"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pembersihan proses masuk diperlukan"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pulizia dell’accesso necessaria"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그인 정리 필요"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aanmeldgegevens moeten worden opgeschoond"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wymagane oczyszczenie logowania"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "É necessário limpar o início de sessão"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Требуется очистка данных входа"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inloggningsdata måste rensas"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturum Açma Temizliği Gerekli"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Потрібне очищення даних входу"
+          }
+        }
+      }
+    },
+    "Sign Out Incomplete": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يكتمل تسجيل الخروج"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abmeldung unvollständig"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign Out Incomplete"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cierre de sesión incompleto"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Déconnexion incomplète"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Proses keluar belum selesai"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Disconnessione incompleta"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "로그아웃이 완료되지 않음"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afmelden niet voltooid"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wylogowanie nie zostało ukończone"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fim de sessão incompleto"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выход не завершён"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utloggningen slutfördes inte"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Çıkış Tamamlanmadı"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вихід не завершено"
           }
         }
       }
