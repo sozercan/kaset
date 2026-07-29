@@ -90,8 +90,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         self.session = resolvedSession
         self.askTransport = YouTubeAskTransport(configuration: resolvedSession.configuration)
         self.askMessageIDGenerator = askMessageIDGenerator ?? YouTubeAskMessageIDGenerator()
-        // The July 28, 2026 read-only parity run did not establish a passing
-        // request profile. Production remains fail-closed; tests opt in explicitly.
+        // Ask remains an explicit construction-time capability. The production
+        // app selects the fixed WEB profile; isolated clients and tests default off.
         self.askRequestProfile = askFeatureEnabled ? .fixedProduction : nil
     }
 

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted; production activation is disabled pending request-profile validation.
+Accepted; production activation uses the explicitly selected fixed WEB profile.
 
 ## Context
 
@@ -64,11 +64,12 @@ Wire-level observations and the API Explorer workflow remain documented in the
    disable the current session. There is no automatic retry; the UI may offer
    New Chat, which starts from a fresh watch bootstrap and replaces the old
    conversation only after preparation succeeds.
-6. **Require a passing request profile before production activation.** No
-   profile is currently selected. The production feature remains disabled and
-   fail-closed until a redacted parity run establishes a passing signed-in
-   primary-account profile. Added compatibility configuration, if any, must
-   remain isolated to Ask requests. The
+6. **Select the production request profile explicitly.** The production app
+   selects the fixed WEB profile. The July 28, 2026 parity run was inconclusive
+   because the exported session appeared signed out; activation was subsequently
+   enabled by explicit product direction on July 30, 2026. Compatibility
+   configuration remains isolated to Ask requests, and malformed, ineligible, or
+   identity-mismatched responses continue to fail closed. The
    [API discovery record](../api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27)
    is the sole wire-level source of truth.
 
@@ -83,8 +84,7 @@ Wire-level observations and the API Explorer workflow remain documented in the
   boundary and at app termination.
 - Opaque command material is harder to inspect during debugging, but accidental
   disclosure and cross-account reuse are substantially less likely.
-- A completed UI and domain implementation may remain invisible when no request
-  profile has passed. This is intentional: HTTP success alone is not evidence of
-  authenticated eligibility.
-- Future enablement requires updating the redacted parity result and tests, not
-  guessing request fields or weakening parser rules.
+- The panel remains invisible for signed-out, guest, brand-account, and
+  server-ineligible watch routes even though the production capability is enabled.
+- Future request-profile changes require updating the redacted parity result and
+  tests, not guessing request fields or weakening parser rules.

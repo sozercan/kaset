@@ -501,9 +501,9 @@ struct YouTubeAskClientTests {
         #expect(requestCount.count == 1)
     }
 
-    @Test("Production remains disabled when no parity profile has passed")
+    @Test("Client default remains disabled without explicit opt-in")
     @MainActor
-    func productionDefaultRemainsDisabled() async throws {
+    func clientDefaultRemainsDisabled() async throws {
         let session = MockURLProtocol.makeMockSession { request in
             Self.response(for: request, data: Self.eligibleNextData)
         }
@@ -530,6 +530,17 @@ struct YouTubeAskClientTests {
 
         let page = try await client.getWatchPage(videoId: "fixture-video")
         #expect(page.askBootstrap == nil)
+    }
+
+    @Test("Production app explicitly enables Ask Gemini")
+    func productionAppExplicitlyEnablesAsk() throws {
+        let sourcePath = #filePath.replacingOccurrences(
+            of: "Tests/KasetTests/YouTubeAskClientTests.swift",
+            with: "Sources/Kaset/KasetApp.swift"
+        )
+        let source = try String(contentsOfFile: sourcePath, encoding: .utf8)
+
+        #expect(source.contains("askFeatureEnabled: true"))
     }
 
     @Test("Unresolved and unsupported account states omit Ask")

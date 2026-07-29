@@ -54,7 +54,7 @@ The workflows that turn playlist browse data into native playback queues. This i
 
 ## YouTube Ask
 
-The watch-page Ask Gemini capability in the regular YouTube experience. Kaset's first version is limited to server-issued suggestion chips and follow-up chips. It uses YouTube APIs rather than the playback WebView, and it remains disabled unless a read-only request-profile check proves an eligible signed-in primary-account flow.
+The watch-page Ask Gemini capability in the regular YouTube experience. Kaset's first version is limited to server-issued suggestion chips and follow-up chips. It uses YouTube APIs rather than the playback WebView, selects the fixed WEB request profile explicitly in production, and appears only when YouTube returns an eligible bootstrap for a signed-in primary account.
 
 ## Ask Bootstrap
 

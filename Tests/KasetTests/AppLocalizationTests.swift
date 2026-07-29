@@ -378,6 +378,32 @@ struct AppLocalizationTests {
         #expect(title.contains("34.6M"))
     }
 
+    @Test("Ask Gemini UI strings resolve from representative runtime bundles")
+    func askGeminiRuntimeStringsResolve() {
+        let expectedValues = [
+            ("ar", "New Chat", "محادثة جديدة"),
+            ("de", "Ask Gemini", "Gemini fragen"),
+            ("ko", "YouTube response: %@", "YouTube 응답: %@"),
+            ("tr", "Sending…", "Gönderiliyor…"),
+        ]
+
+        for (locale, key, expectedValue) in expectedValues {
+            #expect(self.localizedValue(key: key, localeIdentifier: locale) == expectedValue)
+        }
+
+        let arabicTemplate = self.localizedValue(
+            key: "You asked: %@",
+            localeIdentifier: "ar"
+        )
+        let arabicLabel = String(
+            format: arabicTemplate,
+            locale: Locale(identifier: "ar"),
+            "محتوى تجريبي"
+        )
+        #expect(arabicLabel.hasPrefix("لقد سألت:"))
+        #expect(arabicLabel.contains("محتوى تجريبي"))
+    }
+
     @Test("Override bundle lookup is scoped to Kaset-owned bundles")
     func overrideBundleLookupIsScopedToKasetBundles() throws {
         AppLocalization.setLanguage("ar")

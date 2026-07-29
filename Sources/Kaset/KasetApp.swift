@@ -142,7 +142,7 @@ struct KasetApp: App {
         }
 
         // YouTube (video) client — same login, www.youtube.com origin
-        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit)
+        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit, askFeatureEnabled: true)
         realYouTubeClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }

@@ -14,6 +14,7 @@ struct YouTubeWatchView: View {
     let video: YouTubeVideo
 
     @Environment(AuthService.self) private var authService
+    @Environment(AccountService.self) private var accountService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var viewModel: YouTubeWatchViewModel
 
@@ -53,6 +54,16 @@ struct YouTubeWatchView: View {
         return self.youtubePlayer.storyboardSpec
     }
 
+    private var askAccountScope: YouTubeAskAccountScopeObservation {
+        YouTubeAskAccountScopeObservation(
+            authenticationGeneration: self.authService.accountIdentityGeneration,
+            hasPersonalAccount: self.authService.hasPersonalAccount,
+            accountScopeID: self.accountService.currentAccountScopeID,
+            isPrimaryAccount: self.accountService.currentAccount?.isPrimary,
+            verifiedIdentitySequence: self.accountService.verifiedIdentitySequence
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -76,7 +87,7 @@ struct YouTubeWatchView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    self.relatedColumn
+                    self.rightColumn
                         .frame(width: 360)
                 }
             }
@@ -102,9 +113,10 @@ struct YouTubeWatchView: View {
                 self.ambientStylePicker
             }
         #endif
-            .task {
+            .task(id: self.askAccountScope) {
+                let accountScope = self.askAccountScope
                 self.startOrAdoptPlayback()
-                await self.viewModel.load()
+                await self.viewModel.load(accountScope: accountScope)
                 // Feed the related list to the player so the bar's next/previous
                 // buttons can skip between videos.
                 if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
@@ -113,6 +125,7 @@ struct YouTubeWatchView: View {
                 }
             }
             .onDisappear {
+                self.viewModel.cancel()
                 self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
             }
     }
@@ -398,6 +411,18 @@ struct YouTubeWatchView: View {
         let nextIndex = self.viewModel.data.chapters.index(after: index)
         guard nextIndex < self.viewModel.data.chapters.endIndex else { return true }
         return currentTime < self.viewModel.data.chapters[nextIndex].startTime
+    }
+
+    // MARK: - Right Column
+
+    private var rightColumn: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if self.viewModel.ask.isAvailable {
+                YouTubeAskPanelView(viewModel: self.viewModel.ask)
+            }
+
+            self.relatedColumn
+        }
     }
 
     // MARK: - Related Column
