@@ -51,3 +51,27 @@ The two identifiers required for album Library behavior. An `MPRE...` browse ID 
 ## Playlist Playback Actions
 
 The workflows that turn playlist browse data into native playback queues. This includes radio playlist queue fallback, browse playability correction, playlist artwork fallback, continuation loading, duplicate filtering, and discarding continuations when the active queue has changed.
+
+## YouTube Ask
+
+The watch-page Ask Gemini capability in the regular YouTube experience. Kaset's first version is limited to server-issued suggestion chips and follow-up chips. It uses YouTube APIs rather than the playback WebView, and it remains disabled unless a read-only request-profile check proves an eligible signed-in primary-account flow.
+
+## Ask Bootstrap
+
+The eligible YouChat material discovered in the current video's watch-page `next` response. A bootstrap may expose suggestions directly or carry the opaque command needed to prepare the initial Ask panel. It is valid only for the video, authentication generation, and primary-account scope that produced it.
+
+## Ask Conversation
+
+The memory-only visible transcript and server-issued follow-up suggestions for one watch-scoped Ask chat. New Chat replaces it only after a fresh bootstrap and panel preparation succeed. Navigation, account/authentication changes, cancellation, or app termination discard it.
+
+## Server-Issued Ask Suggestion
+
+A sanitized visible chip label paired internally with an opaque server command. The label is displayed verbatim and is not a localized Kaset string. Selecting the suggestion replays its exact command; Kaset never turns the label into free-form input.
+
+## Opaque Ask Command
+
+Unprintable, non-persistent server state used only to continue the current Ask conversation. It must never be logged, cached, serialized, restored, placed in fixtures, exposed through accessibility identifiers, or reused across a video, account, conversation, or revision boundary.
+
+## Ask Request Profile
+
+The bounded YouTube WEB client configuration used only for Ask compatibility. A profile is selectable for production only after the read-only parity workflow confirms signed-in eligibility and initial panel preparation. An HTTP 200 response that contains signed-out state is a failed profile.

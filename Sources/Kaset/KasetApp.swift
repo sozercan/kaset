@@ -149,6 +149,17 @@ struct KasetApp: App {
         realYouTubeClient.accountCacheIdentityProvider = { [weak account] in
             account?.currentAccount?.cacheIdentity
         }
+        realYouTubeClient.askAccountBindingProvider = { [weak account] in
+            guard let account,
+                  let currentAccount = account.currentAccount,
+                  currentAccount.isPrimary,
+                  account.verifiedAccountId == currentAccount.id,
+                  let scopeID = account.currentAccountScopeID
+            else {
+                return nil
+            }
+            return YouTubeAskAccountBinding(scopeID: scopeID)
+        }
         let youtubeClient: YouTubeClientProtocol = if UITestConfig.isUITestMode {
             MockUITestYouTubeClient()
         } else {
