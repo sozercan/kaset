@@ -1,0 +1,57 @@
+[
+  {
+    "onResponseReceivedCommands": [
+      {
+        "appendContinuationItemsAction": {
+          "continuationItems": [
+            {
+              "youChatTextMessageViewModel": {
+                "text": {
+                  "content": "First assistant message"
+                }
+              }
+            },
+            {
+              "youChatTextMessageViewModel": {
+                "text": {
+                  "content": "First assistant message"
+                }
+              }
+            },
+            {
+              "youChatItemViewModel": {
+                "text": {
+                  "runs": [
+                    {
+                      "text": "Second assistant message"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "youChatItemViewModel": {
+                "chipsData": {
+                  "chipData": [
+                    {
+                      "text": {
+                        "simpleText": "Continue with details"
+                      },
+                      "continuation": "fixture-conversation-continuation-a"
+                    },
+                    {
+                      "text": {
+                        "simpleText": "Continue with details"
+                      },
+                      "continuation": "fixture-conversation-continuation-b"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+]

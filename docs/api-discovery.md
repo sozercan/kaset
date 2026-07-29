@@ -140,7 +140,7 @@ swift run api-explorer brandaccounts
 
   0: Primary Account (@handle) [Primary] ← current
   1: Brand Channel (@brand-handle) [Brand Account]
-     Brand ID: 111997145576882617490
+     Brand ID: <BRAND_ID>
 ```
 
 **API Response Path**:
@@ -166,7 +166,7 @@ let body: [String: Any] = [
             "clientVersion": "1.20231204.01.00"
         ],
         "user": [
-            "onBehalfOfUser": "111997145576882617490"  // Brand account ID
+            "onBehalfOfUser": "<BRAND_ID>"  // Brand account ID
         ]
     ],
     "browseId": "FEmusic_liked_playlists"
@@ -179,7 +179,7 @@ let body: [String: Any] = [
 swift run api-explorer brandaccounts
 
 # Access brand account library
-swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand <BRAND_ID>
 ```
 
 #### Key Differences: authuser vs brand
@@ -1383,6 +1383,131 @@ Field notes:
 
 Prefer the destination feeds documented in [youtube.md](youtube.md) for Explore; YouTube's old `FEtrending` feed is no longer a reliable target.
 
+#### YouTube Ask Gemini / YouChat investigation (2026-07-27)
+
+YouTube's **Ask Gemini** watch-page experience is an undocumented, internal
+YouChat engagement-panel surface. It is not a public API, and its availability,
+request schemas, and frontend identifiers are subject to account eligibility,
+server rollout, client version, and video-specific changes.
+
+Start with the redacted read-only audit. Use the separate live command only when
+an explicit request to contact the live AI service has been approved:
+
+```bash
+# Read-only: audits watch responses and frontend capability markers
+swift run api-explorer ask-video-audit <VIDEO_ID>
+
+# Read-only: compares the ordered production/request-compatibility profiles
+swift run api-explorer ask-video-parity <VIDEO_ID>
+
+# Live: replays only the server-issued summary suggestion
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai
+
+# Live: summary plus the first server-issued follow-up suggestion
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow-up
+
+# Live: two independent watch/panel bootstraps, capped at three
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --fresh-chats 2
+
+# Manual structural probe for object, array, streaming, or opaque responses
+swift run api-explorer --youtube wire-action <ENDPOINT> '<JSON_OBJECT>'
+```
+
+`ask-video-audit` redacts opaque values, does not save raw payloads, and never
+submits a query. `ask-video-live-test` requires `--confirm-live-ai`, keeps all
+opaque continuations and message state in memory, rejects raw output files, and
+accepts no arbitrary prompt text. Its generated answer display strips control
+and bidirectional formatting characters, hides links and high-entropy opaque
+strings, and is bounded to 16,000 characters per answer.
+
+**Read-only production-parity matrix (added July 28, 2026):**
+
+`ask-video-parity` tests the credential-free profiles defined by
+`YouTubeAskRequestProfile` in this order:
+
+1. Fixed production client version, no API key, no visitor data, and one SID proof.
+2. The same fixed production configuration with all available SID proof schemes.
+3. The runtime WEB client-version/API-key/visitor-data bundle with all available
+   SID proof schemes.
+
+For each profile, the command makes an authenticated `next` request and, only
+when strict parsing finds one unambiguous panel bootstrap, materializes the
+initial `get_panel`. It never submits a suggestion chip, free text, or any other
+generation request. Both responses use the bounded `YouTubeAskCore` wire decoder
+and strict parser. Terminal output is limited to the profile name, HTTP status,
+response size, wire format, eligibility, chip counts, and a redacted failure
+category. The command stops at the first passing profile and rejects raw-output,
+private-body, client-version override, follow-up, and multi-chat options.
+
+The read-only run on **July 28, 2026** completed all three profiles. Every
+`next` request returned HTTP 200, but each response reported the exported
+session as signed out, so `get_panel` was not run and no profile passed. This is
+an authentication rejection, not evidence that any request profile is valid or
+invalid for an eligible signed-in session. Production therefore remains
+disabled and fail-closed; a future run must confirm signed-in primary-account
+eligibility before selecting a profile.
+
+`get_panel`, `streaming_panel`, and `get_answer` must use `wire-action` for manual
+probes; the raw `action` command rejects them. Supply manual panel JSON through
+`--body-file` using a mode-0600 regular file, or use `--body-file -` to read
+stdin, so opaque values do not appear in argv or normal shell history. Endpoint
+arguments must be plain relative API paths.
+
+**Observed frontend identifiers**:
+
+- `PAyouchat`
+- `engagement-panel-youchat`
+- `PAai_companion`
+
+**Observed transport behavior**:
+
+| Transport | Current interpretation |
+|-----------|------------------------|
+| `get_panel` | Panel bootstrap and direct suggestion-chip continuation transport |
+| `streaming_panel` | Free-text streaming transport only when a server-issued command explicitly selects this API path; observed responses use a top-level JSON array |
+| `get_watch` | Combined player/watch bootstrap; observed responses use a top-level JSON array |
+| `get_answer` | Separate AI answer transport; not used by the verified watch-page suggestion flow |
+
+A direct suggestion chip does **not** submit its visible text. The current
+frontend creates a `CONTINUATION_REQUEST_TYPE_GET_PANEL` command from the exact
+server-issued `chipData.continuation` and posts it to `get_panel` with:
+
+```text
+continuation: exact server-issued chip continuation
+formData.inputComposerFormData.clientMessageId: youchat-<Unix epoch milliseconds>
+```
+
+The browser also supplies optional playback/page/previous-message timing context
+when available. API Explorer omits unavailable optional fields rather than
+inventing them. The chip's `id`, visible text, click-tracking command, and the
+free-text composer's `sendUserQueryCommand` are not copied into this direct-chip
+request.
+
+The free-text composer is a different path. It uses the server-issued
+`sendUserQueryCommand` (or its own fallback continuation), adds `userInputText`,
+and selects `streaming_panel` only when command metadata explicitly names that
+endpoint. Arbitrary free-text submission is intentionally not implemented by
+`ask-video-live-test`.
+
+**Live validation on July 27, 2026**:
+
+- The refreshed cookie export was accepted as a signed-in YouTube WEB session.
+- The watch bootstrap exposed `PAyouchat`, a summary chip, and a fresh panel
+  continuation.
+- Replaying the summary chip through `get_panel` returned HTTP 200 and a generated
+  summary.
+- Replaying the first follow-up chip from that response returned HTTP 200 and a
+  generated follow-up answer in the same flow.
+- Two independent watch/panel bootstraps both returned HTTP 200 summaries; the
+  generated text was not exactly identical.
+- Sending the chip continuation to `streaming_panel` without form data returned
+  HTTP 400, confirming that it is not the direct-chip transport.
+
+These results validate the current eligible-account flow, not a stable contract.
+Treat the surface as rollout-fragile. Never commit or display cookies,
+authorization material, account identifiers, conversation identifiers, visitor
+or session values, opaque params, continuations, or server-issued commands.
+
 ### Authenticated Endpoints
 
 For authenticated endpoints (🔐), sign in to the Kaset app first:
@@ -1406,7 +1531,7 @@ Debug builds export auth cookies for the API explorer to `~/Library/Application 
 swift run api-explorer brandaccounts
 
 # Access a brand account's library
-swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand <BRAND_ID>
 ```
 
 The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [Brand Account Support](#brand-account-support) in the Authentication section for details.
@@ -1416,7 +1541,11 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | Command | Description |
 |---------|-------------|
 | `browse <id> [params]` | Explore a browse endpoint |
-| `action <endpoint> <json>` | Explore an action endpoint |
+| `action <endpoint> <json>` | Explore an action endpoint that returns a top-level JSON object |
+| `wire-action <endpoint> <json>` | Safely inspect object, array, streaming, or opaque wire responses without printing raw values |
+| `ask-video-audit <videoId>` | Run a redacted, read-only Ask Gemini / YouChat audit without sending a prompt |
+| `ask-video-parity <videoId>` | Test ordered read-only Ask request profiles using only `next` and initial `get_panel`; never submits a chip |
+| `ask-video-live-test <videoId>` | With `--confirm-live-ai`, replay the server-issued summary chip; optionally add `--follow-up` or `--fresh-chats N` |
 | `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
 | `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
@@ -1429,11 +1558,15 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Option | Description |
 |--------|-------------|
-| `-v, --verbose` | Show full raw JSON for browse/action/continuation commands; expand samples and filter params for `search-audit` |
-| `-o, --output <file>` | Save raw JSON to file |
+| `-v, --verbose` | Show full raw JSON for browse/action/continuation commands; expand audit and search samples |
+| `-o, --output <file>` | Save raw output with owner-only permissions; `ask-video-audit` ignores this option |
 | `--authuser N` | Use Google account at index N |
 | `--brand <ID>` | Use brand account (21-digit ID) |
 | `--client-version <version>` | Override the resolved InnerTube client version for compatibility probes |
+| `--body-file <path\|->` | Read a sensitive JSON action body from a mode-0600 regular file or stdin; required for panel/answer transports |
+| `--confirm-live-ai` | Required explicit acknowledgement before `ask-video-live-test` sends live AI requests |
+| `--follow-up` | Replay the first follow-up chip returned by the live summary response |
+| `--fresh-chats N` | Run 1-3 independent summary bootstraps (default: 1) |
 | `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
 
 ---
@@ -1453,6 +1586,8 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
+| 2026-07-27 | Live-validated YouTube Ask Gemini / YouChat summary, follow-up, and two fresh chats; added guarded `ask-video-live-test`, corrected direct chips to `get_panel`, retained read-only `ask-video-audit`, and documented redaction/auth constraints |
 | 2026-07-19 | Revalidated Music search: `itemSectionRenderer` mixed rows, watch-endpoint Top Results, audiobooks, videos/profiles/episodes filters, shelf and action-envelope continuations, and `/search` routing; added `search-audit` |
 | 2026-06-24 | Documented regular YouTube `--youtube` API Explorer mode alongside YouTube Music |
 | 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |

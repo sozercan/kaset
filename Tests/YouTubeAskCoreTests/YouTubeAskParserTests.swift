@@ -1,0 +1,393 @@
+import Foundation
+import Testing
+@testable import YouTubeAskCore
+
+@Suite("YouTubeAsk strict parser")
+struct YouTubeAskParserTests {
+    @Test("Parses only the eligible YouChat watch panel")
+    func parsesEligibleBootstrap() throws {
+        let envelope = try YouTubeAskTestFixture.envelope("YouTubeAskEligibleNext")
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+
+        #expect(bootstrap.panelCommand?.continuation == "fixture-panel-continuation")
+        #expect(bootstrap.suggestions.map(\.label) == [
+            "Explain this video",
+            "Résumer les points clés",
+        ])
+        #expect(bootstrap.suggestions.map(\.command.continuation) == [
+            "fixture-chip-continuation-a",
+            "fixture-chip-continuation-b",
+        ])
+        #expect(bootstrap.panelCommand?.continuation != "fixture-query-continuation")
+    }
+
+    @Test("Rejects unrelated AI panels and decoy YouChat-shaped content")
+    func rejectsIneligibleBootstrap() throws {
+        let bootstrap = try YouTubeAskParser.parseBootstrap(
+            from: YouTubeAskTestFixture.envelope("YouTubeAskIneligibleNext")
+        )
+        #expect(bootstrap == nil)
+    }
+
+    @Test("Excludes sendUserQueryCommand continuations from bootstrap selection")
+    func excludesSendUserQueryCommand() throws {
+        let envelope = try Self.envelope([
+            "engagementPanels": [[
+                "panelIdentifier": "PAyouchat",
+                "sendUserQueryCommand": [
+                    "continuationCommand": [
+                        "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                        "token": "fixture-query-only-continuation",
+                    ],
+                ],
+                "youChatItemViewModel": [
+                    "chipsData": [
+                        "chipData": [[
+                            "text": ["simpleText": "Safe suggestion"],
+                            "continuation": "fixture-chip-only-continuation",
+                        ]],
+                    ],
+                ],
+            ]],
+        ])
+
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.panelCommand == nil)
+        #expect(bootstrap.suggestions.count == 1)
+    }
+
+    @Test("Fails closed on distinct bootstrap commands but permits repeated identical commands")
+    func bootstrapAmbiguity() throws {
+        let ambiguous = try Self.envelope(Self.bootstrapObject(tokens: [
+            "fixture-panel-continuation-a",
+            "fixture-panel-continuation-b",
+        ]))
+        expectYouTubeAskError(.ambiguousBootstrap) {
+            _ = try YouTubeAskParser.parseBootstrap(from: ambiguous)
+        }
+
+        let repeated = try Self.envelope(Self.bootstrapObject(tokens: [
+            "fixture-panel-continuation-a",
+            "fixture-panel-continuation-a",
+        ]))
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: repeated)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.panelCommand?.continuation == "fixture-panel-continuation-a")
+    }
+
+    @Test("Extracts chips only from supported YouChat continuation-item containers")
+    func strictChipPath() throws {
+        let decoy = [
+            "youChatItemViewModel": [
+                "chipsData": [
+                    "chipData": [[
+                        "text": ["simpleText": "Decoy"],
+                        "continuation": "fixture-decoy-continuation",
+                        "onClick": ["sendUserQueryCommand": ["placeholder": true]],
+                    ]],
+                ],
+            ],
+        ]
+        let accepted = [
+            "youChatItemViewModel": [
+                "chipsData": [
+                    "chipData": [[
+                        "text": ["simpleText": "Accepted"],
+                        "continuation": "fixture-accepted-continuation",
+                    ]],
+                ],
+            ],
+        ]
+        let envelope = try Self.envelope([
+            "decoy": decoy,
+            "items": [decoy],
+            "onResponseReceivedCommands": [[
+                "decoy": decoy,
+                "appendContinuationItemsAction": [
+                    "decoy": decoy,
+                    "continuationItems": [
+                        ["metadata": decoy],
+                        accepted,
+                    ],
+                ],
+            ]],
+        ])
+
+        let conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        #expect(conversation.suggestions.map(\.label) == ["Accepted"])
+        #expect(conversation.suggestions.first?.command.continuation == "fixture-accepted-continuation")
+    }
+
+    @Test("Preserves duplicate chips and localized server order")
+    func preservesDuplicateChips() throws {
+        let conversation = try YouTubeAskParser.parseConversation(
+            from: YouTubeAskTestFixture.envelope("YouTubeAskInitialPanel")
+        )
+
+        #expect(conversation.suggestions.map(\.label) == [
+            "Ask a follow-up",
+            "Ask a follow-up",
+        ])
+        #expect(conversation.suggestions.map(\.command.continuation) == [
+            "fixture-follow-up-continuation",
+            "fixture-follow-up-continuation",
+        ])
+    }
+
+    @Test("Fails the entire chip set on malformed or decorated chips")
+    func malformedChipsFailClosed() throws {
+        let decorated = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Decorated"],
+            "continuation": "fixture-decorated-continuation",
+            "onClick": [
+                "sendUserQueryCommand": ["placeholder": true],
+            ],
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: decorated)
+        }
+
+        let missingContinuation = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Missing command"],
+        ]])
+        expectYouTubeAskError(.malformedChip) {
+            _ = try YouTubeAskParser.parseConversation(from: missingContinuation)
+        }
+
+        let ambiguousText = try Self.conversationEnvelope(chips: [[
+            "text": [
+                "content": "First representation",
+                "simpleText": "Second representation",
+            ],
+            "continuation": "fixture-ambiguous-text-continuation",
+        ]])
+        expectYouTubeAskError(.malformedChip) {
+            _ = try YouTubeAskParser.parseConversation(from: ambiguousText)
+        }
+    }
+
+    @Test("Preserves duplicate assistant messages and follow-up order")
+    func preservesConversationOrder() throws {
+        let conversation = try YouTubeAskParser.parseConversation(
+            from: YouTubeAskTestFixture.envelope("YouTubeAskConversation")
+        )
+
+        #expect(conversation.messages.map(\.text) == [
+            "First assistant message",
+            "First assistant message",
+            "Second assistant message",
+        ])
+        #expect(conversation.suggestions.map(\.label) == [
+            "Continue with details",
+            "Continue with details",
+        ])
+        #expect(conversation.suggestions.map(\.command.continuation) == [
+            "fixture-conversation-continuation-a",
+            "fixture-conversation-continuation-b",
+        ])
+    }
+
+    @Test("Accepts messages only from confirmed YouChat response containers")
+    func ignoresDecoyMessages() throws {
+        let decoy = [
+            "youChatTextMessageViewModel": [
+                "text": ["content": "YouChat-shaped decoy"],
+            ],
+        ]
+        let envelope = try Self.envelope([
+            "youChatTextMessageViewModel": [
+                "text": ["content": "Top-level decoy"],
+            ],
+            "items": [
+                ["text": ["content": "Decoy text"]],
+                ["genericMessageViewModel": ["text": ["content": "Generic decoy"]]],
+                decoy,
+            ],
+            "onResponseReceivedCommands": [[
+                "decoy": decoy,
+                "appendContinuationItemsAction": [
+                    "continuationItems": [
+                        ["metadata": decoy],
+                        ["youChatTextMessageViewModel": [
+                            "text": ["content": "Confirmed message"],
+                        ]],
+                    ],
+                ],
+            ]],
+        ])
+
+        let conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        #expect(conversation.messages.map(\.text) == ["Confirmed message"])
+    }
+
+    @Test("Rejects YouChat-shaped content in unsupported response containers")
+    func rejectsUnsupportedResponseContainers() throws {
+        let message = [
+            "youChatTextMessageViewModel": [
+                "text": ["content": "Unsupported message"],
+            ],
+        ]
+        let suggestion = [
+            "youChatItemViewModel": [
+                "chipsData": [
+                    "chipData": [[
+                        "text": ["simpleText": "Unsupported suggestion"],
+                        "continuation": "fixture-unsupported-continuation",
+                    ]],
+                ],
+            ],
+        ]
+        let envelope = try Self.envelope([
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": [message, suggestion],
+                ],
+            ]],
+            "onResponseReceivedCommands": [[
+                "reloadContinuationItemsCommand": [
+                    "continuationItems": [message, suggestion],
+                ],
+            ]],
+        ])
+
+        let conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        #expect(conversation.messages.isEmpty)
+        #expect(conversation.suggestions.isEmpty)
+    }
+
+    @Test("Fails closed on malformed or ambiguous supported response containers")
+    func malformedSupportedResponseContainersFailClosed() throws {
+        let malformedCommands = try Self.envelope([
+            "onResponseReceivedCommands": ["unexpected": true],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: malformedCommands)
+        }
+
+        let missingItems = try Self.envelope([
+            "onResponseReceivedCommands": [[
+                "appendContinuationItemsAction": ["unexpected": true],
+            ]],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: missingItems)
+        }
+
+        let ambiguousItem = try Self.conversationEnvelope(items: [[
+            "youChatTextMessageViewModel": [
+                "text": ["content": "Ambiguous message"],
+            ],
+            "youChatItemViewModel": [
+                "chipsData": [
+                    "chipData": [[
+                        "text": ["simpleText": "Ambiguous suggestion"],
+                        "continuation": "fixture-ambiguous-container-continuation",
+                    ]],
+                ],
+            ],
+        ]])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: ambiguousItem)
+        }
+    }
+
+    @Test("Sanitizes assistant text and preserves frame order")
+    func sanitizesMessagesAcrossFrames() throws {
+        let first = #"{"onResponseReceivedCommands":[{"appendContinuationItemsAction":{"continuationItems":[{"youChatTextMessageViewModel":{"text":{"content":"First https://placeholder.invalid/path"}}}]}}]}"#
+        let second = #"{"onResponseReceivedCommands":[{"appendContinuationItemsAction":{"continuationItems":[{"youChatTextMessageViewModel":{"text":{"content":"Second"}}}]}}]}"#
+        let envelope = try YouTubeAskWireDecoder.decode(Data("\(first)\n\(second)\n".utf8))
+
+        let conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        #expect(conversation.messages.map(\.text) == [
+            "First [link omitted]",
+            "Second",
+        ])
+    }
+
+    @Test("Rejects overlong chip labels and empty sanitized messages")
+    func enforcesVisibleTextRules() throws {
+        let oversizedLabel = String(repeating: "a", count: YouTubeAskLimits.maximumChipCharacters + 1)
+        let oversized = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": oversizedLabel],
+            "continuation": "fixture-overlong-label-continuation",
+        ]])
+        expectYouTubeAskError(.malformedChip) {
+            _ = try YouTubeAskParser.parseConversation(from: oversized)
+        }
+
+        let emptyMessage = try Self.conversationEnvelope(items: [[
+            "youChatTextMessageViewModel": [
+                "text": ["content": "\u{0000}\u{0007}"],
+            ],
+        ]])
+        expectYouTubeAskError(.malformedMessage) {
+            _ = try YouTubeAskParser.parseConversation(from: emptyMessage)
+        }
+    }
+
+    @Test("Bounds parser traversal even for manually constructed AST values")
+    func boundsParserTraversal() {
+        var value = YouTubeAskJSONValue.object([:])
+        for _ in 0 ... YouTubeAskLimits.maximumTreeDepth {
+            value = .array([value])
+        }
+        let envelope = YouTubeAskWireEnvelope(
+            format: .jsonArray,
+            hadXSSIPrefix: false,
+            roots: [value]
+        )
+
+        expectYouTubeAskError(.structureLimitExceeded) {
+            _ = try YouTubeAskParser.parseConversation(from: envelope)
+        }
+    }
+
+    private static func bootstrapObject(tokens: [String]) -> [String: Any] {
+        [
+            "engagementPanels": [[
+                "panelIdentifier": "PAyouchat",
+                "commands": tokens.map { token in
+                    [
+                        "continuationCommand": [
+                            "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                            "token": token,
+                        ],
+                    ]
+                },
+            ]],
+        ]
+    }
+
+    private static func conversationEnvelope(
+        chips: [[String: Any]]
+    ) throws -> YouTubeAskWireEnvelope {
+        try self.conversationEnvelope(items: [[
+            "youChatItemViewModel": [
+                "chipsData": [
+                    "chipData": chips,
+                ],
+            ],
+        ]])
+    }
+
+    private static func conversationEnvelope(
+        items: [[String: Any]]
+    ) throws -> YouTubeAskWireEnvelope {
+        try self.envelope([
+            "onResponseReceivedCommands": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": items,
+                ],
+            ]],
+        ])
+    }
+
+    private static func envelope(
+        _ object: [String: Any]
+    ) throws -> YouTubeAskWireEnvelope {
+        let data = try JSONSerialization.data(withJSONObject: object)
+        return try YouTubeAskWireDecoder.decode(data)
+    }
+}

@@ -1,0 +1,536 @@
+import Foundation
+
+package enum YouTubeAskParser {
+    /// Parses a watch `next` response. `nil` means the response did not expose a
+    /// usable YouChat panel bootstrap or direct server-issued suggestions.
+    package static func parseBootstrap(
+        from envelope: YouTubeAskWireEnvelope
+    ) throws -> YouTubeAskParsedBootstrap? {
+        var panelBudget = TraversalBudget()
+        var eligiblePanels: [YouTubeAskJSONValue] = []
+        for root in envelope.roots {
+            try Self.collectEligiblePanels(
+                in: root,
+                depth: 0,
+                budget: &panelBudget,
+                panels: &eligiblePanels
+            )
+        }
+        guard !eligiblePanels.isEmpty else { return nil }
+
+        var continuationCandidates: [String] = []
+        var content = ConversationAccumulator()
+        for panel in eligiblePanels {
+            var commandBudget = TraversalBudget()
+            try Self.collectBootstrapContinuations(
+                in: panel,
+                depth: 0,
+                insideSendUserQueryCommand: false,
+                budget: &commandBudget,
+                continuations: &continuationCandidates
+            )
+
+            var contentBudget = TraversalBudget()
+            try Self.collectBootstrapSuggestions(
+                in: panel,
+                depth: 0,
+                budget: &contentBudget,
+                content: &content
+            )
+        }
+
+        let panelContinuation = try Self.unambiguousContinuation(continuationCandidates)
+        guard panelContinuation != nil || !content.suggestions.isEmpty else { return nil }
+        return YouTubeAskParsedBootstrap(
+            panelCommand: panelContinuation.map(YouTubeAskOpaqueCommand.init),
+            suggestions: content.suggestions
+        )
+    }
+
+    /// Parses assistant messages and server-issued follow-up suggestions from a
+    /// materialized panel or direct-chip response.
+    package static func parseConversation(
+        from envelope: YouTubeAskWireEnvelope
+    ) throws -> YouTubeAskParsedConversation {
+        var budget = TraversalBudget()
+        for root in envelope.roots {
+            try Self.validateStructure(
+                in: root,
+                depth: 0,
+                budget: &budget
+            )
+        }
+
+        var content = ConversationAccumulator()
+        for root in envelope.roots {
+            try Self.collectConfirmedConversationContent(
+                from: root,
+                content: &content
+            )
+        }
+        return YouTubeAskParsedConversation(
+            messages: content.messages,
+            suggestions: content.suggestions
+        )
+    }
+
+    private struct ConversationAccumulator {
+        var messages: [YouTubeAskParsedMessage] = []
+        var suggestions: [YouTubeAskParsedSuggestion] = []
+    }
+
+    private struct TraversalBudget {
+        var visitedNodes = 0
+
+        mutating func visit(_ value: YouTubeAskJSONValue, depth: Int) throws {
+            let childCount = switch value {
+            case let .object(object):
+                object.count
+            case let .array(array):
+                array.count
+            default:
+                0
+            }
+            guard depth <= YouTubeAskLimits.maximumTreeDepth,
+                  self.visitedNodes < YouTubeAskLimits.maximumTreeNodes,
+                  childCount <= YouTubeAskLimits.maximumChildrenPerContainer
+            else {
+                throw YouTubeAskCoreError.structureLimitExceeded
+            }
+            self.visitedNodes += 1
+        }
+    }
+
+    private static let eligibleMarkerValues: Set<String> = [
+        "PAyouchat",
+        "engagement-panel-youchat",
+    ]
+
+    private static let eligibleMarkerKeys: Set<String> = [
+        "identifier",
+        "panelId",
+        "panelIdentifier",
+        "targetId",
+    ]
+
+    private static func collectEligiblePanels(
+        in value: YouTubeAskJSONValue,
+        depth: Int,
+        budget: inout TraversalBudget,
+        panels: inout [YouTubeAskJSONValue]
+    ) throws {
+        try budget.visit(value, depth: depth)
+        switch value {
+        case let .object(object):
+            if Self.isEligiblePanelObject(object) {
+                panels.append(value)
+                return
+            }
+            for key in object.keys.sorted() {
+                guard let nested = object[key] else { continue }
+                if key == "PAyouchat" {
+                    panels.append(nested)
+                    continue
+                }
+                try Self.collectEligiblePanels(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget,
+                    panels: &panels
+                )
+            }
+        case let .array(array):
+            for nested in array {
+                try Self.collectEligiblePanels(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget,
+                    panels: &panels
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    private static func isEligiblePanelObject(
+        _ object: [String: YouTubeAskJSONValue]
+    ) -> Bool {
+        object.contains { key, value in
+            Self.eligibleMarkerKeys.contains(key)
+                && value.stringValue.map(Self.eligibleMarkerValues.contains) == true
+        }
+    }
+
+    private static func collectBootstrapContinuations(
+        in value: YouTubeAskJSONValue,
+        depth: Int,
+        insideSendUserQueryCommand: Bool,
+        budget: inout TraversalBudget,
+        continuations: inout [String]
+    ) throws {
+        try budget.visit(value, depth: depth)
+        switch value {
+        case let .object(object):
+            if !insideSendUserQueryCommand,
+               object["request"]?.stringValue == "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+               let token = object["token"]?.stringValue,
+               !token.isEmpty,
+               token.count <= YouTubeAskLimits.maximumCommandCharacters
+            {
+                continuations.append(token)
+            }
+
+            for key in object.keys.sorted() {
+                guard let nested = object[key] else { continue }
+                try Self.collectBootstrapContinuations(
+                    in: nested,
+                    depth: depth + 1,
+                    insideSendUserQueryCommand: insideSendUserQueryCommand
+                        || key == "sendUserQueryCommand",
+                    budget: &budget,
+                    continuations: &continuations
+                )
+            }
+        case let .array(array):
+            for nested in array {
+                try Self.collectBootstrapContinuations(
+                    in: nested,
+                    depth: depth + 1,
+                    insideSendUserQueryCommand: insideSendUserQueryCommand,
+                    budget: &budget,
+                    continuations: &continuations
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    private static func unambiguousContinuation(
+        _ candidates: [String]
+    ) throws -> String? {
+        guard let first = candidates.first else { return nil }
+        guard candidates.dropFirst().allSatisfy({ $0 == first }) else {
+            throw YouTubeAskCoreError.ambiguousBootstrap
+        }
+        return first
+    }
+
+    private static func validateStructure(
+        in value: YouTubeAskJSONValue,
+        depth: Int,
+        budget: inout TraversalBudget
+    ) throws {
+        try budget.visit(value, depth: depth)
+        switch value {
+        case let .object(object):
+            for key in object.keys.sorted() {
+                guard let nested = object[key] else { continue }
+                try Self.validateStructure(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget
+                )
+            }
+        case let .array(array):
+            for nested in array {
+                try Self.validateStructure(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    private static func collectConfirmedConversationContent(
+        from root: YouTubeAskJSONValue,
+        content: inout ConversationAccumulator
+    ) throws {
+        switch root {
+        case let .object(response):
+            try Self.parseConfirmedConversationResponse(
+                response,
+                content: &content
+            )
+        case let .array(responses):
+            for response in responses {
+                guard let object = response.objectValue else { continue }
+                try Self.parseConfirmedConversationResponse(
+                    object,
+                    content: &content
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    /// Accept only the response path observed for YouChat panel materialization:
+    /// `onResponseReceivedCommands[].appendContinuationItemsAction.continuationItems[]`.
+    private static func parseConfirmedConversationResponse(
+        _ response: [String: YouTubeAskJSONValue],
+        content: inout ConversationAccumulator
+    ) throws {
+        guard let commandsValue = response["onResponseReceivedCommands"] else { return }
+        guard let commands = commandsValue.arrayValue else {
+            throw YouTubeAskCoreError.malformedWireResponse
+        }
+
+        for command in commands {
+            guard let commandObject = command.objectValue else {
+                throw YouTubeAskCoreError.malformedWireResponse
+            }
+            guard let appendAction = commandObject["appendContinuationItemsAction"] else {
+                continue
+            }
+            try Self.parseConfirmedAppendAction(
+                appendAction,
+                content: &content
+            )
+        }
+    }
+
+    private static func parseConfirmedAppendAction(
+        _ value: YouTubeAskJSONValue,
+        content: inout ConversationAccumulator
+    ) throws {
+        guard let action = value.objectValue,
+              let continuationItems = action["continuationItems"]?.arrayValue
+        else {
+            throw YouTubeAskCoreError.malformedWireResponse
+        }
+
+        for item in continuationItems {
+            try Self.parseConfirmedContinuationItem(
+                item,
+                content: &content
+            )
+        }
+    }
+
+    private static func parseConfirmedContinuationItem(
+        _ value: YouTubeAskJSONValue,
+        content: inout ConversationAccumulator
+    ) throws {
+        guard let item = value.objectValue else { return }
+        let recognizedKeys = [
+            "youChatTextMessageViewModel",
+            "youChatItemViewModel",
+        ].filter { item[$0] != nil }
+        guard recognizedKeys.count <= 1 else {
+            throw YouTubeAskCoreError.malformedWireResponse
+        }
+        guard let key = recognizedKeys.first,
+              let viewModel = item[key]
+        else {
+            return
+        }
+
+        switch key {
+        case "youChatTextMessageViewModel":
+            try content.messages.append(Self.parseMessageViewModel(viewModel))
+        case "youChatItemViewModel":
+            try Self.parseYouChatItemViewModel(
+                viewModel,
+                includeMessages: true,
+                content: &content
+            )
+        default:
+            break
+        }
+    }
+
+    private static func collectBootstrapSuggestions(
+        in value: YouTubeAskJSONValue,
+        depth: Int,
+        budget: inout TraversalBudget,
+        content: inout ConversationAccumulator
+    ) throws {
+        try budget.visit(value, depth: depth)
+        switch value {
+        case let .object(object):
+            for key in object.keys.sorted() {
+                guard let nested = object[key] else { continue }
+                if key == "youChatItemViewModel" {
+                    try Self.parseYouChatItemViewModel(
+                        nested,
+                        includeMessages: false,
+                        content: &content
+                    )
+                }
+
+                try Self.collectBootstrapSuggestions(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget,
+                    content: &content
+                )
+            }
+        case let .array(array):
+            for nested in array {
+                try Self.collectBootstrapSuggestions(
+                    in: nested,
+                    depth: depth + 1,
+                    budget: &budget,
+                    content: &content
+                )
+            }
+        default:
+            break
+        }
+    }
+
+    private static func parseYouChatItemViewModel(
+        _ value: YouTubeAskJSONValue,
+        includeMessages: Bool,
+        content: inout ConversationAccumulator
+    ) throws {
+        guard let viewModel = value.objectValue else { return }
+
+        if let chipsData = viewModel["chipsData"] {
+            try content.suggestions.append(contentsOf: Self.parseChipsData(chipsData))
+        }
+        if includeMessages,
+           viewModel["chipsData"] == nil,
+           viewModel["text"] != nil
+        {
+            try content.messages.append(Self.parseMessageViewModel(value))
+        }
+    }
+
+    private static func parseChipsData(
+        _ value: YouTubeAskJSONValue
+    ) throws -> [YouTubeAskParsedSuggestion] {
+        guard let chipsData = value.objectValue,
+              let chipData = chipsData["chipData"]?.arrayValue
+        else {
+            throw YouTubeAskCoreError.malformedChip
+        }
+        return try chipData.map(Self.parseChip)
+    }
+
+    private static func parseChip(
+        _ value: YouTubeAskJSONValue
+    ) throws -> YouTubeAskParsedSuggestion {
+        guard let chip = value.objectValue else {
+            throw YouTubeAskCoreError.malformedChip
+        }
+        if Self.containsUnsupportedChipDecorator(value) {
+            throw YouTubeAskCoreError.unsupportedChipDecorator
+        }
+        guard let continuation = chip["continuation"]?.stringValue,
+              !continuation.isEmpty,
+              continuation.count <= YouTubeAskLimits.maximumCommandCharacters,
+              let textValue = chip["text"]
+        else {
+            throw YouTubeAskCoreError.malformedChip
+        }
+
+        let visibleText = try Self.visibleText(
+            from: textValue,
+            malformedError: .malformedChip
+        )
+        guard let label = YouTubeAskVisibleTextSanitizer.sanitizeChipLabel(visibleText) else {
+            throw YouTubeAskCoreError.malformedChip
+        }
+        return YouTubeAskParsedSuggestion(
+            label: label.text,
+            command: YouTubeAskOpaqueCommand(continuation: continuation)
+        )
+    }
+
+    private static func parseMessageViewModel(
+        _ value: YouTubeAskJSONValue
+    ) throws -> YouTubeAskParsedMessage {
+        guard let viewModel = value.objectValue,
+              let textValue = viewModel["text"]
+        else {
+            throw YouTubeAskCoreError.malformedMessage
+        }
+        let visibleText = try Self.visibleText(
+            from: textValue,
+            malformedError: .malformedMessage
+        )
+        guard let message = YouTubeAskVisibleTextSanitizer.sanitizeAnswer(visibleText) else {
+            throw YouTubeAskCoreError.malformedMessage
+        }
+        return YouTubeAskParsedMessage(
+            text: message.text,
+            wasTruncated: message.wasTruncated
+        )
+    }
+
+    private static func visibleText(
+        from value: YouTubeAskJSONValue,
+        malformedError: YouTubeAskCoreError
+    ) throws -> String {
+        if let string = value.stringValue {
+            return string
+        }
+        guard let object = value.objectValue else {
+            throw malformedError
+        }
+
+        let recognizedKeys = ["content", "simpleText", "runs"]
+            .filter { object[$0] != nil }
+        guard recognizedKeys.count == 1, let selectedKey = recognizedKeys.first else {
+            throw malformedError
+        }
+
+        switch selectedKey {
+        case "content", "simpleText":
+            guard let text = object[selectedKey]?.stringValue else {
+                throw malformedError
+            }
+            return text
+        case "runs":
+            guard let runs = object["runs"]?.arrayValue, !runs.isEmpty else {
+                throw malformedError
+            }
+            var text = ""
+            for run in runs {
+                guard let runObject = run.objectValue,
+                      let runText = runObject["text"]?.stringValue
+                else {
+                    throw malformedError
+                }
+                text.append(contentsOf: runText)
+            }
+            return text
+        default:
+            throw malformedError
+        }
+    }
+
+    private static func containsUnsupportedChipDecorator(
+        _ value: YouTubeAskJSONValue
+    ) -> Bool {
+        switch value {
+        case let .object(object):
+            for (key, nested) in object {
+                let canonical = key.lowercased()
+                if canonical == "onclick"
+                    || canonical == "innertubecommand"
+                    || canonical == "commandmetadata"
+                    || canonical.hasSuffix("command")
+                    || canonical.hasSuffix("endpoint")
+                    || canonical.contains("decorator")
+                {
+                    return true
+                }
+                if Self.containsUnsupportedChipDecorator(nested) {
+                    return true
+                }
+            }
+            return false
+        case let .array(array):
+            return array.contains(where: Self.containsUnsupportedChipDecorator)
+        default:
+            return false
+        }
+    }
+}
