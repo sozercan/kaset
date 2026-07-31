@@ -9287,6 +9287,95 @@
         }
       }
     },
+    "Float on Top": {
+      "comment": "Menu command, settings toggle, and video-window control. “On Top” refers to a higher window z-order above normal windows, not placement at the top edge of the screen.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عائم في الأعلى"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oben schweben"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Colocar en primer plano"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder au premier plan"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apungkan di Atas"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sempre in primo piano"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "상단에 띄우기"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zwevend op voorgrond"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zawsze na wierzchu"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Em primeiro plano"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поверх всех окон"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flytande överst"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En Üstte Kalsın"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Поверх інших вікон"
+          }
+        }
+      }
+    },
     "Follow artists on YouTube Music to see them here.": {
       "localizations": {
         "ar": {
@@ -37515,6 +37604,95 @@
           "stringUnit": {
             "state": "translated",
             "value": "Тримати мініпрогравач поверх інших вікон"
+          }
+        }
+      }
+    },
+    "Keep the video above standard windows on this Space.": {
+      "comment": "Help text for Float on Top. “Above” refers to window z-order; “standard windows” means normal-level windows, and “this Space” means the current macOS desktop Space.",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "أبقِ الفيديو فوق النوافذ العادية على سطح المكتب هذا."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Das Video auf diesem Schreibtisch über normalen Fenstern halten."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantén el video por encima de las ventanas estándar en este escritorio."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Garder la vidéo au-dessus des fenêtres standard sur ce bureau."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pertahankan video di atas jendela standar di Desktop ini."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantieni il video sopra le finestre standard su questa scrivania."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 데스크탑에서 비디오를 일반 윈도우 위에 유지합니다."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Houd de video op dit bureaublad boven standaardvensters."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utrzymuj wideo nad standardowymi oknami na tym biurku."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mantenha o vídeo acima das janelas padrão nesta secretária."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Держать видео поверх стандартных окон на этом Рабочем столе."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Håll videon ovanför standardfönster på det här skrivbordet."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Videoyu bu Masaüstünde standart pencerelerin üzerinde tut."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тримати відео поверх стандартних вікон на цьому робочому столі."
           }
         }
       }

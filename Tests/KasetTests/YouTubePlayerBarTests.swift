@@ -5,6 +5,52 @@ import Testing
 @Suite("YouTube player bar", .tags(.model))
 @MainActor
 struct YouTubePlayerBarTests {
+    @Test("Float on Top control appears for a windowed floating surface")
+    func floatOnTopControlAppearsForWindowedFloatingSurface() {
+        #expect(YouTubePlayerBar.shouldShowFloatOnTopControl(
+            isDetachedWindow: true,
+            surfaceLocation: .floating,
+            isFullscreenOrTransitioning: false
+        ))
+    }
+
+    @Test("Float on Top control stays hidden outside a windowed floating surface")
+    func floatOnTopControlStaysHiddenOutsideWindowedFloatingSurface() {
+        #expect(!YouTubePlayerBar.shouldShowFloatOnTopControl(
+            isDetachedWindow: true,
+            surfaceLocation: .none,
+            isFullscreenOrTransitioning: false
+        ))
+        #expect(!YouTubePlayerBar.shouldShowFloatOnTopControl(
+            isDetachedWindow: true,
+            surfaceLocation: .inline,
+            isFullscreenOrTransitioning: false
+        ))
+        #expect(!YouTubePlayerBar.shouldShowFloatOnTopControl(
+            isDetachedWindow: true,
+            surfaceLocation: .floating,
+            isFullscreenOrTransitioning: true
+        ))
+        #expect(!YouTubePlayerBar.shouldShowFloatOnTopControl(
+            isDetachedWindow: false,
+            surfaceLocation: .floating,
+            isFullscreenOrTransitioning: false
+        ))
+    }
+
+    @Test("Float on Top control width extends the details-hiding breakpoint")
+    func floatOnTopControlWidthExtendsDetailsHidingBreakpoint() {
+        let standardBreakpoint = YouTubePlayerBar.hiddenVideoDetailsBreakpoint(
+            showsFloatOnTopControl: false
+        )
+        let pinnedWindowBreakpoint = YouTubePlayerBar.hiddenVideoDetailsBreakpoint(
+            showsFloatOnTopControl: true
+        )
+
+        #expect(standardBreakpoint == 580)
+        #expect(pinnedWindowBreakpoint - standardBreakpoint == 34)
+    }
+
     @Test("Chapter segments resolve explicit, next-chapter, and duration end times")
     func chapterSegmentsResolveEndTimes() throws {
         let chapters = [

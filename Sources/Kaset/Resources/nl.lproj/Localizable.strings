@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Vind nummers, albums, artiesten en afspeellijsten";
 "Find videos, channels, and playlists." = "Zoek video's, kanalen en afspeellijsten.";
 "Flat" = "Vlak";
+"Float on Top" = "Zwevend op voorgrond";
 "Follow artists on YouTube Music to see them here." = "Volg artiesten op YouTube Music om ze hier te zien.";
 "For you" = "Voor jou";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Forceert macOS 15-terugvalweergaven en -materialen tijdens uitvoering op macOS 26+ voor compatibiliteitsdebugging";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Mini-speler bovenop houden";
 "Keep suggestions queued ahead" = "Houd suggesties vooruit in de wachtrij";
 "Keep the mini player visible above other windows" = "De minispeler zichtbaar houden boven andere vensters";
+"Keep the video above standard windows on this Space." = "Houd de video op dit bureaublad boven standaardvensters.";
 "Language" = "Taal";
 "Language Not Supported" = "Taal wordt niet ondersteund";
 "Last checked: %@" = "Laatst gecontroleerd: %@";

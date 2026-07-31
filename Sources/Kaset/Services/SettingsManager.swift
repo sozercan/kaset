@@ -26,6 +26,7 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
+        static let keepYouTubeVideoOnTop = "settings.keepYouTubeVideoOnTop"
         static let smartShuffleEnabled = "settings.smartShuffleEnabled"
         static let smartShuffleSuggestEveryN = "settings.smartShuffleSuggestEveryN"
         static let smartShuffleBurst = "settings.smartShuffleBurst"
@@ -328,6 +329,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the regular YouTube video window floats above standard windows.
+    var keepYouTubeVideoOnTop: Bool {
+        didSet {
+            UserDefaults.standard.set(self.keepYouTubeVideoOnTop, forKey: Keys.keepYouTubeVideoOnTop)
+        }
+    }
+
     // MARK: - Smart Shuffle defaults & ranges (single source of truth)
 
     /// Default cadence: insert a burst of suggestions every N originals.
@@ -454,6 +462,10 @@ final class SettingsManager {
 
     // MARK: - Initialization
 
+    static func loadKeepYouTubeVideoOnTop(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
+    }
+
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
@@ -474,6 +486,7 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: UserDefaults.standard)
         self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
         // Property observers do not fire for assignments in init, so clamp persisted values here too.
         self.smartShuffleSuggestEveryN = Self.clamp(

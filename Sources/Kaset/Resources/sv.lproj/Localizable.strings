@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Hitta låtar, album, artister och spellistor";
 "Find videos, channels, and playlists." = "Hitta videor, kanaler och spellistor.";
 "Flat" = "Platt";
+"Float on Top" = "Flytande överst";
 "Follow artists on YouTube Music to see them here." = "Följ artister i YouTube Music för att se dem här.";
 "For you" = "För dig";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Tvingar reservvyer och material från macOS 15 när appen körs på macOS 26+ för kompatibilitetsfelsökning";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Håll minispelaren överst";
 "Keep suggestions queued ahead" = "Håll förslag i kön framför";
 "Keep the mini player visible above other windows" = "Håll minispelaren synlig ovanför andra fönster";
+"Keep the video above standard windows on this Space." = "Håll videon ovanför standardfönster på det här skrivbordet.";
 "Language" = "Språk";
 "Language Not Supported" = "Språk stöds inte";
 "Last checked: %@" = "Senast kontrollerad: %@";

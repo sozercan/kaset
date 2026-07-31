@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Şarkıları, albümleri, sanatçıları ve çalma listelerini bulun";
 "Find videos, channels, and playlists." = "Videoları, kanalları ve oynatma listelerini bulun.";
 "Flat" = "Düz";
+"Float on Top" = "En Üstte Kalsın";
 "Follow artists on YouTube Music to see them here." = "Burada görmek için YouTube Music'te sanatçıları takip edin.";
 "For you" = "Senin için";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Uyumluluk hatalarını ayıklamak için macOS 26+ üzerinde çalışırken macOS 15 yedek görünümlerini ve materyallerini zorlar";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Mini Oynatıcıyı Üstte Tut";
 "Keep suggestions queued ahead" = "Önerileri ileride kuyrukta tut";
 "Keep the mini player visible above other windows" = "Mini oynatıcıyı diğer pencerelerin üzerinde görünür tut";
+"Keep the video above standard windows on this Space." = "Videoyu bu Masaüstünde standart pencerelerin üzerinde tut.";
 "Language" = "Dil";
 "Language Not Supported" = "Dil Desteklenmiyor";
 "Last checked: %@" = "Son kontrol: %@";

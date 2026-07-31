@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Temukan lagu, album, artis, dan daftar putar";
 "Find videos, channels, and playlists." = "Temukan video, channel, dan playlist.";
 "Flat" = "Flat";
+"Float on Top" = "Apungkan di Atas";
 "Follow artists on YouTube Music to see them here." = "Ikuti artis di YouTube Music untuk melihatnya di sini.";
 "For you" = "Untuk Anda";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Paksa tampilan dan material fallback macOS 15 saat berjalan di macOS 26+ untuk debugging kompatibilitas";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Tampilkan Mini Player di Atas";
 "Keep suggestions queued ahead" = "Simpan saran dalam antrean di depan";
 "Keep the mini player visible above other windows" = "Pertahankan mini player tetap terlihat di atas jendela lain";
+"Keep the video above standard windows on this Space." = "Pertahankan video di atas jendela standar di Desktop ini.";
 "Language" = "Bahasa";
 "Language Not Supported" = "Bahasa Tidak Didukung";
 "Last checked: %@" = "Terakhir diperiksa: %@";

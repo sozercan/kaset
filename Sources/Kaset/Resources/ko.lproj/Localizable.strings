@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "노래, 앨범, 아티스트, 재생목록 찾기";
 "Find videos, channels, and playlists." = "동영상, 채널 및 재생목록을 찾으세요.";
 "Flat" = "플랫";
+"Float on Top" = "상단에 띄우기";
 "Follow artists on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 아티스트를 구독하세요.";
 "For you" = "추천";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "호환성 디버깅을 위해 macOS 26+에서 실행 중일 때 macOS 15 대체 보기와 머티리얼을 강제로 사용합니다";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "미니 플레이어를 항상 위에 표시";
 "Keep suggestions queued ahead" = "미리 대기열에 유지할 추천";
 "Keep the mini player visible above other windows" = "미니 플레이어를 다른 윈도우 위에 계속 표시";
+"Keep the video above standard windows on this Space." = "이 데스크탑에서 비디오를 일반 윈도우 위에 유지합니다.";
 "Language" = "언어";
 "Language Not Supported" = "지원되지 않는 언어";
 "Last checked: %@" = "마지막 확인: %@";

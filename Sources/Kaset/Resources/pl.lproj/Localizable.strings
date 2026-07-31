@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Znajdź utwory, albumy, artystów i playlisty";
 "Find videos, channels, and playlists." = "Znajdź filmy, kanały i playlisty.";
 "Flat" = "Płaski";
+"Float on Top" = "Zawsze na wierzchu";
 "Follow artists on YouTube Music to see them here." = "Obserwuj artystów w YouTube Music, aby zobaczyć ich tutaj.";
 "For you" = "Dla Ciebie";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Wymusza widoki i materiały awaryjne z macOS 15 podczas działania na macOS 26+ w celu debugowania zgodności";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Trzymaj mini odtwarzacz na wierzchu";
 "Keep suggestions queued ahead" = "Utrzymuj sugestie w kolejce przed";
 "Keep the mini player visible above other windows" = "Utrzymuj miniodtwarzacz widoczny nad innymi oknami";
+"Keep the video above standard windows on this Space." = "Utrzymuj wideo nad standardowymi oknami na tym biurku.";
 "Language" = "Język";
 "Language Not Supported" = "Język nie jest obsługiwany";
 "Last checked: %@" = "Ostatnio sprawdzono: %@";

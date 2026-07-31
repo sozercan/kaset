@@ -167,6 +167,7 @@
 "Find songs, albums, artists, and playlists" = "Находите треки, альбомы, исполнителей и плейлисты";
 "Find videos, channels, and playlists." = "Находите видео, каналы и плейлисты.";
 "Flat" = "Плоский";
+"Float on Top" = "Поверх всех окон";
 "Follow artists on YouTube Music to see them here." = "Подписывайтесь на исполнителей в YouTube Music, чтобы видеть их здесь.";
 "For you" = "Для вас";
 "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging" = "Принудительно использует резервные представления и материалы macOS 15 при работе на macOS 26+ для отладки совместимости";
@@ -213,6 +214,7 @@
 "Keep Mini Player on Top" = "Держать мини-плеер поверх окон";
 "Keep suggestions queued ahead" = "Держать рекомендации впереди в очереди на";
 "Keep the mini player visible above other windows" = "Держать мини-проигрыватель поверх других окон";
+"Keep the video above standard windows on this Space." = "Держать видео поверх стандартных окон на этом Рабочем столе.";
 "Language" = "Язык";
 "Language Not Supported" = "Язык не поддерживается";
 "Last checked: %@" = "Последняя проверка: %@";

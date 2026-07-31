@@ -172,6 +172,24 @@ KasetApp observes `surfaceLocation` and opens/closes the floating window;
 `NSView` reparenting (`ensureInHierarchy`) moves the WebView between
 containers without interrupting playback.
 
+### Float on Top
+
+When enabled, the regular YouTube pop-out stays above standard windows on its
+current Space. **Float on Top** is off by default and persists across pop-out
+closure and app relaunch. It can be changed from any of these synchronized
+controls:
+
+- Settings → YouTube → Video Window → Float on Top.
+- View → Float on Top while the pop-out is active.
+- The pin control in the detached player bar.
+
+Float on Top affects only the normal windowed pop-out. Fullscreen and pop-in
+behavior remain unchanged from the user's perspective. Visibility is not
+guaranteed across different Spaces or Stage Manager sets, above higher-level
+windows, or over another application's fullscreen Space. The setting applies
+only to the regular YouTube pop-out; YouTube Music's separate video window is
+unchanged.
+
 ### Shorts
 
 The Shorts surface is a vertical snap-paging player: opening it

@@ -320,6 +320,9 @@ struct KasetApp: App {
                 .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
                     MiniPlayerWindowController.shared.syncWindowState()
                 }
+                .onChange(of: self.settings.keepYouTubeVideoOnTop) { _, _ in
+                    YouTubeVideoWindowController.shared.syncWindowState()
+                }
             }
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
@@ -507,6 +510,14 @@ struct KasetApp: App {
                     }
                     .keyboardShortcut("k", modifiers: .command)
                 }
+
+                Divider()
+
+                Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
+                    .disabled(!YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
+                        isFloating: self.youtubePlayerService.surfaceLocation == .floating,
+                        isFullscreenOrTransitioning: self.youtubePlayerService.isWindowFullscreen
+                    ))
             }
 
             // Window menu - show main window
