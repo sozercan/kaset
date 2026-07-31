@@ -44,8 +44,6 @@ struct AccountSwitcherPopover: View {
             .frame(minWidth: 280)
             .compatGlass(interactive: true, in: .rect(cornerRadius: 14))
             .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
-            // List-style rows; avoid the accent focus ring landing on Guest Mode when the popover opens.
-            .focusEffectDisabled()
         }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.container)
     }
