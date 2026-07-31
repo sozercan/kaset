@@ -51,6 +51,10 @@ struct YouTubePlayerBar: View {
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
 
+    init(isDetachedWindow: Bool) {
+        self.isDetachedWindow = isDetachedWindow
+    }
+
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
@@ -781,25 +785,9 @@ struct YouTubePlayerBar: View {
             self.youtubePlayer.popOutToWindow()
         }
     }
-
-    private static func formatTime(_ seconds: Double) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let total = Int(seconds)
-        let hours = total / 3600
-        let mins = (total % 3600) / 60
-        let secs = total % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, mins, secs)
-        }
-        return String(format: "%d:%02d", mins, secs)
-    }
 }
 
 extension YouTubePlayerBar {
-    init(isDetachedWindow: Bool) {
-        self.isDetachedWindow = isDetachedWindow
-    }
-
     static func shouldShowFloatOnTopControl(
         isDetachedWindow: Bool,
         surfaceLocation: YouTubePlayerService.SurfaceLocation,
@@ -818,6 +806,18 @@ extension YouTubePlayerBar {
 }
 
 private extension YouTubePlayerBar {
+    static func formatTime(_ seconds: Double) -> String {
+        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
+        let total = Int(seconds)
+        let hours = total / 3600
+        let mins = (total % 3600) / 60
+        let secs = total % 60
+        if hours > 0 {
+            return String(format: "%d:%02d:%02d", hours, mins, secs)
+        }
+        return String(format: "%d:%02d", mins, secs)
+    }
+
     var hasPersonalAccount: Bool {
         self.authService.hasPersonalAccount
     }
