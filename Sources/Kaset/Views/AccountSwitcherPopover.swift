@@ -16,32 +16,28 @@ struct AccountSwitcherPopover: View {
     @Environment(AuthService.self) private var authService
     @Environment(\.dismiss) private var dismiss
 
+    @State private var isGuestModeHovering = false
+    @State private var isSignOutHovering = false
+
     /// Namespace for glass effect morphing.
     @Namespace private var popoverNamespace
 
     var body: some View {
         CompatGlassContainer(spacing: 8) {
-            VStack(spacing: 8) {
-                // Header
+            VStack(spacing: 4) {
                 self.headerView
-
+                self.accountsListView
                 self.guestModeRow
 
                 Divider()
-                    .opacity(0.3)
+                    .opacity(0.18)
                     .padding(.horizontal, 12)
-
-                // Accounts list
-                self.accountsListView
-
-                Divider()
-                    .opacity(0.3)
-                    .padding(.horizontal, 12)
+                    .padding(.top, 2)
 
                 self.signOutButton
             }
-            .padding(10)
-            .frame(minWidth: 280)
+            .padding(8)
+            .frame(minWidth: 288)
             .compatGlass(interactive: true, in: .rect(cornerRadius: 14))
             .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
         }
@@ -53,7 +49,7 @@ struct AccountSwitcherPopover: View {
     private var headerView: some View {
         HStack {
             Text(String(localized: "Switch Account"))
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
 
             Spacer()
@@ -63,8 +59,9 @@ struct AccountSwitcherPopover: View {
                     .controlSize(.small)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.header)
     }
 
@@ -99,16 +96,20 @@ struct AccountSwitcherPopover: View {
                 if self.authService.isGuestModeEnabled {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityLabel(String(localized: "Selected"))
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.vertical, 9)
             .background(self.guestRowBackground)
-            .contentShape(Rectangle())
+            .contentShape(.rect(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.14), value: self.isGuestModeHovering)
+        .onHover { hovering in
+            self.isGuestModeHovering = hovering
+        }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.guestModeRow)
         .accessibilityLabel(String(localized: "Guest Mode, browse without personalization"))
         .accessibilityAddTraits(self.authService.isGuestModeEnabled ? [.isButton, .isSelected] : .isButton)
@@ -117,12 +118,15 @@ struct AccountSwitcherPopover: View {
     @ViewBuilder
     private var guestRowBackground: some View {
         if self.authService.isGuestModeEnabled {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.16))
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.accentColor.opacity(self.isGuestModeHovering ? 0.12 : 0.08))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.white.opacity(0.22), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
                 }
+        } else if self.isGuestModeHovering {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
         } else {
             Color.clear
         }
@@ -165,33 +169,50 @@ struct AccountSwitcherPopover: View {
                     }
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 2)
         }
         .frame(maxHeight: 300)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountsList)
     }
 
     private var signOutButton: some View {
-        Button {
+        Button(role: .destructive) {
             Task {
                 await self.accountService.prepareForSignOut()
                 await self.authService.signOut()
                 self.dismiss()
             }
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 15, weight: .medium))
-                    .frame(width: 40, height: 40)
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 18)
                 Text(String(localized: "Sign Out"))
-                    .font(.body)
+                    .font(.callout)
                 Spacer()
             }
-            .foregroundStyle(.red)
-            .contentShape(Rectangle())
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .contentShape(.rect(cornerRadius: 8))
         }
         .buttonStyle(.plain)
+        .foregroundStyle(self.isSignOutHovering ? Color.red : Color.secondary)
+        .background(self.signOutBackground)
+        .animation(.easeInOut(duration: 0.14), value: self.isSignOutHovering)
+        .onHover { hovering in
+            self.isSignOutHovering = hovering
+        }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.signOutButton)
+    }
+
+    @ViewBuilder
+    private var signOutBackground: some View {
+        if self.isSignOutHovering {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.red.opacity(0.10))
+        } else {
+            Color.clear
+        }
     }
 }
 
