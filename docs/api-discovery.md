@@ -1489,8 +1489,9 @@ request.
   `chipData` entries could include a top-level `onClick` callback containing one
   local interaction command.
 - The root `chipData.continuation` remained the only replayed capability. Kaset
-  ignores the callback only when it matches the observed `listMutationCommand` structure, inserts the same
-  visible label as the chip, and contains no extra keys or request capability.
+  ignores the callback only when it matches the observed `listMutationCommand`
+  structure, inserts the same visible label plus the allowlisted loading-animation
+  placeholder, and contains no extra keys or request capability.
 - The same response exposed multiple distinct panel-bootstrap continuations.
   When direct chips are already present, Kaset discards the ambiguous panel
   command instead of guessing; ambiguity still rejects bootstraps that have no
@@ -1601,7 +1602,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
-| 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for inert chip `onClick` callbacks and preserved direct chips while discarding ambiguous panel-only commands |
+| 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for the observed local user-turn/loading `onClick` mutation, preserved direct chips while discarding ambiguous panel-only commands, and added one bounded read-only retry for internal identity-fence cancellation |
 | 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
 | 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
 | 2026-07-27 | Live-validated YouTube Ask Gemini / YouChat summary, follow-up, and two fresh chats; added guarded `ask-video-live-test`, corrected direct chips to `get_panel`, retained read-only `ask-video-audit`, and documented redaction/auth constraints |

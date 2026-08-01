@@ -124,7 +124,7 @@ final class YouTubeWatchViewModel {
         self.ask.cancelAndDiscard()
         self.loadingState = .loading
         do {
-            let page = try await self.client.getWatchPage(videoId: self.video.videoId)
+            let page = try await self.loadWatchPageWithIdentityRetry(generation: generation)
             guard generation == self.loadGeneration else { return }
             self.data = page.data
             self.isSubscribed = page.data.isSubscribed ?? false
@@ -143,6 +143,27 @@ final class YouTubeWatchViewModel {
             }
             self.logger.error("Failed to load watch-next data: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
+        }
+    }
+
+    /// A scope publication can reset the shared client after a watch response
+    /// parses but before its final identity fence. Retry that read-only `next`
+    /// request once when the outer route task and load generation are still
+    /// current. Panel materialization and suggestion submission are never retried.
+    private func loadWatchPageWithIdentityRetry(
+        generation: Int
+    ) async throws -> YouTubeWatchPage {
+        do {
+            return try await self.client.getWatchPage(videoId: self.video.videoId)
+        } catch is CancellationError {
+            guard !Task.isCancelled, generation == self.loadGeneration else {
+                throw CancellationError()
+            }
+            await Task.yield()
+            guard !Task.isCancelled, generation == self.loadGeneration else {
+                throw CancellationError()
+            }
+            return try await self.client.getWatchPage(videoId: self.video.videoId)
         }
     }
 

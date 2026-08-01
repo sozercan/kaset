@@ -598,13 +598,19 @@ package enum YouTubeAskParser {
               let insertion = operation["insertItemSectionContent"]?.objectValue,
               Set(insertion.keys) == ["contents", "insertByPositionInSection"],
               let contents = insertion["contents"]?.arrayValue,
-              contents.count == 1,
-              let content = contents[0].objectValue,
-              Set(content.keys) == ["chatUserTurnViewModel"],
-              let userTurn = content["chatUserTurnViewModel"]?.objectValue,
-              Set(userTurn.keys) == ["backgroundStyle", "text"],
-              hasNonemptyString(userTurn["backgroundStyle"]),
-              userTurn["text"]?.stringValue == expectedVisibleText,
+              contents.count == 2,
+              contents.count(where: { content in
+                  content.objectValue.map { Set($0.keys) == ["chatUserTurnViewModel"] } ?? false
+              }) == 1,
+              contents.count(where: { content in
+                  content.objectValue.map { Set($0.keys) == ["chatLoadingViewModel"] } ?? false
+              }) == 1,
+              contents.allSatisfy({ content in
+                  Self.isSupportedUserTurnContent(
+                      content,
+                      expectedVisibleText: expectedVisibleText
+                  ) || Self.isSupportedLoadingContent(content)
+              }),
               let position = insertion["insertByPositionInSection"]?.objectValue,
               Set(position.keys) == ["position", "sectionTargetId"],
               hasNonemptyString(position["position"]),
@@ -613,6 +619,74 @@ package enum YouTubeAskParser {
             return false
         }
         return true
+    }
+
+    private static func isSupportedUserTurnContent(
+        _ value: YouTubeAskJSONValue,
+        expectedVisibleText: String
+    ) -> Bool {
+        guard let content = value.objectValue,
+              Set(content.keys) == ["chatUserTurnViewModel"],
+              let userTurn = content["chatUserTurnViewModel"]?.objectValue,
+              Set(userTurn.keys) == ["backgroundStyle", "text"],
+              hasNonemptyString(userTurn["backgroundStyle"]),
+              userTurn["text"]?.stringValue == expectedVisibleText
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func isSupportedLoadingContent(
+        _ value: YouTubeAskJSONValue
+    ) -> Bool {
+        guard let content = value.objectValue,
+              Set(content.keys) == ["chatLoadingViewModel"],
+              let loading = content["chatLoadingViewModel"]?.objectValue,
+              Set(loading.keys) == [
+                  "animation",
+                  "darkThemeAnimation",
+                  "loadingAnimationA11yLabel",
+                  "targetId",
+              ],
+              hasNonemptyString(loading["loadingAnimationA11yLabel"]),
+              hasNonemptyString(loading["targetId"]),
+              isSupportedLoadingAnimation(loading["animation"]),
+              isSupportedLoadingAnimation(loading["darkThemeAnimation"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func isSupportedLoadingAnimation(
+        _ value: YouTubeAskJSONValue?
+    ) -> Bool {
+        guard let animation = value?.objectValue,
+              Set(animation.keys) == ["lottieAnimationViewModel"],
+              let lottie = animation["lottieAnimationViewModel"]?.objectValue,
+              Set(lottie.keys) == ["loop", "trustedAnimationUrl"],
+              isBooleanOrNumber(lottie["loop"]),
+              let trustedURL = lottie["trustedAnimationUrl"]?.objectValue,
+              Set(trustedURL.keys) == [
+                  "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue",
+              ],
+              hasNonemptyString(
+                  trustedURL["privateDoNotAccessOrElseTrustedResourceUrlWrappedValue"]
+              )
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func isBooleanOrNumber(_ value: YouTubeAskJSONValue?) -> Bool {
+        switch value {
+        case .bool, .number:
+            true
+        default:
+            false
+        }
     }
 
     private static func isSupportedScrollConfig(

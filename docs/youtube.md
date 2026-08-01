@@ -64,7 +64,9 @@ requests. `getWatchPage(videoId:)` parses normal watch data and an optional Ask
 bootstrap from the same `next` response. High-level conversation operations use
 an Ask-specific bounded, same-origin, no-cache, no-automatic-retry transport and
 expose only sanitized text plus local IDs to UI code. Opaque server commands stay
-inside memory-bound domain values. See
+inside memory-bound domain values. A read-only watch bootstrap may retry once
+when an account-scope publication resets the client after parsing; `get_panel`
+and suggestion submissions are never retried automatically. See
 [ADR-0032](adr/0032-youtube-ask-gemini.md).
 
 ### Endpoints

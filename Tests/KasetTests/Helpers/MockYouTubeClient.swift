@@ -22,6 +22,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var watchNextData = WatchNextData.empty
     var askBootstrap: YouTubeAskBootstrap?
     var watchPages: [YouTubeWatchPage] = []
+    var watchPageErrors: [Error] = []
     var askConversation = YouTubeAskConversation.testing()
     var continuedAskConversation: YouTubeAskConversation?
     var askError: Error?
@@ -58,6 +59,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.searchContinuation = nil
         self.askBootstrap = nil
         self.watchPages = []
+        self.watchPageErrors = []
         self.askConversation = YouTubeAskConversation.testing()
         self.continuedAskConversation = nil
     }
@@ -236,6 +238,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     func getWatchPage(videoId _: String) async throws -> YouTubeWatchPage {
         self.getWatchPageCallCount += 1
+        if !self.watchPageErrors.isEmpty {
+            throw self.watchPageErrors.removeFirst()
+        }
         if let error {
             throw error
         }

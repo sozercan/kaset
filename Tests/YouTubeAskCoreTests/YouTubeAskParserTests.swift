@@ -274,6 +274,20 @@ struct YouTubeAskParserTests {
             _ = try YouTubeAskParser.parseConversation(from: mismatchedVisibleText)
         }
 
+        let unsafeLoadingCallback = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Unsafe loading callback"],
+            "continuation": "fixture-unsafe-loading-continuation",
+            "onClick": Self.localListMutationCallback(
+                visibleText: "Unsafe loading callback",
+                loadingExtraFields: [
+                    "sendUserQueryCommand": ["placeholder": true],
+                ]
+            ),
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: unsafeLoadingCallback)
+        }
+
         let missingContinuation = try Self.conversationEnvelope(chips: [[
             "text": ["simpleText": "Missing command"],
         ]])
@@ -470,20 +484,32 @@ struct YouTubeAskParserTests {
     }
 
     private static func localListMutationCallback(
-        visibleText: String
+        visibleText: String,
+        loadingExtraFields: [String: Any] = [:]
     ) -> [String: Any] {
-        [
+        var loadingView: [String: Any] = [
+            "animation": Self.loadingAnimation(resource: "fixture-light-animation"),
+            "darkThemeAnimation": Self.loadingAnimation(resource: "fixture-dark-animation"),
+            "loadingAnimationA11yLabel": "Loading response",
+            "targetId": "fixture-loading-target",
+        ]
+        loadingView.merge(loadingExtraFields) { _, newValue in newValue }
+
+        return [
             "clickTrackingParams": "fixture-tracking-placeholder",
             "listMutationCommand": [
                 "operations": [
                     "operations": [[
                         "insertItemSectionContent": [
-                            "contents": [[
-                                "chatUserTurnViewModel": [
-                                    "backgroundStyle": "CHAT_USER_TURN_BACKGROUND_STYLE_DEFAULT",
-                                    "text": visibleText,
+                            "contents": [
+                                [
+                                    "chatUserTurnViewModel": [
+                                        "backgroundStyle": "CHAT_USER_TURN_BACKGROUND_STYLE_DEFAULT",
+                                        "text": visibleText,
+                                    ],
                                 ],
-                            ]],
+                                ["chatLoadingViewModel": loadingView],
+                            ],
                             "insertByPositionInSection": [
                                 "position": "ITEM_SECTION_POSITION_END",
                                 "sectionTargetId": "fixture-section-target",
@@ -499,6 +525,17 @@ struct YouTubeAskParserTests {
                             "scrollPosition": "SCROLL_POSITION_BOTTOM",
                         ],
                     ],
+                ],
+            ],
+        ]
+    }
+
+    private static func loadingAnimation(resource: String) -> [String: Any] {
+        [
+            "lottieAnimationViewModel": [
+                "loop": true,
+                "trustedAnimationUrl": [
+                    "privateDoNotAccessOrElseTrustedResourceUrlWrappedValue": resource,
                 ],
             ],
         ]

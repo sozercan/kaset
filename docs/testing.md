@@ -288,17 +288,19 @@ YouTube Ask has two test layers:
 
 1. `YouTubeAskCoreTests` proves the Foundation-only boundary: bounded JSON,
    XSSI, NDJSON, and length-prefixed decoding; strict YouChat ancestry and chip
-   extraction; decoy and unsupported-decorator rejection; exact `onClick.listMutationCommand`
-   callback acceptance without execution and unknown-command rejection; direct-chip preservation when panel
+   extraction; decoy and unsupported-decorator rejection; exact
+   `onClick.listMutationCommand` user-turn/loading callback acceptance without
+   execution and unknown-command rejection; direct-chip preservation when panel
    commands are ambiguous; server-order preservation; visible-text sanitization;
    exact direct-chip request bodies;
    and redacted opaque-command behavior.
 2. `KasetTests` covers `YouTubeClient` and view-model integration: one shared
    watch `next` request, signed-in primary-account gating, exact `get_panel`
    URL/body, forbidden-field absence, monotonic message IDs, no cache or retry,
-   same-origin redirects, HTTP/error mapping, identity-generation fences, lazy
-   preparation, single-flight submission, transactional New Chat, cancellation,
-   and prevention of command reuse.
+   same-origin redirects, HTTP/error mapping, identity-generation fences, a
+   single read-only watch retry after internal identity cancellation, no retry
+   after outer task cancellation, lazy preparation, single-flight submission,
+   transactional New Chat, cancellation, and prevention of command reuse.
 
 Fixtures must be small, hand-authored, and visibly synthetic. Use placeholder
 values such as `fixture-video-a` and `fixture-continuation-a`; never copy cookies,

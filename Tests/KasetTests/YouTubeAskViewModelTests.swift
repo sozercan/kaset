@@ -181,6 +181,51 @@ struct YouTubeAskViewModelTests {
         #expect(sut.ask.suggestions.map(\.text) == ["Continue"])
     }
 
+    @Test("An internal identity cancellation retries the read-only watch page once")
+    func internalIdentityCancellationRetriesWatchPage() async {
+        let client = MockYouTubeClient()
+        client.watchPageErrors = [CancellationError()]
+        client.watchPages = [YouTubeWatchPage(
+            data: .empty,
+            askBootstrap: YouTubeAskBootstrap.testing(suggestions: ["Recovered question"])
+        )]
+        let video = MockYouTubeClient.makeVideo(videoId: "fixture-video")
+        let sut = YouTubeWatchViewModel(video: video, client: client)
+
+        await sut.load(accountScope: self.accountScope(sequence: 1))
+
+        #expect(client.getWatchPageCallCount == 2)
+        #expect(sut.loadingState == .loaded)
+        #expect(sut.ask.isAvailable)
+
+        sut.ask.setExpanded(true)
+        await self.waitUntil(sut.ask.activity == .idle && !sut.ask.suggestions.isEmpty)
+        #expect(sut.ask.suggestions.map(\.text) == ["Recovered question"])
+    }
+
+    @Test("A cancelled outer watch task does not retry")
+    func cancelledOuterWatchTaskDoesNotRetry() async {
+        let client = MockYouTubeClient()
+        let gate = AsyncGate()
+        client.beforeWatchPageReturn = {
+            await gate.wait()
+        }
+        let video = MockYouTubeClient.makeVideo(videoId: "fixture-video")
+        let sut = YouTubeWatchViewModel(video: video, client: client)
+        let loadTask = Task {
+            await sut.load(accountScope: self.accountScope(sequence: 1))
+        }
+        await self.waitUntil(client.getWatchPageCallCount == 1)
+
+        loadTask.cancel()
+        await gate.open()
+        await loadTask.value
+
+        #expect(client.getWatchPageCallCount == 1)
+        #expect(sut.loadingState == .idle)
+        #expect(!sut.ask.isAvailable)
+    }
+
     @Test("Returning to the same watch route reloads discarded Ask state")
     func cancelThenReloadRestoresAskAvailability() async {
         let client = MockYouTubeClient()
