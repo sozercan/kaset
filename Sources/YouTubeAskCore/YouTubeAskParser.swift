@@ -39,7 +39,15 @@ package enum YouTubeAskParser {
             )
         }
 
-        let panelContinuation = try Self.unambiguousContinuation(continuationCandidates)
+        let panelContinuation: String?
+        do {
+            panelContinuation = try Self.unambiguousContinuation(continuationCandidates)
+        } catch YouTubeAskCoreError.ambiguousBootstrap where !content.suggestions.isEmpty {
+            // Direct chip continuations are independently validated capabilities.
+            // Do not guess among unrelated panel-bootstrap commands when the
+            // panel can already be presented without materialization.
+            panelContinuation = nil
+        }
         guard panelContinuation != nil || !content.suggestions.isEmpty else { return nil }
         return YouTubeAskParsedBootstrap(
             panelCommand: panelContinuation.map(YouTubeAskOpaqueCommand.init),
@@ -416,13 +424,8 @@ package enum YouTubeAskParser {
     private static func parseChip(
         _ value: YouTubeAskJSONValue
     ) throws -> YouTubeAskParsedSuggestion {
-        guard let chip = value.objectValue else {
-            throw YouTubeAskCoreError.malformedChip
-        }
-        if Self.containsUnsupportedChipDecorator(value) {
-            throw YouTubeAskCoreError.unsupportedChipDecorator
-        }
-        guard let continuation = chip["continuation"]?.stringValue,
+        guard let chip = value.objectValue,
+              let continuation = chip["continuation"]?.stringValue,
               !continuation.isEmpty,
               continuation.count <= YouTubeAskLimits.maximumCommandCharacters,
               let textValue = chip["text"]
@@ -434,6 +437,12 @@ package enum YouTubeAskParser {
             from: textValue,
             malformedError: .malformedChip
         )
+        if Self.containsUnsupportedChipDecorator(
+            value,
+            expectedVisibleText: visibleText
+        ) {
+            throw YouTubeAskCoreError.unsupportedChipDecorator
+        }
         guard let label = YouTubeAskVisibleTextSanitizer.sanitizeChipLabel(visibleText) else {
             throw YouTubeAskCoreError.malformedChip
         }
@@ -507,14 +516,23 @@ package enum YouTubeAskParser {
     }
 
     private static func containsUnsupportedChipDecorator(
-        _ value: YouTubeAskJSONValue
+        _ value: YouTubeAskJSONValue,
+        expectedVisibleText: String
     ) -> Bool {
         switch value {
         case let .object(object):
             for (key, nested) in object {
                 let canonical = key.lowercased()
-                if canonical == "onclick"
-                    || canonical == "innertubecommand"
+                if canonical == "onclick" {
+                    guard Self.isSupportedOnClickDecorator(
+                        nested,
+                        expectedVisibleText: expectedVisibleText
+                    ) else {
+                        return true
+                    }
+                    continue
+                }
+                if canonical == "innertubecommand"
                     || canonical == "commandmetadata"
                     || canonical.hasSuffix("command")
                     || canonical.hasSuffix("endpoint")
@@ -522,15 +540,101 @@ package enum YouTubeAskParser {
                 {
                     return true
                 }
-                if Self.containsUnsupportedChipDecorator(nested) {
+                if Self.containsUnsupportedChipDecorator(
+                    nested,
+                    expectedVisibleText: expectedVisibleText
+                ) {
                     return true
                 }
             }
             return false
         case let .array(array):
-            return array.contains(where: Self.containsUnsupportedChipDecorator)
+            return array.contains { nested in
+                Self.containsUnsupportedChipDecorator(
+                    nested,
+                    expectedVisibleText: expectedVisibleText
+                )
+            }
         default:
             return false
         }
+    }
+
+    /// Current YouChat chips may carry a local `listMutationCommand` that
+    /// inserts the already-visible chip label as the pending user turn and
+    /// scrolls the panel. Kaset performs those UI updates itself and never
+    /// executes or preserves this callback. Accept only the exact observed
+    /// schema and reject every other command or field.
+    private static func isSupportedOnClickDecorator(
+        _ value: YouTubeAskJSONValue,
+        expectedVisibleText: String
+    ) -> Bool {
+        guard let onClick = value.objectValue,
+              Set(onClick.keys) == ["clickTrackingParams", "listMutationCommand"],
+              hasNonemptyString(onClick["clickTrackingParams"]),
+              let listMutation = onClick["listMutationCommand"]?.objectValue,
+              Set(listMutation.keys) == ["operations"],
+              let mutationOperations = listMutation["operations"]?.objectValue,
+              Set(mutationOperations.keys) == ["operations", "scrollConfig"],
+              let operations = mutationOperations["operations"]?.arrayValue,
+              operations.count == 1,
+              isSupportedInsertOperation(
+                  operations[0],
+                  expectedVisibleText: expectedVisibleText
+              ),
+              isSupportedScrollConfig(mutationOperations["scrollConfig"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func isSupportedInsertOperation(
+        _ value: YouTubeAskJSONValue,
+        expectedVisibleText: String
+    ) -> Bool {
+        guard let operation = value.objectValue,
+              Set(operation.keys) == ["insertItemSectionContent"],
+              let insertion = operation["insertItemSectionContent"]?.objectValue,
+              Set(insertion.keys) == ["contents", "insertByPositionInSection"],
+              let contents = insertion["contents"]?.arrayValue,
+              contents.count == 1,
+              let content = contents[0].objectValue,
+              Set(content.keys) == ["chatUserTurnViewModel"],
+              let userTurn = content["chatUserTurnViewModel"]?.objectValue,
+              Set(userTurn.keys) == ["backgroundStyle", "text"],
+              hasNonemptyString(userTurn["backgroundStyle"]),
+              userTurn["text"]?.stringValue == expectedVisibleText,
+              let position = insertion["insertByPositionInSection"]?.objectValue,
+              Set(position.keys) == ["position", "sectionTargetId"],
+              hasNonemptyString(position["position"]),
+              hasNonemptyString(position["sectionTargetId"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func isSupportedScrollConfig(
+        _ value: YouTubeAskJSONValue?
+    ) -> Bool {
+        guard let scrollConfig = value?.objectValue,
+              Set(scrollConfig.keys) == ["scrollToItem"],
+              let scrollToItem = scrollConfig["scrollToItem"]?.objectValue,
+              Set(scrollToItem.keys) == ["item", "scrollPosition"],
+              hasNonemptyString(scrollToItem["scrollPosition"]),
+              let item = scrollToItem["item"]?.objectValue,
+              Set(item.keys) == ["itemTargetId", "sectionTargetId"],
+              hasNonemptyString(item["itemTargetId"]),
+              hasNonemptyString(item["sectionTargetId"])
+        else {
+            return false
+        }
+        return true
+    }
+
+    private static func hasNonemptyString(_ value: YouTubeAskJSONValue?) -> Bool {
+        guard let string = value?.stringValue else { return false }
+        return !string.isEmpty
     }
 }

@@ -112,9 +112,12 @@ user selects a server-issued suggestion. Follow-up chips are also server-issued;
 there is no free-text composer or `streaming_panel` path. Visible labels and
 answers are sanitized but not localized by Kaset.
 
-Production activation is currently disabled because no request profile has
-passed authenticated eligibility validation, so the client must continue to
-omit the panel. The
+Production activation uses the fixed WEB request profile selected on July 30,
+2026. Eligibility remains account- and video-scoped: signed-out, guest, brand,
+identity-mismatched, malformed, and unsupported responses omit the panel. A
+validated direct chip remains usable even when unrelated panel-bootstrap
+continuations are ambiguous; Kaset never guesses or replays those panel commands.
+The
 [API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27)
 is the wire-level source of truth; this document records only the product and
 architecture boundary. See also [ADR-0032](adr/0032-youtube-ask-gemini.md).

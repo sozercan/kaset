@@ -59,11 +59,17 @@ Wire-level observations and the API Explorer workflow remain documented in the
    displayed verbatim and are not localized by Kaset.
 5. **Fail closed on unsupported or ambiguous data.** Strict parsing recognizes
    only confirmed YouChat structures, bounded wire formats, and supported
-   message/chip containers. Ambiguity, malformed or oversized responses,
-   unsupported decorators, identity changes, or uncertain submission outcomes
-   disable the current session. There is no automatic retry; the UI may offer
-   New Chat, which starts from a fresh watch bootstrap and replaces the old
-   conversation only after preparation succeeds.
+   message/chip containers. A chip may carry the exact observed `onClick.listMutationCommand` UI
+   mutation, which is ignored rather than preserved or executed only when its
+   inserted user-turn text matches the chip label and every key matches the
+   allowlisted local insertion/scroll shape. Any other callback rejects the chip
+   set. Multiple panel-bootstrap commands reject the
+   bootstrap unless validated direct chips make panel materialization unnecessary,
+   in which case Kaset discards every ambiguous panel command. Other ambiguity,
+   malformed or oversized responses, unsupported decorators, identity changes,
+   or uncertain submission outcomes disable the current session. There is no
+   automatic retry; the UI may offer New Chat, which starts from a fresh watch
+   bootstrap and replaces the old conversation only after preparation succeeds.
 6. **Select the production request profile explicitly.** The production app
    selects the fixed WEB profile. The July 28, 2026 parity run was inconclusive
    because the exported session appeared signed out; activation was subsequently

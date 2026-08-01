@@ -1483,6 +1483,21 @@ inventing them. The chip's `id`, visible text, click-tracking command, and the
 free-text composer's `sendUserQueryCommand` are not copied into this direct-chip
 request.
 
+**Signed-in production compatibility check on August 1, 2026**:
+
+- The authenticated watch response exposed validated direct chips whose
+  `chipData` entries could include a top-level `onClick` callback containing one
+  local interaction command.
+- The root `chipData.continuation` remained the only replayed capability. Kaset
+  ignores the callback only when it matches the observed `listMutationCommand` structure, inserts the same
+  visible label as the chip, and contains no extra keys or request capability.
+- The same response exposed multiple distinct panel-bootstrap continuations.
+  When direct chips are already present, Kaset discards the ambiguous panel
+  command instead of guessing; ambiguity still rejects bootstraps that have no
+  direct chips.
+- A read-only production-client probe then parsed the watch bootstrap
+  successfully. No panel materialization or suggestion submission was performed.
+
 The free-text composer is a different path. It uses the server-issued
 `sendUserQueryCommand` (or its own fallback continuation), adds `userInputText`,
 and selects `streaming_panel` only when command metadata explicitly names that
@@ -1586,6 +1601,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for inert chip `onClick` callbacks and preserved direct chips while discarding ambiguous panel-only commands |
 | 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
 | 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
 | 2026-07-27 | Live-validated YouTube Ask Gemini / YouChat summary, follow-up, and two fresh chats; added guarded `ask-video-live-test`, corrected direct chips to `get_panel`, retained read-only `ask-video-audit`, and documented redaction/auth constraints |

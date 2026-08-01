@@ -77,6 +77,45 @@ struct YouTubeAskParserTests {
         #expect(bootstrap.panelCommand?.continuation == "fixture-panel-continuation-a")
     }
 
+    @Test("Keeps direct chips when panel bootstrap commands are ambiguous")
+    func directChipsSurvivePanelCommandAmbiguity() throws {
+        let envelope = try Self.envelope([
+            "engagementPanels": [[
+                "panelIdentifier": "PAyouchat",
+                "commands": [
+                    [
+                        "continuationCommand": [
+                            "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                            "token": "fixture-panel-continuation-a",
+                        ],
+                    ],
+                    [
+                        "continuationCommand": [
+                            "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                            "token": "fixture-panel-continuation-b",
+                        ],
+                    ],
+                ],
+                "content": [
+                    "youChatItemViewModel": [
+                        "chipsData": [
+                            "chipData": [[
+                                "text": ["simpleText": "Direct suggestion"],
+                                "continuation": "fixture-direct-continuation",
+                            ]],
+                        ],
+                    ],
+                ],
+            ]],
+        ])
+
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.panelCommand == nil)
+        #expect(bootstrap.suggestions.map(\.label) == ["Direct suggestion"])
+        #expect(bootstrap.suggestions.first?.command.continuation == "fixture-direct-continuation")
+    }
+
     @Test("Extracts chips only from supported YouChat continuation-item containers")
     func strictChipPath() throws {
         let decoy = [
@@ -136,6 +175,33 @@ struct YouTubeAskParserTests {
         ])
     }
 
+    @Test("Accepts the observed local list-mutation callback without executing it")
+    func acceptsObservedOnClickListMutation() throws {
+        let envelope = try Self.envelope([
+            "engagementPanels": [[
+                "panelIdentifier": "PAyouchat",
+                "content": [
+                    "youChatItemViewModel": [
+                        "chipsData": [
+                            "chipData": [[
+                                "text": ["simpleText": "Supported suggestion"],
+                                "continuation": "fixture-supported-continuation",
+                                "onClick": Self.localListMutationCallback(
+                                    visibleText: "Supported suggestion"
+                                ),
+                            ]],
+                        ],
+                    ],
+                ],
+            ]],
+        ])
+
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.suggestions.map(\.label) == ["Supported suggestion"])
+        #expect(bootstrap.suggestions.first?.command.continuation == "fixture-supported-continuation")
+    }
+
     @Test("Fails the entire chip set on malformed or decorated chips")
     func malformedChipsFailClosed() throws {
         let decorated = try Self.conversationEnvelope(chips: [[
@@ -147,6 +213,65 @@ struct YouTubeAskParserTests {
         ]])
         expectYouTubeAskError(.unsupportedChipDecorator) {
             _ = try YouTubeAskParser.parseConversation(from: decorated)
+        }
+
+        let alternativeContinuation = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Alternative command"],
+            "continuation": "fixture-root-continuation",
+            "onClick": [
+                "continuationCommand": [
+                    "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                    "token": "fixture-alternative-continuation",
+                ],
+            ],
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: alternativeContinuation)
+        }
+
+        let malformedOnClick = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Malformed callback"],
+            "continuation": "fixture-malformed-callback-continuation",
+            "onClick": "unsupported-callback",
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: malformedOnClick)
+        }
+
+        let multipleCallbackCommands = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Multiple callbacks"],
+            "continuation": "fixture-multiple-callback-continuation",
+            "onClick": [
+                "recordClickCommand": ["placeholder": true],
+                "recordVisibilityCommand": ["placeholder": true],
+            ],
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: multipleCallbackCommands)
+        }
+
+        let unknownCommand = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Unknown callback"],
+            "continuation": "fixture-unknown-callback-continuation",
+            "onClick": [
+                "loadContinuationCommand": [
+                    "continuationToken": "fixture-hidden-continuation",
+                ],
+            ],
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: unknownCommand)
+        }
+
+        let mismatchedVisibleText = try Self.conversationEnvelope(chips: [[
+            "text": ["simpleText": "Visible suggestion"],
+            "continuation": "fixture-mismatched-callback-continuation",
+            "onClick": Self.localListMutationCallback(
+                visibleText: "Different suggestion"
+            ),
+        ]])
+        expectYouTubeAskError(.unsupportedChipDecorator) {
+            _ = try YouTubeAskParser.parseConversation(from: mismatchedVisibleText)
         }
 
         let missingContinuation = try Self.conversationEnvelope(chips: [[
@@ -342,6 +467,41 @@ struct YouTubeAskParserTests {
         expectYouTubeAskError(.structureLimitExceeded) {
             _ = try YouTubeAskParser.parseConversation(from: envelope)
         }
+    }
+
+    private static func localListMutationCallback(
+        visibleText: String
+    ) -> [String: Any] {
+        [
+            "clickTrackingParams": "fixture-tracking-placeholder",
+            "listMutationCommand": [
+                "operations": [
+                    "operations": [[
+                        "insertItemSectionContent": [
+                            "contents": [[
+                                "chatUserTurnViewModel": [
+                                    "backgroundStyle": "CHAT_USER_TURN_BACKGROUND_STYLE_DEFAULT",
+                                    "text": visibleText,
+                                ],
+                            ]],
+                            "insertByPositionInSection": [
+                                "position": "ITEM_SECTION_POSITION_END",
+                                "sectionTargetId": "fixture-section-target",
+                            ],
+                        ],
+                    ]],
+                    "scrollConfig": [
+                        "scrollToItem": [
+                            "item": [
+                                "itemTargetId": "fixture-item-target",
+                                "sectionTargetId": "fixture-section-target",
+                            ],
+                            "scrollPosition": "SCROLL_POSITION_BOTTOM",
+                        ],
+                    ],
+                ],
+            ],
+        ]
     }
 
     private static func bootstrapObject(tokens: [String]) -> [String: Any] {

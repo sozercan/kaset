@@ -288,8 +288,10 @@ YouTube Ask has two test layers:
 
 1. `YouTubeAskCoreTests` proves the Foundation-only boundary: bounded JSON,
    XSSI, NDJSON, and length-prefixed decoding; strict YouChat ancestry and chip
-   extraction; decoy and unsupported-decorator rejection; server-order
-   preservation; visible-text sanitization; exact direct-chip request bodies;
+   extraction; decoy and unsupported-decorator rejection; exact `onClick.listMutationCommand`
+   callback acceptance without execution and unknown-command rejection; direct-chip preservation when panel
+   commands are ambiguous; server-order preservation; visible-text sanitization;
+   exact direct-chip request bodies;
    and redacted opaque-command behavior.
 2. `KasetTests` covers `YouTubeClient` and view-model integration: one shared
    watch `next` request, signed-in primary-account gating, exact `get_panel`
