@@ -1493,6 +1493,10 @@ follow-up chips were inserted under:
 operations.operations[].insertItemSectionContent.contents[].youChatItemViewModel
 ```
 
+The confirmed insertion metadata uses `position: INSERTION_POSITION_LAST` with a
+nonempty section target. Other positions or missing placement metadata fail
+closed.
+
 Text-bearing `youChatItemViewModel` objects expose `text.content` plus optional
 style/action metadata. Chip-bearing objects expose `chipsData`. Kaset parses only
 those two visible surfaces under the confirmed insertion path; result/link

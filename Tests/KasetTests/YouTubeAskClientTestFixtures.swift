@@ -41,7 +41,7 @@ extension YouTubeAskClientTests {
                         }
                       ],
                       "insertByPositionInSection": {
-                        "position": "ITEM_SECTION_POSITION_END",
+                        "position": "INSERTION_POSITION_LAST",
                         "sectionTargetId": "fixture-response-section"
                       }
                     }

@@ -43,7 +43,7 @@ extension YouTubeAskParser {
               let contents = insertion["contents"]?.arrayValue,
               let placement = insertion["insertByPositionInSection"]?.objectValue,
               Set(placement.keys) == ["position", "sectionTargetId"],
-              placement["position"]?.stringValue == "ITEM_SECTION_POSITION_END",
+              placement["position"]?.stringValue == "INSERTION_POSITION_LAST",
               hasNonemptyString(placement["sectionTargetId"])
         else {
             throw YouTubeAskCoreError.malformedWireResponse
