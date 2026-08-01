@@ -12,24 +12,39 @@ struct QueueView: View {
     /// Namespace for glass effect morphing.
     @Namespace private var queueNamespace
 
+    /// When true, renders flush content for the docked drawer (no fixed width / glass card);
+    /// the drawer container supplies the background.
+    var docked: Bool = false
+
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                // Header
-                self.headerView
-
-                Divider()
-                    .opacity(0.3)
-
-                // Content
-                self.contentView
+        Group {
+            if self.docked {
+                self.contentStack
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                CompatGlassContainer(spacing: 0) {
+                    self.contentStack
+                        .frame(width: 280)
+                        .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+                        .compatGlassID("queuePanel", in: self.queueNamespace)
+                }
+                .compatGlassTransition(.materialize)
             }
-            .frame(width: 280)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
-            .compatGlassID("queuePanel", in: self.queueNamespace)
         }
-        .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Queue.container)
+    }
+
+    private var contentStack: some View {
+        VStack(spacing: 0) {
+            // Header
+            self.headerView
+
+            Divider()
+                .opacity(0.3)
+
+            // Content
+            self.contentView
+        }
     }
 
     // MARK: - Header

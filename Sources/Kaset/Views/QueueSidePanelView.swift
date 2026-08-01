@@ -9,9 +9,42 @@ struct QueueSidePanelView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
+    /// When true, renders flush content for the docked drawer (no fixed width / rounded card);
+    /// the drawer container supplies the background.
+    var docked: Bool = false
+
+    /// Width of the non-docked floating side panel.
+    private static let floatingPanelWidth: CGFloat = 400
+    /// Trailing space reserved for the vertical scroller so it doesn't cover the duration label.
+    private static let scrollerGutter: CGFloat = 18
+
+    /// Fixed table-column width for the current layout: the container width (the docked drawer or the
+    /// floating panel) minus the scroller gutter. Deterministic — no dependence on live scroll-view
+    /// geometry, which during the drawer's slide-in transition briefly reports the full window width.
+    private var tableColumnWidth: CGFloat {
+        let container = self.docked ? MainWindowLayout.rightDrawerWidth : Self.floatingPanelWidth
+        return container - Self.scrollerGutter
+    }
+
     var body: some View {
         // Use regular material: GlassEffectContainer breaks NSTableView drag-and-drop
-        // (drop target gap and acceptDrop never fire when the table is inside glass).
+        // (drop target gap and acceptDrop never fire when the table is inside glass). The docked
+        // drawer likewise backs the panel with regular material, not glass, to keep drag working.
+        Group {
+            if self.docked {
+                self.contentStack
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                self.contentStack
+                    .frame(width: Self.floatingPanelWidth)
+                    .background(.regularMaterial)
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+            }
+        }
+        .accessibilityIdentifier(AccessibilityID.Queue.container)
+    }
+
+    private var contentStack: some View {
         VStack(spacing: 0) {
             QueueSidePanelHeader()
 
@@ -28,6 +61,7 @@ struct QueueSidePanelView: View {
                     favoritesManager: self.favoritesManager,
                     likeStatusManager: self.likeStatusManager,
                     allowsLikeActions: self.authService.hasPersonalAccount,
+                    columnWidth: self.tableColumnWidth,
                     likeStatusEvent: self.likeStatusManager.lastLikeEvent,
                     onSelect: { entryID in
                         let reservation = self.playerService.reserveMusicPlaybackIntent()
@@ -60,10 +94,6 @@ struct QueueSidePanelView: View {
 
             QueueFooterActions()
         }
-        .frame(width: 400)
-        .background(.regularMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 20))
-        .accessibilityIdentifier(AccessibilityID.Queue.container)
     }
 
     private var emptyQueueView: some View {
@@ -96,6 +126,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let favoritesManager: FavoritesManager
     let likeStatusManager: SongLikeStatusManager
     let allowsLikeActions: Bool
+    /// Fixed width for the single table column. Set from known container widths (the docked drawer or
+    /// the floating panel) minus a scroller gutter — deterministic, so it never depends on reading
+    /// transient scroll-view geometry during layout.
+    let columnWidth: CGFloat
     /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
     let likeStatusEvent: LikeStatusEvent?
     let onSelect: (UUID) -> Void
@@ -105,12 +139,20 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
     func makeNSViewController(context: Context) -> QueueListViewController {
         let viewController = QueueListViewController()
+        viewController.columnWidth = self.columnWidth
         viewController.coordinator = context.coordinator
         context.coordinator.viewController = viewController
         return viewController
     }
 
     func updateNSViewController(_ viewController: QueueListViewController, context: Context) {
+        viewController.columnWidth = self.columnWidth
+        if let column = viewController.tableView?.tableColumns.first,
+           abs(column.width - self.columnWidth) > 0.5
+        {
+            column.width = self.columnWidth
+        }
+
         context.coordinator.favoritesManager = self.favoritesManager
         context.coordinator.likeStatusManager = self.likeStatusManager
         context.coordinator.allowsLikeActions = self.allowsLikeActions
@@ -165,6 +207,10 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     class QueueListViewController: NSViewController {
         var tableView: DraggableTableView?
         weak var coordinator: Coordinator?
+        /// Fixed column width, supplied by the representable (container width minus scroller gutter).
+        /// The initial value is a never-used placeholder — `makeNSViewController` sets the real width
+        /// before `loadView` reads it.
+        var columnWidth: CGFloat = 0
 
         override func loadView() {
             let scrollView = NSScrollView()
@@ -182,15 +228,21 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             tableView.backgroundColor = .clear
             tableView.allowsEmptySelection = true
             tableView.allowsColumnResizing = false
-            tableView.columnAutoresizingStyle = .uniformColumnAutoresizingStyle
+            // The single column uses a fixed width supplied by the representable (container width minus
+            // a scroller gutter). Autoresizing is off so the table never stretches the column to the
+            // full clip width — which would push the trailing-pinned duration under the overlay
+            // scroller (and, mid-transition, past the clip edge where it gets cut off entirely).
+            tableView.columnAutoresizingStyle = .noColumnAutoresizing
             tableView.intercellSpacing = NSSize(width: 0, height: 0)
             tableView.rowHeight = 56
 
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("QueueColumn"))
             column.title = ""
-            column.minWidth = 350
-            column.maxWidth = 400
-            column.width = 350 // Matches container width minus scroll bar space
+            // Low min / effectively-unbounded max: the width is set explicitly to `columnWidth`, and
+            // these only guard against absurd values — they must never clamp it ABOVE the visible width.
+            column.minWidth = 200
+            column.maxWidth = 10000
+            column.width = self.columnWidth
             tableView.addTableColumn(column)
 
             let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
