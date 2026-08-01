@@ -87,13 +87,14 @@ struct YouTubeWatchView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    self.rightColumn
+                    self.relatedColumn
                         .frame(width: 360)
                 }
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
+        .disabled(self.viewModel.ask.isExpanded)
         // PROTOTYPE: full-bleed ambient color behind the page. `.ignoresSafeArea`
         // (inside the modifier) lets it bleed under the bottom player-bar inset,
         // so the bar's Liquid Glass capsule refracts the live color.
@@ -108,6 +109,17 @@ struct YouTubeWatchView: View {
         .navigationTitle(String(localized: ""))
         // Let the ambient reach under the nav bar, like the other accent pages.
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .toolbar {
+            if self.viewModel.ask.isAvailable {
+                ToolbarItem(placement: .primaryAction) {
+                    YouTubeAskToolbarButton(viewModel: self.viewModel.ask)
+                }
+            }
+        }
+        .overlay {
+            YouTubeAskFloatingOverlay(viewModel: self.viewModel.ask)
+        }
+        .youtubeAskAccessibilityAnnouncements(viewModel: self.viewModel.ask)
         #if DEBUG
             .toolbar {
                 self.ambientStylePicker
@@ -411,18 +423,6 @@ struct YouTubeWatchView: View {
         let nextIndex = self.viewModel.data.chapters.index(after: index)
         guard nextIndex < self.viewModel.data.chapters.endIndex else { return true }
         return currentTime < self.viewModel.data.chapters[nextIndex].startTime
-    }
-
-    // MARK: - Right Column
-
-    private var rightColumn: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if self.viewModel.ask.isAvailable {
-                YouTubeAskPanelView(viewModel: self.viewModel.ask)
-            }
-
-            self.relatedColumn
-        }
     }
 
     // MARK: - Related Column

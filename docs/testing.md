@@ -544,6 +544,8 @@ Before releasing:
 - [ ] Re-opening window doesn't duplicate audio
 - [ ] Sign out and re-login works
 - [ ] Ask Gemini remains absent while no request profile has passed parity
+- [ ] Eligible YouTube watch pages show a toolbar sparkles action, not an inline card
+- [ ] The Ask panel opens lazily and dismisses by outside click and Escape without losing the chat
 
 ### Simulating Auth Expiry (Runtime Debugging)
 

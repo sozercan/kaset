@@ -113,9 +113,10 @@ Kaset accepts text and follow-up chips only from the confirmed inserted
 `youChatItemViewModel` contents, while generated result/link objects remain
 non-interactive and undisplayed.
 
-The Ask implementation is intentionally chips-only: expanding the collapsed
-card may prepare an initial panel, but it never generates an answer until the
-user selects a server-issued suggestion. Follow-up chips are also server-issued;
+The Ask implementation is intentionally chips-only: opening the watch-page
+toolbar panel may prepare an initial panel, but it never generates an answer
+until the user selects a server-issued suggestion. Follow-up chips are also
+server-issued;
 there is no free-text composer or `streaming_panel` path. Visible labels and
 answers are sanitized but not localized by Kaset. Assistant messages render
 native Markdown blocks and inline emphasis; link destinations are stripped and
@@ -241,10 +242,13 @@ natively. Comments come from the watch page's `comment-item-section` continuatio
 tokens), expandable reply threads, and author → channel navigation.
 
 When enabled by a validated request profile and an eligible watch response, Ask
-Gemini appears as a collapsed card above Related. It discloses that YouTube
-generates the responses, prepares lazily, shows a height-bounded selectable
-transcript, disables all chips during a single in-flight request, and offers New
-Chat after the first turn or when a submission outcome is uncertain. The
+Gemini appears as a sparkles action in the top toolbar. Activating it presents a
+top-centered floating glass panel while leaving Related in place. The panel
+discloses that YouTube generates the responses, prepares lazily, shows a
+height-bounded selectable transcript, disables all chips during a single
+in-flight request, and offers New Chat after the first turn or when a submission
+outcome is uncertain. Outside click, Escape, or the panel header dismisses the
+panel without discarding its current watch-scoped conversation. The
 conversation is owned by the current watch view—not `YouTubeViewModelStore`—and
 is discarded on navigation, source/account/authentication changes, cancellation,
 or app termination.

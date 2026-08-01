@@ -61,8 +61,9 @@ final class YouTubeAskViewModel {
         self.isAvailable && (self.hasStarted || self.requiresNewChat)
     }
 
-    /// Replaces all prior state with a fresh watch-page bootstrap. It remains
-    /// collapsed and does not materialize the panel until the user expands it.
+    /// Replaces all prior state with a fresh watch-page bootstrap. The toolbar
+    /// action remains hidden until eligibility is known, and presenting the panel
+    /// materializes it lazily.
     func seed(_ bootstrap: YouTubeAskBootstrap?) {
         self.cancelCurrentOperation()
         self.bootstrap = bootstrap
@@ -157,7 +158,6 @@ final class YouTubeAskViewModel {
                 self.bootstrap = nil
                 self.conversation = newConversation
                 self.isAvailable = true
-                self.isExpanded = true
                 self.requiresNewChat = false
                 self.presentationError = nil
                 self.finishOperation(generation: generation)

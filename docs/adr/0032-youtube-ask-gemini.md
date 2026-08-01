@@ -37,9 +37,12 @@ Wire-level observations and the API Explorer workflow remain documented in the
    `next` response is shared with normal watch-page parsing. WebViews remain
    limited to authentication and DRM playback; Kaset does not scrape or drive
    the Ask Gemini DOM.
-2. **Ship a chips-only v1.** The watch page may show a collapsed Ask Gemini card
-   above Related. Expanding it may prepare the initial panel, but never submits a
-   suggestion or generates an answer automatically. Only server-issued
+2. **Ship a chips-only v1.** An eligible watch page exposes a sparkles action
+   in the top toolbar. Activating it presents a transient, top-centered glass panel
+   and may prepare the initial panel, but never submits a suggestion or generates
+   an answer automatically. Outside click, Escape, or the panel header
+   dismisses the surface without discarding the current watch-scoped conversation.
+   Only server-issued
    suggestion chips and follow-up chips can be selected. Arbitrary text prompts,
    a text composer, and `streaming_panel` are out of scope.
 3. **Scope all conversation state to the current watch and account.** Ask is

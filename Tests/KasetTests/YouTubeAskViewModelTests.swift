@@ -5,8 +5,8 @@ import Testing
 @Suite("YouTube Ask view models", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeAskViewModelTests {
-    @Test("Ask remains collapsed and does not prepare until expanded")
-    func collapsedDefaultAndLazyPreparation() async {
+    @Test("Ask remains hidden and does not prepare until presented")
+    func hiddenDefaultAndLazyPreparation() async {
         let client = MockYouTubeClient()
         let bootstrap = YouTubeAskBootstrap.testing(suggestions: ["Explain the main idea"])
         let sut = YouTubeAskViewModel(videoID: "fixture-video", client: client)
@@ -25,6 +25,27 @@ struct YouTubeAskViewModelTests {
         #expect(sut.messages.isEmpty)
         #expect(sut.suggestions.map(\.text) == ["Explain the main idea"])
         #expect(client.continueAskConversationCallCount == 0)
+    }
+
+    @Test("Dismissing and reopening preserves the prepared conversation")
+    func dismissalPreservesPreparedConversation() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeAskViewModel(videoID: "fixture-video", client: client)
+        sut.seed(YouTubeAskBootstrap.testing(suggestions: ["Explain the main idea"]))
+
+        sut.setExpanded(true)
+        await self.waitUntil(sut.activity == .idle && !sut.suggestions.isEmpty)
+
+        sut.setExpanded(false)
+        #expect(!sut.isExpanded)
+        #expect(sut.suggestions.map(\.text) == ["Explain the main idea"])
+
+        sut.setExpanded(true)
+        await Task.yield()
+
+        #expect(sut.isExpanded)
+        #expect(client.loadAskConversationCallCount == 1)
+        #expect(sut.suggestions.map(\.text) == ["Explain the main idea"])
     }
 
     @Test("Suggestion selection publishes the user turn, stays single-flight, and preserves server order")
@@ -148,6 +169,47 @@ struct YouTubeAskViewModelTests {
 
         #expect(sut.messages.isEmpty)
         #expect(!sut.requiresNewChat)
+        #expect(sut.presentationError == nil)
+        #expect(sut.accessibilityAnnouncement == .newChatReady)
+    }
+
+    @Test("Dismissing during New Chat keeps the prepared replacement hidden")
+    func dismissalDuringNewChatPreservesVisibilityIntent() async throws {
+        let client = MockYouTubeClient()
+        let sut = YouTubeAskViewModel(videoID: "fixture-video", client: client)
+        sut.seed(YouTubeAskBootstrap.testing(suggestions: ["Initial question"]))
+        sut.setExpanded(true)
+        await self.waitUntil(sut.activity == .idle && !sut.suggestions.isEmpty)
+
+        client.continuedAskConversation = YouTubeAskConversation.testing(
+            messages: [
+                YouTubeAskMessage(role: .user, text: "Initial question"),
+                YouTubeAskMessage(role: .assistant, text: "Initial answer"),
+            ],
+            suggestions: ["Continue"]
+        )
+        let initialSuggestion = try #require(sut.suggestions.first)
+        sut.selectSuggestion(id: initialSuggestion.id)
+        await self.waitUntil(sut.activity == .idle && sut.hasStarted)
+
+        let gate = AsyncGate()
+        client.watchPages = [YouTubeWatchPage(
+            data: .empty,
+            askBootstrap: YouTubeAskBootstrap.testing(suggestions: ["Fresh question"])
+        )]
+        client.askConversation = YouTubeAskConversation.testing(suggestions: ["Fresh question"])
+        client.beforeAskPreparationReturn = {
+            await gate.wait()
+        }
+
+        sut.startNewChat()
+        await self.waitUntil(sut.activity == .preparing && client.loadAskConversationCallCount == 2)
+        sut.setExpanded(false)
+
+        await gate.open()
+        await self.waitUntil(sut.activity == .idle && sut.suggestions.map(\.text) == ["Fresh question"])
+
+        #expect(!sut.isExpanded)
         #expect(sut.presentationError == nil)
         #expect(sut.accessibilityAnnouncement == .newChatReady)
     }
@@ -393,7 +455,7 @@ struct YouTubeAskViewModelTests {
         #expect(sut.suggestions.isEmpty)
     }
 
-    @Test("Watch load uses one watch-page response and seeds a collapsed child")
+    @Test("Watch load seeds an available but hidden Ask panel")
     func watchViewModelSeedsAskFromWatchPage() async {
         let client = MockYouTubeClient()
         client.watchNextData = WatchNextData(
