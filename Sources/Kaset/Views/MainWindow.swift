@@ -29,8 +29,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(AccountService.self) private var accountService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
     @Environment(\.searchFocusTrigger) private var searchFocusTrigger
+    @Environment(\.sidebarNavigationReselectGenerations) private var sidebarNavigationReselectGenerations
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -78,6 +80,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     /// Navigation path for the Liked Music route.
     @State private var likedMusicNavigationPath = NavigationPath()
+
+    /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
+    @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -153,11 +158,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
-            .task {
-                DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
-                await self.authService.checkLoginStatus()
-                DiagnosticsLogger.app.info("MainWindow: Login check complete")
-            }
 
             // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
@@ -229,21 +229,19 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
             if newValue {
-                // Manual trigger from Help menu — fetch release notes, bypass version store
+                // Manual trigger from Help menu — fetch exact-version release notes, bypass version store
                 Task { @MainActor in
-                    await self.presentCurrentWhatsNew(
-                        respectingPresentedVersions: false,
-                        allowsGenericFallback: true
-                    )
+                    await self.presentCurrentWhatsNew(respectingPresentedVersions: false)
                 }
                 self.showWhatsNew.wrappedValue = false
             }
         }
-        .onChange(of: self.navigationSelection) { _, newValue in
-            if newValue != nil {
-                self.selectedSidebarPinnedItem = nil
-            }
-        }
+        .modifier(PinnedNavigationPathLifecycleModifier(
+            navigationSelection: self.$navigationSelection,
+            selectedPinnedItem: self.$selectedSidebarPinnedItem,
+            navigationPaths: self.$pinnedNavigationPaths,
+            committedRemovalGenerations: self.sidebarPinnedItemsManager.committedRemovalGenerations
+        ))
         .onChange(of: self.authService.state) { oldState, newState in
             self.handleAuthStateChange(oldState: oldState, newState: newState)
         }
@@ -266,8 +264,19 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 VideoWindowController.shared.close()
             }
         }
-        .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
+        .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
+            let currentAccount = self.accountService.currentAccount
+            let newAccountId = self.accountService.currentAccount?.id
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.likeStatusManager.clearCache()
+            LibraryMutationActions.cancelAllPendingLibraryMutations()
+            self.libraryViewModel?.activateAccountScope(
+                newAccountScope,
+                isPrimary: currentAccount?.isPrimary == true
+            )
             self.playerService.resetTrackStatus()
+            self.searchViewModel?.clear()
             self.podcastsViewModel?.configure(
                 availabilityService: self.podcastsAvailability,
                 accountId: newAccountId
@@ -323,9 +332,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // track/video still loaded under the previous identity must reload to
             // record to the new account. The shared cookie session covers both.
             guard self.accountService.verifiedAccountId != nil else { return }
-            if self.playerService.currentTrack != nil {
-                self.playerService.reloadCurrentTrackForIdentitySwitch()
-            }
+            self.playerService.reloadCurrentTrackForIdentitySwitch()
             if self.youtubePlayerService.currentVideo != nil {
                 self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
             }
@@ -380,20 +387,21 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 using: self.client
             )
         }
-        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
-            guard let event else { return }
+        .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
+            guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
+            for event in batch.events {
+                // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
+                if let currentVideoId = self.playerService.currentTrack?.videoId,
+                   event.videoId == currentVideoId
+                {
+                    self.playerService.currentTrackLikeStatus = event.status
+                }
 
-            // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
-            if let currentVideoId = self.playerService.currentTrack?.videoId,
-               event.videoId == currentVideoId
-            {
-                self.playerService.currentTrackLikeStatus = event.status
-            }
-
-            // Global sync 2: keep Liked Music list in sync when the active
-            // Liked Music detail view is not already forwarding this event.
-            if self.navigationSelection != .likedMusic {
-                self.likedMusicViewModel?.handleLikeStatusChange(event)
+                // Global sync 2: keep Liked Music list in sync when the active
+                // Liked Music detail view is not already forwarding this event.
+                if self.navigationSelection != .likedMusic {
+                    self.likedMusicViewModel?.handleLikeStatusChange(event)
+                }
             }
         }
     }
@@ -407,10 +415,29 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 if self.settings.appSource == .music {
                     Sidebar(
                         selection: self.$navigationSelection,
-                        pinnedSelection: self.$selectedSidebarPinnedItem
+                        pinnedSelection: self.$selectedSidebarPinnedItem,
+                        client: self.client,
+                        onReselectNavigationItem: { item in
+                            self.sidebarNavigationReselectGenerations.wrappedValue[item, default: 0] += 1
+                            if item == .search {
+                                Task { @MainActor in
+                                    try? await Task.sleep(for: .milliseconds(100))
+                                    self.searchFocusTrigger.wrappedValue = true
+                                }
+                            }
+                        },
+                        onReselectPinnedItem: { item in
+                            guard !(self.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
+                            self.pinnedNavigationPaths[item.contentId] = NavigationPath()
+                        }
                     )
                 } else {
-                    YouTubeSidebar(selection: self.$youtubeNavigationSelection)
+                    YouTubeSidebar(
+                        selection: self.$youtubeNavigationSelection,
+                        onReselect: { _ in
+                            self.youtubeStore.navigationPath = NavigationPath()
+                        }
+                    )
                 }
             } detail: {
                 if self.settings.appSource == .music {
@@ -534,6 +561,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 isPresented: self.$isCommandBarPresented,
                 navigationSelection: self.$navigationSelection,
                 searchFocusTrigger: self.searchFocusTrigger,
+                sidebarNavigationReselectGenerations: self.sidebarNavigationReselectGenerations,
                 searchViewModel: self.searchViewModel
             )
         }
@@ -583,12 +611,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             }
                         }
                         .navigationDestinations(
@@ -597,6 +627,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         )
                         .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     }
+                    .popsNavigationStackOnSidebarReselect(
+                        path: self.$likedMusicNavigationPath,
+                        for: .likedMusic
+                    )
                 }
             case .library:
                 if self.requiresSignIn(item) {
@@ -612,7 +646,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
     }
 
     private var hasPersonalAccount: Bool {
@@ -641,7 +675,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         _ item: SidebarPinnedItem,
         client: any YTMusicClientProtocol
     ) -> some View {
-        NavigationStack {
+        NavigationStack(path: Binding(
+            get: { self.pinnedNavigationPaths[item.contentId, default: NavigationPath()] },
+            set: { self.pinnedNavigationPaths[item.contentId] = $0 }
+        )) {
             Group {
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
@@ -651,6 +688,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 } else {
                     SimplePlaylistDetailView(
                         playlist: item.playlistRoute,
@@ -659,12 +697,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 }
             }
             .id(item.contentId)
             .navigationDestinations(client: client)
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
+        .environment(\.onPlaylistDeleted) {
+            self.selectedSidebarPinnedItem = nil
+            self.navigationSelection = .home
+        }
     }
 
     /// View shown while checking initial login status.
@@ -680,6 +723,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
+        self.accountService.authenticationIdentityDidChange()
         switch newState {
         case .initializing:
             // Still checking login status, do nothing
@@ -776,6 +820,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func rebuildMusicViewModels(accountId: String? = nil) {
+        LibraryMutationActions.cancelAllPendingLibraryMutations()
         self.homeViewModel = HomeViewModel(client: self.client)
         self.exploreViewModel = ExploreViewModel(client: self.client)
         self.searchViewModel = SearchViewModel(client: self.client)
@@ -789,9 +834,16 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             playlist: LikedMusicPlaylist.playlist,
             client: self.client
         )
-        self.libraryViewModel = LibraryViewModel(client: self.client)
+        let libraryViewModel = LibraryViewModel(client: self.client)
+        let currentAccount = self.accountService.currentAccount
+        libraryViewModel.activateAccountScope(
+            self.accountService.currentAccountScopeID,
+            isPrimary: currentAccount?.isPrimary == true
+        )
+        self.libraryViewModel = libraryViewModel
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()
+        self.pinnedNavigationPaths = [:]
         self.contentResetID = UUID()
     }
 
@@ -832,15 +884,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     @MainActor
-    private func presentCurrentWhatsNew(
-        respectingPresentedVersions: Bool = true,
-        allowsGenericFallback: Bool = false
-    ) async {
+    private func presentCurrentWhatsNew(respectingPresentedVersions: Bool = true) async {
         let currentVersion = WhatsNew.Version.current()
         let whatsNew = await WhatsNewProvider.fetchWhatsNew(
             for: currentVersion,
             respectingPresentedVersions: respectingPresentedVersions
-        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
+        )
 
         guard let whatsNew else { return }
 
@@ -893,6 +942,33 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             group.addTask { await self.historyViewModel?.load() }
             group.addTask { await self.libraryViewModel?.refresh() }
         }
+    }
+}
+
+// MARK: - PinnedNavigationPathLifecycleModifier
+
+private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
+    @Binding var navigationSelection: NavigationItem?
+    @Binding var selectedPinnedItem: SidebarPinnedItem?
+    @Binding var navigationPaths: [String: NavigationPath]
+    let committedRemovalGenerations: [String: UInt]
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: self.navigationSelection) { _, newValue in
+                if newValue != nil {
+                    self.selectedPinnedItem = nil
+                }
+            }
+            .onChange(of: self.selectedPinnedItem?.contentId) { oldContentId, newContentId in
+                guard oldContentId != newContentId, let oldContentId else { return }
+                self.navigationPaths.removeValue(forKey: oldContentId)
+            }
+            .onChange(of: self.committedRemovalGenerations) { oldValue, newValue in
+                for (contentId, generation) in newValue where oldValue[contentId] != generation {
+                    self.navigationPaths.removeValue(forKey: contentId)
+                }
+            }
     }
 }
 

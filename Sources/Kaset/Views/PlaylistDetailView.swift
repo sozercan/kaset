@@ -14,12 +14,13 @@ struct PlaylistDetailView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(LibraryViewModel.self) var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
-    /// Tracks whether this playlist has been added to library in this session.
-    @State var isAddedToLibrary: Bool = false
+    @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
     /// Whether the refine playlist sheet is visible.
     @State var showRefineSheet: Bool = false
+    /// Whether an add/remove Library request is currently in flight.
+    @State var libraryMutationActivity = PlaylistDetailLibraryMutationActivity()
     /// AI-generated playlist changes.
     @State private var playlistChanges: PlaylistChanges?
     /// Partial playlist changes during streaming.
@@ -30,7 +31,17 @@ struct PlaylistDetailView: View {
     @State private var refineError: String?
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
-        self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
+        if self.playlist.isAlbum {
+            return self.libraryViewModel?.isInLibrary(
+                albumId: self.playlist.id,
+                targetPlaylistId: self.viewModel.playlistDetail?.libraryTargetId
+            ) ?? false
+        }
+        return self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
+    }
+
+    var isUpdatingLibrary: Bool {
+        self.libraryMutationActivity.isActive
     }
 
     var hasPersonalAccount: Bool {
@@ -90,10 +101,12 @@ struct PlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
-            guard let event else { return }
-            guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
-            self.viewModel.handleLikeStatusChange(event)
+        .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
+            guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
+            for event in batch.events {
+                guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
+                self.viewModel.handleLikeStatusChange(event)
+            }
         }
         .sheet(isPresented: self.$showRefineSheet) {
             if let detail = viewModel.playlistDetail {
@@ -214,7 +227,7 @@ struct PlaylistDetailView: View {
                     }
 
                     if index < artists.count - 1 {
-                        Text(", ")
+                        Text(verbatim: ", ")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(.secondary)
                     }
@@ -391,7 +404,7 @@ struct PlaylistDetailView: View {
                     fallbackAlbum: fallbackAlbum
                 )
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -414,7 +427,7 @@ struct PlaylistDetailView: View {
                 Button {
                     SongActionsHelper.addToLibrary(track, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -434,7 +447,7 @@ struct PlaylistDetailView: View {
 
             if let artist = track.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -448,10 +461,36 @@ struct PlaylistDetailView: View {
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
+
+        if self.canRemoveTrack(track) {
+            if track.isPlayable {
+                Divider()
+            }
+
+            Button(role: .destructive) {
+                Task {
+                    await LibraryMutationActions.removeSongFromPlaylist(track, from: self.viewModel, client: self.viewModel.client)
+                }
+            } label: {
+                Label(String(localized: "Remove from Playlist"), systemImage: "minus.circle")
+            }
+        }
+    }
+
+    /// Whether `track` can be removed from the currently loaded playlist: the user must
+    /// own the playlist (not an album, not the uploaded-songs surface), and the track
+    /// must carry the playlist-item identifier a removal call requires.
+    private func canRemoveTrack(_ track: Song) -> Bool {
+        guard let detail = self.viewModel.playlistDetail else { return false }
+        return !self.viewModel.isRemovingTrack
+            && detail.canDelete
+            && !detail.isAlbum
+            && !detail.isUploadedSongs
+            && track.playlistSetVideoId != nil
     }
 
     private func playTrackInQueue(
@@ -490,16 +529,20 @@ struct PlaylistDetailView: View {
         initial cleanedTracks: [Song], startingAt index: Int,
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
-        let initiallyLoadedCount = cleanedTracks.count
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
-                cleanedTracks, startingAt: index, deferringSmartShuffleFill: willDeferLoad
+                cleanedTracks,
+                startingAt: index,
+                deferringSmartShuffleFill: willDeferLoad,
+                intent: intent
             )
             // Not deferring (playlist already fully loaded): playQueue filled suggestions itself.
             guard let loadGeneration else { return }
 
             await self.viewModel.loadAllRemaining()
+            await self.viewModel.waitForTrackRemovalToFinish()
 
             // Stand down if a *different* playback superseded this load while it paged. (User edits
             // such as removing a track keep the same load generation, so loading continues.)
@@ -509,7 +552,10 @@ struct PlaylistDetailView: View {
                 self.viewModel.playlistDetail?.tracks ?? [],
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
-            let remaining = Array(fullTracks.dropFirst(initiallyLoadedCount))
+            let remaining = PlaylistPlaybackActions.remainingTracks(
+                after: cleanedTracks,
+                in: fullTracks
+            )
             self.playerService.appendOriginalTracks(remaining)
             await self.playerService.endQueueLoading(loadGeneration)
         }
@@ -577,30 +623,9 @@ struct PlaylistDetailView: View {
                 duration: song.duration,
                 thumbnailURL: finalThumbnail,
                 videoId: song.videoId,
-                isPlayable: song.isPlayable
+                isPlayable: song.isPlayable,
+                playlistSetVideoId: song.playlistSetVideoId
             )
-        }
-    }
-
-    func toggleLibrary() {
-        let currentlyInLibrary = self.isInLibrary || self.isAddedToLibrary
-        HapticService.success()
-        Task {
-            if currentlyInLibrary {
-                await SongActionsHelper.removePlaylistFromLibrary(
-                    self.playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
-                self.isAddedToLibrary = false
-            } else {
-                await SongActionsHelper.addPlaylistToLibrary(
-                    self.playlist,
-                    client: self.viewModel.client,
-                    libraryViewModel: self.libraryViewModel
-                )
-                self.isAddedToLibrary = true
-            }
         }
     }
 

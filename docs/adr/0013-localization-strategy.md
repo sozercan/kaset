@@ -6,7 +6,9 @@ Proposed
 
 ## Context
 
-Kaset has no localization infrastructure. All ~300 user-facing strings are hardcoded English literals in SwiftUI views, models, and services. Arabic is the first target language, with potential for additional languages later.
+Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for fifteen locales, with additional languages added incrementally.
+
+Supported UI locales (ISO 639-1): `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`. The Settings → General → Language picker lists **System Default** first, then explicit languages in ISO code order.
 
 Requirements:
 1. **Minimal disruption** — Adding localization should not require architectural changes
@@ -61,8 +63,8 @@ Enums that use `rawValue` as display text (`NavigationItem`, `SearchFilter`, `Li
 ### Negative
 - **SPM + xcstrings is relatively new** — Less community precedent than `.strings` files in SPM; Phase 0 validates this before committing
 - **Large initial diff** — Wrapping ~300 strings touches many files, but this is spread across multiple focused PRs
-- **Manual Arabic translations needed** — No automated translation pipeline; each string requires manual Arabic translation
-- **No CLI auto-extraction** — Auto-extraction (above) only runs in Xcode builds. The repo's day-to-day workflow is CLI-first (`swift build`), which compiles new `LocalizedStringKey`/`String(localized:)` literals fine but does **not** write the new keys back into `Localizable.xcstrings` — missing keys silently fall through to the literal English at runtime with no error. When adding strings via the CLI workflow, hand-add each new key to `Localizable.xcstrings` (with `ar`/`tr`/`ko`/`id`/`fr` values to match existing coverage) and regenerate or hand-update the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` files in the same change, because those `.lproj` files are the runtime source for language overrides in SwiftPM builds.
+- **Manual translations needed** — No automated translation pipeline; each string requires manual translation per locale
+- **No CLI auto-extraction** — Auto-extraction (above) only runs in Xcode builds. The repo's day-to-day workflow is CLI-first (`swift build`), which compiles new `LocalizedStringKey`/`String(localized:)` literals fine but does **not** write the new keys back into `Localizable.xcstrings` — missing keys silently fall through to the literal English at runtime with no error. When adding strings via the CLI workflow, hand-add each new key to `Localizable.xcstrings` (with values for every supported locale) and regenerate or hand-update the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` files in the same change, because those `.lproj` files are the runtime source for language overrides in SwiftPM builds. When adding a new locale, also register its `.lproj` in `Package.swift`, add a `SettingsManager.ContentLanguage` case, and extend localization tests.
 
 ### Neutral
 - SwiftUI's implicit `LocalizedStringKey` means many `Text("…")` calls already work — they just need the catalog to contain the key

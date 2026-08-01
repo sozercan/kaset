@@ -50,7 +50,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -62,7 +62,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -75,7 +75,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -88,7 +88,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -101,7 +101,7 @@ enum ShareContextMenu {
             Button {
                 self.showSharePicker(for: url)
             } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
+                Label(String(localized: "Share"), systemImage: "square.and.arrow.up")
             }
         }
     }
@@ -125,16 +125,18 @@ enum ShareContextMenu {
     @ViewBuilder
     static func menuItem(for item: SearchResultItem) -> some View {
         switch item {
-        case let .song(song):
+        case let .song(song), let .video(song):
             Self.menuItem(for: song)
-        case let .album(album):
+        case let .album(album), let .audiobook(album):
             Self.menuItem(for: album)
         case let .playlist(playlist):
             Self.menuItem(for: playlist)
-        case let .artist(artist):
+        case let .artist(artist), let .profile(artist):
             Self.menuItem(for: artist)
         case let .podcastShow(show):
             Self.menuItem(for: show)
+        case let .podcastEpisode(episode):
+            Self.menuItem(for: episode.playbackSong)
         }
     }
 

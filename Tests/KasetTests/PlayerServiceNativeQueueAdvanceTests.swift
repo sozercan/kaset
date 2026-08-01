@@ -371,7 +371,7 @@ extension PlayerServiceWebQueueSyncTests {
         await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
         let cancelledMaintenance = self.playerService.nativeQueueMaintenanceTask
 
-        self.playerService.clearQueueEntirely()
+        await self.playerService.clearQueueEntirely()
         await continuationGate.open()
         await cancelledMaintenance?.value
 

@@ -17,7 +17,7 @@ struct ExtensionsSettingsView: View {
                 // Glass Section
                 CompatGlassContainer(spacing: 0) {
                     VStack(alignment: .leading, spacing: 0) {
-                        Text("Installed Extensions")
+                        Text(String(localized: "Installed Extensions"))
                             .font(.headline)
                             .padding(.horizontal, 16)
                             .padding(.top, 16)
@@ -29,10 +29,10 @@ struct ExtensionsSettingsView: View {
                                     .font(.title2)
                                     .foregroundStyle(.quaternary)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("No Extensions Added")
+                                    Text(String(localized: "No Extensions Added"))
                                         .font(.body)
                                         .foregroundStyle(.secondary)
-                                    Text("Add a WebKit-compatible extension to get started.")
+                                    Text(String(localized: "Add a WebKit-compatible extension to get started."))
                                         .font(.caption)
                                         .foregroundStyle(.tertiary)
                                 }
@@ -55,7 +55,7 @@ struct ExtensionsSettingsView: View {
                                 self.presentOpenPanel()
                             }
                         } label: {
-                            Label("Add Extension…", systemImage: "plus.circle")
+                            Label(String(localized: "Add Extension…"), systemImage: "plus.circle")
                                 .foregroundStyle(.blue)
                         }
                         .buttonStyle(.plain)
@@ -67,16 +67,19 @@ struct ExtensionsSettingsView: View {
 
                 // Footer section
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("About Extensions")
+                    Text(String(localized: "About Extensions"))
                         .font(.headline)
                         .padding(.bottom, 2)
 
-                    Text("Extensions are loaded at launch via the native WebKit extension API. Changes take effect after restarting Kaset.")
+                    Text(String(localized: "Extensions are loaded at launch via the native WebKit extension API. Changes take effect after restarting Kaset."))
                         .foregroundStyle(.secondary)
 
                     HStack(spacing: 4) {
                         Image(systemName: "info.circle")
-                        Text("Only WebKit-compatible extensions (with a valid **manifest.json**) are supported.")
+                        Text(
+                            "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported.",
+                            bundle: AppLocalization.bundle
+                        )
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -86,10 +89,10 @@ struct ExtensionsSettingsView: View {
             .padding(20)
         }
         .frame(minWidth: 460, minHeight: 400)
-        .navigationTitle("Extensions")
+        .navigationTitle(String(localized: "Extensions"))
         .alert("Restart Required", isPresented: self.$showRestartAlert) {
-            Button("Later") {}
-            Button("Restart Now") {
+            Button(String(localized: "Later")) {}
+            Button(String(localized: "Restart Now")) {
                 self.restartApp()
             }
             .keyboardShortcut(.defaultAction)
@@ -102,7 +105,7 @@ struct ExtensionsSettingsView: View {
                     .frame(minWidth: 600, minHeight: 450)
                     .toolbar {
                         ToolbarItem(placement: .confirmationAction) {
-                            Button("Done") {
+                            Button(String(localized: "Done")) {
                                 self.configuringExtensionPage = nil
                             }
                         }
@@ -141,12 +144,12 @@ struct ExtensionsSettingsView: View {
             .labelsHidden()
 
             if ext.isEnabled, let extensionPage = WebKitManager.shared.extensionPage(forExtensionId: ext.id) {
-                Button("Options…") {
+                Button(String(localized: "Options…")) {
                     self.configuringExtensionPage = extensionPage
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.blue)
-                .help("Configure extension")
+                .help(String(localized: "Configure extension"))
             }
 
             Button(role: .destructive) {
@@ -158,7 +161,7 @@ struct ExtensionsSettingsView: View {
                     .foregroundStyle(.red)
             }
             .buttonStyle(.plain)
-            .help("Remove extension")
+            .help(String(localized: "Remove extension"))
             .accessibilityLabel("Remove \(ext.name)")
         }
         .padding(.vertical, 12)

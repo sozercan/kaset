@@ -40,7 +40,8 @@ enum TestFixtures {
         id: String = "MPRE-test-album",
         title: String = "Test Album",
         artistName: String = "Test Artist",
-        year: String? = "2024"
+        year: String? = "2024",
+        libraryTargetId: String? = nil
     ) -> Album {
         Album(
             id: id,
@@ -48,7 +49,8 @@ enum TestFixtures {
             artists: artistName.isEmpty ? nil : [Artist(id: "UC123", name: artistName)],
             thumbnailURL: URL(string: "https://example.com/album.jpg"),
             year: year,
-            trackCount: 12
+            trackCount: 12,
+            libraryTargetId: libraryTargetId
         )
     }
 
@@ -88,13 +90,15 @@ enum TestFixtures {
 
     static func makePlaylistDetail(
         playlist: Playlist? = nil,
-        trackCount: Int = 10
+        trackCount: Int = 10,
+        libraryTargetId: String? = nil
     ) -> PlaylistDetail {
         let pl = playlist ?? self.makePlaylist()
         return PlaylistDetail(
             playlist: pl,
             tracks: self.makeSongs(count: trackCount),
-            duration: "\(trackCount * 3) minutes"
+            duration: "\(trackCount * 3) minutes",
+            libraryTargetId: libraryTargetId
         )
     }
 

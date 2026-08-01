@@ -9,11 +9,12 @@ enum StartRadioContextMenu {
     /// Starts playing the song immediately and loads similar songs in the background.
     static func menuItem(for song: Song, playerService: PlayerService) -> some View {
         Button {
+            let intent = playerService.beginMusicPlaybackIntent()
             Task {
-                await playerService.playWithRadio(song: song)
+                await playerService.playWithRadio(song: song, intent: intent)
             }
         } label: {
-            Label("Start Radio", systemImage: "dot.radiowaves.left.and.right")
+            Label(String(localized: "Start Radio"), systemImage: "dot.radiowaves.left.and.right")
         }
     }
 }

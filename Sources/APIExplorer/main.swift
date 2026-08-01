@@ -12,14 +12,17 @@
 //  Commands:
 //    browse <browseId> [params]    - Explore a browse endpoint
 //    action <endpoint> <body>      - Explore an action endpoint (body as JSON)
-//    continuation <token> [ep]     - Explore a continuation (ep: browse or next)
+//    search-audit <query>          - Audit live YouTube Music search shapes and filters
+//    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
+//    analyze-file <path>           - Safely summarize a saved JSON response
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
 //
 //  Options:
-//    -v, --verbose                 - Show full raw JSON response (not truncated)
+//    -v, --verbose                 - Show raw JSON, or expanded search-audit samples
 //    -o, --output <file>           - Save raw JSON response to a file
+//    --client-version <version>    - Override the resolved InnerTube client version
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
 //    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
@@ -51,6 +54,7 @@ let origin = "https://music.youtube.com"
 /// instead of YouTube Music (music.youtube.com, WEB_REMIX client). Set via --youtube.
 nonisolated(unsafe) var youtubeMode = false
 nonisolated(unsafe) var cachedClientVersion: String?
+nonisolated(unsafe) var clientVersionWasForced = false
 nonisolated(unsafe) var forceUnauthenticatedRequests = false
 
 // Active request configuration. Defaults to YouTube Music (the constants
@@ -198,6 +202,18 @@ func computeSAPISIDHASH(sapisid: String) -> String {
 
 // MARK: - API Key Resolution
 
+private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLRequest {
+    var request = URLRequest(url: activeWebClientURL)
+    if let timeout {
+        request.timeoutInterval = timeout
+    }
+    request.setValue(
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        forHTTPHeaderField: "User-Agent"
+    )
+    return request
+}
+
 func resolveAPIKey() async throws -> String {
     if let cachedAPIKey {
         return cachedAPIKey
@@ -211,11 +227,7 @@ func resolveAPIKey() async throws -> String {
         return trimmed
     }
 
-    var request = URLRequest(url: activeWebClientURL)
-    request.setValue(
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-        forHTTPHeaderField: "User-Agent"
-    )
+    let request = webClientConfigurationRequest()
     let (data, response) = try await URLSession.shared.data(for: request)
     if let httpResponse = response as? HTTPURLResponse,
        !(200 ... 399).contains(httpResponse.statusCode)
@@ -239,12 +251,34 @@ func resolveAPIKey() async throws -> String {
 
     // Opportunistically capture the live client version so requests
     // match what the web client currently sends.
-    if let version = extractInnertubeClientVersion(from: html) {
+    if cachedClientVersion == nil,
+       let version = extractInnertubeClientVersion(from: html)
+    {
         cachedClientVersion = version
     }
 
     cachedAPIKey = key
     return key
+}
+
+/// Resolves only the live client version when the API key came from an explicit
+/// environment override. Failure is non-fatal: callers can still use the
+/// configured fallback, and search-audit labels that source explicitly.
+func resolveLiveClientVersionIfNeeded() async {
+    guard cachedClientVersion == nil else { return }
+
+    let request = webClientConfigurationRequest(timeout: 5)
+
+    guard let (data, response) = try? await URLSession.shared.data(for: request),
+          let httpResponse = response as? HTTPURLResponse,
+          (200 ... 399).contains(httpResponse.statusCode),
+          let html = String(data: data, encoding: .utf8),
+          let version = extractInnertubeClientVersion(from: html)
+    else {
+        return
+    }
+
+    cachedClientVersion = version
 }
 
 func extractInnertubeAPIKey(from html: String) -> String? {
@@ -336,6 +370,11 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
     return headers
 }
 
+func hasUsableAuthMaterial() -> Bool {
+    guard let cookies = loadCookiesFromAppBackup() else { return false }
+    return getSAPISID(from: cookies) != nil && buildCookieHeader(from: cookies) != nil
+}
+
 // MARK: - API Request
 
 func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
@@ -385,7 +424,7 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
 
 // MARK: - Response Analysis
 
-private func joinedRunsText(_ data: [String: Any]?) -> String? {
+func joinedRunsText(_ data: [String: Any]?) -> String? {
     guard let data,
           let runs = data["runs"] as? [[String: Any]]
     else {
@@ -489,6 +528,35 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
+private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
+    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data),
+          let byline = renderer["longBylineText"] as? [String: Any],
+          let runs = byline["runs"] as? [[String: Any]],
+          !runs.isEmpty
+    else { return "" }
+
+    var output = "\n🎤 Playlist-panel long byline runs:\n"
+    for (index, run) in runs.enumerated() {
+        let text = run["text"] as? String ?? ""
+        let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
+        let browseKind = if let browseId {
+            if browseId.hasPrefix("MPLAUC") {
+                "MPLAUC…"
+            } else if browseId.hasPrefix("UC") {
+                "UC…"
+            } else if browseId.hasPrefix("MPRE") {
+                "MPRE…"
+            } else {
+                "other"
+            }
+        } else {
+            "none"
+        }
+        output += "  [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+    }
+    return output
+}
+
 /// Recursively counts renderer/viewModel dictionary keys in a response.
 /// Invaluable for mapping which renderers a YouTube surface currently serves
 /// (e.g. legacy `videoRenderer` vs. the newer `lockupViewModel`).
@@ -521,6 +589,54 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
         output += "  \(String(format: "%4d", count))× \(key)\n"
     }
     return output
+}
+
+// MARK: - PlaylistSetVideoIdSourceCounts
+
+private struct PlaylistSetVideoIdSourceCounts {
+    var playlistItemData = 0
+    var playlistEditEndpoint = 0
+}
+
+private func countPlaylistSetVideoIdSources(in value: Any, counts: inout PlaylistSetVideoIdSourceCounts) {
+    if let dictionary = value as? [String: Any] {
+        if let playlistItemData = dictionary["playlistItemData"] as? [String: Any],
+           let setVideoId = playlistItemData["playlistSetVideoId"] as? String,
+           !setVideoId.isEmpty
+        {
+            counts.playlistItemData += 1
+        }
+
+        if let editEndpoint = dictionary["playlistEditEndpoint"] as? [String: Any],
+           let actions = editEndpoint["actions"] as? [[String: Any]]
+        {
+            counts.playlistEditEndpoint += actions.count { action in
+                action["action"] as? String == "ACTION_REMOVE_VIDEO"
+                    && (action["setVideoId"] as? String)?.isEmpty == false
+            }
+        }
+
+        for nestedValue in dictionary.values {
+            countPlaylistSetVideoIdSources(in: nestedValue, counts: &counts)
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            countPlaylistSetVideoIdSources(in: item, counts: &counts)
+        }
+    }
+}
+
+private func playlistSetVideoIdSourceSummary(_ data: [String: Any]) -> String {
+    var counts = PlaylistSetVideoIdSourceCounts()
+    countPlaylistSetVideoIdSources(in: data, counts: &counts)
+    guard counts.playlistItemData > 0 || counts.playlistEditEndpoint > 0 else { return "" }
+
+    return """
+
+    🧩 Playlist occurrence ID sources:
+      • playlistItemData.playlistSetVideoId: \(counts.playlistItemData)
+      • playlistEditEndpoint ACTION_REMOVE_VIDEO setVideoId: \(counts.playlistEditEndpoint)
+    """
 }
 
 // MARK: - ChapterProbeItem
@@ -767,7 +883,156 @@ private func chapterProbeSummary(_ data: [String: Any], limit: Int = 8) -> Strin
     return output
 }
 
-func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
+// MARK: - LibraryFeedbackProbeItem
+
+private struct LibraryFeedbackProbeItem: Hashable {
+    enum Kind: String {
+        case single
+        case toggle
+    }
+
+    let kind: Kind
+    let iconType: String
+    let hasPrimaryToken: Bool
+    let hasToggledToken: Bool
+    let tokensAreDistinct: Bool?
+}
+
+private func firstFeedbackToken(in value: Any) -> String? {
+    if let dictionary = value as? [String: Any] {
+        if let token = dictionary["feedbackToken"] as? String, !token.isEmpty {
+            return token
+        }
+        for nestedValue in dictionary.values {
+            if let token = firstFeedbackToken(in: nestedValue) {
+                return token
+            }
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            if let token = firstFeedbackToken(in: item) {
+                return token
+            }
+        }
+    }
+    return nil
+}
+
+private func isLibraryFeedbackIcon(_ iconType: String) -> Bool {
+    iconType.contains("LIBRARY") || iconType.contains("BOOKMARK")
+}
+
+private func collectLibraryFeedbackProbeItems(
+    in value: Any,
+    items: inout [LibraryFeedbackProbeItem]
+) {
+    if let dictionary = value as? [String: Any] {
+        if let renderer = dictionary["menuServiceItemRenderer"] as? [String: Any] {
+            let token = firstFeedbackToken(in: renderer["serviceEndpoint"] as Any)
+            if token != nil {
+                let icon = renderer["icon"] as? [String: Any]
+                let iconType = icon?["iconType"] as? String ?? "unknown"
+                if isLibraryFeedbackIcon(iconType) {
+                    items.append(LibraryFeedbackProbeItem(
+                        kind: .single,
+                        iconType: iconType,
+                        hasPrimaryToken: true,
+                        hasToggledToken: false,
+                        tokensAreDistinct: nil
+                    ))
+                }
+            }
+        }
+
+        if let renderer = dictionary["toggleMenuServiceItemRenderer"] as? [String: Any] {
+            let defaultToken = firstFeedbackToken(in: renderer["defaultServiceEndpoint"] as Any)
+            let toggledToken = firstFeedbackToken(in: renderer["toggledServiceEndpoint"] as Any)
+            guard defaultToken != nil || toggledToken != nil else {
+                for nestedValue in dictionary.values {
+                    collectLibraryFeedbackProbeItems(in: nestedValue, items: &items)
+                }
+                return
+            }
+            let icon = renderer["defaultIcon"] as? [String: Any]
+            let iconType = icon?["iconType"] as? String ?? "unknown"
+            if isLibraryFeedbackIcon(iconType) {
+                let tokensAreDistinct: Bool? = if let defaultToken, let toggledToken {
+                    defaultToken != toggledToken
+                } else {
+                    nil
+                }
+                items.append(LibraryFeedbackProbeItem(
+                    kind: .toggle,
+                    iconType: iconType,
+                    hasPrimaryToken: defaultToken != nil,
+                    hasToggledToken: toggledToken != nil,
+                    tokensAreDistinct: tokensAreDistinct
+                ))
+            }
+        }
+
+        for nestedValue in dictionary.values {
+            collectLibraryFeedbackProbeItems(in: nestedValue, items: &items)
+        }
+    } else if let array = value as? [Any] {
+        for item in array {
+            collectLibraryFeedbackProbeItems(in: item, items: &items)
+        }
+    }
+}
+
+private func libraryFeedbackProbeSummary(_ data: [String: Any]) -> String {
+    var items: [LibraryFeedbackProbeItem] = []
+    collectLibraryFeedbackProbeItems(in: data, items: &items)
+    guard !items.isEmpty else { return "" }
+
+    let grouped = Dictionary(grouping: items, by: \.self)
+    var output = "\n📚 Library feedback actions (token values redacted):\n"
+    for item in grouped.keys.sorted(by: {
+        ($0.kind.rawValue, $0.iconType) < ($1.kind.rawValue, $1.iconType)
+    }) {
+        let count = grouped[item]?.count ?? 0
+        switch item.kind {
+        case .single:
+            output += "  • single icon=\(item.iconType) token=\(item.hasPrimaryToken ? "present" : "missing") count=\(count)\n"
+        case .toggle:
+            let distinct = item.tokensAreDistinct.map { $0 ? "yes" : "no" } ?? "unknown"
+            output += "  • toggle defaultIcon=\(item.iconType) defaultToken=\(item.hasPrimaryToken ? "present" : "missing") toggledToken=\(item.hasToggledToken ? "present" : "missing") distinct=\(distinct) count=\(count)\n"
+        }
+    }
+    return output
+}
+
+private func collectAlbumPlaylistTargets(in value: Any, targets: inout Set<String>) {
+    if let dictionary = value as? [String: Any] {
+        if let playlistId = dictionary["playlistId"] as? String,
+           playlistId.hasPrefix("OLAK")
+        {
+            targets.insert(playlistId)
+        }
+        for child in dictionary.values {
+            collectAlbumPlaylistTargets(in: child, targets: &targets)
+        }
+    } else if let array = value as? [Any] {
+        for child in array {
+            collectAlbumPlaylistTargets(in: child, targets: &targets)
+        }
+    }
+}
+
+private func albumLibraryTargetSummary(_ data: [String: Any]) -> String {
+    var targets = Set<String>()
+    collectAlbumPlaylistTargets(in: data, targets: &targets)
+    guard !targets.isEmpty else { return "" }
+
+    return "\n💾 Album library target:\n  • Found \(targets.count) unique OLAK playlist target(s) for album mutations\n"
+}
+
+func analyzeResponse(
+    _ data: [String: Any],
+    verbose: Bool = false,
+    searchAuditContext: SearchAuditContext = .automatic
+) -> String {
     var output = ""
 
     // Top-level keys
@@ -851,7 +1116,22 @@ func analyzeResponse(_ data: [String: Any], verbose: Bool = false) -> String {
         output += playlistSummary
     }
 
+    output += playlistSetVideoIdSourceSummary(data)
+
+    output += albumLibraryTargetSummary(data)
+
     output += chapterProbeSummary(data)
+
+    output += libraryFeedbackProbeSummary(data)
+
+    output += playlistPanelBylineSummary(data)
+
+    if !youtubeMode {
+        output += searchResponseAuditSummary(
+            data,
+            context: searchAuditContext
+        )
+    }
 
     output += rendererHistogram(data)
 
@@ -1013,10 +1293,10 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
 /// Known endpoints that require authentication
 let authRequiredEndpoints = Set([
     "FEmusic_liked_playlists",
+    "FEmusic_liked_albums",
     "FEmusic_liked_videos",
     "FEmusic_history",
     "FEmusic_library_landing",
-    "FEmusic_library_albums",
     "FEmusic_library_artists",
     "FEmusic_library_corpus_artists",
     "FEmusic_library_corpus_track_artists",
@@ -1066,6 +1346,11 @@ func needsAuthentication(_ browseId: String) -> Bool {
     // Podcast shows (MPSPP...) require authentication for episode data
     if browseId.hasPrefix("MPSPP") {
         return true
+    }
+    // Album pages are public, but authenticated requests expose personalized
+    // Save/Remove library controls and their OLAK mutation targets.
+    if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+        return loadCookiesFromAppBackup() != nil
     }
     return false
 }
@@ -1188,7 +1473,11 @@ func exploreAction(
 
         print("✅ HTTP \(statusCode)")
         print()
-        print(analyzeResponse(data, verbose: verbose))
+        print(analyzeResponse(
+            data,
+            verbose: verbose,
+            searchAuditContext: endpoint == "search" && !youtubeMode ? .firstPage : .automatic
+        ))
 
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
@@ -1215,20 +1504,155 @@ func exploreAction(
     }
 }
 
+// swiftlint:disable no_print
+private func auditSearchFilter(
+    _ probe: SearchFilterProbe,
+    authenticated: Bool,
+    verbose: Bool
+) async {
+    do {
+        let (filterResponse, filterStatus) = try await makeRequest(
+            endpoint: "search",
+            body: [
+                "query": probe.query,
+                "params": probe.params,
+            ],
+            authenticated: authenticated
+        )
+        print("\n══ \(probe.label) — HTTP \(filterStatus) ══")
+        guard isSuccessfulAPIResponse(statusCode: filterStatus, data: filterResponse) else {
+            print("  ❌ Filter probe failed: \(apiFailureDescription(statusCode: filterStatus, data: filterResponse))")
+            return
+        }
+        if verbose {
+            print("   Params: \(terminalSafe(probe.params))")
+        }
+        let filterSummary = searchResponseAuditSummary(
+            filterResponse,
+            sampleLimit: verbose ? 12 : 4,
+            context: .firstPage
+        )
+        print(filterSummary.isEmpty ? "  ⚠️ No recognized YouTube Music search shape" : filterSummary)
+        if probe.label == "Podcasts" {
+            print("  • Kaset uses a dedicated podcast-show parser for this filter.")
+        }
+
+        guard let continuationValue = firstSearchContinuationValue(in: filterResponse) else {
+            print("  • Continuation probe: none offered")
+            return
+        }
+
+        let (continuationResponse, continuationStatus) = try await makeRequest(
+            endpoint: "search",
+            body: ["continuation": continuationValue],
+            authenticated: authenticated
+        )
+        print("  • Continuation probe via /search: HTTP \(continuationStatus)")
+        guard isSuccessfulAPIResponse(
+            statusCode: continuationStatus,
+            data: continuationResponse
+        ) else {
+            print("  ❌ Continuation probe failed: \(apiFailureDescription(statusCode: continuationStatus, data: continuationResponse))")
+            return
+        }
+        let continuationSummary = searchResponseAuditSummary(
+            continuationResponse,
+            sampleLimit: verbose ? 8 : 2,
+            context: .continuation
+        )
+        print(continuationSummary.isEmpty
+            ? "  ⚠️ Unrecognized search continuation response shape"
+            : continuationSummary)
+    } catch {
+        print("  ❌ \(probe.label) probe failed: \(error.localizedDescription)")
+    }
+}
+
+/// Audits the live YouTube Music search response, every filter chip returned by the
+/// service, and the first continuation page for each filter that offers one.
+func auditSearch(_ query: String, verbose: Bool = false) async {
+    guard !youtubeMode else {
+        print("❌ search-audit currently supports YouTube Music mode only")
+        print("   Use 'action search' for regular YouTube response inspection.")
+        return
+    }
+
+    let authenticated = !forceUnauthenticatedRequests && hasUsableAuthMaterial()
+    let mode = authenticated ? "cookie auth requested (validity unverified)" : "guest"
+    print("🔬 Auditing YouTube Music search")
+    print("   Query: \(terminalSafe(query))")
+    print("   Session: \(mode)")
+    print()
+
+    do {
+        if ProcessInfo.processInfo.environment[apiKeyEnvironmentVariable]?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        ).isEmpty == false {
+            await resolveLiveClientVersionIfNeeded()
+        }
+        let (baseResponse, baseStatus) = try await makeRequest(
+            endpoint: "search",
+            body: ["query": query],
+            authenticated: authenticated
+        )
+        let versionSource = if clientVersionWasForced {
+            "override"
+        } else if cachedClientVersion != nil {
+            "live"
+        } else {
+            "fallback"
+        }
+        print("   Client version: \(terminalSafe(cachedClientVersion ?? activeFallbackClientVersion)) (\(versionSource))")
+        print("══ Unfiltered search — HTTP \(baseStatus) ══")
+        guard isSuccessfulAPIResponse(statusCode: baseStatus, data: baseResponse) else {
+            print("  ❌ Unfiltered probe failed: \(apiFailureDescription(statusCode: baseStatus, data: baseResponse))")
+            return
+        }
+        let baseSummary = searchResponseAuditSummary(
+            baseResponse,
+            sampleLimit: verbose ? 20 : 8,
+            context: .firstPage
+        )
+        print(baseSummary.isEmpty ? "  ⚠️ No recognized YouTube Music search shape" : baseSummary)
+
+        let probes = searchFilterProbes(from: baseResponse)
+        guard !probes.isEmpty else {
+            print("\n⚠️ The unfiltered response exposed no navigable filter chips.")
+            return
+        }
+
+        print("\n🧭 Probing \(probes.count) live filter chip(s): \(probes.map(\.label).joined(separator: ", "))")
+        let unsupportedLabels = probes.map(\.label).filter { !kasetSearchFilterLabels.contains($0) }
+        if !unsupportedLabels.isEmpty {
+            print("   Filter chips without a dedicated Kaset filter: \(unsupportedLabels.joined(separator: ", "))")
+        }
+
+        for probe in probes {
+            await auditSearchFilter(probe, authenticated: authenticated, verbose: verbose)
+        }
+    } catch {
+        print("❌ Search audit failed: \(error.localizedDescription)")
+    }
+}
+
+// swiftlint:enable no_print
+
 /// Explores a continuation request to fetch more items.
 /// - Parameters:
 ///   - token: The continuation token
-///   - endpoint: The endpoint to use ("browse" for home/library, "next" for mix queues)
+///   - endpoint: The endpoint to use ("browse" for home/library, "search" for search, "next" for mix queues)
 func exploreContinuation(
     _ token: String, endpoint: String = "browse", verbose: Bool = false, outputFile: String? = nil
 ) async {
     print("🔄 Exploring continuation request")
-    print("   Token: \(token.prefix(50))...")
+    print("   Token: present (value hidden)")
     print("   Endpoint: \(endpoint)")
     print()
 
     var body: [String: Any] = ["continuation": token]
-
+    // Preserve the caller's requested session mode: cookies are used when they
+    // are available, while --guest/--no-auth forces a signed-out continuation.
+    let authenticated = !forceUnauthenticatedRequests && hasUsableAuthMaterial()
     // For "next" endpoint continuations (mix queues), add required parameters
     if endpoint == "next" {
         body["enablePersistentPlaylistPanel"] = true
@@ -1236,9 +1660,8 @@ func exploreContinuation(
     }
 
     do {
-        // Always authenticate for continuations
         let (data, statusCode) = try await makeRequest(
-            endpoint: endpoint, body: body, authenticated: true
+            endpoint: endpoint, body: body, authenticated: authenticated
         )
 
         if statusCode == 401 || statusCode == 403 {
@@ -1248,7 +1671,11 @@ func exploreContinuation(
 
         print("✅ HTTP \(statusCode)")
         print()
-        print(analyzeResponse(data, verbose: verbose))
+        print(analyzeResponse(
+            data,
+            verbose: verbose,
+            searchAuditContext: endpoint == "search" && !youtubeMode ? .continuation : .automatic
+        ))
 
         // Analyze continuation-specific structure
         print("\n📊 Continuation Analysis:")
@@ -1285,19 +1712,18 @@ func exploreContinuation(
                     }
                 }
             }
-        } else if let actions = data["onResponseReceivedActions"] as? [[String: Any]] {
-            print("   Found onResponseReceivedActions (2025 format)")
-            for (idx, action) in actions.enumerated() {
-                print("   └─ Action \(idx) keys: \(Array(action.keys))")
-                if let appendAction = action["appendContinuationItemsAction"] as? [String: Any],
-                   let items = appendAction["continuationItems"] as? [[String: Any]]
-                {
-                    print("      └─ continuationItems: \(items.count) items")
-                }
-            }
         } else {
-            print("   ⚠️ No recognized continuation format found")
-            print("   Top-level keys: \(Array(data.keys))")
+            let actionGroups = searchContinuationActionGroups(in: data)
+            if !actionGroups.isEmpty {
+                print("   Found action-envelope continuation format")
+                for (index, group) in actionGroups.enumerated() {
+                    print("   └─ Group \(index): \(group.envelope).\(group.command)")
+                    print("      └─ continuationItems: \(group.items.count) items")
+                }
+            } else {
+                print("   ⚠️ No recognized continuation format found")
+                print("   Top-level keys: \(Array(data.keys))")
+            }
         }
 
         if verbose {
@@ -2075,10 +2501,10 @@ func listEndpoints() {
         🔐 AUTHENTICATED (Requires Sign-in)
         ───────────────────────────────────────────────────────────────────────────────
         FEmusic_liked_playlists       User's saved/created playlists
+        FEmusic_liked_albums          User's saved albums
         FEmusic_liked_videos          Liked songs (returns playlist format)
         FEmusic_history               Listening history (organized by time)
         FEmusic_library_landing       Library overview page
-        FEmusic_library_albums        Saved albums (requires params*)
         FEmusic_library_artists       Rejected with HTTP 400 in current sessions
         FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
         FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
@@ -2177,16 +2603,15 @@ func listEndpoints() {
                                       Body: {}
 
         ═══════════════════════════════════════════════════════════════════════════════
-        📌 LIBRARY PARAMS (for library_albums, library_artists, library_songs)
+        📌 OPTIONAL LIBRARY SORT PARAMS
         ═══════════════════════════════════════════════════════════════════════════════
 
-        ggMGKgQIARAA    Recently Added
-        ggMGKgQIAhAA    Recently Played
-        ggMGKgQIAxAA    Alphabetical A-Z
-        ggMGKgQIBBAA    Alphabetical Z-A
-        ggMCCAE         Default Sort
+        ggMGKgQIARAA    Alphabetical A-Z
+        ggMGKgQIARAB    Alphabetical Z-A
+        ggMGKgQIABAB    Recently Added
 
-        Example: swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
+        Saved albums use FEmusic_liked_albums and do not require params for the default order.
+        Example: swift run api-explorer browse FEmusic_liked_albums
 
         FEmusic_library_corpus_track_artists is the Library Artists chip endpoint.
         It requires sign-in for useful content but does not need sort params.
@@ -2251,9 +2676,11 @@ func showHelp() {
         Commands:
           browse <browseId> [params]     Explore a browse endpoint
           action <endpoint> <body>       Explore an action endpoint (body as JSON)
-          continuation <token> [ep]      Explore a continuation (ep: 'browse' or 'next')
+          search-audit <query>           Audit live Music search shapes, filters, and continuations
+          continuation <token> [ep]      Explore a continuation (ep: 'browse', 'search', or 'next')
           queue-probe <videoId> [playlistId]
                                          Summarize the Music next/radio queue shape
+          analyze-file <path>            Safely summarize a saved JSON response
           list                           List all known endpoints
           auth                           Check authentication status
           accounts                       Discover available accounts (via authuser)
@@ -2267,10 +2694,11 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show full raw JSON response (not truncated)
+          -v, --verbose                  Show raw JSON; expand samples/params for search-audit
           -o, --output <file>            Save raw JSON response to a file
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
+          --client-version <version>     Override the resolved InnerTube client version
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
           --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
@@ -2308,9 +2736,16 @@ func showHelp() {
           swift run api-explorer action next '{"playlistId":"RDEM...","videoId":"abc123"}'
           swift run api-explorer queue-probe dQw4w9WgXcQ
 
+          # Deeply audit YouTube Music search response coverage
+          swift run api-explorer --guest search-audit "ambient electronic mix"
+
           # Continuation (for pagination / infinite mix)
           swift run api-explorer continuation <token>           # browse endpoint (default)
+          swift run api-explorer --guest continuation <token> search # guest filtered search results
           swift run api-explorer continuation <token> next      # next endpoint (for mix queues)
+
+          # Safely inspect a saved response without printing raw token values
+          swift run api-explorer analyze-file Tests/KasetTests/Fixtures/example.json
 
           # Check auth status
           swift run api-explorer auth
@@ -2324,6 +2759,25 @@ func showHelp() {
 
         """
     )
+}
+
+/// Analyzes a saved JSON response without printing raw values.
+/// Useful for parser/fixture validation when live authenticated cookies are unavailable.
+func analyzeSavedResponse(at path: String) {
+    let url = URL(fileURLWithPath: path)
+    do {
+        let data = try Data(contentsOf: url)
+        guard let response = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            print("❌ Saved response is not a JSON object")
+            return
+        }
+        print("📄 Analyzing saved response: \(url.lastPathComponent)")
+        print("   Raw JSON and token values remain hidden")
+        print()
+        print(analyzeResponse(response))
+    } catch {
+        print("❌ Failed to analyze saved response: \(error.localizedDescription)")
+    }
 }
 
 // MARK: - Main Entry Point
@@ -2359,6 +2813,26 @@ func runMain() async {
         }
     }
 
+    // Parse client version override. Keeping it in cachedClientVersion prevents
+    // live web configuration discovery from replacing the explicit probe value.
+    for (index, arg) in args.enumerated() {
+        guard arg == "--client-version" else { continue }
+        guard index + 1 < args.count else {
+            print("❌ --client-version requires a value")
+            return
+        }
+
+        let value = args[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty, !value.hasPrefix("-") else {
+            print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
+            return
+        }
+
+        cachedClientVersion = value
+        clientVersionWasForced = true
+        break
+    }
+
     // Parse YouTube mode option (target www.youtube.com / WEB client)
     if args.contains("--youtube") || args.contains("--yt") {
         activateYouTubeMode()
@@ -2385,7 +2859,9 @@ func runMain() async {
         {
             continue
         }
-        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand" {
+        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand"
+            || arg == "--client-version"
+        {
             skipNext = true
             continue
         }
@@ -2417,10 +2893,21 @@ func runMain() async {
         let bodyJson = filteredArgs[2]
         await exploreAction(endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile)
 
+    case "search-audit":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: search-audit <query>")
+            print("   Example: search-audit \"ambient electronic mix\"")
+            return
+        }
+        if outputFile != nil {
+            print("⚠️ --output is ignored by search-audit; use 'action search' to save raw JSON")
+        }
+        await auditSearch(filteredArgs[1], verbose: verbose)
+
     case "continuation":
         guard filteredArgs.count >= 2 else {
             print("❌ Usage: continuation <token> [endpoint]")
-            print("   endpoint: 'browse' (default) for home/library, 'next' for mix queues")
+            print("   endpoint: 'browse' (default), 'search' for search, or 'next' for mix queues")
             print("   Get the token from a browse response's continuationItemRenderer or")
             print("   from a next response's nextRadioContinuationData.continuation")
             return
@@ -2440,6 +2927,13 @@ func runMain() async {
         let videoId = filteredArgs[1]
         let playlistId = filteredArgs.count >= 3 ? filteredArgs[2] : nil
         await probeQueue(videoId: videoId, playlistId: playlistId, verbose: verbose, outputFile: outputFile)
+
+    case "analyze-file":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: analyze-file <path>")
+            return
+        }
+        analyzeSavedResponse(at: filteredArgs[1])
 
     case "list":
         listEndpoints()

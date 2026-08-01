@@ -31,7 +31,9 @@ struct SignInRequiredView: View {
 
             Button {
                 if shouldExitGuestMode {
-                    self.authService.exitGuestMode(activeAccountID: self.accountService.currentAccount?.id)
+                    Task { @MainActor in
+                        await self.authService.exitGuestMode(activeAccountID: self.accountService.currentAccount?.id)
+                    }
                 } else {
                     self.authService.startLogin()
                 }

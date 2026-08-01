@@ -22,7 +22,8 @@ extension PlayerService {
         thumbnailUrl: String,
         observedVideoId: String?,
         mediaVideoId: String? = nil,
-        bridgeTrackChanged: Bool
+        bridgeTrackChanged: Bool,
+        playbackOccurrence: MusicPlaybackOccurrence? = nil
     ) -> Bool {
         let normalizedLogicalVideoId = self.normalizedWebPlaybackVideoId(observedVideoId)
         let normalizedMediaVideoId = self.normalizedWebPlaybackVideoId(mediaVideoId)
@@ -50,12 +51,35 @@ extension PlayerService {
                 title: identitiesCoherent ? title : "",
                 artist: identitiesCoherent ? artist : "",
                 thumbnailUrl: identitiesCoherent ? thumbnailUrl : "",
-                videoId: authoritativeVideoId
+                videoId: authoritativeVideoId,
+                playbackOccurrence: playbackOccurrence,
+                allowsObservedArtistForMatchingVideo: identitiesCoherent
             )
         }
 
         guard let authoritativeVideoId else { return true }
         return self.observedPlaybackMatchesCurrentTarget(videoId: authoritativeVideoId)
+    }
+
+    // swiftlint:disable:next function_parameter_count
+    func reconcileWebPlaybackMetadata(
+        title: String,
+        artist: String,
+        thumbnailUrl: String,
+        observedVideoId: String?,
+        playbackVideoId: String?,
+        bridgeTrackChanged: Bool,
+        playbackOccurrence: MusicPlaybackOccurrence? = nil
+    ) -> Bool {
+        self.reconcileWebPlaybackMetadata(
+            title: title,
+            artist: artist,
+            thumbnailUrl: thumbnailUrl,
+            observedVideoId: observedVideoId,
+            mediaVideoId: playbackVideoId,
+            bridgeTrackChanged: bridgeTrackChanged,
+            playbackOccurrence: playbackOccurrence
+        )
     }
 
     /// Whether an identity-bearing WebView playback observation belongs to
@@ -312,5 +336,19 @@ extension PlayerService {
     private func normalizedWebPlaybackVideoId(_ videoId: String?) -> String? {
         guard let videoId, !videoId.isEmpty else { return nil }
         return videoId
+    }
+}
+
+extension WebPlaybackIdentityTransition {
+    static func shouldHandleDeferredIdentitylessObservation(
+        isDeferred: Bool,
+        observedVideoId: String?,
+        playbackVideoId: String?
+    ) -> Bool {
+        self.shouldHandleDeferredIdentitylessObservation(
+            isDeferred: isDeferred,
+            observedVideoId: observedVideoId,
+            mediaVideoId: playbackVideoId
+        )
     }
 }

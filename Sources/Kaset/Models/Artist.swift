@@ -58,6 +58,18 @@ struct Artist: Identifiable, Codable, Hashable {
         Self.isNavigableId(self.id)
     }
 
+    /// Whether this value is transient display metadata rather than a resolved artist identity.
+    var isUnresolvedPlaceholder: Bool {
+        if self.hasNavigableId {
+            return false
+        }
+
+        let trimmedName = self.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return self.id == "unknown"
+            || trimmedName.isEmpty
+            || trimmedName.caseInsensitiveCompare("Unknown Artist") == .orderedSame
+    }
+
     /// The public channel ID for this artist, if one can be derived.
     var publicChannelId: String? {
         Self.publicChannelId(for: self.id)

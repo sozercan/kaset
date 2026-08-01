@@ -49,7 +49,7 @@ struct MoodCategoryDetailView: View {
             ContentUnavailableView(
                 "No Content Available",
                 systemImage: "music.note",
-                description: Text("No songs or playlists found in this category.")
+                description: Text(String(localized: "No songs or playlists found in this category."))
             )
         } else {
             ScrollView {
@@ -94,9 +94,7 @@ struct MoodCategoryDetailView: View {
             }
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
-            if MoodCategory.isMoodCategory(playlist.id),
-               let parsed = MoodCategory.parseId(playlist.id)
-            {
+            if let parsed = playlist.resolvedMoodCategoryEndpoint {
                 let category = MoodCategory(
                     browseId: parsed.browseId,
                     params: parsed.params,

@@ -1,6 +1,77 @@
+// swiftlint:disable file_length
+
 // MARK: - SingletonPlayerWebView Observer Script Extension
 
 extension SingletonPlayerWebView {
+    /// Returns a wall-clock timestamp with sub-millisecond precision when WebKit exposes it.
+    /// Native intent fences use the same epoch, while `Date.now()` remains a safe fallback.
+    nonisolated static var eventTimestampFunctionJS: String {
+        """
+        function __kasetEventTimestampMilliseconds() {
+            const highResolutionTimestamp = typeof performance !== 'undefined'
+                ? Number(performance.timeOrigin) + Number(performance.now())
+                : Number.NaN;
+            return Number.isFinite(highResolutionTimestamp)
+                ? highResolutionTimestamp
+                : Date.now();
+        }
+        """
+    }
+
+    /// Selects the authoritative playback clock for bridge state updates.
+    /// The hidden player bar can lag or stop updating while its media element
+    /// continues playing, so a ready media element wins over DOM attributes.
+    nonisolated static var playbackClockFunctionJS: String {
+        """
+        function __kasetPlaybackClock(mediaElement, progressBar, hasReadyMedia) {
+            const barProgress = progressBar
+                ? Number(progressBar.getAttribute('value'))
+                : Number.NaN;
+            const barDuration = progressBar
+                ? Number(progressBar.getAttribute('aria-valuemax'))
+                : Number.NaN;
+            const mediaProgress = mediaElement
+                ? Number(mediaElement.currentTime)
+                : Number.NaN;
+            const mediaDuration = mediaElement
+                ? Number(mediaElement.duration)
+                : Number.NaN;
+
+            return {
+                progress: hasReadyMedia && Number.isFinite(mediaProgress)
+                    ? mediaProgress
+                    : (Number.isFinite(barProgress) ? barProgress : 0),
+                duration: hasReadyMedia && Number.isFinite(mediaDuration) && mediaDuration > 0
+                    ? mediaDuration
+                    : (Number.isFinite(barDuration) && barDuration > 0 ? barDuration : 0)
+            };
+        }
+        """
+    }
+
+    /// Pure occurrence-binding decisions shared by the observer and JS tests.
+    nonisolated static var playbackOccurrenceFunctionJS: String {
+        """
+        function __kasetShouldBindMediaOccurrence(
+            hasBoundOccurrence,
+            sourceChanged,
+            mediaTimeReset,
+            identityChanged,
+            transitionEvidence
+        ) {
+            return !hasBoundOccurrence
+                || sourceChanged
+                || (mediaTimeReset && !identityChanged)
+                || (identityChanged && transitionEvidence);
+        }
+
+        function __kasetShouldAdvanceEndedOccurrence(endedMediaGeneration, mediaGeneration) {
+            return endedMediaGeneration !== null
+                && endedMediaGeneration === mediaGeneration;
+        }
+        """
+    }
+
     /// Pure JS function used by the observer script's `canplay` handler.
     /// Exposed as a named function so unit tests can exercise the branching
     /// inside a `JSContext` without standing up a real `WKWebView`.
@@ -8,10 +79,46 @@ extension SingletonPlayerWebView {
         """
         function __kasetAttemptAutoplayRecovery(video, playBtn) {
             if (!window.__kasetAutoplayPending) return 'noop';
-            if (!video.paused) { window.__kasetAutoplayPending = false; return 'noop'; }
-            window.__kasetAutoplayPending = false;
-            if (playBtn) { playBtn.click(); return 'clicked'; }
-            try { video.play(); return 'played'; } catch (e) { return 'error'; }
+            if (window.__kasetPlaybackSuppressed) return 'suppressed';
+            if (!video.paused) {
+                window.__kasetAutoplayPending = false;
+                window.__kasetAutoplayAttempts = 0;
+                return 'noop';
+            }
+
+            const attempts = window.__kasetAutoplayAttempts || 0;
+            if (attempts >= 5) {
+                return 'exhausted';
+            }
+            window.__kasetAutoplayAttempts = attempts + 1;
+
+            function scheduleRetry() {
+                if (typeof setTimeout !== 'function' || window.__kasetAutoplayRetryScheduled) return;
+                window.__kasetAutoplayRetryScheduled = true;
+                setTimeout(() => {
+                    window.__kasetAutoplayRetryScheduled = false;
+                    const currentVideo = document.querySelector('video');
+                    if (!window.__kasetAutoplayPending || !currentVideo || !currentVideo.paused) return;
+                    __kasetAttemptAutoplayRecovery(currentVideo, null);
+                }, 250);
+            }
+
+            if (playBtn) {
+                playBtn.click();
+                scheduleRetry();
+                return 'clicked';
+            }
+            try {
+                const playResult = video.play();
+                if (playResult && typeof playResult.catch === 'function') {
+                    playResult.catch(() => scheduleRetry());
+                }
+                scheduleRetry();
+                return 'played';
+            } catch (e) {
+                scheduleRetry();
+                return 'error';
+            }
         }
         """
     }
@@ -61,6 +168,12 @@ extension SingletonPlayerWebView {
         """
         window.__kasetAdvanceMediaOccurrenceGeneration = function() {
             mediaGeneration += 1;
+            const video = document.querySelector('video');
+            if (video) {
+                video.__kasetMediaGeneration = mediaGeneration;
+                video.__kasetEndedOccurrenceGeneration = null;
+                video.__kasetEndedReported = false;
+            }
             return true;
         };
         """
@@ -93,15 +206,19 @@ extension SingletonPlayerWebView {
         (function() {
             'use strict';
             const bridge = window.webkit.messageHandlers.singletonPlayer;
+            \(eventTimestampFunctionJS)
             const observerEpoch = (window.performance && performance.timeOrigin)
                 ? performance.timeOrigin : Date.now();
             const documentID = Number(window.__kasetDocumentID || 0);
             \(autoplayRecoveryFunctionJS)
+            window.__kasetAttemptAutoplayRecovery = __kasetAttemptAutoplayRecovery;
             \(mediaIdentityBindingDecisionFunctionJS)
             \(mediaTimingFunctionJS)
             \(endedReplayGenerationFunctionJS)
             \(mediaOccurrenceAdvanceFunctionJS)
             \(mediaIdentityCorrectionWindowFunctionJS)
+            \(playbackClockFunctionJS)
+            \(playbackOccurrenceFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
@@ -114,6 +231,7 @@ extension SingletonPlayerWebView {
             let mediaIdentityIsInitialBinding = false;
             let mediaIdentityCorrectionDeadline = 0;
             let mediaIdentityCorrectionShouldAdvanceGeneration = false;
+            let mediaIdentityNeedsRefresh = false;
             let endedMediaGeneration = null;
             let isPollingActive = false;
             let pollIntervalId = null;
@@ -192,13 +310,28 @@ extension SingletonPlayerWebView {
                             return;
                         }
                         window.__kasetAutoplayPending = false;
+                        window.__kasetAutoplayAttempts = 0;
+                        window.__kasetAutoplayRetryScheduled = false;
                         enforceVolumeNow();
                         restartLyricsPoll(false);
                     });
                     video.addEventListener('pause', stopPolling);
+                    video.addEventListener('play', () => {
+                        if (window.__kasetPlaybackSuppressed) video.pause();
+                    });
                     video.addEventListener('ended', () => {
-                        endedMediaGeneration = mediaGeneration;
-                        sendTrackEnded();
+                        if (video !== document.querySelector('video')) return;
+                        if (!video.ended) return;
+                        if (video.__kasetEndedReported) return;
+                        video.__kasetEndedReported = true;
+                        const occurrenceGeneration = video.__kasetMediaGeneration || mediaGeneration;
+                        endedMediaGeneration = occurrenceGeneration;
+                        video.__kasetEndedOccurrenceGeneration = occurrenceGeneration;
+                        const endedPayload = trackEndedPayload(video);
+                        if (!endedPayload) return;
+                        sendTrackEnded(endedPayload);
+                        setTimeout(() => retryTrackEnded(video, endedPayload), 16);
+                        setTimeout(() => retryTrackEnded(video, endedPayload), 100);
                         stopPolling();
                     });
                     video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
@@ -206,6 +339,10 @@ extension SingletonPlayerWebView {
                         sendUpdate(true); // Seek completed
                         restartLyricsPoll(true);
                     });
+                    // Media events keep advancing when hidden-page JavaScript
+                    // timers are throttled, so use them as the primary progress
+                    // heartbeat and retain the interval only as a fallback.
+                    video.addEventListener('timeupdate', () => sendUpdate());
 
                     // AirPlay state tracking
                     video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
@@ -216,7 +353,8 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentID: documentID,
+                    documentID: documentID,
+                            documentGeneration: window.__kasetDocumentGeneration,
                             isConnected: isWireless,
                             wasConnected: wasConnected,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -230,7 +368,8 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentID: documentID,
+                    documentID: documentID,
+                            documentGeneration: window.__kasetDocumentGeneration,
                             isConnected: true,
                             wasConnected: false,
                             wasRequested: window.__kasetAirPlayRequested || false
@@ -240,7 +379,8 @@ extension SingletonPlayerWebView {
                         bridge.postMessage({
                             type: 'AIRPLAY_STATUS',
                             observerEpoch: observerEpoch,
-                            documentID: documentID,
+                    documentID: documentID,
+                            documentGeneration: window.__kasetDocumentGeneration,
                             isConnected: false,
                             wasConnected: true,
                             wasRequested: true
@@ -347,13 +487,18 @@ extension SingletonPlayerWebView {
             }
 
             function bindMediaIdentity(video, force, transitionEvidence) {
+                if (!video || video !== document.querySelector('video')) return false;
                 const videoId = currentVideoId();
                 const source = video.currentSrc || video.src || '';
                 const currentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
-                if (!force && source === mediaSource) return;
+                const hasBoundOccurrence = mediaGeneration > 0;
+                const isReplacementElement = hasBoundOccurrence && !video.__kasetMediaGeneration;
                 const previousMediaVideoId = mediaVideoId;
-                const sourceChanged = source !== mediaSource;
-                const mediaTimeReset = currentTime + 2 < lastMediaCurrentTime;
+                const sourceChanged = hasBoundOccurrence
+                    && (isReplacementElement || source !== mediaSource);
+                const mediaTimeReset = hasBoundOccurrence && currentTime + 2 < lastMediaCurrentTime;
+                const identityChanged = !!videoId && videoId !== mediaVideoId;
+
                 if (__kasetShouldOpenMediaIdentityCorrectionWindow(
                     videoId,
                     mediaVideoId,
@@ -363,20 +508,52 @@ extension SingletonPlayerWebView {
                     mediaIdentityCorrectionDeadline = Date.now() + 5000;
                     mediaIdentityCorrectionShouldAdvanceGeneration =
                         mediaIdentityCorrectionShouldAdvanceGeneration || mediaTimeReset;
+                    mediaIdentityNeedsRefresh = true;
                     mediaSource = source;
                     lastMediaCurrentTime = currentTime;
                     mediaIdentityUncertain = false;
                     mediaIdentityTransitionFromVideoId = '';
-                    return;
+                    return false;
                 }
+
+                const shouldBind = __kasetShouldBindMediaOccurrence(
+                    hasBoundOccurrence,
+                    sourceChanged,
+                    mediaTimeReset,
+                    identityChanged,
+                    transitionEvidence === true
+                ) || (force === true && !hasBoundOccurrence);
+                if (!shouldBind) {
+                    if (videoId && (!mediaVideoId || (identityChanged && mediaIdentityNeedsRefresh))) {
+                        mediaVideoId = videoId;
+                        video.__kasetBoundVideoId = videoId;
+                        mediaIdentityNeedsRefresh = false;
+                        mediaIdentityUncertain = false;
+                        mediaIdentityTransitionFromVideoId = '';
+                        mediaIdentityIsInitialBinding = false;
+                    }
+                    if (!identityChanged) {
+                        lastMediaCurrentTime = currentTime;
+                    }
+                    return false;
+                }
+
                 mediaGeneration += 1;
                 mediaVideoId = videoId;
                 mediaSource = source;
                 lastMediaCurrentTime = currentTime;
                 mediaIdentityIsInitialBinding = !previousMediaVideoId && !videoId;
                 mediaIdentityTransitionFromVideoId = previousMediaVideoId || videoId;
-                mediaIdentityUncertain = !videoId
-                    || mediaIdentityIsInitialBinding;
+                mediaIdentityUncertain = !videoId || mediaIdentityIsInitialBinding;
+                const shouldPreserveIdentityRefresh = mediaTimeReset
+                    && !isReplacementElement
+                    && !sourceChanged;
+                mediaIdentityNeedsRefresh = (
+                    shouldPreserveIdentityRefresh && mediaIdentityNeedsRefresh
+                ) || (
+                    (isReplacementElement || sourceChanged)
+                    && (!videoId || videoId === previousMediaVideoId)
+                );
                 if (!mediaIdentityUncertain) {
                     mediaIdentityTransitionFromVideoId = '';
                     mediaIdentityIsInitialBinding = false;
@@ -384,7 +561,13 @@ extension SingletonPlayerWebView {
                 if (videoId && videoId !== previousMediaVideoId) {
                     mediaIdentityCorrectionDeadline = 0;
                     mediaIdentityCorrectionShouldAdvanceGeneration = false;
+                    mediaIdentityNeedsRefresh = false;
                 }
+                video.__kasetBoundVideoId = videoId;
+                video.__kasetMediaGeneration = mediaGeneration;
+                video.__kasetEndedOccurrenceGeneration = null;
+                video.__kasetEndedReported = false;
+                return true;
             }
 
             function confirmMediaIdentityOnPlaying(video) {
@@ -399,7 +582,7 @@ extension SingletonPlayerWebView {
             window.__kasetAdvanceMediaGeneration = function() {
                 const video = document.querySelector('video');
                 if (!video) return false;
-                mediaGeneration += 1;
+                window.__kasetAdvanceMediaOccurrenceGeneration();
                 mediaVideoId = currentVideoId();
                 mediaSource = video.currentSrc || video.src || '';
                 mediaIdentityUncertain = !mediaVideoId;
@@ -407,6 +590,8 @@ extension SingletonPlayerWebView {
                 mediaIdentityIsInitialBinding = false;
                 mediaIdentityCorrectionDeadline = 0;
                 mediaIdentityCorrectionShouldAdvanceGeneration = false;
+                mediaIdentityNeedsRefresh = false;
+                video.__kasetBoundVideoId = mediaVideoId;
                 sendUpdate(true);
                 return true;
             };
@@ -417,7 +602,7 @@ extension SingletonPlayerWebView {
                     Date.now()
                 )) return;
                 if (mediaIdentityCorrectionShouldAdvanceGeneration) {
-                    mediaGeneration += 1;
+                    window.__kasetAdvanceMediaOccurrenceGeneration();
                 }
                 mediaIdentityCorrectionDeadline = 0;
                 mediaIdentityCorrectionShouldAdvanceGeneration = false;
@@ -456,10 +641,13 @@ extension SingletonPlayerWebView {
                 bridge.postMessage({
                     type: 'LYRICS_LINE',
                     observerEpoch: observerEpoch,
-                            documentID: documentID,
+                    documentID: documentID,
+                    documentGeneration: window.__kasetDocumentGeneration,
+                    nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
                     lineIndex: bucket.lineIndex,
                     bucket: bucket.bucket,
-                    timeMs: timeMs
+                    timeMs: timeMs,
+                    isAd: isAdShowing()
                 });
                 return bucket;
             }
@@ -564,25 +752,50 @@ extension SingletonPlayerWebView {
                 sendUpdate(true);
             }
 
-            function sendTrackEnded() {
+            function isAdShowing() {
+                const moviePlayer = document.getElementById('movie_player');
+                return !!(moviePlayer && moviePlayer.classList
+                    && moviePlayer.classList.contains('ad-showing'));
+            }
+
+            function trackEndedPayload(video) {
+                if (!video || video !== document.querySelector('video') || !video.ended) return null;
                 commitExpiredMediaIdentityCorrection();
+                const occurrenceGeneration = video.__kasetEndedOccurrenceGeneration
+                    || video.__kasetMediaGeneration
+                    || mediaGeneration;
                 const endedVideoId = mediaIdentityUncertain
-                    ? '' : (mediaVideoId || lastVideoId || currentVideoId());
-                bridge.postMessage({
+                    ? ''
+                    : (video.__kasetBoundVideoId || lastVideoId || currentVideoId() || mediaVideoId);
+                return {
                     type: 'TRACK_ENDED',
+                    documentGeneration: window.__kasetDocumentGeneration,
+                    nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
+                    eventIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
                     observerEpoch: observerEpoch,
                     documentID: documentID,
                     videoId: endedVideoId,
-                    mediaGeneration: mediaGeneration,
-                    mediaIdentityUncertain: mediaIdentityUncertain
-                });
+                    mediaGeneration: occurrenceGeneration,
+                    mediaIdentityUncertain: mediaIdentityUncertain,
+                    isAd: isAdShowing()
+                };
+            }
+
+            function sendTrackEnded(payload) {
+                bridge.postMessage(payload);
+            }
+
+            function retryTrackEnded(video, payload) {
+                if (!video || video !== document.querySelector('video') || !video.ended) return;
+                if (video.__kasetEndedOccurrenceGeneration !== payload.mediaGeneration) return;
+                sendTrackEnded(payload);
             }
 
             function sendUpdate(force = false) {
                 // Throttle non-forced updates across polling and mutation paths.
                 // If an update is skipped, keep one trailing send so paused/setup
                 // mutations that are not followed by a polling tick still reach Swift.
-                const now = Date.now();
+                const now = __kasetEventTimestampMilliseconds();
                 if (!force) {
                     const elapsed = now - lastUpdateTime;
                     if (elapsed < UPDATE_THROTTLE_MS) {
@@ -604,7 +817,7 @@ extension SingletonPlayerWebView {
                     // Use video element's paused property for language-agnostic detection
                     // Previously checked button title/aria-label which fails for non-English locales
                     const video = document.querySelector('video');
-                    const isPlaying = video ? !video.paused : false;
+                    let isPlaying = video ? !video.paused : false;
 
                     const progressBar = document.querySelector('#progress-bar');
                     const mediaTiming = __kasetMediaTiming(video, progressBar);
@@ -615,6 +828,17 @@ extension SingletonPlayerWebView {
                     const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
 
                     const playerData = currentPlayerData();
+                    const mediaElement = document.querySelector('video');
+                    const hasReadyMedia = !!(
+                        mediaElement
+                        && mediaElement.currentSrc
+                        && mediaElement.readyState >= 1
+                    );
+                    const playbackClock = __kasetPlaybackClock(
+                        mediaElement,
+                        progressBar,
+                        hasReadyMedia
+                    );
                     const playerTitle = playerData && typeof playerData.title === 'string'
                         ? playerData.title.trim()
                         : '';
@@ -623,7 +847,8 @@ extension SingletonPlayerWebView {
                         : '';
 
                     let title = titleEl ? titleEl.textContent.trim() : '';
-                    let artist = artistEl ? artistEl.textContent.trim() : '';
+                    const domArtist = artistEl ? artistEl.textContent.trim() : '';
+                    const artist = playerArtist || domArtist;
                     const videoId = currentVideoId();
                     commitExpiredMediaIdentityCorrection();
                     if (video && videoId && videoId !== mediaVideoId) {
@@ -644,30 +869,38 @@ extension SingletonPlayerWebView {
                                 mediaIdentityCorrectionDeadline,
                                 Date.now()
                             );
+                        const sourceChanged = source !== mediaSource;
                         if (__kasetShouldBindMediaIdentity(
-                            source !== mediaSource,
-                            mediaTimeReset,
+                            sourceChanged,
+                            false,
                             identityCorrectionEvidence
                         )) {
                             bindMediaIdentity(
                                 video,
                                 true,
-                                source !== mediaSource || mediaTimeReset
+                                sourceChanged || identityCorrectionEvidence
                             );
                         }
                     }
                     if (video && videoId && videoId === mediaVideoId) {
                         lastMediaCurrentTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
                     }
+                    const isAd = isAdShowing();
+                    if (video && window.__kasetResumeAdOnly && !isAd) {
+                        window.__kasetResumeAdOnly = false;
+                        window.__kasetPlaybackSuppressed = true;
+                        video.pause();
+                        isPlaying = false;
+                    }
                     let thumbnailUrl = '';
 
-                    // Prefer player API metadata when the DOM appears to be lagging behind the actual video.
+                    // Prefer player API title metadata when the DOM appears to be lagging behind the actual video.
+                    // Artist selection already prefers the structured author, which is locale-independent and
+                    // excludes volatile DOM byline metadata such as localized view counts.
                     if (playerTitle && title && playerTitle !== title) {
                         title = playerTitle;
-                        if (playerArtist) artist = playerArtist;
                     } else {
                         if (!title && playerTitle) title = playerTitle;
-                        if (!artist && playerArtist) artist = playerArtist;
                     }
 
                     // Get the thumbnail URL from the image element
@@ -716,16 +949,21 @@ extension SingletonPlayerWebView {
 
                     bridge.postMessage({
                         type: 'STATE_UPDATE',
+                        documentGeneration: window.__kasetDocumentGeneration,
+                        nativePlaybackGeneration: window.__kasetNativePlaybackGeneration || 0,
+                        eventIssuedAtMilliseconds: now,
                         isPlaying: isPlaying,
-                        progress: mediaTiming.progress,
-                        duration: mediaTiming.duration,
+                        progress: playbackClock.progress,
+                        duration: playbackClock.duration,
+                        isAd: isAd,
+                        hasReadyMedia: hasReadyMedia,
                         title: title,
                         artist: artist,
                         videoId: videoId,
                         mediaVideoId: mediaVideoId,
                         mediaGeneration: mediaGeneration,
                         observerEpoch: observerEpoch,
-                            documentID: documentID,
+                        documentID: documentID,
                         thumbnailUrl: thumbnailUrl,
                         trackChanged: trackChanged,
                         likeStatus: likeStatus,

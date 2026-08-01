@@ -131,21 +131,59 @@ extension SingletonPlayerWebView {
         }
     }
 
+    nonisolated static var playPauseCommandScript: String {
+        """
+        (function() {
+            const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
+            if (playBtn) {
+                const video = document.querySelector('video');
+                const wantsPlay = !video || video.paused;
+                window.__kasetAutoplayPending = wantsPlay;
+                window.__kasetPlaybackSuppressed = !wantsPlay;
+                if (wantsPlay) {
+                    window.__kasetAutoplayAttempts = 0;
+                    window.__kasetAutoplayRetryScheduled = false;
+                    if (video && typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                        return window.__kasetAttemptAutoplayRecovery(video, playBtn);
+                    }
+                }
+                playBtn.click();
+                return 'clicked';
+            }
+            const video = document.querySelector('video');
+            if (video) {
+                if (video.paused) {
+                    window.__kasetAutoplayPending = true;
+                    window.__kasetPlaybackSuppressed = false;
+                    window.__kasetAutoplayAttempts = 0;
+                    window.__kasetAutoplayRetryScheduled = false;
+                    if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                        return window.__kasetAttemptAutoplayRecovery(video, null);
+                    }
+                    video.play();
+                    return 'played';
+                } else {
+                    window.__kasetAutoplayPending = false;
+                    window.__kasetPlaybackSuppressed = true;
+                    video.pause();
+                    return 'paused';
+                }
+            }
+            return 'no-element';
+        })();
+        """
+    }
+
     /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }
+        let generation = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: generation) else { return }
 
         let script = """
-            (function() {
-                const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-                if (playBtn) { playBtn.click(); return 'clicked'; }
-                const video = document.querySelector('video');
-                if (video) {
-                    if (video.paused) { video.play(); return 'played'; }
-                    else { video.pause(); return 'paused'; }
-                }
-                return 'no-element';
-            })();
+            if (window.__kasetDocumentGeneration === \(generation)) {
+                \(Self.playPauseCommandScript)
+            }
         """
         webView.evaluateJavaScript(script) { [weak self] _, error in
             if let error {
@@ -154,23 +192,70 @@ extension SingletonPlayerWebView {
         }
     }
 
+    nonisolated static var playCommandScript: String {
+        """
+        (function() {
+            window.__kasetAutoplayPending = true;
+            window.__kasetPlaybackSuppressed = false;
+            window.__kasetResumeAdOnly = false;
+            window.__kasetAutoplayAttempts = 0;
+            window.__kasetAutoplayRetryScheduled = false;
+            const video = document.querySelector('video');
+            if (video && video.paused) {
+                if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                    return window.__kasetAttemptAutoplayRecovery(video, null);
+                }
+                video.play();
+                return 'played';
+            }
+            return video ? 'already-playing' : 'pending-media';
+        })();
+        """
+    }
+
     /// Play (resume).
     func play() {
         guard let webView else { return }
+        let generation = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: generation) else { return }
+        webView.evaluateJavaScript("""
+            if (window.__kasetDocumentGeneration === \(generation)) {
+                \(Self.playCommandScript)
+            }
+        """, completionHandler: nil)
+    }
 
-        let script = """
+    /// During restored playback, a paused preroll ad must advance before the
+    /// content seek can be reconciled. Never unsuppress ordinary content here.
+    func resumeReadyAdvertisementIfPresent() {
+        guard let webView else { return }
+        let generation = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: generation) else { return }
+        webView.evaluateJavaScript("""
             (function() {
+                if (window.__kasetDocumentGeneration !== \(generation)) return 'stale';
                 window.__kasetBlockAutoplay = false;
                 if (window.__kasetAutoplayBlockTimer) {
                     clearInterval(window.__kasetAutoplayBlockTimer);
                     window.__kasetAutoplayBlockTimer = null;
                 }
+                const player = document.getElementById('movie_player');
+                const isAd = !!(player && player.classList.contains('ad-showing'));
                 const video = document.querySelector('video');
-                if (video && video.paused) { video.play(); return 'played'; }
-                return 'already-playing';
+                if (!isAd || !video || !video.currentSrc || video.readyState < 1) return 'not-ready-ad';
+                window.__kasetPlaybackSuppressed = false;
+                window.__kasetAutoplayPending = true;
+                window.__kasetResumeAdOnly = true;
+                if (video.paused) {
+                    if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                        window.__kasetAttemptAutoplayRecovery(video, null);
+                    } else {
+                        video.play();
+                    }
+                }
+                return 'playing-ad';
             })();
-        """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+        """, completionHandler: nil)
     }
 
     /// Pause.
@@ -179,6 +264,8 @@ extension SingletonPlayerWebView {
 
         let script = """
             (function() {
+            window.__kasetAutoplayPending = false;
+            window.__kasetPlaybackSuppressed = true;
                 const video = document.querySelector('video');
                 if (video && !video.paused) { video.pause(); return 'paused'; }
                 return 'already-paused';
@@ -237,12 +324,10 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Atomically pause and seek the underlying video.
-    func seekAndPause(to time: Double) {
-        guard let webView else { return }
-
+    /// Pure script for atomically pausing and seeking the underlying video.
+    nonisolated static func seekAndPauseScript(to time: Double) -> String {
         let safeTime = time.isFinite ? max(time, 0) : 0
-        let script = """
+        return """
             (function() {
                 const video = document.querySelector('video');
                 if (!video) { return 'no-video'; }
@@ -252,21 +337,46 @@ extension SingletonPlayerWebView {
                 return 'seeked-paused';
             })();
         """
-        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
+    /// Atomically pause and seek the underlying video.
+    func seekAndPause(to time: Double) {
+        guard let webView else { return }
+        webView.evaluateJavaScript(Self.seekAndPauseScript(to: time), completionHandler: nil)
     }
 
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
         guard let webView else { return }
+        if let nativeGeneration = self.coordinator?.playerService.currentMusicPlaybackOccurrence?.nativeGeneration {
+            self.setNativePlaybackGeneration(nativeGeneration)
+        }
+        let documentGeneration = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: documentGeneration) else { return }
         let script = """
             (function() {
+                if (window.__kasetDocumentGeneration !== \(documentGeneration)) return 'stale';
+                window.__kasetBlockAutoplay = false;
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
+                window.__kasetAutoplayPending = true;
+                window.__kasetPlaybackSuppressed = false;
+                window.__kasetResumeAdOnly = false;
+                window.__kasetAutoplayAttempts = 0;
+                window.__kasetAutoplayRetryScheduled = false;
                 const video = document.querySelector('video');
                 if (!video) return 'no-video';
                 video.currentTime = 0;
                 if (typeof window.__kasetAdvanceMediaGeneration === 'function') {
                     window.__kasetAdvanceMediaGeneration();
                 }
-                video.play();
+                if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                    window.__kasetAttemptAutoplayRecovery(video, null);
+                } else {
+                    video.play();
+                }
                 return 'restarted';
             })();
         """

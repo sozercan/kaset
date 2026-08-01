@@ -128,4 +128,34 @@ final class SearchViewUITests: KasetUITestCase {
         let title = app.staticTexts["Search"]
         XCTAssertTrue(waitForElement(title), "Search title should be visible")
     }
+
+    func testReselectingSearchPopsNestedNavigationToRoot() {
+        launchWithMockSearch(songCount: 1)
+        navigateToSearch()
+
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
+        XCTAssertTrue(waitForHittable(searchField))
+        searchField.click()
+        searchField.typeText("test\n")
+
+        let firstResult = app.buttons[TestAccessibilityID.Search.resultRow(index: 0)]
+        XCTAssertTrue(waitForHittable(firstResult), "A mock search result should appear")
+        firstResult.rightClick()
+
+        let goToAlbum = app.menuItems["Go to Album"]
+        XCTAssertTrue(waitForHittable(goToAlbum), "The result context menu should offer album navigation")
+        goToAlbum.click()
+
+        XCTAssertTrue(
+            waitForElementToDisappear(searchField),
+            "Navigating to the album should hide the Search root"
+        )
+
+        navigateToSearch()
+
+        XCTAssertTrue(
+            waitForHittable(searchField),
+            "Re-selecting Search should pop its nested navigation and restore the search field"
+        )
+    }
 }

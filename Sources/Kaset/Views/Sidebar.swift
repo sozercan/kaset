@@ -9,9 +9,15 @@ struct Sidebar: View {
 
     @Binding var selection: NavigationItem?
     @Binding var pinnedSelection: SidebarPinnedItem?
+    let client: any YTMusicClientProtocol
+    var onReselectNavigationItem: ((NavigationItem) -> Void)?
+    var onReselectPinnedItem: ((SidebarPinnedItem) -> Void)?
     @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
     @Environment(SidebarPinnedItemsManager.self) private var sidebarPinnedItemsManager
     @Environment(PodcastsAvailabilityService.self) private var podcastsAvailability
+    @State private var isCreatingPlaylist = false
+    @State private var isHoveringPlaylistsHeader = false
 
     var body: some View {
         List {
@@ -58,14 +64,16 @@ struct Sidebar: View {
                 }
             }
 
-            if self.hasPersonalAccount, self.sidebarPinnedItemsManager.isVisible {
-                Section(String(localized: "Playlists")) {
+            if self.hasPersonalAccount {
+                Section {
                     ForEach(self.sidebarPinnedItemsManager.items) { item in
                         self.sidebarPinnedRow(item)
                     }
                     .onMove { source, destination in
                         self.sidebarPinnedItemsManager.move(from: source, to: destination)
                     }
+                } header: {
+                    self.playlistsSectionHeader
                 }
             }
         }
@@ -107,7 +115,11 @@ struct Sidebar: View {
 
     private func selectNavigationItem(_ item: NavigationItem) {
         let newSelection = SidebarSelection.navigation(item)
-        guard self.currentSidebarSelection != newSelection else { return }
+        if self.currentSidebarSelection == newSelection {
+            self.onReselectNavigationItem?(item)
+            HapticService.navigation()
+            return
+        }
         self.selection = item
         self.pinnedSelection = nil
         HapticService.navigation()
@@ -115,10 +127,77 @@ struct Sidebar: View {
 
     private func selectPinnedItem(_ item: SidebarPinnedItem) {
         let newSelection = SidebarSelection.pinned(item)
-        guard self.currentSidebarSelection != newSelection else { return }
+        if self.currentSidebarSelection == newSelection {
+            self.onReselectPinnedItem?(item)
+            HapticService.navigation()
+            return
+        }
         self.selection = nil
         self.pinnedSelection = item
         HapticService.navigation()
+    }
+
+    private var playlistsSectionHeader: some View {
+        HStack {
+            Text(String(localized: "Playlists"))
+
+            Spacer()
+
+            if self.isCreatingPlaylist {
+                ProgressView()
+                    .controlSize(.small)
+                    .padding(.trailing, 8)
+            } else {
+                Button {
+                    self.presentCreatePlaylistDialog()
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .opacity(self.isHoveringPlaylistsHeader ? 1 : 0)
+                .padding(.trailing, 8)
+                .help(String(localized: "Create Playlist"))
+                .accessibilityLabel(String(localized: "Create Playlist"))
+            }
+        }
+        .onHover { hovering in
+            withAnimation(AppAnimation.quick) {
+                self.isHoveringPlaylistsHeader = hovering
+            }
+        }
+    }
+
+    private func presentCreatePlaylistDialog() {
+        guard !self.isCreatingPlaylist else { return }
+        let owner = self.playerService.currentAccountMutationOwner
+
+        SongActionsHelper.presentCreatePlaylistDialog(
+            informativeText: "Create a new playlist.",
+            request: SongActionsHelper.PlaylistCreationRequest(
+                client: self.client,
+                videoIds: [],
+                whileValid: { self.playerService.acceptsAccountMutationOwner(owner) }
+            ),
+            onWillCreate: {
+                guard !self.isCreatingPlaylist else { return false }
+                self.isCreatingPlaylist = true
+                return true
+            },
+            completion: { result in
+                self.isCreatingPlaylist = false
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+
+                switch result {
+                case let .success(playlist):
+                    let pinnedItem = SidebarPinnedItem.from(playlist)
+                    self.sidebarPinnedItemsManager.add(pinnedItem)
+                    self.selectPinnedItem(pinnedItem)
+                case let .failure(failure):
+                    SongActionsHelper.presentPlaylistCreationError(failure)
+                }
+            }
+        )
     }
 
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
@@ -133,25 +212,25 @@ struct Sidebar: View {
             Button {
                 self.sidebarPinnedItemsManager.moveUp(contentId: item.contentId)
             } label: {
-                Label("Move Up", systemImage: "chevron.up")
+                Label(String(localized: "Move Up"), systemImage: "chevron.up")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveDown(contentId: item.contentId)
             } label: {
-                Label("Move Down", systemImage: "chevron.down")
+                Label(String(localized: "Move Down"), systemImage: "chevron.down")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveToTop(contentId: item.contentId)
             } label: {
-                Label("Move to Top", systemImage: "arrow.up.to.line")
+                Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
             }
 
             Button {
                 self.sidebarPinnedItemsManager.moveToEnd(contentId: item.contentId)
             } label: {
-                Label("Move to End", systemImage: "arrow.down.to.line")
+                Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
             }
 
             Divider()
@@ -162,16 +241,19 @@ struct Sidebar: View {
                 }
                 self.sidebarPinnedItemsManager.remove(contentId: item.contentId)
             } label: {
-                Label("Remove from Sidebar", systemImage: "sidebar.left")
+                Label(String(localized: "Remove from Sidebar"), systemImage: "sidebar.left")
             }
         }
     }
 }
 
 #Preview {
-    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil))
+    let authService = AuthService()
+    let client = YTMusicClient(authService: authService, webKitManager: .shared)
+    Sidebar(selection: .constant(.home), pinnedSelection: .constant(nil), client: client)
         .frame(width: 220)
-        .environment(AuthService())
+        .environment(authService)
+        .environment(PlayerService())
         .environment(SidebarPinnedItemsManager(skipLoad: true))
         .environment(PodcastsAvailabilityService())
 }

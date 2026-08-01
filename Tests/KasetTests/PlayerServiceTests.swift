@@ -261,8 +261,17 @@ struct PlayerServiceTests {
 
     @Test("Play empty queue does nothing")
     func playQueueEmptyDoesNothing() async {
+        let song = TestFixtures.makeSong(id: "empty-noop-current")
+        await self.playerService.playQueue([song], startingAt: 0)
+        let intent = self.playerService.currentMusicPlaybackIntent
+        let occurrence = self.playerService.currentMusicPlaybackOccurrence
+
         await self.playerService.playQueue([], startingAt: 0)
-        #expect(self.playerService.queue.isEmpty)
+
+        #expect(self.playerService.queue == [song])
+        #expect(self.playerService.currentTrack == song)
+        #expect(self.playerService.currentMusicPlaybackIntent == intent)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == occurrence)
     }
 
     // MARK: - User Interaction Tests

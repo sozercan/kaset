@@ -53,6 +53,7 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
@@ -71,7 +72,7 @@ struct MoodsAndGenresView: View {
                 ContentUnavailableView(
                     "No Moods & Genres Available",
                     systemImage: "guitars",
-                    description: Text("Content may not be available in your region.")
+                    description: Text(String(localized: "Content may not be available in your region."))
                 )
                 if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
                     LoadMoreFooter(

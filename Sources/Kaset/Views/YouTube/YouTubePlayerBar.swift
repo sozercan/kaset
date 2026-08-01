@@ -18,6 +18,18 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
+    private static let baseYouTubeOptionsWidth: CGFloat = 210
+    private static let floatOnTopOptionsWidthIncrement: CGFloat = 28 + 6
+
+    /// Below this the details block would collide with the transport controls.
+    /// Only the resizable detached window reaches this narrow layout.
+    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
+
+    private struct ChapterProgressSpan {
+        let chapter: YouTubeChapter
+        let start: TimeInterval
+        let end: TimeInterval
+    }
 
     @Environment(AuthService.self) private var authService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
@@ -25,9 +37,12 @@ struct YouTubePlayerBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
+    private let isDetachedWindow: Bool
+
     /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
 
+    @State private var settings = SettingsManager.shared
     @State private var seekValue: Double = 0
     @State private var isSeeking = false
     @State private var seekHold = PlayerBarSeekHold()
@@ -36,17 +51,26 @@ struct YouTubePlayerBar: View {
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
 
+    init(isDetachedWindow: Bool) {
+        self.isDetachedWindow = isDetachedWindow
+    }
+
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
                 let usesCompactDetails = proxy.size.width <= PlayerBarLayout.compactDetailsBreakpoint
+                let hidesDetails = proxy.size.width <= self.hiddenVideoDetailsBreakpoint
 
                 HStack(spacing: 10) {
-                    self.videoDetailsSection(usesCompactDetails: usesCompactDetails)
-                        .frame(
-                            width: usesCompactDetails ? Self.compactVideoDetailsWidth : Self.fullVideoDetailsWidth,
-                            height: 52
-                        )
+                    if !hidesDetails {
+                        self.videoDetailsSection(usesCompactDetails: usesCompactDetails)
+                            .frame(
+                                width: usesCompactDetails
+                                    ? Self.compactVideoDetailsWidth
+                                    : Self.fullVideoDetailsWidth,
+                                height: 52
+                            )
+                    }
 
                     self.youtubeProgressSection
                         .frame(maxWidth: .infinity)
@@ -81,6 +105,11 @@ struct YouTubePlayerBar: View {
         .onChange(of: self.currentSeekIdentity) { _, _ in
             self.clearSeekHold()
             self.chapterPreviewMarker = nil
+        }
+        .onChange(of: self.youtubePlayer.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.chapterPreviewMarker = nil
+            }
         }
         .onChange(of: self.youtubePlayer.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -218,10 +247,6 @@ struct YouTubePlayerBar: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private var hasPersonalAccount: Bool {
-        self.authService.hasPersonalAccount
-    }
-
     private var currentVideoGlowSources: [URL] {
         guard let video = self.youtubePlayer.currentVideo else { return [] }
         return self.uniqueURLs([
@@ -277,6 +302,7 @@ struct YouTubePlayerBar: View {
                 elapsedText: Self.formatTime(self.progressTextValue),
                 remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
                 markers: self.chapterProgressMarkers,
+                segments: self.chapterProgressSegments,
                 isLive: false,
                 canSeek: self.canSeek,
                 isLoading: self.isProgressLoading,
@@ -292,6 +318,9 @@ struct YouTubePlayerBar: View {
                 }
             )
             .padding(.top, 18)
+            // Match the music player's segmented lane layering so chapter tooltips stay above
+            // transport controls without intercepting their clicks.
+            .zIndex(1)
 
             self.youtubeTransportControls
                 .padding(.top, 2)
@@ -426,6 +455,10 @@ struct YouTubePlayerBar: View {
             self.compactCaptionsMenu
             self.compactQualityMenu
 
+            if self.showsFloatOnTopControl {
+                self.youtubeFloatOnTopButton
+            }
+
             PlayerBarIconButton(
                 action: self.toggleYouTubePictureInPicture,
                 isSelected: self.youtubePlayer.surfaceLocation == .floating,
@@ -491,7 +524,7 @@ struct YouTubePlayerBar: View {
                 Button {
                     self.youtubePlayer.selectQuality(level)
                 } label: {
-                    if self.youtubePlayer.currentQuality == level {
+                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
                         Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
                     } else {
                         Text(YouTubeQuality.displayName(for: level))
@@ -560,10 +593,6 @@ struct YouTubePlayerBar: View {
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
 
-    private var youtubeOptionsWidth: CGFloat {
-        210
-    }
-
     /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
     private var displayFraction: Double {
         if self.isSeeking {
@@ -586,7 +615,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var chapterProgressMarkers: [PlayerBarProgressMarker] {
-        guard self.youtubePlayer.duration > 0 else { return [] }
+        guard self.youtubePlayer.duration > 0, !self.youtubePlayer.isShowingAd else { return [] }
         return self.youtubePlayer.chapters.compactMap { chapter in
             guard chapter.startTime > 0, chapter.startTime < self.youtubePlayer.duration else { return nil }
             return PlayerBarProgressMarker(
@@ -594,6 +623,70 @@ struct YouTubePlayerBar: View {
                 fraction: chapter.startTime / self.youtubePlayer.duration,
                 title: chapter.title,
                 subtitle: chapter.timeText ?? Self.formatTime(chapter.startTime)
+            )
+        }
+    }
+
+    private var chapterProgressSegments: [PlayerBarProgressSegment] {
+        guard !self.youtubePlayer.isShowingAd else { return [] }
+        return Self.chapterProgressSegments(
+            chapters: self.youtubePlayer.chapters,
+            duration: self.youtubePlayer.duration
+        )
+    }
+
+    /// Converts YouTube's chapter starts and optional bounds into the same normalized spans used by
+    /// the music player's segmented mix seek bar. Marker data remains separate so chapter snapping
+    /// and the existing metadata preview continue to work while segment visuals are active.
+    static func chapterProgressSegments(
+        chapters: [YouTubeChapter],
+        duration: TimeInterval
+    ) -> [PlayerBarProgressSegment] {
+        guard duration.isFinite, duration > 0 else { return [] }
+
+        let sortedChapters = chapters
+            .filter { chapter in
+                chapter.startTime.isFinite
+                    && chapter.startTime >= 0
+                    && chapter.startTime < duration
+            }
+            .sorted { lhs, rhs in
+                if lhs.startTime != rhs.startTime {
+                    return lhs.startTime < rhs.startTime
+                }
+                return lhs.title < rhs.title
+            }
+
+        var uniqueChapters: [YouTubeChapter] = []
+        for chapter in sortedChapters where uniqueChapters.last?.startTime != chapter.startTime {
+            uniqueChapters.append(chapter)
+        }
+
+        let resolvedChapters: [ChapterProgressSpan] = uniqueChapters.enumerated().compactMap { index, chapter in
+            let start = chapter.startTime
+            let nextStart = uniqueChapters.indices.contains(index + 1)
+                ? uniqueChapters[index + 1].startTime
+                : duration
+            let upperBound = min(nextStart, duration)
+            let explicitEnd = chapter.endTime.flatMap { endTime in
+                endTime.isFinite && endTime > start ? endTime : nil
+            }
+            let end = min(explicitEnd ?? upperBound, upperBound)
+            guard end > start else { return nil }
+            return ChapterProgressSpan(chapter: chapter, start: start, end: end)
+        }
+
+        let count = resolvedChapters.count
+        return resolvedChapters.enumerated().map { index, resolved in
+            PlayerBarProgressSegment(
+                id: resolved.chapter.id,
+                start: resolved.start / duration,
+                end: resolved.end / duration,
+                index: index,
+                count: count,
+                title: resolved.chapter.title,
+                itemLabel: String(localized: "Chapter"),
+                rangeText: "\(Self.formatTime(resolved.start)) – \(Self.formatTime(resolved.end))"
             )
         }
     }
@@ -692,8 +785,28 @@ struct YouTubePlayerBar: View {
             self.youtubePlayer.popOutToWindow()
         }
     }
+}
 
-    private static func formatTime(_ seconds: Double) -> String {
+extension YouTubePlayerBar {
+    static func shouldShowFloatOnTopControl(
+        isDetachedWindow: Bool,
+        surfaceLocation: YouTubePlayerService.SurfaceLocation,
+        isFullscreenOrTransitioning: Bool
+    ) -> Bool {
+        isDetachedWindow && YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
+            isFloating: surfaceLocation == .floating,
+            isFullscreenOrTransitioning: isFullscreenOrTransitioning
+        )
+    }
+
+    static func hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: Bool) -> CGFloat {
+        self.baseHiddenVideoDetailsBreakpoint
+            + (showsFloatOnTopControl ? self.floatOnTopOptionsWidthIncrement : 0)
+    }
+}
+
+private extension YouTubePlayerBar {
+    static func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds)
         let hours = total / 3600
@@ -703,6 +816,54 @@ struct YouTubePlayerBar: View {
             return String(format: "%d:%02d:%02d", hours, mins, secs)
         }
         return String(format: "%d:%02d", mins, secs)
+    }
+
+    var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
+    }
+
+    var youtubeFloatOnTopButton: some View {
+        let help = String(localized: "Keep the video above standard windows on this Space.")
+
+        return PlayerBarIconButton(
+            action: self.toggleYouTubeFloatOnTop,
+            isSelected: self.settings.keepYouTubeVideoOnTop,
+            accessibilityID: AccessibilityID.YouTubeContent.videoWindowFloatOnTop,
+            accessibilityLabel: String(localized: "Float on Top"),
+            accessibilityValue: self.settings.keepYouTubeVideoOnTop
+                ? String(localized: "On")
+                : String(localized: "Off")
+        ) {
+            Image(systemName: self.settings.keepYouTubeVideoOnTop ? "pin.fill" : "pin")
+                .font(.system(size: 15, weight: .regular))
+                .frame(width: 14, height: 16)
+                .foregroundStyle(self.settings.keepYouTubeVideoOnTop ? Self.brandAccent : .primary)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .accessibilityHint(Text(help))
+        .help(help)
+    }
+
+    var youtubeOptionsWidth: CGFloat {
+        Self.baseYouTubeOptionsWidth
+            + (self.showsFloatOnTopControl ? Self.floatOnTopOptionsWidthIncrement : 0)
+    }
+
+    var showsFloatOnTopControl: Bool {
+        Self.shouldShowFloatOnTopControl(
+            isDetachedWindow: self.isDetachedWindow,
+            surfaceLocation: self.youtubePlayer.surfaceLocation,
+            isFullscreenOrTransitioning: self.youtubePlayer.isWindowFullscreen
+        )
+    }
+
+    var hiddenVideoDetailsBreakpoint: CGFloat {
+        Self.hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: self.showsFloatOnTopControl)
+    }
+
+    func toggleYouTubeFloatOnTop() {
+        HapticService.toggle()
+        self.settings.keepYouTubeVideoOnTop.toggle()
     }
 }
 
@@ -717,7 +878,7 @@ extension View {
     /// `PlayerBar` (see docs/architecture.md).
     func youtubePlayerBarInset() -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
-            YouTubePlayerBar()
+            YouTubePlayerBar(isDetachedWindow: false)
         }
     }
 }

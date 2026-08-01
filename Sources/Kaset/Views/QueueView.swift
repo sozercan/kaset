@@ -36,7 +36,7 @@ struct QueueView: View {
 
     private var headerView: some View {
         HStack {
-            Text("Up Next")
+            Text(String(localized: "Up Next"))
                 .font(.headline)
                 .foregroundStyle(.primary)
 
@@ -47,7 +47,7 @@ struct QueueView: View {
                 Button {
                     self.playerService.clearQueue()
                 } label: {
-                    Text("Clear")
+                    Text(String(localized: "Clear"))
                         .font(.subheadline)
                         .foregroundStyle(.red)
                 }
@@ -58,7 +58,7 @@ struct QueueView: View {
             Button {
                 self.playerService.toggleQueueDisplayMode()
             } label: {
-                Label("Edit", systemImage: "square.and.pencil")
+                Label(String(localized: "Edit"), systemImage: "square.and.pencil")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
@@ -87,11 +87,11 @@ struct QueueView: View {
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
 
-            Text("No Queue")
+            Text(String(localized: "No Queue"))
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            Text("Play songs from a playlist or album to build your queue.")
+            Text(String(localized: "Play songs from a playlist or album to build your queue."))
                 .font(.subheadline)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
@@ -107,18 +107,23 @@ struct QueueView: View {
                 ForEach(Array(self.playerService.queueEntries.enumerated()), id: \.element.id) { index, entry in
                     QueueRowView(
                         song: entry.song,
-                        isCurrentTrack: index == self.playerService.currentIndex,
+                        isCurrentTrack: index == self.playerService.activePlaybackQueueIndex,
                         index: index,
                         isSuggested: entry.source == .suggested,
                         allowsLikeActions: self.authService.hasPersonalAccount,
                         favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
-                            self.playerService.removeFromQueue(at: index)
+                            self.playerService.removeFromQueue(entryIDs: [entry.id])
                         },
                         onTap: {
-                            Task {
-                                await self.playerService.playFromQueue(at: index)
+                            let reservation = self.playerService.reserveMusicPlaybackIntent()
+                            Task { @MainActor in
+                                guard let intent = self.playerService.claimMusicPlaybackIntent(
+                                    reservation,
+                                    queueEntryID: entry.id
+                                ) else { return }
+                                await self.playerService.playFromQueue(entryID: entry.id, intent: intent)
                             }
                         }
                     )
@@ -210,7 +215,7 @@ private struct QueueRowView: View {
                 Button(role: .destructive) {
                     self.onRemove()
                 } label: {
-                    Label("Remove from Queue", systemImage: "minus.circle")
+                    Label(String(localized: "Remove from Queue"), systemImage: "minus.circle")
                 }
             }
         }
@@ -231,7 +236,7 @@ private struct QueueRowView: View {
             Image(systemName: "sparkles")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(PackageResourceLookup.brandAccent)
-                .accessibilityLabel(Text("Suggested"))
+                .accessibilityLabel(Text(String(localized: "Suggested")))
         } else {
             Text("\(self.index + 1)")
                 .font(.system(size: 12))

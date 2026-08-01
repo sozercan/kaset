@@ -507,6 +507,26 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
+    @Test("GetPlayQueue reports no active queue row for detached playback")
+    func getPlayQueueReportsDetachedPlayback() async {
+        let playerService = PlayerService()
+        await playerService.playQueue([
+            TestFixtures.makeSong(id: "queued-a"),
+            TestFixtures.makeSong(id: "queued-b"),
+        ], startingAt: 1)
+        await playerService.play(song: TestFixtures.makeSong(id: "detached"))
+        PlayerService.shared = playerService
+        defer { PlayerService.shared = nil }
+
+        let result = GetPlayQueueCommand().performDefaultImplementation() as? String
+        let json = result?.data(using: .utf8).flatMap {
+            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+        }
+
+        #expect(json?["currentIndex"] as? Int == 0)
+        #expect((json?["tracks"] as? [[String: Any]])?.count == 2)
+    }
+
     // MARK: - PlayTrackAtIndexCommand Tests
 
     @Test("PlayTrackAtIndex sets error when PlayerService is nil")

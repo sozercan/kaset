@@ -12,6 +12,9 @@ final class SearchViewModel {
     /// Current search query.
     var query: String = "" {
         didSet {
+            if oldValue != self.query {
+                self.resultGeneration &+= 1
+            }
             self.searchTask?.cancel()
             self.suggestionsTask?.cancel()
             self.allSearchEnrichmentID = nil
@@ -24,12 +27,10 @@ final class SearchViewModel {
                 self.loadingState = .idle
                 self.lastSearchedQuery = nil
                 self.suppressedSuggestionsQuery = nil
-                self.client.clearSearchContinuation()
             } else if self.query != self.lastSearchedQuery {
                 // Clear results when query changes from what was searched
                 self.results = .empty
                 self.loadingState = .idle
-                self.client.clearSearchContinuation()
             }
         }
     }
@@ -94,18 +95,21 @@ final class SearchViewModel {
     var hasMoreResults: Bool {
         // For "All" filter, we don't support pagination (mixed results)
         guard self.selectedFilter != .all else { return false }
-        return self.client.hasMoreSearchResults
+        return self.results.hasMore
     }
 
     /// Available filters.
     enum SearchFilter: String, CaseIterable, Identifiable {
         case all = "All"
         case songs = "Songs"
+        case videos = "Videos"
         case albums = "Albums"
         case artists = "Artists"
+        case profiles = "Profiles"
         case featuredPlaylists = "Featured playlists"
         case communityPlaylists = "Community playlists"
         case podcasts = "Podcasts"
+        case episodes = "Episodes"
 
         var id: String {
             rawValue
@@ -117,16 +121,22 @@ final class SearchViewModel {
                 String(localized: "All")
             case .songs:
                 String(localized: "Songs")
+            case .videos:
+                String(localized: "Videos")
             case .albums:
                 String(localized: "Albums")
             case .artists:
                 String(localized: "Artists")
+            case .profiles:
+                String(localized: "Profiles")
             case .featuredPlaylists:
                 String(localized: "Featured playlists")
             case .communityPlaylists:
                 String(localized: "Community playlists")
             case .podcasts:
                 String(localized: "Podcasts")
+            case .episodes:
+                String(localized: "Episodes")
             }
         }
     }
@@ -138,14 +148,27 @@ final class SearchViewModel {
             self.results.allItems
         case .songs:
             self.results.songs.map { .song($0) }
+        case .videos:
+            self.results.videos.map { .video($0) }
         case .albums:
-            self.results.albums.map { .album($0) }
+            self.results.allItems.filter { item in
+                switch item {
+                case .album, .audiobook:
+                    true
+                default:
+                    false
+                }
+            }
         case .artists:
             self.results.artists.map { .artist($0) }
+        case .profiles:
+            self.results.profiles.map { .profile($0) }
         case .featuredPlaylists, .communityPlaylists:
             self.results.playlists.map { .playlist($0) }
         case .podcasts:
             self.results.podcastShows.map { .podcastShow($0) }
+        case .episodes:
+            self.results.podcastEpisodes.map { .podcastEpisode($0) }
         }
     }
 
@@ -156,6 +179,7 @@ final class SearchViewModel {
     /// nonisolated(unsafe) required for deinit access; Swift 6.2 warning is expected.
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var suggestionsTask: Task<Void, Never>?
+    @ObservationIgnored private var resultGeneration: UInt = 0
     @ObservationIgnored private var suppressedSuggestionsQuery: String?
     // swiftformat:enable modifierOrder
 
@@ -165,9 +189,7 @@ final class SearchViewModel {
     }
 
     /// Non-nil while an All-filter search has published its mixed first paint
-    /// but is still awaiting dedicated category requests. Filter chips stay
-    /// hidden during this window because those category calls can still update
-    /// the shared client continuation token.
+    /// but is still awaiting dedicated category requests.
     private var allSearchEnrichmentID: UUID?
 
     init(client: any YTMusicClientProtocol) {
@@ -233,12 +255,12 @@ final class SearchViewModel {
 
     /// Performs a search with debounce.
     func search() {
+        self.resultGeneration &+= 1
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.allSearchEnrichmentID = nil
         self.suggestions = []
         self.suppressedSuggestionsQuery = self.query
-        self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
             self.results = .empty
@@ -258,12 +280,12 @@ final class SearchViewModel {
 
     /// Performs a search immediately without debounce.
     func searchImmediately() {
+        self.resultGeneration &+= 1
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.allSearchEnrichmentID = nil
         self.suggestions = []
         self.suppressedSuggestionsQuery = self.query
-        self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
             self.results = .empty
@@ -278,9 +300,9 @@ final class SearchViewModel {
 
     /// Performs a search with the current filter (no debounce, called when filter changes).
     private func searchWithFilter() {
+        self.resultGeneration &+= 1
         self.searchTask?.cancel()
         self.allSearchEnrichmentID = nil
-        self.client.clearSearchContinuation()
 
         guard !self.query.isEmpty else {
             self.results = .empty
@@ -313,26 +335,10 @@ final class SearchViewModel {
         self.logger.info("Searching for: \(currentQuery) with filter: \(currentFilter.rawValue)")
 
         do {
-            let searchResults: SearchResponse
-
-                // Use filtered search for specific filters to get more results
-                = switch currentFilter
-            {
-            case .all:
-                try await self.searchAll(query: currentQuery, filter: currentFilter)
-            case .songs:
-                try await self.client.searchSongsWithPagination(query: currentQuery)
-            case .albums:
-                try await self.client.searchAlbums(query: currentQuery)
-            case .artists:
-                try await self.client.searchArtists(query: currentQuery)
-            case .featuredPlaylists:
-                try await self.client.searchFeaturedPlaylists(query: currentQuery)
-            case .communityPlaylists:
-                try await self.client.searchCommunityPlaylists(query: currentQuery)
-            case .podcasts:
-                try await self.client.searchPodcasts(query: currentQuery)
-            }
+            let searchResults = try await self.executeSearch(
+                query: currentQuery,
+                filter: currentFilter
+            )
 
             // Check cancellation and query change before updating results
             // This handles the race condition where query changed during the request
@@ -349,6 +355,32 @@ final class SearchViewModel {
                 self.logger.error("Search failed: \(error.localizedDescription)")
                 self.loadingState = .error(LoadingError(from: error))
             }
+        }
+    }
+
+    /// Routes one query to the endpoint owned by the selected filter.
+    private func executeSearch(query: String, filter: SearchFilter) async throws -> SearchResponse {
+        switch filter {
+        case .all:
+            try await self.searchAll(query: query, filter: filter)
+        case .songs:
+            try await self.client.searchSongsWithPagination(query: query)
+        case .videos:
+            try await self.client.searchVideos(query: query)
+        case .albums:
+            try await self.client.searchAlbums(query: query)
+        case .artists:
+            try await self.client.searchArtists(query: query)
+        case .profiles:
+            try await self.client.searchProfiles(query: query)
+        case .featuredPlaylists:
+            try await self.client.searchFeaturedPlaylists(query: query)
+        case .communityPlaylists:
+            try await self.client.searchCommunityPlaylists(query: query)
+        case .podcasts:
+            try await self.client.searchPodcasts(query: query)
+        case .episodes:
+            try await self.client.searchEpisodes(query: query)
         }
     }
 
@@ -397,11 +429,17 @@ final class SearchViewModel {
         async let songResults = self.attemptSearch(label: "songs search") {
             try await self.client.searchSongsWithPagination(query: query)
         }
+        async let videoResults = self.attemptSearch(label: "videos search") {
+            try await self.client.searchVideos(query: query)
+        }
         async let albumResults = self.attemptSearch(label: "albums search") {
             try await self.client.searchAlbums(query: query)
         }
         async let artistResults = self.attemptSearch(label: "artists search") {
             try await self.client.searchArtists(query: query)
+        }
+        async let profileResults = self.attemptSearch(label: "profiles search") {
+            try await self.client.searchProfiles(query: query)
         }
         async let featuredPlaylistResults = self.attemptSearch(label: "featured playlists search") {
             try await self.client.searchFeaturedPlaylists(query: query)
@@ -412,14 +450,20 @@ final class SearchViewModel {
         async let podcastResults = self.attemptSearch(label: "podcasts search") {
             try await self.client.searchPodcasts(query: query)
         }
+        async let episodeResults = self.attemptSearch(label: "episodes search") {
+            try await self.client.searchEpisodes(query: query)
+        }
 
         let attempts = await [
             songResults,
+            videoResults,
             albumResults,
             artistResults,
+            profileResults,
             featuredPlaylistResults,
             communityPlaylistResults,
             podcastResults,
+            episodeResults,
         ]
 
         if let authError = attempts.compactMap(\.error).compactMap(Self.authenticationError).first {
@@ -459,44 +503,16 @@ final class SearchViewModel {
 
     /// Combines multiple search responses while keeping the first occurrence of each item.
     private static func mergeSearchResponses(_ responses: [SearchResponse]) -> SearchResponse {
-        var songs: [Song] = []
-        var albums: [Album] = []
-        var artists: [Artist] = []
-        var playlists: [Playlist] = []
-        var podcastShows: [PodcastShow] = []
-
-        var seenSongIDs: Set<String> = []
-        var seenAlbumIDs: Set<String> = []
-        var seenArtistIDs: Set<String> = []
-        var seenPlaylistIDs: Set<String> = []
-        var seenPodcastIDs: Set<String> = []
+        var items: [SearchResultItem] = []
+        var seenContent: Set<String> = []
 
         for response in responses {
-            for song in response.songs where seenSongIDs.insert(song.id).inserted {
-                songs.append(song)
-            }
-            for album in response.albums where seenAlbumIDs.insert(album.id).inserted {
-                albums.append(album)
-            }
-            for artist in response.artists where seenArtistIDs.insert(artist.id).inserted {
-                artists.append(artist)
-            }
-            for playlist in response.playlists where seenPlaylistIDs.insert(playlist.id).inserted {
-                playlists.append(playlist)
-            }
-            for podcastShow in response.podcastShows where seenPodcastIDs.insert(podcastShow.id).inserted {
-                podcastShows.append(podcastShow)
+            for item in response.allItems where seenContent.insert(item.contentIdentity).inserted {
+                items.append(item)
             }
         }
 
-        return SearchResponse(
-            songs: songs,
-            albums: albums,
-            artists: artists,
-            playlists: playlists,
-            podcastShows: podcastShows,
-            continuationToken: nil
-        )
+        return SearchResponse(items: items, continuationToken: nil)
     }
 
     /// Loads more search results via continuation.
@@ -505,37 +521,69 @@ final class SearchViewModel {
         guard self.selectedFilter != .all else { return }
         guard self.loadingState == .loaded else { return }
         guard self.hasMoreResults else { return }
+        guard let continuationToken = self.results.continuationToken else { return }
+
+        let generation = self.resultGeneration
+        let currentQuery = self.query
+        let currentFilter = self.selectedFilter
+        let baseResults = self.results
 
         self.loadingState = .loadingMore
         self.logger.info("Loading more search results")
 
         do {
-            guard let continuation = try await client.getSearchContinuation() else {
-                self.loadingState = .loaded
+            let continuation = try await self.client.getSearchContinuation(token: continuationToken)
+
+            guard self.isCurrentPagination(
+                query: currentQuery,
+                filter: currentFilter,
+                token: continuationToken,
+                generation: generation
+            ) else {
+                self.logger.debug("Search continuation discarded: query/filter/results changed")
                 return
             }
 
-            // Merge continuation results with existing results
-            let mergedResults = SearchResponse(
-                songs: self.results.songs + continuation.songs,
-                albums: self.results.albums + continuation.albums,
-                artists: self.results.artists + continuation.artists,
-                playlists: self.results.playlists + continuation.playlists,
-                podcastShows: self.results.podcastShows + continuation.podcastShows,
+            let mergedResults = Self.mergeSearchResponses([baseResults, continuation])
+            let paginatedResults = SearchResponse(
+                items: mergedResults.allItems,
                 continuationToken: continuation.continuationToken
             )
 
-            self.results = mergedResults
+            self.results = paginatedResults
             self.loadingState = .loaded
-            self.logger.info("Loaded more results: now \(mergedResults.allItems.count) total, hasMore: \(mergedResults.hasMore)")
+            self.logger.info("Loaded more results: now \(paginatedResults.allItems.count) total, hasMore: \(paginatedResults.hasMore)")
         } catch {
+            guard self.isCurrentPagination(
+                query: currentQuery,
+                filter: currentFilter,
+                token: continuationToken,
+                generation: generation
+            ) else {
+                return
+            }
             self.logger.error("Failed to load more: \(error.localizedDescription)")
             self.loadingState = .loaded // Revert to loaded state to allow retry
         }
     }
 
+    private func isCurrentPagination(
+        query: String,
+        filter: SearchFilter,
+        token: String,
+        generation: UInt
+    ) -> Bool {
+        !Task.isCancelled
+            && self.resultGeneration == generation
+            && self.query == query
+            && self.selectedFilter == filter
+            && self.results.continuationToken == token
+            && self.loadingState == .loadingMore
+    }
+
     /// Clears search results.
     func clear() {
+        self.resultGeneration &+= 1
         self.searchTask?.cancel()
         self.suggestionsTask?.cancel()
         self.query = ""
@@ -546,6 +594,5 @@ final class SearchViewModel {
         self.suppressedSuggestionsQuery = nil
         self.allSearchEnrichmentID = nil
         self.loadingState = .idle
-        self.client.clearSearchContinuation()
     }
 }

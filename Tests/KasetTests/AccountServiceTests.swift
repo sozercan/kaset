@@ -59,6 +59,532 @@ struct AccountServiceTests {
         #expect(SongLikeStatusManager.shared.activeAccountID == MockUserAccountData.brandAccount.id)
     }
 
+    @Test @MainActor func favoritesOwnerScopeStaysStableAcrossPartialAccountResponses() async throws {
+        let services = Self.createService()
+        services.auth.completeLogin(sapisid: "test-sapisid")
+
+        let originalPrimary = UserAccount.from(
+            name: "Original Name",
+            handle: "@stable-handle",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [originalPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == nil)
+        let provisionalContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(!FavoritesManager.shared.canMutate)
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [originalPrimary]
+        )
+        await services.account.fetchAccounts()
+        let resolvedScope = try #require(services.account.currentFavoritesScopeID)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
+
+        let renamedPrimary = UserAccount.from(
+            name: "Renamed Profile",
+            handle: "@renamed-handle",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [renamedPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == provisionalContentScope)
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "different@example.test",
+            accounts: [renamedPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != provisionalContentScope)
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [renamedPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        let recoveredContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(recoveredContentScope != conflictedContentScope)
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "different-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [renamedPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == nil)
+        let newAuthenticationContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(newAuthenticationContentScope != recoveredContentScope)
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [renamedPrimary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == resolvedScope)
+        #expect(services.account.currentAccountScopeID == newAuthenticationContentScope)
+    }
+
+    @Test @MainActor func unverifiedEmailChangeDoesNotBecomeOwnerAlias() async throws {
+        let services = Self.createService()
+        let primary = UserAccount.from(
+            name: "Primary",
+            handle: "@primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.auth.completeLogin(sapisid: "first-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let initialScope = try #require(services.account.currentFavoritesScopeID)
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {}
+        )
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "different@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == nil)
+        #expect(begins.count == 1)
+        #expect(ends.count == 1)
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "second-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "different@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        let differentOwnerScope = try #require(services.account.currentFavoritesScopeID)
+        #expect(differentOwnerScope != initialScope)
+    }
+
+    @Test @MainActor func conflictingDurableOwnerSignalsLeaveScopeUnresolved() async throws {
+        let services = Self.createService()
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil,
+            thumbnailURL: nil, isSelected: true
+        )
+
+        services.auth.completeLogin(sapisid: "first-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let firstScope = try #require(services.account.currentFavoritesScopeID)
+        FavoritesManager.shared.add(.from(TestFixtures.makeSong(id: "first-owner-favorite")))
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "second-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "second@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let secondScope = try #require(services.account.currentFavoritesScopeID)
+        #expect(secondScope != firstScope)
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "first-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let unresolvedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(services.account.currentFavoritesScopeID == nil)
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "second@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == nil)
+        let conflictedContentScope = try #require(services.account.currentAccountScopeID)
+        #expect(conflictedContentScope != unresolvedContentScope)
+        #expect(!FavoritesManager.shared.canMutate)
+        #expect(!FavoritesManager.shared.isPinned(contentId: "first-owner-favorite"))
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == firstScope)
+        #expect(services.account.currentAccountScopeID != conflictedContentScope)
+    }
+
+    @Test @MainActor func reauthenticationDoesNotReuseOwnerForEmailLessResponse() async throws {
+        let services = Self.createService()
+        services.auth.completeLogin(sapisid: "first-session")
+
+        let primary = UserAccount.from(
+            name: "Primary",
+            handle: "@primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        let firstScope = try #require(services.account.currentFavoritesScopeID)
+
+        services.auth.sessionExpired()
+        services.auth.completeLogin(sapisid: "second-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == nil)
+        #expect(!FavoritesManager.shared.canMutate)
+        FavoritesManager.shared.add(.from(TestFixtures.makeSong(id: "unresolved-favorite")))
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID == firstScope)
+        #expect(!FavoritesManager.shared.isPinned(contentId: "unresolved-favorite"))
+    }
+
+    @Test @MainActor func emailLessOwnerRemainsInactiveAcrossCredentialRotations() async {
+        let services = Self.createService()
+        let primary = UserAccount.from(
+            name: "Stable Primary",
+            handle: "@stable-primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+
+        services.auth.completeLogin(sapisid: "first-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+        #expect(services.account.currentFavoritesScopeID == nil)
+        #expect(!FavoritesManager.shared.canMutate)
+        FavoritesManager.shared.add(.from(TestFixtures.makeSong(id: "pre-resolution-favorite")))
+
+        for credential in ["second-session", "third-session"] {
+            services.auth.sessionExpired()
+            services.account.authenticationIdentityDidChange()
+            services.auth.completeLogin(sapisid: credential)
+            services.account.authenticationIdentityDidChange()
+            services.client.accountsListResponse = AccountsListResponse(
+                googleEmail: nil,
+                accounts: [primary]
+            )
+            await services.account.fetchAccounts()
+
+            #expect(services.account.currentFavoritesScopeID == nil)
+            #expect(!FavoritesManager.shared.canMutate)
+        }
+
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "stable@example.test",
+            accounts: [primary]
+        )
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentFavoritesScopeID != nil)
+        #expect(FavoritesManager.shared.canMutate)
+        #expect(!FavoritesManager.shared.isPinned(contentId: "pre-resolution-favorite"))
+        FavoritesManager.shared.add(.from(TestFixtures.makeSong(id: "resolved-favorite")))
+        #expect(FavoritesManager.shared.isPinned(contentId: "resolved-favorite"))
+    }
+
+    @Test @MainActor func provisionalAuthAliasPersistsWithoutRawIdentity() async throws {
+        let suiteName = "AccountServiceTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let primary = UserAccount.from(
+            name: "Persistent Primary",
+            handle: "@persistent-primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+
+        let firstServices = Self.createService(favoritesOwnerDefaults: defaults)
+        firstServices.auth.completeLogin(sapisid: "persistent-session")
+        firstServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await firstServices.account.fetchAccounts()
+        #expect(firstServices.account.currentFavoritesScopeID == nil)
+
+        let persistedData = try #require(defaults.data(forKey: "favorites.ownerState"))
+        let persistedText = try #require(String(data: persistedData, encoding: .utf8))
+        #expect(!persistedText.contains("@persistent-primary"))
+        #expect(!persistedText.contains("persistent-session"))
+        let persistedJSON = try #require(
+            JSONSerialization.jsonObject(with: persistedData) as? [String: Any]
+        )
+        let ownerIDsByAliasID = try #require(
+            persistedJSON["ownerIDsByAliasID"] as? [String: String]
+        )
+        let provisionalOwnerID = try #require(ownerIDsByAliasID.values.first)
+
+        let restoredServices = Self.createService(favoritesOwnerDefaults: defaults)
+        restoredServices.auth.completeLogin(sapisid: "persistent-session")
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "persistent@example.test",
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+
+        let expectedScope = FavoritesManager.accountScopeID(
+            ownerID: provisionalOwnerID,
+            accountID: primary.id
+        )
+        #expect(restoredServices.account.currentFavoritesScopeID == expectedScope)
+        #expect(FavoritesManager.shared.canMutate)
+    }
+
+    @Test @MainActor func persistedVerifiedOwnerRequiresCurrentGenerationEmailCorroboration() async throws {
+        let suiteName = "AccountServiceTests.verified-relaunch.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let primary = UserAccount.from(
+            name: "Persistent Primary",
+            handle: "@persistent-primary",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let favorite = FavoriteItem.from(TestFixtures.makeSong(id: "persisted-verified-owner"))
+
+        let firstServices = Self.createService(favoritesOwnerDefaults: defaults)
+        firstServices.auth.completeLogin(sapisid: "reused-multilogin-cookie")
+        firstServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary]
+        )
+        await firstServices.account.fetchAccounts()
+        let resolvedScope = try #require(firstServices.account.currentFavoritesScopeID)
+        FavoritesManager.shared.add(favorite)
+
+        let restoredServices = Self.createService(favoritesOwnerDefaults: defaults)
+        restoredServices.auth.completeLogin(sapisid: "reused-multilogin-cookie")
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+
+        #expect(restoredServices.account.currentFavoritesScopeID == nil)
+        #expect(!FavoritesManager.shared.canMutate)
+        #expect(!FavoritesManager.shared.isPinned(contentId: favorite.contentId))
+
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+        #expect(restoredServices.account.currentFavoritesScopeID == resolvedScope)
+        #expect(FavoritesManager.shared.isPinned(contentId: favorite.contentId))
+
+        restoredServices.client.accountsListResponse = AccountsListResponse(
+            googleEmail: nil,
+            accounts: [primary]
+        )
+        await restoredServices.account.fetchAccounts()
+        #expect(restoredServices.account.currentFavoritesScopeID == resolvedScope)
+    }
+
+    @Test @MainActor func pendingOwnerFinalizationResumesFromPersistedState() throws {
+        let suiteName = "AccountServiceTests.finalization.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let sourceOwnerID = "source-owner-\(UUID().uuidString)"
+        let targetOwnerID = "target-owner-\(UUID().uuidString)"
+        let accountID = "primary"
+        let sourceScopeID = FavoritesManager.accountScopeID(
+            ownerID: sourceOwnerID,
+            accountID: accountID
+        )
+        let targetScopeID = FavoritesManager.accountScopeID(
+            ownerID: targetOwnerID,
+            accountID: accountID
+        )
+        let sourceItem = FavoriteItem.from(TestFixtures.makeSong(id: "pending-finalization-source"))
+        let targetItem = FavoriteItem.from(TestFixtures.makeSong(id: "pending-finalization-target"))
+
+        FavoritesManager.shared.setActiveAccountScopeID(sourceScopeID)
+        FavoritesManager.shared.reset(with: [sourceItem])
+        FavoritesManager.shared.setActiveAccountScopeID(targetScopeID)
+        FavoritesManager.shared.reset(with: [targetItem, sourceItem])
+        FavoritesManager.shared.setActiveAccountScopeID(nil)
+
+        let state: [String: Any] = [
+            "ownerIDsByAliasID": ["opaque-alias": targetOwnerID],
+            "accountIDsByOwnerID": [targetOwnerID: [accountID]],
+            "emailAliasIDs": [],
+            "pendingFinalizations": [[
+                "sourceOwnerID": sourceOwnerID,
+                "targetOwnerID": targetOwnerID,
+                "accountIDs": [accountID],
+            ]],
+        ]
+        try defaults.set(JSONSerialization.data(withJSONObject: state), forKey: "favorites.ownerState")
+
+        _ = Self.createService(favoritesOwnerDefaults: defaults)
+
+        FavoritesManager.shared.setActiveAccountScopeID(sourceScopeID)
+        #expect(FavoritesManager.shared.items.isEmpty)
+        FavoritesManager.shared.setActiveAccountScopeID(targetScopeID)
+        #expect(FavoritesManager.shared.isPinned(contentId: sourceItem.contentId))
+        #expect(FavoritesManager.shared.isPinned(contentId: targetItem.contentId))
+
+        let persistedData = try #require(defaults.data(forKey: "favorites.ownerState"))
+        let persistedJSON = try #require(
+            JSONSerialization.jsonObject(with: persistedData) as? [String: Any]
+        )
+        let pendingFinalizations = try #require(
+            persistedJSON["pendingFinalizations"] as? [[String: Any]]
+        )
+        #expect(pendingFinalizations.isEmpty)
+    }
+
+    @Test @MainActor func staleAccountFetchCannotCommitAfterReauthentication() async {
+        let services = Self.createService()
+        services.auth.completeLogin(sapisid: "first-session")
+
+        let firstPrimary = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        services.client.accountsListStartedGate = requestStarted
+        services.client.accountsListReleaseGate = releaseRequest
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [firstPrimary]
+        )
+
+        let staleFetch = Task { @MainActor in
+            await services.account.fetchAccounts()
+        }
+        await requestStarted.wait()
+
+        services.auth.sessionExpired()
+        services.auth.completeLogin(sapisid: "second-session")
+        await releaseRequest.open()
+        await staleFetch.value
+
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.currentFavoritesScopeID == nil)
+    }
+
+    @Test @MainActor func staleAccountFetchCannotPublishWhileBoundaryDrainIsPending() async {
+        let services = Self.createService()
+        services.auth.completeLogin(sapisid: "first-session")
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        let primary = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "first@example.test",
+            accounts: [primary]
+        )
+        services.account.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let staleFetch = Task { @MainActor in
+            await services.account.fetchAccounts()
+        }
+        await drainStarted.wait()
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+
+        services.auth.sessionExpired()
+        services.auth.completeLogin(sapisid: "second-session")
+        await releaseDrain.open()
+        await staleFetch.value
+
+        #expect(services.account.accounts.isEmpty)
+        #expect(services.account.currentAccount == nil)
+        #expect(services.account.currentFavoritesScopeID == nil)
+    }
+
+    @Test @MainActor func sameAccountRefreshDoesNotOpenMutationBoundary() async {
+        let services = Self.createService()
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        let primary = MockUserAccountData.primaryAccount
+        await Self.populateAccounts(services, accounts: [primary])
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {}
+        )
+
+        await services.account.fetchAccounts()
+
+        #expect(services.account.currentAccount?.id == primary.id)
+        #expect(begins.isEmpty)
+        #expect(ends.isEmpty)
+    }
+
     // MARK: - Switch Account Tests
 
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
@@ -156,6 +682,42 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCalled == true)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
         #expect(services.account.currentAccount == brandAccount)
+    }
+
+    @Test @MainActor func accountTransitionPreparationRunsBeforeSessionNavigation() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        let primary = MockUserAccountData.primaryAccount
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand])
+
+        services.account.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+        mockWebKit.switchSessionIdentityGate = {
+            #expect(begins.count > ends.count)
+        }
+
+        let switchTask = Task {
+            try await services.account.switchAccount(to: brand)
+        }
+        await drainStarted.wait()
+        #expect(!mockWebKit.switchSessionIdentityCalled)
+        await releaseDrain.open()
+        try await switchTask.value
+
+        #expect(begins.count >= 1)
+        #expect(ends.count == begins.count)
+        #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [brand.brandId])
     }
 
     @Test @MainActor func failedSessionSwitchRevertsToPreviousAccount() async throws {
@@ -304,6 +866,123 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds.isEmpty)
     }
 
+    @Test @MainActor func prepareForSignOutAwaitsPriorIdentityDrain() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let primary = MockUserAccountData.primaryAccount
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brand.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        let oldPinGate = AsyncGate()
+        mockWebKit.switchSessionIdentityGate = { await oldPinGate.wait() }
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "old@example.test",
+            accounts: [primary, brand]
+        )
+        services.auth.completeLogin(sapisid: "old-session")
+        await services.account.fetchAccounts()
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount == 0 {
+            await Task.yield()
+        }
+
+        let signOutFlow = Task { @MainActor in
+            await services.auth.signOut()
+        }
+        await Task.yield()
+        #expect(mockWebKit.clearAllDataCalled == false)
+
+        await oldPinGate.open()
+        await signOutFlow.value
+
+        #expect(mockWebKit.clearAllDataCalled == true)
+        #expect(services.auth.state == .loggedOut)
+    }
+
+    @Test @MainActor func prepareForSignOutBlocksNewSessionMutationWhileDraining() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil,
+            thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brand.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        let oldPinGate = AsyncGate()
+        mockWebKit.switchSessionIdentityGate = { await oldPinGate.wait() }
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary, brand]
+        )
+        services.auth.completeLogin(sapisid: "active-session")
+        await services.account.fetchAccounts()
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount == 0 {
+            await Task.yield()
+        }
+        guard mockWebKit.switchSessionIdentityCallCount == 1 else {
+            Issue.record("Expected restored session pin to start")
+            await oldPinGate.open()
+            return
+        }
+
+        let preparation = Task { @MainActor in
+            await services.account.prepareForSignOut()
+        }
+        await Task.yield()
+        let lateSwitch = Task { @MainActor in
+            try? await services.account.switchAccount(to: primary)
+        }
+        for _ in 0 ..< 100 {
+            await Task.yield()
+        }
+
+        #expect(mockWebKit.switchSessionIdentityCallCount == 1)
+
+        await oldPinGate.open()
+        await preparation.value
+        await lateSwitch.value
+
+        #expect(mockWebKit.switchSessionIdentityCallCount == 1)
+        #expect(services.account.currentAccount?.id == brand.id)
+    }
+
+    @Test @MainActor func prepareForReauthenticationAwaitsPriorIdentityDrain() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let primary = MockUserAccountData.primaryAccount
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brand.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        let oldPinGate = AsyncGate()
+        mockWebKit.switchSessionIdentityGate = { await oldPinGate.wait() }
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "owner@example.test",
+            accounts: [primary, brand]
+        )
+        services.auth.completeLogin(sapisid: "expired-session")
+        await services.account.fetchAccounts()
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount == 0 {
+            await Task.yield()
+        }
+
+        services.auth.sessionExpired()
+        let reauthenticationPreparation = Task { @MainActor in
+            await services.account.prepareForReauthentication()
+            await mockWebKit.clearAuthCookies()
+        }
+        await Task.yield()
+        #expect(mockWebKit.clearAuthCookiesCalled == false)
+
+        await oldPinGate.open()
+        await reauthenticationPreparation.value
+
+        #expect(mockWebKit.clearAuthCookiesCalled == true)
+    }
+
     @Test @MainActor func newerSwitchCancelsFailedSwitchRollbackNavigation() async throws {
         let previous = UserAccount.from(
             name: "Primary", handle: "@primary", brandId: nil,
@@ -330,14 +1009,16 @@ struct AccountServiceTests {
             nil,
         ]
 
-        async let failedSwitch: Void = services.account.switchAccount(to: target)
+        let failedSwitch = Task { @MainActor in
+            try await services.account.switchAccount(to: target)
+        }
         for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount < 2 {
             await Task.yield()
         }
         guard mockWebKit.switchSessionIdentityCallCount >= 2 else {
             Issue.record("Expected rollback navigation to start")
             await rollbackGate.release()
-            try? await failedSwitch
+            try? await failedSwitch.value
             return
         }
 
@@ -351,10 +1032,9 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [newer.brandId])
 
         await rollbackGate.release()
-        do {
-            try await failedSwitch
-            Issue.record("Expected original failed switch to throw")
-        } catch {}
+        await #expect(throws: CancellationError.self) {
+            try await failedSwitch.value
+        }
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [newer.brandId])
     }
 
@@ -569,6 +1249,215 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [brandB.brandId])
     }
 
+    @Test @MainActor func authBoundaryFetchRunsAfterOldManualSwitchUnwinds() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let oldPrimary = UserAccount.from(
+            name: "Old Primary", handle: "@old", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let oldBrand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [oldPrimary, oldBrand], selectedIndex: 0)
+        await services.account.awaitRestoredSessionPinForTesting()
+        services.client.reset()
+        mockWebKit.reset()
+
+        let switchGate = AsyncReleaseGate()
+        mockWebKit.switchSessionIdentityGate = { await switchGate.wait() }
+        let oldSwitch = Task { @MainActor in
+            try? await services.account.switchAccount(to: oldBrand)
+        }
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount == 0 {
+            await Task.yield()
+        }
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.account.clearAccounts()
+        services.auth.completeLogin(sapisid: "new-session")
+        let newPrimary = UserAccount.from(
+            name: "New Primary", handle: "@new", brandId: nil, thumbnailURL: nil, isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "new@example.test",
+            accounts: [newPrimary]
+        )
+
+        await services.account.fetchAccounts()
+        #expect(services.client.fetchAccountsListCallCount == 0)
+
+        await switchGate.release()
+        await oldSwitch.value
+        for _ in 0 ..< 100 where services.client.fetchAccountsListCallCount == 0 {
+            await Task.yield()
+        }
+        for _ in 0 ..< 100 where services.account.currentAccount?.name != newPrimary.name {
+            await Task.yield()
+        }
+
+        #expect(services.client.fetchAccountsListCallCount == 1)
+        #expect(services.account.currentAccount?.name == newPrimary.name)
+    }
+
+    @Test @MainActor func authBoundaryFetchWaitsForOldPassivePinToDrain() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let oldPrimary = MockUserAccountData.primaryAccount
+        let oldBrand = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(oldBrand.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        let oldPinGate = AsyncGate()
+        mockWebKit.switchSessionIdentityGate = { await oldPinGate.wait() }
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "old@example.test",
+            accounts: [oldPrimary, oldBrand]
+        )
+        services.auth.completeLogin(sapisid: "old-session")
+        await services.account.fetchAccounts()
+        for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount == 0 {
+            await Task.yield()
+        }
+        let oldFetchCount = services.client.fetchAccountsListCallCount
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "new-session")
+        let newPrimary = UserAccount.from(
+            name: "New Primary", handle: "@new", brandId: nil, thumbnailURL: nil, isSelected: true
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "new@example.test",
+            accounts: [newPrimary]
+        )
+
+        let newFetch = Task { @MainActor in
+            await services.account.fetchAccounts()
+        }
+        await Task.yield()
+        #expect(services.client.fetchAccountsListCallCount == oldFetchCount)
+
+        await oldPinGate.open()
+        await newFetch.value
+
+        #expect(services.client.fetchAccountsListCallCount == oldFetchCount + 1)
+        #expect(services.account.currentAccount?.name == newPrimary.name)
+    }
+
+    @Test @MainActor func staleAccountValueUsesCurrentSnapshotMetadata() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let stalePrimary = UserAccount.from(
+            name: "Old Primary", handle: "@old", brandId: nil,
+            thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2Fold")
+        )
+        services.auth.completeLogin(sapisid: "old-session")
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "old@example.test",
+            accounts: [stalePrimary]
+        )
+        await services.account.fetchAccounts()
+        await services.account.awaitRestoredSessionPinForTesting()
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+        services.auth.completeLogin(sapisid: "new-session")
+        let currentPrimary = UserAccount.from(
+            name: "New Primary", handle: "@new", brandId: nil,
+            thumbnailURL: nil, isSelected: true, signinURL: nil
+        )
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "new@example.test",
+            accounts: [currentPrimary]
+        )
+        await services.account.fetchAccounts()
+        mockWebKit.reset()
+
+        try await services.account.switchAccount(to: stalePrimary)
+
+        #expect(services.account.currentAccount?.name == currentPrimary.name)
+        #expect(mockWebKit.switchSessionIdentityCallCount == 0)
+    }
+
+    @Test @MainActor func guardedAccountSwitchesThrowCancellation() async throws {
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil,
+            thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+
+        let boundaryServices = Self.createService(webKitManager: MockWebKitManager())
+        await Self.populateAccounts(boundaryServices, accounts: [primary, brand], selectedIndex: 0)
+        await boundaryServices.account.awaitRestoredSessionPinForTesting()
+        await boundaryServices.account.prepareForSignOut()
+        await #expect(throws: CancellationError.self) {
+            try await boundaryServices.account.switchAccount(to: brand)
+        }
+
+        let staleServices = Self.createService(webKitManager: MockWebKitManager())
+        await Self.populateAccounts(staleServices, accounts: [primary, brand], selectedIndex: 0)
+        await staleServices.account.awaitRestoredSessionPinForTesting()
+        staleServices.auth.sessionExpired()
+        staleServices.auth.completeLogin(sapisid: "replacement-session")
+        await #expect(throws: CancellationError.self) {
+            try await staleServices.account.switchAccount(to: brand)
+        }
+    }
+
+    @Test @MainActor func guestModeCanSwitchAccountAtomically() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil,
+            thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
+        await services.account.awaitRestoredSessionPinForTesting()
+        mockWebKit.reset()
+
+        await services.auth.enterGuestMode()
+        #expect(services.auth.isGuestModeEnabled)
+
+        try await services.account.switchAccount(to: brand)
+        #expect(services.account.currentAccount?.id == brand.id)
+        #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brand.brandId])
+        #expect(!services.auth.isGuestModeEnabled)
+        #expect(SongLikeStatusManager.shared.activeAccountID == brand.id)
+        #expect(FavoritesManager.shared.activeScopeID == services.account.currentFavoritesScopeID)
+    }
+
+    @Test @MainActor func guestModeFailedSwitchKeepsGuestScopes() async throws {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let primary = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil,
+            thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
+        )
+        let brand = MockUserAccountData.brandAccountWithSigninURL
+        await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
+        await services.account.awaitRestoredSessionPinForTesting()
+        mockWebKit.reset()
+        mockWebKit.switchSessionIdentityErrorQueue = [
+            SessionSwitchError.identityNotApplied(expectedBrandId: brand.brandId),
+            nil,
+        ]
+
+        await services.auth.enterGuestMode()
+        await #expect(throws: SessionSwitchError.self) {
+            try await services.account.switchAccount(to: brand)
+        }
+
+        #expect(services.auth.isGuestModeEnabled)
+        #expect(services.account.currentAccount?.id == primary.id)
+        #expect(SongLikeStatusManager.shared.activeAccountID == SongLikeStatusManager.guestAccountID)
+        #expect(FavoritesManager.shared.activeScopeID != services.account.currentFavoritesScopeID)
+    }
+
     @Test @MainActor func switchAccountWithoutSigninURLFailsSafely() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
@@ -638,6 +1527,53 @@ struct AccountServiceTests {
         #expect(services.account.verifiedAccountId == primaryAccount.id)
         #expect(services.account.lastError != nil)
         #expect(SongLikeStatusManager.shared.activeAccountID == primaryAccount.id)
+    }
+
+    @Test @MainActor func staleRestoredBrandFallbackCannotRecreateSignedOutSession() async {
+        let mockWebKit = MockWebKitManager()
+        let services = Self.createService(webKitManager: mockWebKit)
+        let fallbackDrainStarted = AsyncGate()
+        let releaseFallbackDrain = AsyncGate()
+        let drainCount = LockedCounter()
+        let primaryAccount = UserAccount.from(
+            name: "Primary", handle: "@primary", brandId: nil, thumbnailURL: nil, isSelected: true,
+            signinURL: URL(string: "https://example.com/mock-signin")
+        )
+        let brandAccount = MockUserAccountData.brandAccountWithSigninURL
+        UserDefaults.standard.set(brandAccount.id, forKey: "selectedBrandId")
+        defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
+
+        services.account.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                drainCount.increment()
+                if drainCount.count == 3 {
+                    await fallbackDrainStarted.open()
+                    await releaseFallbackDrain.wait()
+                }
+            }
+        )
+        mockWebKit.switchSessionIdentityErrorQueue = [
+            SessionSwitchError.identityNotApplied(expectedBrandId: brandAccount.brandId),
+            nil,
+        ]
+        services.client.accountsListResponse = AccountsListResponse(
+            googleEmail: "test@gmail.com",
+            accounts: [primaryAccount, brandAccount]
+        )
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+        await fallbackDrainStarted.wait()
+
+        services.auth.sessionExpired()
+        await releaseFallbackDrain.open()
+        await services.account.awaitRestoredSessionPinForTesting()
+
+        #expect(services.auth.state == .loggedOut)
+        #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
+        #expect(services.account.currentAccount?.id == brandAccount.id)
+        #expect(services.account.verifiedAccountId == nil)
     }
 
     @Test @MainActor func restoredBrandWithoutSigninURLFallsBackToPrimary() async {
@@ -895,18 +1831,23 @@ struct AccountServiceTests {
     // MARK: - Helper Methods
 
     @MainActor
-    private static func createService() -> TestServices {
+    private static func createService(favoritesOwnerDefaults: UserDefaults? = nil) -> TestServices {
         let authService = AuthService()
         let mockClient = MockYTMusicClient()
-        let service = AccountService(ytMusicClient: mockClient, authService: authService)
+        let service = AccountService(
+            ytMusicClient: mockClient,
+            authService: authService,
+            favoritesOwnerDefaults: favoritesOwnerDefaults
+        )
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
+        FavoritesManager.shared.setActiveAccountScopeID(nil)
         return TestServices(account: service, client: mockClient, auth: authService)
     }
 
     @MainActor
     private static func createService(webKitManager: MockWebKitManager) -> TestServices {
-        let authService = AuthService()
+        let authService = AuthService(webKitManager: webKitManager)
         let mockClient = MockYTMusicClient()
         let service = AccountService(
             ytMusicClient: mockClient,
@@ -915,6 +1856,7 @@ struct AccountServiceTests {
         )
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
+        FavoritesManager.shared.setActiveAccountScopeID(nil)
         return TestServices(account: service, client: mockClient, auth: authService)
     }
 

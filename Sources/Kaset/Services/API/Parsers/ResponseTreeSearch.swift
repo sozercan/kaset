@@ -24,6 +24,23 @@ enum ResponseTreeSearch {
         return nil
     }
 
+    static func dictionaries(named key: String, in value: Any) -> [[String: Any]] {
+        var matches: [[String: Any]] = []
+        if let dictionary = value as? [String: Any] {
+            if let match = dictionary[key] as? [String: Any] {
+                matches.append(match)
+            }
+            for child in dictionary.values {
+                matches.append(contentsOf: self.dictionaries(named: key, in: child))
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                matches.append(contentsOf: self.dictionaries(named: key, in: child))
+            }
+        }
+        return matches
+    }
+
     static func containsKey(_ key: String, in value: Any) -> Bool {
         if let dictionary = value as? [String: Any] {
             if dictionary[key] != nil {

@@ -1,6 +1,25 @@
 import AppKit
 import UserNotifications
 
+extension Notification.Name {
+    /// Posted by `AppDelegate` when the app receives deep-link URLs.
+    static let kasetOpenURLs = Notification.Name("kasetOpenURLs")
+}
+
+// MARK: - AppActivationWindowPolicy
+
+/// Decides whether a generic activation should reveal the main window. Explicit
+/// reopen actions such as the Dock icon and Window → Kaset bypass this policy.
+enum AppActivationWindowPolicy {
+    static func shouldRevealMainWindow(
+        keyWindowIdentifier: String?,
+        mainWindowIdentifier: String?
+    ) -> Bool {
+        !AccessibilityID.isAuxiliaryPlayerWindowIdentifier(keyWindowIdentifier)
+            && !AccessibilityID.isAuxiliaryPlayerWindowIdentifier(mainWindowIdentifier)
+    }
+}
+
 // MARK: - AppDelegate
 
 /// App delegate to control application lifecycle behavior.
@@ -11,6 +30,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Set by KasetApp after initialization.
     weak var playerService: PlayerService?
     weak var scrobblingCoordinator: ScrobblingCoordinator?
+
+    /// URLs received before the SwiftUI scene is ready to observe deep links.
+    private var pendingOpenURLs: [URL] = []
+
+    /// True after `KasetApp` starts observing `.kasetOpenURLs`.
+    private var isOpenURLDeliveryReady = false
 
     /// Reference to the main window for reliable reopen behavior.
     /// Using strong reference to prevent deallocation when window is hidden.
@@ -115,14 +140,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // override. Stop the native timer and re-assert once immediately.
         SingletonPlayerWebView.shared.endBackgroundMediaControlReassertion()
         SingletonPlayerWebView.shared.reassertMediaControlOverride()
-        // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
-        // This handles the case where video window is visible but main window is hidden.
+        // Generic activation normally reveals the main window, but activation
+        // through an auxiliary player must leave a deliberately hidden main
+        // window alone. Dock-icon reopening is handled explicitly below.
         if self.isSwitchedToMiniPlayer {
             if #available(macOS 26.0, *) {
                 MiniPlayerWindowController.shared.orderFrontIfVisible()
             }
             return
         }
+
+        let application = NSApplication.shared
+        guard AppActivationWindowPolicy.shouldRevealMainWindow(
+            keyWindowIdentifier: application.keyWindow?.identifier?.rawValue,
+            mainWindowIdentifier: application.mainWindow?.identifier?.rawValue
+        ) else { return }
+
         self.showMainWindowIfNeeded()
     }
 
@@ -253,6 +286,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Show main window when dock icon is clicked
         self.showMainWindowIfNeeded()
         return true
+    }
+
+    /// Deep-link entry point for custom URL schemes.
+    func application(_: NSApplication, open urls: [URL]) {
+        DiagnosticsLogger.app.info("AppDelegate: open \(urls.count) URL(s)")
+        self.deliverOpenURLs(urls)
+    }
+
+    /// Call once the main scene is observing `.kasetOpenURLs`.
+    func beginOpenURLDelivery() {
+        self.isOpenURLDeliveryReady = true
+        let pending = self.pendingOpenURLs
+        self.pendingOpenURLs.removeAll()
+        self.deliverOpenURLs(pending)
+    }
+
+    private func deliverOpenURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if self.isOpenURLDeliveryReady {
+            NotificationCenter.default.post(name: .kasetOpenURLs, object: urls)
+        } else {
+            self.pendingOpenURLs.append(contentsOf: urls)
+        }
     }
 
     private var isSwitchedToMiniPlayer: Bool {

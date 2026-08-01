@@ -12,29 +12,29 @@ struct MusicSettingsView: View {
 
             Section {
                 Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
-                    .help("Show a notification when a new track starts playing")
+                    .help(String(localized: "Show a notification when a new track starts playing"))
 
-                Picker("Now Playing Controls", selection: self.$settings.mediaControlStyle) {
+                Picker(String(localized: "Now Playing Controls"), selection: self.$settings.mediaControlStyle) {
                     ForEach(SettingsManager.MediaControlStyle.allCases) { style in
                         Text(style.displayName).tag(style)
                     }
                 }
-                .help("Choose which buttons appear in the Now Playing widget in Control Center")
+                .help(String(localized: "Choose which buttons appear in the Now Playing widget in Control Center"))
 
-                Toggle("Keep Mini Player on Top", isOn: self.$settings.keepMiniPlayerOnTop)
-                    .help("Keep the mini player visible above other windows")
+                Toggle(String(localized: "Keep Mini Player on Top"), isOn: self.$settings.keepMiniPlayerOnTop)
+                    .help(String(localized: "Keep the mini player visible above other windows"))
 
                 Toggle("Remember Shuffle & Repeat", isOn: self.$settings.rememberPlaybackSettings)
-                    .help("Save shuffle and repeat settings across app restarts")
+                    .help(String(localized: "Save shuffle and repeat settings across app restarts"))
             } header: {
-                Text("Now Playing")
+                Text(String(localized: "Now Playing"))
             }
 
             // MARK: - Smart Shuffle Section
 
             Section {
                 Toggle("Enable Smart Shuffle", isOn: self.$settings.smartShuffleEnabled)
-                    .help("Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue")
+                    .help(String(localized: "Adds a third 'smart' state to the shuffle button that interleaves recommended tracks into your queue"))
 
                 if self.settings.smartShuffleEnabled {
                     self.numberField(
@@ -42,49 +42,49 @@ struct MusicSettingsView: View {
                         unit: "songs",
                         value: self.$settings.smartShuffleSuggestEveryN
                     )
-                    .help("How far apart suggestions are placed (every N of your playlist's songs)")
+                    .help(String(localized: "How far apart suggestions are placed (every N of your playlist's songs)"))
 
                     self.numberField(
                         label: "Suggestions per insertion",
                         unit: nil,
                         value: self.$settings.smartShuffleBurst
                     )
-                    .help("How many recommended tracks to drop in at each insertion point")
+                    .help(String(localized: "How many recommended tracks to drop in at each insertion point"))
 
                     self.numberField(
                         label: "Keep suggestions queued ahead",
                         unit: "tracks",
                         value: self.$settings.smartShuffleSuggestionsAhead
                     )
-                    .help("How many recommendations to keep ready ahead of the current track")
+                    .help(String(localized: "How many recommendations to keep ready ahead of the current track"))
                 }
             } header: {
-                Text("Smart Shuffle")
+                Text(String(localized: "Smart Shuffle"))
             }
 
             // MARK: - Audio Section
 
             Section {
-                Picker("Playback Audio Quality", selection: self.$settings.playbackAudioQuality) {
+                Picker(String(localized: "Playback Audio Quality"), selection: self.$settings.playbackAudioQuality) {
                     ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
                         Text(quality.displayName).tag(quality)
                     }
                 }
-                .help("Choose the preferred audio quality for YouTube Music playback")
+                .help(String(localized: "Choose the preferred audio quality for YouTube Music playback"))
             } header: {
-                Text("Audio")
+                Text(String(localized: "Audio"))
             }
 
             // MARK: - Lyrics Section
 
             Section {
                 Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)
-                    .help("Fetch and display real-time synced lyrics when available")
+                    .help(String(localized: "Fetch and display real-time synced lyrics when available"))
 
                 Toggle("Romanize Lyrics", isOn: self.$settings.romanizationEnabled)
-                    .help("Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics")
+                    .help(String(localized: "Show romanized text (romaji, pinyin, etc.) below non-Latin lyrics"))
             } header: {
-                Text("Lyrics")
+                Text(String(localized: "Lyrics"))
             }
         }
         .formStyle(.grouped)

@@ -63,7 +63,7 @@ struct CommandIntentParser {
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowered = trimmedQuery.lowercased()
 
-        if let searchQuery = self.explicitSearchQuery(from: trimmedQuery) {
+        if let searchQuery = Self.explicitSearchQuery(from: trimmedQuery) {
             return .openSearch(query: searchQuery)
         }
 
@@ -137,13 +137,18 @@ struct CommandIntentParser {
         return nil
     }
 
-    private func explicitSearchQuery(from query: String) -> String? {
+    static func explicitSearchQuery(from query: String) -> String? {
         let lowered = query.lowercased()
         let prefixes = [
+            "please search for ",
+            "please search ",
             "search for ",
             "search ",
+            "browse for ",
+            "browse ",
             "find ",
             "look up ",
+            "lookup ",
             "show me ",
         ]
 

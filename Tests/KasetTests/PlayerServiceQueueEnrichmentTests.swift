@@ -65,7 +65,7 @@ struct PlayerServiceQueueEnrichmentTests {
         let mockClient = MockYTMusicClient()
         playerService.queueEnrichmentInitialDelay = .milliseconds(5)
         playerService.queueEnrichmentRetryDelay = .milliseconds(50)
-        mockClient.getSongErrors = [NSError(domain: "Transient", code: 500)]
+        mockClient.getSongErrorsByCallCount[1] = NSError(domain: "Transient", code: 500)
         mockClient.songResponses["retry-me"] = TestFixtures.makeSong(
             id: "retry-me",
             title: "Recovered Song",
@@ -300,7 +300,7 @@ struct PlayerServiceQueueEnrichmentTests {
         playerService.nativeQueueMaintenanceTask = maintenanceTask
 
         await playerService.enrichQueueMetadata(
-            songsToEnrich: [(index: 0, videoId: current.videoId)]
+            songsToEnrich: [(entryID: currentEntryID, videoId: current.videoId)]
         )
 
         #expect(playerService.queueEntryIDs == [currentEntryID, successorEntryID])

@@ -186,11 +186,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     if detail.profileKind == .artist {
                         // Shuffle button - shuffles all artist's songs (fetches if needed)
                         Button {
+                            let intent = self.playerService.beginMusicPlaybackIntent()
                             Task {
-                                await self.shuffleAllSongs()
+                                await self.shuffleAllSongs(intent: intent)
                             }
                         } label: {
-                            Label("Shuffle", systemImage: "shuffle")
+                            Label(String(localized: "Shuffle"), systemImage: "shuffle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -205,7 +206,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         Button {
                             self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
                         } label: {
-                            Label("Mix", systemImage: "play.circle")
+                            Label(String(localized: "Mix"), systemImage: "play.circle")
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.large)
@@ -305,7 +306,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         songsBrowseId: detail.songsBrowseId,
                         songsParams: detail.songsParams
                     )) {
-                        Text("See all")
+                        Text(String(localized: "See all"))
                             .font(.subheadline)
                     }
                     .buttonStyle(.plain)
@@ -330,13 +331,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func topSongRow(_ song: Song, index: Int) -> some View {
         HoverObservingRow { isHovered in
             Button {
-                // Fetch all songs and play as queue starting from the selected song
-                Task {
-                    let allSongs = await self.viewModel.getAllSongs()
-                    // Find the index of the selected song in the full list
-                    let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
-                    await self.playerService.playQueue(allSongs, startingAt: startIndex)
-                }
+                self.playTopSong(song, displayedIndex: index)
             } label: {
                 HStack(spacing: 12) {
                     // Thumbnail
@@ -369,7 +364,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                             .lineLimit(1)
                             .frame(width: 150, alignment: .leading)
                     } else {
-                        Text("")
+                        Text(String(localized: ""))
                             .frame(width: 150, alignment: .leading)
                     }
 
@@ -390,13 +385,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
         .contextMenu {
             Button {
-                Task {
-                    let allSongs = await self.viewModel.getAllSongs()
-                    let startIndex = allSongs.firstIndex(where: { $0.videoId == song.videoId }) ?? index
-                    await self.playerService.playQueue(allSongs, startingAt: startIndex)
-                }
+                self.playTopSong(song, displayedIndex: index)
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             if self.authService.hasPersonalAccount {
@@ -419,7 +410,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 Button {
                     SongActionsHelper.addToLibrary(song, playerService: self.playerService)
                 } label: {
-                    Label("Add to Library", systemImage: "plus.circle")
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
                 }
 
                 Divider()
@@ -448,9 +439,36 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
+        }
+    }
+
+    private func playTopSong(_ song: Song, displayedIndex: Int) {
+        let intent = self.playerService.beginMusicPlaybackIntent()
+        let exactOrdinal = self.viewModel.displayedSongs
+            .prefix(displayedIndex)
+            .count(where: { $0.id == song.id && $0.videoId == song.videoId })
+        let videoOrdinal = self.viewModel.displayedSongs
+            .prefix(displayedIndex)
+            .count(where: { $0.videoId == song.videoId })
+        Task {
+            let allSongs = await self.viewModel.getAllSongs()
+            guard self.playerService.acceptsMusicPlaybackIntent(intent) else { return }
+            let exactMatches = allSongs.indices.filter {
+                allSongs[$0].id == song.id && allSongs[$0].videoId == song.videoId
+            }
+            let videoMatches = allSongs.indices.filter { allSongs[$0].videoId == song.videoId }
+            let startIndex = exactMatches[safe: exactOrdinal]
+                ?? videoMatches[safe: videoOrdinal]
+                ?? (allSongs.indices.contains(displayedIndex) ? displayedIndex : 0)
+            await self.playerService.playQueue(
+                allSongs,
+                startingAt: startIndex,
+                deferringSmartShuffleFill: false,
+                intent: intent
+            )
         }
     }
 
@@ -627,24 +645,42 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     // MARK: - Actions
 
     private func playMix(playlistId: String, startVideoId: String?) {
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task {
-            await self.playerService.playWithMix(playlistId: playlistId, startVideoId: startVideoId)
+            await self.playerService.playWithMix(
+                playlistId: playlistId,
+                startVideoId: startVideoId,
+                intent: intent
+            )
         }
     }
 
     private func playAll(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
+        let intent = self.playerService.beginMusicPlaybackIntent()
         Task {
-            await self.playerService.playQueue(songs, startingAt: 0)
+            await self.playerService.playQueue(
+                songs,
+                startingAt: 0,
+                deferringSmartShuffleFill: false,
+                intent: intent
+            )
         }
     }
 
     /// Fetches all artist songs and plays them shuffled.
-    private func shuffleAllSongs() async {
+    private func shuffleAllSongs(intent: MusicPlaybackIntent) async {
         let allSongs = await self.viewModel.getAllSongs()
-        guard !allSongs.isEmpty else { return }
+        guard !allSongs.isEmpty,
+              self.playerService.acceptsMusicPlaybackIntent(intent)
+        else { return }
         let shuffledSongs = allSongs.shuffled()
-        await self.playerService.playQueue(shuffledSongs, startingAt: 0)
+        await self.playerService.playQueue(
+            shuffledSongs,
+            startingAt: 0,
+            deferringSmartShuffleFill: false,
+            intent: intent
+        )
     }
 
     // MARK: - Episodes Section (Latest episodes / live radios)
@@ -658,8 +694,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             self.sectionHeader(title: "Latest episodes", shelfKind: .episodes)
         } itemContent: { episode in
             Button {
+                let intent = self.playerService.beginMusicPlaybackIntent()
                 Task {
-                    await self.playerService.playEpisode(episode)
+                    await self.playerService.playEpisode(episode, intent: intent)
                 }
             } label: {
                 self.episodeCard(episode)
@@ -911,7 +948,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 trackCount: nil,
                 author: Artist.inline(name: artistName, namespace: "playlist-author")
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)
@@ -921,7 +958,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 sectionTitle: sectionTitle,
                 endpoint: more
             )) {
-                Text("See all").font(.subheadline)
+                Text(String(localized: "See all")).font(.subheadline)
             }
             .buttonStyle(.plain)
             .foregroundStyle(Color.accentColor)

@@ -123,6 +123,7 @@ extension SingletonPlayerWebView {
     static var mediaControlOverrideScript: String {
         """
         (function() {
+            \(eventTimestampFunctionJS)
             const observerEpoch = (window.performance && performance.timeOrigin)
                 ? performance.timeOrigin : Date.now();
             const documentID = Number(window.__kasetDocumentID || 0);
@@ -156,11 +157,23 @@ extension SingletonPlayerWebView {
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_NEXT', observerEpoch: observerEpoch, documentID: documentID });
+                                .postMessage({
+                                    type: 'REMOTE_NEXT',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
                         });
                         ms.setActionHandler('previoustrack', function() {
                             window.webkit.messageHandlers.singletonPlayer
-                                .postMessage({ type: 'REMOTE_PREVIOUS', observerEpoch: observerEpoch, documentID: documentID });
+                                .postMessage({
+                                    type: 'REMOTE_PREVIOUS',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
                         });
                     });
                 } catch (e) {}

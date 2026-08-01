@@ -13,6 +13,8 @@ struct Playlist: Identifiable, Codable, Hashable {
     let trackCount: Int?
     let author: Artist?
     let canDelete: Bool
+    let moodCategoryEndpoint: MoodCategoryEndpoint?
+    let libraryTargetId: String?
 
     private enum CodingKeys: String, CodingKey {
         case id
@@ -22,6 +24,8 @@ struct Playlist: Identifiable, Codable, Hashable {
         case trackCount
         case author
         case canDelete
+        case moodCategoryEndpoint
+        case libraryTargetId
     }
 
     init(
@@ -31,7 +35,9 @@ struct Playlist: Identifiable, Codable, Hashable {
         thumbnailURL: URL?,
         trackCount: Int?,
         author: Artist? = nil,
-        canDelete: Bool = false
+        canDelete: Bool = false,
+        moodCategoryEndpoint: MoodCategoryEndpoint? = nil,
+        libraryTargetId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -40,6 +46,8 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.trackCount = trackCount
         self.author = author
         self.canDelete = canDelete
+        self.moodCategoryEndpoint = moodCategoryEndpoint
+        self.libraryTargetId = libraryTargetId
     }
 
     init(from decoder: any Decoder) throws {
@@ -59,6 +67,11 @@ struct Playlist: Identifiable, Codable, Hashable {
         }
 
         self.canDelete = (try? container.decode(Bool.self, forKey: .canDelete)) ?? false
+        self.moodCategoryEndpoint = try container.decodeIfPresent(
+            MoodCategoryEndpoint.self,
+            forKey: .moodCategoryEndpoint
+        )
+        self.libraryTargetId = try container.decodeIfPresent(String.self, forKey: .libraryTargetId)
     }
 
     /// Whether this is an album (vs a playlist).
@@ -134,6 +147,8 @@ extension Playlist {
         }
 
         self.canDelete = data["canDelete"] as? Bool ?? false
+        self.moodCategoryEndpoint = nil
+        self.libraryTargetId = data["libraryTargetId"] as? String
     }
 }
 
@@ -184,6 +199,7 @@ struct PlaylistDetail: Identifiable {
     let canDelete: Bool
     let tracks: [Song]
     let duration: String?
+    let libraryTargetId: String?
 
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
@@ -201,7 +217,12 @@ struct PlaylistDetail: Identifiable {
         LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
     }
 
-    init(playlist: Playlist, tracks: [Song], duration: String? = nil) {
+    init(
+        playlist: Playlist,
+        tracks: [Song],
+        duration: String? = nil,
+        libraryTargetId: String? = nil
+    ) {
         self.id = playlist.id
         self.title = playlist.title
         self.description = playlist.description
@@ -211,6 +232,7 @@ struct PlaylistDetail: Identifiable {
         self.canDelete = playlist.canDelete
         self.tracks = tracks
         self.duration = duration
+        self.libraryTargetId = libraryTargetId ?? playlist.libraryTargetId
     }
 
     /// Track count to show in the UI, preferring the API-reported total over the loaded row count.

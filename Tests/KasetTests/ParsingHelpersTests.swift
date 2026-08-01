@@ -88,6 +88,65 @@ struct ParsingHelpersTests {
         #expect(result == "https://example.com/image.jpg")
     }
 
+    // MARK: - Playlist Occurrence ID Extraction
+
+    @Test("Playlist occurrence ID prefers playlistItemData")
+    func extractPlaylistSetVideoIdFromPlaylistItemData() {
+        let data: [String: Any] = [
+            "playlistItemData": ["playlistSetVideoId": "set-direct"],
+            "menu": [
+                "playlistEditEndpoint": [
+                    "actions": [[
+                        "action": "ACTION_REMOVE_VIDEO",
+                        "setVideoId": "set-menu",
+                    ]],
+                ],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == "set-direct")
+    }
+
+    @Test("Playlist occurrence ID falls back to a nested remove endpoint")
+    func extractPlaylistSetVideoIdFromEditEndpoint() {
+        let data: [String: Any] = [
+            "menu": [
+                "menuRenderer": [
+                    "items": [[
+                        "menuServiceItemRenderer": [
+                            "serviceEndpoint": [
+                                "playlistEditEndpoint": [
+                                    "playlistId": "playlist-placeholder",
+                                    "actions": [[
+                                        "action": "ACTION_REMOVE_VIDEO",
+                                        "removedVideoId": "video-placeholder",
+                                        "setVideoId": "set-from-menu",
+                                    ]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == "set-from-menu")
+    }
+
+    @Test("Playlist occurrence ID does not treat removedVideoId as setVideoId")
+    func extractPlaylistSetVideoIdIgnoresRemovedVideoId() {
+        let data: [String: Any] = [
+            "playlistEditEndpoint": [
+                "actions": [[
+                    "action": "ACTION_REMOVE_VIDEO",
+                    "removedVideoId": "video-placeholder",
+                ]],
+            ],
+        ]
+
+        #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == nil)
+    }
+
     // MARK: - Thumbnail Extraction
 
     @Test("Extract thumbnails from musicThumbnailRenderer")
@@ -183,18 +242,20 @@ struct ParsingHelpersTests {
         let data: [String: Any] = [
             "subtitle": [
                 "runs": [
-                    ["text": "Artist"],
+                    ["text": "Primary Artist"],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": ", "],
+                    ["text": "Third Artist"],
                     ["text": " • "],
-                    ["text": "Song"],
+                    ["text": "455M plays"],
                 ],
             ],
         ]
 
         let artists = ParsingHelpers.extractArtists(from: data)
 
-        #expect(artists.count == 2)
-        #expect(artists[0].name == "Artist")
-        #expect(artists[1].name == "Song")
+        #expect(artists.map(\.name) == ["Primary Artist", "Guest Artist", "Third Artist"])
     }
 
     @Test("Extract artists from flex columns accepts library artist browse IDs")
@@ -305,6 +366,65 @@ struct ParsingHelpersTests {
         #expect(artists.count == 1)
         #expect(artists[0].name == "Upload Artist")
         #expect(artists.allSatisfy { !$0.hasNavigableId })
+    }
+
+    @Test(
+        "Content type labels are not treated as plain artist names",
+        arguments: ["Audiobook", "Single", "EP", "Profile", "Podcast Episode"]
+    )
+    func contentTypeLabelsAreNotPlainArtists(label: String) {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Fixture Result"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": label],
+                                ["text": " • "],
+                                ["text": "Fixture Creator"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.map(\.name) == ["Fixture Creator"])
+    }
+
+    @Test("Middle-dot separators are excluded from plain artist fallback")
+    func middleDotSeparatorsAreNotArtists() {
+        let data: [String: Any] = [
+            "flexColumns": [
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": ["runs": [["text": "Fixture Video"]]],
+                    ],
+                ],
+                [
+                    "musicResponsiveListItemFlexColumnRenderer": [
+                        "text": [
+                            "runs": [
+                                ["text": "Video"],
+                                ["text": " · "],
+                                ["text": "Fixture Creator"],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
+
+        #expect(artists.map(\.name) == ["Fixture Creator"])
     }
 
     // MARK: - Video ID Extraction

@@ -19,12 +19,12 @@ enum PlaylistPlaybackActions {
         client: any YTMusicClientProtocol,
         playerService: PlayerService
     ) -> Task<Void, Never> {
-        let requestGeneration = playerService.beginPendingPlaybackSelectionRequest()
+        let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
-                guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
-                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request")
+                guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                    DiagnosticsLogger.ui.info("Discarding stale playlist playback request after newer playback intent")
                     return
                 }
                 var songs = response.detail.tracks
@@ -32,8 +32,8 @@ enum PlaylistPlaybackActions {
                 if self.isRadioPlaylist(playlist.id) {
                     do {
                         let allTracks = try await client.getPlaylistAllTracks(playlistId: playlist.id)
-                        guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
-                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request")
+                        guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                            DiagnosticsLogger.ui.info("Discarding stale playlist all-tracks request after newer playback intent")
                             return
                         }
                         if allTracks.count >= songs.count, !allTracks.isEmpty {
@@ -45,8 +45,8 @@ enum PlaylistPlaybackActions {
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
                     }
-                    guard playerService.isCurrentPendingPlaybackSelectionRequest(requestGeneration) else {
-                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback")
+                    guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback after newer playback intent")
                         return
                     }
                 } else {
@@ -59,7 +59,10 @@ enum PlaylistPlaybackActions {
                     // fill cannot slip through.
                     let willDeferLoad = response.continuationToken != nil
                     let loadGeneration = await playerService.playQueue(
-                        playableSongs, startingAt: 0, deferringSmartShuffleFill: willDeferLoad
+                        playableSongs,
+                        startingAt: 0,
+                        deferringSmartShuffleFill: willDeferLoad,
+                        intent: intent
                     )
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
 
@@ -84,7 +87,12 @@ enum PlaylistPlaybackActions {
                 let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                 guard !playableSongs.isEmpty else { return }
 
-                await playerService.playQueue(playableSongs, startingAt: 0)
+                await playerService.playQueue(
+                    playableSongs,
+                    startingAt: 0,
+                    deferringSmartShuffleFill: false,
+                    intent: intent
+                )
                 DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
@@ -124,6 +132,29 @@ enum PlaylistPlaybackActions {
                 thumbnailURL: song.thumbnailURL ?? playlist.thumbnailURL,
                 isPlayable: song.isPlayable
             )
+        }
+    }
+
+    /// Returns full-playlist tracks that were not already put in the initial queue.
+    /// Uses occurrence counts per video ID so authored duplicates remain intact while
+    /// user removals from the playlist do not shift a fragile numeric offset.
+    static func remainingTracks(after initialTracks: [Song], in fullTracks: [Song]) -> [Song] {
+        var unmatchedInitialCounts: [String: Int] = [:]
+        for track in initialTracks {
+            unmatchedInitialCounts[self.playlistOccurrenceIdentity(for: track), default: 0] += 1
+        }
+
+        return fullTracks.filter { track in
+            let identity = self.playlistOccurrenceIdentity(for: track)
+            guard let remainingCount = unmatchedInitialCounts[identity], remainingCount > 0 else {
+                return true
+            }
+            if remainingCount == 1 {
+                unmatchedInitialCounts.removeValue(forKey: identity)
+            } else {
+                unmatchedInitialCounts[identity] = remainingCount - 1
+            }
+            return false
         }
     }
 
@@ -178,7 +209,15 @@ enum PlaylistPlaybackActions {
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
-            isExplicit: song.isExplicit
+            isExplicit: song.isExplicit,
+            playlistSetVideoId: song.playlistSetVideoId
         )
+    }
+
+    private static func playlistOccurrenceIdentity(for song: Song) -> String {
+        if let setVideoId = song.playlistSetVideoId, !setVideoId.isEmpty {
+            return "set:\(setVideoId)"
+        }
+        return "video:\(song.videoId)"
     }
 }

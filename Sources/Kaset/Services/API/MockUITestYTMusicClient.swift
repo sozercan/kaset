@@ -173,11 +173,17 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func searchVideos(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(videos: self.searchResults.videos)
+    }
+
     func searchAlbums(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
         return SearchResponse(
             songs: [],
             albums: self.searchResults.albums,
+            audiobooks: self.searchResults.audiobooks,
             artists: [],
             playlists: [],
             continuationToken: nil
@@ -193,6 +199,11 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             playlists: [],
             continuationToken: nil
         )
+    }
+
+    func searchProfiles(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(profiles: self.searchResults.profiles)
     }
 
     func searchPlaylists(query _: String) async throws -> SearchResponse {
@@ -230,26 +241,16 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func searchPodcasts(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: [],
-            podcastShows: [],
-            continuationToken: nil
-        )
+        return SearchResponse(podcastShows: self.searchResults.podcastShows)
     }
 
-    func getSearchContinuation() async throws -> SearchResponse? {
-        nil
+    func searchEpisodes(query _: String) async throws -> SearchResponse {
+        try? await Task.sleep(for: .milliseconds(100))
+        return SearchResponse(podcastEpisodes: self.searchResults.podcastEpisodes)
     }
 
-    var hasMoreSearchResults: Bool {
-        false
-    }
-
-    func clearSearchContinuation() {
-        // No-op for mock
+    func getSearchContinuation(token _: String) async throws -> SearchResponse {
+        .empty
     }
 
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
@@ -272,7 +273,12 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         try? await Task.sleep(for: .milliseconds(100))
-        return PlaylistParser.LibraryContent(playlists: self.playlists, artists: [], podcastShows: [])
+        return PlaylistParser.LibraryContent(
+            playlists: self.playlists,
+            albums: Self.defaultLibraryAlbums(),
+            artists: [],
+            podcastShows: []
+        )
     }
 
     func getLikedSongs() async throws -> LikedSongsResponse {
@@ -286,20 +292,70 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        let playlist = self.playlists.first { $0.id == id } ?? Playlist(
-            id: id,
-            title: "Test Playlist",
-            description: "A test playlist",
-            thumbnailURL: nil,
-            trackCount: 10,
-            author: Artist.inline(name: "Test User", namespace: "playlist-author")
-        )
+        let libraryAlbum = Self.defaultLibraryAlbums().first { $0.id == id }
+        let playlist = libraryAlbum.map(Self.playlist(from:))
+            ?? self.playlists.first { $0.id == id }
+            ?? Playlist(
+                id: id,
+                title: "Test Playlist",
+                description: "A test playlist",
+                thumbnailURL: nil,
+                trackCount: 10,
+                author: Artist.inline(name: "Test User", namespace: "playlist-author")
+            )
         let detail = PlaylistDetail(
             playlist: playlist,
             tracks: Self.defaultSongs(count: 10),
-            duration: "30 minutes"
+            duration: "30 minutes",
+            libraryTargetId: Self.libraryTargetId(for: playlist, libraryAlbum: libraryAlbum)
         )
         return PlaylistTracksResponse(detail: detail, continuationToken: nil)
+    }
+
+    private static func defaultLibraryAlbums() -> [Album] {
+        (0 ..< 4).map { index in
+            let ordinal = index + 1
+            let browseId = "MPREbMockLibraryAlbum\(ordinal)"
+            return Album(
+                id: browseId,
+                title: "Test Album \(ordinal)",
+                artists: [Artist(id: "UCMockLibraryAlbumArtist\(ordinal)", name: "Album Artist \(ordinal)")],
+                thumbnailURL: nil,
+                year: "2024",
+                trackCount: 9 + ordinal,
+                libraryTargetId: Self.libraryTargetId(forAlbumId: browseId)
+            )
+        }
+    }
+
+    private static func playlist(from album: Album) -> Playlist {
+        Playlist(
+            id: album.id,
+            title: album.title,
+            description: "A mock saved album",
+            thumbnailURL: album.thumbnailURL,
+            trackCount: album.trackCount,
+            author: album.artistsDisplay.isEmpty
+                ? nil
+                : Artist.inline(name: album.artistsDisplay, namespace: "mock-library-album-artist")
+        )
+    }
+
+    private static func libraryTargetId(for playlist: Playlist, libraryAlbum: Album?) -> String? {
+        if let libraryTargetId = libraryAlbum?.libraryTargetId {
+            return libraryTargetId
+        }
+        if playlist.id.hasPrefix("OLAK") {
+            return playlist.id
+        }
+        if playlist.id.hasPrefix("MPRE") {
+            return Self.libraryTargetId(forAlbumId: playlist.id)
+        }
+        return nil
+    }
+
+    private static func libraryTargetId(forAlbumId albumId: String) -> String {
+        "OLAK5uy_l\(albumId.dropFirst(4))"
     }
 
     func getPlaylistContinuation(token _: String, requiresAuth _: Bool) async throws -> PlaylistContinuationResponse {
@@ -386,6 +442,10 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     }
 
     func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {
+        // No-op for UI tests
+    }
+
+    func removeSongFromPlaylist(videoId _: String, setVideoId _: String, playlistId _: String) async throws {
         // No-op for UI tests
     }
 
@@ -498,7 +558,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return HomeResponse(sections: [section])
     }
 
-    func fetchAccountsList() async throws -> AccountsListResponse {
+    func fetchAccountsList(allowGuestMode _: Bool) async throws -> AccountsListResponse {
         if UITestConfig.environmentValue(for: UITestConfig.mockAccountLoadingDelayKey) == "true" {
             try? await Task.sleep(for: .milliseconds(800))
         } else {
@@ -559,33 +619,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    private static func parseSearchResults() -> SearchResponse? {
-        guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockSearchResultsKey),
-              let data = jsonString.data(using: .utf8),
-              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            return nil
-        }
-
-        let songs = (dict["songs"] as? [[String: Any]])?.compactMap { songDict -> Song? in
-            guard let id = songDict["id"] as? String,
-                  let title = songDict["title"] as? String,
-                  let videoId = songDict["videoId"] as? String
-            else {
-                return nil
-            }
-            let artist = songDict["artist"] as? String ?? "Unknown"
-            return Song(
-                id: id,
-                title: title,
-                artists: [Artist(id: "mock", name: artist)],
-                videoId: videoId
-            )
-        } ?? []
-
-        return SearchResponse(songs: songs, albums: [], artists: [], playlists: [])
-    }
-
     private static func parsePlaylists() -> [Playlist]? {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockPlaylistsKey),
               let data = jsonString.data(using: .utf8),
@@ -639,91 +672,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
                 brandId: brandId,
                 thumbnailURL: thumbnailURL,
                 isSelected: isSelected
-            )
-        }
-    }
-
-    // MARK: - Default Data
-
-    private static func defaultHomeSections() -> [HomeSection] {
-        [
-            HomeSection(
-                id: "quick-picks",
-                title: "Quick picks",
-                items: self.defaultSongs(count: 8).map { .song($0) }
-            ),
-            HomeSection(
-                id: "listen-again",
-                title: "Listen again",
-                items: self.defaultSongs(count: 6).map { .song($0) }
-            ),
-            HomeSection(
-                id: "recommended",
-                title: "Recommended",
-                items: self.defaultSongs(count: 10).map { .song($0) }
-            ),
-        ]
-    }
-
-    private static func defaultSearchResults() -> SearchResponse {
-        SearchResponse(
-            songs: self.defaultSongs(count: 5),
-            albums: self.defaultAlbums(count: 2),
-            artists: [
-                Artist(id: "artist-1", name: "Search Artist 1", thumbnailURL: nil),
-                Artist(id: "artist-2", name: "Search Artist 2", thumbnailURL: nil),
-            ],
-            playlists: self.defaultPlaylists()
-        )
-    }
-
-    private static func defaultPlaylists() -> [Playlist] {
-        (0 ..< 5).map { index in
-            Playlist(
-                id: "playlist-\(index)",
-                title: "My Playlist \(index + 1)",
-                description: "A great playlist",
-                thumbnailURL: nil,
-                trackCount: 10 + index * 5,
-                author: Artist.inline(name: "Test User", namespace: "playlist-author")
-            )
-        }
-    }
-
-    private static func defaultLikedSongs() -> [Song] {
-        self.defaultSongs(count: 20)
-    }
-
-    private static func defaultSongs(count: Int) -> [Song] {
-        (0 ..< count).map { index in
-            Song(
-                id: "song-\(index)",
-                title: "Test Song \(index + 1)",
-                artists: [Artist(id: "artist-\(index % 3)", name: "Artist \(index % 3 + 1)")],
-                album: Album(
-                    id: "album-\(index % 5)",
-                    title: "Album \(index % 5 + 1)",
-                    artists: nil,
-                    thumbnailURL: nil,
-                    year: "2024",
-                    trackCount: 12
-                ),
-                duration: TimeInterval(180 + index * 10),
-                thumbnailURL: nil,
-                videoId: "video-\(index)"
-            )
-        }
-    }
-
-    private static func defaultAlbums(count: Int) -> [Album] {
-        (0 ..< count).map { index in
-            Album(
-                id: "album-\(index)",
-                title: "Test Album \(index + 1)",
-                artists: [Artist(id: "artist-\(index)", name: "Album Artist \(index + 1)")],
-                thumbnailURL: nil,
-                year: "2024",
-                trackCount: 10 + index
             )
         }
     }

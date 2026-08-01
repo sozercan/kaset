@@ -7,6 +7,18 @@ import WebKit
 /// native view. Used by both the inline WatchView and the floating window;
 /// whichever is on screen reparents the singleton WebView into itself.
 struct YouTubeWatchSurfaceView: NSViewRepresentable {
+    @Environment(YouTubePlayerService.self) private var youtubePlayer
+
+    /// When present, this host may claim the singleton WebView only while that
+    /// video is still selected. Shorts pages overlap briefly during paging, so
+    /// an outgoing page can otherwise update late and steal the WebView back
+    /// from the newly active page.
+    let expectedVideoId: String?
+
+    init(expectedVideoId: String? = nil) {
+        self.expectedVideoId = expectedVideoId
+    }
+
     func makeNSView(context _: Context) -> YouTubeWatchContainerView {
         let container = YouTubeWatchContainerView()
         container.wantsLayer = true
@@ -15,7 +27,32 @@ struct YouTubeWatchSurfaceView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: YouTubeWatchContainerView, context _: Context) {
-        YouTubeWatchWebView.shared.ensureInHierarchy(container: nsView)
+        YouTubeWatchWebView.shared.ensureInHierarchy(
+            container: nsView,
+            expectedVideoId: self.expectedVideoId,
+            selectedVideoId: self.youtubePlayer.currentVideo?.videoId
+        )
+    }
+}
+
+// MARK: - YouTubeWatchSurfaceAttachment
+
+@MainActor
+enum YouTubeWatchSurfaceAttachment {
+    @discardableResult
+    static func claim(
+        surface: NSView,
+        in container: NSView,
+        expectedVideoId: String?,
+        currentVideoId: String?
+    ) -> Bool {
+        if let expectedVideoId, expectedVideoId != currentVideoId {
+            return false
+        }
+        guard surface.superview !== container else { return true }
+        surface.removeFromSuperview()
+        container.addSubview(surface)
+        return true
     }
 }
 

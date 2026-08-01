@@ -109,6 +109,7 @@ Manages authentication state:
 - `checkLoginStatus()` — Checks cookies for valid session
 - `startLogin()` — Presents login sheet
 - `sessionExpired()` — Handles 401/403 from API
+- Authentication-boundary cleanup — Account session mutations are fenced and drained before sign-out or reauthentication clears/samples shared WebKit cookies
 
 ### YTMusicClient
 
@@ -126,6 +127,7 @@ Makes authenticated requests to YouTube Music's internal API:
 - `getExplore()` → Explore page (new releases, charts, moods)
 - `search(query:)` → Search results
 - `getLibraryPlaylists()` → User's playlists
+- `getLibraryContent()` → User's playlists, saved albums, followed artists, podcasts, and uploads
 - `getLikedSongs()` → User's liked songs (with pagination via `getLikedSongsContinuation()`)
 - `getPlaylist(id:)` → Playlist details (with pagination via `getPlaylistContinuation()`)
 - `getPlaylistAllTracks(playlistId:)` → All tracks via queue API (for radio playlists)
@@ -175,7 +177,7 @@ Response parsing is extracted into specialized modules:
 | `ResponseTreeSearch.swift` | Recursive search helpers for nested YouTube Music response trees |
 | `HomeResponseParser.swift` | Home/Explore page sections |
 | `SearchResponseParser.swift` | Search results |
-| `LibraryContentParser.swift` | Library browse content, including playlists, followed artists, podcast shows, and uploaded-song virtual tile parsing |
+| `LibraryContentParser.swift` | Library browse content, including playlists, saved albums, followed artists, podcast shows, and uploaded-song virtual tile parsing |
 | `PlaylistEditability.swift` | Playlist ownership/delete affordance detection |
 | `PlaylistParser.swift` | Playlist details, queue tracks, pagination, add-to-playlist menu options, and create-playlist IDs |
 | `ArtistParser.swift` | Artist details (songs, albums, subscription status) |
@@ -312,12 +314,18 @@ Manages user-curated Favorites section on Home view:
 - `toggle(_:)` — Adds if not pinned, removes if pinned
 - `move(from:to:)` — Reorders via drag-and-drop
 - `isPinned(contentId:)` — Checks if item is in Favorites
+- `setActiveAccountScopeID(_:)` — Switches signed-in scope; `nil` clears the visible list (sign-out)
+- `enterGuestMode()` / `exitGuestMode()` — Use a separate guest scope and restore the last signed-in scope; account switching keeps guest data visible and grants only the account-list refresh scoped access to the preserved session until commit
 
 **Persistence**:
-- **Location**: `~/Library/Application Support/Kaset/favorites.json`
+- **Location**: `~/Library/Application Support/Kaset/favorites-<opaqueScopeId>.json`
+- **Scope**: SHA-256-derived from a local canonical owner UUID plus the selected primary/brand account ID; guest is separate
+- **Owner identity**: A local owner UUID is bound to hashed auth and email fingerprints in `UserDefaults` plus an atomic Application Support backup manifest; raw credentials and email are never persisted, while account IDs remain only for scope derivation and migration bookkeeping
 - **Format**: JSON-encoded `[FavoriteItem]`
-- **Writes**: Async on background thread via `Task.detached`
-- **Reads**: Synchronous at init (one-time on app launch)
+- **Writes**: Debounced async; flushed before account switch
+- **Account discovery**: Credential aliases remain inactive until a matching email corroborates the owner in the current auth generation; staged prepare/commit/finalize migration reconciles auth and email fingerprints, and persisted pending-finalization records resume interrupted cleanup
+- **Reads**: Deferred until account discovery selects a scope; signed-out state has no persistence target
+- **Upgrade**: Old shared `favorites.json` is claimed by the first resolved scope, and every prior `favorites-<accountId>.json` file in the verified account list is atomically claimed by its corresponding opaque scope so interrupted cleanup cannot replay it into another user
 
 **Related Files**:
 - `Sources/Kaset/Models/FavoriteItem.swift` — Data model with `ItemType` enum
@@ -469,7 +477,7 @@ Parses YouTube Music URLs, regular YouTube watch links, and custom `kaset://` UR
 | `kaset://album?id=xxx` | `.album(id:)` |
 | `kaset://artist?id=xxx` | `.artist(id:)` |
 
-**Usage**: Called from `KasetApp.onOpenURL` to handle deep links. Music song links play through `PlayerService`; regular YouTube watch links switch to the YouTube source and open playback in the floating video window.
+**Usage**: Custom-scheme URLs enter through `AppDelegate.application(_:open:)`. The app delegate buffers cold-launch deliveries until the SwiftUI scene subscribes, then posts `.kasetOpenURLs` for `KasetApp.handleIncomingURL` to parse and route. Music song links play through `PlayerService`; regular YouTube watch links switch to the YouTube source and open playback in the floating video window.
 
 ### ScriptCommands (AppleScript)
 

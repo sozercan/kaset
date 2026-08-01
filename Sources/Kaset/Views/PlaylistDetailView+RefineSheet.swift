@@ -19,7 +19,7 @@ struct RefinePlaylistSheet: View {
     var body: some View {
         VStack(spacing: 0) {
             HStack {
-                Text("Refine Playlist")
+                Text(String(localized: "Refine Playlist"))
                     .font(.headline)
                 Spacer()
                 Button {
@@ -29,7 +29,7 @@ struct RefinePlaylistSheet: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Close")
+                .accessibilityLabel(String(localized: "Close"))
             }
             .padding()
 
@@ -58,7 +58,7 @@ struct RefinePlaylistSheet: View {
             ProgressView()
                 .controlSize(.regular)
                 .frame(width: 20, height: 20)
-            Text("Analyzing playlist...")
+            Text(String(localized: "Analyzing playlist..."))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -77,7 +77,7 @@ struct RefinePlaylistSheet: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
-                    Text("Analyzing...")
+                    Text(String(localized: "Analyzing..."))
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
                 }
@@ -89,7 +89,7 @@ struct RefinePlaylistSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     if let removals = partial.removals, !removals.isEmpty {
-                        Text("Suggested Removals")
+                        Text(String(localized: "Suggested Removals"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .textCase(.uppercase)
@@ -119,7 +119,7 @@ struct RefinePlaylistSheet: View {
 
             HStack {
                 Spacer()
-                Text("Processing...")
+                Text(String(localized: "Processing..."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -129,7 +129,7 @@ struct RefinePlaylistSheet: View {
 
     private var promptView: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("What would you like to change?")
+            Text(String(localized: "What would you like to change?"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
@@ -158,12 +158,12 @@ struct RefinePlaylistSheet: View {
 
             HStack {
                 Spacer()
-                Button("Cancel") {
+                Button(String(localized: "Cancel")) {
                     self.dismiss()
                 }
                 .keyboardShortcut(.escape)
 
-                Button("Refine") {
+                Button(String(localized: "Refine")) {
                     Task {
                         await self.onRefine(self.promptText)
                     }
@@ -188,7 +188,7 @@ struct RefinePlaylistSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 8) {
                     if !changes.removals.isEmpty {
-                        Text("Suggested Removals")
+                        Text(String(localized: "Suggested Removals"))
                             .font(.caption)
                             .foregroundStyle(.tertiary)
                             .textCase(.uppercase)
@@ -212,7 +212,7 @@ struct RefinePlaylistSheet: View {
                     }
 
                     if changes.removals.isEmpty, changes.reorderedIds == nil {
-                        Text("No changes suggested. The playlist looks good!")
+                        Text(String(localized: "No changes suggested. The playlist looks good!"))
                             .foregroundStyle(.secondary)
                     }
                 }
@@ -222,19 +222,19 @@ struct RefinePlaylistSheet: View {
             Divider()
 
             HStack {
-                Button("Try Again") {
+                Button(String(localized: "Try Again")) {
                     self.changes = nil
                     self.errorMessage = nil
                 }
 
                 Spacer()
 
-                Button("Cancel") {
+                Button(String(localized: "Cancel")) {
                     self.dismiss()
                 }
                 .keyboardShortcut(.escape)
 
-                Button("Apply Changes") {
+                Button(String(localized: "Apply Changes")) {
                     self.onApply()
                 }
                 .buttonStyle(.glassProminent)

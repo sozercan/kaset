@@ -9,6 +9,7 @@ import SwiftUI
 /// shared footer (source toggle + profile) at the bottom.
 struct YouTubeSidebar: View {
     @Binding var selection: YouTubeNavigationItem?
+    var onReselect: ((YouTubeNavigationItem) -> Void)?
     @Environment(AuthService.self) private var authService
 
     var body: some View {
@@ -63,7 +64,11 @@ struct YouTubeSidebar: View {
     }
 
     private func select(_ item: YouTubeNavigationItem) {
-        guard self.selection != item else { return }
+        if self.selection == item {
+            self.onReselect?(item)
+            HapticService.navigation()
+            return
+        }
         self.selection = item
         HapticService.navigation()
     }

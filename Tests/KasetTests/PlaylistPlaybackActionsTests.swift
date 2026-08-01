@@ -73,6 +73,65 @@ struct PlaylistPlaybackActionsTests {
         #expect(songs.first?.isExplicit == true)
     }
 
+    @Test("Remaining playlist tracks tolerate removal from the initially queued prefix")
+    func remainingTracksTolerateInitialRemoval() {
+        let initial = [
+            TestFixtures.makeSong(id: "a"),
+            TestFixtures.makeSong(id: "b"),
+        ]
+        let full = [
+            TestFixtures.makeSong(id: "b"),
+            TestFixtures.makeSong(id: "c"),
+            TestFixtures.makeSong(id: "d"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.videoId) == ["c", "d"])
+    }
+
+    @Test("Remaining playlist tracks preserve authored duplicates")
+    func remainingTracksPreserveDuplicates() {
+        let initial = [TestFixtures.makeSong(id: "duplicate")]
+        let full = [
+            TestFixtures.makeSong(id: "duplicate"),
+            TestFixtures.makeSong(id: "duplicate"),
+            TestFixtures.makeSong(id: "tail"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.videoId) == ["duplicate", "tail"])
+    }
+
+    @Test("Remaining playlist tracks distinguish duplicate occurrences")
+    func remainingTracksUsePlaylistOccurrenceIdentity() {
+        let initial = [
+            Song(
+                id: "duplicate",
+                title: "Duplicate",
+                artists: [],
+                videoId: "duplicate",
+                playlistSetVideoId: "set-1"
+            ),
+        ]
+        let full = [
+            Song(
+                id: "duplicate",
+                title: "Duplicate",
+                artists: [],
+                videoId: "duplicate",
+                playlistSetVideoId: "set-2"
+            ),
+            TestFixtures.makeSong(id: "tail"),
+        ]
+
+        let remaining = PlaylistPlaybackActions.remainingTracks(after: initial, in: full)
+
+        #expect(remaining.map(\.playlistSetVideoId) == ["set-2", nil])
+        #expect(remaining.map(\.videoId) == ["duplicate", "tail"])
+    }
+
     @Test("Playlist playback continuation auth uses loaded ownership")
     func playlistPlaybackContinuationAuthUsesLoadedOwnership() async {
         let routePlaylist = TestFixtures.makePlaylist(
@@ -127,6 +186,46 @@ struct PlaylistPlaybackActionsTests {
 
         #expect(playerService.queue.isEmpty)
         #expect(playerService.currentTrack == nil)
+    }
+
+    @Test("A delayed playlist cannot replace a newer direct queue")
+    func delayedPlaylistCannotReplaceNewerQueue() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-delayed-intent", title: "Delayed")
+        let requestStarted = AsyncGate()
+        let releaseRequest = AsyncGate()
+        let staleSong = Song(id: "stale", title: "Stale", artists: [], videoId: "stale")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [staleSong],
+            duration: nil
+        )
+        self.mockClient.beforeGetPlaylistReturn = { _ in
+            await requestStarted.open()
+            await releaseRequest.wait()
+        }
+        let playerService = PlayerService()
+
+        let playlistTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await requestStarted.wait()
+        let replacement = Song(
+            id: "replacement",
+            title: "Replacement",
+            artists: [],
+            videoId: "replacement"
+        )
+        await playerService.playQueue([replacement], startingAt: 0)
+        let replacementEntryIDs = playerService.queueEntryIDs
+
+        await releaseRequest.open()
+        await playlistTask.value
+
+        #expect(playerService.queue == [replacement])
+        #expect(playerService.queueEntryIDs == replacementEntryIDs)
+        #expect(playerService.currentTrack?.videoId == replacement.videoId)
     }
 
     @Test("Playlist continuations preserve authored duplicate songs")

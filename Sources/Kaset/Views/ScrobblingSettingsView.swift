@@ -14,7 +14,7 @@ struct ScrobblingSettingsView: View {
                     ContentUnavailableView(
                         "No Scrobbling Services",
                         systemImage: "music.note.list",
-                        description: Text("No scrobbling services are available to configure.")
+                        description: Text(String(localized: "No scrobbling services are available to configure."))
                     )
                 }
             } else {
@@ -46,7 +46,7 @@ struct ScrobbleServiceRow: View {
             // Connection status
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Account")
+                    Text(String(localized: "Account"))
                         .font(.headline)
                     Text(self.connectionStatusText)
                         .font(.caption)
@@ -103,7 +103,7 @@ struct ScrobbleServiceRow: View {
     private var connectionButton: some View {
         switch self.service.authState {
         case .disconnected, .error:
-            Button("Connect") {
+            Button(String(localized: "Connect")) {
                 Task {
                     self.isAuthenticating = true
                     defer { self.isAuthenticating = false }
@@ -120,7 +120,7 @@ struct ScrobbleServiceRow: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Button("Cancel") {
+                Button(String(localized: "Cancel")) {
                     Task {
                         await self.service.disconnect()
                     }
@@ -128,7 +128,7 @@ struct ScrobbleServiceRow: View {
             }
 
         case .connected:
-            Button("Disconnect") {
+            Button(String(localized: "Disconnect")) {
                 Task {
                     await self.service.disconnect()
                 }

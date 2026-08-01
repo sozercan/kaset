@@ -58,6 +58,7 @@ struct PodcastsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
     }
 
     private var playerBarNavigationAction: PlayerBarNavigationAction {
@@ -230,7 +231,7 @@ private struct PodcastEpisodeCard: View {
                             .lineLimit(1)
                     }
                     if self.episode.showTitle != nil, self.episode.publishedDate != nil {
-                        Text("•")
+                        Text(String(localized: "•"))
                     }
                     if let date = episode.publishedDate {
                         Text(date)
@@ -260,7 +261,7 @@ struct PodcastShowView: View {
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
 
     @State private var episodes: [PodcastEpisode] = []
     @State private var continuationToken: String?
@@ -371,7 +372,7 @@ struct PodcastShowView: View {
                         Button {
                             self.playEpisodeInQueue(at: 0)
                         } label: {
-                            Label("Play Latest", systemImage: "play.fill")
+                            Label(String(localized: "Play Latest"), systemImage: "play.fill")
                                 .font(.headline)
                         }
                         .compatGlassProminentButton()
@@ -407,7 +408,7 @@ struct PodcastShowView: View {
         VStack(alignment: .leading, spacing: 16) {
             // Header with "Show All" button
             HStack {
-                Text("Episodes")
+                Text(String(localized: "Episodes"))
                     .font(.title2)
                     .fontWeight(.semibold)
 
@@ -417,7 +418,7 @@ struct PodcastShowView: View {
                     Button {
                         self.showAllEpisodes = true
                     } label: {
-                        Text("Show All")
+                        Text(String(localized: "Show All"))
                             .font(.subheadline)
                             .fontWeight(.medium)
                     }
@@ -466,23 +467,10 @@ struct PodcastShowView: View {
 
     /// Plays an episode and queues the remaining episodes from the show.
     private func playEpisodeInQueue(at index: Int) {
-        let songs = self.episodes.map { self.episodeToSong($0) }
+        let songs = self.episodes.map(\.playbackSong)
         Task {
             await self.playerService.playQueue(songs, startingAt: index)
         }
-    }
-
-    /// Converts a podcast episode to a Song for playback.
-    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
-        Song(
-            id: episode.id,
-            title: episode.title,
-            artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
-            album: nil,
-            duration: episode.durationSeconds.map { TimeInterval($0) },
-            thumbnailURL: episode.thumbnailURL,
-            videoId: episode.id
-        )
     }
 
     private func toggleSubscription() async {
@@ -568,7 +556,7 @@ struct PodcastEpisodeRow: View {
                         }
                         Spacer()
                         if self.episode.isPlayed {
-                            Label("Played", systemImage: "checkmark.circle.fill")
+                            Label(String(localized: "Played"), systemImage: "checkmark.circle.fill")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -676,23 +664,10 @@ struct AllEpisodesView: View {
 
     /// Plays an episode and queues the remaining episodes.
     private func playEpisodeInQueue(at index: Int) {
-        let songs = self.episodes.map { self.episodeToSong($0) }
+        let songs = self.episodes.map(\.playbackSong)
         Task {
             await self.playerService.playQueue(songs, startingAt: index)
         }
-    }
-
-    /// Converts a podcast episode to a Song for playback.
-    private func episodeToSong(_ episode: PodcastEpisode) -> Song {
-        Song(
-            id: episode.id,
-            title: episode.title,
-            artists: episode.showTitle.map { [Artist(id: "podcast", name: $0)] } ?? [],
-            album: nil,
-            duration: episode.durationSeconds.map { TimeInterval($0) },
-            thumbnailURL: episode.thumbnailURL,
-            videoId: episode.id
-        )
     }
 }
 

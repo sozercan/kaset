@@ -28,16 +28,16 @@ struct IntelligenceSettingsView: View {
                 // availability status so a "Not Enabled" user can act on it.
                 Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
                     HStack {
-                        Text("Apple Intelligence & Siri Settings")
+                        Text(String(localized: "Apple Intelligence & Siri Settings"))
                         Spacer()
                         Image(systemName: "arrow.up.forward.square")
                             .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("Apple Intelligence")
+                Text(String(localized: "Apple Intelligence"))
             } footer: {
-                Text("AI responses follow your system language settings.")
+                Text(String(localized: "AI responses follow your system language settings."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             }
@@ -49,7 +49,7 @@ struct IntelligenceSettingsView: View {
                 ))
                 .disabled(!self.isSystemAvailable)
 
-                Text("When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations.")
+                Text(String(localized: "When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -59,9 +59,9 @@ struct IntelligenceSettingsView: View {
                 HStack {
                     Image(systemName: "command")
                         .foregroundStyle(.secondary)
-                    Text("Command Bar")
+                    Text(String(localized: "Command Bar"))
                     Spacer()
-                    Text("⌘K")
+                    Text(String(localized: "⌘K"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
@@ -70,23 +70,23 @@ struct IntelligenceSettingsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
 
-                Text("Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\".")
+                Text(String(localized: "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                Text("The command bar stays available even if Apple Intelligence is off, with AI enhancing only the richer interpretations and summaries.")
+                Text(String(localized: "The command bar stays available even if Apple Intelligence is off, with AI enhancing only the richer interpretations and summaries."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
             } header: {
-                Text("Command Bar")
+                Text(String(localized: "Command Bar"))
             }
 
             Section {
-                Button("Refresh AI Status") {
+                Button(String(localized: "Refresh AI Status")) {
                     self.aiService.refreshAvailability()
                 }
 
-                Text("Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open.")
+                Text(String(localized: "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

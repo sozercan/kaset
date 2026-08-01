@@ -22,6 +22,9 @@ enum MusicVideoType: String, Codable {
     /// User Generated Content - Fan-made or unofficial videos.
     case ugc = "MUSIC_VIDEO_TYPE_UGC"
 
+    /// Official-source music video exposed by current Videos search results.
+    case officialSourceMusic = "MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC"
+
     /// Podcast Episode - Audio podcast content.
     case podcastEpisode = "MUSIC_VIDEO_TYPE_PODCAST_EPISODE"
 
@@ -31,12 +34,23 @@ enum MusicVideoType: String, Codable {
         self == .omv
     }
 
+    /// Whether search should present the item as a video result.
+    var isSearchVideo: Bool {
+        switch self {
+        case .omv, .ugc, .officialSourceMusic:
+            true
+        case .atv, .podcastEpisode:
+            false
+        }
+    }
+
     /// Human-readable description of the video type.
     var displayName: String {
         switch self {
         case .omv: "Official Music Video"
         case .atv: "Audio Track"
         case .ugc: "User Generated"
+        case .officialSourceMusic: "Official Source Music"
         case .podcastEpisode: "Podcast Episode"
         }
     }

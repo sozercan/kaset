@@ -127,11 +127,10 @@ extension PlayerService {
     }
 
     /// Identifies incomplete queue entries that have not exhausted their bounded retry budget.
-    func identifyEnrichableSongsNeedingEnrichment() -> [(index: Int, videoId: String)] {
+    func identifyEnrichableSongsNeedingEnrichment() -> [(entryID: UUID, videoId: String)] {
         self.identifySongsNeedingEnrichment().filter { item in
-            guard let entryID = self.queueEntries[safe: item.index]?.id else { return false }
-
-            return self.queueEnrichmentAttemptsByEntryID[entryID, default: 0] < Self.maxQueueEnrichmentAttempts
+            self.queueEnrichmentAttemptsByEntryID[item.entryID, default: 0]
+                < Self.maxQueueEnrichmentAttempts
         }
     }
 
@@ -145,83 +144,78 @@ extension PlayerService {
 
     /// Returns whether a song has placeholder or missing metadata that the API can improve.
     func songNeedsQueueMetadataEnrichment(_ song: Song) -> Bool {
-        song.artists.isEmpty ||
-            song.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" } ||
-            song.title.isEmpty ||
-            song.title == "Loading..." ||
-            song.thumbnailURL == nil
+        Self.songNeedsQueueEnrichment(song)
     }
 
     /// Identifies songs in the queue that need metadata enrichment.
-    /// - Returns: Array of tuples containing index and videoId for songs needing enrichment.
-    func identifySongsNeedingEnrichment() -> [(index: Int, videoId: String)] {
-        var songsNeedingEnrichment: [(index: Int, videoId: String)] = []
-
-        // Check if song needs enrichment:
-        // 1. No artists or all artists are empty/unknown
-        // 2. Title is placeholder ("Loading..." or empty)
-        // 3. No thumbnail
-        for (index, song) in queue.enumerated() where self.songNeedsQueueMetadataEnrichment(song) {
-            songsNeedingEnrichment.append((index: index, videoId: song.videoId))
+    /// - Returns: Stable queue-entry IDs and video IDs for songs needing enrichment.
+    func identifySongsNeedingEnrichment() -> [(entryID: UUID, videoId: String)] {
+        self.queueEntries.compactMap { entry in
+            Self.songNeedsQueueEnrichment(entry.song)
+                ? (entryID: entry.id, videoId: entry.song.videoId)
+                : nil
         }
-
-        return songsNeedingEnrichment
     }
 
     /// Enriches queue metadata by fetching full song details for incomplete entries.
     /// This updates the queue in-place and persists the enriched data.
-    func enrichQueueMetadata(songsToEnrich requestedSongsToEnrich: [(index: Int, videoId: String)]? = nil) async {
+    func enrichQueueMetadata(
+        songsToEnrich requestedSongsToEnrich: [(entryID: UUID, videoId: String)]? = nil
+    ) async {
         guard let client = self.ytMusicClient else { return }
 
         let songsToEnrich = requestedSongsToEnrich ?? self.identifySongsNeedingEnrichment()
-
         guard !songsToEnrich.isEmpty else { return }
 
         self.logger.info("Enriching metadata for \(songsToEnrich.count) songs in queue")
-
         var didUpdateQueue = false
 
-        // Process one song at a time to be gentle on the API.
-        for (index, videoId) in songsToEnrich {
+        // Process one exact queue occurrence at a time to be gentle on the API.
+        for (entryID, videoId) in songsToEnrich {
             guard !Task.isCancelled else { break }
-
-            // Check if still needed (song might have been removed)
-            guard index < queue.count, queue[index].videoId == videoId else { continue }
-            let entryID = self.queueEntries[safe: index]?.id
-            if let entryID {
-                self.queueEnrichmentAttemptsByEntryID[entryID, default: 0] += 1
-            }
+            guard self.queueEntries.contains(where: {
+                $0.id == entryID && $0.song.videoId == videoId
+            }) else { continue }
+            self.queueEnrichmentAttemptsByEntryID[entryID, default: 0] += 1
 
             do {
                 let enrichedSong = try await client.getSong(videoId: videoId)
-
                 guard !Task.isCancelled else { break }
 
-                // Update the queue in-place
-                if index < queue.count, queue[index].videoId == videoId {
+                if let index = self.queueEntries.firstIndex(where: {
+                    $0.id == entryID && $0.song.videoId == videoId
+                }), Self.songNeedsQueueEnrichment(self.queueEntries[index].song) {
                     var updatedEntries = self.queueEntries
+                    let mergedSong = Self.mergingQueueMetadata(
+                        current: updatedEntries[index].song,
+                        response: enrichedSong,
+                        includesAccountMetadata: false
+                    )
                     // Preserve `source` so a Smart Shuffle `.suggested` entry is not demoted to `.queued`.
                     updatedEntries[index] = QueueEntry(
                         id: updatedEntries[index].id,
-                        song: enrichedSong,
+                        song: mergedSong,
                         source: updatedEntries[index].source
                     )
                     self.isApplyingQueueEnrichmentResult = true
                     self.setQueue(entries: updatedEntries)
                     self.isApplyingQueueEnrichmentResult = false
                     didUpdateQueue = true
-                    if let entryID, !self.songNeedsQueueMetadataEnrichment(enrichedSong) {
+                    if !Self.songNeedsQueueEnrichment(mergedSong) {
                         self.queueEnrichmentAttemptsByEntryID.removeValue(forKey: entryID)
                     }
-                    self.logger.debug("Enriched song \(index): '\(enrichedSong.title)' - artists: \(enrichedSong.artistsDisplay)")
+                    self.logger.debug(
+                        "Enriched song \(index): '\(mergedSong.title)' - artists: \(mergedSong.artistsDisplay)"
+                    )
                 }
 
-                // Small delay between requests to be API-friendly
                 if songsToEnrich.count > 1 {
                     try? await Task.sleep(for: .milliseconds(100))
                 }
             } catch {
-                self.logger.warning("Failed to enrich metadata for song \(videoId): \(error.localizedDescription)")
+                self.logger.warning(
+                    "Failed to enrich metadata for song \(videoId): \(error.localizedDescription)"
+                )
             }
         }
 
@@ -232,5 +226,44 @@ extension PlayerService {
         } else {
             self.logger.info("Queue metadata enrichment complete, no queue updates to persist")
         }
+    }
+
+    static func songNeedsQueueEnrichment(_ song: Song) -> Bool {
+        song.artists.isEmpty
+            || song.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" }
+            || song.title.isEmpty
+            || song.title == "Loading..."
+            || song.thumbnailURL == nil
+    }
+
+    static func mergingQueueMetadata(
+        current: Song,
+        response: Song,
+        includesAccountMetadata: Bool = true
+    ) -> Song {
+        let keepsCurrentArtists = !current.artists.isEmpty
+            && !current.artists.allSatisfy { $0.name.isEmpty || $0.name == "Unknown Artist" }
+        let keepsCurrentTitle = !current.title.isEmpty && current.title != "Loading..."
+        return Song(
+            id: current.id,
+            title: keepsCurrentTitle ? current.title : response.title,
+            artists: keepsCurrentArtists ? current.artists : response.artists,
+            album: current.album ?? response.album,
+            duration: current.duration ?? response.duration,
+            thumbnailURL: current.thumbnailURL ?? response.thumbnailURL,
+            videoId: current.videoId,
+            // `getSong` uses the `next` parser, which defaults playability to true.
+            // Preserve the browse renderer's authoritative grey-out state during
+            // background enrichment alongside the account-scoped fields below.
+            isPlayable: includesAccountMetadata ? response.isPlayable : current.isPlayable,
+            hasVideo: current.hasVideo ?? response.hasVideo,
+            musicVideoType: current.musicVideoType ?? response.musicVideoType,
+            likeStatus: includesAccountMetadata ? (current.likeStatus ?? response.likeStatus) : current.likeStatus,
+            isInLibrary: includesAccountMetadata ? (current.isInLibrary ?? response.isInLibrary) : current.isInLibrary,
+            feedbackTokens: includesAccountMetadata
+                ? (current.feedbackTokens ?? response.feedbackTokens)
+                : current.feedbackTokens,
+            isExplicit: current.isExplicit ?? response.isExplicit
+        )
     }
 }

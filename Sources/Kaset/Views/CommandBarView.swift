@@ -31,6 +31,7 @@ struct CommandBarView: View {
         isPresented: Binding<Bool>,
         navigationSelection: Binding<NavigationItem?>,
         searchFocusTrigger: Binding<Bool>,
+        sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:]),
         searchViewModel: SearchViewModel? = nil
     ) {
         self.client = client
@@ -41,7 +42,11 @@ struct CommandBarView: View {
             client: client,
             playerService: playerService,
             searchRouter: { query in
+                let alreadyOnSearch = navigationSelection.wrappedValue == .search
                 navigationSelection.wrappedValue = .search
+                if alreadyOnSearch {
+                    sidebarNavigationReselectGenerations.wrappedValue[.search, default: 0] += 1
+                }
                 searchViewModel?.selectedFilter = .all
                 searchViewModel?.query = query.trimmingCharacters(in: .whitespacesAndNewlines)
                 if let searchViewModel, !query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {

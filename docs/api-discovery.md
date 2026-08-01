@@ -126,7 +126,7 @@ Brand accounts (YouTube channels) can be accessed by setting `context.user.onBeh
 
 #### Discovering Brand Accounts
 
-Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs:
+Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs. An unauthenticated call can still return HTTP 200, but only with a sign-in/select response; account identities require SAPISIDHASH authentication. During an explicit account switch from Guest Mode, Kaset authorizes only this account-list refresh with the preserved signed-in session while keeping guest content published until the switch commits:
 
 ```bash
 swift run api-explorer brandaccounts
@@ -206,8 +206,9 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 | `FEmusic_charts` | Charts | 🌐 | Top songs, albums by country/genre | `HomeResponseParser` |
 | `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | Browse by mood/genre grids | `HomeResponseParser` |
 | `FEmusic_new_releases` | New Releases | 🌐 | Recent albums, singles, videos | `HomeResponseParser` |
-| `FEmusic_library_landing` | Library Landing | 🔐 | All library content (playlists, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
+| `FEmusic_library_landing` | Library Landing | 🔐 | Library content previews (playlists, albums, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
 | `FEmusic_liked_playlists` | Library Playlists | 🔐 | User's saved/created playlists | `PlaylistParser` |
+| `FEmusic_liked_albums` | Library Albums | 🔐 | User's saved albums | `PlaylistParser.parseLibraryAlbumsPage` / `parseLibraryAlbumsContinuation` |
 | `FEmusic_library_privately_owned_tracks` | Uploaded Songs | 🔐 | User-uploaded songs with playlist-style rows and continuation | `PlaylistParser` |
 | `VLLM` | Liked Songs | 🔐 | All songs user has liked (with pagination) | `PlaylistParser` |
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
@@ -270,6 +271,21 @@ let body = ["browseId": "FEmusic_liked_playlists"]
 
 ---
 
+#### Library Albums (`FEmusic_liked_albums`)
+
+```swift
+let body = ["browseId": "FEmusic_liked_albums"]
+// Requires authentication; params are optional for the default order
+```
+
+**Returns**: A paginated grid of saved albums with album browse IDs, artwork, artist metadata, and release year. Kaset follows grid continuation tokens until the saved-album collection is exhausted.
+
+**Parser**: Uses `PlaylistParser.parseLibraryAlbumsPage()` for the initial response and `PlaylistParser.parseLibraryAlbumsContinuation()` for subsequent grid pages, then merges any landing-page preview albums as a fallback.
+
+**Library mutations**: Album detail navigation uses an `MPRE...` browse ID, but `like/like` and `like/removelike` must target the album's `OLAK...` playlist ID. Album browse responses expose that playlist ID through play/queue endpoints even when the personalized Save button is unavailable.
+
+---
+
 #### Liked Songs (`VLLM`)
 
 > ⚠️ **Use `VLLM`, not `FEmusic_liked_videos`** — The `FEmusic_liked_videos` browse ID returns only ~13 songs with NO continuation token. To fetch all liked songs, use `VLLM` (VL prefix + LM playlist ID) which returns the full list with proper pagination.
@@ -297,7 +313,6 @@ These endpoints are functional but not yet implemented in Kaset.
 |-----------|------|------|----------|-------|
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
 | `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
-| `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_corpus_track_artists` | Library Artists (Artists chip) | 🔐 | Medium | Sign-in backed; returns `MPLAUC...` library artist pages |
 | `FEmusic_library_artists` | Library Artists (param-based) | 🔐 | Medium | Requires auth + params*; distinct from the Artists chip |
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
@@ -307,7 +322,9 @@ These endpoints are functional but not yet implemented in Kaset.
 
 > `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
 >
-> \* `FEmusic_library_albums`, `FEmusic_library_artists`, and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
+> `FEmusic_library_albums` is a legacy browse ID that currently returns HTTP 400. Saved albums use `FEmusic_liked_albums`; optional sorting params are not required for the default order.
+>
+> \* `FEmusic_library_artists` and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
 
 #### Uploaded Songs (`FEmusic_library_privately_owned_tracks`)
 
@@ -421,6 +438,11 @@ let body = ["browseId": "FEmusic_moods_and_genres"]
 
 Each item links to a playlist or browse endpoint for that mood/genre.
 
+As verified on July 13, 2026, mood and genre cards use the browse ID
+`FEmusic_moods_and_genres_category` with an opaque `params` value. Keep the
+browse ID and params as separate structured fields when parsing; concatenated
+display IDs are not a safe source for reconstructing navigation endpoints.
+
 ---
 
 #### History (`FEmusic_history`)
@@ -457,7 +479,7 @@ Action endpoints perform operations or fetch specific data.
 
 | Endpoint | Name | Auth | Description |
 |----------|------|------|-------------|
-| `search` | Search | 🌐 | Search songs, albums, artists, playlists |
+| `search` | Search | 🌐 | Search songs, videos, albums/audiobooks, artists/profiles, playlists, podcasts, and episodes |
 | `music/get_search_suggestions` | Suggestions | 🌐 | Autocomplete for search |
 | `next` | Now Playing | 🌐 | Track info, lyrics ID, radio queue |
 | `like/like` | Like | 🔐 | Like a song/album/playlist |
@@ -478,10 +500,12 @@ let body = ["query": "never gonna give you up"]
 ```
 
 **Response Structure**:
-- `musicCardShelfRenderer` — **Top Result** section (single prominent result: song, album, artist, or playlist)
-- `musicShelfRenderer` — Regular results (mixed songs, albums, artists, playlists)
+- `musicCardShelfRenderer` — **Top Result** section. Its title can navigate through either `browseEndpoint` or `watchEndpoint`, and its `contents` can include additional rows.
+- `itemSectionRenderer.contents[]` — Current mixed-search rows. Each wrapper commonly contains one `musicResponsiveListItemRenderer`.
+- `musicShelfRenderer` — Filtered result lists and occasional direct mixed-search sections.
+- `musicResponsiveListItemRenderer` — Songs, videos, albums, audiobooks, artists, profiles, playlists, podcast shows, and podcast episodes.
 
-> ⚠️ **Important**: The Top Result (most relevant match) is returned in `musicCardShelfRenderer`, not `musicShelfRenderer`. This is often the artist/album the user is looking for. Always parse both renderer types.
+> ⚠️ **Important**: Revalidated on 2026-07-19, mixed search no longer consistently returns direct `musicShelfRenderer` sections. Parse `musicCardShelfRenderer`, its nested `contents`, direct `musicShelfRenderer`, and `itemSectionRenderer.contents`. Top Results can be directly playable `watchEndpoint` videos, not only browse destinations.
 
 **Top Result Example** (searching "manifest"):
 ```json
@@ -509,7 +533,30 @@ let body = ["query": "never gonna give you up"]
 }
 ```
 
-**Parser**: `SearchResponseParser` (handles both `musicCardShelfRenderer` and `musicShelfRenderer`)
+**Observed mixed result types (guest session, 2026-07-19)**:
+
+- `Song` — usually `MUSIC_VIDEO_TYPE_ATV`
+- `Video` — `MUSIC_VIDEO_TYPE_OMV` or `MUSIC_VIDEO_TYPE_UGC`
+- `Album`
+- `Audiobook` — `MUSIC_PAGE_TYPE_AUDIOBOOK`; currently uses an album-like `MPRE...` browse destination
+- `Artist`
+- `Profile` — `MUSIC_PAGE_TYPE_USER_CHANNEL`
+- `Playlist`
+- `Podcast` — `MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE`
+- `Episode` — `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` with an `MPED...` title destination
+
+Playable rows can expose the same video ID through several paths:
+
+```text
+playlistItemData.videoId
+navigationEndpoint.watchEndpoint.videoId
+flexColumns[0]...runs[0].navigationEndpoint.watchEndpoint.videoId
+overlay...musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId
+```
+
+Browse rows commonly use `musicResponsiveListItemRenderer.navigationEndpoint.browseEndpoint`.
+
+**Parser**: `SearchResponseParser`. The API shape audit command below reports which live rows the current parser can and cannot reach.
 
 **Filter Params** (base64-encoded filter values for `params` field):
 
@@ -523,7 +570,20 @@ let body = ["query": "never gonna give you up"]
 | Community Playlists | `EgeKAQQoAEABagwQDhAKEAMQBBAJEAU=` | User-created playlists |
 | Podcasts | `EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to podcast shows only |
 
-> **Filter Pattern**: `EgWKAQ` (base) + filter code + `AWoMEA4QChADEAQQCRAF` (no spelling correction suffix). The filter code encodes the content type (songs=II, albums=IY, artists=Ig, playlists=Io, podcasts=JQ).
+> **Static params vs. live chips**: The table above records Kaset's existing no-spelling-correction params. Live `chipCloudChipRenderer.navigationEndpoint.searchEndpoint.params` values are contextual: the same filter label had different complete suffixes for different queries on 2026-07-19. Do not assume one server-issued full params value is universal.
+
+Observed filter type codes in live chips:
+
+| Live Filter | Encoded Type Code | Current Kaset Filter |
+|-------------|-------------------|----------------------|
+| Songs | `II` | ✅ |
+| Videos | `IQ` | ✅ |
+| Albums | `IY` | ✅ |
+| Artists | `Ig` | ✅ |
+| Profiles | `JY` | ✅ |
+| Episodes | `JI` | ✅ |
+| Podcasts | `JQ` | ✅ |
+| Community / Featured playlists | Specialized playlist params | ✅ |
 
 **Usage Example** (podcasts):
 ```swift
@@ -532,6 +592,65 @@ let body: [String: Any] = [
     "params": "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
 ]
 ```
+
+**Filtered Search Continuation** (revalidated 2026-07-19):
+
+The first-page token is carried by the shelf, not the enclosing section list:
+
+```text
+contents.tabbedSearchResultsRenderer.tabs[0].tabRenderer.content
+  .sectionListRenderer.contents[].musicShelfRenderer
+  .continuations[0].nextContinuationData.continuation
+```
+
+Send that token back to the `search` endpoint:
+
+```swift
+let body = ["continuation": token]
+// POST /youtubei/v1/search
+```
+
+The common response uses:
+
+```text
+continuationContents.musicShelfContinuation.contents[]
+continuationContents.musicShelfContinuation.continuations[]
+```
+
+Search continuations can also use action envelopes. Preserve action order and parse both append and reload commands:
+
+```text
+onResponseReceivedActions[] | onResponseReceivedCommands[] | onResponseReceivedEndpoints[]
+  .appendContinuationItemsAction.continuationItems[]
+  .reloadContinuationItemsCommand.continuationItems[]
+```
+
+The `continuationItems` array can mix result renderers with a trailing `continuationItemRenderer` carrying the next token. `SearchResponseParser.parseContinuation` supports both the shelf envelope and these action envelopes.
+
+Sending the captured search token to `browse` returned unrelated browse/home sections in the same guest session, not the next search page.
+
+**Deep audit command**:
+
+```bash
+swift run api-explorer --guest search-audit "ambient electronic mix"
+```
+
+This probes the unfiltered response, every live filter chip, and one `/search` continuation page per filter when offered. It reports renderer wrappers, destination paths, content/page types, token carrier locations, and current mixed-parser coverage without printing continuation values.
+
+To compare a response against Kaset's currently configured WEB_REMIX version instead of the live web version resolved by API Explorer:
+
+```bash
+swift run api-explorer --guest --client-version 1.20231204.01.00 \
+  search-audit "ambient electronic mix"
+```
+
+`search-audit` labels the client-version source as `live`, `override`, or `fallback`. When it reports `fallback`, use `--client-version` before drawing a version-comparison conclusion. API Explorer also resolves the live version independently when the API key comes from its environment override.
+
+For this query, the live version `1.20260715.04.00` and Kaset's configured `1.20231204.01.00` showed no structural difference in section wrappers, result-type counts, filter chips, or continuation carriers. This does not prove that every result identity was identical or fully rule out version-specific behavior; it does show that the observed parser gaps reproduce with Kaset's configured version.
+
+A July 19, 2026 guest audit matrix covering the reported query, `Taylor Swift`, `The Daily podcast`, and `lofi hip hop` found no unhandled result rows after the parser update. It also exposed `MUSIC_PAGE_TYPE_AUDIOBOOK` inside mixed and Albums-filter results; Kaset now keeps those results semantically distinct as audiobooks while reusing the existing album payload and playlist-style detail navigation.
+
+`search-audit` labels the version source as `live`, `override`, or `fallback`. The audit performs a bounded live-version lookup even when `KASET_YTMUSIC_API_KEY` supplies the API key; unrelated API Explorer commands keep the environment override's immediate behavior. If web configuration discovery fails, the report explicitly identifies the configured fallback instead of presenting it as live.
 
 ---
 
@@ -617,7 +736,19 @@ let body = ["feedbackTokens": [addToken]]
 _ = try await request("feedback", body: body)
 ```
 
-Tokens come from `getSong(videoId:)` response.
+Tokens come from `getSong(videoId:)` response. `FeedbackTokens.add` and
+`FeedbackTokens.remove` are action-specific: select the add token when the
+target state is in-library and the remove token when the target state is
+out-of-library. Keep the known pair stable across optimistic UI updates; do not
+swap the fields. A later authoritative metadata response may replace or rotate
+the pair.
+
+`api-explorer` reports library feedback action structure without printing token
+values. It can also inspect a saved response safely:
+
+```bash
+swift run api-explorer analyze-file path/to/response.json
+```
 
 ---
 
@@ -1027,7 +1158,7 @@ All parsers are located in `Sources/Kaset/Services/API/Parsers/`. Each parser is
 | `HomeResponseParser` | `HomeResponseParser.swift` | Home/Explore browse response | `HomeResponse` with `[HomeSection]` | `FEmusic_home`, `FEmusic_explore` |
 | `SearchResponseParser` | `SearchResponseParser.swift` | Search response | `SearchResponse` with songs, albums, artists, playlists | `search` endpoint |
 | `SearchSuggestionsParser` | `SearchSuggestionsParser.swift` | Suggestions response | `[SearchSuggestion]` | `music/get_search_suggestions` |
-| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_library_landing` |
+| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `[Album]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_liked_albums`, `FEmusic_library_landing` |
 | `ArtistParser` | `ArtistParser.swift` | Artist browse response | `ArtistDetail` with songs, albums | `UC{channelId}` |
 | `LyricsParser` | `LyricsParser.swift` | Next/lyrics response | `Lyrics` or lyrics browse ID | `next`, `MPLYt{id}` |
 | `PodcastParser` | `PodcastParser.swift` | Podcast browse response | `[PodcastSection]`, `PodcastShowDetail` | `FEmusic_podcasts`, `MPSPP{id}` |
@@ -1147,7 +1278,7 @@ let result = try await RetryPolicy.execute(
 
 | Feature | Endpoint | Effort | Impact |
 |---------|----------|--------|--------|
-| Library Albums | `FEmusic_library_albums` | Medium | Medium |
+| Library Albums | `FEmusic_liked_albums` | Implemented | Medium |
 | Library Artists | `FEmusic_library_corpus_track_artists` | Medium | Medium |
 | Add to Playlist | `playlist/get_add_to_playlist` + `browse/edit_playlist` | Implemented | Medium |
 
@@ -1263,7 +1394,7 @@ swift run api-explorer auth
 # If authenticated, explore library endpoints
 swift run api-explorer browse FEmusic_liked_playlists
 swift run api-explorer browse FEmusic_history
-swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
+swift run api-explorer browse FEmusic_liked_albums
 ```
 
 Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
@@ -1286,7 +1417,8 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 |---------|-------------|
 | `browse <id> [params]` | Explore a browse endpoint |
 | `action <endpoint> <json>` | Explore an action endpoint |
-| `continuation <token> [ep]` | Explore a continuation (`browse` or `next`) |
+| `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
+| `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
 | `auth` | Check authentication status |
 | `accounts` | Discover accounts via authuser header |
@@ -1297,10 +1429,11 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Option | Description |
 |--------|-------------|
-| `-v, --verbose` | Show full raw JSON response |
+| `-v, --verbose` | Show full raw JSON for browse/action/continuation commands; expand samples and filter params for `search-audit` |
 | `-o, --output <file>` | Save raw JSON to file |
 | `--authuser N` | Use Google account at index N |
 | `--brand <ID>` | Use brand account (21-digit ID) |
+| `--client-version <version>` | Override the resolved InnerTube client version for compatibility probes |
 | `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
 
 ---
@@ -1320,6 +1453,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-07-19 | Revalidated Music search: `itemSectionRenderer` mixed rows, watch-endpoint Top Results, audiobooks, videos/profiles/episodes filters, shelf and action-envelope continuations, and `/search` routing; added `search-audit` |
 | 2026-06-24 | Documented regular YouTube `--youtube` API Explorer mode alongside YouTube Music |
 | 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
@@ -1464,6 +1598,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 | Endpoint | Status | Notes |
 |----------|--------|-------|
 | `FEmusic_liked_playlists` | HTTP 200 | Works with session cookies |
+| `FEmusic_liked_albums` | HTTP 200* | Returns saved album rows with current auth; stale or missing auth returns a sign-in prompt |
 | `FEmusic_liked_videos` | HTTP 200 | Works with session cookies |
 | `FEmusic_history` | HTTP 200 | Returns login prompt without full auth |
 
@@ -1473,7 +1608,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 |----------|--------|-------|
 | `FEmusic_history` | HTTP 200* | Returns content with full auth, login prompt without |
 | `FEmusic_library_corpus_track_artists` | HTTP 200* | Returns library artist rows with full auth, sign-in prompt without |
-| `FEmusic_library_albums` | HTTP 400 | Needs auth + specific `params` value |
+| `FEmusic_library_albums` | HTTP 400 | Legacy saved-albums browse ID; use `FEmusic_liked_albums` |
 | `FEmusic_library_artists` | HTTP 400 | Rejected as invalid argument in current authenticated sessions |
 | `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |

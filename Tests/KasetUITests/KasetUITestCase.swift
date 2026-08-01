@@ -27,6 +27,10 @@ enum TestAccessibilityID {
         static func suggestion(index: Int) -> String {
             "searchView.suggestion.\(index)"
         }
+
+        static func resultRow(index: Int) -> String {
+            "searchView.result.\(index)"
+        }
     }
 
     enum MainWindow {
@@ -65,6 +69,7 @@ enum TestAccessibilityID {
         static let header = "accountSwitcher.header"
         static let accountsList = "accountSwitcher.accountsList"
         static let guestModeRow = "accountSwitcher.guestMode"
+        static let signOutButton = "accountSwitcher.signOut"
 
         static func accountRow(index: Int) -> String {
             "accountSwitcher.account.\(index)"
@@ -193,6 +198,8 @@ class KasetUITestCase: XCTestCase {
                 "title": "Search Result \(index)",
                 "artist": "Search Artist \(index)",
                 "videoId": "search-video-\(index)",
+                "albumId": "MPREbSearchAlbum\(index)",
+                "albumTitle": "Search Album \(index)",
             ]
         }
 

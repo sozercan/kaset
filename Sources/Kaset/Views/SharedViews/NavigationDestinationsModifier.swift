@@ -7,7 +7,7 @@ import SwiftUI
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
     let playerBarNavigationAction: PlayerBarNavigationAction
-    @Environment(LibraryViewModel.self) private var libraryViewModel: LibraryViewModel?
+    @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
     // swiftlint:disable:next function_body_length
@@ -15,9 +15,8 @@ struct NavigationDestinationsModifier: ViewModifier {
         content
             .navigationDestination(for: Playlist.self) { playlist in
                 // Check if this is a mood/genre category disguised as a playlist
-                if MoodCategory.isMoodCategory(playlist.id) {
-                    // Parse the ID and navigate to mood category view
-                    if let parsed = MoodCategory.parseId(playlist.id) {
+                if playlist.resolvedMoodCategoryEndpoint != nil {
+                    if let parsed = playlist.resolvedMoodCategoryEndpoint {
                         let category = MoodCategory(
                             browseId: parsed.browseId,
                             params: parsed.params,
@@ -40,6 +39,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 ),
                                 playerBarNavigationAction: self.playerBarNavigationAction
                             )
+                            .environment(\.libraryViewModel, self.libraryViewModel)
                         } else {
                             SimplePlaylistDetailView(
                                 playlist: playlist,
@@ -49,6 +49,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 ),
                                 playerBarNavigationAction: self.playerBarNavigationAction
                             )
+                            .environment(\.libraryViewModel, self.libraryViewModel)
                         }
                     }
                 } else {
@@ -61,6 +62,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             ),
                             playerBarNavigationAction: self.playerBarNavigationAction
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
                         SimplePlaylistDetailView(
                             playlist: playlist,
@@ -70,6 +72,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             ),
                             playerBarNavigationAction: self.playerBarNavigationAction
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     }
                 }
             }
@@ -100,7 +103,7 @@ struct NavigationDestinationsModifier: ViewModifier {
             }
             .navigationDestination(for: PodcastShow.self) { [libraryViewModel] show in
                 PodcastShowView(show: show, client: self.client)
-                    .environment(libraryViewModel)
+                    .environment(\.libraryViewModel, libraryViewModel)
             }
             .navigationDestination(for: ArtistSeeAllDestination.self) { destination in
                 switch destination.endpoint.pageType {

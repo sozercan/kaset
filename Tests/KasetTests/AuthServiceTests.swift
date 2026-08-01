@@ -105,13 +105,98 @@ struct AuthServiceTests {
         #expect(self.authService.needsReauth == false)
     }
 
+    @Test("Complete login waits for account-boundary drain")
+    func completeLoginWaitsForAccountBoundaryDrain() async {
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let completionTask = Task {
+            await self.authService.completeLoginAfterDraining(sapisid: "test-sapisid")
+        }
+        await drainStarted.wait()
+        #expect(self.authService.state == .initializing)
+
+        await releaseDrain.open()
+        await completionTask.value
+        #expect(self.authService.state == .loggedIn(sapisid: "test-sapisid"))
+    }
+
     @Test("Session expired transitions to loggedOut and sets needsReauth")
     func sessionExpired() {
         self.authService.completeLogin(sapisid: "test-sapisid")
+        let identityGeneration = self.authService.accountIdentityGeneration
         self.authService.sessionExpired()
 
         #expect(self.authService.state == .loggedOut)
         #expect(self.authService.needsReauth == true)
+        #expect(self.authService.accountIdentityGeneration == identityGeneration &+ 1)
+    }
+
+    @Test("Stale auth failures cannot expire a newer identity")
+    func staleAuthFailureDoesNotExpireNewerIdentity() {
+        self.authService.completeLogin(sapisid: "current-session")
+        let currentGeneration = self.authService.accountIdentityGeneration
+
+        self.authService.sessionExpired(ifIdentityGenerationMatches: currentGeneration &+ 1)
+
+        #expect(self.authService.state == .loggedIn(sapisid: "current-session"))
+        #expect(self.authService.accountIdentityGeneration == currentGeneration)
+
+        self.authService.sessionExpired(ifIdentityGenerationMatches: currentGeneration)
+        #expect(self.authService.state == .loggedOut)
+    }
+
+    @Test("Replacing a logged-in identity advances the generation")
+    func replacingLoggedInIdentityAdvancesGeneration() async throws {
+        self.authService.completeLogin(sapisid: "session-A")
+        let generation = self.authService.accountIdentityGeneration
+        let request = try self.storeCachedResponse(identifier: "identity-replacement")
+
+        self.authService.startLogin()
+        self.authService.completeLogin(sapisid: "session-B")
+
+        #expect(self.authService.accountIdentityGeneration == generation &+ 1)
+        #expect(self.authService.state == .loggedIn(sapisid: "session-B"))
+        #expect(await self.cachedResponseWasCleared(for: request))
+        self.authService.sessionExpired(ifIdentityGenerationMatches: generation)
+        #expect(self.authService.state == .loggedIn(sapisid: "session-B"))
+    }
+
+    @Test("Reconfirming the same cookie advances the identity generation")
+    func reconfirmingSameCookieAdvancesGeneration() {
+        self.authService.completeLogin(sapisid: "session-A")
+        let generation = self.authService.accountIdentityGeneration
+
+        self.authService.startLogin()
+        self.authService.completeLogin(sapisid: "session-A")
+
+        #expect(self.authService.accountIdentityGeneration == generation &+ 1)
+    }
+
+    @Test("Session expiry clears like state and invalidates liked-music requests")
+    func sessionExpiryClearsLikeStateAndInvalidatesLikedMusicRequests() {
+        self.authService.completeLogin(sapisid: "placeholder")
+
+        let manager = SongLikeStatusManager.shared
+        let videoId = "session-expiry-cached-like"
+        manager.setStatus(.like, for: videoId)
+        let requestSnapshot = manager.beginLikedMusicRequest()
+
+        #expect(manager.status(for: videoId) == .like)
+        #expect(manager.matchesCurrentScope(requestSnapshot))
+
+        self.authService.sessionExpired()
+
+        #expect(manager.status(for: videoId) == nil)
+        #expect(manager.matchesCurrentScope(requestSnapshot) == false)
     }
 
     @Test("Guest mode transitions clear URL cache")
@@ -119,11 +204,11 @@ struct AuthServiceTests {
         self.authService.completeLogin(sapisid: "placeholder")
 
         let enterRequest = try self.storeCachedResponse(identifier: "enter-guest-mode")
-        self.authService.enterGuestMode()
+        await self.authService.enterGuestMode()
         #expect(await self.cachedResponseWasCleared(for: enterRequest))
 
         let exitRequest = try self.storeCachedResponse(identifier: "exit-guest-mode")
-        self.authService.exitGuestMode()
+        await self.authService.exitGuestMode()
         #expect(await self.cachedResponseWasCleared(for: exitRequest))
     }
 
@@ -142,11 +227,11 @@ struct AuthServiceTests {
     }
 
     @Test("Logged-in users can enter and exit guest mode")
-    func loggedInGuestModeToggle() {
+    func loggedInGuestModeToggle() async {
         self.authService.completeLogin(sapisid: "test-sapisid")
         let cacheGeneration = APICache.shared.generation
 
-        self.authService.enterGuestMode()
+        await self.authService.enterGuestMode()
         #expect(SongLikeStatusManager.shared.activeAccountID == SongLikeStatusManager.guestAccountID)
         #expect(self.authService.state.isLoggedIn == true)
         #expect(self.authService.isGuestModeEnabled == true)
@@ -155,10 +240,10 @@ struct AuthServiceTests {
         #expect(self.authService.shouldUseCookieFreePlaybackDataStore == true)
         #expect(APICache.shared.generation == cacheGeneration &+ 1)
 
-        self.authService.enterGuestMode()
+        await self.authService.enterGuestMode()
         #expect(APICache.shared.generation == cacheGeneration &+ 1)
 
-        self.authService.exitGuestMode()
+        await self.authService.exitGuestMode()
         #expect(SongLikeStatusManager.shared.activeAccountID != SongLikeStatusManager.guestAccountID)
         #expect(self.authService.state.isLoggedIn == true)
         #expect(self.authService.isGuestModeEnabled == false)
@@ -166,16 +251,92 @@ struct AuthServiceTests {
         #expect(self.authService.shouldUseCookieFreePlaybackDataStore == false)
         #expect(APICache.shared.generation == cacheGeneration &+ 2)
 
-        self.authService.exitGuestMode()
+        await self.authService.exitGuestMode()
         #expect(APICache.shared.generation == cacheGeneration &+ 2)
     }
 
-    @Test("Exit guest mode restores provided account like scope")
-    func exitGuestModeRestoresProvidedAccountLikeScope() {
-        self.authService.completeLogin(sapisid: "placeholder")
-        self.authService.enterGuestMode()
+    @Test("Guest mode boundaries prepare account-scoped work before state changes")
+    func guestModeBoundariesPrepareAccountWork() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        let enterDrainStarted = AsyncGate()
+        let releaseEnterDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {
+                await enterDrainStarted.open()
+                await releaseEnterDrain.wait()
+            }
+        )
 
-        self.authService.exitGuestMode(activeAccountID: "brand-account")
+        let enterTask = Task { await self.authService.enterGuestMode() }
+        await enterDrainStarted.wait()
+        #expect(begins.count == 1)
+        #expect(ends.isEmpty)
+        #expect(!self.authService.isGuestModeEnabled)
+        await releaseEnterDrain.open()
+        await enterTask.value
+        #expect(ends.count == 1)
+        #expect(self.authService.isGuestModeEnabled)
+
+        let exitDrainStarted = AsyncGate()
+        let releaseExitDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {
+                await exitDrainStarted.open()
+                await releaseExitDrain.wait()
+            }
+        )
+
+        let exitTask = Task { await self.authService.exitGuestMode() }
+        await exitDrainStarted.wait()
+        #expect(begins.count == 2)
+        #expect(ends.count == 1)
+        #expect(self.authService.isGuestModeEnabled)
+        await releaseExitDrain.open()
+        await exitTask.value
+        #expect(ends.count == 2)
+        #expect(!self.authService.isGuestModeEnabled)
+    }
+
+    @Test("Completing login cancels pending guest-mode entry")
+    func completingLoginCancelsPendingGuestModeEntry() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let guestTask = Task { await self.authService.enterGuestMode() }
+        await drainStarted.wait()
+        let loginTask = Task {
+            await self.authService.completeLoginAfterDraining(sapisid: "replacement-session")
+        }
+        await releaseDrain.open()
+        await guestTask.value
+        await loginTask.value
+
+        #expect(!self.authService.isGuestModeEnabled)
+        #expect(self.authService.hasPersonalAccount)
+        #expect(self.authService.state == .loggedIn(sapisid: "replacement-session"))
+    }
+
+    @Test("Exit guest mode restores provided account like scope")
+    func exitGuestModeRestoresProvidedAccountLikeScope() async {
+        self.authService.completeLogin(sapisid: "placeholder")
+        await self.authService.enterGuestMode()
+
+        await self.authService.exitGuestMode(activeAccountID: "brand-account")
 
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(SongLikeStatusManager.shared.activeAccountID == "brand-account")
@@ -184,13 +345,14 @@ struct AuthServiceTests {
     @Test("Completing login and sign out clear guest mode")
     func loginAndSignOutClearGuestMode() async {
         self.authService.completeLogin(sapisid: "test-sapisid")
-        self.authService.enterGuestMode()
+        await self.authService.enterGuestMode()
 
         self.authService.completeLogin(sapisid: "new-sapisid")
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(self.authService.hasPersonalAccount == true)
+        #expect(FavoritesManager.shared.activeScopeID != "guest")
 
-        self.authService.enterGuestMode()
+        await self.authService.enterGuestMode()
         await self.authService.signOut()
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(self.authService.hasPersonalAccount == false)
@@ -231,6 +393,25 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore", "getSAPISID"])
     }
 
+    @Test("Checking login status fences replacement of a logged-in identity")
+    func checkLoginStatusFencesIdentityReplacement() async {
+        self.authService.completeLogin(sapisid: "session-a")
+        let begins = LockedCounter()
+        let ends = LockedCounter()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: { begins.increment() },
+            didEnd: { ends.increment() },
+            drain: {}
+        )
+        self.mockWebKitManager.sapisidValue = "session-b"
+
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggedIn(sapisid: "session-b"))
+        #expect(begins.count == 1)
+        #expect(ends.count == 1)
+    }
+
     @Test("Check login status waits for restore and logs out when SAPISID is missing")
     func checkLoginStatusLogsOut() async {
         await self.authService.checkLoginStatus()
@@ -240,6 +421,102 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 1)
         #expect(self.mockWebKitManager.getSAPISIDCallCount == 1)
         #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore", "getSAPISID"])
+    }
+
+    @Test("Concurrent login checks share one cookie read")
+    func concurrentLoginChecksAreSingleFlight() async {
+        self.mockWebKitManager.sapisidValue = "persisted-sapisid"
+        let release = AsyncGate()
+        self.mockWebKitManager.getSAPISIDGate = { await release.wait() }
+
+        async let first: Void = self.authService.checkLoginStatus()
+        async let second: Void = self.authService.checkLoginStatus()
+        for _ in 0 ..< 100 where self.mockWebKitManager.getSAPISIDCallCount == 0 {
+            await Task.yield()
+        }
+        await release.open()
+        await first
+        await second
+
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 1)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 1)
+        #expect(self.authService.state == .loggedIn(sapisid: "persisted-sapisid"))
+    }
+
+    @Test("Starting login cancels an in-flight login-status probe")
+    func startLoginCancelsInFlightStatusProbe() async {
+        let release = AsyncGate()
+        self.mockWebKitManager.getSAPISIDGate = { await release.wait() }
+        self.mockWebKitManager.sapisidValue = "stale-session"
+
+        let check = Task { @MainActor in
+            await self.authService.checkLoginStatus()
+        }
+        for _ in 0 ..< 100 where self.mockWebKitManager.getSAPISIDCallCount == 0 {
+            await Task.yield()
+        }
+
+        self.authService.startLogin()
+        await release.open()
+        await check.value
+
+        #expect(self.authService.state == .loggingIn)
+    }
+
+    @Test("A stale login check cannot overwrite a completed login")
+    func staleLoginCheckCannotOverwriteCompletedLogin() async {
+        let release = AsyncGate()
+        self.mockWebKitManager.getSAPISIDGate = { await release.wait() }
+
+        let check = Task { @MainActor in
+            await self.authService.checkLoginStatus()
+        }
+        for _ in 0 ..< 100 where self.mockWebKitManager.getSAPISIDCallCount == 0 {
+            await Task.yield()
+        }
+
+        self.authService.completeLogin(sapisid: "new-session")
+        await release.open()
+        await check.value
+
+        #expect(self.authService.state == .loggedIn(sapisid: "new-session"))
+    }
+
+    @Test("Sign out fences account work before cookie deletion completes")
+    func signOutFencesBeforeCookieDeletionCompletes() async {
+        self.authService.completeLogin(sapisid: "current-session")
+        let identityGeneration = self.authService.accountIdentityGeneration
+        let cachedRequest = try? self.storeCachedResponse(identifier: "sign-out-fence")
+        let release = AsyncGate()
+        self.mockWebKitManager.clearAllDataGate = { await release.wait() }
+
+        let signOut = Task { @MainActor in
+            await self.authService.signOut()
+        }
+        for _ in 0 ..< 100 where !self.mockWebKitManager.clearAllDataCalled {
+            await Task.yield()
+        }
+
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.authService.accountIdentityGeneration == identityGeneration &+ 1)
+        if let cachedRequest {
+            #expect(await self.cachedResponseWasCleared(for: cachedRequest))
+        }
+
+        self.authService.completeLogin(sapisid: "replacement-session")
+        #expect(self.authService.state == .loggedOut)
+
+        let loginCheck = Task { @MainActor in
+            await self.authService.checkLoginStatus()
+        }
+        await Task.yield()
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
+
+        await release.open()
+        await signOut.value
+        await loginCheck.value
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
     }
 
     @Test("State equality")

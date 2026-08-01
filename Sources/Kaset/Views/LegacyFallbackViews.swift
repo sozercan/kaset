@@ -66,10 +66,12 @@ struct SimplePlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .onChange(of: self.likeStatusManager.lastLikeEvent) { _, event in
-            guard let event else { return }
-            guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
-            self.viewModel.handleLikeStatusChange(event)
+        .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
+            guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
+            for event in batch.events {
+                guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
+                self.viewModel.handleLikeStatusChange(event)
+            }
         }
     }
 
@@ -111,7 +113,7 @@ struct SimplePlaylistDetailView: View {
                     Button {
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Play", systemImage: "play.fill")
+                        Label(String(localized: "Play"), systemImage: "play.fill")
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(playableTracks.isEmpty)
@@ -122,7 +124,7 @@ struct SimplePlaylistDetailView: View {
                         }
                         Task { await self.play(playableTracks, startingAt: 0) }
                     } label: {
-                        Label("Shuffle", systemImage: "shuffle")
+                        Label(String(localized: "Shuffle"), systemImage: "shuffle")
                     }
                     .buttonStyle(.bordered)
                     .disabled(playableTracks.isEmpty)

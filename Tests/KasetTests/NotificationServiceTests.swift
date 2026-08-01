@@ -23,6 +23,20 @@ struct NotificationServiceTests {
         try? await Task.sleep(for: .milliseconds(50))
     }
 
+    /// Polls until `condition` holds, bounded by a deadline that tolerates slow CI
+    /// runners — a fixed wait races with Observation delivery and the service's
+    /// loading-resolution poll loop.
+    private func waitForObservationDelivery(until condition: @autoclosure @MainActor () -> Bool) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while !condition(), clock.now < deadline {
+            for _ in 0 ..< 5 {
+                await Task.yield()
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
     // MARK: - Observation Lifecycle
 
     @Test("observation is active after init")
@@ -43,7 +57,7 @@ struct NotificationServiceTests {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
         self.playerService.state = .playing
 
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
 
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
@@ -55,7 +69,7 @@ struct NotificationServiceTests {
         playerService.state = .playing
 
         let notificationService = NotificationService(playerService: playerService)
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: notificationService.lastNotifiedTrackId == "initial-song")
 
         #expect(notificationService.lastNotifiedTrackId == "initial-song")
         notificationService.stopObserving()
@@ -65,11 +79,11 @@ struct NotificationServiceTests {
     func detectsMultipleTrackChanges() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
         self.playerService.state = .playing
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-2", title: "Second Song")
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-2")
         #expect(self.notificationService.lastNotifiedTrackId == "song-2")
     }
 
@@ -93,7 +107,7 @@ struct NotificationServiceTests {
 
         self.playerService.state = .playing
 
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
 
@@ -101,12 +115,12 @@ struct NotificationServiceTests {
     func doesNotNotifyForSameTrackTwice() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
         self.playerService.state = .playing
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
         // Set a different track, then back to the same one
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-2", title: "Second Song")
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-2")
 
         // The lastNotifiedTrackId should now be song-2, meaning song-1 wasn't skipped
         #expect(self.notificationService.lastNotifiedTrackId == "song-2")
@@ -133,7 +147,7 @@ struct NotificationServiceTests {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Real Song")
         self.playerService.state = .playing
 
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
 
@@ -146,7 +160,7 @@ struct NotificationServiceTests {
 
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Real Song")
 
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
 
@@ -162,7 +176,7 @@ struct NotificationServiceTests {
     func stopObservingPreventsFutureNotifications() async {
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "First Song")
         self.playerService.state = .playing
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
         self.notificationService.stopObserving()
@@ -181,7 +195,7 @@ struct NotificationServiceTests {
         // And still detects changes without a polling delay.
         self.playerService.currentTrack = TestFixtures.makeSong(id: "late-song", title: "Late Song")
         self.playerService.state = .playing
-        await self.waitForObservationDelivery()
+        await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "late-song")
         #expect(self.notificationService.lastNotifiedTrackId == "late-song")
     }
 }
