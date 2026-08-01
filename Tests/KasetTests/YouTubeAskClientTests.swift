@@ -125,7 +125,7 @@ struct YouTubeAskClientTests {
                 let formData = try #require(body["formData"] as? [String: Any])
                 let composer = try #require(formData["inputComposerFormData"] as? [String: Any])
                 try messageIDs.append(#require(composer["clientMessageId"] as? String))
-                return Self.response(for: request, data: Self.conversationData)
+                return Self.response(for: request, data: Self.mutationConversationData)
             default:
                 Issue.record("Direct chip request retried unexpectedly")
                 return Self.response(for: request, data: Data(#"{}"#.utf8))

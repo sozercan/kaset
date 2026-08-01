@@ -108,11 +108,18 @@ currently serves.
 
 ### Ask Gemini Activation Gate
 
+Current `get_panel` replies arrive through a singular list-mutation command.
+Kaset accepts text and follow-up chips only from the confirmed inserted
+`youChatItemViewModel` contents, while generated result/link objects remain
+non-interactive and undisplayed.
+
 The Ask implementation is intentionally chips-only: expanding the collapsed
 card may prepare an initial panel, but it never generates an answer until the
 user selects a server-issued suggestion. Follow-up chips are also server-issued;
 there is no free-text composer or `streaming_panel` path. Visible labels and
-answers are sanitized but not localized by Kaset.
+answers are sanitized but not localized by Kaset. Assistant messages render
+native Markdown blocks and inline emphasis; link destinations are stripped and
+never become interactive.
 
 Production activation uses the fixed WEB request profile selected on July 30,
 2026. Eligibility remains account- and video-scoped: signed-out, guest, brand,

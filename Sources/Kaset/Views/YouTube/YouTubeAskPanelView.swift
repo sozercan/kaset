@@ -144,16 +144,15 @@ struct YouTubeAskPanelView: View {
                     )
                 )
         case .assistant:
-            Text(verbatim: message.text)
-                .font(.callout)
+            YouTubeAskMarkdownView(markdown: message.text)
                 .foregroundStyle(.primary)
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
-                .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityElement(children: .ignore)
                 .accessibilityLabel(
                     String(
-                        localized: "YouTube response: \(message.text)",
+                        localized: "YouTube response: \(YouTubeAskMarkdown.plainText(from: message.text))",
                         comment: "VoiceOver label for an assistant turn in the YouTube Ask Gemini transcript"
                     )
                 )

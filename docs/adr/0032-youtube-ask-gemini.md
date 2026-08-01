@@ -59,7 +59,10 @@ Wire-level observations and the API Explorer workflow remain documented in the
    displayed verbatim and are not localized by Kaset.
 5. **Fail closed on unsupported or ambiguous data.** Strict parsing recognizes
    only confirmed YouChat structures, bounded wire formats, and supported
-   message/chip containers. A chip may carry the exact observed
+   message/chip containers, including the confirmed singular
+   `onResponseReceivedCommand.listMutationCommand` insertion path. Result/link
+   view models and sibling framework updates remain outside the visible model.
+   A chip may carry the exact observed
    `onClick.listMutationCommand` UI mutation, which is ignored rather than
    preserved or executed only when its inserted user-turn text matches the chip
    label and every key matches the allowlisted local user-turn/loading-animation

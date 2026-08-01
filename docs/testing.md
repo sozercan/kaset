@@ -291,8 +291,10 @@ YouTube Ask has two test layers:
    extraction; decoy and unsupported-decorator rejection; exact
    `onClick.listMutationCommand` user-turn/loading callback acceptance without
    execution and unknown-command rejection; direct-chip preservation when panel
-   commands are ambiguous; server-order preservation; visible-text sanitization;
-   exact direct-chip request bodies;
+   commands are ambiguous; legacy append-action and current singular
+   list-mutation response parsing; server-order preservation; visible-text
+   sanitization; native Markdown block parsing with non-interactive links; exact
+   direct-chip request bodies;
    and redacted opaque-command behavior.
 2. `KasetTests` covers `YouTubeClient` and view-model integration: one shared
    watch `next` request, signed-in primary-account gating, exact `get_panel`

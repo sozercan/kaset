@@ -361,6 +361,70 @@ struct YouTubeAskParserTests {
         #expect(conversation.messages.map(\.text) == ["Confirmed message"])
     }
 
+    @Test("Parses the confirmed list-mutation response container")
+    func parsesConfirmedListMutationResponse() throws {
+        let envelope = try Self.envelope([
+            "onResponseReceivedCommand": [
+                "listMutationCommand": [
+                    "operations": [
+                        "operations": [[
+                            "insertItemSectionContent": [
+                                "contents": [
+                                    [
+                                        "youChatItemViewModel": [
+                                            "chatResponseStyle": "CHAT_RESPONSE_STYLE_DEFAULT",
+                                            "text": [
+                                                "content": "Synthetic summary response",
+                                                "styleRuns": [[
+                                                    "startIndex": 0,
+                                                    "length": 9,
+                                                    "weightLabel": "FONT_WEIGHT_MEDIUM",
+                                                ]],
+                                            ],
+                                            "transparentBackground": true,
+                                        ],
+                                    ],
+                                    [
+                                        "youChatItemViewModel": [
+                                            "chatResponseStyle": "CHAT_RESPONSE_STYLE_DEFAULT",
+                                            "videoResultsData": ["placeholder": true],
+                                            "transparentBackground": true,
+                                        ],
+                                    ],
+                                    [
+                                        "youChatItemViewModel": [
+                                            "chipsData": [
+                                                "chipData": [[
+                                                    "text": ["content": "Continue"],
+                                                    "continuation": "fixture-mutation-follow-up",
+                                                    "onClick": Self.localListMutationCallback(
+                                                        visibleText: "Continue"
+                                                    ),
+                                                ]],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                                "insertByPositionInSection": [
+                                    "position": "ITEM_SECTION_POSITION_END",
+                                    "sectionTargetId": "fixture-response-section",
+                                ],
+                            ],
+                        ]],
+                    ],
+                ],
+            ],
+            "frameworkUpdates": [
+                "entityBatchUpdate": ["mutations": []],
+            ],
+        ])
+
+        let conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        #expect(conversation.messages.map(\.text) == ["Synthetic summary response"])
+        #expect(conversation.suggestions.map(\.label) == ["Continue"])
+        #expect(conversation.suggestions.first?.command.continuation == "fixture-mutation-follow-up")
+    }
+
     @Test("Rejects YouChat-shaped content in unsupported response containers")
     func rejectsUnsupportedResponseContainers() throws {
         let message = [
@@ -412,6 +476,63 @@ struct YouTubeAskParserTests {
         ])
         expectYouTubeAskError(.malformedWireResponse) {
             _ = try YouTubeAskParser.parseConversation(from: missingItems)
+        }
+
+        let mixedContainers = try Self.envelope([
+            "onResponseReceivedCommands": [],
+            "onResponseReceivedCommand": [
+                "listMutationCommand": [
+                    "operations": ["operations": []],
+                ],
+            ],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: mixedContainers)
+        }
+
+        let malformedMutation = try Self.envelope([
+            "onResponseReceivedCommand": [
+                "listMutationCommand": ["operations": ["unexpected": true]],
+            ],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: malformedMutation)
+        }
+
+        let missingMutationPlacement = try Self.envelope([
+            "onResponseReceivedCommand": [
+                "listMutationCommand": [
+                    "operations": [
+                        "operations": [[
+                            "insertItemSectionContent": ["contents": []],
+                        ]],
+                    ],
+                ],
+            ],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: missingMutationPlacement)
+        }
+
+        let wrongMutationPosition = try Self.envelope([
+            "onResponseReceivedCommand": [
+                "listMutationCommand": [
+                    "operations": [
+                        "operations": [[
+                            "insertItemSectionContent": [
+                                "contents": [],
+                                "insertByPositionInSection": [
+                                    "position": "ITEM_SECTION_POSITION_START",
+                                    "sectionTargetId": "fixture-response-section",
+                                ],
+                            ],
+                        ]],
+                    ],
+                ],
+            ],
+        ])
+        expectYouTubeAskError(.malformedWireResponse) {
+            _ = try YouTubeAskParser.parseConversation(from: wrongMutationPosition)
         }
 
         let ambiguousItem = try Self.conversationEnvelope(items: [[

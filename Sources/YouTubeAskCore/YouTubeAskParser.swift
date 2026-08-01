@@ -82,7 +82,7 @@ package enum YouTubeAskParser {
         )
     }
 
-    private struct ConversationAccumulator {
+    package struct ConversationAccumulator {
         var messages: [YouTubeAskParsedMessage] = []
         var suggestions: [YouTubeAskParsedSuggestion] = []
     }
@@ -283,8 +283,31 @@ package enum YouTubeAskParser {
         _ response: [String: YouTubeAskJSONValue],
         content: inout ConversationAccumulator
     ) throws {
-        guard let commandsValue = response["onResponseReceivedCommands"] else { return }
-        guard let commands = commandsValue.arrayValue else {
+        let legacyCommands = response["onResponseReceivedCommands"]
+        let mutationCommand = response["onResponseReceivedCommand"]
+        guard legacyCommands == nil || mutationCommand == nil else {
+            throw YouTubeAskCoreError.malformedWireResponse
+        }
+
+        if let legacyCommands {
+            try Self.parseConfirmedLegacyCommands(
+                legacyCommands,
+                content: &content
+            )
+        }
+        if let mutationCommand {
+            try Self.parseConfirmedMutationCommand(
+                mutationCommand,
+                content: &content
+            )
+        }
+    }
+
+    private static func parseConfirmedLegacyCommands(
+        _ value: YouTubeAskJSONValue,
+        content: inout ConversationAccumulator
+    ) throws {
+        guard let commands = value.arrayValue else {
             throw YouTubeAskCoreError.malformedWireResponse
         }
 
@@ -320,7 +343,7 @@ package enum YouTubeAskParser {
         }
     }
 
-    private static func parseConfirmedContinuationItem(
+    package static func parseConfirmedContinuationItem(
         _ value: YouTubeAskJSONValue,
         content: inout ConversationAccumulator
     ) throws {

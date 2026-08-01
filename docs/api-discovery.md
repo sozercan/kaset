@@ -1483,6 +1483,24 @@ inventing them. The chip's `id`, visible text, click-tracking command, and the
 free-text composer's `sendUserQueryCommand` are not copied into this direct-chip
 request.
 
+**Current direct-chip response container (August 1, 2026):**
+
+Successful `get_panel` responses used a top-level singular
+`onResponseReceivedCommand.listMutationCommand`. Assistant text items and
+follow-up chips were inserted under:
+
+```text
+operations.operations[].insertItemSectionContent.contents[].youChatItemViewModel
+```
+
+Text-bearing `youChatItemViewModel` objects expose `text.content` plus optional
+style/action metadata. Chip-bearing objects expose `chipsData`. Kaset parses only
+those two visible surfaces under the confirmed insertion path; result/link
+objects such as `videoResultsData` and `webData`, plus sibling `frameworkUpdates`,
+remain ignored. The older
+`onResponseReceivedCommands[].appendContinuationItemsAction.continuationItems[]`
+shape remains supported for previously validated responses.
+
 **Signed-in production compatibility check on August 1, 2026**:
 
 - The authenticated watch response exposed validated direct chips whose
