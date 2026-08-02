@@ -108,10 +108,13 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         try await YouTubeWatchPage(
             data: self.getWatchNext(videoId: videoId),
             askBootstrap: self.isAskGeminiEligible
-                ? YouTubeAskBootstrap.testing(suggestions: [
-                    "Explain the main idea",
-                    "List the key moments",
-                ])
+                ? YouTubeAskBootstrap.testing(
+                    suggestions: [
+                        "Explain the main idea",
+                        "List the key moments",
+                    ],
+                    allowsFreeText: true
+                )
                 : nil
         )
     }
@@ -119,9 +122,7 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
     func loadAskConversation(
         from bootstrap: YouTubeAskBootstrap
     ) async throws -> YouTubeAskConversation {
-        YouTubeAskConversation.testing(
-            suggestions: bootstrap.suggestions.map(\.text)
-        )
+        YouTubeAskConversation.direct(from: bootstrap)
     }
 
     func continueAskConversation(
@@ -133,6 +134,22 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
                 YouTubeAskMessage(
                     role: .assistant,
                     text: "This is a synthetic YouTube-generated response for UI tests."
+                ),
+            ],
+            suggestions: ["Show another detail"]
+        )
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting _: String,
+        playerOffsetMilliseconds _: Int64
+    ) async throws -> YouTubeAskConversation {
+        YouTubeAskConversation.testing(
+            messages: conversation.messages + [
+                YouTubeAskMessage(
+                    role: .assistant,
+                    text: "This is a synthetic free-text response for UI tests."
                 ),
             ],
             suggestions: ["Show another detail"]

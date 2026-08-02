@@ -113,11 +113,12 @@ Kaset accepts text and follow-up chips only from the confirmed inserted
 `youChatItemViewModel` contents, while generated result/link objects remain
 non-interactive and undisplayed.
 
-The Ask implementation is intentionally chips-only: opening the watch-page
-toolbar panel may prepare an initial panel, but it never generates an answer
-until the user selects a server-issued suggestion. Follow-up chips are also
-server-issued;
-there is no free-text composer or `streaming_panel` path. Visible labels and
+Opening the watch-page toolbar panel may prepare an initial panel, but it
+never generates an answer until the user selects a server-issued suggestion or
+submits one free-text prompt. Free text is exposed only when the canonical
+eligible panel supplies the exact validated `sendUserQueryCommand`; it uses
+`get_panel`, not `streaming_panel`, and is one-shot until New Chat. Follow-up
+chips remain server-issued. Visible labels and
 answers are sanitized but not localized by Kaset. Assistant messages render
 native Markdown blocks and inline emphasis; link destinations are stripped and
 never become interactive.
@@ -245,9 +246,11 @@ When enabled by a validated request profile and an eligible watch response, Ask
 Gemini appears as a sparkles action in the top toolbar. Activating it presents a
 top-centered floating glass panel while leaving Related in place. The panel
 discloses that YouTube generates the responses, prepares lazily, shows a
-height-bounded selectable transcript, disables all chips during a single
-in-flight request, and offers New Chat after the first turn or when a submission
-outcome is uncertain. Outside click, Escape, or the panel header dismisses the
+height-bounded selectable transcript, disables all interactions during a
+single in-flight request, and offers New Chat after the first turn or when a
+submission outcome is uncertain. The input row matches the Music command bar
+and is enabled only for the validated first free-text turn. Outside click,
+Escape, or the close control dismisses the
 panel without discarding its current watch-scoped conversation. The
 conversation is owned by the current watch view—not `YouTubeViewModelStore`—and
 is discarded on navigation, source/account/authentication changes, cancellation,
@@ -288,9 +291,10 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
   YouChat bootstrap for the signed-in primary account and current video. See
   [ADR-0032](adr/0032-youtube-ask-gemini.md) and the
   [API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27).
-- Ask Gemini v1 intentionally omits free-form prompts, `streaming_panel`, brand
-  accounts, persisted conversations, telemetry, clickable generated links, and
-  Apple Intelligence dependencies.
+- Ask Gemini v1 intentionally limits free text to one validated `get_panel`
+  turn per fresh chat. It omits unvalidated multi-turn composer fields,
+  `streaming_panel`, brand accounts, persisted conversations, telemetry,
+  clickable generated links, and Apple Intelligence dependencies.
 - No auto-advance to the next related video after `VIDEO_ENDED` (YouTube
   autonav is disabled; Kaset shows the ended state — the bar's next
   button advances manually).

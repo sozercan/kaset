@@ -15,6 +15,8 @@ enum MainWindowLayout {
     static let minimumHeight: CGFloat = 600
     static let defaultWidth: CGFloat = 1100
     static let defaultHeight: CGFloat = 760
+    /// Shared top inset for the Music command bar and YouTube Ask panel.
+    static let aiTaskSurfaceTopPadding: CGFloat = 72
 
     static var minimumContentSize: NSSize {
         NSSize(width: minimumWidth, height: minimumHeight)

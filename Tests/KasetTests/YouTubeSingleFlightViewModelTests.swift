@@ -353,6 +353,14 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         return conversation
     }
 
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting _: String,
+        playerOffsetMilliseconds _: Int64
+    ) async throws -> YouTubeAskConversation {
+        conversation
+    }
+
     func getComments(continuation _: String) async throws -> YouTubeCommentsPage {
         try await self.waitIfNeeded()
         return self.commentsPage

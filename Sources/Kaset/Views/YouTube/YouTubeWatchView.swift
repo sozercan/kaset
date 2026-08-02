@@ -117,7 +117,10 @@ struct YouTubeWatchView: View {
             }
         }
         .overlay {
-            YouTubeAskFloatingOverlay(viewModel: self.viewModel.ask)
+            YouTubeAskFloatingOverlay(
+                viewModel: self.viewModel.ask,
+                playerOffsetMilliseconds: self.askPlayerOffsetMilliseconds
+            )
         }
         .youtubeAskAccessibilityAnnouncements(viewModel: self.viewModel.ask)
         #if DEBUG
@@ -140,6 +143,15 @@ struct YouTubeWatchView: View {
                 self.viewModel.cancel()
                 self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
             }
+    }
+
+    private var askPlayerOffsetMilliseconds: Int64 {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId,
+              self.youtubePlayer.progress.isFinite
+        else {
+            return 0
+        }
+        return Int64(max(0, self.youtubePlayer.progress * 1000).rounded())
     }
 
     // MARK: - Ambient Style Picker (PROTOTYPE)

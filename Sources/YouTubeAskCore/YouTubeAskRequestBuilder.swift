@@ -32,6 +32,58 @@ package enum YouTubeAskRequestBuilder {
         return try JSONEncoder().encode(body)
     }
 
+    package static func makeFreeTextBody(
+        command: YouTubeAskOpaqueCommand,
+        clientMessageID: String,
+        userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) throws -> Data {
+        guard self.isValidClientMessageID(clientMessageID) else {
+            throw YouTubeAskCoreError.invalidClientMessageID
+        }
+        let trimmedInput = userInputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedInput.isEmpty,
+              trimmedInput.count <= YouTubeAskLimits.maximumUserInputCharacters,
+              trimmedInput.utf8.count <= YouTubeAskLimits.maximumUserInputBytes
+        else {
+            throw YouTubeAskCoreError.invalidUserInput
+        }
+        guard command.clickTrackingParams != nil else {
+            throw YouTubeAskCoreError.missingFreeTextCommandContext
+        }
+
+        let body = FreeTextBody(
+            continuation: command.continuation,
+            formData: FreeTextFormData(
+                inputComposerFormData: FreeTextInputComposerFormData(
+                    clientMessageId: clientMessageID,
+                    playerOffsetMs: String(max(0, playerOffsetMilliseconds)),
+                    userInputText: trimmedInput
+                )
+            )
+        )
+        let data = try JSONEncoder().encode(body)
+        try Self.validateRequestBodySize(data)
+        return data
+    }
+
+    package static func makeFreeTextClickTrackingContext(
+        command: YouTubeAskOpaqueCommand
+    ) throws -> Data {
+        guard let clickTrackingParams = command.clickTrackingParams else {
+            throw YouTubeAskCoreError.missingFreeTextCommandContext
+        }
+        return try JSONEncoder().encode(ClickTrackingContext(
+            clickTracking: ClickTracking(clickTrackingParams: clickTrackingParams)
+        ))
+    }
+
+    package static func validateRequestBodySize(_ data: Data) throws {
+        guard data.count <= YouTubeAskLimits.maximumRequestBodyBytes else {
+            throw YouTubeAskCoreError.requestTooLarge
+        }
+    }
+
     private static func isValidClientMessageID(_ value: String) -> Bool {
         let bytes = Array(value.utf8)
         let prefix = Array("youchat-".utf8)
@@ -61,5 +113,28 @@ package enum YouTubeAskRequestBuilder {
 
     private struct InputComposerFormData: Encodable {
         let clientMessageId: String
+    }
+
+    private struct FreeTextBody: Encodable {
+        let continuation: String
+        let formData: FreeTextFormData
+    }
+
+    private struct FreeTextFormData: Encodable {
+        let inputComposerFormData: FreeTextInputComposerFormData
+    }
+
+    private struct FreeTextInputComposerFormData: Encodable {
+        let clientMessageId: String
+        let playerOffsetMs: String
+        let userInputText: String
+    }
+
+    private struct ClickTrackingContext: Encodable {
+        let clickTracking: ClickTracking
+    }
+
+    private struct ClickTracking: Encodable {
+        let clickTrackingParams: String
     }
 }

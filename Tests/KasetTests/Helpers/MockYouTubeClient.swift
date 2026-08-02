@@ -230,6 +230,9 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     private(set) var getWatchPageCallCount = 0
     private(set) var loadAskConversationCallCount = 0
     private(set) var continueAskConversationCallCount = 0
+    private(set) var continueAskFreeTextCallCount = 0
+    private(set) var submittedAskFreeTextInputs: [String] = []
+    private(set) var submittedAskPlayerOffsets: [Int64] = []
     private(set) var selectedAskSuggestionIDs: [YouTubeAskSuggestion.ID] = []
     var beforeWatchPageReturn: (@Sendable () async -> Void)?
     var beforeWatchPageReturnByCallCount: (@Sendable (Int) async -> Void)?
@@ -271,10 +274,10 @@ final class MockYouTubeClient: YouTubeClientProtocol {
             await beforeAskPreparationReturn()
         }
         try Task.checkCancellation()
-        if self.askConversation.suggestions.isEmpty, !bootstrap.suggestions.isEmpty {
-            return YouTubeAskConversation.testing(
-                suggestions: bootstrap.suggestions.map(\.text)
-            )
+        if self.askConversation.messages.isEmpty,
+           self.askConversation.suggestions.isEmpty
+        {
+            return YouTubeAskConversation.direct(from: bootstrap)
         }
         return self.askConversation
     }
@@ -285,6 +288,27 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     ) async throws -> YouTubeAskConversation {
         self.continueAskConversationCallCount += 1
         self.selectedAskSuggestionIDs.append(suggestionID)
+        if let askError {
+            throw askError
+        }
+        if let beforeAskContinuationReturn {
+            await beforeAskContinuationReturn()
+        }
+        try Task.checkCancellation()
+        if let continuedAskConversation {
+            return continuedAskConversation
+        }
+        return YouTubeAskConversation.testing(messages: conversation.messages)
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) async throws -> YouTubeAskConversation {
+        self.continueAskFreeTextCallCount += 1
+        self.submittedAskFreeTextInputs.append(userInputText)
+        self.submittedAskPlayerOffsets.append(playerOffsetMilliseconds)
         if let askError {
             throw askError
         }

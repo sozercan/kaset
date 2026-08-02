@@ -48,6 +48,65 @@ struct YouTubeAskViewModelTests {
         #expect(sut.suggestions.map(\.text) == ["Explain the main idea"])
     }
 
+    @Test("Free text is single-flight, forwards playback offset, and is one-shot")
+    func freeTextSubmissionIsValidatedAndOneShot() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeAskViewModel(videoID: "fixture-video", client: client)
+        sut.seed(YouTubeAskBootstrap.testing(
+            suggestions: ["Explain the main idea"],
+            allowsFreeText: true
+        ))
+        sut.setExpanded(true)
+        await self.waitUntil(sut.activity == .idle && sut.acceptsFreeTextInput)
+
+        sut.inputText = String(repeating: "a", count: 16001)
+        #expect(!sut.canSubmitInput)
+        let oversizedUTF8 = String(repeating: "🇺🇸", count: 9000)
+        #expect(oversizedUTF8.count <= 16000)
+        #expect(oversizedUTF8.utf8.count > 64 * 1024)
+        sut.inputText = oversizedUTF8
+        #expect(!sut.canSubmitInput)
+        sut.inputText = ""
+
+        client.continuedAskConversation = YouTubeAskConversation.testing(
+            messages: [
+                YouTubeAskMessage(role: .user, text: "What is this video about?"),
+                YouTubeAskMessage(role: .assistant, text: "A fixture answer."),
+            ],
+            suggestions: ["Ask a follow-up"]
+        )
+        let gate = AsyncGate()
+        client.beforeAskContinuationReturn = {
+            await gate.wait()
+        }
+        sut.inputText = "  What is this video about?  "
+
+        sut.submitInput(playerOffsetMilliseconds: 234_000)
+        await self.waitUntil(client.continueAskFreeTextCallCount == 1)
+
+        #expect(sut.activity == .sending)
+        #expect(sut.inputText.isEmpty)
+        #expect(sut.messages.map(\.text) == ["What is this video about?"])
+        #expect(client.submittedAskFreeTextInputs == ["What is this video about?"])
+        #expect(client.submittedAskPlayerOffsets == [234_000])
+
+        sut.inputText = "Ignored second prompt"
+        sut.submitInput(playerOffsetMilliseconds: 0)
+        await Task.yield()
+        #expect(client.continueAskFreeTextCallCount == 1)
+
+        await gate.open()
+        await self.waitUntil(sut.activity == .idle && sut.messages.count == 2)
+
+        #expect(sut.messages.map(\.text) == [
+            "What is this video about?",
+            "A fixture answer.",
+        ])
+        #expect(!sut.acceptsFreeTextInput)
+        #expect(sut.canStartNewChat)
+        #expect(sut.accessibilityAnnouncement == .responseReady)
+    }
+
     @Test("Suggestion selection publishes the user turn, stays single-flight, and preserves server order")
     func selectionIsSingleFlightAndOrdered() async throws {
         let client = MockYouTubeClient()

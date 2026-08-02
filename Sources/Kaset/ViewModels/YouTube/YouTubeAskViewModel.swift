@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import YouTubeAskCore
 
 /// Owns one watch-scoped Ask Gemini conversation and every task that can mutate it.
 @MainActor
@@ -27,6 +28,7 @@ final class YouTubeAskViewModel {
     private(set) var requiresNewChat = false
     private(set) var accessibilityAnnouncement: AccessibilityAnnouncement?
     private(set) var accessibilityAnnouncementSequence = 0
+    var inputText = ""
 
     private var bootstrap: YouTubeAskBootstrap?
     private var operationGeneration: UInt64 = 0
@@ -61,6 +63,20 @@ final class YouTubeAskViewModel {
         self.isAvailable && (self.hasStarted || self.requiresNewChat)
     }
 
+    var acceptsFreeTextInput: Bool {
+        !self.isBusy
+            && !self.requiresNewChat
+            && self.conversation?.canSubmitFreeText == true
+    }
+
+    var canSubmitInput: Bool {
+        let trimmedInput = self.inputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return self.acceptsFreeTextInput
+            && !trimmedInput.isEmpty
+            && trimmedInput.count <= YouTubeAskLimits.maximumUserInputCharacters
+            && trimmedInput.utf8.count <= YouTubeAskLimits.maximumUserInputBytes
+    }
+
     /// Replaces all prior state with a fresh watch-page bootstrap. The toolbar
     /// action remains hidden until eligibility is known, and presenting the panel
     /// materializes it lazily.
@@ -74,6 +90,7 @@ final class YouTubeAskViewModel {
         self.presentationError = nil
         self.requiresNewChat = false
         self.accessibilityAnnouncement = nil
+        self.inputText = ""
     }
 
     func toggleExpanded() {
@@ -98,6 +115,7 @@ final class YouTubeAskViewModel {
         }
 
         self.presentationError = nil
+        self.inputText = ""
         self.conversation = pendingConversation
         let generation = self.beginOperation(.sending)
         let client = self.client
@@ -107,6 +125,58 @@ final class YouTubeAskViewModel {
                 let nextConversation = try await client.continueAskConversation(
                     pendingConversation,
                     selecting: suggestionID
+                )
+                guard let self, self.operationGeneration == generation else { return }
+                self.conversation = nextConversation
+                self.requiresNewChat = false
+                self.presentationError = nil
+                self.inputText = ""
+                self.finishOperation(generation: generation)
+                self.publishAnnouncement(.responseReady)
+            } catch is CancellationError {
+                guard let self, self.operationGeneration == generation else { return }
+                if Task.isCancelled {
+                    self.finishOperation(generation: generation)
+                    return
+                }
+                self.failSubmission(
+                    pendingConversation: pendingConversation,
+                    error: YouTubeAskClientError.sessionChanged,
+                    generation: generation
+                )
+            } catch {
+                guard let self, self.operationGeneration == generation else { return }
+                self.failSubmission(
+                    pendingConversation: pendingConversation,
+                    error: error,
+                    generation: generation
+                )
+            }
+        }
+    }
+
+    func submitInput(playerOffsetMilliseconds: Int64) {
+        guard !self.isBusy,
+              !self.requiresNewChat,
+              let conversation = self.conversation,
+              let pendingConversation = conversation.appendingUserTurn(text: self.inputText),
+              let submittedText = pendingConversation.messages.last?.text
+        else {
+            return
+        }
+
+        self.presentationError = nil
+        self.inputText = ""
+        self.conversation = pendingConversation
+        let generation = self.beginOperation(.sending)
+        let client = self.client
+
+        self.requestTask = Task { @MainActor [weak self, client, pendingConversation] in
+            do {
+                let nextConversation = try await client.continueAskConversation(
+                    pendingConversation,
+                    submitting: submittedText,
+                    playerOffsetMilliseconds: playerOffsetMilliseconds
                 )
                 guard let self, self.operationGeneration == generation else { return }
                 self.conversation = nextConversation
@@ -160,6 +230,7 @@ final class YouTubeAskViewModel {
                 self.isAvailable = true
                 self.requiresNewChat = false
                 self.presentationError = nil
+                self.inputText = ""
                 self.finishOperation(generation: generation)
                 self.publishAnnouncement(.newChatReady)
             } catch is CancellationError {
@@ -191,6 +262,7 @@ final class YouTubeAskViewModel {
         self.presentationError = nil
         self.requiresNewChat = false
         self.accessibilityAnnouncement = nil
+        self.inputText = ""
     }
 
     private func prepareInitialConversationIfNeeded() {

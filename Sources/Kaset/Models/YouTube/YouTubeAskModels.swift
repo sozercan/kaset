@@ -104,6 +104,7 @@ struct YouTubeAskBootstrap: Sendable {
     let suggestions: [YouTubeAskSuggestion]
 
     private let panelCommand: YouTubeAskOpaqueCommand?
+    private let freeTextCommand: YouTubeAskOpaqueCommand?
     private let suggestionStates: [YouTubeAskSuggestionState]
     private let binding: YouTubeAskBindingState
 
@@ -128,6 +129,7 @@ struct YouTubeAskBootstrap: Sendable {
         self.videoID = videoID
         self.suggestions = suggestionStates.map(\.visible)
         self.panelCommand = parsed.panelCommand
+        self.freeTextCommand = parsed.freeTextCommand
         self.suggestionStates = suggestionStates
         self.binding = YouTubeAskBindingState(
             videoID: videoID,
@@ -143,12 +145,21 @@ struct YouTubeAskBootstrap: Sendable {
         YouTubeAskConversation(
             messages: [],
             suggestionStates: self.suggestionStates,
+            freeTextCommand: self.freeTextCommand,
             binding: self.binding
         )
     }
 
     var materializationCommand: YouTubeAskOpaqueCommand? {
         self.panelCommand
+    }
+
+    fileprivate var freeTextSubmissionCommand: YouTubeAskOpaqueCommand? {
+        self.freeTextCommand
+    }
+
+    var hasFreeTextCommand: Bool {
+        self.freeTextCommand != nil
     }
 
     var conversationID: UUID {
@@ -172,18 +183,34 @@ struct YouTubeAskBootstrap: Sendable {
         self.binding
     }
 
-    static func testing(suggestions: [String]) -> YouTubeAskBootstrap {
+    static func testing(
+        suggestions: [String],
+        allowsFreeText: Bool = false
+    ) -> YouTubeAskBootstrap {
         YouTubeAskBootstrap(
             videoID: "fixture-video",
-            suggestions: suggestions
+            suggestions: suggestions,
+            allowsFreeText: allowsFreeText
         )
     }
 
-    private init(videoID: String, suggestions: [String]) {
+    private init(videoID: String, suggestions: [String], allowsFreeText: Bool) {
+        let suggestionStates = suggestions.enumerated().map { index, text in
+            YouTubeAskSuggestionState(
+                visible: YouTubeAskSuggestion(text: text),
+                command: YouTubeAskOpaqueCommand("fixture-suggestion-\(index)")
+            )
+        }
         self.videoID = videoID
-        self.suggestions = suggestions.map { YouTubeAskSuggestion(text: $0) }
+        self.suggestions = suggestionStates.map(\.visible)
         self.panelCommand = nil
-        self.suggestionStates = []
+        self.freeTextCommand = allowsFreeText
+            ? YouTubeAskOpaqueCommand(
+                continuation: "fixture-free-text-continuation",
+                clickTrackingParams: "fixture-click-tracking"
+            )
+            : nil
+        self.suggestionStates = suggestionStates
         self.binding = YouTubeAskBindingState(
             videoID: videoID,
             authenticationGeneration: 0,
@@ -204,16 +231,27 @@ struct YouTubeAskConversation: Sendable {
     let suggestions: [YouTubeAskSuggestion]
 
     private let suggestionStates: [YouTubeAskSuggestionState]
+    private let freeTextCommand: YouTubeAskOpaqueCommand?
     private let binding: YouTubeAskBindingState?
     private let pendingSuggestionID: YouTubeAskSuggestion.ID?
+    private let pendingFreeTextInput: String?
 
     var hasStarted: Bool {
         self.messages.contains { $0.role == .user }
     }
 
+    var canSubmitFreeText: Bool {
+        self.binding != nil
+            && self.freeTextCommand != nil
+            && !self.hasStarted
+            && self.pendingSuggestionID == nil
+            && self.pendingFreeTextInput == nil
+    }
+
     fileprivate init(
         messages: [YouTubeAskMessage],
         suggestionStates: [YouTubeAskSuggestionState],
+        freeTextCommand: YouTubeAskOpaqueCommand?,
         binding: YouTubeAskBindingState
     ) {
         self.id = binding.conversationID
@@ -221,14 +259,17 @@ struct YouTubeAskConversation: Sendable {
         self.messages = messages
         self.suggestions = suggestionStates.map(\.visible)
         self.suggestionStates = suggestionStates
+        self.freeTextCommand = freeTextCommand
         self.binding = binding
         self.pendingSuggestionID = nil
+        self.pendingFreeTextInput = nil
     }
 
     fileprivate init(
         previousMessages: [YouTubeAskMessage],
         parsed: YouTubeAskParsedConversation,
-        binding: YouTubeAskBindingState
+        binding: YouTubeAskBindingState,
+        freeTextCommand: YouTubeAskOpaqueCommand? = nil
     ) {
         let suggestionStates = parsed.suggestions.map { parsedSuggestion in
             YouTubeAskSuggestionState(
@@ -242,12 +283,14 @@ struct YouTubeAskConversation: Sendable {
         self.init(
             messages: previousMessages + assistantMessages,
             suggestionStates: suggestionStates,
+            freeTextCommand: freeTextCommand,
             binding: binding
         )
     }
 
     func appendingUserTurn(for suggestionID: YouTubeAskSuggestion.ID) -> YouTubeAskConversation? {
         guard self.pendingSuggestionID == nil,
+              self.pendingFreeTextInput == nil,
               let selected = self.suggestions.first(where: { $0.id == suggestionID })
         else {
             return nil
@@ -258,9 +301,49 @@ struct YouTubeAskConversation: Sendable {
             messages: self.messages + [YouTubeAskMessage(role: .user, text: selected.text)],
             suggestions: self.suggestions,
             suggestionStates: self.suggestionStates,
+            freeTextCommand: self.freeTextCommand,
             binding: self.binding,
-            pendingSuggestionID: suggestionID
+            pendingSuggestionID: suggestionID,
+            pendingFreeTextInput: nil
         )
+    }
+
+    func appendingUserTurn(text: String) -> YouTubeAskConversation? {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard self.canSubmitFreeText,
+              !trimmedText.isEmpty,
+              trimmedText.count <= YouTubeAskLimits.maximumUserInputCharacters,
+              trimmedText.utf8.count <= YouTubeAskLimits.maximumUserInputBytes
+        else {
+            return nil
+        }
+        return YouTubeAskConversation(
+            id: self.id,
+            revision: self.revision,
+            messages: self.messages + [YouTubeAskMessage(role: .user, text: trimmedText)],
+            suggestions: self.suggestions,
+            suggestionStates: self.suggestionStates,
+            freeTextCommand: self.freeTextCommand,
+            binding: self.binding,
+            pendingSuggestionID: nil,
+            pendingFreeTextInput: trimmedText
+        )
+    }
+
+    func pendingFreeTextSubmission(
+        matching userInputText: String
+    ) -> (command: YouTubeAskOpaqueCommand, userInputText: String)? {
+        let trimmedInput = userInputText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let pendingFreeTextInput = self.pendingFreeTextInput,
+              pendingFreeTextInput == trimmedInput,
+              let lastMessage = self.messages.last,
+              case .user = lastMessage.role,
+              lastMessage.text == pendingFreeTextInput,
+              let command = self.freeTextCommand
+        else {
+            return nil
+        }
+        return (command: command, userInputText: pendingFreeTextInput)
     }
 
     func command(for suggestionID: YouTubeAskSuggestion.ID) -> YouTubeAskOpaqueCommand? {
@@ -298,8 +381,10 @@ struct YouTubeAskConversation: Sendable {
             messages: self.messages,
             suggestions: [],
             suggestionStates: [],
+            freeTextCommand: nil,
             binding: nil,
-            pendingSuggestionID: nil
+            pendingSuggestionID: nil,
+            pendingFreeTextInput: nil
         )
     }
 
@@ -309,16 +394,20 @@ struct YouTubeAskConversation: Sendable {
         messages: [YouTubeAskMessage],
         suggestions: [YouTubeAskSuggestion],
         suggestionStates: [YouTubeAskSuggestionState],
+        freeTextCommand: YouTubeAskOpaqueCommand?,
         binding: YouTubeAskBindingState?,
-        pendingSuggestionID: YouTubeAskSuggestion.ID?
+        pendingSuggestionID: YouTubeAskSuggestion.ID?,
+        pendingFreeTextInput: String?
     ) {
         self.id = id
         self.revision = revision
         self.messages = messages
         self.suggestions = suggestions
         self.suggestionStates = suggestionStates
+        self.freeTextCommand = freeTextCommand
         self.binding = binding
         self.pendingSuggestionID = pendingSuggestionID
+        self.pendingFreeTextInput = pendingFreeTextInput
     }
 
     static func testing(
@@ -331,8 +420,10 @@ struct YouTubeAskConversation: Sendable {
             messages: messages,
             suggestions: suggestions.map { YouTubeAskSuggestion(text: $0) },
             suggestionStates: [],
+            freeTextCommand: nil,
             binding: nil,
-            pendingSuggestionID: nil
+            pendingSuggestionID: nil,
+            pendingFreeTextInput: nil
         )
     }
 }
@@ -425,7 +516,8 @@ extension YouTubeAskConversation {
         YouTubeAskConversation(
             previousMessages: [],
             parsed: parsed,
-            binding: bootstrap.bindingState
+            binding: bootstrap.bindingState,
+            freeTextCommand: bootstrap.freeTextSubmissionCommand
         )
     }
 

@@ -6,6 +6,17 @@ import Foundation
 /// outside this module and has only redacted string/reflection representations.
 package struct YouTubeAskOpaqueCommand: Sendable {
     let continuation: String
+    let clickTrackingParams: String?
+
+    package init(_ continuation: String) {
+        self.continuation = continuation
+        self.clickTrackingParams = nil
+    }
+
+    package init(continuation: String, clickTrackingParams: String) {
+        self.continuation = continuation
+        self.clickTrackingParams = clickTrackingParams
+    }
 }
 
 // MARK: CustomStringConvertible

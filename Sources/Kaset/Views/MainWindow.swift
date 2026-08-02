@@ -15,10 +15,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    private enum Layout {
-        static let commandBarTopPadding: CGFloat = 72
-    }
-
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -197,7 +193,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .padding(.top, Self.Layout.commandBarTopPadding)
+                    .padding(.top, MainWindowLayout.aiTaskSurfaceTopPadding)
                 }
                 .animation(.easeInOut(duration: 0.15), value: self.isCommandBarPresented)
             }

@@ -30,7 +30,9 @@ extension YouTubeClient {
             bodyData: bodyData,
             snapshot: snapshot
         )
-        guard !parsed.suggestions.isEmpty else {
+        guard !parsed.suggestions.isEmpty
+            || bootstrap.hasFreeTextCommand
+        else {
             throw YouTubeAskClientError.invalidResponse
         }
         return YouTubeAskConversation.materialized(
@@ -87,17 +89,90 @@ extension YouTubeClient {
         return nextConversation
     }
 
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) async throws -> YouTubeAskConversation {
+        guard let videoID = conversation.boundVideoID else {
+            throw CancellationError()
+        }
+        let snapshot = try await self.makeAskRequestSnapshot(videoID: videoID)
+        guard conversation.isBound(
+            toVideoID: snapshot.videoID,
+            authenticationGeneration: snapshot.authenticationGeneration,
+            accountBinding: snapshot.accountBinding,
+            clientGeneration: snapshot.clientGeneration
+        ), let submission = conversation.pendingFreeTextSubmission(matching: userInputText)
+        else {
+            throw CancellationError()
+        }
+
+        let bodyData: Data
+        let clickTrackingContextData: Data
+        let request: URLRequest
+        do {
+            bodyData = try YouTubeAskRequestBuilder.makeFreeTextBody(
+                command: submission.command,
+                clientMessageID: self.nextAskClientMessageID(),
+                userInputText: submission.userInputText,
+                playerOffsetMilliseconds: playerOffsetMilliseconds
+            )
+            clickTrackingContextData = try YouTubeAskRequestBuilder.makeFreeTextClickTrackingContext(
+                command: submission.command
+            )
+            request = try self.makeAskRequest(
+                endpoint: "get_panel",
+                bodyData: bodyData,
+                snapshot: snapshot,
+                clickTrackingContextData: clickTrackingContextData
+            )
+            guard let finalBody = request.httpBody else {
+                throw YouTubeAskClientError.invalidResponse
+            }
+            try YouTubeAskRequestBuilder.validateRequestBodySize(finalBody)
+        } catch {
+            throw YouTubeAskClientError.invalidResponse
+        }
+        guard self.consumeAskRevision(
+            conversationID: conversation.id,
+            revision: conversation.revision
+        ) else {
+            throw CancellationError()
+        }
+
+        let parsed = try await self.performAskPanelRequest(request: request, snapshot: snapshot)
+        guard !parsed.messages.isEmpty,
+              let nextConversation = YouTubeAskConversation.continued(
+                  from: conversation,
+                  parsed: parsed
+              )
+        else {
+            throw YouTubeAskClientError.invalidResponse
+        }
+        return nextConversation
+    }
+
     private func performAskPanelRequest(
         bodyData: Data,
-        snapshot: AskRequestSnapshot
+        snapshot: AskRequestSnapshot,
+        clickTrackingContextData: Data? = nil
     ) async throws -> YouTubeAskParsedConversation {
         try self.validateAskRequestSnapshot(snapshot)
         let request = try self.makeAskRequest(
             endpoint: "get_panel",
             bodyData: bodyData,
-            snapshot: snapshot
+            snapshot: snapshot,
+            clickTrackingContextData: clickTrackingContextData
         )
+        return try await self.performAskPanelRequest(request: request, snapshot: snapshot)
+    }
 
+    private func performAskPanelRequest(
+        request: URLRequest,
+        snapshot: AskRequestSnapshot
+    ) async throws -> YouTubeAskParsedConversation {
+        try self.validateAskRequestSnapshot(snapshot)
         let response: YouTubeAskHTTPResponse
         do {
             response = try await self.askTransport.send(request)

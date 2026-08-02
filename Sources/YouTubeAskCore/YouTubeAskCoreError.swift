@@ -15,4 +15,7 @@ package enum YouTubeAskCoreError: Error, Equatable, Sendable {
     case unsupportedChipDecorator
     case malformedMessage
     case invalidClientMessageID
+    case invalidUserInput
+    case requestTooLarge
+    case missingFreeTextCommandContext
 }

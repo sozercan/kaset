@@ -1409,6 +1409,9 @@ swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow
 # Live: two independent watch/panel bootstraps, capped at three
 swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --fresh-chats 2
 
+# Live: one guarded free-text request from a private prompt source
+swift run api-explorer ask-video-free-text-test <VIDEO_ID> --confirm-live-ai --prompt-file <MODE_0600_PATH_OR_->
+
 # Manual structural probe for object, array, streaming, or opaque responses
 swift run api-explorer --youtube wire-action <ENDPOINT> '<JSON_OBJECT>'
 ```
@@ -1419,6 +1422,57 @@ opaque continuations and message state in memory, rejects raw output files, and
 accepts no arbitrary prompt text. Its generated answer display strips control
 and bidirectional formatting characters, hides links and high-entropy opaque
 strings, and is bounded to 16,000 characters per answer.
+
+`ask-video-free-text-test` is a separate, one-shot validation command. It
+fetches a fresh authenticated runtime-WEB `next` response and selects the first
+complete eligible `PAyouchat` panel, matching the browser's mirrored-panel
+behavior without merging opaque commands from responsive duplicates.
+The accepted schema is intentionally narrow:
+
+```text
+sendUserQueryCommand
+└── innertubeCommand
+    ├── clickTrackingParams: nonempty string
+    └── continuationCommand
+        ├── request: CONTINUATION_REQUEST_TYPE_GET_PANEL
+        └── opaque continuation token is present
+```
+
+The command sends one `get_panel` request, without retry, using the exact
+server continuation and click-tracking context plus:
+
+```text
+formData.inputComposerFormData.clientMessageId: youchat-<Unix epoch milliseconds>
+formData.inputComposerFormData.playerOffsetMs: decimal millisecond string
+formData.inputComposerFormData.userInputText: private prompt contents
+```
+
+The runtime WEB `context` is added by the authenticated request transport.
+Prompts must come from stdin or a regular file owned by the current user with
+exact mode `0600`, no extended ACL, valid UTF-8, and at most
+16,000 characters. The command rejects guest, `--authuser`, brand-account,
+client-version override, verbose, output, raw-body, follow-up, and multi-chat
+options. Responses use the bounded `YouTubeAskCore` decoder and strict confirmed
+YouChat parser; only sanitized assistant text and redacted structural metrics are
+printed. Raw prompts, commands, responses, and conversation values are never
+displayed or saved.
+
+**Live validation on August 2, 2026:**
+
+- The first guarded API candidate used `streaming_panel` and returned HTTP 400
+  before generation, confirming the earlier transport interpretation was stale.
+- A user-approved browser capture then submitted one 25-character prompt. The
+  frontend posted to `get_panel`, not `streaming_panel`, with top-level
+  `context`, `continuation`, and `formData` only.
+- `inputComposerFormData` contained exactly `clientMessageId`, string
+  `playerOffsetMs`, and `userInputText`; click tracking was nested in
+  `context.clickTracking`.
+- The response returned HTTP 200 as a JSON object with the confirmed singular
+  `onResponseReceivedCommand.listMutationCommand` shape. The existing bounded
+  decoder and strict conversation parser accept that response container.
+- No second arbitrary-text turn was sent. Production therefore treats free text
+  as one-shot per fresh chat; follow-up interaction remains server-chip-only or
+  starts with New Chat.
 
 **Read-only production-parity matrix (added July 28, 2026):**
 
@@ -1463,8 +1517,8 @@ arguments must be plain relative API paths.
 
 | Transport | Current interpretation |
 |-----------|------------------------|
-| `get_panel` | Panel bootstrap and direct suggestion-chip continuation transport |
-| `streaming_panel` | Free-text streaming transport only when a server-issued command explicitly selects this API path; observed responses use a top-level JSON array |
+| `get_panel` | Panel bootstrap, direct suggestion chips, and the validated one-shot free-text composer transport |
+| `streaming_panel` | Frontend capability remains present, but the August 2 free-text candidate returned HTTP 400; not used by production |
 | `get_watch` | Combined player/watch bootstrap; observed responses use a top-level JSON array |
 | `get_answer` | Separate AI answer transport; not used by the verified watch-page suggestion flow |
 
@@ -1521,11 +1575,11 @@ shape remains supported for previously validated responses.
 - A read-only production-client probe then parsed the watch bootstrap
   successfully. No panel materialization or suggestion submission was performed.
 
-The free-text composer is a different path. It uses the server-issued
-`sendUserQueryCommand` (or its own fallback continuation), adds `userInputText`,
-and selects `streaming_panel` only when command metadata explicitly names that
-endpoint. Arbitrary free-text submission is intentionally not implemented by
-`ask-video-live-test`.
+The free-text composer uses the exact server-issued `sendUserQueryCommand`
+continuation and click tracking. The August 2 browser capture showed that the
+frontend posts it to `get_panel` with `clientMessageId`, decimal-string
+`playerOffsetMs`, and `userInputText`. Production permits that exact shape once
+per fresh chat; unvalidated multi-turn fields remain unsupported.
 
 **Live validation on July 27, 2026**:
 
@@ -1584,6 +1638,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | `ask-video-audit <videoId>` | Run a redacted, read-only Ask Gemini / YouChat audit without sending a prompt |
 | `ask-video-parity <videoId>` | Test ordered read-only Ask request profiles using only `next` and initial `get_panel`; never submits a chip |
 | `ask-video-live-test <videoId>` | With `--confirm-live-ai`, replay the server-issued summary chip; optionally add `--follow-up` or `--fresh-chats N` |
+| `ask-video-free-text-test <videoId>` | With `--confirm-live-ai` and `--prompt-file`, validate one exact server-commanded `get_panel` free-text request with no retry |
 | `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
 | `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
@@ -1602,7 +1657,8 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | `--brand <ID>` | Use brand account (21-digit ID) |
 | `--client-version <version>` | Override the resolved InnerTube client version for compatibility probes |
 | `--body-file <path\|->` | Read a sensitive JSON action body from a mode-0600 regular file or stdin; required for panel/answer transports |
-| `--confirm-live-ai` | Required explicit acknowledgement before `ask-video-live-test` sends live AI requests |
+| `--prompt-file <path\|->` | Read the free-text validation prompt from an exact mode-0600 regular file or stdin; accepted only by `ask-video-free-text-test` |
+| `--confirm-live-ai` | Required explicit acknowledgement before either guarded Ask live-test command sends an AI request |
 | `--follow-up` | Replay the first follow-up chip returned by the live summary response |
 | `--fresh-chats N` | Run 1-3 independent summary bootstraps (default: 1) |
 | `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
@@ -1624,6 +1680,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-08-02 | Browser-validated the one-shot `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; deduplicated repeated visible suggestions; retained one-shot free text plus server-chip follow-ups |
 | 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for the observed local user-turn/loading `onClick` mutation, preserved direct chips while discarding ambiguous panel-only commands, and added one bounded read-only retry for internal identity-fence cancellation |
 | 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
 | 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |

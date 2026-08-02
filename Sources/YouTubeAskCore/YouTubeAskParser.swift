@@ -19,7 +19,10 @@ package enum YouTubeAskParser {
         guard !eligiblePanels.isEmpty else { return nil }
 
         var continuationCandidates: [String] = []
-        var content = ConversationAccumulator()
+        var canonicalContent: (
+            suggestions: [YouTubeAskParsedSuggestion],
+            freeTextCommand: YouTubeAskOpaqueCommand?
+        )?
         for panel in eligiblePanels {
             var commandBudget = TraversalBudget()
             try Self.collectBootstrapContinuations(
@@ -30,28 +33,69 @@ package enum YouTubeAskParser {
                 continuations: &continuationCandidates
             )
 
+            var panelContent = ConversationAccumulator()
             var contentBudget = TraversalBudget()
             try Self.collectBootstrapSuggestions(
                 in: panel,
                 depth: 0,
                 budget: &contentBudget,
-                content: &content
+                content: &panelContent
             )
+            var freeTextBudget = TraversalBudget()
+            var freeTextCommands: [YouTubeAskOpaqueCommand] = []
+            try Self.collectFreeTextCommands(
+                in: panel,
+                depth: 0,
+                budget: &freeTextBudget,
+                commands: &freeTextCommands
+            )
+            let panelFreeTextCommand = try Self.unambiguousFreeTextCommand(freeTextCommands)
+
+            let panelSuggestions = try Self.deduplicatedSuggestions(panelContent.suggestions)
+            guard !panelSuggestions.isEmpty || panelFreeTextCommand != nil else {
+                continue
+            }
+            if let canonicalContent {
+                guard canonicalContent.suggestions.map(\.label) == panelSuggestions.map(\.label) else {
+                    throw YouTubeAskCoreError.malformedChip
+                }
+                guard Self.freeTextCommandsMatch(
+                    canonicalContent.freeTextCommand,
+                    panelFreeTextCommand
+                ) else {
+                    throw YouTubeAskCoreError.ambiguousBootstrap
+                }
+            } else {
+                canonicalContent = (
+                    suggestions: panelSuggestions,
+                    freeTextCommand: panelFreeTextCommand
+                )
+            }
         }
+        let suggestions = canonicalContent?.suggestions ?? []
+        let freeTextCommand = canonicalContent?.freeTextCommand
 
         let panelContinuation: String?
         do {
             panelContinuation = try Self.unambiguousContinuation(continuationCandidates)
-        } catch YouTubeAskCoreError.ambiguousBootstrap where !content.suggestions.isEmpty {
+        } catch YouTubeAskCoreError.ambiguousBootstrap
+            where !suggestions.isEmpty || freeTextCommand != nil
+        {
             // Direct chip continuations are independently validated capabilities.
             // Do not guess among unrelated panel-bootstrap commands when the
             // panel can already be presented without materialization.
             panelContinuation = nil
         }
-        guard panelContinuation != nil || !content.suggestions.isEmpty else { return nil }
+        guard panelContinuation != nil
+            || freeTextCommand != nil
+            || !suggestions.isEmpty
+        else {
+            return nil
+        }
         return YouTubeAskParsedBootstrap(
             panelCommand: panelContinuation.map(YouTubeAskOpaqueCommand.init),
-            suggestions: content.suggestions
+            freeTextCommand: freeTextCommand,
+            suggestions: suggestions
         )
     }
 
@@ -76,6 +120,7 @@ package enum YouTubeAskParser {
                 content: &content
             )
         }
+        content.suggestions = try Self.deduplicatedSuggestions(content.suggestions)
         return YouTubeAskParsedConversation(
             messages: content.messages,
             suggestions: content.suggestions
@@ -87,7 +132,7 @@ package enum YouTubeAskParser {
         var suggestions: [YouTubeAskParsedSuggestion] = []
     }
 
-    private struct TraversalBudget {
+    struct TraversalBudget {
         var visitedNodes = 0
 
         mutating func visit(_ value: YouTubeAskJSONValue, depth: Int) throws {
@@ -108,18 +153,6 @@ package enum YouTubeAskParser {
             self.visitedNodes += 1
         }
     }
-
-    private static let eligibleMarkerValues: Set<String> = [
-        "PAyouchat",
-        "engagement-panel-youchat",
-    ]
-
-    private static let eligibleMarkerKeys: Set<String> = [
-        "identifier",
-        "panelId",
-        "panelIdentifier",
-        "targetId",
-    ]
 
     private static func collectEligiblePanels(
         in value: YouTubeAskJSONValue,
@@ -471,7 +504,7 @@ package enum YouTubeAskParser {
         }
         return YouTubeAskParsedSuggestion(
             label: label.text,
-            command: YouTubeAskOpaqueCommand(continuation: continuation)
+            command: YouTubeAskOpaqueCommand(continuation)
         )
     }
 
@@ -494,48 +527,6 @@ package enum YouTubeAskParser {
             text: message.text,
             wasTruncated: message.wasTruncated
         )
-    }
-
-    private static func visibleText(
-        from value: YouTubeAskJSONValue,
-        malformedError: YouTubeAskCoreError
-    ) throws -> String {
-        if let string = value.stringValue {
-            return string
-        }
-        guard let object = value.objectValue else {
-            throw malformedError
-        }
-
-        let recognizedKeys = ["content", "simpleText", "runs"]
-            .filter { object[$0] != nil }
-        guard recognizedKeys.count == 1, let selectedKey = recognizedKeys.first else {
-            throw malformedError
-        }
-
-        switch selectedKey {
-        case "content", "simpleText":
-            guard let text = object[selectedKey]?.stringValue else {
-                throw malformedError
-            }
-            return text
-        case "runs":
-            guard let runs = object["runs"]?.arrayValue, !runs.isEmpty else {
-                throw malformedError
-            }
-            var text = ""
-            for run in runs {
-                guard let runObject = run.objectValue,
-                      let runText = runObject["text"]?.stringValue
-                else {
-                    throw malformedError
-                }
-                text.append(contentsOf: runText)
-            }
-            return text
-        default:
-            throw malformedError
-        }
     }
 
     private static func containsUnsupportedChipDecorator(

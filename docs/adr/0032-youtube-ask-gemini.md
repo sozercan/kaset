@@ -37,14 +37,16 @@ Wire-level observations and the API Explorer workflow remain documented in the
    `next` response is shared with normal watch-page parsing. WebViews remain
    limited to authentication and DRM playback; Kaset does not scrape or drive
    the Ask Gemini DOM.
-2. **Ship a chips-only v1.** An eligible watch page exposes a sparkles action
-   in the top toolbar. Activating it presents a transient, top-centered glass panel
-   and may prepare the initial panel, but never submits a suggestion or generates
-   an answer automatically. Outside click, Escape, or the panel header
-   dismisses the surface without discarding the current watch-scoped conversation.
-   Only server-issued
-   suggestion chips and follow-up chips can be selected. Arbitrary text prompts,
-   a text composer, and `streaming_panel` are out of scope.
+2. **Ship server-commanded one-shot free text plus chips.** An eligible watch
+   page exposes a sparkles action in the top toolbar. Activating it presents a
+   compact, top-centered glass panel and may prepare the initial panel, but never
+   generates an answer automatically. The composer appears only when the
+   canonical eligible panel supplies the exact validated `sendUserQueryCommand`.
+   One free-text turn is allowed per fresh chat and uses `get_panel` with the
+   captured `clientMessageId`, string `playerOffsetMs`, `userInputText`, server
+   continuation, and click-tracking context. After any submitted turn, follow-up
+   interaction remains server-chip-only until New Chat. Outside click, Escape,
+   or the close control dismisses the surface without discarding the conversation.
 3. **Scope all conversation state to the current watch and account.** Ask is
    available only to an eligible signed-in primary account. Hidden state is
    bound to the video, authentication generation, primary-account scope, local
@@ -55,7 +57,8 @@ Wire-level observations and the API Explorer workflow remain documented in the
    telemetry, or logs.
 4. **Treat server commands as opaque capabilities.** Continuations and related
    command objects have no printable, codable, raw-value, or persistence-facing
-   interface. Kaset preserves server order, replays only the exact command
+   interface. This includes free-text continuation and click-tracking material.
+   Kaset preserves server order, replays only the exact command
    selected by the user, and never substitutes the visible chip label or an
    invented conversation field. Only sanitized visible messages and local IDs
    cross into UI models. Server-provided suggestion labels and answers are
@@ -93,9 +96,9 @@ Wire-level observations and the API Explorer workflow remain documented in the
 
 - Ask follows Kaset's API-over-WebView boundary and shares one strict parser and
   safety implementation between the app and API Explorer.
-- V1 cannot accept free-form questions and does not reproduce every YouTube Ask
-  capability. It can only replay suggestions YouTube issued for the current
-  conversation.
+- V1 accepts one server-commanded free-form question per fresh chat and does
+  not reproduce YouTube's unvalidated multi-turn free-text fields. Subsequent
+  turns use server-issued suggestions or New Chat.
 - Conversation continuity intentionally ends at the watch/account lifecycle
   boundary and at app termination.
 - Opaque command material is harder to inspect during debugging, but accidental

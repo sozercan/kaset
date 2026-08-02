@@ -54,7 +54,7 @@ The workflows that turn playlist browse data into native playback queues. This i
 
 ## YouTube Ask
 
-The watch-page Ask Gemini capability in the regular YouTube experience. Kaset's first version is limited to server-issued suggestion chips and follow-up chips. It uses YouTube APIs rather than the playback WebView, selects the fixed WEB request profile explicitly in production, and appears only when YouTube returns an eligible bootstrap for a signed-in primary account.
+The watch-page Ask Gemini capability in the regular YouTube experience. Kaset supports server-issued suggestion chips plus one server-commanded free-text turn per fresh chat. It uses YouTube APIs rather than the playback WebView, selects the fixed WEB request profile explicitly in production, and appears only when YouTube returns an eligible bootstrap for a signed-in primary account.
 
 ## Ask Bootstrap
 
@@ -62,11 +62,16 @@ The eligible YouChat material discovered in the current video's watch-page `next
 
 ## Ask Conversation
 
-The memory-only visible transcript and server-issued follow-up suggestions for one watch-scoped Ask chat. New Chat replaces it only after a fresh bootstrap and panel preparation succeed. Navigation, account/authentication changes, cancellation, or app termination discard it.
+The memory-only visible transcript, one-shot free-text capability, and server-issued follow-up suggestions for one watch-scoped Ask chat. New Chat replaces it only after a fresh bootstrap and panel preparation succeed. Navigation, account/authentication changes, cancellation, or app termination discard it.
 
 ## Server-Issued Ask Suggestion
 
 A sanitized visible chip label paired internally with an opaque server command. The label is displayed verbatim and is not a localized Kaset string. Selecting the suggestion replays its exact command; Kaset never turns the label into free-form input.
+
+
+## Server-Issued Ask Free-Text Command
+
+The opaque `sendUserQueryCommand` found in the canonical eligible YouChat panel. Kaset may use it once per fresh chat with the validated `get_panel` form fields and current playback offset. Its continuation and click-tracking values remain in memory and are never printed or persisted.
 
 ## Opaque Ask Command
 

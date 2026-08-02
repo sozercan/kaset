@@ -73,6 +73,14 @@ protocol YouTubeClientProtocol: Sendable {
         selecting suggestionID: YouTubeAskSuggestion.ID
     ) async throws -> YouTubeAskConversation
 
+    /// Submits one validated free-text prompt using the current watch-scoped
+    /// server command. Free text is one-shot until New Chat in v1.
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) async throws -> YouTubeAskConversation
+
     /// Fetches a page of comments by continuation token.
     func getComments(continuation: String) async throws -> YouTubeCommentsPage
 

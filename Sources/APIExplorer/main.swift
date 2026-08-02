@@ -16,6 +16,8 @@
 //    ask-video-audit <videoId>     - Audit YouTube Ask Gemini / YouChat API surfaces
 //    ask-video-parity <videoId>    - Compare read-only Ask request profiles
 //    ask-video-live-test <videoId> - Replay server-issued summary/follow-up suggestions
+//    ask-video-free-text-test <videoId>
+//                                  - Guarded one-shot free-text validation
 //    search-audit <query>          - Audit live YouTube Music search shapes and filters
 //    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
@@ -28,6 +30,7 @@
 //    -o, --output <file>           - Save raw JSON response to a file
 //    --client-version <version>    - Override the resolved InnerTube client version
 //    --confirm-live-ai             - Required acknowledgement for live AI requests
+//    --prompt-file <path|->         - Read a private free-text prompt from a mode-0600 file or stdin
 //    --fresh-chats N               - Run 1-3 independent summary chats
 //    --follow-up                   - Replay one server-issued follow-up suggestion
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
@@ -41,6 +44,7 @@
 //    swift run api-explorer action search '{"query":"never gonna give you up"}'
 //    swift run api-explorer ask-video-parity <VIDEO_ID>
 //    swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow-up
+//    swift run api-explorer ask-video-free-text-test <VIDEO_ID> --confirm-live-ai --prompt-file -
 //    swift run api-explorer continuation <token> next        # Mix queue continuation
 //    swift run api-explorer auth
 //    swift run api-explorer list
@@ -1770,6 +1774,8 @@ func exploreAction(
 }
 
 private let maximumPrivateBodyBytes = 2 * 1024 * 1024
+private let maximumPrivatePromptBytes = 64 * 1024
+private let maximumPrivatePromptCharacters = 16000
 
 private func posixError(_ description: String, code: Int32 = errno) -> NSError {
     NSError(
@@ -1924,16 +1930,23 @@ func writePrivateOutput(_ data: Data, to path: String) throws {
     stagingFileExists = false
 }
 
-private func readBoundedData(fileDescriptor: Int32) throws -> Data {
+private func readBoundedData(
+    fileDescriptor: Int32,
+    maximumBytes: Int = maximumPrivateBodyBytes,
+    contentDescription: String = "Request body"
+) throws -> Data {
     var result = Data()
     var buffer = [UInt8](repeating: 0, count: 64 * 1024)
     while true {
-        let maximumRead = min(buffer.count, maximumPrivateBodyBytes + 1 - result.count)
+        let maximumRead = min(buffer.count, maximumBytes + 1 - result.count)
         guard maximumRead > 0 else {
             throw NSError(
                 domain: "APIExplorer",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Request body exceeds 2 MiB"]
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "\(contentDescription) exceeds its size limit",
+                ]
             )
         }
         let readCount = buffer.withUnsafeMutableBytes { rawBuffer in
@@ -1949,15 +1962,116 @@ private func readBoundedData(fileDescriptor: Int32) throws -> Data {
             throw posixError("Could not read request body")
         }
         result.append(buffer, count: readCount)
-        if result.count > maximumPrivateBodyBytes {
+        if result.count > maximumBytes {
             throw NSError(
                 domain: "APIExplorer",
                 code: -1,
-                userInfo: [NSLocalizedDescriptionKey: "Request body exceeds 2 MiB"]
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "\(contentDescription) exceeds its size limit",
+                ]
             )
         }
     }
     return result
+}
+
+func loadPrivatePrompt(from promptFile: String) throws -> String {
+    let data: Data
+    if promptFile == "-" {
+        guard Darwin.isatty(STDIN_FILENO) == 0 else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Interactive stdin is not accepted; pipe or redirect the prompt instead",
+                ]
+            )
+        }
+        data = try readBoundedData(
+            fileDescriptor: STDIN_FILENO,
+            maximumBytes: maximumPrivatePromptBytes,
+            contentDescription: "Prompt"
+        )
+    } else {
+        let expandedPath = NSString(string: promptFile).expandingTildeInPath
+        let fileDescriptor = expandedPath.withCString {
+            Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        }
+        guard fileDescriptor >= 0 else {
+            throw posixError("Could not open private prompt file")
+        }
+        defer { _ = Darwin.close(fileDescriptor) }
+
+        var status = stat()
+        guard fstat(fileDescriptor, &status) == 0 else {
+            throw posixError("Could not inspect private prompt file")
+        }
+        guard (status.st_mode & S_IFMT) == S_IFREG else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Prompt path must be a regular file"]
+            )
+        }
+        guard status.st_uid == geteuid(),
+              status.st_mode & 0o777 == S_IRUSR | S_IWUSR
+        else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Prompt file must be owned by the current user with mode 0600",
+                ]
+            )
+        }
+        guard try !extendedACLStatus(fileDescriptor: fileDescriptor) else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Prompt file must not have an extended ACL (use chmod -N)",
+                ]
+            )
+        }
+        guard status.st_size >= 0,
+              status.st_size <= off_t(maximumPrivatePromptBytes)
+        else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Prompt exceeds its size limit"]
+            )
+        }
+        data = try readBoundedData(
+            fileDescriptor: fileDescriptor,
+            maximumBytes: maximumPrivatePromptBytes,
+            contentDescription: "Prompt"
+        )
+    }
+
+    guard var prompt = String(data: data, encoding: .utf8) else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Prompt must be valid UTF-8"]
+        )
+    }
+    prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !prompt.isEmpty, prompt.count <= maximumPrivatePromptCharacters else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Prompt must contain 1-\(maximumPrivatePromptCharacters) characters",
+            ]
+        )
+    }
+    return prompt
 }
 
 func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> String {
@@ -3286,6 +3400,8 @@ func showHelp() {
           ask-video-audit <videoId>      Audit Ask Gemini / YouChat without sending a prompt
           ask-video-parity <videoId>     Compare ordered read-only Ask request profiles
           ask-video-live-test <videoId>  Replay the server-issued summary suggestion
+          ask-video-free-text-test <videoId>
+                                         Validate one server-commanded free-text request
           search-audit <query>           Audit live Music search shapes, filters, and continuations
           continuation <token> [ep]      Explore a continuation (ep: 'browse', 'search', or 'next')
           analyze-file <path>            Safely summarize a saved JSON response
@@ -3305,7 +3421,8 @@ func showHelp() {
           -v, --verbose                  Show raw JSON for browse/action/continuation; expand audits
           -o, --output <file>            Save raw output with owner-only permissions (mode 0600)
           --body-file <path|->           Read a sensitive JSON body from a chmod-600 file or stdin
-          --confirm-live-ai              Required acknowledgement for ask-video-live-test
+          --prompt-file <path|->         Read a private prompt from a mode-0600 file or stdin
+          --confirm-live-ai              Required acknowledgement for live Ask commands
           --fresh-chats N                Run 1-3 independent summary chats (default: 1)
           --follow-up                    Replay the first server-issued follow-up suggestion
           --authuser N                   Use Google account at index N (for multi-account)
@@ -3329,6 +3446,7 @@ func showHelp() {
           swift run api-explorer ask-video-audit dQw4w9WgXcQ          # Redacted AI audit
           swift run api-explorer ask-video-parity dQw4w9WgXcQ         # Read-only profile matrix
           swift run api-explorer ask-video-live-test dQw4w9WgXcQ --confirm-live-ai --follow-up
+          swift run api-explorer ask-video-free-text-test dQw4w9WgXcQ --confirm-live-ai --prompt-file -
           swift run api-explorer --youtube wire-action get_watch '{"playerRequest":{"videoId":"dQw4w9WgXcQ"},"watchNextRequest":{"videoId":"dQw4w9WgXcQ"}}'
           swift run api-explorer --youtube wire-action streaming_panel --body-file /path/to/private-body.json
 
@@ -3420,6 +3538,7 @@ func runMain() async {
     var freshChatCount = 1
     var outputFile: String?
     var bodyFile: String?
+    var promptFile: String?
     var filteredArgs: [String] = []
 
     var index = 0
@@ -3458,6 +3577,17 @@ func runMain() async {
             }
             index += 1
             bodyFile = value
+        case "--prompt-file":
+            guard let value = commandLineOptionValue(
+                after: index,
+                in: args,
+                allowSingleDash: true
+            ) else {
+                print("❌ --prompt-file requires a path or -")
+                return
+            }
+            index += 1
+            promptFile = value
         case "--authuser":
             guard let rawValue = commandLineOptionValue(after: index, in: args),
                   let value = Int(rawValue),
@@ -3511,6 +3641,10 @@ func runMain() async {
 
     guard let command = filteredArgs.first else {
         showHelp()
+        return
+    }
+    guard promptFile == nil || command == "ask-video-free-text-test" else {
+        print("❌ --prompt-file is supported only by ask-video-free-text-test")
         return
     }
 
@@ -3623,6 +3757,41 @@ func runMain() async {
             includeFollowUp: includeAskFollowUp,
             verbose: verbose
         )
+
+    case "ask-video-free-text-test":
+        guard filteredArgs.count == 2 else {
+            print("❌ Usage: ask-video-free-text-test <videoId> --confirm-live-ai --prompt-file <chmod-600-path|->")
+            return
+        }
+        guard confirmLiveAI else {
+            print("❌ ask-video-free-text-test requires --confirm-live-ai")
+            print("   This command submits one private free-text prompt to YouTube.")
+            return
+        }
+        guard let promptFile else {
+            print("❌ ask-video-free-text-test requires --prompt-file <chmod-600-path|->")
+            return
+        }
+        guard outputFile == nil,
+              bodyFile == nil,
+              !verbose,
+              !clientVersionWasForced,
+              !forceUnauthenticatedRequests,
+              !authUserOptionWasSpecified,
+              globalBrandAccountId == nil,
+              !includeAskFollowUp,
+              freshChatCount == 1
+        else {
+            print("❌ ask-video-free-text-test received an unsupported option or account mode")
+            print("   Supported options: --confirm-live-ai and --prompt-file <chmod-600-path|->")
+            return
+        }
+        do {
+            let prompt = try loadPrivatePrompt(from: promptFile)
+            await liveTestAskVideoFreeText(filteredArgs[1], prompt: prompt)
+        } catch {
+            print("❌ Could not load the private prompt: \(error.localizedDescription)")
+        }
 
     case "search-audit":
         guard filteredArgs.count >= 2 else {

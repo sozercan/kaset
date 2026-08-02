@@ -55,6 +55,81 @@ struct YouTubeAskRequestBuilderTests {
         #expect(!bodyText.contains(suggestion.label))
     }
 
+    @Test("Builds the validated one-shot free-text body and click-tracking context")
+    func exactFreeTextBody() throws {
+        let envelope = try YouTubeAskTestFixture.envelope("YouTubeAskEligibleNext")
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let command = try #require(parsedBootstrap?.freeTextCommand)
+
+        let data = try YouTubeAskRequestBuilder.makeFreeTextBody(
+            command: command,
+            clientMessageID: "youchat-1000",
+            userInputText: " What is this video about? ",
+            playerOffsetMilliseconds: 234_000
+        )
+        let body = try YouTubeAskTestFixture.object(from: data)
+
+        #expect(Set(body.keys) == ["continuation", "formData"])
+        #expect(body["continuation"] as? String == "fixture-free-text-continuation")
+        let formData = try #require(body["formData"] as? [String: Any])
+        #expect(Set(formData.keys) == ["inputComposerFormData"])
+        let composer = try #require(formData["inputComposerFormData"] as? [String: Any])
+        #expect(Set(composer.keys) == ["clientMessageId", "playerOffsetMs", "userInputText"])
+        #expect(composer["clientMessageId"] as? String == "youchat-1000")
+        #expect(composer["playerOffsetMs"] as? String == "234000")
+        #expect(composer["userInputText"] as? String == "What is this video about?")
+
+        let contextData = try YouTubeAskRequestBuilder.makeFreeTextClickTrackingContext(
+            command: command
+        )
+        let context = try YouTubeAskTestFixture.object(from: contextData)
+        #expect(Set(context.keys) == ["clickTracking"])
+        let clickTracking = try #require(context["clickTracking"] as? [String: Any])
+        #expect(Set(clickTracking.keys) == ["clickTrackingParams"])
+        #expect(clickTracking["clickTrackingParams"] as? String == "fixture-free-text-click-tracking")
+    }
+
+    @Test("Rejects empty and oversized free-text input")
+    func freeTextValidation() throws {
+        let envelope = try YouTubeAskTestFixture.envelope("YouTubeAskEligibleNext")
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let command = try #require(parsedBootstrap?.freeTextCommand)
+        let oversizedUTF8 = "a" + String(
+            repeating: "\u{0301}",
+            count: YouTubeAskLimits.maximumUserInputBytes
+        )
+        #expect(oversizedUTF8.count <= YouTubeAskLimits.maximumUserInputCharacters)
+        #expect(oversizedUTF8.utf8.count > YouTubeAskLimits.maximumUserInputBytes)
+
+        for invalid in [
+            "",
+            "   ",
+            String(repeating: "a", count: YouTubeAskLimits.maximumUserInputCharacters + 1),
+            oversizedUTF8,
+        ] {
+            expectYouTubeAskError(.invalidUserInput) {
+                _ = try YouTubeAskRequestBuilder.makeFreeTextBody(
+                    command: command,
+                    clientMessageID: "youchat-1000",
+                    userInputText: invalid,
+                    playerOffsetMilliseconds: 0
+                )
+            }
+        }
+    }
+
+    @Test("Enforces the final request-body byte limit")
+    func finalRequestBodyLimit() throws {
+        try YouTubeAskRequestBuilder.validateRequestBodySize(
+            Data(count: YouTubeAskLimits.maximumRequestBodyBytes)
+        )
+        expectYouTubeAskError(.requestTooLarge) {
+            try YouTubeAskRequestBuilder.validateRequestBodySize(
+                Data(count: YouTubeAskLimits.maximumRequestBodyBytes + 1)
+            )
+        }
+    }
+
     @Test("Rejects malformed client message IDs")
     func clientMessageIDValidation() throws {
         let conversation = try YouTubeAskParser.parseConversation(

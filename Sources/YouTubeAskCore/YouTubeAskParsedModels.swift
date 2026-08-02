@@ -11,6 +11,7 @@ package struct YouTubeAskParsedSuggestion: Sendable {
 
 package struct YouTubeAskParsedBootstrap: Sendable {
     package let panelCommand: YouTubeAskOpaqueCommand?
+    package let freeTextCommand: YouTubeAskOpaqueCommand?
     package let suggestions: [YouTubeAskParsedSuggestion]
 }
 

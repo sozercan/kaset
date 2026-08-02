@@ -6,6 +6,9 @@ package enum YouTubeAskLimits {
     package static let maximumFrames = 256
     package static let maximumChipCharacters = 200
     package static let maximumAnswerCharacters = 16000
+    package static let maximumUserInputCharacters = 16000
+    package static let maximumUserInputBytes = 64 * 1024
+    package static let maximumRequestBodyBytes = 2 * 1024 * 1024
 
     static let maximumTreeDepth = 80
     static let maximumTreeNodes = 100_000

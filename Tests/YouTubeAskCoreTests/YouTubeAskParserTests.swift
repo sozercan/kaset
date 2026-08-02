@@ -20,6 +20,11 @@ struct YouTubeAskParserTests {
             "fixture-chip-continuation-b",
         ])
         #expect(bootstrap.panelCommand?.continuation != "fixture-query-continuation")
+        #expect(bootstrap.freeTextCommand?.continuation == "fixture-free-text-continuation")
+        #expect(
+            bootstrap.freeTextCommand?.clickTrackingParams
+                == "fixture-free-text-click-tracking"
+        )
     }
 
     @Test("Rejects unrelated AI panels and decoy YouChat-shaped content")
@@ -159,20 +164,25 @@ struct YouTubeAskParserTests {
         #expect(conversation.suggestions.first?.command.continuation == "fixture-accepted-continuation")
     }
 
-    @Test("Preserves duplicate chips and localized server order")
-    func preservesDuplicateChips() throws {
+    @Test("Deduplicates exact chips while preserving first occurrence and order")
+    func deduplicatesExactChips() throws {
         let conversation = try YouTubeAskParser.parseConversation(
             from: YouTubeAskTestFixture.envelope("YouTubeAskInitialPanel")
         )
 
-        #expect(conversation.suggestions.map(\.label) == [
-            "Ask a follow-up",
-            "Ask a follow-up",
-        ])
+        #expect(conversation.suggestions.map(\.label) == ["Ask a follow-up"])
         #expect(conversation.suggestions.map(\.command.continuation) == [
             "fixture-follow-up-continuation",
-            "fixture-follow-up-continuation",
         ])
+    }
+
+    @Test("Rejects the same sanitized chip label with a different continuation")
+    func rejectsAmbiguousChipLabel() {
+        expectYouTubeAskError(.malformedChip) {
+            _ = try YouTubeAskParser.parseConversation(
+                from: YouTubeAskTestFixture.envelope("YouTubeAskConversation")
+            )
+        }
     }
 
     @Test("Accepts the observed local list-mutation callback without executing it")
@@ -307,25 +317,23 @@ struct YouTubeAskParserTests {
         }
     }
 
-    @Test("Preserves duplicate assistant messages and follow-up order")
-    func preservesConversationOrder() throws {
-        let conversation = try YouTubeAskParser.parseConversation(
-            from: YouTubeAskTestFixture.envelope("YouTubeAskConversation")
-        )
+    @Test("Preserves duplicate assistant messages")
+    func preservesDuplicateAssistantMessages() throws {
+        let duplicateMessage = [
+            "youChatTextMessageViewModel": [
+                "text": ["content": "First assistant message"],
+            ],
+        ]
+        let conversation = try YouTubeAskParser.parseConversation(from: Self.conversationEnvelope(items: [
+            duplicateMessage,
+            duplicateMessage,
+        ]))
 
         #expect(conversation.messages.map(\.text) == [
             "First assistant message",
             "First assistant message",
-            "Second assistant message",
         ])
-        #expect(conversation.suggestions.map(\.label) == [
-            "Continue with details",
-            "Continue with details",
-        ])
-        #expect(conversation.suggestions.map(\.command.continuation) == [
-            "fixture-conversation-continuation-a",
-            "fixture-conversation-continuation-b",
-        ])
+        #expect(conversation.suggestions.isEmpty)
     }
 
     @Test("Accepts messages only from confirmed YouChat response containers")
@@ -678,6 +686,44 @@ struct YouTubeAskParserTests {
         ]
     }
 
+    static func eligiblePanel(
+        chips: [(label: String, continuation: String)],
+        freeTextCommand: [String: Any]? = nil
+    ) -> [String: Any] {
+        var viewModel: [String: Any] = [
+            "chipsData": [
+                "chipData": chips.map { chip in
+                    [
+                        "text": ["simpleText": chip.label],
+                        "continuation": chip.continuation,
+                    ]
+                },
+            ],
+        ]
+        if let freeTextCommand {
+            viewModel["sendUserQueryCommand"] = freeTextCommand
+        }
+        return [
+            "panelIdentifier": "PAyouchat",
+            "youChatItemViewModel": viewModel,
+        ]
+    }
+
+    static func freeTextCommand(
+        continuation: String,
+        clickTrackingParams: String = "fixture-free-text-click"
+    ) -> [String: Any] {
+        [
+            "innertubeCommand": [
+                "clickTrackingParams": clickTrackingParams,
+                "continuationCommand": [
+                    "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                    "token": continuation,
+                ],
+            ],
+        ]
+    }
+
     private static func conversationEnvelope(
         chips: [[String: Any]]
     ) throws -> YouTubeAskWireEnvelope {
@@ -702,7 +748,7 @@ struct YouTubeAskParserTests {
         ])
     }
 
-    private static func envelope(
+    static func envelope(
         _ object: [String: Any]
     ) throws -> YouTubeAskWireEnvelope {
         let data = try JSONSerialization.data(withJSONObject: object)

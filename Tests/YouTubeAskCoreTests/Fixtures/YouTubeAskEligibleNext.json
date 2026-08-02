@@ -30,6 +30,15 @@
                   "continuation": "fixture-chip-continuation-b"
                 }
               ]
+            },
+            "sendUserQueryCommand": {
+              "innertubeCommand": {
+                "clickTrackingParams": "fixture-free-text-click-tracking",
+                "continuationCommand": {
+                  "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                  "token": "fixture-free-text-continuation"
+                }
+              }
             }
           }
         },

@@ -383,6 +383,8 @@ struct AppLocalizationTests {
         let expectedValues = [
             ("ar", "New Chat", "محادثة جديدة"),
             ("de", "Ask Gemini", "Gemini fragen"),
+            ("de", "Ask about this video...", "Frag etwas zu diesem Video…"),
+            ("fr", "Send", "Envoyer"),
             ("ko", "YouTube response: %@", "YouTube 응답: %@"),
             ("tr", "Sending…", "Gönderiliyor…"),
         ]

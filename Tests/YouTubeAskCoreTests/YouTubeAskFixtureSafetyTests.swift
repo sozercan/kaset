@@ -81,6 +81,102 @@ struct YouTubeAskFixtureSafetyTests {
         }
     }
 
+    @Test("API Explorer free text delegates parsing and request encoding to YouTubeAskCore")
+    func apiExplorerUsesSharedFreeTextCore() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = repositoryRoot
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("APIExplorer", isDirectory: true)
+            .appendingPathComponent("AskVideoAudit.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let loadStart = try #require(source.range(of: "private func loadAskFreeTextCommand("))
+        let sendStart = try #require(source.range(
+            of: "private func sendAskFreeTextRequest(",
+            range: loadStart.upperBound ..< source.endIndex
+        ))
+        let liveStart = try #require(source.range(
+            of: "func liveTestAskVideoFreeText(",
+            range: sendStart.upperBound ..< source.endIndex
+        ))
+        let loadFunction = source[loadStart.lowerBound ..< sendStart.lowerBound]
+        let sendFunction = source[sendStart.lowerBound ..< liveStart.lowerBound]
+
+        #expect(loadFunction.contains("YouTubeAskParser.parseBootstrap"))
+        #expect(sendFunction.contains("YouTubeAskRequestBuilder.makeFreeTextBody"))
+        #expect(sendFunction.contains("YouTubeAskRequestBuilder.makeFreeTextClickTrackingContext"))
+        #expect(!source.contains("private struct AskFreeTextCommand"))
+        #expect(!source.contains("collectAskFreeTextCommands"))
+    }
+
+    @Test("API Explorer freezes one authenticated request snapshot for guarded free text")
+    func apiExplorerFreeTextUsesSingleRequestSnapshot() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = repositoryRoot
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("APIExplorer", isDirectory: true)
+            .appendingPathComponent("AskVideoAudit.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let captureStart = try #require(source.range(
+            of: "private func captureAskFreeTextRequestSnapshot()"
+        ))
+        let wireStart = try #require(source.range(
+            of: "private func makeRuntimeAskFreeTextWireRequest(",
+            range: captureStart.upperBound ..< source.endIndex
+        ))
+        let loadStart = try #require(source.range(
+            of: "private func loadAskFreeTextCommand(",
+            range: wireStart.upperBound ..< source.endIndex
+        ))
+        let sendStart = try #require(source.range(
+            of: "private func sendAskFreeTextRequest(",
+            range: loadStart.upperBound ..< source.endIndex
+        ))
+        let liveStart = try #require(source.range(
+            of: "func liveTestAskVideoFreeText(",
+            range: sendStart.upperBound ..< source.endIndex
+        ))
+        let nextFunctionStart = try #require(source.range(
+            of: "private func makeAskSummaryRequest(",
+            range: liveStart.upperBound ..< source.endIndex
+        ))
+
+        let captureFunction = source[captureStart.lowerBound ..< wireStart.lowerBound]
+        let wireFunction = source[wireStart.lowerBound ..< loadStart.lowerBound]
+        let loadFunction = source[loadStart.lowerBound ..< sendStart.lowerBound]
+        let sendFunction = source[sendStart.lowerBound ..< liveStart.lowerBound]
+        let liveFunction = source[liveStart.lowerBound ..< nextFunctionStart.lowerBound]
+
+        #expect(captureFunction.contains("resolveAskRuntimeWEBConfiguration(cookies: cookies)"))
+        #expect(captureFunction.contains("currentAskFreeTextBackingState()"))
+        #expect(captureFunction.contains("requestSnapshotChanged"))
+
+        #expect(wireFunction.contains("requestSnapshot.contextData"))
+        #expect(wireFunction.contains("requestSnapshot.headers"))
+        #expect(wireFunction.contains("requestSnapshot.runtimeAPIIdentifier"))
+        #expect(wireFunction.contains("validateAskFreeTextRequestSnapshot(requestSnapshot)"))
+        #expect(!wireFunction.contains("resolveAPIKey("))
+        #expect(!wireFunction.contains("buildContext("))
+        #expect(!wireFunction.contains("buildHeaders("))
+        #expect(!wireFunction.contains("loadCookiesFromAppBackup("))
+
+        #expect(loadFunction.contains("requestSnapshot: AskFreeTextRequestSnapshot"))
+        #expect(loadFunction.contains("requestSnapshot: requestSnapshot"))
+        #expect(sendFunction.contains("requestSnapshot: AskFreeTextRequestSnapshot"))
+        #expect(sendFunction.contains("validateBackingStateBeforeSending: true"))
+        #expect(liveFunction.contains("let requestSnapshot = try await captureAskFreeTextRequestSnapshot()"))
+        #expect(liveFunction.contains("requestSnapshot: requestSnapshot"))
+        let rawVideoIDOutput = "pri" + "nt(\"Video ID: \\(videoID)\")"
+        #expect(!liveFunction.contains(rawVideoIDOutput))
+    }
+
     private struct Violation {
         let rule: String
         let path: String

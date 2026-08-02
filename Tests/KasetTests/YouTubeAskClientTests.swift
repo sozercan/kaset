@@ -573,7 +573,7 @@ struct YouTubeAskClientTests {
     }
 
     @MainActor
-    private static func makeAuthenticatedClient(
+    static func makeAuthenticatedClient(
         session: URLSession,
         messageIDGenerator: YouTubeAskMessageIDGenerator? = nil
     ) async throws -> (YouTubeClient, AuthService) {
@@ -600,7 +600,7 @@ struct YouTubeAskClientTests {
         return (client, authService)
     }
 
-    private static func body(from request: URLRequest) throws -> [String: Any] {
+    static func body(from request: URLRequest) throws -> [String: Any] {
         let data: Data
         if let httpBody = request.httpBody {
             data = httpBody
@@ -624,7 +624,7 @@ struct YouTubeAskClientTests {
         return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
     }
 
-    private static func response(
+    static func response(
         for request: URLRequest,
         data: Data,
         statusCode: Int = 200
@@ -642,7 +642,7 @@ struct YouTubeAskClientTests {
         return (response, data)
     }
 
-    private static let eligibleNextData = Data(
+    static let eligibleNextData = Data(
         #"""
         {
           "contents": {},
@@ -663,6 +663,15 @@ struct YouTubeAskClientTests {
                           "continuation": "fixture-chip-b"
                         }
                       ]
+                    },
+                    "sendUserQueryCommand": {
+                      "innertubeCommand": {
+                        "clickTrackingParams": "fixture-free-text-click-tracking",
+                        "continuationCommand": {
+                          "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                          "token": "fixture-free-text-continuation"
+                        }
+                      }
                     }
                   }
                 }

@@ -1217,6 +1217,570 @@ private func makeAskSuggestionRequest(
     return response
 }
 
+// MARK: - AskFreeTextValidationError
+
+private enum AskFreeTextValidationError: LocalizedError {
+    case commandUnavailable
+    case malformedCommand
+    case ambiguousCommand
+    case requestEncodingFailed
+    case requestSnapshotUnavailable
+    case requestSnapshotChanged
+    case nextRequestFailed
+    case nextHTTPFailure(Int)
+    case streamingRequestFailed
+    case streamingHTTPFailure(Int)
+    case responseTooLarge
+    case responseDecodeFailed
+    case responseParseFailed
+    case answerUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .commandUnavailable:
+            "No eligible PAyouchat free-text command was available"
+        case .malformedCommand:
+            "The eligible PAyouchat free-text command did not match the exact supported schema"
+        case .ambiguousCommand:
+            "Multiple distinct eligible PAyouchat free-text commands were present"
+        case .requestEncodingFailed:
+            "The fixed free-text request body could not be encoded"
+        case .requestSnapshotUnavailable:
+            "The authenticated WEB request snapshot could not be prepared"
+        case .requestSnapshotChanged:
+            "The authenticated WEB request snapshot changed before the private prompt could be sent"
+        case .nextRequestFailed:
+            "The authenticated watch bootstrap request failed"
+        case let .nextHTTPFailure(statusCode):
+            "The authenticated watch bootstrap returned HTTP \(statusCode)"
+        case .streamingRequestFailed:
+            "The one-shot free-text request failed"
+        case let .streamingHTTPFailure(statusCode):
+            "The one-shot free-text request returned HTTP \(statusCode)"
+        case .responseTooLarge:
+            "The one-shot free-text response exceeded the safety limit"
+        case .responseDecodeFailed:
+            "The one-shot free-text response could not be decoded safely"
+        case .responseParseFailed:
+            "The one-shot free-text response did not match a confirmed YouChat response container"
+        case .answerUnavailable:
+            "The one-shot free-text response did not contain visible assistant text"
+        }
+    }
+}
+
+// MARK: - AskFreeTextCookieState
+
+private struct AskFreeTextCookieState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
+    let name: String
+    let value: String
+    let domain: String
+    let path: String
+    let expiresAt: TimeInterval?
+    let isSecure: Bool
+    let isHTTPOnly: Bool
+    let isSessionOnly: Bool
+
+    var description: String {
+        "<redacted Ask free-text cookie state>"
+    }
+
+    var debugDescription: String {
+        self.description
+    }
+
+    var sortComponents: [String] {
+        [
+            self.domain,
+            self.path,
+            self.name,
+            self.value,
+            self.expiresAt.map { String($0) } ?? "",
+            self.isSecure ? "1" : "0",
+            self.isHTTPOnly ? "1" : "0",
+            self.isSessionOnly ? "1" : "0",
+        ]
+    }
+}
+
+// MARK: - AskFreeTextAccountState
+
+private struct AskFreeTextAccountState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
+    let youtubeMode: Bool
+    let apiHost: String
+    let webClientURL: String
+    let baseURL: String
+    let origin: String
+    let clientName: String
+    let authUserIndex: Int
+    let authUserOptionWasSpecified: Bool
+    let brandAccountID: String?
+    let forceUnauthenticatedRequests: Bool
+    let clientVersionWasForced: Bool
+
+    var description: String {
+        "<redacted Ask free-text account state>"
+    }
+
+    var debugDescription: String {
+        self.description
+    }
+}
+
+// MARK: - AskFreeTextBackingState
+
+private struct AskFreeTextBackingState: Equatable, CustomStringConvertible, CustomDebugStringConvertible {
+    let account: AskFreeTextAccountState
+    let cookies: [AskFreeTextCookieState]
+
+    var description: String {
+        "<redacted Ask free-text backing state>"
+    }
+
+    var debugDescription: String {
+        self.description
+    }
+}
+
+// MARK: - AskFreeTextRequestSnapshot
+
+private struct AskFreeTextRequestSnapshot: CustomStringConvertible, CustomDebugStringConvertible {
+    let baseURL: String
+    let runtimeAPIIdentifier: String
+    let contextData: Data
+    let headers: [String: String]
+    let backingState: AskFreeTextBackingState
+
+    var description: String {
+        "<redacted Ask free-text request snapshot>"
+    }
+
+    var debugDescription: String {
+        self.description
+    }
+}
+
+private func currentAskFreeTextAccountState() -> AskFreeTextAccountState {
+    AskFreeTextAccountState(
+        youtubeMode: youtubeMode,
+        apiHost: activeAPIHost,
+        webClientURL: activeWebClientURL.absoluteString,
+        baseURL: activeBaseURL,
+        origin: activeOrigin,
+        clientName: activeClientName,
+        authUserIndex: globalAuthUserIndex,
+        authUserOptionWasSpecified: authUserOptionWasSpecified,
+        brandAccountID: globalBrandAccountId,
+        forceUnauthenticatedRequests: forceUnauthenticatedRequests,
+        clientVersionWasForced: clientVersionWasForced
+    )
+}
+
+private func askFreeTextCookieMatchesHost(_ cookie: HTTPCookie, host: String) -> Bool {
+    let domain = cookie.domain.lowercased()
+    if domain.hasPrefix(".") {
+        let suffix = String(domain.dropFirst())
+        return host == suffix || host.hasSuffix(".\(suffix)")
+    }
+    return host == domain || host.hasSuffix(".\(domain)")
+}
+
+private func askFreeTextCookieState(
+    cookies: [HTTPCookie],
+    host: String
+) -> [AskFreeTextCookieState] {
+    cookies
+        .filter { askFreeTextCookieMatchesHost($0, host: host) }
+        .map { cookie in
+            AskFreeTextCookieState(
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                expiresAt: cookie.expiresDate?.timeIntervalSinceReferenceDate,
+                isSecure: cookie.isSecure,
+                isHTTPOnly: cookie.isHTTPOnly,
+                isSessionOnly: cookie.isSessionOnly
+            )
+        }
+        .sorted { lhs, rhs in
+            lhs.sortComponents.lexicographicallyPrecedes(rhs.sortComponents)
+        }
+}
+
+private func currentAskFreeTextBackingState() throws -> AskFreeTextBackingState {
+    let account = currentAskFreeTextAccountState()
+    guard account.youtubeMode,
+          !account.forceUnauthenticatedRequests,
+          !account.authUserOptionWasSpecified,
+          account.authUserIndex == 0,
+          account.brandAccountID == nil,
+          !account.clientVersionWasForced,
+          let cookies = loadCookiesFromAppBackup(),
+          getSAPISID(from: cookies) != nil,
+          buildCookieHeader(from: cookies) != nil
+    else {
+        throw AskFreeTextValidationError.requestSnapshotUnavailable
+    }
+    return AskFreeTextBackingState(
+        account: account,
+        cookies: askFreeTextCookieState(cookies: cookies, host: account.apiHost)
+    )
+}
+
+private func askFreeTextContextData(
+    runtimeConfiguration: AskRuntimeWEBConfiguration,
+    account: AskFreeTextAccountState
+) throws -> Data {
+    let context: [String: Any] = [
+        "client": [
+            "clientName": account.clientName,
+            "clientVersion": runtimeConfiguration.clientVersion,
+            "hl": "en",
+            "gl": "US",
+            "browserName": "Safari",
+            "browserVersion": "17.0",
+            "osName": "Macintosh",
+            "osVersion": "10_15_7",
+            "platform": "DESKTOP",
+        ],
+        "user": ["lockedSafetyMode": false],
+    ]
+    return try JSONSerialization.data(withJSONObject: context)
+}
+
+private func askFreeTextHeaders(
+    cookies: [HTTPCookie],
+    account: AskFreeTextAccountState
+) throws -> [String: String] {
+    guard let cookieHeader = buildCookieHeader(from: cookies),
+          let authorization = buildSIDAuthorizationHeader(
+              from: cookies,
+              includeAllAvailableProofs: false
+          )
+    else {
+        throw AskFreeTextValidationError.requestSnapshotUnavailable
+    }
+    return [
+        "Content-Type": "application/json",
+        "User-Agent": askParityUserAgent,
+        "Origin": account.origin,
+        "Referer": "\(account.origin)/",
+        "Cookie": cookieHeader,
+        "Authorization": authorization,
+        "X-Goog-AuthUser": String(account.authUserIndex),
+        "X-Origin": account.origin,
+    ]
+}
+
+private func captureAskFreeTextRequestSnapshot() async throws -> AskFreeTextRequestSnapshot {
+    let initialBackingState = try currentAskFreeTextBackingState()
+    guard let cookies = loadCookiesFromAppBackup(),
+          currentAskFreeTextAccountState() == initialBackingState.account,
+          askFreeTextCookieState(
+              cookies: cookies,
+              host: initialBackingState.account.apiHost
+          ) == initialBackingState.cookies
+    else {
+        throw AskFreeTextValidationError.requestSnapshotChanged
+    }
+
+    let runtimeConfiguration: AskRuntimeWEBConfiguration
+    do {
+        runtimeConfiguration = try await resolveAskRuntimeWEBConfiguration(cookies: cookies)
+    } catch {
+        throw AskFreeTextValidationError.requestSnapshotUnavailable
+    }
+
+    // Configuration discovery can await network I/O. Re-read the authoritative
+    // cookie export and account selectors before sealing the snapshot so a
+    // concurrent logout or account change cannot produce a mixed request.
+    let finalBackingState: AskFreeTextBackingState
+    do {
+        finalBackingState = try currentAskFreeTextBackingState()
+    } catch {
+        throw AskFreeTextValidationError.requestSnapshotChanged
+    }
+    guard finalBackingState == initialBackingState else {
+        throw AskFreeTextValidationError.requestSnapshotChanged
+    }
+
+    let contextData: Data
+    let headers: [String: String]
+    do {
+        contextData = try askFreeTextContextData(
+            runtimeConfiguration: runtimeConfiguration,
+            account: initialBackingState.account
+        )
+        headers = try askFreeTextHeaders(
+            cookies: cookies,
+            account: initialBackingState.account
+        )
+    } catch let error as AskFreeTextValidationError {
+        throw error
+    } catch {
+        throw AskFreeTextValidationError.requestSnapshotUnavailable
+    }
+
+    return AskFreeTextRequestSnapshot(
+        baseURL: initialBackingState.account.baseURL,
+        runtimeAPIIdentifier: runtimeConfiguration.runtimeAPIIdentifier,
+        contextData: contextData,
+        headers: headers,
+        backingState: initialBackingState
+    )
+}
+
+private func validateAskFreeTextRequestSnapshot(
+    _ snapshot: AskFreeTextRequestSnapshot
+) throws {
+    let currentState: AskFreeTextBackingState
+    do {
+        currentState = try currentAskFreeTextBackingState()
+    } catch {
+        throw AskFreeTextValidationError.requestSnapshotChanged
+    }
+    guard currentState == snapshot.backingState else {
+        throw AskFreeTextValidationError.requestSnapshotChanged
+    }
+}
+
+private func makeRuntimeAskFreeTextWireRequest(
+    endpoint: String,
+    bodyData: Data,
+    requestSnapshot: AskFreeTextRequestSnapshot,
+    clickTrackingContextData: Data? = nil,
+    validateBackingStateBeforeSending: Bool = false
+) async throws -> APIWireResponse {
+    let endpoint = try canonicalAPIEndpoint(endpoint)
+    guard var body = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any],
+          let snapshotContext = try JSONSerialization.jsonObject(
+              with: requestSnapshot.contextData
+          ) as? [String: Any]
+    else {
+        throw AskFreeTextValidationError.requestEncodingFailed
+    }
+    var components = URLComponents(string: "\(requestSnapshot.baseURL)/\(endpoint)")
+    components?.queryItems = [
+        URLQueryItem(name: "key", value: requestSnapshot.runtimeAPIIdentifier),
+        URLQueryItem(name: "prettyPrint", value: "false"),
+    ]
+    guard let url = components?.url else {
+        throw AskFreeTextValidationError.requestEncodingFailed
+    }
+
+    var context = snapshotContext
+    if let clickTrackingContextData {
+        guard let clickTrackingContext = try JSONSerialization.jsonObject(
+            with: clickTrackingContextData
+        ) as? [String: Any],
+            Set(clickTrackingContext.keys) == ["clickTracking"],
+            let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any],
+            Set(clickTracking.keys) == ["clickTrackingParams"]
+        else {
+            throw AskFreeTextValidationError.requestEncodingFailed
+        }
+        context["clickTracking"] = clickTracking
+    }
+    body["context"] = context
+
+    var request = URLRequest(
+        url: url,
+        cachePolicy: .reloadIgnoringLocalCacheData,
+        timeoutInterval: 30
+    )
+    request.httpMethod = "POST"
+    request.httpShouldHandleCookies = false
+    for (key, value) in requestSnapshot.headers {
+        request.setValue(value, forHTTPHeaderField: key)
+    }
+    let finalBody = try JSONSerialization.data(withJSONObject: body)
+    try YouTubeAskRequestBuilder.validateRequestBodySize(finalBody)
+    request.httpBody = finalBody
+
+    if validateBackingStateBeforeSending {
+        try validateAskFreeTextRequestSnapshot(requestSnapshot)
+    }
+
+    let (data, response) = try await boundedResponseData(
+        configuration: .ephemeral,
+        request: request,
+        maximumBytes: YouTubeAskLimits.maximumResponseBytes
+    )
+    guard let httpResponse = response as? HTTPURLResponse else {
+        throw AskFreeTextValidationError.streamingRequestFailed
+    }
+    return APIWireResponse(
+        data: data,
+        statusCode: httpResponse.statusCode,
+        contentType: httpResponse.value(forHTTPHeaderField: "Content-Type")
+    )
+}
+
+private func loadAskFreeTextCommand(
+    videoID: String,
+    requestSnapshot: AskFreeTextRequestSnapshot
+) async throws -> YouTubeAskOpaqueCommand {
+    guard let nextBody = try? JSONSerialization.data(withJSONObject: ["videoId": videoID]) else {
+        throw AskFreeTextValidationError.requestEncodingFailed
+    }
+    let response: APIWireResponse
+    do {
+        response = try await makeRuntimeAskFreeTextWireRequest(
+            endpoint: "next",
+            bodyData: nextBody,
+            requestSnapshot: requestSnapshot
+        )
+    } catch is ResponseSizeLimitError {
+        throw AskFreeTextValidationError.responseTooLarge
+    } catch {
+        throw AskFreeTextValidationError.nextRequestFailed
+    }
+    guard (200 ... 299).contains(response.statusCode) else {
+        throw AskFreeTextValidationError.nextHTTPFailure(response.statusCode)
+    }
+
+    let envelope: YouTubeAskWireEnvelope
+    do {
+        envelope = try YouTubeAskWireDecoder.decode(response.data)
+    } catch {
+        throw AskFreeTextValidationError.responseDecodeFailed
+    }
+
+    let bootstrap: YouTubeAskParsedBootstrap?
+    do {
+        bootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+    } catch YouTubeAskCoreError.ambiguousBootstrap {
+        throw AskFreeTextValidationError.ambiguousCommand
+    } catch {
+        throw AskFreeTextValidationError.malformedCommand
+    }
+    guard let command = bootstrap?.freeTextCommand else {
+        throw AskFreeTextValidationError.commandUnavailable
+    }
+    return command
+}
+
+private func sendAskFreeTextRequest(
+    command: YouTubeAskOpaqueCommand,
+    prompt: String,
+    requestSnapshot: AskFreeTextRequestSnapshot
+) async throws -> APIWireResponse {
+    let bodyData: Data
+    let clickTrackingContextData: Data
+    do {
+        let milliseconds = max(0, Int64(Date().timeIntervalSince1970 * 1000))
+        bodyData = try YouTubeAskRequestBuilder.makeFreeTextBody(
+            command: command,
+            clientMessageID: "youchat-\(milliseconds)",
+            userInputText: prompt,
+            playerOffsetMilliseconds: 0
+        )
+        clickTrackingContextData = try YouTubeAskRequestBuilder.makeFreeTextClickTrackingContext(
+            command: command
+        )
+    } catch {
+        throw AskFreeTextValidationError.requestEncodingFailed
+    }
+    do {
+        return try await makeRuntimeAskFreeTextWireRequest(
+            endpoint: "get_panel",
+            bodyData: bodyData,
+            requestSnapshot: requestSnapshot,
+            clickTrackingContextData: clickTrackingContextData,
+            validateBackingStateBeforeSending: true
+        )
+    } catch is ResponseSizeLimitError {
+        throw AskFreeTextValidationError.responseTooLarge
+    } catch let error as AskFreeTextValidationError {
+        throw error
+    } catch {
+        throw AskFreeTextValidationError.streamingRequestFailed
+    }
+}
+
+func liveTestAskVideoFreeText(
+    _ videoID: String,
+    prompt: String
+) async {
+    guard isValidYouTubeVideoID(videoID) else {
+        print("❌ Invalid YouTube video ID")
+        return
+    }
+    if !youtubeMode {
+        activateYouTubeMode()
+    }
+    guard !forceUnauthenticatedRequests else {
+        print("❌ ask-video-free-text-test requires authentication; remove --guest/--no-auth")
+        return
+    }
+    guard !authUserOptionWasSpecified, globalAuthUserIndex == 0, globalBrandAccountId == nil else {
+        print("❌ ask-video-free-text-test supports only the signed-in primary account")
+        return
+    }
+    guard let cookies = loadCookiesFromAppBackup(),
+          getSAPISID(from: cookies) != nil,
+          buildCookieHeader(from: cookies) != nil
+    else {
+        print("❌ No usable Kaset cookie export is available")
+        return
+    }
+
+    print("🧪 Ask Gemini guarded free-text test")
+    print("====================================\n")
+    print("Video ID: validated (value not displayed)")
+    print("Prompt: loaded privately (\(prompt.count) characters; content not displayed)")
+    print("Safety: one server-commanded get_panel request; no retry or raw output")
+    print("Request profile: runtime WEB configuration validated by the read-only Ask audit")
+
+    do {
+        let requestSnapshot = try await captureAskFreeTextRequestSnapshot()
+        let command = try await loadAskFreeTextCommand(
+            videoID: videoID,
+            requestSnapshot: requestSnapshot
+        )
+        print("Eligible PAyouchat free-text command: validated (opaque values hidden)")
+
+        let response = try await sendAskFreeTextRequest(
+            command: command,
+            prompt: prompt,
+            requestSnapshot: requestSnapshot
+        )
+        printAskLiveWireSummary(response, verbose: false)
+        guard (200 ... 299).contains(response.statusCode) else {
+            throw AskFreeTextValidationError.streamingHTTPFailure(response.statusCode)
+        }
+
+        let envelope: YouTubeAskWireEnvelope
+        do {
+            envelope = try YouTubeAskWireDecoder.decode(response.data)
+        } catch {
+            throw AskFreeTextValidationError.responseDecodeFailed
+        }
+
+        let conversation: YouTubeAskParsedConversation
+        do {
+            conversation = try YouTubeAskParser.parseConversation(from: envelope)
+        } catch {
+            throw AskFreeTextValidationError.responseParseFailed
+        }
+        guard !conversation.messages.isEmpty else {
+            throw AskFreeTextValidationError.answerUnavailable
+        }
+
+        print("\nAssistant response:")
+        for message in conversation.messages {
+            print(renderedAskLiveMessage(message))
+        }
+        print("\nServer-issued follow-up suggestions: \(conversation.suggestions.count)")
+        print("Opaque command and conversation values were not displayed or saved")
+    } catch let error as AskFreeTextValidationError {
+        print("❌ Free-text validation failed: \(error.localizedDescription)")
+    } catch {
+        print("❌ Free-text validation failed safely; no raw values were displayed")
+    }
+}
+
 private func makeAskSummaryRequest(
     videoId: String,
     selection: AskParitySelection
