@@ -720,6 +720,35 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(source.contains("videoId: playbackVideoId"))
     }
 
+    @Test("Router navigation confirms only after an accepted state observation")
+    func routerNavigationConfirmationFollowsBridgeValidation() throws {
+        let coordinatorSource = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+        let multiplexerSource = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        let confirmation = try #require(coordinatorSource.range(
+            of: "confirmRouterNavigationIfNeeded(videoId: playbackVideoId)"
+        ))
+        let pendingAdvanceReconciliation = try #require(coordinatorSource.range(
+            of: "reconcilePendingNativeQueueAdvanceObservation(videoId: playbackVideoId)"
+        ))
+        #expect(confirmation.lowerBound < pendingAdvanceReconciliation.lowerBound)
+        #expect(!multiplexerSource.contains(
+            "singleton.confirmRouterNavigationIfNeeded(videoId: mediaVideoID)"
+        ))
+    }
+
     private func objectPayloads(in script: String, marker: String, terminator: String) -> [String] {
         script.components(separatedBy: marker).dropFirst().compactMap { suffix in
             suffix.components(separatedBy: terminator).first

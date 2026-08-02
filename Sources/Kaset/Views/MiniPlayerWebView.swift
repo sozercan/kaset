@@ -362,8 +362,7 @@ final class SingletonPlayerWebView {
                       self.consumeTrackEndedOccurrence(body: body)
                 else { return }
             case "STATE_UPDATE":
-                let mediaVideoID = Self.normalizedVideoID(body["mediaVideoId"])
-                singleton.confirmRouterNavigationIfNeeded(videoId: mediaVideoID)
+                break
             default:
                 break
             }

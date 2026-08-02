@@ -722,6 +722,11 @@ extension SingletonPlayerWebView.Coordinator {
             mediaGeneration: mediaGeneration,
             lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
         ) else { return }
+        if validatesBridgeContext,
+           self.playerService.observedPlaybackMatchesCurrentTarget(videoId: playbackVideoId)
+        {
+            SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: playbackVideoId)
+        }
 
         let shouldContinuePendingAdvance = await self.playerService
             .reconcilePendingNativeQueueAdvanceObservation(videoId: playbackVideoId)

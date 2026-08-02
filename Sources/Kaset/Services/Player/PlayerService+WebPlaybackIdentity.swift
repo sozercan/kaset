@@ -93,7 +93,7 @@ extension PlayerService {
 
     var expectedPlaybackVideoId: String? {
         self.pendingNativeQueueAdvanceVideoId
-            ?? self.queue[safe: self.currentIndex]?.videoId
+            ?? (self.activePlaybackOwnsCurrentQueueEntry ? self.queue[safe: self.currentIndex]?.videoId : nil)
             ?? self.currentTrack?.videoId
             ?? self.pendingPlayVideoId
     }

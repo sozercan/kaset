@@ -18,6 +18,10 @@ struct PlaybackObserverIdentityTests {
         #expect(script.contains("mediaIdentityCorrectionDeadline"))
         #expect(script.contains("window.__kasetAdvanceMediaGeneration"))
         #expect(script.contains("const mediaTimeReset = mediaTime + 2 < lastMediaCurrentTime"))
+        #expect(script.range(
+            of: #"sourceChanged,\s*mediaTimeReset,\s*identityCorrectionEvidence"#,
+            options: .regularExpression
+        ) != nil)
         #expect(script.contains("if (video.readyState >= 1)"))
         #expect(script.contains("mediaIdentityTransitionFromVideoId"))
         #expect(script.contains("confirmMediaIdentityOnPlaying"))

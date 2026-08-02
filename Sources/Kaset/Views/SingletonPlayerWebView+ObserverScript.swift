@@ -872,7 +872,7 @@ extension SingletonPlayerWebView {
                         const sourceChanged = source !== mediaSource;
                         if (__kasetShouldBindMediaIdentity(
                             sourceChanged,
-                            false,
+                            mediaTimeReset,
                             identityCorrectionEvidence
                         )) {
                             bindMediaIdentity(

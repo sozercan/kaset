@@ -223,6 +223,13 @@ extension PlayerServiceWebQueueSyncTests {
     @Test("Web metadata cannot replace detached playback with a leftover queue")
     func detachedPlaybackIgnoresQueueEnforcement() async {
         let queued = Song(id: "queued", title: "Queued", artists: [], duration: 180, videoId: "queued")
+        let leftoverNext = Song(
+            id: "leftover-next",
+            title: "Leftover Next",
+            artists: [],
+            duration: 180,
+            videoId: "leftover-next"
+        )
         let detached = Song(
             id: "detached",
             title: "Detached",
@@ -231,8 +238,17 @@ extension PlayerServiceWebQueueSyncTests {
             videoId: "detached",
             feedbackTokens: .init(add: nil, remove: nil)
         )
-        await self.playerService.playQueue([queued], startingAt: 0)
+        await self.playerService.playQueue([queued, leftoverNext], startingAt: 0)
         await self.playerService.play(song: detached)
+
+        #expect(self.playerService.observedPlaybackMatchesCurrentTarget(videoId: detached.videoId))
+        #expect(!self.playerService.observedPlaybackMatchesCurrentTarget(videoId: queued.videoId))
+
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = leftoverNext.videoId
+        self.playerService.syncWebQueue()
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
 
         self.playerService.updateTrackMetadata(
             title: "Observed Detached",
@@ -244,7 +260,7 @@ extension PlayerServiceWebQueueSyncTests {
             await Task.yield()
         }
 
-        #expect(self.playerService.queue == [queued])
+        #expect(self.playerService.queue == [queued, leftoverNext])
         #expect(self.playerService.currentTrack?.videoId == detached.videoId)
         #expect(self.playerService.activePlaybackQueueEntryID == nil)
     }

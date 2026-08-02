@@ -18,6 +18,7 @@ extension PlayerService {
            self.repeatMode != .one,
            self.canAdvanceNativeQueueAfterTrackEnd
         {
+            guard self.claimTerminalMusicPlaybackOccurrence(self.currentMusicPlaybackOccurrence) else { return }
             SingletonPlayerWebView.shared.seekAndPause(to: self.duration)
             self.clearWebQueueInjectionState()
             self.clearPendingNativeQueueAdvance()

@@ -1095,6 +1095,7 @@ struct PlayerServiceWebQueueSyncTests {
         let endedOccurrence = self.playerService.currentMusicPlaybackOccurrence
 
         await self.playerService.seek(to: 180)
+        #expect(!self.playerService.claimTerminalMusicPlaybackOccurrence(endedOccurrence))
         await self.playerService.handleTrackEnded(
             observedVideoId: "v1",
             playbackOccurrence: endedOccurrence
