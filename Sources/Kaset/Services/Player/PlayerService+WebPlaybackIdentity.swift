@@ -336,6 +336,33 @@ extension PlayerService {
         return true
     }
 
+    func revalidatePendingNativeQueueAdvanceAfterRepeatModeChange() {
+        guard let pending = self.pendingNativeQueueAdvance,
+              !self.isPendingNativeQueueAdvanceValid
+        else { return }
+        Task { @MainActor [weak self] in
+            await self?.fallbackInvalidatedNativeQueueAdvance(
+                generation: pending.generation,
+                reason: "repeat mode changed"
+            )
+        }
+    }
+
+    func recoverPendingNativeQueueAdvanceAfterContentProcessTermination(
+        intent: MusicPlaybackIntent
+    ) async -> Bool {
+        guard self.acceptsMusicPlaybackIntent(intent),
+              let pending = self.pendingNativeQueueAdvance
+        else { return false }
+        await self.fallbackPendingNativeQueueAdvance(
+            generation: pending.generation,
+            reason: "WebContent process terminated",
+            intent: intent,
+            startsPaused: self.isExplicitPauseIntentActive
+        )
+        return true
+    }
+
     func fallbackInvalidatedNativeQueueAdvance(
         generation: Int,
         reason: String

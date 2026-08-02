@@ -574,10 +574,17 @@ final class SingletonPlayerWebView {
     nonisolated static func queueNavigationStrategy(
         currentVideoId: String?,
         targetVideoId: String,
-        startsPaused: Bool
+        startsPaused: Bool,
+        allowsInPlaceRestart: Bool = true
     ) -> VideoLoadStrategy {
         guard currentVideoId == targetVideoId else { return .standard }
-        return startsPaused ? .forceFullPageWhenSameVideoId : .preferInPlaceWhenSameVideoId
+        return startsPaused || !allowsInPlaceRestart
+            ? .forceFullPageWhenSameVideoId
+            : .preferInPlaceWhenSameVideoId
+    }
+
+    var canRestartInPlace: Bool {
+        self.documentGeneration.accepts(generation: self.documentGeneration.currentGeneration)
     }
 
     nonisolated static func freshSameIDPlaybackStrategy(
@@ -2012,6 +2019,17 @@ extension SingletonPlayerWebView {
         }
         guard !playerService.isStoppingPlayback else {
             self.currentVideoId = nil
+            return
+        }
+        if playerService.pendingNativeQueueAdvance != nil {
+            let intent = playerService.currentMusicPlaybackIntent
+            Task { @MainActor [weak self, weak playerService, weak webView] in
+                guard let self, let playerService, let webView else { return }
+                let handled = await playerService
+                    .recoverPendingNativeQueueAdvanceAfterContentProcessTermination(intent: intent)
+                guard !handled, webView === self.webView else { return }
+                self.recoverFromContentProcessTermination(webView: webView)
+            }
             return
         }
         let videoId = playerService.pendingPlayVideoId

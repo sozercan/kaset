@@ -841,6 +841,72 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.playbackNavigationGeneration > navigationGeneration)
     }
 
+    @Test("Repeat-mode change immediately invalidates a pending wraparound handoff")
+    func repeatModeChangeInvalidatesPendingWraparoundHandoff() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.state = .playing
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .all)
+        self.playerService.beginPendingNativeQueueAdvance(to: 0)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == "v1")
+
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .one)
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("Stale WebContent recovery intent leaves the handoff for the current owner")
+    func staleContentProcessRecoveryIntentLeavesPendingHandoff() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        let staleIntent = self.playerService.currentMusicPlaybackIntent
+        _ = self.playerService.beginMusicPlaybackIntent()
+
+        let handled = await self.playerService
+            .recoverPendingNativeQueueAdvanceAfterContentProcessTermination(intent: staleIntent)
+
+        #expect(!handled)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == "v2")
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+    }
+
+    @Test("WebContent recovery resolves a pending native handoff to its target")
+    func contentProcessRecoveryResolvesPendingNativeHandoff() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        let intent = self.playerService.currentMusicPlaybackIntent
+
+        let handled = await self.playerService
+            .recoverPendingNativeQueueAdvanceAfterContentProcessTermination(intent: intent)
+
+        #expect(handled)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+    }
+
     @Test("Native handoff timeout waits until an advertisement finishes")
     func nativeHandoffTimeoutDefersDuringAdvertisement() async {
         let songs = [

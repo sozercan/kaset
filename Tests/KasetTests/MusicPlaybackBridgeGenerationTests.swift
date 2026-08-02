@@ -240,6 +240,30 @@ struct MusicPlaybackBridgeGenerationTests {
         ))
     }
 
+    @Test("Superseded pending-handoff content recovery retries under the current owner")
+    func supersededPendingHandoffContentRecoveryRetries() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+        let recoveryCall = try #require(source.range(
+            of: ".recoverPendingNativeQueueAdvanceAfterContentProcessTermination(intent: intent)"
+        ))
+        let ownershipRetry = try #require(source.range(
+            of: "guard !handled, webView === self.webView else { return }"
+        ))
+        let recursiveRecovery = try #require(source.range(
+            of: "self.recoverFromContentProcessTermination(webView: webView)",
+            range: ownershipRetry.lowerBound ..< source.endIndex
+        ))
+
+        #expect(recoveryCall.lowerBound < ownershipRetry.lowerBound)
+        #expect(ownershipRetry.lowerBound < recursiveRecovery.lowerBound)
+    }
+
     @Test("Content-process recovery preserves seek and playing intent")
     func contentProcessRecoveryPreservesPlayingIntent() {
         let plan = SingletonPlayerWebView.contentProcessRecoveryPlan(
@@ -872,6 +896,12 @@ struct WebPlaybackTransitionFallbackPolicyTests {
             targetVideoId: "video",
             startsPaused: false
         ) == .preferInPlaceWhenSameVideoId)
+        #expect(SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: "video",
+            targetVideoId: "video",
+            startsPaused: false,
+            allowsInPlaceRestart: false
+        ) == .forceFullPageWhenSameVideoId)
         #expect(SingletonPlayerWebView.queueNavigationStrategy(
             currentVideoId: "source",
             targetVideoId: "target",

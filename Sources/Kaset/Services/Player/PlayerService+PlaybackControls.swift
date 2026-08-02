@@ -950,7 +950,8 @@ extension PlayerService {
         let strategy = strategyOverride ?? SingletonPlayerWebView.queueNavigationStrategy(
             currentVideoId: SingletonPlayerWebView.shared.currentVideoId,
             targetVideoId: song.videoId,
-            startsPaused: startsPaused
+            startsPaused: startsPaused,
+            allowsInPlaceRestart: SingletonPlayerWebView.shared.canRestartInPlace
         )
         await self.play(
             song: song,
@@ -1184,6 +1185,7 @@ extension PlayerService {
     func cycleRepeatMode() {
         self.advanceRepeatMode()
         self.clearWebQueueInjectionState()
+        self.revalidatePendingNativeQueueAdvanceAfterRepeatModeChange()
         self.syncWebQueue()
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
     }
