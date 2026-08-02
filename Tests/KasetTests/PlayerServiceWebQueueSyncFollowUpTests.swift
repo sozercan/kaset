@@ -6,6 +6,26 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Explicit pause cancels queue-navigation recovery")
+    func explicitPauseCancelsQueueNavigationRecovery() async {
+        let song = Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.queueNavigationRecoveryVideoId = song.videoId
+        self.playerService.queueNavigationRecoveryLoadTask = Task {}
+        self.playerService.queueNavigationRecoveryTask = Task {}
+        let generation = self.playerService.queueNavigationRecoveryGeneration
+
+        await self.playerService.pause()
+
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+        #expect(self.playerService.queueNavigationRecoveryLoadTask == nil)
+        #expect(self.playerService.queueNavigationRecoveryTask == nil)
+        #expect(self.playerService.queueNavigationRecoveryGeneration == generation + 1)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
     @Test("Cancelled next discards a delayed radio queue response")
     func cancelledNextDiscardsDelayedRadioQueue() async {
         let mockClient = MockYTMusicClient()

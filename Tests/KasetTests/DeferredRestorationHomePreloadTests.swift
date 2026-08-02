@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Kaset
 
@@ -24,6 +25,18 @@ struct DeferredRestorationHomePreloadTests {
             hasStartedHomePreload: false,
             currentVideoId: "active-video"
         ))
+    }
+
+    @Test("Home preload URL binds an accepted document generation")
+    func homePreloadURLBindsDocumentGeneration() throws {
+        let generation: UInt64 = 7
+        let url = try #require(SingletonPlayerWebView.homePreloadURL(
+            documentGeneration: generation
+        ))
+
+        #expect(WebPlaybackDocumentGeneration.generation(from: url) == generation)
+        #expect(SingletonPlayerWebView.isExpectedHomePreloadURL(url))
+        #expect(url.fragment == "\(WebPlaybackDocumentGeneration.urlQueryKey)=\(generation)")
     }
 
     @Test("Auth data-store rebuild leaves a deferred restored video unloaded")

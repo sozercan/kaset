@@ -36,13 +36,18 @@ extension PlayerService {
 
         self.clearQueueNavigationRecovery()
         let generation = self.queueNavigationRecoveryGeneration
+        let intent = self.currentMusicPlaybackIntent
+        let startsPaused = self.isExplicitPauseIntentActive
+        let queueEntryID = self.currentQueueEntryID(matching: song)
         self.queueNavigationRecoveryVideoId = song.videoId
         self.protectQueueNavigationTarget(song.videoId)
         self.queueNavigationRecoveryLoadTask = Task { @MainActor [weak self] in
             guard let self,
                   !Task.isCancelled,
                   self.queueNavigationRecoveryGeneration == generation,
-                  self.queueNavigationRecoveryVideoId == song.videoId
+                  self.queueNavigationRecoveryVideoId == song.videoId,
+                  self.acceptsMusicPlaybackIntent(intent),
+                  self.isExplicitPauseIntentActive == startsPaused
             else {
                 return
             }
@@ -50,7 +55,10 @@ extension PlayerService {
             await self.play(
                 song: song,
                 webLoadStrategy: .forceFullPageWhenSameVideoId,
-                isQueueNavigationRecovery: true
+                queueEntryID: queueEntryID,
+                startsPaused: startsPaused,
+                isQueueNavigationRecovery: true,
+                intent: intent
             )
 
             guard self.queueNavigationRecoveryGeneration == generation else { return }

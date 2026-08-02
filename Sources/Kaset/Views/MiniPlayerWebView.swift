@@ -690,15 +690,34 @@ final class SingletonPlayerWebView {
             hasStartedHomePreload: self.hasStartedHomePreload,
             currentVideoId: self.currentVideoId
         ) else { return }
-        guard let webView else { return }
-        guard let homeURL = URL(string: "https://music.youtube.com/") else {
+        guard let webView, let playerService = self.coordinator?.playerService else { return }
+
+        self.cancelActiveDocumentNavigation(on: webView)
+        if self.documentGeneration.pendingGeneration != nil {
+            self.documentGeneration.cancelPendingNavigation()
+        }
+        self.documentNavigationStartedAtMilliseconds = Date().timeIntervalSince1970 * 1000
+        let generation = self.documentGeneration.beginNavigation()
+        self.installUserScripts(
+            on: webView.configuration.userContentController,
+            shouldAutoplay: playerService.shouldAutoplayPlaybackDocument,
+            targetVolume: playerService.volume,
+            documentGeneration: generation,
+            nativePlaybackGeneration: playerService.currentNativeMusicPlaybackGeneration
+        )
+        guard let homeURL = Self.homePreloadURL(documentGeneration: generation) else {
+            self.documentGeneration.cancelPendingNavigation()
             self.logger.error("Unable to construct YT Music home URL")
             return
         }
 
         self.hasStartedHomePreload = true
         self.logger.info("Preloading YT Music home page")
-        webView.load(URLRequest(url: homeURL))
+        self.startDocumentNavigation(
+            on: webView,
+            request: URLRequest(url: homeURL),
+            generation: generation
+        )
     }
 
     /// Ensures the WebView is in the given container's view hierarchy.
@@ -1198,6 +1217,27 @@ final class SingletonPlayerWebView {
             window.__kasetTargetVolume = \(clampedVolume);
             window.__kasetDocumentID = \(documentID);
         """
+    }
+
+    nonisolated static func homePreloadURL(documentGeneration: UInt64) -> URL? {
+        var components = URLComponents(string: "https://music.youtube.com/")
+        components?.queryItems = [
+            URLQueryItem(
+                name: WebPlaybackDocumentGeneration.urlQueryKey,
+                value: String(documentGeneration)
+            ),
+        ]
+        components?.fragment = "\(WebPlaybackDocumentGeneration.urlQueryKey)=\(documentGeneration)"
+        return components?.url
+    }
+
+    nonisolated static func isExpectedHomePreloadURL(_ url: URL?) -> Bool {
+        guard let components = url.flatMap({
+            URLComponents(url: $0, resolvingAgainstBaseURL: false)
+        }) else { return false }
+        return components.scheme?.lowercased() == "https"
+            && components.host?.lowercased() == "music.youtube.com"
+            && (components.path.isEmpty || components.path == "/")
     }
 
     nonisolated static func playbackURL(videoId: String, documentGeneration: UInt64) -> URL? {
@@ -1708,6 +1748,10 @@ extension SingletonPlayerWebView {
                 trackedNavigation.generation,
                 expectedVideoID: currentVideoId
             ) else { return }
+            self.documentNavigationStartedAtMilliseconds = nil
+            trackedNavigation.didActivatePlaybackOrigin = true
+        } else if self.currentVideoId == nil, Self.isExpectedHomePreloadURL(webView.url) {
+            guard self.documentGeneration.commitNavigation(trackedNavigation.generation) else { return }
             self.documentNavigationStartedAtMilliseconds = nil
             trackedNavigation.didActivatePlaybackOrigin = true
         } else if WebPlaybackDocumentGeneration.isTrustedIntermediaryURL(webView.url) {
