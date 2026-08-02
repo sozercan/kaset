@@ -96,6 +96,22 @@ enum WebPlaybackIdentityTransition {
     }
 }
 
+// MARK: - MusicHomePreloadPolicy
+
+enum MusicHomePreloadPolicy {
+    nonisolated static func shouldPreload(
+        isRunningUnitTests: Bool,
+        isSuppressedForDeferredRestore: Bool,
+        hasStartedHomePreload: Bool,
+        currentVideoId: String?
+    ) -> Bool {
+        !isRunningUnitTests
+            && !isSuppressedForDeferredRestore
+            && !hasStartedHomePreload
+            && currentVideoId == nil
+    }
+}
+
 // MARK: - MiniPlayerWebView
 
 /// A visible WebView that displays the YouTube Music player.
@@ -499,6 +515,7 @@ final class SingletonPlayerWebView {
     var mediaControlUsesNextPrev: Bool
     var playbackAudioQuality: SettingsManager.PlaybackAudioQuality
     private var hasStartedHomePreload = false
+    private(set) var isHomePreloadSuppressedForDeferredRestore = false
 
     /// Native timer that re-asserts the media-key override while backgrounded.
     /// See `beginBackgroundMediaControlReassertion()`.
@@ -523,7 +540,9 @@ final class SingletonPlayerWebView {
         playerService: PlayerService,
         usesCookieFreeDataStore: Bool = false
     ) -> WKWebView {
+        self.releaseDeferredHomePreloadSuppressionIfNeeded(playerService: playerService)
         if let existing = webView, self.usesCookieFreeDataStore == usesCookieFreeDataStore {
+            self.preloadHomePageIfNeeded()
             return existing
         }
         let previousContainer = self.currentContainer
@@ -581,10 +600,21 @@ final class SingletonPlayerWebView {
         return newWebView
     }
 
+    private func releaseDeferredHomePreloadSuppressionIfNeeded(playerService: PlayerService) {
+        guard self.isHomePreloadSuppressedForDeferredRestore,
+              !playerService.isPendingRestoredLoadDeferred,
+              !playerService.isRestoringPlaybackSession
+        else { return }
+        self.isHomePreloadSuppressedForDeferredRestore = false
+    }
+
     private func preloadHomePageIfNeeded() {
-        guard !UITestConfig.isRunningUnitTests else { return }
-        guard !self.hasStartedHomePreload else { return }
-        guard self.currentVideoId == nil else { return }
+        guard MusicHomePreloadPolicy.shouldPreload(
+            isRunningUnitTests: UITestConfig.isRunningUnitTests,
+            isSuppressedForDeferredRestore: self.isHomePreloadSuppressedForDeferredRestore,
+            hasStartedHomePreload: self.hasStartedHomePreload,
+            currentVideoId: self.currentVideoId
+        ) else { return }
         guard let webView else { return }
         guard let homeURL = URL(string: "https://music.youtube.com/") else {
             self.logger.error("Unable to construct YT Music home URL")
@@ -662,9 +692,10 @@ final class SingletonPlayerWebView {
         self.currentContainer = nil
         self.usesCookieFreeDataStore = nil
         self.hasStartedHomePreload = false
+        self.isHomePreloadSuppressedForDeferredRestore = false
     }
 
-    /// Recreates the playback WebView when crossing a cookie-store boundary while preserving the tracked video id.
+    /// Recreates the playback WebView across a cookie-store boundary while preserving only active document identity.
     func rebuildForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
         guard self.usesCookieFreeDataStore != usesCookieFreeDataStore else { return }
         guard let webKitManager = self.webKitManager,
@@ -673,10 +704,19 @@ final class SingletonPlayerWebView {
             self.usesCookieFreeDataStore = usesCookieFreeDataStore
             return
         }
-        let videoId = self.currentVideoId
+        // A deferred restored session has not committed its pending watch
+        // document. Rebuilding must therefore leave the replacement WebView
+        // unlabeled and inert so explicit Resume routes to the persisted video.
+        let isDeferredRestoredLoad = playerService.isPendingRestoredLoadDeferred
+        let videoId = isDeferredRestoredLoad ? nil : self.currentVideoId
         let previousContainer = self.currentContainer
         self.logger.info("Rebuilding singleton music WebView for auth data-store boundary")
         self.tearDown()
+        self.isHomePreloadSuppressedForDeferredRestore = isDeferredRestoredLoad
+
+        // Restore a real active document identity before WebView creation so the
+        // ordinary home preload cannot race an immediate identity re-point.
+        self.currentVideoId = videoId
         _ = self.getWebView(
             webKitManager: webKitManager,
             playerService: playerService,
@@ -685,7 +725,6 @@ final class SingletonPlayerWebView {
         if let previousContainer {
             self.ensureInHierarchy(container: previousContainer)
         }
-        self.currentVideoId = videoId
     }
 
     /// Load a video, stopping any currently playing audio first.
@@ -697,6 +736,7 @@ final class SingletonPlayerWebView {
             return
         }
 
+        self.isHomePreloadSuppressedForDeferredRestore = false
         let previousVideoId = self.currentVideoId
 
         switch strategy {

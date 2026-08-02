@@ -317,12 +317,8 @@ extension PlayerService {
     }
 
     private func finishMixContinuationFetch(requestID: UUID) {
-        self.finishMixContinuationRequest(requestID)
-        let waiters = self.mixContinuationFetchWaiters
-        self.mixContinuationFetchWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
+        guard self.finishMixContinuationRequest(requestID) else { return }
+        self.resumeMixContinuationFetchWaiters()
     }
 
     /// Fetches radio queue and applies it while preserving the logical playback owner.

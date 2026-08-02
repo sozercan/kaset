@@ -5,11 +5,17 @@ extension PlayerService {
     private static let queueNavigationRecoveryTimeout: Duration = .seconds(8)
 
     func finishPlaybackAfterFailedQueueAdvance(reason: String) async {
-        self.mixContinuationToken = nil
-        self.mixContinuationRequiresAuth = false
+        // A transient failure leaves the current token intact, while a duplicate-only page can
+        // advance to another token. Only a nil token proves that the continuation is exhausted.
+        let hasRetryableMixContinuation = self.mixContinuationToken != nil
+        if !hasRetryableMixContinuation {
+            self.mixContinuationRequiresAuth = false
+        }
         self.shouldSuppressAutoplayAfterQueueEnd = true
         self.markPlaybackEnded()
-        self.logger.info("Ending playback after failed queue advance: \(reason)")
+        self.logger.info(
+            "Ending playback after failed queue advance: \(reason), retryable continuation: \(hasRetryableMixContinuation)"
+        )
         await self.pause()
     }
 

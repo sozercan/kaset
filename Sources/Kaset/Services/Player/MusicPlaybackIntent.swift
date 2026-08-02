@@ -471,11 +471,8 @@ extension PlayerService {
     func invalidateMixContinuationRequest() {
         self.activeMixContinuationRequestID = nil
         self.isFetchingMoreMixSongs = false
-        let waiters = self.mixContinuationWaiters
-        self.mixContinuationWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
+        self.resumeMixContinuationRequestWaiters()
+        self.resumeMixContinuationFetchWaiters()
     }
 
     func waitForActiveMixContinuationRequest() async {
@@ -485,10 +482,24 @@ extension PlayerService {
         }
     }
 
-    func finishMixContinuationRequest(_ requestID: UUID) {
-        guard self.activeMixContinuationRequestID == requestID else { return }
+    @discardableResult
+    func finishMixContinuationRequest(_ requestID: UUID) -> Bool {
+        guard self.activeMixContinuationRequestID == requestID else { return false }
         self.activeMixContinuationRequestID = nil
         self.isFetchingMoreMixSongs = false
+        self.resumeMixContinuationRequestWaiters()
+        return true
+    }
+
+    func resumeMixContinuationFetchWaiters() {
+        let waiters = self.mixContinuationFetchWaiters
+        self.mixContinuationFetchWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    private func resumeMixContinuationRequestWaiters() {
         let waiters = self.mixContinuationWaiters
         self.mixContinuationWaiters.removeAll()
         for waiter in waiters {

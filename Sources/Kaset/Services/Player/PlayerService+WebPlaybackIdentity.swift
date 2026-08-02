@@ -225,6 +225,8 @@ extension PlayerService {
             return
         }
 
+        let fallbackIntent = self.currentMusicPlaybackIntent
+        let startsPaused = self.isExplicitPauseIntentActive
         let sourceIndex = pending.sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
         let targetIndex: Int?
         if let sourceIndex {
@@ -260,7 +262,9 @@ extension PlayerService {
         // when IDs happen to match instead of restarting the wrong media in place.
         await self.loadQueueSongForNavigation(
             at: targetIndex,
-            webLoadStrategy: .forceFullPageWhenSameVideoId
+            webLoadStrategy: .forceFullPageWhenSameVideoId,
+            startsPaused: startsPaused,
+            intent: fallbackIntent
         )
     }
 

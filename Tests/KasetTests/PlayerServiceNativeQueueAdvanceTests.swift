@@ -284,6 +284,36 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.state == .loading)
     }
 
+    @Test("Native queue advance fallback preserves a later Pause")
+    func nativeQueueAdvanceFallbackPreservesLaterPause() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "v2"
+        let sourceOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        let targetEntryID = self.playerService.queueEntryIDs[1]
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+        let generation = self.playerService.pendingNativeQueueAdvanceGeneration
+
+        await self.playerService.pause()
+        let pauseIntent = self.playerService.currentMusicPlaybackIntent
+        await self.playerService.handleNativeQueueAdvanceTimeout(generation: generation)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.activePlaybackQueueEntryID == targetEntryID)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.currentMusicPlaybackOccurrence?.videoId == "v2")
+        #expect(self.playerService.currentMusicPlaybackOccurrence != sourceOccurrence)
+        #expect(self.playerService.acceptsMusicPlaybackIntent(pauseIntent))
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
+    }
+
     @Test("Cancelled native queue maintenance yields to a valid replacement fetch")
     func cancelledNativeQueueMaintenanceYieldsToReplacementFetch() async {
         let mockClient = MockYTMusicClient()
@@ -338,6 +368,56 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(!self.playerService.queue.contains { $0.videoId == "stale-video" })
         #expect(mockClient.getMixQueueContinuationCallCount == 2)
         #expect(self.playerService.mixContinuationFetchWaiters.isEmpty)
+    }
+
+    @Test("Invalidating a mix continuation releases coalesced fetch callers")
+    func invalidatingMixContinuationReleasesCoalescedFetchCallers() async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let current = Song(
+            id: "current",
+            title: "Current",
+            artists: [],
+            duration: 180,
+            videoId: "current-video"
+        )
+        mockClient.mixQueueContinuationGate = continuationGate
+        mockClient.mixQueueContinuationResult = RadioQueueResult(
+            songs: [],
+            continuationToken: nil
+        )
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([current], startingAt: 0)
+        self.playerService[keyPath: \.mixContinuationToken] = "retryable-continuation"
+
+        let activeFetch = Task { @MainActor in
+            await self.playerService.fetchMoreMixSongsIfNeeded()
+        }
+        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+
+        var coalescedFetchCompleted = false
+        let coalescedFetch = Task { @MainActor in
+            await self.playerService.fetchMoreMixSongsIfNeeded()
+            coalescedFetchCompleted = true
+        }
+        await Self.waitUntilMixContinuationWaiterIsRegistered(playerService: self.playerService)
+
+        self.playerService.invalidateMixContinuationRequest()
+        self.playerService.mixContinuationToken = nil
+
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while !coalescedFetchCompleted, clock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+
+        #expect(coalescedFetchCompleted)
+        #expect(self.playerService.mixContinuationFetchWaiters.isEmpty)
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+
+        await continuationGate.open()
+        await activeFetch.value
+        await coalescedFetch.value
     }
 
     @Test("Clearing the queue invalidates in-flight native continuation maintenance")

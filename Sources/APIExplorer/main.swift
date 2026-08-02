@@ -20,8 +20,8 @@
 //    help                          - Show this help message
 //
 //  Options:
-//    -v, --verbose                 - Show raw JSON, or expanded search-audit samples
-//    -o, --output <file>           - Save raw JSON response to a file
+//    -v, --verbose                 - Show raw JSON (queue-probe output is sanitized)
+//    -o, --output <file>           - Save JSON (queue-probe output is sanitized)
 //    --client-version <version>    - Override the resolved InnerTube client version
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
@@ -1217,6 +1217,114 @@ private func queueProbeAutoplayVideoId(in data: [String: Any]) -> String? {
     return compactVideoRenderer["videoId"] as? String
 }
 
+private let queueProbeRedactedDiagnosticValue = "[REDACTED]"
+
+/// String fields that are part of the queue/display shape and remain useful in a diagnostic.
+/// Every other scalar fails closed to `[REDACTED]`, so newly introduced opaque API fields cannot leak.
+private let queueProbeSafeDiagnosticStringKeys: Set<String> = [
+    "browseid",
+    "icontype",
+    "label",
+    "musicvideotype",
+    "pagetype",
+    "playlistid",
+    "simpletext",
+    "text",
+    "videoid",
+    "webpagetype",
+]
+
+/// Opaque response subtrees known to contain authorization, identity, continuation, or tracking data.
+/// The ancestor flag also protects generic child keys such as `value` or even otherwise-safe `text`.
+private let queueProbeSensitiveDiagnosticKeyFragments = [
+    "account",
+    "authorization",
+    "cipher",
+    "continuation",
+    "cookie",
+    "credential",
+    "datasync",
+    "delegat",
+    "identity",
+    "nonce",
+    "pageid",
+    "params",
+    "serialized",
+    "session",
+    "signature",
+    "token",
+    "tracking",
+    "visitor",
+]
+
+private func isSensitiveQueueProbeDiagnosticKey(_ key: String) -> Bool {
+    let normalizedKey = key.lowercased()
+    return queueProbeSensitiveDiagnosticKeyFragments.contains { normalizedKey.contains($0) }
+}
+
+private func sanitizedQueueProbeDiagnosticValue(
+    _ value: Any,
+    fieldName: String? = nil,
+    redactingOpaqueSubtree: Bool = false
+) -> Any {
+    let shouldRedactOpaqueSubtree = redactingOpaqueSubtree
+        || fieldName.map(isSensitiveQueueProbeDiagnosticKey) == true
+
+    if let dictionary = value as? [String: Any] {
+        var sanitizedDictionary: [String: Any] = [:]
+        for (key, childValue) in dictionary {
+            sanitizedDictionary[key] = sanitizedQueueProbeDiagnosticValue(
+                childValue,
+                fieldName: key,
+                redactingOpaqueSubtree: shouldRedactOpaqueSubtree
+            )
+        }
+        return sanitizedDictionary
+    }
+
+    if let array = value as? [Any] {
+        return array.map {
+            sanitizedQueueProbeDiagnosticValue(
+                $0,
+                fieldName: fieldName,
+                redactingOpaqueSubtree: shouldRedactOpaqueSubtree
+            )
+        }
+    }
+
+    if value is NSNull {
+        return value
+    }
+
+    if shouldRedactOpaqueSubtree {
+        return queueProbeRedactedDiagnosticValue
+    }
+
+    if let string = value as? String,
+       let fieldName,
+       queueProbeSafeDiagnosticStringKeys.contains(fieldName.lowercased())
+    {
+        return string
+    }
+
+    return queueProbeRedactedDiagnosticValue
+}
+
+private func sanitizedQueueProbeDiagnosticResponse(_ data: [String: Any]) -> [String: Any] {
+    var sanitized: [String: Any] = [:]
+    for (key, value) in data {
+        sanitized[key] = sanitizedQueueProbeDiagnosticValue(value, fieldName: key)
+    }
+    return sanitized
+}
+
+private func prettyPrintedSanitizedQueueProbeResponse(_ data: [String: Any]) throws -> Data {
+    try JSONSerialization.data(
+        withJSONObject: sanitizedQueueProbeDiagnosticResponse(data),
+        options: [.prettyPrinted, .sortedKeys]
+    )
+}
+
 func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = false, outputFile: String? = nil) async {
     let resolvedPlaylistId = playlistId ?? "RDAMVM\(videoId)"
     let body: [String: Any] = [
@@ -1267,20 +1375,20 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
             }
         }
 
-        if verbose {
-            print("\n📄 Raw response (pretty-printed):")
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted),
-               let prettyString = String(data: prettyData, encoding: .utf8)
-            {
-                print(prettyString)
-            }
-        }
+        if verbose || outputFile != nil {
+            let sanitizedData = try prettyPrintedSanitizedQueueProbeResponse(data)
 
-        if let outputFile {
-            if let prettyData = try? JSONSerialization.data(withJSONObject: data, options: .prettyPrinted) {
+            if verbose,
+               let sanitizedString = String(data: sanitizedData, encoding: .utf8)
+            {
+                print("\n📄 Sanitized response (opaque values and tokens redacted):")
+                print(sanitizedString)
+            }
+
+            if let outputFile {
                 let url = URL(fileURLWithPath: outputFile)
-                try prettyData.write(to: url)
-                print("\n💾 Saved to: \(outputFile)")
+                try sanitizedData.write(to: url)
+                print("\n💾 Saved sanitized response to: \(outputFile)")
             }
         }
     } catch {
@@ -2694,8 +2802,8 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show raw JSON; expand samples/params for search-audit
-          -o, --output <file>            Save raw JSON response to a file
+          -v, --verbose                  Show raw JSON; queue-probe output is sanitized
+          -o, --output <file>            Save JSON; queue-probe output is sanitized
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
           --client-version <version>     Override the resolved InnerTube client version

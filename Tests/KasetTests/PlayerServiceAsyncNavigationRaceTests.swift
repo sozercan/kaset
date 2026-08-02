@@ -368,6 +368,82 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
     }
 
+    @Test("Transient continuation failure preserves a retryable token")
+    func transientContinuationFailurePreservesRetryableToken() async {
+        let mockClient = MockYTMusicClient()
+        let current = TestFixtures.makeSong(id: "current")
+        let recovered = TestFixtures.makeSong(id: "recovered")
+        mockClient.shouldThrowError = URLError(.timedOut)
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([current], startingAt: 0)
+        self.playerService[keyPath: \.mixContinuationToken] = "retryable-token"
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: current.videoId)
+
+        #expect(self.playerService.mixContinuationToken == "retryable-token")
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+
+        mockClient.shouldThrowError = nil
+        mockClient.mixQueueContinuationResult = RadioQueueResult(
+            songs: [recovered],
+            continuationToken: nil
+        )
+        await self.playerService.next()
+
+        #expect(self.playerService.currentTrack?.videoId == recovered.videoId)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(mockClient.getMixQueueContinuationCallCount == 2)
+    }
+
+    @Test("Duplicate-only continuation page preserves its next token")
+    func duplicateOnlyContinuationPagePreservesNextToken() async {
+        let mockClient = MockYTMusicClient()
+        let current = TestFixtures.makeSong(id: "current")
+        let recovered = TestFixtures.makeSong(id: "recovered")
+        mockClient.mixQueueContinuationResults = [
+            RadioQueueResult(
+                songs: [current],
+                continuationToken: "next-page-token"
+            ),
+            RadioQueueResult(
+                songs: [recovered],
+                continuationToken: nil
+            ),
+        ]
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([current], startingAt: 0)
+        self.playerService[keyPath: \.mixContinuationToken] = "first-page-token"
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: current.videoId)
+
+        #expect(self.playerService.queue.map(\.videoId) == [current.videoId])
+        #expect(self.playerService.mixContinuationToken == "next-page-token")
+        #expect(self.playerService.state == .ended)
+
+        await self.playerService.next()
+
+        #expect(self.playerService.currentTrack?.videoId == recovered.videoId)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(mockClient.getMixQueueContinuationCallCount == 2)
+    }
+
+    @Test("Exhausted continuation clears its authentication requirement")
+    func exhaustedContinuationClearsAuthenticationRequirement() async {
+        self.playerService.mixContinuationToken = nil
+        self.playerService.mixContinuationRequiresAuth = true
+
+        await self.playerService.finishPlaybackAfterFailedQueueAdvance(
+            reason: "test exhausted continuation"
+        )
+
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(!self.playerService.mixContinuationRequiresAuth)
+        #expect(self.playerService.state == .ended)
+    }
+
     @Test("Concurrent queue navigation supersedes a pending manual seek-to-end")
     func queueNavigationSupersedesPendingManualSeekToEnd() async {
         let mockClient = MockYTMusicClient()
@@ -394,6 +470,46 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
         #expect(self.playerService.state == .playing)
+        #expect(!self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
+    @Test("Pause supersedes manual seek-to-end fallback after continuation")
+    func pauseSupersedesManualSeekToEndFallbackAfterContinuation() async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let original = TestFixtures.makeSong(id: "manual-seek-original")
+        let successor = TestFixtures.makeSong(id: "manual-seek-successor")
+        mockClient.mixQueueContinuationGate = continuationGate
+        mockClient.mixQueueContinuationResult = RadioQueueResult(
+            songs: [successor],
+            continuationToken: nil
+        )
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([original], startingAt: 0)
+        let sourceEntryID = self.playerService.currentQueueEntryID
+        let sourceOccurrence = self.playerService.currentMusicPlaybackOccurrence
+        self.playerService.mixContinuationToken = "test"
+        self.playerService.state = .playing
+        self.playerService.duration = original.duration ?? 180
+
+        let seekTask = Task { @MainActor in
+            await self.playerService.seek(to: self.playerService.duration)
+        }
+        await Self.waitUntilMixContinuationStarts(mockClient: mockClient)
+
+        await self.playerService.pause()
+        let pauseIntent = self.playerService.currentMusicPlaybackIntent
+        await continuationGate.open()
+        await seekTask.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [original.videoId, successor.videoId])
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == original.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == sourceEntryID)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == sourceOccurrence)
+        #expect(self.playerService.acceptsMusicPlaybackIntent(pauseIntent))
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
         #expect(!self.playerService.shouldSuppressAutoplayAfterQueueEnd)
     }
 

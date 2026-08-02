@@ -9,7 +9,8 @@ extension PlayerService {
 
     /// Routes a manual seek that landed at the end of the track through the track-ended path so
     /// repeat / queue / autoplay-suppression rules apply consistently with a natural end.
-    func handleManualSeekToEnd() async {
+    func handleManualSeekToEnd(intent: MusicPlaybackIntent) async {
+        guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.info("Manual seek reached end of track; routing through track-ended path")
         self.clearRestoredPlaybackSessionState()
         self.progress = self.duration
@@ -24,14 +25,22 @@ extension PlayerService {
             self.clearPendingNativeQueueAdvance()
             let previousNavigationContext = self.playbackNavigationContext
             let previousEntryID = self.currentQueueEntryID
-            let didAdvance = await self.performNextNavigation()
+            let didAdvance = await self.performNextNavigation(intent: intent)
             if !didAdvance,
                !Task.isCancelled,
+               self.acceptsMusicPlaybackIntent(intent),
                self.playbackNavigationContext == previousNavigationContext
             {
-                if await self.advanceToMaterializedNextQueueSongIfAvailable(after: previousEntryID) {
+                if await self.advanceToMaterializedNextQueueSongIfAvailable(
+                    after: previousEntryID,
+                    intent: intent
+                ) {
                     return
                 }
+                guard !Task.isCancelled,
+                      self.acceptsMusicPlaybackIntent(intent),
+                      self.playbackNavigationContext == previousNavigationContext
+                else { return }
                 await self.finishPlaybackAfterFailedQueueAdvance(
                     reason: "manual seek continuation produced no next queue entry"
                 )

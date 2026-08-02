@@ -870,6 +870,7 @@ extension PlayerService {
     func loadQueueSongForNavigation(
         at index: Int,
         webLoadStrategy strategyOverride: SingletonPlayerWebView.VideoLoadStrategy? = nil,
+        startsPaused: Bool = false,
         intent suppliedIntent: MusicPlaybackIntent? = nil,
         fetchesMetadata: Bool = true
     ) async -> Bool {
@@ -891,6 +892,7 @@ extension PlayerService {
             song: song,
             webLoadStrategy: strategy,
             queueEntryID: entry.id,
+            startsPaused: startsPaused,
             fetchesMetadata: fetchesMetadata,
             intent: intent
         )
@@ -956,7 +958,7 @@ extension PlayerService {
         }
 
         if self.duration > 0, clampedTime >= self.duration - Self.seekToEndThreshold {
-            await self.handleManualSeekToEnd()
+            await self.handleManualSeekToEnd(intent: intent)
             return
         }
 
@@ -1068,6 +1070,8 @@ extension PlayerService {
     /// Cycles through repeat modes: off -> all -> one -> off.
     func cycleRepeatMode() {
         self.advanceRepeatMode()
+        self.clearWebQueueInjectionState()
+        self.syncWebQueue()
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
     }
 

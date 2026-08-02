@@ -180,6 +180,27 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
     }
 
+    @Test("Repeat mode changes invalidate and resynchronize the native Web queue")
+    func repeatModeChangeResynchronizesNativeWebQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .all)
+        self.playerService.injectedWebQueueVideoId = "v2"
+        let generation = self.playerService.webQueueInjectionGeneration
+
+        self.playerService.cycleRepeatMode()
+
+        #expect(self.playerService.repeatMode == .one)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+        #expect(self.playerService.webQueueInjectionGeneration > generation)
+    }
+
     @Test("Native queue injection skips duplicate consecutive video IDs")
     func nativeQueueInjectionSkipsDuplicateVideoIDs() async {
         let duplicate = Song(
