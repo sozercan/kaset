@@ -157,6 +157,8 @@ private final class YouTubeAskEscapeMonitorView: NSView {
 /// messages and server-issued suggestions in the same compact shell as the
 /// music command bar.
 struct YouTubeAskPanelView: View {
+    private static let headerReservedHeight: CGFloat = 58
+
     private enum FocusTarget: Hashable {
         case input
         case close
@@ -197,17 +199,13 @@ struct YouTubeAskPanelView: View {
                     .opacity(0.3)
 
                 ScrollViewReader { proxy in
-                    ViewThatFits(in: .vertical) {
+                    ScrollView(.vertical) {
                         self.panelContent
-
-                        ScrollView(.vertical) {
-                            self.panelContent
-                                .padding(.trailing, 4)
-                        }
-                        .frame(maxHeight: self.contentMaximumHeight)
-                        .scrollBounceBehavior(.basedOnSize)
+                            .padding(.trailing, 4)
                     }
                     .frame(maxHeight: self.contentMaximumHeight)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .scrollBounceBehavior(.basedOnSize)
                     .task(id: self.preferredScrollTarget) {
                         await Task.yield()
                         guard !Task.isCancelled,
@@ -255,7 +253,7 @@ struct YouTubeAskPanelView: View {
     }
 
     private var contentMaximumHeight: CGFloat {
-        max(0, min(520, self.maximumHeight - 58))
+        max(0, min(520, self.maximumHeight - Self.headerReservedHeight))
     }
 
     private var preferredFocusTarget: FocusTarget? {
