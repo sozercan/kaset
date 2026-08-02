@@ -795,7 +795,18 @@ extension SingletonPlayerWebView {
             function retryTrackEnded(video, payload) {
                 if (!video || video !== document.querySelector('video') || !video.ended) return;
                 if (video.__kasetEndedOccurrenceGeneration !== payload.mediaGeneration) return;
-                sendTrackEnded(payload);
+                if (!payload.mediaIdentityUncertain) {
+                    sendTrackEnded(payload);
+                    return;
+                }
+                const retryIdentityUncertain = mediaIdentityUncertain;
+                const retryVideoId = retryIdentityUncertain
+                    ? ''
+                    : (video.__kasetBoundVideoId || lastVideoId || currentVideoId() || mediaVideoId);
+                sendTrackEnded(Object.assign({}, payload, {
+                    videoId: retryVideoId,
+                    mediaIdentityUncertain: retryIdentityUncertain
+                }));
             }
 
             function sendUpdate(force = false) {

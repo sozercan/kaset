@@ -440,9 +440,9 @@ final class SingletonPlayerWebView {
                 self.handleQueueInjectionResult(body: body, coordinator: coordinator)
                 return
             case "TRACK_ENDED":
-                guard body["mediaIdentityUncertain"] as? Bool != true,
-                      self.consumeTrackEndedOccurrence(body: body)
-                else { return }
+                // Keep an uncertain occurrence unclaimed so a resolved retry can consume it.
+                guard body["mediaIdentityUncertain"] as? Bool != true else { return }
+                guard self.consumeTrackEndedOccurrence(body: body) else { return }
             case "STATE_UPDATE":
                 break
             default:
