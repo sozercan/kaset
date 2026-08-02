@@ -6,6 +6,13 @@ import WebKit
 // MARK: - WebPlaybackIdentityTransition
 
 enum WebPlaybackIdentityTransition {
+    struct ObservationOrder {
+        let observerEpoch: Double
+        let lastAcceptedObserverEpoch: Double?
+        let mediaGeneration: Int
+        let lastAcceptedMediaGeneration: Int?
+    }
+
     static func isConfirmed(
         observedVideoId: String?,
         lastAcceptedObservedVideoId: String?,
@@ -62,6 +69,26 @@ enum WebPlaybackIdentityTransition {
         return mediaGeneration >= lastAcceptedMediaGeneration
     }
 
+    static func shouldAcceptAdvertisementState(
+        hasReadyMedia: Bool,
+        isShowingAd: Bool,
+        observedVideoId: String?,
+        pendingSourceVideoId: String?,
+        order: ObservationOrder
+    ) -> Bool {
+        guard hasReadyMedia,
+              isShowingAd,
+              self.isObservationOrdered(
+                  observerEpoch: order.observerEpoch,
+                  lastAcceptedObserverEpoch: order.lastAcceptedObserverEpoch,
+                  mediaGeneration: order.mediaGeneration,
+                  lastAcceptedMediaGeneration: order.lastAcceptedMediaGeneration
+              )
+        else { return false }
+        guard let pendingSourceVideoId, let observedVideoId else { return true }
+        return observedVideoId != pendingSourceVideoId
+    }
+
     static func shouldAcceptEndedOccurrence(
         observerEpoch: Double,
         lastHandledObserverEpoch: Double?,
@@ -109,6 +136,41 @@ enum MusicHomePreloadPolicy {
             && !isSuppressedForDeferredRestore
             && !hasStartedHomePreload
             && currentVideoId == nil
+    }
+}
+
+// MARK: - WebPlaybackTransitionFallbackPolicy
+
+enum WebPlaybackTransitionFallbackPolicy {
+    static let maximumAdvertisementGrace: Duration = .seconds(15)
+    static let advertisementRetryInterval: Duration = .seconds(1)
+
+    nonisolated static func deadline(
+        now: ContinuousClock.Instant,
+        initialFallbackDelay: Duration
+    ) -> ContinuousClock.Instant {
+        now.advanced(by: initialFallbackDelay + self.maximumAdvertisementGrace)
+    }
+
+    nonisolated static func retryDelay(
+        isShowingAd: Bool,
+        now: ContinuousClock.Instant,
+        deadline: ContinuousClock.Instant
+    ) -> Duration? {
+        guard isShowingAd, now < deadline else { return nil }
+        return min(self.advertisementRetryInterval, deadline - now)
+    }
+
+    nonisolated static func shouldDefer(
+        isShowingAd: Bool,
+        now: ContinuousClock.Instant,
+        deadline: ContinuousClock.Instant
+    ) -> Bool {
+        self.retryDelay(
+            isShowingAd: isShowingAd,
+            now: now,
+            deadline: deadline
+        ) != nil
     }
 }
 
@@ -330,11 +392,15 @@ struct MiniPlayerWebView: NSViewRepresentable {
 /// - Video mode CSS injection (SingletonPlayerWebView+VideoMode.swift)
 /// - Observer script (SingletonPlayerWebView+ObserverScript.swift)
 @MainActor
+// swiftlint:disable:next type_body_length
 final class SingletonPlayerWebView {
+    private static let routerNavigationFallbackDelay: Duration = .seconds(3)
+
     private struct PendingRouterNavigation {
         let videoId: String
         let fallbackURL: URL
         let generation: Int
+        let fallbackDeadline: ContinuousClock.Instant
     }
 
     private final class PlaybackBridgeMultiplexer: NSObject, WKScriptMessageHandler {
@@ -503,6 +569,15 @@ final class SingletonPlayerWebView {
             hasWebView: self.webView != nil,
             strategy: strategy
         )
+    }
+
+    nonisolated static func queueNavigationStrategy(
+        currentVideoId: String?,
+        targetVideoId: String,
+        startsPaused: Bool
+    ) -> VideoLoadStrategy {
+        guard currentVideoId == targetVideoId else { return .standard }
+        return startsPaused ? .forceFullPageWhenSameVideoId : .preferInPlaceWhenSameVideoId
     }
 
     nonisolated static func freshSameIDPlaybackStrategy(
@@ -820,6 +895,40 @@ final class SingletonPlayerWebView {
         )
     }
 
+    nonisolated static func transitionFallbackDeadline(
+        now: ContinuousClock.Instant,
+        initialFallbackDelay: Duration
+    ) -> ContinuousClock.Instant {
+        WebPlaybackTransitionFallbackPolicy.deadline(
+            now: now,
+            initialFallbackDelay: initialFallbackDelay
+        )
+    }
+
+    nonisolated static func transitionFallbackRetryDelay(
+        isShowingAd: Bool,
+        now: ContinuousClock.Instant,
+        deadline: ContinuousClock.Instant
+    ) -> Duration? {
+        WebPlaybackTransitionFallbackPolicy.retryDelay(
+            isShowingAd: isShowingAd,
+            now: now,
+            deadline: deadline
+        )
+    }
+
+    nonisolated static func shouldDeferTransitionFallback(
+        isShowingAd: Bool,
+        now: ContinuousClock.Instant,
+        deadline: ContinuousClock.Instant
+    ) -> Bool {
+        self.transitionFallbackRetryDelay(
+            isShowingAd: isShowingAd,
+            now: now,
+            deadline: deadline
+        ) != nil
+    }
+
     nonisolated static func youtubeMusicWatchURL(videoId: String) -> URL? {
         var components = URLComponents()
         components.scheme = "https"
@@ -908,22 +1017,35 @@ final class SingletonPlayerWebView {
         })();
         """
 
+        let fallbackStartedAt = ContinuousClock.now
+        self.pendingRouterNavigation = PendingRouterNavigation(
+            videoId: videoId,
+            fallbackURL: fallbackURL,
+            generation: generation,
+            fallbackDeadline: Self.transitionFallbackDeadline(
+                now: fallbackStartedAt,
+                initialFallbackDelay: Self.routerNavigationFallbackDelay
+            )
+        )
+        self.scheduleRouterNavigationFallback(
+            videoId: videoId,
+            fallbackURL: fallbackURL,
+            generation: generation,
+            delay: Self.routerNavigationFallbackDelay
+        )
+
         webView.evaluateJavaScript(routerScript) { [weak self] result, _ in
             guard let self, let webView = self.webView else { return }
-            guard self.loadGeneration == generation, self.currentVideoId == videoId else { return }
+            guard self.loadGeneration == generation,
+                  self.currentVideoId == videoId,
+                  let pendingRouterNavigation = self.pendingRouterNavigation,
+                  pendingRouterNavigation.videoId == videoId,
+                  pendingRouterNavigation.fallbackURL == fallbackURL,
+                  pendingRouterNavigation.generation == generation
+            else { return }
             let didNavigate = result as? Bool ?? false
             if didNavigate {
                 self.logger.info("Router navigation started for video: \(videoId)")
-                self.pendingRouterNavigation = PendingRouterNavigation(
-                    videoId: videoId,
-                    fallbackURL: fallbackURL,
-                    generation: generation
-                )
-                self.scheduleRouterNavigationFallback(
-                    videoId: videoId,
-                    fallbackURL: fallbackURL,
-                    generation: generation
-                )
             } else {
                 self.logger.info("Router navigation failed for video: \(videoId), using full load")
                 self.pendingRouterNavigation = nil
@@ -948,10 +1070,11 @@ final class SingletonPlayerWebView {
     private func scheduleRouterNavigationFallback(
         videoId: String,
         fallbackURL: URL,
-        generation: Int
+        generation: Int,
+        delay: Duration
     ) {
         Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: delay)
             guard let self,
                   let pendingRouterNavigation = self.pendingRouterNavigation,
                   pendingRouterNavigation.videoId == videoId,
@@ -961,6 +1084,22 @@ final class SingletonPlayerWebView {
                   self.currentVideoId == videoId,
                   let webView = self.webView
             else {
+                return
+            }
+
+            let now = ContinuousClock.now
+            if let retryDelay = Self.transitionFallbackRetryDelay(
+                isShowingAd: self.coordinator?.playerService.isShowingAd ?? false,
+                now: now,
+                deadline: pendingRouterNavigation.fallbackDeadline
+            ) {
+                self.logger.debug("Deferring router fallback for \(videoId) while an advertisement is active")
+                self.scheduleRouterNavigationFallback(
+                    videoId: videoId,
+                    fallbackURL: fallbackURL,
+                    generation: generation,
+                    delay: retryDelay
+                )
                 return
             }
 

@@ -164,7 +164,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Whether the music playback WebView currently reports an advertisement.
-    var isShowingAd = false
+    var isShowingAd = false {
+        didSet {
+            if self.isShowingAd != oldValue {
+                self.adPlaybackStateGeneration &+= 1
+            }
+        }
+    }
+
+    /// Monotonic identity for advertisement/content boundary changes.
+    private(set) var adPlaybackStateGeneration = 0
 
     /// Last clock sample known to belong to the requested music content.
     var lastNonAdContentProgress: TimeInterval = 0
@@ -386,6 +395,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Whether a restored load should automatically resume after seeking to the saved position.
     var shouldAutoResumeAfterRestoredLoad: Bool = false
+
+    /// Whether the active restore clock belongs to an explicit source re-anchor during native handoff.
+    var isRestoringExplicitTransportSeek = false
+
+    /// Whether an explicit transport restore must route an eventual authoritative end position through track-ended handling.
+    var shouldFinishRestoredSeekAtEnd = false
 
     /// Monotonic generation for deferred restored-session fallback tasks.
     var restoredPlaybackSessionGeneration: Int = 0
@@ -760,6 +775,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Returns and removes the most recent index saved before a forward skip.
     func popForwardSkipIndex() -> Int? {
         self.forwardSkipIndexStack.popLast()
+    }
+
+    func peekForwardSkipIndex() -> Int? {
+        self.forwardSkipIndexStack.last
     }
 
     /// Loads mock player state from environment variables for UI testing.

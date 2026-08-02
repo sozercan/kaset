@@ -49,6 +49,7 @@ struct PendingNativeQueueAdvance: Equatable {
     let targetEntryID: UUID
     let targetVideoId: String
     let generation: Int
+    let fallbackDeadline: ContinuousClock.Instant
 }
 
 // MARK: - QueueState

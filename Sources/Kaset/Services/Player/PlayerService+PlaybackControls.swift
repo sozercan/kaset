@@ -211,6 +211,7 @@ extension PlayerService {
         restoreClock: MusicPlaybackRestoreClock? = nil,
         fetchesMetadata: Bool = true,
         isQueueNavigationRecovery: Bool = false,
+        bypassesSamePlaybackFastPath: Bool = false,
         intent: MusicPlaybackIntent
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
@@ -235,7 +236,10 @@ extension PlayerService {
             && self.currentEpisode?.id == episode?.id
         let hasPendingSameLogicalLoad = self.pendingPlayVideoId == song.videoId
             && (self.state == .loading || self.isAwaitingPlaybackConfirmation)
-        guard !isSameLogicalPlayback
+        let shouldBypassSamePlaybackFastPath = bypassesSamePlaybackFastPath
+            || webLoadStrategy == .forceFullPageWhenSameVideoId
+        guard shouldBypassSamePlaybackFastPath
+            || !isSameLogicalPlayback
             || (acceptsPlaybackRequest && !hasPendingSameLogicalLoad)
         else {
             if let restoreClock {
@@ -286,7 +290,13 @@ extension PlayerService {
         self.resetAdPlaybackState()
         self.progress = restoreClock?.progress ?? 0
         self.currentTimeMs = Int((restoreClock?.progress ?? 0) * 1000)
-        self.duration = max(restoreClock?.duration ?? 0, song.duration ?? 0)
+        self.duration = if let restoreClock {
+            restoreClock.duration > 0
+                ? restoreClock.duration
+                : (restoreClock.allowsSongDurationFallback ? song.duration ?? 0 : 0)
+        } else {
+            song.duration ?? 0
+        }
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
@@ -543,8 +553,12 @@ extension PlayerService {
         await self.resume(intent: intent)
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     func resume(intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        if await self.resolvePendingNativeQueueAdvanceForResume(intent: intent) {
+            return
+        }
         self.logger.debug("Resuming playback")
         self.isStoppingPlayback = false
         self.shouldResumeAfterInterruption = true
@@ -667,13 +681,14 @@ extension PlayerService {
     /// keep the same queue entry ID and index.
     func performNextNavigation( // swiftlint:disable:this cyclomatic_complexity
         intent: MusicPlaybackIntent? = nil,
-        defersNetworkFollowUp: Bool = false
+        defersNetworkFollowUp: Bool = false,
+        startsPaused: Bool = false
     ) async -> Bool {
         let intent = intent ?? self.currentMusicPlaybackIntent
         guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return false }
         self.logger.debug("Skipping to next track")
         self.clearRestoredPlaybackSessionState()
-        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
+        SingletonPlayerWebView.shared.setAutoplayBlocked(startsPaused)
 
         if self.shouldUseNativeQueueForTrackNavigation,
            !self.queueEntries.isEmpty
@@ -702,6 +717,7 @@ extension PlayerService {
             self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
             guard await self.loadQueueSongForNavigation(
                 at: targetIndex,
+                startsPaused: startsPaused,
                 intent: intent,
                 fetchesMetadata: !defersNetworkFollowUp
             ) else { return false }
@@ -747,7 +763,8 @@ extension PlayerService {
                 after: resolvedSourceEntryID,
                 currentEntryRepresentsSource: radioOutcome == .applied,
                 intent: intent,
-                defersNetworkFollowUp: defersNetworkFollowUp
+                defersNetworkFollowUp: defersNetworkFollowUp,
+                startsPaused: startsPaused
             ) {
                 guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
                 if defersNetworkFollowUp {
@@ -775,7 +792,8 @@ extension PlayerService {
         after sourceEntryID: UUID?,
         currentEntryRepresentsSource: Bool = false,
         intent suppliedIntent: MusicPlaybackIntent? = nil,
-        defersNetworkFollowUp: Bool = false
+        defersNetworkFollowUp: Bool = false,
+        startsPaused: Bool = false
     ) async -> Bool {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
         guard self.acceptsMusicPlaybackIntent(intent), !self.queue.isEmpty else { return false }
@@ -800,6 +818,7 @@ extension PlayerService {
         self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
         return await self.loadQueueSongForNavigation(
             at: targetIndex,
+            startsPaused: startsPaused,
             intent: intent,
             fetchesMetadata: !defersNetworkFollowUp
         )
@@ -817,6 +836,40 @@ extension PlayerService {
         defersNetworkFollowUp: Bool = false
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        if self.pendingNativeQueueAdvance != nil {
+            let sourceIsAvailable = self.hasAvailablePendingNativeQueueAdvanceSource
+            let startsPaused = self.isExplicitPauseIntentActive
+            if !sourceIsAvailable {
+                self.cancelPendingNativeQueueAdvanceForExplicitPriorNavigation(reason: "previous")
+                self.progress = 0
+                self.currentTimeMs = 0
+                let priorIndex = self.popForwardSkipIndex().flatMap { index in
+                    self.queueEntries.indices.contains(index) ? index : nil
+                } ?? (self.currentIndex > 0 ? self.currentIndex - 1 : self.currentIndex)
+                if self.queueEntries.indices.contains(priorIndex) {
+                    _ = await self.loadQueueSongForNavigation(
+                        at: priorIndex,
+                        startsPaused: startsPaused,
+                        intent: intent,
+                        fetchesMetadata: !defersNetworkFollowUp
+                    )
+                    return
+                }
+            } else {
+                let restartsSource = self.progress > 3
+                    || (self.currentIndex == 0 && self.peekForwardSkipIndex() == nil)
+                if restartsSource,
+                   await self.reanchorPendingNativeQueueAdvanceSource(
+                       intent: intent,
+                       startsPaused: startsPaused,
+                       reason: "previous"
+                   )
+                {
+                    return
+                }
+                self.cancelPendingNativeQueueAdvanceForExplicitPriorNavigation(reason: "previous")
+            }
+        }
         self.logger.debug("Going to previous track")
         self.clearRestoredPlaybackSessionState()
         SingletonPlayerWebView.shared.setAutoplayBlocked(false)
@@ -873,6 +926,7 @@ extension PlayerService {
         at index: Int,
         webLoadStrategy strategyOverride: SingletonPlayerWebView.VideoLoadStrategy? = nil,
         startsPaused: Bool = false,
+        restoreClock: MusicPlaybackRestoreClock? = nil,
         intent suppliedIntent: MusicPlaybackIntent? = nil,
         fetchesMetadata: Bool = true
     ) async -> Bool {
@@ -882,20 +936,29 @@ extension PlayerService {
         else { return false }
         let song = entry.song
         self.currentIndex = index
-        self.progress = 0
-        self.currentTimeMs = 0
-        self.duration = song.duration ?? 0
+        self.progress = restoreClock?.progress ?? 0
+        self.currentTimeMs = Int((restoreClock?.progress ?? 0) * 1000)
+        self.duration = if let restoreClock {
+            restoreClock.duration > 0
+                ? restoreClock.duration
+                : (restoreClock.allowsSongDurationFallback ? song.duration ?? 0 : 0)
+        } else {
+            song.duration ?? 0
+        }
         self.protectQueueNavigationTarget(song.videoId)
-        let strategy: SingletonPlayerWebView.VideoLoadStrategy = strategyOverride
-            ?? (SingletonPlayerWebView.shared.currentVideoId == song.videoId
-                ? .preferInPlaceWhenSameVideoId
-                : .standard)
+        let strategy = strategyOverride ?? SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: SingletonPlayerWebView.shared.currentVideoId,
+            targetVideoId: song.videoId,
+            startsPaused: startsPaused
+        )
         await self.play(
             song: song,
             webLoadStrategy: strategy,
             queueEntryID: entry.id,
             startsPaused: startsPaused,
+            restoreClock: restoreClock,
             fetchesMetadata: fetchesMetadata,
+            bypassesSamePlaybackFastPath: strategy == .forceFullPageWhenSameVideoId,
             intent: intent
         )
         guard self.acceptsMusicPlaybackIntent(intent) else { return false }
@@ -951,11 +1014,58 @@ extension PlayerService {
     func seek(to time: TimeInterval, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
+        if self.pendingNativeQueueAdvance != nil,
+           self.duration > 0,
+           clampedTime >= self.duration - Self.seekToEndThreshold
+        {
+            await self.resolvePendingNativeQueueAdvanceForExplicitTerminal(
+                intent: intent,
+                reason: "manual seek reached end during native handoff"
+            )
+            return
+        }
+
+        if self.pendingNativeQueueAdvance != nil {
+            let startsPaused = self.isExplicitPauseIntentActive
+            let restoreClock = MusicPlaybackRestoreClock(
+                progress: clampedTime,
+                duration: self.duration,
+                isExplicitTransportSeek: true
+            )
+            if await self.reanchorPendingNativeQueueAdvanceSource(
+                intent: intent,
+                startsPaused: startsPaused,
+                restoreClock: restoreClock,
+                reason: "backward seek"
+            ) {
+                return
+            }
+        }
         self.logger.debug("Seeking to \(clampedTime)")
 
-        if self.isPendingRestoredLoadDeferred {
-            self.progress = clampedTime
-            self.pendingRestoredSeek = clampedTime
+        if await self.retargetRestoredPlaybackSeekIfNeeded(
+            to: clampedTime,
+            intent: intent
+        ) {
+            return
+        }
+
+        if self.isShowingAd {
+            if self.duration > 0,
+               clampedTime >= self.duration - Self.seekToEndThreshold
+            {
+                await self.handleManualSeekToEnd(intent: intent)
+                return
+            }
+            self.beginPlaybackClockRestoration(
+                MusicPlaybackRestoreClock(
+                    progress: clampedTime,
+                    duration: self.duration,
+                    isExplicitTransportSeek: true
+                ),
+                songDuration: self.currentTrack?.duration,
+                startsPaused: self.isExplicitPauseIntentActive
+            )
             return
         }
 

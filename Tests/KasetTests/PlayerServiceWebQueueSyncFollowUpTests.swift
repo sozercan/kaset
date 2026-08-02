@@ -1032,6 +1032,25 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.progress == 90)
     }
 
+    @Test("Paused manual seek-to-end with repeat one restarts paused")
+    func pausedManualSeekToEndWithRepeatOneRestartsPaused() async {
+        let song = Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.advanceRepeatMode()
+        self.playerService.advanceRepeatMode()
+        await self.playerService.pause()
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.progress == 0)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
+    }
+
     @Test("Manual seek to end with repeat one replays the same song")
     func manualSeekToEndWithRepeatOneReplaysSameSong() async {
         let songs = [
@@ -1096,17 +1115,221 @@ extension PlayerServiceWebQueueSyncTests {
         self.playerService.applyRestoredPlaybackSession(
             queue: songs,
             currentIndex: 0,
-            progress: 60,
+            progress: 180,
             duration: 180
         )
+        for _ in 0 ..< 5 {
+            await Task.yield()
+        }
 
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)
-
-        await self.playerService.seek(to: 180)
-
         #expect(self.playerService.currentIndex == 0)
         #expect(self.playerService.pendingPlayVideoId == "v1")
         #expect(self.playerService.pendingRestoredSeek == 180)
+    }
+
+    @Test("Deferred unknown-duration retarget advances when duration becomes terminal")
+    func deferredUnknownDurationRetargetAdvancesWhenTerminal() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 20,
+            duration: 0
+        )
+
+        await self.playerService.seek(to: 165)
+        #expect(self.playerService.isPendingRestoredLoadDeferred)
+        #expect(self.playerService.pendingRestoredSeek == 165)
+        #expect(self.playerService.shouldFinishRestoredSeekAtEnd)
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 120,
+            observedVideoId: "v1"
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Deferred restored seek-to-end advances while remaining paused")
+    func deferredRestoredSeekToEndAdvancesPaused() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        #expect(self.playerService.isPendingRestoredLoadDeferred)
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
+    }
+
+    @Test("Unknown-duration restored retarget advances when duration becomes terminal")
+    func unknownDurationRestoredRetargetAdvancesWhenTerminal() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 20,
+                duration: 0,
+                allowsSongDurationFallback: false
+            ),
+            songDuration: songs[0].duration,
+            startsPaused: true
+        )
+
+        await self.playerService.seek(to: 165)
+        #expect(self.playerService.pendingRestoredSeek == 165)
+        #expect(self.playerService.isRestoringExplicitTransportSeek)
+        #expect(self.playerService.shouldFinishRestoredSeekAtEnd)
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 120,
+            observedVideoId: "v1"
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Seek-to-end during active restoration advances deterministically")
+    func seekToEndDuringActiveRestorationAdvancesQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        self.playerService.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
+        #expect(self.playerService.isRestoringPlaybackSession)
+        #expect(!self.playerService.isPendingRestoredLoadDeferred)
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+    }
+
+    @Test("Retargeted terminal restoration cannot advance the current track")
+    func retargetedTerminalRestorationDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 180,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 180,
+            observedVideoId: "v1"
+        )
+        self.playerService.pendingRestoredSeek = 30
+        self.playerService.progress = 30
+        self.playerService.currentTimeMs = 30000
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 30)
+        #expect(self.playerService.progress == 30)
+        #expect(self.playerService.isRestoringPlaybackSession)
+    }
+
+    @Test("Superseded terminal restoration cannot advance the newer restoration")
+    func supersededTerminalRestorationDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 180,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+        let terminalGeneration = self.playerService.restoredPlaybackSessionGeneration
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 180,
+            observedVideoId: "v1"
+        )
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 30,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.restoredPlaybackSessionGeneration != terminalGeneration)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 30)
+        #expect(self.playerService.progress == 30)
+        #expect(self.playerService.isRestoringPlaybackSession)
     }
 
     @Test("Deferred restored playback ignores stray playing updates after fallback")

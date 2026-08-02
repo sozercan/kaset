@@ -720,12 +720,25 @@ extension PlayerService {
     }
 
     /// Replays the current queue song after a natural `ended` event. User-initiated **Next** uses ``PlayerService/next()`` instead.
-    private func replayCurrentQueueSongForRepeatOneAfterTrackEnd(intent: MusicPlaybackIntent) async {
+    private func replayCurrentQueueSongForRepeatOneAfterTrackEnd(
+        intent: MusicPlaybackIntent,
+        startsPaused: Bool = false
+    ) async {
         guard self.acceptsMusicPlaybackIntent(intent),
               let currentEntry = self.queueEntries[safe: self.currentIndex]
         else { return }
         let currentSong = currentEntry.song
         self.songNearingEnd = false
+        if startsPaused {
+            await self.play(
+                song: currentSong,
+                webLoadStrategy: .forceFullPageWhenSameVideoId,
+                queueEntryID: currentEntry.id,
+                startsPaused: true,
+                intent: intent
+            )
+            return
+        }
         let kasetAlignedWithQueue = self.pendingPlayVideoId == currentSong.videoId
             && self.currentWebPlaybackVideoId() == currentSong.videoId
         if self.hasUserInteractedThisSession, kasetAlignedWithQueue {
@@ -756,7 +769,8 @@ extension PlayerService {
 
     /// Replays the currently playing song for repeat-one when no native queue is active.
     private func replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd(
-        intent: MusicPlaybackIntent
+        intent: MusicPlaybackIntent,
+        startsPaused: Bool = false
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.songNearingEnd = false
@@ -764,8 +778,9 @@ extension PlayerService {
             self.logger.info("Track ended with repeat one and no queue; replaying current track")
             await self.play(
                 song: currentTrack,
-                webLoadStrategy: .preferInPlaceWhenSameVideoId,
+                webLoadStrategy: startsPaused ? .forceFullPageWhenSameVideoId : .preferInPlaceWhenSameVideoId,
                 queueEntryID: nil,
+                startsPaused: startsPaused,
                 intent: intent
             )
             return
@@ -773,7 +788,22 @@ extension PlayerService {
 
         if let pendingVideoId = self.pendingPlayVideoId {
             self.logger.info("Track ended with repeat one and no queue metadata; replaying pending video")
-            await self.play(videoId: pendingVideoId, intent: intent)
+            if startsPaused {
+                self.beginNativeMusicPlaybackOccurrence(
+                    videoId: pendingVideoId,
+                    synchronizeCurrentDocument: true
+                )
+                self.progress = 0
+                self.currentTimeMs = 0
+                self.shouldResumeAfterInterruption = false
+                self.isAwaitingPlaybackConfirmation = false
+                self.isExplicitPauseIntentActive = true
+                self.state = .paused
+                SingletonPlayerWebView.shared.setAutoplayBlocked(true)
+                SingletonPlayerWebView.shared.seekAndPause(to: 0)
+            } else {
+                await self.play(videoId: pendingVideoId, intent: intent)
+            }
             return
         }
     }
@@ -826,6 +856,7 @@ extension PlayerService {
         observedVideoId: String?,
         playbackOccurrence: MusicPlaybackOccurrence? = nil,
         intent suppliedIntent: MusicPlaybackIntent? = nil,
+        startsPaused suppliedStartsPaused: Bool? = nil,
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
@@ -844,25 +875,29 @@ extension PlayerService {
             terminalOccurrence = playbackOccurrence ?? self.currentMusicPlaybackOccurrence
         }
 
-        guard !self.isExplicitPauseIntentActive else {
+        guard suppliedStartsPaused != nil || !self.isExplicitPauseIntentActive else {
             self.songNearingEnd = false
             self.logger.debug("Consumed track-ended transition without advancing because pause intent is active")
             return
         }
+        let startsPaused = suppliedStartsPaused ?? self.isExplicitPauseIntentActive
         await self.finishTrackEnded(
             observedVideoId: observedVideoId,
             intent: intent,
             terminalOccurrence: terminalOccurrence,
             claimsPendingTargetOccurrence: defersOccurrenceClaimForPendingTarget,
+            startsPaused: startsPaused,
             shouldContinue: shouldContinue
         )
     }
 
+    // swiftlint:disable:next function_parameter_count
     private func finishTrackEnded(
         observedVideoId: String?,
         intent: MusicPlaybackIntent,
         terminalOccurrence suppliedTerminalOccurrence: MusicPlaybackOccurrence?,
         claimsPendingTargetOccurrence: Bool,
+        startsPaused: Bool,
         shouldContinue: @MainActor () -> Bool
     ) async {
         guard shouldContinue(),
@@ -903,7 +938,10 @@ extension PlayerService {
               !self.queue.isEmpty
         else {
             if self.repeatMode == .one, self.currentTrack != nil || self.pendingPlayVideoId != nil {
-                await self.replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd(intent: continuationIntent)
+                await self.replayCurrentSongForRepeatOneWithoutQueueAfterTrackEnd(
+                    intent: continuationIntent,
+                    startsPaused: startsPaused
+                )
                 return
             }
             self.markPlaybackEnded()
@@ -985,7 +1023,10 @@ extension PlayerService {
         self.shouldSuppressAutoplayAfterQueueEnd = false
         if self.repeatMode == .one {
             self.logger.info("Track ended with repeat one; replaying current queue song")
-            await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd(intent: continuationIntent)
+            await self.replayCurrentQueueSongForRepeatOneAfterTrackEnd(
+                intent: continuationIntent,
+                startsPaused: startsPaused
+            )
             return
         }
 
@@ -1013,7 +1054,10 @@ extension PlayerService {
               )
         else { return }
         continuationIntent = refreshedIntent
-        let didAdvance = await self.performNextNavigation(intent: continuationIntent)
+        let didAdvance = await self.performNextNavigation(
+            intent: continuationIntent,
+            startsPaused: startsPaused
+        )
         guard shouldContinue(),
               let postNavigationIntent = self.acceptedTrackEndContinuationIntent(
                   originalIntent: intent,
@@ -1025,7 +1069,8 @@ extension PlayerService {
             guard self.playbackNavigationContext == endedNavigationContext else { return }
             if await self.advanceToMaterializedNextQueueSongIfAvailable(
                 after: endedEntryID,
-                intent: continuationIntent
+                intent: continuationIntent,
+                startsPaused: startsPaused
             ) {
                 return
             }

@@ -9,8 +9,12 @@ extension PlayerService {
 
     /// Routes a manual seek that landed at the end of the track through the track-ended path so
     /// repeat / queue / autoplay-suppression rules apply consistently with a natural end.
-    func handleManualSeekToEnd(intent: MusicPlaybackIntent) async {
+    func handleManualSeekToEnd(
+        intent: MusicPlaybackIntent,
+        startsPaused suppliedStartsPaused: Bool? = nil
+    ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        let startsPaused = suppliedStartsPaused ?? self.isExplicitPauseIntentActive
         self.logger.info("Manual seek reached end of track; routing through track-ended path")
         self.clearRestoredPlaybackSessionState()
         self.progress = self.duration
@@ -25,7 +29,10 @@ extension PlayerService {
             self.clearPendingNativeQueueAdvance()
             let previousNavigationContext = self.playbackNavigationContext
             let previousEntryID = self.currentQueueEntryID
-            let didAdvance = await self.performNextNavigation(intent: intent)
+            let didAdvance = await self.performNextNavigation(
+                intent: intent,
+                startsPaused: startsPaused
+            )
             if !didAdvance,
                !Task.isCancelled,
                self.acceptsMusicPlaybackIntent(intent),
@@ -33,7 +40,8 @@ extension PlayerService {
             {
                 if await self.advanceToMaterializedNextQueueSongIfAvailable(
                     after: previousEntryID,
-                    intent: intent
+                    intent: intent,
+                    startsPaused: startsPaused
                 ) {
                     return
                 }
@@ -52,7 +60,10 @@ extension PlayerService {
             SingletonPlayerWebView.shared.seekAndPause(to: self.duration)
         }
 
-        await self.handleTrackEnded(observedVideoId: self.currentTrack?.videoId)
+        await self.handleTrackEnded(
+            observedVideoId: self.currentTrack?.videoId,
+            startsPaused: startsPaused
+        )
     }
 
     private var shouldSynchronizeWebViewForTerminalManualSeekToEnd: Bool {

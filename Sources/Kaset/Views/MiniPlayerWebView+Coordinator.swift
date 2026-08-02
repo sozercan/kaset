@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import os
 import WebKit
@@ -701,14 +702,25 @@ extension SingletonPlayerWebView.Coordinator {
             hasReadyMedia: hasReadyMedia,
             isShowingAd: isAd
         )
-        self.playerService.updateAdPlaybackState(
-            isShowingAd: isAd,
-            observedProgress: progress,
-            observedVideoId: playbackVideoId,
-            isAuthoritativeContent: isAuthoritativeContent
-        )
         guard isAuthoritativeContent else {
-            if hasReadyMedia, isAd {
+            if WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+                hasReadyMedia: hasReadyMedia,
+                isShowingAd: isAd,
+                observedVideoId: playbackVideoId,
+                pendingSourceVideoId: self.playerService.pendingNativeQueueAdvance?.sourceVideoId,
+                order: WebPlaybackIdentityTransition.ObservationOrder(
+                    observerEpoch: observerEpoch,
+                    lastAcceptedObserverEpoch: self.lastAcceptedObserverEpoch,
+                    mediaGeneration: mediaGeneration,
+                    lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
+                )
+            ) {
+                self.playerService.updateAdPlaybackState(
+                    isShowingAd: true,
+                    observedProgress: progress,
+                    observedVideoId: playbackVideoId,
+                    isAuthoritativeContent: false
+                )
                 self.playerService.updatePlaybackTransportState(isPlaying: isPlaying)
                 if !isPlaying, self.playerService.shouldResumeReadyAdDuringRestoration {
                     SingletonPlayerWebView.shared.resumeReadyAdvertisementIfPresent()
@@ -723,6 +735,7 @@ extension SingletonPlayerWebView.Coordinator {
             mediaGeneration: mediaGeneration,
             lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
         ) else { return }
+        self.playerService.clearAdPlaybackBoundary()
         if let pendingAdvance = self.playerService.pendingNativeQueueAdvance,
            let playbackVideoId,
            playbackVideoId != pendingAdvance.sourceVideoId
@@ -735,12 +748,6 @@ extension SingletonPlayerWebView.Coordinator {
                 lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
             ) else { return }
         }
-        if validatesBridgeContext,
-           self.playerService.observedPlaybackMatchesCurrentTarget(videoId: playbackVideoId)
-        {
-            SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: playbackVideoId)
-        }
-
         let shouldContinuePendingAdvance = await self.playerService
             .reconcilePendingNativeQueueAdvanceObservation(videoId: playbackVideoId)
         if validatesBridgeContext {
@@ -764,6 +771,12 @@ extension SingletonPlayerWebView.Coordinator {
             observedVideoId: observedVideoId,
             playbackVideoId: playbackVideoId
         ) {
+            self.playerService.updateAdPlaybackState(
+                isShowingAd: false,
+                observedProgress: progress,
+                observedVideoId: playbackVideoId,
+                isAuthoritativeContent: true
+            )
             self.playerService.updatePlaybackState(
                 isPlaying: isPlaying,
                 progress: self.playerService.progress,
@@ -835,6 +848,15 @@ extension SingletonPlayerWebView.Coordinator {
             videoId: playbackVideoId
         )
         guard shouldApplyPlaybackState, mediaMatches, shouldAcceptMediaState else { return }
+        self.playerService.updateAdPlaybackState(
+            isShowingAd: false,
+            observedProgress: progress,
+            observedVideoId: playbackVideoId,
+            isAuthoritativeContent: true
+        )
+        if validatesBridgeContext {
+            SingletonPlayerWebView.shared.confirmRouterNavigationIfNeeded(videoId: playbackVideoId)
+        }
 
         let acceptedVideoId = playbackVideoId
         let previousAcceptedVideoId = self.lastAcceptedObservedVideoId

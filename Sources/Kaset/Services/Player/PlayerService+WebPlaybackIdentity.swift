@@ -98,6 +98,14 @@ extension PlayerService {
             ?? self.pendingPlayVideoId
     }
 
+    var hasAvailablePendingNativeQueueAdvanceSource: Bool {
+        guard let pending = self.pendingNativeQueueAdvance,
+              let sourceEntryID = pending.sourceEntryID,
+              let sourceIndex = self.queueEntryIDs.firstIndex(of: sourceEntryID)
+        else { return false }
+        return self.queue[safe: sourceIndex]?.videoId == pending.sourceVideoId
+    }
+
     var isPendingNativeQueueAdvanceValid: Bool {
         guard let pending = self.pendingNativeQueueAdvance,
               let sourceEntryID = pending.sourceEntryID,
@@ -124,12 +132,17 @@ extension PlayerService {
 
         self.clearPendingNativeQueueAdvance()
         let generation = self.pendingNativeQueueAdvanceGeneration
+        let fallbackStartedAt = ContinuousClock.now
         self.pendingNativeQueueAdvance = PendingNativeQueueAdvance(
             sourceEntryID: self.currentQueueEntryID,
             sourceVideoId: sourceVideoId,
             targetEntryID: targetEntry.id,
             targetVideoId: targetEntry.song.videoId,
-            generation: generation
+            generation: generation,
+            fallbackDeadline: SingletonPlayerWebView.transitionFallbackDeadline(
+                now: fallbackStartedAt,
+                initialFallbackDelay: Self.nativeQueueAdvanceTimeout
+            )
         )
         self.state = .loading
         self.songNearingEnd = false
@@ -166,10 +179,121 @@ extension PlayerService {
     }
 
     func handleNativeQueueAdvanceTimeout(generation: Int) async {
+        guard let pending = self.pendingNativeQueueAdvance,
+              pending.generation == generation
+        else { return }
+        guard self.isPendingNativeQueueAdvanceValid else {
+            await self.fallbackPendingNativeQueueAdvance(
+                generation: generation,
+                reason: "pending native queue relationship became invalid"
+            )
+            return
+        }
+        let now = ContinuousClock.now
+        if let retryDelay = SingletonPlayerWebView.transitionFallbackRetryDelay(
+            isShowingAd: self.isShowingAd,
+            now: now,
+            deadline: pending.fallbackDeadline
+        ) {
+            Task {
+                try? await Task.sleep(for: retryDelay)
+                await self.handleNativeQueueAdvanceTimeout(generation: generation)
+            }
+            return
+        }
         await self.fallbackPendingNativeQueueAdvance(
             generation: generation,
             reason: "timed out waiting for expected native media"
         )
+    }
+
+    @discardableResult
+    func reanchorPendingNativeQueueAdvanceSource(
+        intent: MusicPlaybackIntent,
+        startsPaused: Bool,
+        restoreClock: MusicPlaybackRestoreClock? = nil,
+        reason: String
+    ) async -> Bool {
+        guard self.acceptsMusicPlaybackIntent(intent),
+              let pending = self.pendingNativeQueueAdvance
+        else { return false }
+        let sourceIndex = pending.sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
+        guard let sourceIndex,
+              self.queue[safe: sourceIndex]?.videoId == pending.sourceVideoId
+        else {
+            await self.fallbackPendingNativeQueueAdvance(
+                generation: pending.generation,
+                reason: "source unavailable during explicit \(reason)",
+                intent: intent,
+                startsPaused: startsPaused,
+                restoreClock: restoreClock
+            )
+            return true
+        }
+        self.logger.info("Re-anchoring pending native queue advance source for explicit transport: \(reason)")
+        self.clearPendingNativeQueueAdvance()
+        self.clearWebQueueInjectionState()
+        await self.loadQueueSongForNavigation(
+            at: sourceIndex,
+            webLoadStrategy: .forceFullPageWhenSameVideoId,
+            startsPaused: startsPaused,
+            restoreClock: restoreClock,
+            intent: intent,
+            fetchesMetadata: false
+        )
+        // Once this operation clears the pending handoff, callers must not fall
+        // through and apply a superseded transport action to newer playback state.
+        return true
+    }
+
+    func resolvePendingNativeQueueAdvanceForResume(intent: MusicPlaybackIntent) async -> Bool {
+        guard self.pendingNativeQueueAdvance != nil else { return false }
+        if self.isExplicitPauseIntentActive {
+            return await self.reanchorPendingNativeQueueAdvanceSource(
+                intent: intent,
+                startsPaused: false,
+                reason: "resume"
+            )
+        }
+
+        switch self.state {
+        case .loading, .playing, .buffering:
+            self.logger.debug("Ignoring idempotent resume while native queue handoff awaits target media")
+            return true
+        case .idle, .paused, .ended, .error:
+            self.logger.debug("Resuming paused media while native queue handoff remains pending")
+        }
+
+        self.isStoppingPlayback = false
+        self.shouldResumeAfterInterruption = true
+        self.isAwaitingPlaybackConfirmation = true
+        self.isExplicitPauseIntentActive = false
+        self.state = .loading
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
+        SingletonPlayerWebView.shared.play()
+        return true
+    }
+
+    func resolvePendingNativeQueueAdvanceForExplicitTerminal(
+        intent: MusicPlaybackIntent,
+        reason: String
+    ) async {
+        guard self.acceptsMusicPlaybackIntent(intent),
+              let pending = self.pendingNativeQueueAdvance
+        else { return }
+        await self.fallbackPendingNativeQueueAdvance(
+            generation: pending.generation,
+            reason: reason,
+            intent: intent,
+            startsPaused: self.isExplicitPauseIntentActive
+        )
+    }
+
+    func cancelPendingNativeQueueAdvanceForExplicitPriorNavigation(reason: String) {
+        guard self.pendingNativeQueueAdvance != nil else { return }
+        self.logger.info("Cancelling pending native queue advance for explicit prior navigation: \(reason)")
+        self.clearPendingNativeQueueAdvance()
+        self.clearWebQueueInjectionState()
     }
 
     func clearPendingNativeQueueAdvance() {
@@ -217,7 +341,10 @@ extension PlayerService {
 
     private func fallbackPendingNativeQueueAdvance(
         generation: Int,
-        reason: String
+        reason: String,
+        intent suppliedIntent: MusicPlaybackIntent? = nil,
+        startsPaused suppliedStartsPaused: Bool? = nil,
+        restoreClock: MusicPlaybackRestoreClock? = nil
     ) async {
         guard let pending = self.pendingNativeQueueAdvance,
               pending.generation == generation
@@ -225,8 +352,8 @@ extension PlayerService {
             return
         }
 
-        let fallbackIntent = self.currentMusicPlaybackIntent
-        let startsPaused = self.isExplicitPauseIntentActive
+        let fallbackIntent = suppliedIntent ?? self.currentMusicPlaybackIntent
+        let startsPaused = suppliedStartsPaused ?? self.isExplicitPauseIntentActive
         let sourceIndex = pending.sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
         let targetIndex: Int?
         if let sourceIndex {
@@ -253,6 +380,15 @@ extension PlayerService {
             return
         }
 
+        let normalizedRestoreClock = restoreClock.map { clock in
+            MusicPlaybackRestoreClock(
+                progress: max(clock.progress, 0),
+                duration: 0,
+                allowsSongDurationFallback: false,
+                isExplicitTransportSeek: clock.isExplicitTransportSeek
+            )
+        }
+
         self.logger.warning(
             "Native queue advance to \(pending.targetVideoId) failed; loading current expected target \(targetSong.videoId): \(reason)"
         )
@@ -264,6 +400,7 @@ extension PlayerService {
             at: targetIndex,
             webLoadStrategy: .forceFullPageWhenSameVideoId,
             startsPaused: startsPaused,
+            restoreClock: normalizedRestoreClock,
             intent: fallbackIntent
         )
     }
@@ -307,6 +444,10 @@ extension PlayerService {
                 else { return }
                 self.saveQueueForPersistence(syncWebQueue: false)
             }
+            guard !Task.isCancelled,
+                  self.nativeQueueMaintenanceGeneration == generation
+            else { return }
+            self.syncWebQueue()
         }
     }
 
