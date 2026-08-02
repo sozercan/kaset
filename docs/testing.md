@@ -453,12 +453,15 @@ Button {
 ### YouTube Ask Compatibility Validation
 
 YouTube Ask unit tests are deterministic and offline. The API Explorer parity
-workflow is a separate, read-only manual compatibility check: it may send
-`next` and prepare the initial panel, but it must never submit a suggestion or
-free-form prompt. Guarded chip or free-text generation requires separate explicit
-approval and is not part of routine tests or CI. Free-text tests assert the exact
-validated `get_panel` body, string playback offset, click-tracking context,
-one-shot consumption, and no automatic retry.
+workflow is a separate, read-only manual compatibility check: it sends `next`
+and prepares the prompt-free initial panel, but it must never submit a suggestion
+or free-form prompt. Its redacted report records whether strict parsing found a
+free-text capability in `next` and in the initial `get_panel` without printing
+opaque values. Guarded chip or free-text generation requires separate explicit
+approval and is not part of routine tests or CI. Free-text tests cover direct
+`next` capability loading, fallback materialization from the same immutable
+request snapshot, exact validated `get_panel` bodies, string playback offset,
+click-tracking context, one-shot consumption, and no automatic retry.
 
 The production app explicitly selects the fixed WEB request profile. The July 28,
 2026 parity run was inconclusive because the exported session appeared signed out;

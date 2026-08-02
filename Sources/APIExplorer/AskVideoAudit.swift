@@ -180,6 +180,14 @@ private struct AskParityStageMetrics {
     }
 }
 
+// MARK: - AskParityCapabilityState
+
+private enum AskParityCapabilityState: String {
+    case notRun = "not-run"
+    case absent
+    case present
+}
+
 // MARK: - AskParityReport
 
 private struct AskParityReport {
@@ -189,6 +197,8 @@ private struct AskParityReport {
     var eligibility = "unknown"
     var nextChipCount = 0
     var panelChipCount = 0
+    var nextFreeTextCapability = AskParityCapabilityState.notRun
+    var panelFreeTextCapability = AskParityCapabilityState.notRun
     var failureCategory: AskParityFailureCategory
 
     func render() {
@@ -198,6 +208,10 @@ private struct AskParityReport {
         print("format: next=\(self.next.formatDescription) panel=\(self.panel.formatDescription)")
         print("eligibility: \(self.eligibility)")
         print("chip-counts: next=\(self.nextChipCount) panel=\(self.panelChipCount)")
+        print(
+            "free-text-capability: next=\(self.nextFreeTextCapability.rawValue) "
+                + "panel=\(self.panelFreeTextCapability.rawValue)"
+        )
         print("failure-category: \(self.failureCategory.rawValue)")
     }
 }
@@ -545,6 +559,7 @@ private func evaluateAskParityNext(
         }
         report.eligibility = "eligible"
         report.nextChipCount = bootstrap.suggestions.count
+        report.nextFreeTextCapability = bootstrap.freeTextCommand == nil ? .absent : .present
         return AskParityNextEvaluation(report: report, bootstrap: bootstrap)
     } catch {
         report.failureCategory = .nextParseFailure
@@ -621,6 +636,7 @@ private func evaluateAskParityPanel(
     do {
         let panelConversation = try YouTubeAskParser.parseConversation(from: panelEnvelope)
         report.panelChipCount = panelConversation.suggestions.count
+        report.panelFreeTextCapability = panelConversation.freeTextCommand == nil ? .absent : .present
         let panelHasSummarySuggestion = panelConversation.suggestions.contains { suggestion in
             isAskSummaryLabel(suggestion.label)
         }
@@ -1228,6 +1244,10 @@ private enum AskFreeTextValidationError: LocalizedError {
     case requestSnapshotChanged
     case nextRequestFailed
     case nextHTTPFailure(Int)
+    case nextAuthenticationRejected
+    case initialPanelRequestFailed
+    case initialPanelHTTPFailure(Int)
+    case initialPanelAuthenticationRejected
     case streamingRequestFailed
     case streamingHTTPFailure(Int)
     case responseTooLarge
@@ -1238,7 +1258,7 @@ private enum AskFreeTextValidationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .commandUnavailable:
-            "No eligible PAyouchat free-text command was available"
+            "No eligible PAyouchat free-text command was available from next or initial get_panel"
         case .malformedCommand:
             "The eligible PAyouchat free-text command did not match the exact supported schema"
         case .ambiguousCommand:
@@ -1253,19 +1273,49 @@ private enum AskFreeTextValidationError: LocalizedError {
             "The authenticated watch bootstrap request failed"
         case let .nextHTTPFailure(statusCode):
             "The authenticated watch bootstrap returned HTTP \(statusCode)"
+        case .nextAuthenticationRejected:
+            "YouTube did not explicitly confirm the watch bootstrap as signed in"
+        case .initialPanelRequestFailed:
+            "The prompt-free initial Ask panel request failed"
+        case let .initialPanelHTTPFailure(statusCode):
+            "The prompt-free initial Ask panel returned HTTP \(statusCode)"
+        case .initialPanelAuthenticationRejected:
+            "YouTube did not explicitly confirm the initial Ask panel as signed in"
         case .streamingRequestFailed:
             "The one-shot free-text request failed"
         case let .streamingHTTPFailure(statusCode):
             "The one-shot free-text request returned HTTP \(statusCode)"
         case .responseTooLarge:
-            "The one-shot free-text response exceeded the safety limit"
+            "The Ask response exceeded the safety limit"
         case .responseDecodeFailed:
-            "The one-shot free-text response could not be decoded safely"
+            "The Ask response could not be decoded safely"
         case .responseParseFailed:
             "The one-shot free-text response did not match a confirmed YouChat response container"
         case .answerUnavailable:
             "The one-shot free-text response did not contain visible assistant text"
         }
+    }
+}
+
+// MARK: - AskFreeTextCommandSource
+
+private enum AskFreeTextCommandSource: String {
+    case watchNext = "next"
+    case initialPanel = "initial-get-panel"
+}
+
+// MARK: - AskLoadedFreeTextCommand
+
+private struct AskLoadedFreeTextCommand: CustomStringConvertible, CustomDebugStringConvertible {
+    let command: YouTubeAskOpaqueCommand
+    let source: AskFreeTextCommandSource
+
+    var description: String {
+        "<redacted Ask free-text command>"
+    }
+
+    var debugDescription: String {
+        self.description
     }
 }
 
@@ -1620,13 +1670,13 @@ private func makeRuntimeAskFreeTextWireRequest(
 private func loadAskFreeTextCommand(
     videoID: String,
     requestSnapshot: AskFreeTextRequestSnapshot
-) async throws -> YouTubeAskOpaqueCommand {
+) async throws -> AskLoadedFreeTextCommand {
     guard let nextBody = try? JSONSerialization.data(withJSONObject: ["videoId": videoID]) else {
         throw AskFreeTextValidationError.requestEncodingFailed
     }
-    let response: APIWireResponse
+    let nextResponse: APIWireResponse
     do {
-        response = try await makeRuntimeAskFreeTextWireRequest(
+        nextResponse = try await makeRuntimeAskFreeTextWireRequest(
             endpoint: "next",
             bodyData: nextBody,
             requestSnapshot: requestSnapshot
@@ -1636,29 +1686,89 @@ private func loadAskFreeTextCommand(
     } catch {
         throw AskFreeTextValidationError.nextRequestFailed
     }
-    guard (200 ... 299).contains(response.statusCode) else {
-        throw AskFreeTextValidationError.nextHTTPFailure(response.statusCode)
+    guard (200 ... 299).contains(nextResponse.statusCode) else {
+        throw AskFreeTextValidationError.nextHTTPFailure(nextResponse.statusCode)
     }
 
-    let envelope: YouTubeAskWireEnvelope
+    let nextEnvelope: YouTubeAskWireEnvelope
     do {
-        envelope = try YouTubeAskWireDecoder.decode(response.data)
+        nextEnvelope = try YouTubeAskWireDecoder.decode(nextResponse.data)
     } catch {
         throw AskFreeTextValidationError.responseDecodeFailed
     }
 
-    let bootstrap: YouTubeAskParsedBootstrap?
+    guard askParityHasConfirmedSignedInState(
+        askParityServerLoggedOutState(in: nextEnvelope)
+    ) else {
+        throw AskFreeTextValidationError.nextAuthenticationRejected
+    }
+
+    let bootstrap: YouTubeAskParsedBootstrap
     do {
-        bootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        guard let parsed = try YouTubeAskParser.parseBootstrap(from: nextEnvelope) else {
+            throw AskFreeTextValidationError.commandUnavailable
+        }
+        bootstrap = parsed
+    } catch let error as AskFreeTextValidationError {
+        throw error
     } catch YouTubeAskCoreError.ambiguousBootstrap {
         throw AskFreeTextValidationError.ambiguousCommand
     } catch {
         throw AskFreeTextValidationError.malformedCommand
     }
-    guard let command = bootstrap?.freeTextCommand else {
+
+    if let command = bootstrap.freeTextCommand {
+        return AskLoadedFreeTextCommand(command: command, source: .watchNext)
+    }
+    guard let panelCommand = bootstrap.panelCommand else {
         throw AskFreeTextValidationError.commandUnavailable
     }
-    return command
+
+    let panelBody = YouTubeAskRequestBuilder.makePanelBootstrapBody(command: panelCommand)
+    let panelResponse: APIWireResponse
+    do {
+        panelResponse = try await makeRuntimeAskFreeTextWireRequest(
+            endpoint: "get_panel",
+            bodyData: panelBody,
+            requestSnapshot: requestSnapshot,
+            validateBackingStateBeforeSending: true
+        )
+    } catch is ResponseSizeLimitError {
+        throw AskFreeTextValidationError.responseTooLarge
+    } catch let error as AskFreeTextValidationError {
+        throw error
+    } catch {
+        throw AskFreeTextValidationError.initialPanelRequestFailed
+    }
+    guard (200 ... 299).contains(panelResponse.statusCode) else {
+        throw AskFreeTextValidationError.initialPanelHTTPFailure(panelResponse.statusCode)
+    }
+
+    let panelEnvelope: YouTubeAskWireEnvelope
+    do {
+        panelEnvelope = try YouTubeAskWireDecoder.decode(panelResponse.data)
+    } catch {
+        throw AskFreeTextValidationError.responseDecodeFailed
+    }
+
+    guard askParityHasConfirmedSignedInState(
+        askParityServerLoggedOutState(in: panelEnvelope)
+    ) else {
+        throw AskFreeTextValidationError.initialPanelAuthenticationRejected
+    }
+
+    let panelConversation: YouTubeAskParsedConversation
+    do {
+        panelConversation = try YouTubeAskParser.parseConversation(from: panelEnvelope)
+    } catch YouTubeAskCoreError.ambiguousBootstrap {
+        throw AskFreeTextValidationError.ambiguousCommand
+    } catch {
+        throw AskFreeTextValidationError.malformedCommand
+    }
+    guard let command = panelConversation.freeTextCommand else {
+        throw AskFreeTextValidationError.commandUnavailable
+    }
+    return AskLoadedFreeTextCommand(command: command, source: .initialPanel)
 }
 
 private func sendAskFreeTextRequest(
@@ -1730,19 +1840,25 @@ func liveTestAskVideoFreeText(
     print("====================================\n")
     print("Video ID: validated (value not displayed)")
     print("Prompt: loaded privately (\(prompt.count) characters; content not displayed)")
-    print("Safety: one server-commanded get_panel request; no retry or raw output")
+    print(
+        "Safety: at most one prompt-free initial get_panel plus one generated get_panel; "
+            + "no retry or raw output"
+    )
     print("Request profile: runtime WEB configuration validated by the read-only Ask audit")
 
     do {
         let requestSnapshot = try await captureAskFreeTextRequestSnapshot()
-        let command = try await loadAskFreeTextCommand(
+        let loadedCommand = try await loadAskFreeTextCommand(
             videoID: videoID,
             requestSnapshot: requestSnapshot
         )
-        print("Eligible PAyouchat free-text command: validated (opaque values hidden)")
+        print(
+            "Eligible PAyouchat free-text command: validated from "
+                + "\(loadedCommand.source.rawValue) (opaque values hidden)"
+        )
 
         let response = try await sendAskFreeTextRequest(
-            command: command,
+            command: loadedCommand.command,
             prompt: prompt,
             requestSnapshot: requestSnapshot
         )

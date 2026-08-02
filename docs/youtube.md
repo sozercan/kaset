@@ -116,7 +116,10 @@ non-interactive and undisplayed.
 Opening the watch-page toolbar panel may prepare an initial panel, but it
 never generates an answer until the user selects a server-issued suggestion or
 submits one free-text prompt. Free text is exposed only when the canonical
-eligible panel supplies the exact validated `sendUserQueryCommand`; it uses
+eligible `next` panel or its prompt-free initial `get_panel` materialization
+supplies the exact validated `sendUserQueryCommand`. The client uses the `next`
+command when present and otherwise prepares the exact server-issued panel
+continuation; it never synthesizes or merges capabilities. Submission uses
 `get_panel`, not `streaming_panel`, and is one-shot until New Chat. Follow-up
 chips remain server-issued. Visible labels and
 answers are sanitized but not localized by Kaset. Assistant messages render
@@ -277,8 +280,9 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
   formats, strict YouChat parsing, decoy rejection, server order, sanitization,
   and accidental-secret detection. `YouTubeAskTransportTests`,
   `YouTubeAskClientTests`, and `YouTubeAskViewModelTests` cover redirect and
-  response bounds, exact request shapes, identity fencing, single-flight
-  behavior, New Chat, and command consumption without contacting YouTube.
+  response bounds, exact request shapes, identity fencing, direct-versus-
+  materialized free-text capability provenance, single-flight behavior, New
+  Chat, and command consumption without contacting YouTube.
 - Ask UI tests are never part of routine verification because they launch the
   app. Run them only after explicit human approval. The read-only
   `ask-video-parity` command is a manual compatibility check, not a unit test and

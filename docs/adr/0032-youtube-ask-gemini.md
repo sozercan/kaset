@@ -40,9 +40,12 @@ Wire-level observations and the API Explorer workflow remain documented in the
 2. **Ship server-commanded one-shot free text plus chips.** An eligible watch
    page exposes a sparkles action in the top toolbar. Activating it presents a
    compact, top-centered glass panel and may prepare the initial panel, but never
-   generates an answer automatically. The composer appears only when the
-   canonical eligible panel supplies the exact validated `sendUserQueryCommand`.
-   One free-text turn is allowed per fresh chat and uses `get_panel` with the
+   generates an answer automatically. The composer is enabled only when the
+   canonical eligible `next` panel or its prompt-free initial `get_panel`
+   materialization supplies the exact validated `sendUserQueryCommand`. Kaset
+   uses the `next` command when present and materializes only the exact
+   server-issued panel continuation when that capability is missing. One
+   free-text turn is allowed per fresh chat and uses `get_panel` with the
    captured `clientMessageId`, string `playerOffsetMs`, `userInputText`, server
    continuation, and click-tracking context. After any submitted turn, follow-up
    interaction remains server-chip-only until New Chat. Outside click, Escape,
@@ -68,7 +71,9 @@ Wire-level observations and the API Explorer workflow remain documented in the
    message/chip containers, including the confirmed singular
    `onResponseReceivedCommand.listMutationCommand` insertion path. Result/link
    view models and sibling framework updates remain outside the visible model.
-   A chip may carry the exact observed
+   If both the watch bootstrap and initial materialization expose a free-text
+   command, they must agree exactly; distinct commands fail closed rather than
+   being merged. A chip may carry the exact observed
    `onClick.listMutationCommand` UI mutation, which is ignored rather than
    preserved or executed only when its inserted user-turn text matches the chip
    label and every key matches the allowlisted local user-turn/loading-animation
@@ -96,9 +101,11 @@ Wire-level observations and the API Explorer workflow remain documented in the
 
 - Ask follows Kaset's API-over-WebView boundary and shares one strict parser and
   safety implementation between the app and API Explorer.
-- V1 accepts one server-commanded free-form question per fresh chat and does
-  not reproduce YouTube's unvalidated multi-turn free-text fields. Subsequent
-  turns use server-issued suggestions or New Chat.
+- V1 accepts one server-commanded free-form question per fresh chat. The
+  capability may originate in `next` or the prompt-free initial `get_panel`, but
+  both paths use the same strict parser, immutable request identity, and opaque
+  command rules. Kaset does not reproduce YouTube's unvalidated multi-turn
+  free-text fields. Subsequent turns use server-issued suggestions or New Chat.
 - Conversation continuity intentionally ends at the watch/account lifecycle
   boundary and at app termination.
 - Opaque command material is harder to inspect during debugging, but accidental

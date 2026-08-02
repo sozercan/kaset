@@ -31,14 +31,19 @@ extension YouTubeClient {
             snapshot: snapshot
         )
         guard !parsed.suggestions.isEmpty
+            || !bootstrap.suggestions.isEmpty
+            || parsed.freeTextCommand != nil
             || bootstrap.hasFreeTextCommand
         else {
             throw YouTubeAskClientError.invalidResponse
         }
-        return YouTubeAskConversation.materialized(
+        guard let conversation = YouTubeAskConversation.materialized(
             from: bootstrap,
             parsed: parsed
-        )
+        ) else {
+            throw YouTubeAskClientError.invalidResponse
+        }
+        return conversation
     }
 
     func continueAskConversation(

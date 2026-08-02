@@ -27,4 +27,5 @@ package struct YouTubeAskParsedMessage: Sendable {
 package struct YouTubeAskParsedConversation: Sendable {
     package let messages: [YouTubeAskParsedMessage]
     package let suggestions: [YouTubeAskParsedSuggestion]
+    package let freeTextCommand: YouTubeAskOpaqueCommand?
 }

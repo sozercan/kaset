@@ -106,6 +106,9 @@ struct YouTubeAskFixtureSafetyTests {
         let sendFunction = source[sendStart.lowerBound ..< liveStart.lowerBound]
 
         #expect(loadFunction.contains("YouTubeAskParser.parseBootstrap"))
+        #expect(loadFunction.contains("YouTubeAskRequestBuilder.makePanelBootstrapBody"))
+        #expect(loadFunction.contains("YouTubeAskParser.parseConversation"))
+        #expect(loadFunction.contains("panelConversation.freeTextCommand"))
         #expect(sendFunction.contains("YouTubeAskRequestBuilder.makeFreeTextBody"))
         #expect(sendFunction.contains("YouTubeAskRequestBuilder.makeFreeTextClickTrackingContext"))
         #expect(!source.contains("private struct AskFreeTextCommand"))
@@ -169,12 +172,58 @@ struct YouTubeAskFixtureSafetyTests {
 
         #expect(loadFunction.contains("requestSnapshot: AskFreeTextRequestSnapshot"))
         #expect(loadFunction.contains("requestSnapshot: requestSnapshot"))
+        #expect(loadFunction.contains("endpoint: \"get_panel\""))
+        #expect(loadFunction.contains("bodyData: panelBody"))
+        #expect(loadFunction.contains("validateBackingStateBeforeSending: true"))
+        #expect(!loadFunction.contains("YouTubeAskRequestBuilder.makeFreeTextBody"))
         #expect(sendFunction.contains("requestSnapshot: AskFreeTextRequestSnapshot"))
         #expect(sendFunction.contains("validateBackingStateBeforeSending: true"))
         #expect(liveFunction.contains("let requestSnapshot = try await captureAskFreeTextRequestSnapshot()"))
         #expect(liveFunction.contains("requestSnapshot: requestSnapshot"))
         let rawVideoIDOutput = "pri" + "nt(\"Video ID: \\(videoID)\")"
         #expect(!liveFunction.contains(rawVideoIDOutput))
+    }
+
+    @Test("API Explorer reports free-text capability provenance without opaque values")
+    func apiExplorerReportsRedactedFreeTextCapability() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let sourceURL = repositoryRoot
+            .appendingPathComponent("Sources", isDirectory: true)
+            .appendingPathComponent("APIExplorer", isDirectory: true)
+            .appendingPathComponent("AskVideoAudit.swift")
+        let source = try String(contentsOf: sourceURL, encoding: .utf8)
+
+        let reportStart = try #require(source.range(of: "private struct AskParityReport"))
+        let evaluationStart = try #require(source.range(
+            of: "private struct AskParityEvaluation",
+            range: reportStart.upperBound ..< source.endIndex
+        ))
+        let nextStart = try #require(source.range(of: "private func evaluateAskParityNext("))
+        let panelStart = try #require(source.range(
+            of: "private func evaluateAskParityPanel(",
+            range: nextStart.upperBound ..< source.endIndex
+        ))
+        let profileStart = try #require(source.range(
+            of: "private func evaluateAskParityProfile(",
+            range: panelStart.upperBound ..< source.endIndex
+        ))
+        let reportFunction = source[reportStart.lowerBound ..< evaluationStart.lowerBound]
+        let nextFunction = source[nextStart.lowerBound ..< panelStart.lowerBound]
+        let panelFunction = source[panelStart.lowerBound ..< profileStart.lowerBound]
+
+        #expect(reportFunction.contains("free-text-capability: next="))
+        #expect(reportFunction.contains("panelFreeTextCapability.rawValue"))
+        #expect(!reportFunction.contains("continuation"))
+        #expect(!reportFunction.contains("clickTrackingParams"))
+        #expect(nextFunction.contains("bootstrap.freeTextCommand == nil ? .absent : .present"))
+        #expect(
+            panelFunction.contains(
+                "panelConversation.freeTextCommand == nil ? .absent : .present"
+            )
+        )
     }
 
     private struct Violation {

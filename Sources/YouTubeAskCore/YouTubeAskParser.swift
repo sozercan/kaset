@@ -121,15 +121,18 @@ package enum YouTubeAskParser {
             )
         }
         content.suggestions = try Self.deduplicatedSuggestions(content.suggestions)
+        let freeTextCommand = try Self.unambiguousFreeTextCommand(content.freeTextCommands)
         return YouTubeAskParsedConversation(
             messages: content.messages,
-            suggestions: content.suggestions
+            suggestions: content.suggestions,
+            freeTextCommand: freeTextCommand
         )
     }
 
     package struct ConversationAccumulator {
         var messages: [YouTubeAskParsedMessage] = []
         var suggestions: [YouTubeAskParsedSuggestion] = []
+        var freeTextCommands: [YouTubeAskOpaqueCommand] = []
     }
 
     struct TraversalBudget {
@@ -457,6 +460,9 @@ package enum YouTubeAskParser {
 
         if let chipsData = viewModel["chipsData"] {
             try content.suggestions.append(contentsOf: Self.parseChipsData(chipsData))
+        }
+        if includeMessages, let command = viewModel["sendUserQueryCommand"] {
+            try content.freeTextCommands.append(Self.parseFreeTextCommand(command))
         }
         if includeMessages,
            viewModel["chipsData"] == nil,

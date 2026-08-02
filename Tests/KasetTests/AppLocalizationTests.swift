@@ -384,7 +384,9 @@ struct AppLocalizationTests {
             ("ar", "New Chat", "محادثة جديدة"),
             ("de", "Ask Gemini", "Gemini fragen"),
             ("de", "Ask about this video...", "Frag etwas zu diesem Video…"),
+            ("de", "Ask anything about this video...", "Frag alles über dieses Video…"),
             ("fr", "Send", "Envoyer"),
+            ("ko", "Try asking:", "이렇게 질문해 보세요:"),
             ("ko", "YouTube response: %@", "YouTube 응답: %@"),
             ("tr", "Sending…", "Gönderiliyor…"),
         ]

@@ -58,7 +58,7 @@ The watch-page Ask Gemini capability in the regular YouTube experience. Kaset su
 
 ## Ask Bootstrap
 
-The eligible YouChat material discovered in the current video's watch-page `next` response. A bootstrap may expose suggestions directly or carry the opaque command needed to prepare the initial Ask panel. It is valid only for the video, authentication generation, and primary-account scope that produced it.
+The eligible YouChat material discovered in the current video's watch-page `next` response. A bootstrap may expose suggestions and the one-shot free-text capability directly, or carry the opaque command needed to prepare the prompt-free initial Ask panel. Initial panel materialization may supply a missing free-text capability. The bootstrap and anything materialized from it are valid only for the video, authentication generation, and primary-account scope that produced them.
 
 ## Ask Conversation
 
@@ -71,7 +71,7 @@ A sanitized visible chip label paired internally with an opaque server command. 
 
 ## Server-Issued Ask Free-Text Command
 
-The opaque `sendUserQueryCommand` found in the canonical eligible YouChat panel. Kaset may use it once per fresh chat with the validated `get_panel` form fields and current playback offset. Its continuation and click-tracking values remain in memory and are never printed or persisted.
+The opaque `sendUserQueryCommand` found either in the canonical eligible watch-page `next` panel or in its prompt-free initial `get_panel` materialization. Kaset uses the `next` command when present; otherwise it may materialize the exact server-issued panel continuation and accept only a confirmed command from that response. The command may be used once per fresh chat with the validated `get_panel` form fields and current playback offset. Its continuation and click-tracking values remain in memory and are never printed or persisted.
 
 ## Opaque Ask Command
 

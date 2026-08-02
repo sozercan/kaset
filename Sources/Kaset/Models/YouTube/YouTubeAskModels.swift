@@ -109,7 +109,8 @@ struct YouTubeAskBootstrap: Sendable {
     private let binding: YouTubeAskBindingState
 
     var requiresPanelMaterialization: Bool {
-        self.suggestions.isEmpty && self.panelCommand != nil
+        self.panelCommand != nil
+            && (self.suggestions.isEmpty || self.freeTextCommand == nil)
     }
 
     fileprivate init(
@@ -156,6 +157,10 @@ struct YouTubeAskBootstrap: Sendable {
 
     fileprivate var freeTextSubmissionCommand: YouTubeAskOpaqueCommand? {
         self.freeTextCommand
+    }
+
+    fileprivate var initialSuggestionStates: [YouTubeAskSuggestionState] {
+        self.suggestionStates
     }
 
     var hasFreeTextCommand: Bool {
@@ -512,12 +517,32 @@ extension YouTubeAskConversation {
     static func materialized(
         from bootstrap: YouTubeAskBootstrap,
         parsed: YouTubeAskParsedConversation
-    ) -> YouTubeAskConversation {
-        YouTubeAskConversation(
+    ) -> YouTubeAskConversation? {
+        let bootstrapCommand = bootstrap.freeTextSubmissionCommand
+        let materializedCommand = parsed.freeTextCommand
+        if let bootstrapCommand, let materializedCommand,
+           bootstrapCommand != materializedCommand
+        {
+            return nil
+        }
+        let resolvedCommand = materializedCommand ?? bootstrapCommand
+
+        if parsed.suggestions.isEmpty {
+            let assistantMessages = parsed.messages.map { parsedMessage in
+                YouTubeAskMessage(role: .assistant, text: parsedMessage.text)
+            }
+            return YouTubeAskConversation(
+                messages: assistantMessages,
+                suggestionStates: bootstrap.initialSuggestionStates,
+                freeTextCommand: resolvedCommand,
+                binding: bootstrap.bindingState
+            )
+        }
+        return YouTubeAskConversation(
             previousMessages: [],
             parsed: parsed,
             binding: bootstrap.bindingState,
-            freeTextCommand: bootstrap.freeTextSubmissionCommand
+            freeTextCommand: resolvedCommand
         )
     }
 

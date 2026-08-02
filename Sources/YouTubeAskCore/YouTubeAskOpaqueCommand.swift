@@ -4,7 +4,7 @@ import Foundation
 
 /// Server-issued command material. The raw value is intentionally inaccessible
 /// outside this module and has only redacted string/reflection representations.
-package struct YouTubeAskOpaqueCommand: Sendable {
+package struct YouTubeAskOpaqueCommand: Equatable, Sendable {
     let continuation: String
     let clickTrackingParams: String?
 

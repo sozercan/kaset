@@ -1424,10 +1424,15 @@ and bidirectional formatting characters, hides links and high-entropy opaque
 strings, and is bounded to 16,000 characters per answer.
 
 `ask-video-free-text-test` is a separate, one-shot validation command. It
-fetches a fresh authenticated runtime-WEB `next` response and selects the first
-complete eligible `PAyouchat` panel, matching the browser's mirrored-panel
-behavior without merging opaque commands from responsive duplicates.
-The accepted schema is intentionally narrow:
+captures one immutable authenticated runtime-WEB request snapshot, fetches a
+fresh `next` response, and selects the first complete eligible `PAyouchat`
+panel, matching the browser's mirrored-panel behavior without merging opaque
+commands from responsive duplicates. If `next` contains the validated
+`sendUserQueryCommand`, the loader uses it directly. Otherwise, when the same
+bootstrap has one safe panel continuation, the loader sends its prompt-free
+initial `get_panel` body through that same snapshot and accepts only the strict
+parser's confirmed materialized `freeTextCommand`. The accepted command schema
+is intentionally narrow and may originate in either response:
 
 ```text
 sendUserQueryCommand
@@ -1438,8 +1443,11 @@ sendUserQueryCommand
         └── opaque continuation token is present
 ```
 
-The command sends one `get_panel` request, without retry, using the exact
-server continuation and click-tracking context plus:
+Initial materialization contains only the exact panel continuation plus the
+snapshot's request context; it has no `formData`, message ID, prompt, or click-
+tracking injection and cannot generate an answer. The resolved command then
+sends one generated `get_panel` request, without retry, using the exact server
+continuation and click-tracking context plus:
 
 ```text
 formData.inputComposerFormData.clientMessageId: youchat-<Unix epoch milliseconds>
@@ -1448,9 +1456,12 @@ formData.inputComposerFormData.userInputText: private prompt contents
 ```
 
 The runtime WEB `context` is added by the authenticated request transport.
+The same immutable context, headers, API identifier, cookie/account snapshot,
+and origin are used for `next`, optional initial materialization, and prompt
+submission; the backing identity is revalidated before either `get_panel`.
 Prompts must come from stdin or a regular file owned by the current user with
-exact mode `0600`, no extended ACL, valid UTF-8, and at most
-16,000 characters. The command rejects guest, `--authuser`, brand-account,
+exact mode `0600`, no extended ACL, valid UTF-8, at most 16,000 characters, and
+at most 64 KiB of UTF-8. The command rejects guest, `--authuser`, brand-account,
 client-version override, verbose, output, raw-body, follow-up, and multi-chat
 options. Responses use the bounded `YouTubeAskCore` decoder and strict confirmed
 YouChat parser; only sanitized assistant text and redacted structural metrics are
@@ -1489,17 +1500,21 @@ when strict parsing finds one unambiguous panel bootstrap, materializes the
 initial `get_panel`. It never submits a suggestion chip, free text, or any other
 generation request. Both responses use the bounded `YouTubeAskCore` wire decoder
 and strict parser. Terminal output is limited to the profile name, HTTP status,
-response size, wire format, eligibility, chip counts, and a redacted failure
-category. The command stops at the first passing profile and rejects raw-output,
-private-body, client-version override, follow-up, and multi-chat options.
+response size, wire format, eligibility, chip counts, whether a validated
+free-text capability was present in `next` and initial `get_panel`, and a
+redacted failure category. It never prints command continuations or click-
+tracking values. The command stops at the first passing profile and rejects
+raw-output, private-body, client-version override, follow-up, and multi-chat
+options.
 
 The read-only run on **July 28, 2026** completed all three profiles. Every
 `next` request returned HTTP 200, but each response reported the exported
 session as signed out, so `get_panel` was not run and no profile passed. This is
 an authentication rejection, not evidence that any request profile is valid or
-invalid for an eligible signed-in session. Production therefore remains
-disabled and fail-closed; a future run must confirm signed-in primary-account
-eligibility before selecting a profile.
+invalid for an eligible signed-in session. No profile passed that historical
+run. Production was later enabled through the explicitly selected fixed profile;
+future compatibility checks must still confirm signed-in primary-account
+eligibility and fail closed on unsupported responses.
 
 `get_panel`, `streaming_panel`, and `get_answer` must use `wire-action` for manual
 probes; the raw `action` command rejects them. Supply manual panel JSON through
@@ -1517,7 +1532,7 @@ arguments must be plain relative API paths.
 
 | Transport | Current interpretation |
 |-----------|------------------------|
-| `get_panel` | Panel bootstrap, direct suggestion chips, and the validated one-shot free-text composer transport |
+| `get_panel` | Prompt-free initial panel materialization, direct suggestion chips, materialized free-text capability discovery, and the validated one-shot free-text composer transport |
 | `streaming_panel` | Frontend capability remains present, but the August 2 free-text candidate returned HTTP 400; not used by production |
 | `get_watch` | Combined player/watch bootstrap; observed responses use a top-level JSON array |
 | `get_answer` | Separate AI answer transport; not used by the verified watch-page suggestion flow |
@@ -1576,10 +1591,14 @@ shape remains supported for previously validated responses.
   successfully. No panel materialization or suggestion submission was performed.
 
 The free-text composer uses the exact server-issued `sendUserQueryCommand`
-continuation and click tracking. The August 2 browser capture showed that the
-frontend posts it to `get_panel` with `clientMessageId`, decimal-string
-`playerOffsetMs`, and `userInputText`. Production permits that exact shape once
-per fresh chat; unvalidated multi-turn fields remain unsupported.
+continuation and click tracking. Strict parsing may obtain that capability from
+the canonical eligible `next` panel or from the confirmed prompt-free initial
+`get_panel` materialization. `next` wins when it already supplies the command;
+the initial panel is queried only as a fallback, and distinct commands are never
+merged. The August 2 browser capture showed that the frontend posts the resolved
+command to `get_panel` with `clientMessageId`, decimal-string `playerOffsetMs`,
+and `userInputText`. Production permits that exact shape once per fresh chat;
+unvalidated multi-turn fields remain unsupported.
 
 **Live validation on July 27, 2026**:
 
@@ -1638,7 +1657,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | `ask-video-audit <videoId>` | Run a redacted, read-only Ask Gemini / YouChat audit without sending a prompt |
 | `ask-video-parity <videoId>` | Test ordered read-only Ask request profiles using only `next` and initial `get_panel`; never submits a chip |
 | `ask-video-live-test <videoId>` | With `--confirm-live-ai`, replay the server-issued summary chip; optionally add `--follow-up` or `--fresh-chats N` |
-| `ask-video-free-text-test <videoId>` | With `--confirm-live-ai` and `--prompt-file`, validate one exact server-commanded `get_panel` free-text request with no retry |
+| `ask-video-free-text-test <videoId>` | With `--confirm-live-ai` and `--prompt-file`, resolve the command from `next` or a prompt-free initial `get_panel`, then validate one exact server-commanded free-text request with no retry |
 | `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
 | `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
@@ -1680,7 +1699,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
-| 2026-08-02 | Browser-validated the one-shot `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; deduplicated repeated visible suggestions; retained one-shot free text plus server-chip follow-ups |
+| 2026-08-02 | Browser-validated the one-shot `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; documented and implemented `sendUserQueryCommand` provenance from either `next` or prompt-free initial `get_panel`; added redacted parity capability reporting; deduplicated repeated visible suggestions; retained one-shot free text plus server-chip follow-ups |
 | 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for the observed local user-turn/loading `onClick` mutation, preserved direct chips while discarding ambiguous panel-only commands, and added one bounded read-only retry for internal identity-fence cancellation |
 | 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
 | 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
