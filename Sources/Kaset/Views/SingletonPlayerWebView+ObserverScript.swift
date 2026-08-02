@@ -892,7 +892,7 @@ extension SingletonPlayerWebView {
                             bindMediaIdentity(
                                 video,
                                 true,
-                                sourceChanged || mediaTimeReset || identityCorrectionEvidence
+                                sourceChanged || identityCorrectionEvidence
                             );
                         }
                     }
