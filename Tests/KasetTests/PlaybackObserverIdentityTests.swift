@@ -26,6 +26,7 @@ struct PlaybackObserverIdentityTests {
         #expect(script.contains("mediaIdentityTransitionFromVideoId"))
         #expect(script.contains("confirmMediaIdentityOnPlaying"))
         #expect(script.contains("identityCorrectionEvidence"))
+        #expect(script.contains("lateIdentityRefreshResolved"))
         #expect(script.contains("initialEmptyIdentityResolved"))
         #expect(script.contains("mediaIdentityIsInitialBinding = !previousMediaVideoId && !videoId"))
         #expect(script.contains("observerEpoch: observerEpoch"))
@@ -56,6 +57,15 @@ struct PlaybackObserverIdentityTests {
         )?.toBool() == true)
         #expect(context.evaluateScript(
             "__kasetShouldCommitMediaIdentityCorrection(6000, 5000)"
+        )?.toBool() == false)
+        #expect(context.evaluateScript(
+            "__kasetShouldResolveLateMediaIdentityRefresh(true, 'v2', 'v1')"
+        )?.toBool() == true)
+        #expect(context.evaluateScript(
+            "__kasetShouldResolveLateMediaIdentityRefresh(false, 'v2', 'v1')"
+        )?.toBool() == false)
+        #expect(context.evaluateScript(
+            "__kasetShouldResolveLateMediaIdentityRefresh(true, 'v1', 'v1')"
         )?.toBool() == false)
     }
 

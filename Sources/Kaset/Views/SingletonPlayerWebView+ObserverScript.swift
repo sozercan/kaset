@@ -197,6 +197,13 @@ extension SingletonPlayerWebView {
         function __kasetShouldCommitMediaIdentityCorrection(deadline, now) {
             return deadline > 0 && now >= deadline;
         }
+        function __kasetShouldResolveLateMediaIdentityRefresh(
+            needsRefresh,
+            videoId,
+            mediaVideoId
+        ) {
+            return needsRefresh && !!videoId && videoId !== mediaVideoId;
+        }
         """
     }
 
@@ -863,8 +870,15 @@ extension SingletonPlayerWebView {
                             && !mediaIdentityIsInitialBinding
                             && !!mediaIdentityTransitionFromVideoId
                             && videoId !== mediaIdentityTransitionFromVideoId;
+                        const lateIdentityRefreshResolved =
+                            __kasetShouldResolveLateMediaIdentityRefresh(
+                                mediaIdentityNeedsRefresh,
+                                videoId,
+                                mediaVideoId
+                            );
                         const identityCorrectionEvidence = initialEmptyIdentityResolved
                             || transitionIdentityResolved
+                            || lateIdentityRefreshResolved
                             || __kasetIsMediaIdentityCorrectionWindowActive(
                                 mediaIdentityCorrectionDeadline,
                                 Date.now()
