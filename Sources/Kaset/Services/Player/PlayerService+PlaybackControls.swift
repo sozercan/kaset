@@ -742,8 +742,9 @@ extension PlayerService {
             else {
                 return false
             }
+            let resolvedSourceEntryID = self.queueEntryIDOwningCurrentPlayback ?? sourceEntryID
             if await self.advanceToMaterializedNextQueueSongIfAvailable(
-                after: sourceEntryID,
+                after: resolvedSourceEntryID,
                 currentEntryRepresentsSource: radioOutcome == .applied,
                 intent: intent,
                 defersNetworkFollowUp: defersNetworkFollowUp
@@ -773,10 +774,11 @@ extension PlayerService {
     func advanceToMaterializedNextQueueSongIfAvailable(
         after sourceEntryID: UUID?,
         currentEntryRepresentsSource: Bool = false,
-        intent: MusicPlaybackIntent? = nil,
+        intent suppliedIntent: MusicPlaybackIntent? = nil,
         defersNetworkFollowUp: Bool = false
     ) async -> Bool {
-        guard !self.queue.isEmpty else { return false }
+        let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
+        guard self.acceptsMusicPlaybackIntent(intent), !self.queue.isEmpty else { return false }
 
         let sourceIndex = sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
             ?? (currentEntryRepresentsSource && self.queue.indices.contains(self.currentIndex)

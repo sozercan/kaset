@@ -518,6 +518,7 @@ extension SingletonPlayerWebView {
                 host: "music.youtube.com"
             ) else { return }
             SingletonPlayerWebView.shared.syncAutoplayIntent(on: webView)
+            self.playerService.syncWebQueue()
             DiagnosticsLogger.player.info(
                 "Singleton WebView finished loading: \(webView.url?.absoluteString ?? "nil")"
             )

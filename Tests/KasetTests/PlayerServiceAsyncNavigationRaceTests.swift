@@ -105,6 +105,65 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.state == .playing)
     }
 
+    @Test("Newest overlapping radio Next advances after the earlier response materializes the queue")
+    func newestOverlappingRadioNextAdvancesMaterializedSuccessor() async {
+        let mockClient = MockYTMusicClient()
+        let firstResponseGate = AsyncGate()
+        let secondResponseGate = AsyncGate()
+        let responseOrder = LockedCounter()
+        let seed = TestFixtures.makeSong(id: "overlap-seed")
+        let successor = TestFixtures.makeSong(id: "overlap-successor")
+        mockClient.radioQueueSongs[seed.videoId] = [seed, successor]
+        mockClient.beforeRadioQueueReturn = { _ in
+            if responseOrder.increment() == 1 {
+                await firstResponseGate.wait()
+            } else {
+                await secondResponseGate.wait()
+            }
+        }
+        self.playerService.setYTMusicClient(mockClient)
+        self.playerService.currentTrack = seed
+        self.playerService.pendingPlayVideoId = seed.videoId
+        self.playerService.state = .playing
+
+        let firstNext = Task { @MainActor in
+            await self.playerService.next()
+        }
+        await Self.waitUntilRadioQueueCallCount(1, mockClient: mockClient)
+
+        let secondNext = Task { @MainActor in
+            await self.playerService.next()
+        }
+        await Self.waitUntilRadioQueueCallCount(2, mockClient: mockClient)
+
+        await firstResponseGate.open()
+        await Self.waitUntilQueueContains(
+            successor.videoId,
+            playerService: self.playerService
+        )
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+
+        await secondResponseGate.open()
+        await firstNext.value
+        await secondNext.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [seed.videoId, successor.videoId])
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == successor.videoId)
+        #expect(self.playerService.activePlaybackQueueEntryID == self.playerService.currentQueueEntryID)
+
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+        let navigationGenerationAfterUndo = self.playerService.playbackNavigationGeneration
+
+        await self.playerService.previous()
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+        #expect(self.playerService.playbackNavigationGeneration == navigationGenerationAfterUndo)
+    }
+
     @Test("Delayed radio Next cannot replace or skip new same-video playback")
     func delayedRadioNextDoesNotMutateSameVideoReplacement() async {
         let mockClient = MockYTMusicClient()
@@ -582,6 +641,36 @@ extension PlayerServiceWebQueueSyncTests {
             try? await Task.sleep(for: .milliseconds(10))
         }
         Issue.record("Timed out waiting for mix continuation")
+    }
+
+    private static func waitUntilQueueContains(
+        _ videoId: String,
+        playerService: PlayerService
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(5)
+        while clock.now < deadline {
+            if playerService.queue.contains(where: { $0.videoId == videoId }) {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Timed out waiting for materialized queue entry \(videoId)")
+    }
+
+    private static func waitUntilRadioQueueCallCount(
+        _ expectedCount: Int,
+        mockClient: MockYTMusicClient
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(5)
+        while clock.now < deadline {
+            if mockClient.getRadioQueueVideoIds.count >= expectedCount {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Timed out waiting for \(expectedCount) radio queue requests")
     }
 
     private static func waitUntilRadioQueueStartsForRace(mockClient: MockYTMusicClient) async {

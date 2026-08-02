@@ -6,6 +6,39 @@ import WebKit
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct SingletonPlayerNavigationStateTests {
+    @Test("Finished playback navigation retries native Web queue synchronization")
+    func navigationFinishResynchronizesWebQueue() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/SingletonPlayerNavigationStateTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+        let finishHandler = try #require(source.range(
+            of: "func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!)"
+        ))
+        let nextHandler = try #require(source.range(
+            of: "func webView(_ webView: WKWebView, didFail navigation: WKNavigation!",
+            range: finishHandler.upperBound ..< source.endIndex
+        ))
+        let finishBody = finishHandler.lowerBound ..< nextHandler.lowerBound
+        let acceptedFinish = try #require(source.range(
+            of: "handleDocumentNavigationFinish(",
+            range: finishBody
+        ))
+        let expectedPlaybackURL = try #require(source.range(
+            of: "WebPlaybackDocumentGeneration.isExpectedPlaybackURL(",
+            range: finishBody
+        ))
+        let syncCall = try #require(source.range(
+            of: "self.playerService.syncWebQueue()",
+            range: finishBody
+        ))
+        #expect(acceptedFinish.lowerBound < expectedPlaybackURL.lowerBound)
+        #expect(expectedPlaybackURL.lowerBound < syncCall.lowerBound)
+    }
+
     @Test("Only the active document navigation can commit or finish the gate")
     func staleCallbacksDoNotClearActiveNavigationGate() throws {
         let singleton = SingletonPlayerWebView.shared
