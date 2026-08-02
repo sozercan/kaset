@@ -22,6 +22,7 @@ struct PlaybackObserverIdentityTests {
             of: #"sourceChanged,\s*mediaTimeReset,\s*identityCorrectionEvidence"#,
             options: .regularExpression
         ) != nil)
+        #expect(script.contains("sourceChanged || mediaTimeReset || identityCorrectionEvidence"))
         #expect(script.contains("if (video.readyState >= 1)"))
         #expect(script.contains("mediaIdentityTransitionFromVideoId"))
         #expect(script.contains("confirmMediaIdentityOnPlaying"))
