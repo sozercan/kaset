@@ -25,17 +25,33 @@ extension SingletonPlayerWebView {
         return true
     }
 
-    @discardableResult
-    func commitDocumentNavigation(_ navigation: WKNavigation?, in webView: WKWebView) -> Bool {
+    func isActiveDocumentNavigation(_ navigation: WKNavigation?, in webView: WKWebView) -> Bool {
         guard webView === self.webView else { return false }
         switch (self.activeDocumentNavigation, navigation) {
-        case let (active?, committed?) where active === committed:
+        case let (active?, candidate?) where active === candidate:
             return true
         case (nil, nil):
             return true
         default:
             return false
         }
+    }
+
+    @discardableResult
+    func adoptPendingDocumentIDForActiveNavigation(
+        _ navigation: WKNavigation?,
+        in webView: WKWebView
+    ) -> Bool {
+        guard self.isActiveDocumentNavigation(navigation, in: webView),
+              let pendingDocumentID = self.pendingDocumentID
+        else { return false }
+        self.activeDocumentNavigationID = pendingDocumentID
+        return true
+    }
+
+    @discardableResult
+    func commitDocumentNavigation(_ navigation: WKNavigation?, in webView: WKWebView) -> Bool {
+        self.isActiveDocumentNavigation(navigation, in: webView)
     }
 
     @discardableResult

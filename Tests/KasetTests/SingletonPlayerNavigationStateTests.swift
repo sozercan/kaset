@@ -141,4 +141,63 @@ struct SingletonPlayerNavigationStateTests {
 
         #expect(validation.lowerBound < gateMutation.lowerBound)
     }
+
+    @Test("Active redirects adopt refreshed document IDs")
+    func activeRedirectAdoptsRefreshedDocumentID() throws {
+        let singleton = SingletonPlayerWebView.shared
+        singleton.tearDown()
+        let webView = singleton.getWebView(
+            webKitManager: WebKitManager.makeTestInstance(),
+            playerService: PlayerService()
+        )
+        webView.navigationDelegate = nil
+        defer { singleton.tearDown() }
+
+        let activeNavigation = try #require(webView.loadHTMLString("<html>active</html>", baseURL: nil))
+        let staleNavigation = try #require(webView.loadHTMLString("<html>stale</html>", baseURL: nil))
+        singleton.pendingDocumentID = 1
+        #expect(singleton.beginDocumentNavigation(activeNavigation, in: webView))
+        #expect(singleton.activeDocumentNavigationID == 1)
+
+        singleton.pendingDocumentID = 2
+        #expect(singleton.adoptPendingDocumentIDForActiveNavigation(activeNavigation, in: webView))
+        #expect(singleton.activeDocumentNavigationID == 2)
+
+        singleton.pendingDocumentID = 3
+        #expect(!singleton.adoptPendingDocumentIDForActiveNavigation(staleNavigation, in: webView))
+        #expect(singleton.activeDocumentNavigationID == 2)
+
+        #expect(singleton.adoptPendingDocumentIDForActiveNavigation(activeNavigation, in: webView))
+        #expect(singleton.activeDocumentNavigationID == 3)
+        #expect(singleton.commitDocumentNavigation(activeNavigation, in: webView))
+    }
+
+    @Test("Redirect refresh precedes active document ID adoption")
+    func redirectRefreshPrecedesDocumentIDAdoption() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/SingletonPlayerNavigationStateTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+        let handlerStart = try #require(source.range(
+            of: "func handleDocumentNavigationRedirect(_ navigation: WKNavigation?, webView: WKWebView)"
+        ))
+        let nextHandler = try #require(source.range(
+            of: "func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView)",
+            range: handlerStart.upperBound ..< source.endIndex
+        ))
+        let handlerRange = handlerStart.lowerBound ..< nextHandler.lowerBound
+        let scriptRefresh = try #require(source.range(
+            of: "self.refreshInstalledUserScripts()",
+            range: handlerRange
+        ))
+        let idAdoption = try #require(source.range(
+            of: "self.adoptPendingDocumentIDForActiveNavigation(",
+            range: handlerRange
+        ))
+
+        #expect(scriptRefresh.lowerBound < idAdoption.lowerBound)
+    }
 }

@@ -1802,9 +1802,11 @@ extension SingletonPlayerWebView {
               let navigation,
               let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)],
               trackedNavigation.generation == self.documentGeneration.inFlightGeneration,
-              self.documentGeneration.pendingGeneration == nil
+              self.documentGeneration.pendingGeneration == nil,
+              self.isActiveDocumentNavigation(navigation, in: webView)
         else { return }
         self.refreshInstalledUserScripts()
+        _ = self.adoptPendingDocumentIDForActiveNavigation(navigation, in: webView)
     }
 
     func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
