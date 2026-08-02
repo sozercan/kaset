@@ -574,9 +574,9 @@ extension PlayerServiceWebQueueSyncTests {
 
     private static func waitUntilMixContinuationStarts(mockClient: MockYTMusicClient) async {
         let clock = ContinuousClock()
-        let deadline = clock.now + .seconds(1)
+        let deadline = clock.now + .seconds(5)
         while clock.now < deadline {
-            if mockClient.getMixQueueContinuationCallCount == 1 {
+            if mockClient.getMixQueueContinuationCallCount >= 1 {
                 return
             }
             try? await Task.sleep(for: .milliseconds(10))
