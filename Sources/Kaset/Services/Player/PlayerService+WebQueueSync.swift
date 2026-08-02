@@ -448,6 +448,29 @@ extension PlayerService {
         return true
     }
 
+    func handleRejectedQueueNavigationObservationIfNeeded(
+        observedVideoId: String?,
+        title: String,
+        artist: String,
+        thumbnailUrl: String,
+        trackChanged: Bool
+    ) {
+        guard self.isKasetInitiatedPlayback,
+              let intendedSong = self.queue[safe: self.currentIndex],
+              self.protectedQueueNavigationVideoId == intendedSong.videoId,
+              let observedVideoId = self.normalizedPlaybackVideoId(observedVideoId),
+              observedVideoId != intendedSong.videoId
+        else { return }
+        _ = self.handleKasetInitiatedPlaybackMetadata(
+            observedVideoId: observedVideoId,
+            title: title,
+            artist: artist,
+            thumbnailUrl: thumbnailUrl,
+            trackChanged: trackChanged
+                || self.normalizedPlaybackVideoId(observedVideoId) != intendedSong.videoId
+        )
+    }
+
     private func commitObservedQueueTrack(
         to index: Int,
         videoId: String,

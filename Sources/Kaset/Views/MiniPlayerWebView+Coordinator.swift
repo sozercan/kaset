@@ -807,7 +807,7 @@ extension SingletonPlayerWebView.Coordinator {
             hasBaseline: self.hasAcceptedQueueEntryBaseline,
             lastAcceptedQueueEntryID: self.lastAcceptedQueueEntryID,
             currentQueueEntryID: queueEntryIDBeforeReconciliation
-        )
+        ) || self.playerService.observedPlaybackWouldChangeQueueEntry(videoId: playbackVideoId)
         let shouldAcceptBeforeReconciliation = WebPlaybackIdentityTransition.shouldAcceptMediaState(
             queueEntryChanged: queueEntryChangedBeforeReconciliation,
             observerEpoch: observerEpoch,
@@ -815,7 +815,16 @@ extension SingletonPlayerWebView.Coordinator {
             mediaGeneration: mediaGeneration,
             lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
         )
-        if !shouldAcceptBeforeReconciliation, isWithinQueueNavigationObservationGrace {
+        if !shouldAcceptBeforeReconciliation {
+            if !isWithinQueueNavigationObservationGrace {
+                self.playerService.handleRejectedQueueNavigationObservationIfNeeded(
+                    observedVideoId: playbackVideoId,
+                    title: title,
+                    artist: artist,
+                    thumbnailUrl: thumbnailUrl,
+                    trackChanged: trackChanged
+                )
+            }
             return
         }
 

@@ -120,6 +120,233 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queueNavigationRecoveryLoadTask != nil)
     }
 
+    @Test("Rejected media generation cannot realign the queue before reconciliation")
+    func rejectedMediaGenerationCannotMutateQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        var state: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 60),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+        #expect(self.playerService.currentIndex == 0)
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.clearQueueNavigationRecovery()
+        self.playerService.protectedQueueNavigationVideoId = nil
+        self.playerService.protectedQueueNavigationStartedAt = nil
+        self.playerService.protectedQueueNavigationConfirmedAt = nil
+
+        state["title"] = "Song 2"
+        state["duration"] = NSNumber(value: 200)
+        state["trackChanged"] = true
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+
+        state["mediaGeneration"] = 3
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+    }
+
+    @Test("Rejected generation cannot commit a duplicated expected successor")
+    func rejectedGenerationCannotCommitDuplicateExpectedSuccessor() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2a", title: "Song 2A", artists: [], duration: 200, videoId: "v2"),
+            Song(id: "2b", title: "Song 2B", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        var state: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 179),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.protectedQueueNavigationVideoId = nil
+        self.playerService.protectedQueueNavigationStartedAt = nil
+        self.playerService.protectedQueueNavigationConfirmedAt = nil
+        self.playerService.songNearingEnd = true
+
+        state["title"] = "Song 2A"
+        state["duration"] = NSNumber(value: 200)
+        state["trackChanged"] = true
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+
+        state["mediaGeneration"] = 3
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.id == "2a")
+    }
+
+    @Test("Rejected near-end generation cannot schedule correction for a non-queue ID")
+    func rejectedNearEndGenerationCannotScheduleUnexpectedCorrection() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        var state: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 179),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.protectedQueueNavigationVideoId = nil
+        self.playerService.protectedQueueNavigationStartedAt = nil
+        self.playerService.protectedQueueNavigationConfirmedAt = nil
+        self.playerService.songNearingEnd = true
+        state["title"] = "Unexpected"
+        state["trackChanged"] = true
+        await coordinator.handleStateUpdate(
+            body: state,
+            observedVideoId: "unexpected",
+            mediaVideoId: "unexpected",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.songNearingEnd)
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+    }
+
+    @Test("Identityless rejected generation preserves manual navigation protection")
+    func identitylessRejectedGenerationPreservesManualNavigationProtection() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        let baseline: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 60),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        await coordinator.handleStateUpdate(
+            body: baseline,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+        await self.playerService.next()
+        self.playerService.protectedQueueNavigationStartedAt = ContinuousClock.now - .seconds(2)
+        var identityless = baseline
+        identityless["title"] = ""
+        identityless["trackChanged"] = true
+
+        await coordinator.handleStateUpdate(
+            body: identityless,
+            observedVideoId: nil,
+            mediaVideoId: nil,
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.isKasetInitiatedPlayback)
+        #expect(self.playerService.protectedQueueNavigationVideoId == "v2")
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+    }
+
     @Test("Pending native handoff waits for a newer media generation before queue commit")
     func pendingNativeHandoffRequiresNewMediaGeneration() async {
         let songs = [

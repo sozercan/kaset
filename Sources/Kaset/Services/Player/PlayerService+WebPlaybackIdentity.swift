@@ -82,6 +82,20 @@ extension PlayerService {
         )
     }
 
+    func observedPlaybackWouldChangeQueueEntry(videoId observedVideoId: String?) -> Bool {
+        guard self.activePlaybackOwnsCurrentQueueEntry,
+              let observedVideoId = self.normalizedWebPlaybackVideoId(observedVideoId),
+              self.queue[safe: self.currentIndex]?.videoId != observedVideoId
+        else { return false }
+        if self.songNearingEnd {
+            return true
+        }
+        let matchingIndices = self.queueEntries.indices.filter { index in
+            self.queueEntries[index].song.videoId == observedVideoId
+        }
+        return matchingIndices.count == 1 && matchingIndices[0] != self.currentIndex
+    }
+
     /// Whether an identity-bearing WebView playback observation belongs to
     /// Kaset's current queue target. Once a target identity is known, transient
     /// identityless ticks are rejected because they may belong to the outgoing video.
