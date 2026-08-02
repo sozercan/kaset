@@ -246,6 +246,8 @@ extension SingletonPlayerWebView {
             let trailingUpdateTimeoutId = null;
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
+            const TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100;
+            const TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS = 5000;
 
             // Volume enforcement: track target volume set by Swift
             // Don't set a default - only enforce when explicitly set by Swift
@@ -337,8 +339,17 @@ extension SingletonPlayerWebView {
                         const endedPayload = trackEndedPayload(video);
                         if (!endedPayload) return;
                         sendTrackEnded(endedPayload);
-                        setTimeout(() => retryTrackEnded(video, endedPayload), 16);
-                        setTimeout(() => retryTrackEnded(video, endedPayload), 100);
+                        if (endedPayload.mediaIdentityUncertain) {
+                            const identityRetryDeadline = Date.now()
+                                + TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS;
+                            setTimeout(
+                                () => retryTrackEnded(video, endedPayload, identityRetryDeadline),
+                                16
+                            );
+                        } else {
+                            setTimeout(() => retryTrackEnded(video, endedPayload), 16);
+                            setTimeout(() => retryTrackEnded(video, endedPayload), 100);
+                        }
                         stopPolling();
                     });
                     video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
@@ -792,20 +803,33 @@ extension SingletonPlayerWebView {
                 bridge.postMessage(payload);
             }
 
-            function retryTrackEnded(video, payload) {
+            function retryTrackEnded(video, payload, identityRetryDeadline = 0) {
                 if (!video || video !== document.querySelector('video') || !video.ended) return;
                 if (video.__kasetEndedOccurrenceGeneration !== payload.mediaGeneration) return;
                 if (!payload.mediaIdentityUncertain) {
                     sendTrackEnded(payload);
                     return;
                 }
+                const retryNow = Date.now();
+                if (retryNow > identityRetryDeadline) return;
                 const retryIdentityUncertain = mediaIdentityUncertain;
-                const retryVideoId = retryIdentityUncertain
-                    ? ''
-                    : (video.__kasetBoundVideoId || lastVideoId || currentVideoId() || mediaVideoId);
+                if (retryIdentityUncertain) {
+                    const remainingRetryWindow = identityRetryDeadline - retryNow;
+                    if (remainingRetryWindow > 0) {
+                        setTimeout(
+                            () => retryTrackEnded(video, payload, identityRetryDeadline),
+                            Math.min(
+                                TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS,
+                                remainingRetryWindow
+                            )
+                        );
+                    }
+                    return;
+                }
+                const retryVideoId = video.__kasetBoundVideoId || lastVideoId || currentVideoId() || mediaVideoId;
                 sendTrackEnded(Object.assign({}, payload, {
                     videoId: retryVideoId,
-                    mediaIdentityUncertain: retryIdentityUncertain
+                    mediaIdentityUncertain: false
                 }));
             }
 

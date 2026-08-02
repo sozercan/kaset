@@ -411,8 +411,10 @@ struct MusicPlaybackOccurrenceJSTests {
         #expect(script.contains("eventIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()"))
         #expect(script.contains("eventIssuedAtMilliseconds: now"))
         #expect(script.contains("setTimeout(() => retryTrackEnded(video, endedPayload), 16)"))
+        #expect(script.contains("TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS = 5000"))
+        #expect(script.contains("TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100"))
         #expect(script.contains("function trackEndedPayload(video)"))
-        #expect(script.contains("function retryTrackEnded(video, payload)"))
+        #expect(script.contains("function retryTrackEnded(video, payload, identityRetryDeadline = 0)"))
         #expect(script.contains("video.__kasetEndedOccurrenceGeneration"))
         #expect(script.contains("video.__kasetBoundVideoId || lastVideoId || currentVideoId()"))
     }

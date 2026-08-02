@@ -17,13 +17,14 @@ enum MusicPlaybackObserverTestContext {
             function dispatch(name) {
                 (listeners[name] || []).forEach(function(callback) { callback({ currentTarget: video }); });
             }
+            var fakeNow = 0;
+            Date.now = function() { return fakeNow; };
             var scheduledTimeouts = [];
-            function setTimeout(callback, delay) { scheduledTimeouts.push({ callback: callback, delay: delay }); return scheduledTimeouts.length; }
+            function setTimeout(callback, delay) { scheduledTimeouts.push({ callback: callback, delay: delay, dueAt: fakeNow + delay }); return scheduledTimeouts.length; }
             function runTimeout(delay) {
                 for (var index = 0; index < scheduledTimeouts.length; index += 1) {
                     if (scheduledTimeouts[index].delay !== delay) continue;
-                    scheduledTimeouts.splice(index, 1)[0].callback();
-                    return true;
+                    var timeout = scheduledTimeouts.splice(index, 1)[0]; fakeNow = timeout.dueAt; timeout.callback(); return true;
                 }
                 return false;
             }
