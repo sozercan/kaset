@@ -6,8 +6,8 @@ import Testing
 @Suite(.tags(.service))
 struct MusicPlaybackEndedIdentityRecoveryTests {
     @Test("Ended retry refreshes identity after metadata resolves")
-    func endedRetryRefreshesResolvedIdentity() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func endedRetryRefreshesResolvedIdentity() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -73,8 +73,8 @@ struct MusicPlaybackEndedIdentityRecoveryTests {
     }
 
     @Test("Ended retry survives media identity lag beyond one hundred milliseconds")
-    func endedRetrySurvivesLongerIdentityLag() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func endedRetrySurvivesLongerIdentityLag() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -132,8 +132,8 @@ struct MusicPlaybackEndedIdentityRecoveryTests {
     }
 
     @Test("Ended identity recovery never posts after its deadline")
-    func endedRetryStopsAtIdentityDeadline() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func endedRetryStopsAtIdentityDeadline() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];

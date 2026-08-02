@@ -1,11 +1,12 @@
 import JavaScriptCore
+import Testing
 @testable import Kaset
 
 // MARK: - MusicPlaybackObserverTestContext
 
 enum MusicPlaybackObserverTestContext {
-    static func make() -> JSContext {
-        let context = JSContext()!
+    static func make() throws -> JSContext {
+        let context = try #require(JSContext())
         context.evaluateScript(
             """
             var messages = [];

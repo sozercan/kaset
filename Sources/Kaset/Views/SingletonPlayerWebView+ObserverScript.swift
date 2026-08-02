@@ -534,12 +534,16 @@ extension SingletonPlayerWebView {
                     return false;
                 }
 
+                const resolvesDeferredIdentityRefresh = identityChanged
+                    && mediaIdentityNeedsRefresh
+                    && !video.ended
+                    && video.__kasetEndedOccurrenceGeneration === null;
                 const shouldBind = __kasetShouldBindMediaOccurrence(
                     hasBoundOccurrence,
                     sourceChanged,
                     mediaTimeReset,
                     identityChanged,
-                    transitionEvidence === true
+                    transitionEvidence === true || resolvesDeferredIdentityRefresh
                 ) || (force === true && !hasBoundOccurrence);
                 if (!shouldBind) {
                     if (videoId && (!mediaVideoId || (identityChanged && mediaIdentityNeedsRefresh))) {

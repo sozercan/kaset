@@ -58,8 +58,9 @@ track into YouTube Music's native **Up Next** queue ahead of time.
 - `handleTrackEnded(observedVideoId:)` starts a bounded native handoff only when
   the readback-confirmed injected video ID still matches the expected next entry.
   The outgoing song remains visible until the media-bound observer reports that
-  exact target. A wrong video or a three-second timeout falls back through
-  `play(song:)` / `loadVideo(videoId:)`.
+  exact target. A wrong video or the normal three-second timeout falls back through
+  `play(song:)` / `loadVideo(videoId:)`. While an advertisement is active, only that
+  timeout receives a bounded 15-second grace period (18 seconds maximum from handoff start).
 - Document-scoped playback events carry an observer epoch and media generation.
   Kaset consumes each ended media occurrence once, rejects duplicate/older events,
   and advances the occurrence generation for a same-element replay without

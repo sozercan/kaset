@@ -322,8 +322,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Leading metadata keeps the outgoing media clock owner")
-    func leadingMetadataKeepsOutgoingMediaClockOwner() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func leadingMetadataKeepsOutgoingMediaClockOwner() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -347,8 +347,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Observer prefers the structured artist even when the title already matches")
-    func observerPrefersStructuredArtistForMatchingTitle() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func observerPrefersStructuredArtistForMatchingTitle() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -366,8 +366,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Observer preserves every DOM byline segment when no structured artist exists")
-    func observerPreservesDOMArtistFallback() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func observerPreservesDOMArtistFallback() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -420,8 +420,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Late ended keeps the outgoing occurrence after metadata leads")
-    func lateEndedKeepsOutgoingOccurrence() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func lateEndedKeepsOutgoingOccurrence() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -471,8 +471,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("A queued ended callback cannot end a replayed media occurrence")
-    func queuedEndedAfterReplayIsIgnored() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func queuedEndedAfterReplayIsIgnored() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -495,8 +495,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("A backward seek cannot rebind old media to leading metadata")
-    func backwardSeekDoesNotPermitLeadingIdentityRepair() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func backwardSeekDoesNotPermitLeadingIdentityRepair() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -532,8 +532,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Music source transition repairs identity when metadata catches up")
-    func sourceTransitionRepairsLeadingIdentity() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func sourceTransitionRepairsLeadingIdentity() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -554,9 +554,39 @@ struct MusicPlaybackOccurrenceJSTests {
         ).toString() == "v2")
     }
 
+    @Test("Playing resolves a deferred changed identity as a new occurrence")
+    func playingAdvancesDeferredIdentityRefresh() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript(
+            """
+            messages = [];
+            var initialGeneration = video.__kasetMediaGeneration;
+            video.currentSrc = 'https://media.example/v2';
+            video.currentTime = 0;
+            dispatch('loadedmetadata');
+            var deferredGeneration = video.__kasetMediaGeneration;
+            currentDataVideoId = 'v2';
+            titleElement.textContent = 'v2';
+            dispatch('playing');
+            var resolvedGeneration = video.__kasetMediaGeneration;
+            dispatch('waiting');
+            """
+        )
+
+        #expect(context.evaluateScript("deferredGeneration === initialGeneration").toBool() == true)
+        #expect(context.evaluateScript("resolvedGeneration === initialGeneration + 1").toBool() == true)
+        #expect(context.evaluateScript("video.__kasetBoundVideoId").toString() == "v2")
+        #expect(context.evaluateScript(
+            """
+            messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })
+                .slice(-1)[0].mediaGeneration === resolvedGeneration
+            """
+        ).toBool() == true)
+    }
+
     @Test("A backward seek preserves deferred source-transition identity repair")
-    func backwardSeekPreservesDeferredIdentityRepair() {
-        let context = MusicPlaybackObserverTestContext.make()
+    func backwardSeekPreservesDeferredIdentityRepair() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
