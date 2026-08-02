@@ -120,6 +120,67 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queueNavigationRecoveryLoadTask != nil)
     }
 
+    @Test("Pending native handoff waits for a newer media generation before queue commit")
+    func pendingNativeHandoffRequiresNewMediaGeneration() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        let sourceState: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 179),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "mediaGeneration": 2,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        await coordinator.handleStateUpdate(
+            body: sourceState,
+            observedVideoId: "v1",
+            mediaVideoId: "v1",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+
+        var targetState = sourceState
+        targetState["title"] = "Song 2"
+        targetState["trackChanged"] = true
+        await coordinator.handleStateUpdate(
+            body: targetState,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == "v2")
+
+        targetState["mediaGeneration"] = 3
+        await coordinator.handleStateUpdate(
+            body: targetState,
+            observedVideoId: "v2",
+            mediaVideoId: "v2",
+            observationReceivedAt: ContinuousClock.now,
+            messageGeneration: 0
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+    }
+
     @Test("Mismatched Web video ID reconciles when bridge trackChanged is false")
     func mismatchedWebVideoIDReconcilesWithoutTrackChangedFlag() async {
         let songs = [

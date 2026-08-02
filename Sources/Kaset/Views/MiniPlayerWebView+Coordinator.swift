@@ -723,6 +723,18 @@ extension SingletonPlayerWebView.Coordinator {
             mediaGeneration: mediaGeneration,
             lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
         ) else { return }
+        if let pendingAdvance = self.playerService.pendingNativeQueueAdvance,
+           let playbackVideoId,
+           playbackVideoId != pendingAdvance.sourceVideoId
+        {
+            guard WebPlaybackIdentityTransition.shouldAcceptMediaState(
+                queueEntryChanged: true,
+                observerEpoch: observerEpoch,
+                lastAcceptedObserverEpoch: self.lastAcceptedObserverEpoch,
+                mediaGeneration: mediaGeneration,
+                lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
+            ) else { return }
+        }
         if validatesBridgeContext,
            self.playerService.observedPlaybackMatchesCurrentTarget(videoId: playbackVideoId)
         {
