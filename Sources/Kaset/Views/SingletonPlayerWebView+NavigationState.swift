@@ -2,6 +2,20 @@ import WebKit
 
 @MainActor
 extension SingletonPlayerWebView {
+    nonisolated static func acceptsDocumentNavigationStart(
+        isCancelled: Bool,
+        trackedGeneration: UInt64?,
+        candidateGeneration: UInt64?,
+        inFlightGeneration: UInt64?,
+        hasPendingGeneration: Bool
+    ) -> Bool {
+        guard !isCancelled,
+              !hasPendingGeneration,
+              let inFlightGeneration
+        else { return false }
+        return (trackedGeneration ?? candidateGeneration) == inFlightGeneration
+    }
+
     @discardableResult
     func beginDocumentNavigation(_ navigation: WKNavigation?, in webView: WKWebView) -> Bool {
         guard webView === self.webView else { return false }

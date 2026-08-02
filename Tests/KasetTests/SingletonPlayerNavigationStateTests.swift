@@ -73,4 +73,72 @@ struct SingletonPlayerNavigationStateTests {
         #expect(singleton.activeDocumentNavigation == nil)
         #expect(singleton.activeDocumentNavigationID == nil)
     }
+
+    @Test("Navigation start acceptance rejects stale ownership")
+    func navigationStartAcceptanceIsGenerationFenced() {
+        #expect(!SingletonPlayerWebView.acceptsDocumentNavigationStart(
+            isCancelled: true,
+            trackedGeneration: 2,
+            candidateGeneration: nil,
+            inFlightGeneration: 2,
+            hasPendingGeneration: false
+        ))
+        #expect(!SingletonPlayerWebView.acceptsDocumentNavigationStart(
+            isCancelled: false,
+            trackedGeneration: 1,
+            candidateGeneration: nil,
+            inFlightGeneration: 2,
+            hasPendingGeneration: false
+        ))
+        #expect(!SingletonPlayerWebView.acceptsDocumentNavigationStart(
+            isCancelled: false,
+            trackedGeneration: 2,
+            candidateGeneration: nil,
+            inFlightGeneration: 2,
+            hasPendingGeneration: true
+        ))
+        #expect(SingletonPlayerWebView.acceptsDocumentNavigationStart(
+            isCancelled: false,
+            trackedGeneration: 2,
+            candidateGeneration: nil,
+            inFlightGeneration: 2,
+            hasPendingGeneration: false
+        ))
+        #expect(SingletonPlayerWebView.acceptsDocumentNavigationStart(
+            isCancelled: false,
+            trackedGeneration: nil,
+            candidateGeneration: 2,
+            inFlightGeneration: 2,
+            hasPendingGeneration: false
+        ))
+    }
+
+    @Test("Navigation start is validated before replacing the active gate")
+    func navigationStartValidationPrecedesGateMutation() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/SingletonPlayerNavigationStateTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+        let handlerStart = try #require(source.range(
+            of: "func handleDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView)"
+        ))
+        let nextHandler = try #require(source.range(
+            of: "func handleDocumentNavigationRedirect(",
+            range: handlerStart.upperBound ..< source.endIndex
+        ))
+        let handlerRange = handlerStart.lowerBound ..< nextHandler.lowerBound
+        let validation = try #require(source.range(
+            of: "guard self.trackDocumentNavigationStart(",
+            range: handlerRange
+        ))
+        let gateMutation = try #require(source.range(
+            of: "self.beginDocumentNavigation(",
+            range: handlerRange
+        ))
+
+        #expect(validation.lowerBound < gateMutation.lowerBound)
+    }
 }

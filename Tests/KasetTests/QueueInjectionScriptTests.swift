@@ -85,6 +85,85 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("queueVideoIds.length")?.toInt32() == 3)
     }
 
+    @Test("Multiple selected rows cannot confirm an already aligned queue")
+    func ambiguousAlreadyAlignedQueueDoesNotConfirm() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            clickMode: "duplicateInsert",
+            initialQueueVideoIds: ["source-video", "target-video", "source-video", "wrong-next"],
+            queueCurrentIndex: 0,
+            additionalQueueCurrentIndices: [2]
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context, limit: 200)
+
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == false)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-source-not-ready")
+        #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
+    }
+
+    @Test("An unhydrated selected row keeps queue readback ambiguous")
+    func unhydratedSelectedRowDoesNotConfirm() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            clickMode: "duplicateInsert",
+            initialQueueVideoIds: ["source-video", "target-video", "loading-row"],
+            queueCurrentIndex: 0,
+            additionalQueueCurrentIndices: [2],
+            unhydratedQueueIndices: [2]
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context, limit: 200)
+
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == false)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-source-not-ready")
+        #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
+    }
+
+    @Test("Multiple selected rows cannot confirm post-click readback")
+    func ambiguousPostClickReadbackDoesNotConfirm() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            initialQueueVideoIds: ["source-video", "wrong-next", "source-video", "other-next"],
+            queueCurrentIndex: 0
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.evaluate(
+            """
+            while (fakeNow < 250 && runNextTimer()) {}
+            additionalQueueCurrentIndices = [3];
+            """,
+            in: context
+        )
+        self.runTimersUntilMessage(in: context, limit: 200)
+
+        #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
+        #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "target-video")
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == false)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-timeout")
+    }
+
     @Test("A historical target before the selected source cannot confirm readback")
     func historicalTargetBeforeCurrentSourceDoesNotConfirm() throws {
         let context = try #require(self.makeContext(
@@ -397,7 +476,9 @@ struct QueueInjectionScriptTests {
         currentVideoId: String? = nil,
         refreshMenuSourceOnTimer: Bool = false,
         initialQueueVideoIds: [String]? = nil,
-        queueCurrentIndex: Int? = 0
+        queueCurrentIndex: Int? = 0,
+        additionalQueueCurrentIndices: [Int] = [],
+        unhydratedQueueIndices: [Int] = []
     ) -> JSContext? {
         guard let context = JSContext() else { return nil }
         let clickModeLiteral = SingletonPlayerWebView.javaScriptStringLiteral(clickMode)
@@ -409,6 +490,12 @@ struct QueueInjectionScriptTests {
             .map(SingletonPlayerWebView.javaScriptStringLiteral)
             .joined(separator: ",") + "]"
         let queueCurrentIndexLiteral = queueCurrentIndex.map(String.init) ?? "null"
+        let additionalQueueCurrentIndicesLiteral = "[" + additionalQueueCurrentIndices
+            .map(String.init)
+            .joined(separator: ",") + "]"
+        let unhydratedQueueIndicesLiteral = "[" + unhydratedQueueIndices
+            .map(String.init)
+            .joined(separator: ",") + "]"
         self.evaluate(
             """
             var window = this;
@@ -427,6 +514,8 @@ struct QueueInjectionScriptTests {
             var refreshMenuSourceOnTimer = \(refreshMenuSourceOnTimer ? "true" : "false");
             var queueVideoIds = \(initialQueueLiteral);
             var queueCurrentIndexValue = \(queueCurrentIndexLiteral);
+            var additionalQueueCurrentIndices = \(additionalQueueCurrentIndicesLiteral);
+            var unhydratedQueueIndices = \(unhydratedQueueIndicesLiteral);
             Date.now = function() { return fakeNow; };
             function setTimeout(callback, delay) {
                 timerID += 1;
@@ -545,8 +634,11 @@ struct QueueInjectionScriptTests {
             function queueItems() {
                 return queueVideoIds.map(function(videoId, index) {
                     return {
-                        __kasetIsCurrent: queueCurrentIndexValue === index,
-                        data: { playlistItemData: { videoId: videoId } },
+                        __kasetIsCurrent: queueCurrentIndexValue === index
+                            || additionalQueueCurrentIndices.includes(index),
+                        data: unhydratedQueueIndices.includes(index)
+                            ? null
+                            : { playlistItemData: { videoId: videoId } },
                         hasAttribute: function(name) {
                             return this.__kasetIsCurrent && name === 'selected';
                         },

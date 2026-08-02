@@ -195,8 +195,9 @@ extension SingletonPlayerWebView {
                 const items = [];
                 for (const item of queueItems) {
                     const ids = collectVideoIds(item.data || item.__data || null);
-                    if (ids.length > 0) {
-                        items.push({ videoId: ids[0], isCurrent: queueItemIsCurrent(item) });
+                    const isCurrent = queueItemIsCurrent(item);
+                    if (ids.length > 0 || isCurrent) {
+                        items.push({ videoId: ids[0] || '', isCurrent: isCurrent });
                     }
                 }
                 return items;
@@ -211,8 +212,18 @@ extension SingletonPlayerWebView {
                     && lhs.every((videoId, index) => videoId === rhs[index]);
             }
 
+            function uniqueCurrentQueueIndex(items) {
+                let currentIndex = -1;
+                for (let index = 0; index < items.length; index += 1) {
+                    if (!items[index].isCurrent) continue;
+                    if (currentIndex >= 0) return -1;
+                    currentIndex = index;
+                }
+                return currentIndex;
+            }
+
             function hasExpectedNextOccurrence(items) {
-                const currentIndex = items.findIndex(item => item.isCurrent);
+                const currentIndex = uniqueCurrentQueueIndex(items);
                 if (currentIndex < 0) return false;
                 return items[currentIndex].videoId === sourceVideoId
                     && !!items[currentIndex + 1]
@@ -285,7 +296,7 @@ extension SingletonPlayerWebView {
                     return false;
                 }
                 const queueItemsBeforeClick = currentQueueItems();
-                const queueCurrentIndexBeforeClick = queueItemsBeforeClick.findIndex(item => item.isCurrent);
+                const queueCurrentIndexBeforeClick = uniqueCurrentQueueIndex(queueItemsBeforeClick);
                 // With no rendered selected source, YouTube can take the queue endpoint's
                 // `onEmptyQueue` path and start the injected target immediately. Wait for
                 // the native queue model to confirm the source occurrence before clicking.

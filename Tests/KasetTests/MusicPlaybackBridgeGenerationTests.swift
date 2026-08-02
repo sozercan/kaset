@@ -844,9 +844,9 @@ struct WebPlaybackTransitionFallbackPolicyTests {
         #expect(playerService.lastNonAdContentVideoId == "content")
     }
 
-    @Test("Advertisement state rejects the outgoing pending-handoff source")
-    func advertisementStateRejectsOutgoingPendingSource() {
-        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+    @Test("Advertisement state requires a newer occurrence for the pending source")
+    func advertisementStateRequiresNewOccurrenceForPendingSource() {
+        #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
             hasReadyMedia: true,
             isShowingAd: true,
             observedVideoId: "source",
@@ -856,6 +856,42 @@ struct WebPlaybackTransitionFallbackPolicyTests {
                 lastAcceptedObserverEpoch: 10,
                 mediaGeneration: 2,
                 lastAcceptedMediaGeneration: 1
+            )
+        ))
+        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 1,
+                lastAcceptedMediaGeneration: 1
+            )
+        ))
+        #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 11,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 0,
+                lastAcceptedMediaGeneration: 4
+            )
+        ))
+        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: nil,
+                mediaGeneration: 1,
+                lastAcceptedMediaGeneration: nil
             )
         ))
         #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(

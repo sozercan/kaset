@@ -85,8 +85,18 @@ enum WebPlaybackIdentityTransition {
                   lastAcceptedMediaGeneration: order.lastAcceptedMediaGeneration
               )
         else { return false }
-        guard let pendingSourceVideoId, let observedVideoId else { return true }
-        return observedVideoId != pendingSourceVideoId
+        guard let pendingSourceVideoId,
+              let observedVideoId,
+              observedVideoId == pendingSourceVideoId
+        else { return true }
+        guard let lastAcceptedObserverEpoch = order.lastAcceptedObserverEpoch else { return false }
+        if order.observerEpoch > lastAcceptedObserverEpoch {
+            return true
+        }
+        guard order.observerEpoch == lastAcceptedObserverEpoch,
+              let lastAcceptedMediaGeneration = order.lastAcceptedMediaGeneration
+        else { return false }
+        return order.mediaGeneration > lastAcceptedMediaGeneration
     }
 
     static func shouldAcceptEndedOccurrence(
@@ -1672,27 +1682,54 @@ extension SingletonPlayerWebView {
         webView.stopLoading()
     }
 
-    func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
-        guard webView === self.webView,
-              let navigation,
-              self.documentNavigations[ObjectIdentifier(navigation)] == nil,
-              let generation = WebPlaybackDocumentGeneration.generation(from: webView.url)
-              ?? (self.documentGeneration.committedIntermediaryGeneration
-                  == self.documentGeneration.inFlightGeneration
-                  && WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
-                      webView.url,
-                      playbackHost: "music.youtube.com"
-                  ) ? self.documentGeneration.inFlightGeneration : nil),
-              generation == self.documentGeneration.inFlightGeneration
-        else { return }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
-            generation: generation
+    @discardableResult
+    func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
+        guard webView === self.webView else { return false }
+        let identifier = navigation.map { ObjectIdentifier($0) }
+        if let identifier {
+            let trackedGeneration = self.documentNavigations[identifier]?.generation
+            if trackedGeneration != nil {
+                return Self.acceptsDocumentNavigationStart(
+                    isCancelled: self.cancelledDocumentNavigations[identifier] != nil,
+                    trackedGeneration: trackedGeneration,
+                    candidateGeneration: nil,
+                    inFlightGeneration: self.documentGeneration.inFlightGeneration,
+                    hasPendingGeneration: self.documentGeneration.pendingGeneration != nil
+                )
+            }
+            if self.cancelledDocumentNavigations[identifier] != nil {
+                return false
+            }
+        }
+        if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
+            return self.documentGeneration.ownsBlankNavigation(webView.url)
+        }
+        guard let identifier else { return false }
+        let candidateGeneration = WebPlaybackDocumentGeneration.generation(from: webView.url)
+            ?? (self.documentGeneration.committedIntermediaryGeneration
+                == self.documentGeneration.inFlightGeneration
+                && WebPlaybackDocumentGeneration.isAllowedPlaybackNavigationURL(
+                    webView.url,
+                    playbackHost: "music.youtube.com"
+                ) ? self.documentGeneration.inFlightGeneration : nil)
+        guard Self.acceptsDocumentNavigationStart(
+            isCancelled: false,
+            trackedGeneration: nil,
+            candidateGeneration: candidateGeneration,
+            inFlightGeneration: self.documentGeneration.inFlightGeneration,
+            hasPendingGeneration: self.documentGeneration.pendingGeneration != nil
+        ), let candidateGeneration
+        else { return false }
+        self.documentNavigations[identifier] = WebPlaybackTrackedNavigation(
+            generation: candidateGeneration
         )
+        return true
     }
 
     func handleDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
-        _ = self.beginDocumentNavigation(navigation, in: webView)
-        self.trackDocumentNavigationStart(navigation, webView: webView)
+        guard self.trackDocumentNavigationStart(navigation, webView: webView),
+              self.beginDocumentNavigation(navigation, in: webView)
+        else { return }
         self.webKitManager?.extensionHostWebViewDidStartNavigation(webView)
     }
 
