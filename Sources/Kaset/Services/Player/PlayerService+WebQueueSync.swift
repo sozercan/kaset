@@ -880,10 +880,17 @@ extension PlayerService {
         playbackOccurrence: MusicPlaybackOccurrence? = nil,
         intent suppliedIntent: MusicPlaybackIntent? = nil,
         startsPaused suppliedStartsPaused: Bool? = nil,
+        identityResolutionTimedOut: Bool = false,
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
         guard shouldContinue(), self.acceptsMusicPlaybackIntent(intent) else { return }
+        if identityResolutionTimedOut {
+            guard observedVideoId == nil,
+                  playbackOccurrence?.documentGeneration != nil,
+                  playbackOccurrence?.videoId == nil
+            else { return }
+        }
         self.logger.debug("Track ended reported by WebView: \(observedVideoId ?? "unknown")")
 
         let normalizedEndedVideoId = self.normalizedPlaybackVideoId(observedVideoId)
@@ -904,12 +911,29 @@ extension PlayerService {
             return
         }
         let startsPaused = suppliedStartsPaused ?? self.isExplicitPauseIntentActive
+        if identityResolutionTimedOut {
+            self.clearWebQueueInjectionState()
+            if self.pendingNativeQueueAdvance != nil {
+                guard shouldContinue(),
+                      let continuationIntent = self.acceptedTrackEndContinuationIntent(
+                          originalIntent: intent,
+                          occurrence: terminalOccurrence
+                      )
+                else { return }
+                await self.resolvePendingNativeQueueAdvanceForExplicitTerminal(
+                    intent: continuationIntent,
+                    reason: "track ended before media identity resolved"
+                )
+                return
+            }
+        }
         await self.finishTrackEnded(
             observedVideoId: observedVideoId,
             intent: intent,
             terminalOccurrence: terminalOccurrence,
             claimsPendingTargetOccurrence: defersOccurrenceClaimForPendingTarget,
             startsPaused: startsPaused,
+            allowsNativeQueueHandoff: !identityResolutionTimedOut,
             shouldContinue: shouldContinue
         )
     }
@@ -921,6 +945,7 @@ extension PlayerService {
         terminalOccurrence suppliedTerminalOccurrence: MusicPlaybackOccurrence?,
         claimsPendingTargetOccurrence: Bool,
         startsPaused: Bool,
+        allowsNativeQueueHandoff: Bool,
         shouldContinue: @MainActor () -> Bool
     ) async {
         guard shouldContinue(),
@@ -957,6 +982,9 @@ extension PlayerService {
         }
 
         self.songNearingEnd = false
+        if !allowsNativeQueueHandoff {
+            self.clearWebQueueInjectionState()
+        }
         guard self.activePlaybackOwnsCurrentQueueEntry,
               !self.queue.isEmpty
         else {
@@ -1057,7 +1085,8 @@ extension PlayerService {
         // navigation. Keep the outgoing song visible until the media-bound observer
         // confirms the exact expected target; a wrong or missing transition falls
         // back to deterministic loading after a short bounded wait.
-        if let expectedIndex = self.expectedQueueIndexAfterCurrentTrack(),
+        if allowsNativeQueueHandoff,
+           let expectedIndex = self.expectedQueueIndexAfterCurrentTrack(),
            let expectedSong = self.queue[safe: expectedIndex],
            self.injectedWebQueueVideoId == expectedSong.videoId
         {

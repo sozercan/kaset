@@ -534,17 +534,18 @@ extension SingletonPlayerWebView {
                     return false;
                 }
 
-                const resolvesDeferredIdentityRefresh = identityChanged
-                    && mediaIdentityNeedsRefresh
-                    && !video.ended
-                    && video.__kasetEndedOccurrenceGeneration === null;
-                const shouldBind = __kasetShouldBindMediaOccurrence(
-                    hasBoundOccurrence,
-                    sourceChanged,
-                    mediaTimeReset,
-                    identityChanged,
-                    transitionEvidence === true || resolvesDeferredIdentityRefresh
-                ) || (force === true && !hasBoundOccurrence);
+                const hasPendingEndedOccurrence = video.ended
+                    && video.__kasetEndedOccurrenceGeneration !== null;
+                const resolvesDeferredIdentityRefresh = identityChanged && mediaIdentityNeedsRefresh;
+                const shouldBind = !hasPendingEndedOccurrence && (
+                    __kasetShouldBindMediaOccurrence(
+                        hasBoundOccurrence,
+                        sourceChanged,
+                        mediaTimeReset,
+                        identityChanged,
+                        transitionEvidence === true || resolvesDeferredIdentityRefresh
+                    ) || (force === true && !hasBoundOccurrence)
+                );
                 if (!shouldBind) {
                     if (videoId && (!mediaVideoId || (identityChanged && mediaIdentityNeedsRefresh))) {
                         mediaVideoId = videoId;
@@ -815,19 +816,26 @@ extension SingletonPlayerWebView {
                     return;
                 }
                 const retryNow = Date.now();
-                if (retryNow > identityRetryDeadline) return;
                 const retryIdentityUncertain = mediaIdentityUncertain;
                 if (retryIdentityUncertain) {
-                    const remainingRetryWindow = identityRetryDeadline - retryNow;
-                    if (remainingRetryWindow > 0) {
-                        setTimeout(
-                            () => retryTrackEnded(video, payload, identityRetryDeadline),
-                            Math.min(
-                                TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS,
-                                remainingRetryWindow
-                            )
-                        );
+                    if (retryNow >= identityRetryDeadline) {
+                        if (!payload.isAd) {
+                            sendTrackEnded(Object.assign({}, payload, {
+                                type: 'TRACK_ENDED_IDENTITY_DEADLINE',
+                                identityDisposition: 'deadlineFallback',
+                                mediaVideoId: ''
+                            }));
+                        }
+                        return;
                     }
+                    const remainingRetryWindow = identityRetryDeadline - retryNow;
+                    setTimeout(
+                        () => retryTrackEnded(video, payload, identityRetryDeadline),
+                        Math.min(
+                            TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS,
+                            remainingRetryWindow
+                        )
+                    );
                     return;
                 }
                 const retryVideoId = video.__kasetBoundVideoId || lastVideoId || currentVideoId() || mediaVideoId;

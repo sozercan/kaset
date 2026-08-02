@@ -13,6 +13,19 @@ enum WebPlaybackIdentityTransition {
         let lastAcceptedMediaGeneration: Int?
     }
 
+    struct TrackEndedIdentityDeadlinePayload {
+        let identityDisposition: String?
+        let mediaIdentityUncertain: Bool?
+        let videoId: String?
+        let mediaVideoId: String?
+        let observerEpoch: Double?
+        let eventIssuedAtMilliseconds: Double?
+        let documentGeneration: UInt64?
+        let nativePlaybackGeneration: UInt64?
+        let mediaGeneration: UInt64?
+        let isAd: Bool?
+    }
+
     static func isConfirmed(
         observedVideoId: String?,
         lastAcceptedObservedVideoId: String?,
@@ -97,6 +110,28 @@ enum WebPlaybackIdentityTransition {
               let lastAcceptedMediaGeneration = order.lastAcceptedMediaGeneration
         else { return false }
         return order.mediaGeneration > lastAcceptedMediaGeneration
+    }
+
+    static func isValidTrackEndedIdentityDeadlinePayload(
+        _ payload: TrackEndedIdentityDeadlinePayload
+    ) -> Bool {
+        guard payload.identityDisposition == "deadlineFallback",
+              payload.mediaIdentityUncertain == true,
+              let videoId = payload.videoId,
+              videoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let mediaVideoId = payload.mediaVideoId,
+              mediaVideoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let observerEpoch = payload.observerEpoch,
+              observerEpoch.isFinite,
+              let eventIssuedAtMilliseconds = payload.eventIssuedAtMilliseconds,
+              eventIssuedAtMilliseconds.isFinite,
+              payload.documentGeneration != nil,
+              payload.nativePlaybackGeneration != nil,
+              let mediaGeneration = payload.mediaGeneration,
+              mediaGeneration > 0,
+              payload.isAd == false
+        else { return false }
+        return true
     }
 
     static func shouldAcceptEndedOccurrence(
@@ -453,6 +488,35 @@ final class SingletonPlayerWebView {
                 // Keep an uncertain occurrence unclaimed so a resolved retry can consume it.
                 guard body["mediaIdentityUncertain"] as? Bool != true else { return }
                 guard self.consumeTrackEndedOccurrence(body: body) else { return }
+            case "TRACK_ENDED_IDENTITY_DEADLINE":
+                guard let expectedDocumentID = singleton.expectedBridgeDocumentID,
+                      body["documentID"] as? Int == expectedDocumentID,
+                      WebPlaybackIdentityTransition.isValidTrackEndedIdentityDeadlinePayload(
+                          .init(
+                              identityDisposition: body["identityDisposition"] as? String,
+                              mediaIdentityUncertain: body["mediaIdentityUncertain"] as? Bool,
+                              videoId: body["videoId"] as? String,
+                              mediaVideoId: body["mediaVideoId"] as? String,
+                              observerEpoch: SingletonPlayerWebView.finitePlaybackBridgeDouble(
+                                  from: body["observerEpoch"]
+                              ),
+                              eventIssuedAtMilliseconds: SingletonPlayerWebView.finitePlaybackBridgeDouble(
+                                  from: body["eventIssuedAtMilliseconds"]
+                              ),
+                              documentGeneration: WebPlaybackDocumentGeneration.decode(
+                                  body["documentGeneration"]
+                              ),
+                              nativePlaybackGeneration: WebPlaybackDocumentGeneration.decode(
+                                  body["nativePlaybackGeneration"]
+                              ),
+                              mediaGeneration: WebPlaybackDocumentGeneration.decode(
+                                  body["mediaGeneration"]
+                              ),
+                              isAd: body["isAd"] as? Bool
+                          )
+                      ),
+                      self.consumeTrackEndedOccurrence(body: body)
+                else { return }
             case "STATE_UPDATE":
                 break
             default:

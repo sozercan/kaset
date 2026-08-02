@@ -83,8 +83,9 @@ extension SingletonPlayerWebView {
             )
 
             switch type {
-            case "TRACK_ENDED":
+            case "TRACK_ENDED", "TRACK_ENDED_IDENTITY_DEADLINE":
                 let endedDuringAd = body["isAd"] as? Bool ?? false
+                let identityResolutionTimedOut = type == "TRACK_ENDED_IDENTITY_DEADLINE"
                 Task { @MainActor in
                     guard SingletonPlayerWebView.shared.documentGeneration.accepts(
                         generation: messageDocumentGeneration
@@ -92,12 +93,14 @@ extension SingletonPlayerWebView {
                         intent: musicPlaybackIntent,
                         eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
                     ),
-                        !endedDuringAd
+                        !endedDuringAd,
+                        !identityResolutionTimedOut || playbackOccurrence != nil
                     else { return }
                     await self.playerService.handleTrackEnded(
                         observedVideoId: observedVideoId,
                         playbackOccurrence: playbackOccurrence,
-                        intent: musicPlaybackIntent
+                        intent: musicPlaybackIntent,
+                        identityResolutionTimedOut: identityResolutionTimedOut
                     )
                 }
             case "REMOTE_NEXT", "REMOTE_PREVIOUS":

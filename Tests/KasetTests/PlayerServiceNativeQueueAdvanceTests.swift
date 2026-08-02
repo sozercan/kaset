@@ -266,6 +266,134 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.state == .ended)
     }
 
+    @Test("Identity deadline bypasses native handoff and advances once")
+    func identityDeadlineDeterministicallyAdvancesOnce() async throws {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], duration: 220, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "v2"
+        let nativeOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        let deadlineOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence.nativeGeneration
+        )
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: nil,
+            playbackOccurrence: deadlineOccurrence,
+            identityResolutionTimedOut: true
+        )
+        await self.playerService.handleTrackEnded(
+            observedVideoId: nil,
+            playbackOccurrence: deadlineOccurrence,
+            identityResolutionTimedOut: true
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+    }
+
+    @Test("Identity deadline ignores a re-injected native marker")
+    func identityDeadlineIgnoresReinjectedNativeMarker() async throws {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], duration: 220, videoId: "v3"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let nativeOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        let deadlineOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence.nativeGeneration
+        )
+        var validationCount = 0
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: nil,
+            playbackOccurrence: deadlineOccurrence,
+            identityResolutionTimedOut: true,
+            shouldContinue: {
+                validationCount += 1
+                if validationCount == 2 {
+                    self.playerService.injectedWebQueueVideoId = "v2"
+                }
+                return true
+            }
+        )
+
+        #expect(validationCount >= 2)
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+    }
+
+    @Test("Identity deadline rejects an occurrence carrying media identity")
+    func identityDeadlineRejectsIdentityBearingOccurrence() async throws {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "v2"
+        let nativeOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        let contradictoryOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence.nativeGeneration,
+            videoId: "v2"
+        )
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: nil,
+            playbackOccurrence: contradictoryOccurrence,
+            identityResolutionTimedOut: true
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.injectedWebQueueVideoId == "v2")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+    }
+
+    @Test("Identity deadline resolves an existing native handoff")
+    func identityDeadlineFallsBackPendingNativeHandoff() async throws {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        let nativeOccurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        let deadlineOccurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: 7,
+            mediaGeneration: 1,
+            nativeGeneration: nativeOccurrence.nativeGeneration
+        )
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: nil,
+            playbackOccurrence: deadlineOccurrence,
+            identityResolutionTimedOut: true
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.state == .loading)
+    }
+
     @Test("Native queue advance timeout deterministically loads the expected target")
     func nativeQueueAdvanceTimeoutLoadsExpectedTarget() async {
         let songs = [

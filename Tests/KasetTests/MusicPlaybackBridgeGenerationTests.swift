@@ -920,6 +920,51 @@ struct WebPlaybackTransitionFallbackPolicyTests {
         ))
     }
 
+    @Test("Identity deadline payload requires strict identityless provenance")
+    func identityDeadlinePayloadValidation() {
+        func isValid(
+            disposition: String? = "deadlineFallback",
+            uncertain: Bool? = true,
+            videoId: String? = "",
+            mediaVideoId: String? = "",
+            observerEpoch: Double? = 10,
+            timestamp: Double? = 100,
+            documentGeneration: UInt64? = 7,
+            nativeGeneration: UInt64? = 4,
+            mediaGeneration: UInt64? = 2,
+            isAd: Bool? = false
+        ) -> Bool {
+            WebPlaybackIdentityTransition.isValidTrackEndedIdentityDeadlinePayload(
+                .init(
+                    identityDisposition: disposition,
+                    mediaIdentityUncertain: uncertain,
+                    videoId: videoId,
+                    mediaVideoId: mediaVideoId,
+                    observerEpoch: observerEpoch,
+                    eventIssuedAtMilliseconds: timestamp,
+                    documentGeneration: documentGeneration,
+                    nativePlaybackGeneration: nativeGeneration,
+                    mediaGeneration: mediaGeneration,
+                    isAd: isAd
+                )
+            )
+        }
+
+        #expect(isValid())
+        #expect(!isValid(disposition: "resolved"))
+        #expect(!isValid(uncertain: false))
+        #expect(!isValid(videoId: "video"))
+        #expect(!isValid(mediaVideoId: nil))
+        #expect(!isValid(mediaVideoId: "video"))
+        #expect(!isValid(observerEpoch: .infinity))
+        #expect(!isValid(timestamp: .nan))
+        #expect(!isValid(documentGeneration: nil))
+        #expect(!isValid(nativeGeneration: nil))
+        #expect(!isValid(mediaGeneration: 0))
+        #expect(!isValid(isAd: true))
+        #expect(!isValid(isAd: nil))
+    }
+
     @Test("Paused same-video queue navigation forces a pause-preserving load")
     func pausedSameVideoQueueNavigationForcesFullLoad() {
         #expect(SingletonPlayerWebView.queueNavigationStrategy(
