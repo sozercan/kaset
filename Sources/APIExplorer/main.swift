@@ -2164,6 +2164,10 @@ func requiresPrivateBodySource(_ endpoint: String) -> Bool {
     ["get_answer", "get_panel", "streaming_panel"].contains(endpoint)
 }
 
+func requiresRedactedWireInspection(_ endpoint: String) -> Bool {
+    endpoint == "next" || requiresPrivateBodySource(endpoint)
+}
+
 func exploreWireAction(
     _ endpoint: String, bodyJson: String, outputFile: String? = nil
 ) async {
@@ -3674,9 +3678,15 @@ func runMain() async {
                 inlineBody: filteredArgs.count >= 3 ? filteredArgs[2] : nil,
                 bodyFile: bodyFile
             )
-            await exploreAction(
-                endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile
-            )
+            if requiresRedactedWireInspection(endpoint) {
+                await exploreWireAction(
+                    endpoint, bodyJson: bodyJson, outputFile: outputFile
+                )
+            } else {
+                await exploreAction(
+                    endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile
+                )
+            }
         } catch {
             print("❌ \(error.localizedDescription)")
         }
