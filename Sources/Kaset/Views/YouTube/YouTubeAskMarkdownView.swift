@@ -134,8 +134,10 @@ enum YouTubeAskMarkdown {
         return attributed
     }
 
-    static func plainText(from markdown: String) -> String {
-        self.blocks(from: markdown).map { block in
+    static let truncationIndicator = "…"
+
+    static func plainText(from markdown: String, wasTruncated: Bool = false) -> String {
+        let plainText = self.blocks(from: markdown).map { block in
             switch block {
             case let .heading(_, text), let .paragraph(text), let .blockQuote(text):
                 String(self.inlineAttributedString(text).characters)
@@ -155,6 +157,7 @@ enum YouTubeAskMarkdown {
         }
         .filter { !$0.isEmpty }
         .joined(separator: "\n")
+        return wasTruncated ? plainText + self.truncationIndicator : plainText
     }
 
     private static func normalizedLines(from markdown: String) -> [String] {

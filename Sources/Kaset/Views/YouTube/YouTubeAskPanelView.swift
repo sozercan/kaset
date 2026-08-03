@@ -425,18 +425,26 @@ struct YouTubeAskPanelView: View {
                     )
                 )
         case .assistant:
-            YouTubeAskMarkdownView(markdown: message.text)
-                .foregroundStyle(.primary)
-                .multilineTextAlignment(.leading)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel(
-                    String(
-                        localized: "YouTube response: \(YouTubeAskMarkdown.plainText(from: message.text))",
-                        comment: "VoiceOver label for an assistant turn in the YouTube Ask Gemini transcript"
-                    )
+            VStack(alignment: .leading, spacing: 2) {
+                YouTubeAskMarkdownView(markdown: message.text)
+
+                if message.wasTruncated {
+                    Text(verbatim: YouTubeAskMarkdown.truncationIndicator)
+                        .font(.callout)
+                        .accessibilityHidden(true)
+                }
+            }
+            .foregroundStyle(.primary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(
+                String(
+                    localized: "YouTube response: \(YouTubeAskMarkdown.plainText(from: message.text, wasTruncated: message.wasTruncated))",
+                    comment: "VoiceOver label for an assistant turn in the YouTube Ask Gemini transcript"
                 )
+            )
         }
     }
 

@@ -382,7 +382,7 @@ struct YouTubeAskClientTests {
         #expect(requestCount.count == 2)
     }
 
-    @Test("Panel authentication failures invalidate the matching session", arguments: [401, 403])
+    @Test("Panel authentication failures throw shared auth expiry and invalidate the matching session", arguments: [401, 403])
     @MainActor
     func authenticationFailureMapping(statusCode: Int) async throws {
         let requestCount = LockedCounter()
@@ -403,8 +403,13 @@ struct YouTubeAskClientTests {
         let identityGeneration = authService.accountIdentityGeneration
         let page = try await client.getWatchPage(videoId: "fixture-video")
 
-        await #expect(throws: YouTubeAskClientError.authenticationRequired) {
+        do {
             _ = try await client.loadAskConversation(from: #require(page.askBootstrap))
+            Issue.record("Expected YTMusicError.authExpired")
+        } catch YTMusicError.authExpired {
+            // Expected shared authentication-expiry contract.
+        } catch {
+            Issue.record("Expected YTMusicError.authExpired, got \(type(of: error))")
         }
 
         #expect(requestCount.count == 2)

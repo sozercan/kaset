@@ -60,11 +60,18 @@ struct YouTubeAskMessage: Identifiable, Sendable {
     let id: UUID
     let role: Role
     let text: String
+    let wasTruncated: Bool
 
-    init(id: UUID = UUID(), role: Role, text: String) {
+    init(
+        id: UUID = UUID(),
+        role: Role,
+        text: String,
+        wasTruncated: Bool = false
+    ) {
         self.id = id
         self.role = role
         self.text = text
+        self.wasTruncated = wasTruncated
     }
 }
 
@@ -282,7 +289,11 @@ struct YouTubeAskConversation: Sendable {
             )
         }
         let assistantMessages = parsed.messages.map { parsedMessage in
-            YouTubeAskMessage(role: .assistant, text: parsedMessage.text)
+            YouTubeAskMessage(
+                role: .assistant,
+                text: parsedMessage.text,
+                wasTruncated: parsedMessage.wasTruncated
+            )
         }
         self.init(
             messages: previousMessages + assistantMessages,
@@ -546,7 +557,11 @@ extension YouTubeAskConversation {
 
         if parsed.suggestions.isEmpty {
             let assistantMessages = parsed.messages.map { parsedMessage in
-                YouTubeAskMessage(role: .assistant, text: parsedMessage.text)
+                YouTubeAskMessage(
+                    role: .assistant,
+                    text: parsedMessage.text,
+                    wasTruncated: parsedMessage.wasTruncated
+                )
             }
             return YouTubeAskConversation(
                 messages: assistantMessages,

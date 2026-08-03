@@ -200,7 +200,7 @@ extension YouTubeClient {
             // statuses expire the matching identity generation, never a newer
             // session that signed in while this request was in flight.
             self.handleAskAuthenticationFailure(snapshot: snapshot)
-            throw YouTubeAskClientError.authenticationRequired
+            throw YTMusicError.authExpired
         case 429:
             throw YouTubeAskClientError.rateLimited
         default:
