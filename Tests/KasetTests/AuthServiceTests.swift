@@ -533,6 +533,34 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
     }
 
+    @Test("Sign in after failed sign-out opens cleanup recovery")
+    func signInAfterFailedSignOutOpensCleanupRecovery() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        self.mockWebKitManager.clearAllDataResult = false
+        #expect(await !self.authService.signOut())
+
+        self.authService.startLogin()
+        guard let cleanupAttemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected a cleanup recovery attempt")
+            return
+        }
+
+        #expect(self.authService.state == .loggingIn)
+        #expect(self.authService.loginCleanupRequired)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore)
+        #expect(self.authService.shouldPersistGuestPlaybackState)
+
+        let didRecover = await self.authService.clearFailedLoginAfterDraining(
+            expectedAttemptID: cleanupAttemptID,
+            expectedSignOutSequence: self.authService.signOutSequence,
+            clearCookies: { true }
+        )
+
+        #expect(didRecover == true)
+        #expect(self.authService.state == .loggedOut)
+        #expect(!self.authService.loginCleanupRequired)
+    }
+
     @Test("Login-status checks do not consume an active login attempt")
     func loginStatusCheckDoesNotConsumeActiveAttempt() async {
         self.authService.startLogin()
@@ -588,6 +616,13 @@ struct AuthServiceTests {
             await releaseCookieRead.wait()
         }
 
+        self.authService.startLogin()
+        guard let cleanupAttemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected a cleanup-owned login attempt")
+            return
+        }
+        self.authService.cancelLoginIfNeeded(expectedAttemptID: cleanupAttemptID)
+
         let loginCheck = Task { @MainActor in
             await self.authService.checkLoginStatus()
         }
@@ -596,7 +631,7 @@ struct AuthServiceTests {
         let releaseCleanup = AsyncGate()
         let cleanup = Task { @MainActor in
             await self.authService.clearFailedLoginAfterDraining(
-                expectedAttemptID: LoginAttemptID(rawValue: 999),
+                expectedAttemptID: cleanupAttemptID,
                 expectedSignOutSequence: self.authService.signOutSequence,
                 clearCookies: {
                     await cleanupStarted.open()

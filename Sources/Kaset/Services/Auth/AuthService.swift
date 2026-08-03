@@ -193,8 +193,8 @@ final class AuthService: AuthServiceProtocol {
             self.logger.info("Ignoring login request while sign-out is in progress")
             return
         }
-        guard !self.loginCleanupRequired, !self.isLoginCleanupInProgress else {
-            self.logger.info("Ignoring login request while failed-login cleanup is pending")
+        guard !self.isLoginCleanupInProgress else {
+            self.logger.info("Ignoring login request while failed-login cleanup is in progress")
             return
         }
         guard self.state != .loggingIn, self.activeLoginAttemptID == nil else {

@@ -488,8 +488,8 @@ struct LoginCompletionGateTests {
         #expect(authService.state == .loggedOut)
     }
 
-    @Test("Failed durable cleanup blocks another sign-in attempt")
-    func failedDurableCleanupBlocksAnotherSignInAttempt() async {
+    @Test("Failed durable cleanup opens a cleanup recovery attempt")
+    func failedDurableCleanupOpensRecoveryAttempt() async {
         let webKitManager = MockWebKitManager()
         webKitManager.finalizeLoginCookieBackupResult = false
         webKitManager.rollbackLoginCookieBackupResult = .failed
@@ -517,8 +517,10 @@ struct LoginCompletionGateTests {
         #expect(authService.state == .loggedOut)
         #expect(authService.loginCleanupRequired)
         authService.startLogin()
-        #expect(authService.activeLoginAttemptID == nil)
-        #expect(authService.state == .loggedOut)
+        #expect(authService.activeLoginAttemptID != nil)
+        #expect(authService.activeLoginAttemptID != attemptID)
+        #expect(authService.state == .loggingIn)
+        #expect(authService.loginCleanupRequired)
     }
 
     @Test("Stale cleanup cannot expire a replacement login attempt")

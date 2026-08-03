@@ -4,15 +4,22 @@ import Foundation
 /// Returns deterministic fixture data so UI tests never hit the network.
 @MainActor
 final class MockUITestYouTubeClient: YouTubeClientProtocol {
-    private var isAskGeminiEligible =
-        UITestConfig.environmentValue(for: UITestConfig.mockAskGeminiEnabledKey) == "true"
+    private let isAskGeminiEligible: Bool
+
+    init(
+        isAskGeminiEligible: Bool =
+            UITestConfig.environmentValue(for: UITestConfig.mockAskGeminiEnabledKey) == "true"
+    ) {
+        self.isAskGeminiEligible = isAskGeminiEligible
+    }
 
     var hasMoreHomeFeed: Bool {
         false
     }
 
     func resetSessionStateForAccountSwitch() {
-        self.isAskGeminiEligible = false
+        // This mock retains no transient Ask conversation state. Eligibility is
+        // launch configuration and must survive normal account-scope resets.
     }
 
     func getHomeFeed() async throws -> YouTubeFeed {

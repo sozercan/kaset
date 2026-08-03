@@ -146,12 +146,10 @@ struct YouTubeWatchView: View {
     }
 
     private var askPlayerOffsetMilliseconds: Int64 {
-        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId,
-              self.youtubePlayer.progress.isFinite
-        else {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
             return 0
         }
-        return Int64(max(0, self.youtubePlayer.progress * 1000).rounded())
+        return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
 
     // MARK: - Ambient Style Picker (PROTOTYPE)
