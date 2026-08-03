@@ -461,7 +461,7 @@ opaque values. Guarded chip or free-text generation requires separate explicit
 approval and is not part of routine tests or CI. Free-text tests cover direct
 `next` capability loading, fallback materialization from the same immutable
 request snapshot, exact validated `get_panel` bodies, string playback offset,
-click-tracking context, one-shot consumption, and no automatic retry.
+click-tracking context, per-revision consumption, repeated free-text turns with monotonic message IDs, stale-revision rejection, and no automatic retry.
 
 The production app explicitly selects the fixed WEB request profile. The July 28,
 2026 parity run was inconclusive because the exported session appeared signed out;

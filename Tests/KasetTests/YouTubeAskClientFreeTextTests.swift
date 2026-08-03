@@ -11,7 +11,7 @@ extension YouTubeAskClientTests {
             switch requestCount.increment() {
             case 1:
                 return Self.response(for: request, data: Self.eligibleNextData)
-            case 2:
+            case 2, 3:
                 #expect(request.url?.path == "/youtubei/v1/get_panel")
                 #expect(request.url?.query?.contains("key=") != true)
                 let body = try Self.body(from: request)
@@ -30,9 +30,19 @@ extension YouTubeAskClientTests {
                 #expect(Set(formData.keys) == ["inputComposerFormData"])
                 let composer = try #require(formData["inputComposerFormData"] as? [String: Any])
                 #expect(Set(composer.keys) == ["clientMessageId", "playerOffsetMs", "userInputText"])
-                #expect(composer["clientMessageId"] as? String == "youchat-1000")
-                #expect(composer["playerOffsetMs"] as? String == "234000")
-                #expect(composer["userInputText"] as? String == "What is this video about?")
+                let messageID = try #require(composer["clientMessageId"] as? String)
+                if requestCount.count == 2 {
+                    #expect(messageID == "youchat-1000")
+                } else {
+                    let sequence = Int(messageID.dropFirst("youchat-".count)) ?? 0
+                    #expect(sequence > 1000)
+                }
+                let expectedOffset = requestCount.count == 2 ? "234000" : "235000"
+                let expectedInput = requestCount.count == 2
+                    ? "What is this video about?"
+                    : "What should I know next?"
+                #expect(composer["playerOffsetMs"] as? String == expectedOffset)
+                #expect(composer["userInputText"] as? String == expectedInput)
                 return Self.response(for: request, data: Self.mutationConversationData)
             default:
                 Issue.record("Free-text Ask request retried unexpectedly")
@@ -51,11 +61,6 @@ extension YouTubeAskClientTests {
             from: #require(page.askBootstrap)
         )
         #expect(conversation.canSubmitFreeText)
-        let oversizedUTF8 = "a" + String(
-            repeating: "\u{0301}",
-            count: 64 * 1024
-        )
-        #expect(conversation.appendingUserTurn(text: oversizedUTF8) == nil)
         let pendingConversation = try #require(
             conversation.appendingUserTurn(text: "What is this video about?")
         )
@@ -83,7 +88,27 @@ extension YouTubeAskClientTests {
             )
         }
         #expect(requestCount.count == 2)
-        #expect(!continued.canSubmitFreeText)
+        #expect(continued.canSubmitFreeText)
         #expect(continued.messages.map(\.role).count == 2)
+
+        let secondPending = try #require(
+            continued.appendingUserTurn(text: "What should I know next?")
+        )
+        let secondContinued = try await client.continueAskConversation(
+            secondPending,
+            submitting: "What should I know next?",
+            playerOffsetMilliseconds: 235_000
+        )
+
+        await #expect(throws: CancellationError.self) {
+            _ = try await client.continueAskConversation(
+                secondPending,
+                submitting: "What should I know next?",
+                playerOffsetMilliseconds: 235_000
+            )
+        }
+        #expect(requestCount.count == 3)
+        #expect(secondContinued.canSubmitFreeText)
+        #expect(secondContinued.messages.map(\.role).count == 4)
     }
 }

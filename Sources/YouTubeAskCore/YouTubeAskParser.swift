@@ -55,15 +55,19 @@ package enum YouTubeAskParser {
             guard !panelSuggestions.isEmpty || panelFreeTextCommand != nil else {
                 continue
             }
-            if let canonicalContent {
-                guard canonicalContent.suggestions.map(\.label) == panelSuggestions.map(\.label) else {
+            if let existingContent = canonicalContent {
+                guard existingContent.suggestions.map(\.label) == panelSuggestions.map(\.label) else {
                     throw YouTubeAskCoreError.malformedChip
                 }
-                guard Self.freeTextCommandsMatch(
-                    canonicalContent.freeTextCommand,
-                    panelFreeTextCommand
-                ) else {
-                    throw YouTubeAskCoreError.ambiguousBootstrap
+                // Responsive surfaces can mirror the same visible panel with
+                // different opaque commands. Keep one panel atomic: retain the
+                // first complete panel, or replace an earlier chips-only mirror
+                // with the first later mirror that also owns the composer.
+                if existingContent.freeTextCommand == nil, panelFreeTextCommand != nil {
+                    canonicalContent = (
+                        suggestions: panelSuggestions,
+                        freeTextCommand: panelFreeTextCommand
+                    )
                 }
             } else {
                 canonicalContent = (

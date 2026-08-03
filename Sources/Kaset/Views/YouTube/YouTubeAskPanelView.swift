@@ -251,15 +251,14 @@ struct YouTubeAskPanelView: View {
     }
 
     private var preferredFocusTarget: FocusTarget? {
-        // Establish an accessible focus destination while the chat is fresh.
-        // A server welcome message is still pre-turn content; only a user turn
-        // should stop the composer from receiving initial focus.
+        // A renewed composer command belongs to the latest conversation
+        // revision and should regain focus even after earlier transcript turns.
+        if self.viewModel.acceptsFreeTextInput {
+            return .input
+        }
         guard !self.viewModel.hasStarted else { return nil }
         if self.viewModel.presentationError != nil || self.viewModel.isBusy {
             return .close
-        }
-        if self.viewModel.acceptsFreeTextInput {
-            return .input
         }
         if !self.viewModel.requiresNewChat,
            let suggestionID = self.viewModel.suggestions.first?.id

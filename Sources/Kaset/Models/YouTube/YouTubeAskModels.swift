@@ -248,7 +248,6 @@ struct YouTubeAskConversation: Sendable {
     var canSubmitFreeText: Bool {
         self.binding != nil
             && self.freeTextCommand != nil
-            && !self.hasStarted
             && self.pendingSuggestionID == nil
             && self.pendingFreeTextInput == nil
     }
@@ -417,16 +416,34 @@ struct YouTubeAskConversation: Sendable {
 
     static func testing(
         messages: [YouTubeAskMessage] = [],
-        suggestions: [String] = []
+        suggestions: [String] = [],
+        allowsFreeText: Bool = false
     ) -> YouTubeAskConversation {
-        YouTubeAskConversation(
-            id: UUID(),
-            revision: messages.isEmpty ? 0 : 1,
+        let id = UUID()
+        let revision: UInt64 = messages.isEmpty ? 0 : 1
+        let binding = allowsFreeText
+            ? YouTubeAskBindingState(
+                videoID: "fixture-video",
+                authenticationGeneration: 0,
+                accountBinding: YouTubeAskAccountBinding(scopeID: "fixture-scope"),
+                clientGeneration: 0,
+                conversationID: id,
+                revision: revision
+            )
+            : nil
+        return YouTubeAskConversation(
+            id: id,
+            revision: revision,
             messages: messages,
             suggestions: suggestions.map { YouTubeAskSuggestion(text: $0) },
             suggestionStates: [],
-            freeTextCommand: nil,
-            binding: nil,
+            freeTextCommand: allowsFreeText
+                ? YouTubeAskOpaqueCommand(
+                    continuation: "fixture-free-text-continuation",
+                    clickTrackingParams: "fixture-click-tracking"
+                )
+                : nil,
+            binding: binding,
             pendingSuggestionID: nil,
             pendingFreeTextInput: nil
         )
@@ -554,7 +571,8 @@ extension YouTubeAskConversation {
         return YouTubeAskConversation(
             previousMessages: conversation.messages,
             parsed: parsed,
-            binding: binding.advanced()
+            binding: binding.advanced(),
+            freeTextCommand: parsed.freeTextCommand ?? conversation.freeTextCommand
         )
     }
 

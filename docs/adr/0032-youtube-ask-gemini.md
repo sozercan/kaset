@@ -37,18 +37,22 @@ Wire-level observations and the API Explorer workflow remain documented in the
    `next` response is shared with normal watch-page parsing. WebViews remain
    limited to authentication and DRM playback; Kaset does not scrape or drive
    the Ask Gemini DOM.
-2. **Ship server-commanded one-shot free text plus chips.** An eligible watch
+2. **Ship server-commanded revision-bound free text plus chips.** An eligible watch
    page exposes a sparkles action in the top toolbar. Activating it presents a
    compact, top-centered glass panel and may prepare the initial panel, but never
    generates an answer automatically. The composer is enabled only when the
    canonical eligible `next` panel or its prompt-free initial `get_panel`
-   materialization supplies the exact validated `sendUserQueryCommand`. Kaset
-   uses the `next` command when present and materializes only the exact
-   server-issued panel continuation when that capability is missing. One
-   free-text turn is allowed per fresh chat and uses `get_panel` with the
-   captured `clientMessageId`, string `playerOffsetMs`, `userInputText`, server
-   continuation, and click-tracking context. After any submitted turn, follow-up
-   interaction remains server-chip-only until New Chat. Outside click, Escape,
+   materialization supplies the exact validated `sendUserQueryCommand`. In the
+   current watch response this command is owned by the eligible panel footer's
+   `chatInputViewModel`; confirmed materialized `youChatItemViewModel` content is
+   also supported. Kaset uses the `next` command when present and materializes only the exact
+   server-issued panel continuation when that capability is missing. Free-text
+   submission uses `get_panel` with the captured `clientMessageId`, string
+   `playerOffsetMs`, `userInputText`, server continuation, and click-tracking
+   context. Each conversation revision may consume one chip or free-text action.
+   A successful response advances the revision and keeps the validated composer
+   command available unless YouTube supplies a replacement; uncertain failures
+   discard all opaque state and require New Chat. Outside click, Escape,
    or the close control dismisses the surface without discarding the conversation.
 3. **Scope all conversation state to the current watch and account.** Ask is
    available only to an eligible signed-in primary account. Hidden state is
@@ -101,11 +105,12 @@ Wire-level observations and the API Explorer workflow remain documented in the
 
 - Ask follows Kaset's API-over-WebView boundary and shares one strict parser and
   safety implementation between the app and API Explorer.
-- V1 accepts one server-commanded free-form question per fresh chat. The
-  capability may originate in `next` or the prompt-free initial `get_panel`, but
-  both paths use the same strict parser, immutable request identity, and opaque
-  command rules. Kaset does not reproduce YouTube's unvalidated multi-turn
-  free-text fields. Subsequent turns use server-issued suggestions or New Chat.
+- V1 accepts repeated server-commanded free-form questions with one action per
+  bound conversation revision. The capability may originate in `next` or the
+  prompt-free initial `get_panel`; both paths use the same strict parser,
+  immutable request identity, and opaque-command rules. Successful responses
+  advance the revision without inventing additional composer fields. Uncertain
+  failures require New Chat.
 - Conversation continuity intentionally ends at the watch/account lifecycle
   boundary and at app termination.
 - Opaque command material is harder to inspect during debugging, but accidental

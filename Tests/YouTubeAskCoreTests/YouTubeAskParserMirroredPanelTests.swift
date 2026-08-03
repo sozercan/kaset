@@ -49,29 +49,32 @@ extension YouTubeAskParserTests {
         }
     }
 
-    @Test("Rejects a missing free-text command across content-equivalent panels")
-    func rejectsMissingFreeTextCommandAcrossMirrors() throws {
+    @Test("Selects the first complete mirror after an earlier chips-only panel")
+    func selectsFirstCompleteMirror() throws {
         let envelope = try Self.envelope([
             "engagementPanels": [
+                Self.eligiblePanel(chips: [
+                    ("Summarize the video", "fixture-summary-preview"),
+                ]),
                 Self.eligiblePanel(
-                    chips: [("Summarize the video", "fixture-summary-primary")],
+                    chips: [("Summarize the video", "fixture-summary-complete")],
                     freeTextCommand: Self.freeTextCommand(
-                        continuation: "fixture-free-text-command"
+                        continuation: "fixture-free-text-complete"
                     )
                 ),
-                Self.eligiblePanel(chips: [
-                    ("Summarize the video", "fixture-summary-mirror"),
-                ]),
             ],
         ])
 
-        expectYouTubeAskError(.ambiguousBootstrap) {
-            _ = try YouTubeAskParser.parseBootstrap(from: envelope)
-        }
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.suggestions.map(\.command.continuation) == [
+            "fixture-summary-complete",
+        ])
+        #expect(bootstrap.freeTextCommand?.continuation == "fixture-free-text-complete")
     }
 
-    @Test("Rejects distinct free-text commands across content-equivalent panels")
-    func rejectsDistinctFreeTextCommandsAcrossMirrors() throws {
+    @Test("Keeps the first complete content-equivalent mirrored panel")
+    func keepsFirstCompleteMirroredPanel() throws {
         let envelope = try Self.envelope([
             "engagementPanels": [
                 Self.eligiblePanel(
@@ -89,9 +92,12 @@ extension YouTubeAskParserTests {
             ],
         ])
 
-        expectYouTubeAskError(.ambiguousBootstrap) {
-            _ = try YouTubeAskParser.parseBootstrap(from: envelope)
-        }
+        let parsedBootstrap = try YouTubeAskParser.parseBootstrap(from: envelope)
+        let bootstrap = try #require(parsedBootstrap)
+        #expect(bootstrap.suggestions.map(\.command.continuation) == [
+            "fixture-summary-primary",
+        ])
+        #expect(bootstrap.freeTextCommand?.continuation == "fixture-free-text-primary")
     }
 
     @Test("Free-text capability survives ambiguous mirrored panel continuations")

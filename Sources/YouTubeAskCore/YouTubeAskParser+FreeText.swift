@@ -15,6 +15,11 @@ extension YouTubeAskParser {
             {
                 try commands.append(Self.parseFreeTextCommand(command))
             }
+            if let inputViewModel = object["chatInputViewModel"]?.objectValue,
+               let command = inputViewModel["sendUserQueryCommand"]
+            {
+                try commands.append(Self.parseFreeTextCommand(command))
+            }
             for key in object.keys.sorted() {
                 guard let nested = object[key] else { continue }
                 try Self.collectFreeTextCommands(

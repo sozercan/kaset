@@ -48,8 +48,8 @@ struct YouTubeAskViewModelTests {
         #expect(sut.suggestions.map(\.text) == ["Explain the main idea"])
     }
 
-    @Test("Free text is single-flight, forwards playback offset, and is one-shot")
-    func freeTextSubmissionIsValidatedAndOneShot() async {
+    @Test("Free text is single-flight and re-enables after successful responses")
+    func freeTextSubmissionSupportsMultipleTurns() async {
         let client = MockYouTubeClient()
         let sut = YouTubeAskViewModel(videoID: "fixture-video", client: client)
         sut.seed(YouTubeAskBootstrap.testing(
@@ -73,7 +73,8 @@ struct YouTubeAskViewModelTests {
                 YouTubeAskMessage(role: .user, text: "What is this video about?"),
                 YouTubeAskMessage(role: .assistant, text: "A fixture answer."),
             ],
-            suggestions: ["Ask a follow-up"]
+            suggestions: ["Ask a follow-up"],
+            allowsFreeText: true
         )
         let gate = AsyncGate()
         client.beforeAskContinuationReturn = {
@@ -102,9 +103,35 @@ struct YouTubeAskViewModelTests {
             "What is this video about?",
             "A fixture answer.",
         ])
-        #expect(!sut.acceptsFreeTextInput)
+        #expect(sut.acceptsFreeTextInput)
         #expect(sut.canStartNewChat)
         #expect(sut.accessibilityAnnouncement == .responseReady)
+
+        client.continuedAskConversation = YouTubeAskConversation.testing(
+            messages: [
+                YouTubeAskMessage(role: .user, text: "What is this video about?"),
+                YouTubeAskMessage(role: .assistant, text: "A fixture answer."),
+                YouTubeAskMessage(role: .user, text: "What should I know next?"),
+                YouTubeAskMessage(role: .assistant, text: "A second fixture answer."),
+            ],
+            suggestions: ["Another follow-up"],
+            allowsFreeText: true
+        )
+        sut.inputText = "What should I know next?"
+        sut.submitInput(playerOffsetMilliseconds: 235_000)
+        await self.waitUntil(
+            sut.activity == .idle
+                && client.continueAskFreeTextCallCount == 2
+                && sut.messages.count == 4
+        )
+
+        #expect(client.submittedAskFreeTextInputs == [
+            "What is this video about?",
+            "What should I know next?",
+        ])
+        #expect(client.submittedAskPlayerOffsets == [234_000, 235_000])
+        #expect(sut.acceptsFreeTextInput)
+        #expect(sut.suggestions.map(\.text) == ["Another follow-up"])
     }
 
     @Test("Suggestion selection publishes the user turn, stays single-flight, and preserves server order")

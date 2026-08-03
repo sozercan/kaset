@@ -74,7 +74,8 @@ protocol YouTubeClientProtocol: Sendable {
     ) async throws -> YouTubeAskConversation
 
     /// Submits one validated free-text prompt using the current watch-scoped
-    /// server command. Free text is one-shot until New Chat in v1.
+    /// server command. A validated composer command may be reused only after
+    /// each successful response advances the bound conversation revision.
     func continueAskConversation(
         _ conversation: YouTubeAskConversation,
         submitting userInputText: String,

@@ -115,13 +115,15 @@ non-interactive and undisplayed.
 
 Opening the watch-page toolbar panel may prepare an initial panel, but it
 never generates an answer until the user selects a server-issued suggestion or
-submits one free-text prompt. Free text is exposed only when the canonical
+submits free text. Free text is exposed only when the canonical
 eligible `next` panel or its prompt-free initial `get_panel` materialization
 supplies the exact validated `sendUserQueryCommand`. The client uses the `next`
 command when present and otherwise prepares the exact server-issued panel
 continuation; it never synthesizes or merges capabilities. Submission uses
-`get_panel`, not `streaming_panel`, and is one-shot until New Chat. Follow-up
-chips remain server-issued. Visible labels and
+`get_panel`, not `streaming_panel`. Each conversation revision may consume one
+chip or free-text action; successful responses advance the revision and keep the
+validated composer available unless YouTube supplies a replacement. Follow-up
+chips remain server-issued, and any uncertain failure requires New Chat. Visible labels and
 answers are sanitized but not localized by Kaset. Assistant messages render
 native Markdown blocks and inline emphasis; link destinations are stripped and
 never become interactive.
@@ -295,10 +297,11 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
   YouChat bootstrap for the signed-in primary account and current video. See
   [ADR-0032](adr/0032-youtube-ask-gemini.md) and the
   [API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27).
-- Ask Gemini v1 intentionally limits free text to one validated `get_panel`
-  turn per fresh chat. It omits unvalidated multi-turn composer fields,
-  `streaming_panel`, brand accounts, persisted conversations, telemetry,
-  clickable generated links, and Apple Intelligence dependencies.
+- Ask Gemini supports repeated free-text turns with the validated `get_panel`
+  shape and one consumed action per bound conversation revision. It does not
+  invent additional multi-turn fields, and still omits `streaming_panel`, brand
+  accounts, persisted conversations, telemetry, clickable generated links, and
+  Apple Intelligence dependencies.
 - No auto-advance to the next related video after `VIDEO_ENDED` (YouTube
   autonav is disabled; Kaset shows the ended state — the bar's next
   button advances manually).

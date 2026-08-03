@@ -1432,7 +1432,11 @@ commands from responsive duplicates. If `next` contains the validated
 bootstrap has one safe panel continuation, the loader sends its prompt-free
 initial `get_panel` body through that same snapshot and accepts only the strict
 parser's confirmed materialized `freeTextCommand`. The accepted command schema
-is intentionally narrow and may originate in either response:
+is intentionally narrow and may originate in either response. The August 2
+watch response placed it at
+`engagementPanelSectionListRenderer.footer.chatInputViewModel.sendUserQueryCommand`;
+confirmed materialized panel items may expose the same command under
+`youChatItemViewModel.sendUserQueryCommand`:
 
 ```text
 sendUserQueryCommand
@@ -1481,9 +1485,8 @@ displayed or saved.
 - The response returned HTTP 200 as a JSON object with the confirmed singular
   `onResponseReceivedCommand.listMutationCommand` shape. The existing bounded
   decoder and strict conversation parser accept that response container.
-- No second arbitrary-text turn was sent. Production therefore treats free text
-  as one-shot per fresh chat; follow-up interaction remains server-chip-only or
-  starts with New Chat.
+- No second arbitrary-text turn was sent in this browser capture, so multi-turn
+  behavior remained unvalidated at that point.
 
 **Read-only production-parity matrix (added July 28, 2026):**
 
@@ -1532,7 +1535,7 @@ arguments must be plain relative API paths.
 
 | Transport | Current interpretation |
 |-----------|------------------------|
-| `get_panel` | Prompt-free initial panel materialization, direct suggestion chips, materialized free-text capability discovery, and the validated one-shot free-text composer transport |
+| `get_panel` | Prompt-free initial panel materialization, direct suggestion chips, materialized free-text capability discovery, and the validated free-text composer transport |
 | `streaming_panel` | Frontend capability remains present, but the August 2 free-text candidate returned HTTP 400; not used by production |
 | `get_watch` | Combined player/watch bootstrap; observed responses use a top-level JSON array |
 | `get_answer` | Separate AI answer transport; not used by the verified watch-page suggestion flow |
@@ -1597,8 +1600,21 @@ the canonical eligible `next` panel or from the confirmed prompt-free initial
 the initial panel is queried only as a fallback, and distinct commands are never
 merged. The August 2 browser capture showed that the frontend posts the resolved
 command to `get_panel` with `clientMessageId`, decimal-string `playerOffsetMs`,
-and `userInputText`. Production permits that exact shape once per fresh chat;
-unvalidated multi-turn fields remain unsupported.
+and `userInputText`. Production permits that exact shape once per bound
+conversation revision. A successful response advances the revision and retains
+the validated composer command when the response omits a replacement; no
+additional multi-turn fields are invented.
+
+**Live production validation on August 3, 2026:**
+
+- Two free-text prompts succeeded in the same watch-scoped chat.
+- The first response contained no replacement `sendUserQueryCommand`; Kaset
+  retained the original validated composer command after advancing the bound
+  conversation revision.
+- The second request reused the validated `get_panel` shape with a fresh
+  monotonic `clientMessageId`, current playback offset, and new `userInputText`.
+- Each revision remained single-consumption: stale pending copies were rejected
+  before network access, and there was no automatic retry.
 
 **Live validation on July 27, 2026**:
 
@@ -1699,7 +1715,8 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
-| 2026-08-02 | Browser-validated the one-shot `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; documented and implemented `sendUserQueryCommand` provenance from either `next` or prompt-free initial `get_panel`; added redacted parity capability reporting; deduplicated repeated visible suggestions; retained one-shot free text plus server-chip follow-ups |
+| 2026-08-03 | Live-validated two free-text prompts in one chat; retained the validated composer command across successful bound revisions, enforced one action per revision, and preserved stale-revision rejection/no-retry behavior |
+| 2026-08-02 | Browser-validated the `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; documented and implemented `sendUserQueryCommand` provenance from the watch footer `chatInputViewModel`, an eligible YouChat item, or prompt-free initial `get_panel`; added redacted parity capability reporting; deduplicated repeated visible suggestions; retained server-chip follow-ups |
 | 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for the observed local user-turn/loading `onClick` mutation, preserved direct chips while discarding ambiguous panel-only commands, and added one bounded read-only retry for internal identity-fence cancellation |
 | 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
 | 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
