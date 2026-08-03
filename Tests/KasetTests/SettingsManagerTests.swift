@@ -93,6 +93,63 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
     }
 
+    @Test("Missing keepYouTubeVideoOnTop value loads as false")
+    func missingKeepYouTubeVideoOnTopLoadsAsFalse() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.missing.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.removePersistentDomain(forName: suiteName)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == false)
+    }
+
+    @Test("Stored true keepYouTubeVideoOnTop value loads as true")
+    func storedTrueKeepYouTubeVideoOnTopLoadsAsTrue() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.true.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(true, forKey: SettingsManager.Keys.keepYouTubeVideoOnTop)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == true)
+    }
+
+    @Test("Stored false keepYouTubeVideoOnTop value loads as false")
+    func storedFalseKeepYouTubeVideoOnTopLoadsAsFalse() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.false.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(false, forKey: SettingsManager.Keys.keepYouTubeVideoOnTop)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == false)
+    }
+
+    @Test("keepYouTubeVideoOnTop persists to shared UserDefaults")
+    func keepYouTubeVideoOnTopPersists() {
+        let manager = SettingsManager.shared
+        let defaults = UserDefaults.standard
+        let key = SettingsManager.Keys.keepYouTubeVideoOnTop
+        let originalValue = manager.keepYouTubeVideoOnTop
+        let originalStoredObject = defaults.object(forKey: key)
+
+        defer {
+            manager.keepYouTubeVideoOnTop = originalValue
+            if let originalStoredObject {
+                defaults.set(originalStoredObject, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        manager.keepYouTubeVideoOnTop = true
+        #expect(defaults.object(forKey: key) as? Bool == true)
+
+        manager.keepYouTubeVideoOnTop = false
+        #expect(defaults.object(forKey: key) as? Bool == false)
+    }
+
     @Test("Disabling rememberPlaybackSettings clears persisted values")
     func disablingRememberPlaybackSettingsClearsValues() {
         let manager = SettingsManager.shared

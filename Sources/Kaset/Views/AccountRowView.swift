@@ -7,7 +7,7 @@ import SwiftUI
 
 /// A single account row component displaying account info.
 ///
-/// Shows the account avatar, name, handle, type badge, and selection state.
+/// Shows the account avatar, name, handle, account type, and selection state.
 struct AccountRowView: View {
     let account: UserAccount
     let isSelected: Bool
@@ -41,23 +41,24 @@ struct AccountRowView: View {
 
                 Spacer()
 
-                // Type badge
-                self.typeBadge
+                // Account type
+                self.typeLabel
 
                 // Selection checkmark
                 if self.isSelected {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(Color.accentColor)
                         .accessibilityLabel(String(localized: "Selected"))
                 }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .background(self.rowBackground)
-            .contentShape(Rectangle())
+            .contentShape(.rect(cornerRadius: 10))
         }
         .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.14), value: self.isHovering)
         .onHover { hovering in
             self.isHovering = hovering
         }
@@ -97,36 +98,30 @@ struct AccountRowView: View {
             }
     }
 
-    // MARK: - Type Badge
+    // MARK: - Type Label
 
-    private var typeBadge: some View {
+    private var typeLabel: some View {
         Text(self.account.typeLabel)
             .font(.caption2)
             .fontWeight(.medium)
-            .foregroundStyle(self.account.isPrimary ? .blue : .orange)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background {
-                Capsule()
-                    .fill(self.account.isPrimary ? Color.blue.opacity(0.15) : Color.orange.opacity(0.15))
-                    .overlay {
-                        Capsule()
-                            .strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
-                    }
-            }
+            .foregroundStyle(.tertiary)
+            .fixedSize()
     }
 
     // MARK: - Background
 
     @ViewBuilder
     private var rowBackground: some View {
-        if self.isSelected || self.isHovering {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(self.isSelected ? 0.16 : 0.08))
+        if self.isSelected {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.accentColor.opacity(self.isHovering ? 0.12 : 0.08))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.white.opacity(self.isSelected ? 0.22 : 0.14), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
                 }
+        } else if self.isHovering {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
         } else {
             Color.clear
         }

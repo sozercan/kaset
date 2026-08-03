@@ -18,13 +18,12 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
+    private static let baseYouTubeOptionsWidth: CGFloat = 210
+    private static let floatOnTopOptionsWidthIncrement: CGFloat = 28 + 6
 
-    /// Below this the details block leaves the transport controls too little
-    /// room and they collide with the elapsed/remaining labels, so it is
-    /// dropped entirely. Only the pop-out window — which can be dragged down
-    /// to 512pt of content — ever gets this narrow; the main window's own
-    /// minimum keeps its bar well above this.
-    private static let hiddenVideoDetailsBreakpoint: CGFloat = 580
+    /// Below this the details block would collide with the transport controls.
+    /// Only the resizable detached window reaches this narrow layout.
+    private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
 
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
@@ -38,9 +37,12 @@ struct YouTubePlayerBar: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
 
+    private let isDetachedWindow: Bool
+
     /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
 
+    @State private var settings = SettingsManager.shared
     @State private var seekValue: Double = 0
     @State private var isSeeking = false
     @State private var seekHold = PlayerBarSeekHold()
@@ -49,11 +51,15 @@ struct YouTubePlayerBar: View {
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
 
+    init(isDetachedWindow: Bool) {
+        self.isDetachedWindow = isDetachedWindow
+    }
+
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             GeometryReader { proxy in
                 let usesCompactDetails = proxy.size.width <= PlayerBarLayout.compactDetailsBreakpoint
-                let hidesDetails = proxy.size.width <= Self.hiddenVideoDetailsBreakpoint
+                let hidesDetails = proxy.size.width <= self.hiddenVideoDetailsBreakpoint
 
                 HStack(spacing: 10) {
                     if !hidesDetails {
@@ -239,10 +245,6 @@ struct YouTubePlayerBar: View {
         }
         .padding(.leading, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    private var hasPersonalAccount: Bool {
-        self.authService.hasPersonalAccount
     }
 
     private var currentVideoGlowSources: [URL] {
@@ -453,6 +455,10 @@ struct YouTubePlayerBar: View {
             self.compactCaptionsMenu
             self.compactQualityMenu
 
+            if self.showsFloatOnTopControl {
+                self.youtubeFloatOnTopButton
+            }
+
             PlayerBarIconButton(
                 action: self.toggleYouTubePictureInPicture,
                 isSelected: self.youtubePlayer.surfaceLocation == .floating,
@@ -585,10 +591,6 @@ struct YouTubePlayerBar: View {
 
     private var volumeOverlayShadow: Color {
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
-    }
-
-    private var youtubeOptionsWidth: CGFloat {
-        210
     }
 
     /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
@@ -783,8 +785,28 @@ struct YouTubePlayerBar: View {
             self.youtubePlayer.popOutToWindow()
         }
     }
+}
 
-    private static func formatTime(_ seconds: Double) -> String {
+extension YouTubePlayerBar {
+    static func shouldShowFloatOnTopControl(
+        isDetachedWindow: Bool,
+        surfaceLocation: YouTubePlayerService.SurfaceLocation,
+        isFullscreenOrTransitioning: Bool
+    ) -> Bool {
+        isDetachedWindow && YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
+            isFloating: surfaceLocation == .floating,
+            isFullscreenOrTransitioning: isFullscreenOrTransitioning
+        )
+    }
+
+    static func hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: Bool) -> CGFloat {
+        self.baseHiddenVideoDetailsBreakpoint
+            + (showsFloatOnTopControl ? self.floatOnTopOptionsWidthIncrement : 0)
+    }
+}
+
+private extension YouTubePlayerBar {
+    static func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds)
         let hours = total / 3600
@@ -794,6 +816,54 @@ struct YouTubePlayerBar: View {
             return String(format: "%d:%02d:%02d", hours, mins, secs)
         }
         return String(format: "%d:%02d", mins, secs)
+    }
+
+    var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
+    }
+
+    var youtubeFloatOnTopButton: some View {
+        let help = String(localized: "Keep the video above standard windows on this Space.")
+
+        return PlayerBarIconButton(
+            action: self.toggleYouTubeFloatOnTop,
+            isSelected: self.settings.keepYouTubeVideoOnTop,
+            accessibilityID: AccessibilityID.YouTubeContent.videoWindowFloatOnTop,
+            accessibilityLabel: String(localized: "Float on Top"),
+            accessibilityValue: self.settings.keepYouTubeVideoOnTop
+                ? String(localized: "On")
+                : String(localized: "Off")
+        ) {
+            Image(systemName: self.settings.keepYouTubeVideoOnTop ? "pin.fill" : "pin")
+                .font(.system(size: 15, weight: .regular))
+                .frame(width: 14, height: 16)
+                .foregroundStyle(self.settings.keepYouTubeVideoOnTop ? Self.brandAccent : .primary)
+                .contentTransition(.symbolEffect(.replace))
+        }
+        .accessibilityHint(Text(help))
+        .help(help)
+    }
+
+    var youtubeOptionsWidth: CGFloat {
+        Self.baseYouTubeOptionsWidth
+            + (self.showsFloatOnTopControl ? Self.floatOnTopOptionsWidthIncrement : 0)
+    }
+
+    var showsFloatOnTopControl: Bool {
+        Self.shouldShowFloatOnTopControl(
+            isDetachedWindow: self.isDetachedWindow,
+            surfaceLocation: self.youtubePlayer.surfaceLocation,
+            isFullscreenOrTransitioning: self.youtubePlayer.isWindowFullscreen
+        )
+    }
+
+    var hiddenVideoDetailsBreakpoint: CGFloat {
+        Self.hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: self.showsFloatOnTopControl)
+    }
+
+    func toggleYouTubeFloatOnTop() {
+        HapticService.toggle()
+        self.settings.keepYouTubeVideoOnTop.toggle()
     }
 }
 
@@ -808,7 +878,7 @@ extension View {
     /// `PlayerBar` (see docs/architecture.md).
     func youtubePlayerBarInset() -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
-            YouTubePlayerBar()
+            YouTubePlayerBar(isDetachedWindow: false)
         }
     }
 }

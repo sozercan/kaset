@@ -1,6 +1,70 @@
 import AppKit
 import SwiftUI
 
+// MARK: - YouTubeVideoWindowLevelPolicy
+
+/// Deterministic presentation policy for the regular YouTube pop-out.
+/// Desired state lives in `SettingsManager`; the controller decides when it is
+/// safe to apply that state to the live AppKit window.
+@MainActor
+enum YouTubeVideoWindowLevelPolicy {
+    static let requiredCollectionBehavior: NSWindow.CollectionBehavior = [
+        .managed,
+        .participatesInCycle,
+        .fullScreenPrimary,
+    ]
+
+    static func windowedLevel(isPinned: Bool) -> NSWindow.Level {
+        isPinned ? .floating : .normal
+    }
+
+    static func canApplyLiveChange(isFullscreenOrTransitioning: Bool) -> Bool {
+        !isFullscreenOrTransitioning
+    }
+
+    static func canToggleFloatOnTop(
+        isFloating: Bool,
+        isFullscreenOrTransitioning: Bool
+    ) -> Bool {
+        isFloating && !isFullscreenOrTransitioning
+    }
+
+    static func collectionBehavior(
+        preserving current: NSWindow.CollectionBehavior
+    ) -> NSWindow.CollectionBehavior {
+        var behavior = current
+        // Non-normal levels default to transient Mission Control behavior and
+        // ignore window cycling. Remove any explicit conflicting bits before
+        // restoring the normal-window participation the pop-out had before.
+        behavior.remove(.transient)
+        behavior.remove(.stationary)
+        behavior.remove(.ignoresCycle)
+        behavior.formUnion(self.requiredCollectionBehavior)
+        return behavior
+    }
+
+    static func configureCollectionBehavior(of window: NSWindow) {
+        window.collectionBehavior = self.collectionBehavior(preserving: window.collectionBehavior)
+    }
+
+    static func applyWindowedLevel(isPinned: Bool, to window: NSWindow) {
+        window.level = self.windowedLevel(isPinned: isPinned)
+    }
+}
+
+// MARK: - YouTubeVideoWindowFullscreenPhase
+
+enum YouTubeVideoWindowFullscreenPhase: Equatable {
+    case windowed
+    case entering
+    case fullscreen
+    case exiting
+
+    var blocksWindowedControls: Bool {
+        self != .windowed
+    }
+}
+
 // MARK: - YouTubeVideoWindowController
 
 /// Manages the floating window that hosts the YouTube video surface when
@@ -42,6 +106,7 @@ final class YouTubeVideoWindowController {
         if let existingWindow = self.window {
             self.isClosing = false
             existingWindow.title = youtubePlayerService.currentVideo?.title ?? "YouTube"
+            self.syncWindowState()
             existingWindow.orderFront(nil)
             return
         }
@@ -67,10 +132,10 @@ final class YouTubeVideoWindowController {
         window.titlebarAppearsTransparent = true
         window.titleVisibility = .hidden
         window.isMovableByWindowBackground = true
-        window.level = .normal
-        // fullScreenPrimary so the green traffic light enters fullscreen
-        // (not just zoom).
-        window.collectionBehavior = [.fullScreenPrimary]
+        self.applyDesiredWindowedLevel(to: window)
+        // Preserve normal-window Mission Control and window-cycling behavior,
+        // plus fullScreenPrimary for the green traffic light, regardless of level.
+        YouTubeVideoWindowLevelPolicy.configureCollectionBehavior(of: window)
         // Aspect + floor are enforced by the resize-guard delegate below, NOT
         // by contentAspectRatio. With both contentAspectRatio and
         // contentMinSize set, AppKit honors the aspect lock on the dragged axis
@@ -136,9 +201,38 @@ final class YouTubeVideoWindowController {
         )
         NotificationCenter.default.addObserver(
             self,
+            selector: #selector(self.windowWillExitFullScreen),
+            name: NSWindow.willExitFullScreenNotification,
+            object: window
+        )
+        NotificationCenter.default.addObserver(
+            self,
             selector: #selector(self.windowDidExitFullScreen),
             name: NSWindow.didExitFullScreenNotification,
             object: window
+        )
+    }
+
+    /// Applies the latest desired Float on Top setting to a safely windowed
+    /// pop-out. Changes made during fullscreen or either transition remain
+    /// persisted and are restored by the confirmed exit/failure callbacks.
+    func syncWindowState() {
+        guard let window = self.window else { return }
+        let isFullscreenOrTransitioning = self.youtubePlayerService?.windowFullscreenPhase.blocksWindowedControls == true
+            || window.styleMask.contains(.fullScreen)
+        guard YouTubeVideoWindowLevelPolicy.canApplyLiveChange(
+            isFullscreenOrTransitioning: isFullscreenOrTransitioning
+        ) else { return }
+
+        self.applyDesiredWindowedLevel(to: window)
+    }
+
+    /// Applies desired state on lifecycle paths that have already confirmed the
+    /// window is back in a safe windowed phase.
+    private func applyDesiredWindowedLevel(to window: NSWindow) {
+        YouTubeVideoWindowLevelPolicy.applyWindowedLevel(
+            isPinned: SettingsManager.shared.keepYouTubeVideoOnTop,
+            to: window
         )
     }
 
@@ -149,18 +243,26 @@ final class YouTubeVideoWindowController {
     /// close-time save is too late.
     @objc private func windowWillEnterFullScreen(_ notification: Notification) {
         guard let window = notification.object as? NSWindow else { return }
+        // Gate controls and ordinary level changes for the entire entry
+        // animation, rather than waiting for didEnterFullScreen.
+        self.youtubePlayerService?.windowFullscreenPhase = .entering
         self.applyFrameAutosaveTransition(.willEnterFullScreen, to: window)
     }
 
     @objc private func windowDidEnterFullScreen(_: Notification) {
-        self.youtubePlayerService?.isWindowFullscreen = true
+        self.youtubePlayerService?.windowFullscreenPhase = .fullscreen
+    }
+
+    @objc private func windowWillExitFullScreen(_: Notification) {
+        self.youtubePlayerService?.windowFullscreenPhase = .exiting
     }
 
     @objc private func windowDidExitFullScreen(_ notification: Notification) {
         if let window = notification.object as? NSWindow {
             self.applyFrameAutosaveTransition(.didExitFullScreen, to: window)
+            self.applyDesiredWindowedLevel(to: window)
         }
-        self.youtubePlayerService?.isWindowFullscreen = false
+        self.youtubePlayerService?.windowFullscreenPhase = .windowed
         if self.fullscreenIntent.consumeReturnInlineOnExit() {
             self.youtubePlayerService?.requestPopIn()
         }
@@ -169,7 +271,8 @@ final class YouTubeVideoWindowController {
     private func handleFailedFullscreenEntry(_ window: NSWindow) {
         self.applyFrameAutosaveTransition(.didFailToEnterFullScreen, to: window)
         self.fullscreenIntent.cancelReturnInlineOnExit()
-        self.youtubePlayerService?.isWindowFullscreen = false
+        self.applyDesiredWindowedLevel(to: window)
+        self.youtubePlayerService?.windowFullscreenPhase = .windowed
     }
 
     private func applyFrameAutosaveTransition(
@@ -190,8 +293,13 @@ final class YouTubeVideoWindowController {
     ///   into the app instead of leaving the pop-out window around.
     func toggleFullscreen(returnInlineOnExit: Bool = false) {
         guard let window = self.window else { return }
-        if returnInlineOnExit, !window.styleMask.contains(.fullScreen) {
-            self.fullscreenIntent.requestReturnInlineOnExit()
+        if window.styleMask.contains(.fullScreen) {
+            self.youtubePlayerService?.windowFullscreenPhase = .exiting
+        } else {
+            self.youtubePlayerService?.windowFullscreenPhase = .entering
+            if returnInlineOnExit {
+                self.fullscreenIntent.requestReturnInlineOnExit()
+            }
         }
         window.toggleFullScreen(nil)
     }
@@ -242,7 +350,7 @@ final class YouTubeVideoWindowController {
     }
 
     private func performCleanup() {
-        self.youtubePlayerService?.isWindowFullscreen = false
+        self.youtubePlayerService?.windowFullscreenPhase = .windowed
         self.fullscreenIntent.cancelReturnInlineOnExit()
         // Remove the fullscreen observers registered in show() so they don't
         // stack on the shared singleton across show/close cycles. (The willClose
@@ -257,6 +365,11 @@ final class YouTubeVideoWindowController {
             NotificationCenter.default.removeObserver(
                 self,
                 name: NSWindow.didEnterFullScreenNotification,
+                object: window
+            )
+            NotificationCenter.default.removeObserver(
+                self,
+                name: NSWindow.willExitFullScreenNotification,
                 object: window
             )
             NotificationCenter.default.removeObserver(
@@ -434,13 +547,12 @@ final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
 
 // MARK: - YouTubeVideoWindowContent
 
-/// Floating window content: corner-to-corner video with hover-revealed
-/// chrome — a compact Liquid Glass bar over the bottom of the video and a
-/// small glass backing under the traffic lights. Cursor leaves → all
-/// chrome fades out.
+/// Floating window content: corner-to-corner video with hover-revealed player
+/// chrome and a dedicated top drag region above the WebView.
 private struct YouTubeVideoWindowContent: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
 
+    @State private var settings = SettingsManager.shared
     @State private var isHovering = false
 
     /// Height of the top strip that moves the window. Generous enough to be
@@ -455,25 +567,20 @@ private struct YouTubeVideoWindowContent: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
                 if self.isHovering {
-                    // The full player bar — same items as the main window.
-                    YouTubePlayerBar()
+                    // The full player bar — same items as the main window, plus
+                    // detached-only window controls owned by YouTubePlayerBar.
+                    YouTubePlayerBar(isDetachedWindow: true)
                         .transition(.opacity)
                 }
             }
 
-            // Top drag strip: the corner-to-corner WebView reports
-            // mouseDownCanMoveWindow == false and swallows mouseDown, so the
-            // window's isMovableByWindowBackground is dead everywhere the
-            // WebView covers — leaving only the hidden titlebar sliver to grab.
-            // This native strip sits above the WebView and moves the window
-            // explicitly via NSWindow.performDrag.
+            // The corner-to-corner WebView consumes mouseDown and cannot move the
+            // window. This native strip sits above it and drives performDrag.
             WindowDragHandle()
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.dragStripHeight)
                 .overlay(alignment: .top) {
                     if self.isHovering {
-                        // Subtle grab affordance so the drag region is
-                        // discoverable without cluttering the chrome-free look.
                         Capsule()
                             .fill(.white.opacity(0.35))
                             .frame(width: 36, height: 5)
@@ -485,6 +592,7 @@ private struct YouTubeVideoWindowContent: View {
         }
         .background(.black)
         .ignoresSafeArea()
+        .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.18)) {
                 self.isHovering = hovering
@@ -544,10 +652,4 @@ private final class WindowDragNSView: NSView {
             self.window?.performDrag(with: event)
         }
     }
-}
-
-// MARK: - AccessibilityID Additions
-
-extension AccessibilityID.YouTubeContent {
-    static let videoWindow = "youtubeContent.videoWindow"
 }
