@@ -128,16 +128,17 @@ struct YouTubeWatchView: View {
                 self.ambientStylePicker
             }
         #endif
+            .task {
+                self.startOrAdoptPlayback()
+            }
             .task(id: self.askAccountScope) {
                 let accountScope = self.askAccountScope
-                self.startOrAdoptPlayback()
                 await self.viewModel.load(accountScope: accountScope)
-                // Feed the related list to the player so the bar's next/previous
-                // buttons can skip between videos.
-                if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
-                    self.youtubePlayer.setUpNext(self.viewModel.data.related)
-                    self.youtubePlayer.setChapters(self.viewModel.data.chapters)
-                }
+                YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
+                    videoId: self.video.videoId,
+                    player: self.youtubePlayer,
+                    data: self.viewModel.data
+                )
             }
             .onDisappear {
                 self.viewModel.cancel()
@@ -262,20 +263,13 @@ struct YouTubeWatchView: View {
     /// Starts playback of this view's video, or adopts the surface if this
     /// video is already playing (e.g. docking back from the floating window).
     private func startOrAdoptPlayback(startAt: Double? = nil) {
-        if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
-            if self.youtubePlayer.surfaceLocation == .floating {
-                self.youtubePlayer.dockInline()
-            }
-        } else {
-            self.youtubePlayer.play(
-                video: self.video,
-                usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore,
-                startAt: startAt
-            )
-        }
-        self.youtubePlayer.setUpNext(self.viewModel.data.related)
-        self.youtubePlayer.setChapters(self.viewModel.data.chapters)
-        self.youtubePlayer.activeInlineVideoId = self.video.videoId
+        YouTubeWatchPlaybackLifecycle.presentSurface(
+            video: self.video,
+            player: self.youtubePlayer,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore,
+            startAt: startAt,
+            data: self.viewModel.data
+        )
     }
 
     // MARK: - Metadata
