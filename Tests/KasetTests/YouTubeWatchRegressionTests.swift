@@ -41,4 +41,42 @@ struct YouTubeWatchRegressionTests {
         let resetPage = try await client.getWatchPage(videoId: "mock-video-1")
         #expect(resetPage.askBootstrap != nil)
     }
+
+    @Test("UI-test suggestion continuation keeps free-text Ask enabled")
+    func mockSuggestionContinuationKeepsFreeTextEnabled() async throws {
+        let client = MockUITestYouTubeClient(isAskGeminiEligible: true)
+        let page = try await client.getWatchPage(videoId: "mock-video-1")
+        let bootstrap = try #require(page.askBootstrap)
+        let conversation = try await client.loadAskConversation(from: bootstrap)
+        let suggestion = try #require(conversation.suggestions.first)
+        let pendingConversation = try #require(
+            conversation.appendingUserTurn(for: suggestion.id)
+        )
+
+        let continuedConversation = try await client.continueAskConversation(
+            pendingConversation,
+            selecting: suggestion.id
+        )
+
+        #expect(continuedConversation.canSubmitFreeText)
+    }
+
+    @Test("UI-test free-text continuation keeps free-text Ask enabled")
+    func mockFreeTextContinuationKeepsFreeTextEnabled() async throws {
+        let client = MockUITestYouTubeClient(isAskGeminiEligible: true)
+        let page = try await client.getWatchPage(videoId: "mock-video-1")
+        let bootstrap = try #require(page.askBootstrap)
+        let conversation = try await client.loadAskConversation(from: bootstrap)
+        let pendingConversation = try #require(
+            conversation.appendingUserTurn(text: "What happens next?")
+        )
+
+        let continuedConversation = try await client.continueAskConversation(
+            pendingConversation,
+            submitting: "What happens next?",
+            playerOffsetMilliseconds: 1000
+        )
+
+        #expect(continuedConversation.canSubmitFreeText)
+    }
 }

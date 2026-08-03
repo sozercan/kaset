@@ -329,6 +329,127 @@ struct YouTubeAskViewModelTests {
         #expect(sut.ask.suggestions.map(\.text) == ["Continue"])
     }
 
+    @Test("A restarted watch task coalesces the pending initial comment load")
+    func restartedWatchTaskResumesInitialComments() async {
+        let client = MockYouTubeClient()
+        let commentsGate = AsyncGate()
+        client.watchNextData = WatchNextData(
+            videoTitle: "Fixture title",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            commentsContinuation: "fixture-comments"
+        )
+        client.askBootstrap = YouTubeAskBootstrap.testing(suggestions: ["Explain this video"])
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                YouTubeComment(
+                    id: "fixture-comment",
+                    author: "Fixture author",
+                    authorAvatarURL: nil,
+                    text: "Fixture comment",
+                    publishedText: nil,
+                    likeCountText: nil
+                ),
+            ],
+            continuation: "fixture-comments-page-2",
+            createCommentParams: nil
+        )
+        client.beforeCommentsReturn = { _ in
+            await commentsGate.wait()
+        }
+        let video = MockYouTubeClient.makeVideo(videoId: "fixture-video")
+        let sut = YouTubeWatchViewModel(video: video, client: client)
+        let accountScope = self.accountScope(sequence: 1)
+
+        let initialTask = Task {
+            await sut.load(accountScope: accountScope)
+        }
+        await self.waitUntil(sut.loadingState == .loaded && client.getCommentsCallCount == 1)
+
+        sut.ask.setExpanded(true)
+        await self.waitUntil(sut.ask.activity == .idle && !sut.ask.suggestions.isEmpty)
+        initialTask.cancel()
+        let restartedTask = Task {
+            await sut.load(accountScope: accountScope)
+        }
+        await Task.yield()
+
+        #expect(client.getWatchPageCallCount == 1)
+        #expect(client.getCommentsCallCount == 1)
+        #expect(sut.data.videoTitle == "Fixture title")
+        #expect(sut.ask.suggestions.map(\.text) == ["Explain this video"])
+
+        await commentsGate.open()
+        await initialTask.value
+        await restartedTask.value
+        await sut.load(accountScope: accountScope)
+
+        #expect(client.getWatchPageCallCount == 1)
+        #expect(client.getCommentsCallCount == 1)
+        #expect(sut.comments.map(\.id) == ["fixture-comment"])
+        #expect(sut.canLoadMoreComments)
+        #expect(sut.data.videoTitle == "Fixture title")
+        #expect(sut.ask.suggestions.map(\.text) == ["Explain this video"])
+    }
+
+    @Test("A repeated watch task does not paginate beyond the initial comments page")
+    func repeatedWatchTaskDoesNotPaginateComments() async {
+        let client = MockYouTubeClient()
+        client.watchNextData = WatchNextData(
+            videoTitle: "Fixture title",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            commentsContinuation: "fixture-initial-comments"
+        )
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                YouTubeComment(
+                    id: "fixture-initial-comment",
+                    author: "Fixture author",
+                    authorAvatarURL: nil,
+                    text: "Initial comment",
+                    publishedText: nil,
+                    likeCountText: nil
+                ),
+            ],
+            continuation: "fixture-next-comments",
+            createCommentParams: nil
+        )
+        let video = MockYouTubeClient.makeVideo(videoId: "fixture-video")
+        let sut = YouTubeWatchViewModel(video: video, client: client)
+
+        await sut.load()
+        await sut.load()
+
+        #expect(client.getWatchPageCallCount == 1)
+        #expect(client.getCommentsCallCount == 1)
+        #expect(sut.comments.map(\.id) == ["fixture-initial-comment"])
+        #expect(sut.canLoadMoreComments)
+
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                YouTubeComment(
+                    id: "fixture-next-comment",
+                    author: "Fixture author",
+                    authorAvatarURL: nil,
+                    text: "Next comment",
+                    publishedText: nil,
+                    likeCountText: nil
+                ),
+            ],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadMoreComments()
+
+        #expect(client.getCommentsCallCount == 2)
+        #expect(sut.comments.map(\.id) == ["fixture-initial-comment", "fixture-next-comment"])
+    }
+
     @Test("An internal identity cancellation retries the read-only watch page once")
     func internalIdentityCancellationRetriesWatchPage() async {
         let client = MockYouTubeClient()

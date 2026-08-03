@@ -143,7 +143,8 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
                     text: "This is a synthetic YouTube-generated response for UI tests."
                 ),
             ],
-            suggestions: ["Show another detail"]
+            suggestions: ["Show another detail"],
+            allowsFreeText: self.isAskGeminiEligible
         )
     }
 
@@ -159,7 +160,8 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
                     text: "This is a synthetic free-text response for UI tests."
                 ),
             ],
-            suggestions: ["Show another detail"]
+            suggestions: ["Show another detail"],
+            allowsFreeText: self.isAskGeminiEligible
         )
     }
 

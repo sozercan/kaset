@@ -80,6 +80,16 @@ final class YouTubeWatchViewModel {
     private var commentsContinuation: String?
     private var commentsGeneration = 0
 
+    /// The single in-flight comments page, shared by concurrent callers so a
+    /// SwiftUI watch-task restart adopts the initial request instead of
+    /// cancelling it with the outer task or issuing a duplicate request.
+    private var commentsLoadTask: Task<CommentsLoadOutcome, Never>?
+
+    /// Distinguishes watch initialization from explicit comment pagination.
+    /// Once the first page reaches a terminal result, repeated watch-task runs
+    /// preserve loaded watch/Ask state without automatically fetching page two.
+    private var didCompleteInitialCommentsLoad = false
+
     /// Params for posting a comment (nil = signed out / disabled).
     private(set) var createCommentParams: String?
 
@@ -118,7 +128,10 @@ final class YouTubeWatchViewModel {
             self.resetAccountScopedWatchState()
         }
 
-        guard self.loadingState != .loaded else { return }
+        if self.loadingState == .loaded {
+            await self.loadInitialCommentsIfNeeded()
+            return
+        }
         self.loadGeneration += 1
         let generation = self.loadGeneration
         self.ask.cancelAndDiscard()
@@ -129,9 +142,10 @@ final class YouTubeWatchViewModel {
             self.data = page.data
             self.isSubscribed = page.data.isSubscribed ?? false
             self.commentsContinuation = page.data.commentsContinuation
+            self.didCompleteInitialCommentsLoad = false
             self.ask.seed(page.askBootstrap)
             self.loadingState = .loaded
-            await self.loadMoreComments()
+            await self.loadInitialCommentsIfNeeded()
         } catch {
             guard generation == self.loadGeneration else { return }
             self.ask.cancelAndDiscard()
@@ -170,7 +184,10 @@ final class YouTubeWatchViewModel {
     /// Invalidates the current route load and discards all Ask state.
     func cancel() {
         self.loadGeneration += 1
+        self.commentsLoadTask?.cancel()
+        self.commentsLoadTask = nil
         self.commentsGeneration += 1
+        self.didCompleteInitialCommentsLoad = false
         self.isLoadingComments = false
         self.isPostingComment = false
         self.commentsContinuation = nil
@@ -181,7 +198,10 @@ final class YouTubeWatchViewModel {
 
     private func resetAccountScopedWatchState() {
         self.loadGeneration += 1
+        self.commentsLoadTask?.cancel()
+        self.commentsLoadTask = nil
         self.commentsGeneration += 1
+        self.didCompleteInitialCommentsLoad = false
         self.data = .empty
         self.ask.cancelAndDiscard()
         self.isSubscribed = false
@@ -199,35 +219,91 @@ final class YouTubeWatchViewModel {
 
     // MARK: - Comments
 
+    private enum CommentsLoadOutcome {
+        case completed
+        case cancelled
+        case unavailable
+    }
+
+    /// Loads the first comments page once for watch initialization. A restarted
+    /// outer `.task` coalesces onto the stored page request, while later task
+    /// runs remain no-ops after that first page reaches a terminal result.
+    private func loadInitialCommentsIfNeeded() async {
+        guard !self.didCompleteInitialCommentsLoad else { return }
+        _ = await self.loadCommentsPage()
+    }
+
     /// Loads the next page of comments.
     func loadMoreComments() async {
-        guard !self.isLoadingComments, let continuation = self.commentsContinuation else { return }
+        _ = await self.loadCommentsPage()
+    }
+
+    /// Coalesces every caller for the current comments page onto one
+    /// unstructured task. The task survives cancellation of an awaiting SwiftUI
+    /// `.task`; only an explicit route/account reset cancels it.
+    private func loadCommentsPage() async -> CommentsLoadOutcome {
+        if let existing = self.commentsLoadTask {
+            return await existing.value
+        }
+        guard let continuation = self.commentsContinuation else {
+            self.didCompleteInitialCommentsLoad = true
+            return .unavailable
+        }
 
         let generation = self.commentsGeneration
-        self.isLoadingComments = true
+        let marksInitialCompletion = !self.didCompleteInitialCommentsLoad
+        let task = Task {
+            await self.performCommentsLoad(
+                continuation: continuation,
+                generation: generation,
+                marksInitialCompletion: marksInitialCompletion
+            )
+        }
+        self.commentsLoadTask = task
+        return await task.value
+    }
+
+    private func performCommentsLoad(
+        continuation: String,
+        generation: Int,
+        marksInitialCompletion: Bool
+    ) async -> CommentsLoadOutcome {
         defer {
             if generation == self.commentsGeneration {
+                self.commentsLoadTask = nil
                 self.isLoadingComments = false
             }
         }
+        guard generation == self.commentsGeneration, !Task.isCancelled else {
+            return .cancelled
+        }
+        self.isLoadingComments = true
         do {
             let page = try await self.client.getComments(continuation: continuation)
             guard generation == self.commentsGeneration,
                   self.commentsContinuation == continuation
-            else { return }
+            else { return .cancelled }
             let existing = Set(self.comments.map(\.id))
             self.comments.append(contentsOf: page.comments.filter { !existing.contains($0.id) })
             self.commentsContinuation = page.continuation
             if let params = page.createCommentParams {
                 self.createCommentParams = params
             }
+            if marksInitialCompletion {
+                self.didCompleteInitialCommentsLoad = true
+            }
+            return .completed
         } catch {
             if error is CancellationError {
-                return
+                return .cancelled
             }
-            guard generation == self.commentsGeneration else { return }
+            guard generation == self.commentsGeneration else { return .cancelled }
             self.logger.error("Failed to load comments: \(error.localizedDescription)")
             self.commentsContinuation = nil
+            if marksInitialCompletion {
+                self.didCompleteInitialCommentsLoad = true
+            }
+            return .completed
         }
     }
 

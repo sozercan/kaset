@@ -16,12 +16,12 @@ enum AccountSwitcherSignOutDisposition: Equatable {
 
 @MainActor
 enum AccountSwitcherSignOutFlow {
+    /// AuthService owns durable preflight and its registered account preparation.
+    /// Callers must not prepare AccountService independently before this operation.
     static func perform(
-        prepareForSignOut: () async -> Void,
         signOut: () async -> Bool
     ) async -> AccountSwitcherSignOutDisposition {
-        await prepareForSignOut()
-        return await signOut() ? .dismiss : .presentFailure
+        await signOut() ? .dismiss : .presentFailure
     }
 }
 
@@ -243,14 +243,9 @@ struct AccountSwitcherPopover: View {
             self.isSigningOut = true
             defer { self.isSigningOut = false }
 
-            let disposition = await AccountSwitcherSignOutFlow.perform(
-                prepareForSignOut: {
-                    await self.accountService.prepareForSignOut()
-                },
-                signOut: {
-                    await self.authService.signOut()
-                }
-            )
+            let disposition = await AccountSwitcherSignOutFlow.perform {
+                await self.authService.signOut()
+            }
 
             switch disposition {
             case .dismiss:
