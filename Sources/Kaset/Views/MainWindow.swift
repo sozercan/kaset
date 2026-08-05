@@ -348,9 +348,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
-        .task {
-            NowPlayingManager.shared.configure(playerService: self.playerService)
-        }
         .task(id: self.accountService.currentAccount?.id) {
             // Keep PodcastsViewModel in sync with the active account so
             // 404 / empty results are recorded against the right account.

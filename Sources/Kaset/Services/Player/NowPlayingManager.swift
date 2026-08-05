@@ -167,9 +167,9 @@ final class NowPlayingManager {
     }
 
     /// Pure decision: given the active source and its playback state, what claim do we want?
-    /// Confirmed playback stays hands-off so WebKit owns the rich Control Center card. A paused or
-    /// loading video keeps a minimal video claim until WebKit reports playback, while inactive music
-    /// keeps the equivalent music claim so the Play key resumes Kaset instead of Apple Music.
+    /// Confirmed playback stays hands-off so WebKit owns the rich Control Center card. Loading media
+    /// keeps a minimal native claim until WebKit reports playback, while inactive music keeps the
+    /// equivalent paused claim so the Play key resumes Kaset instead of Apple Music.
     nonisolated static func desiredClaim(
         state: PlayerService.PlaybackState,
         track: (title: String, artist: String)?,
@@ -187,8 +187,11 @@ final class NowPlayingManager {
         }
 
         switch state {
-        case .playing, .buffering, .loading:
+        case .playing:
             return .handsOff
+        case .buffering, .loading:
+            guard let track else { return .release }
+            return .claim(title: track.title, artist: track.artist, playbackState: .playing)
         case .idle, .paused, .ended, .error:
             guard let track else { return .release }
             return .claim(title: track.title, artist: track.artist, playbackState: .paused)
@@ -209,19 +212,22 @@ final class NowPlayingManager {
         self.applyNowPlayingClaim(claim)
     }
 
-    /// Maps a claim onto `MPNowPlayingInfoCenter`. Hands-off only clears info we still own.
+    /// Maps a claim onto `MPNowPlayingInfoCenter`. Hands-off preserves the current card while keeping
+    /// the app-wide playback state synchronized for macOS remote-command routing.
     private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
         let center = MPNowPlayingInfoCenter.default()
         switch claim {
         case .handsOff:
+            // macOS requires apps to update playbackState whenever playback starts or stops.
+            // This does not replace WebKit's richer nowPlayingInfo dictionary.
+            center.playbackState = .playing
             guard self.isAssertingNativeClaim else { return }
             guard Self.isNativeClaim(center.nowPlayingInfo) else {
                 self.isAssertingNativeClaim = false
                 return
             }
             // Preserve the fallback until WebKit atomically replaces the app-wide metadata.
-            // A non-destructive state update cannot clear a concurrently published WebKit card.
-            center.playbackState = .playing
+            // The state update above cannot clear a concurrently published WebKit card.
         case .release:
             guard self.isAssertingNativeClaim else { return }
             self.isAssertingNativeClaim = false

@@ -199,6 +199,14 @@ struct KasetApp: App {
         self.appDelegate.playerService = player
         self.appDelegate.scrobblingCoordinator = scrobblingCoordinator
 
+        // Register system media commands during app initialization rather than waiting for a
+        // window task. F8 must remain available even when no main-window task has run yet.
+        NowPlayingManager.shared.configure(playerService: player)
+        NowPlayingManager.shared.configureYouTubeRouting(
+            youtubePlayerService: youtubePlayer,
+            arbiter: arbiter
+        )
+
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")
         }
@@ -304,12 +312,6 @@ struct KasetApp: App {
                     guard request != nil else { return }
                     self.settings.appSource = .video
                     self.showMainWindow()
-                }
-                .task {
-                    NowPlayingManager.shared.configureYouTubeRouting(
-                        youtubePlayerService: self.youtubePlayerService,
-                        arbiter: self.playbackArbiter
-                    )
                 }
                 .onChange(of: self.playerService.isMiniPlayerVisible) { _, isVisible in
                     self.handleMiniPlayerVisibilityChange(isVisible)

@@ -5,12 +5,23 @@ import Testing
 
 @Suite("Now playing claim", .serialized, .tags(.service))
 struct NowPlayingClaimTests {
-    @Test("Actively playing or starting yields hands-off (WebKit owns the card)")
+    @Test("Confirmed active playback yields hands-off (WebKit owns the card)")
     func activePlaybackIsHandsOff() {
         let track = (title: "Song", artist: "Artist")
         #expect(NowPlayingManager.desiredClaim(state: .playing, track: track, activeVideo: nil) == .handsOff)
-        #expect(NowPlayingManager.desiredClaim(state: .buffering, track: track, activeVideo: nil) == .handsOff)
-        #expect(NowPlayingManager.desiredClaim(state: .loading, track: track, activeVideo: nil) == .handsOff)
+    }
+
+    @Test("Music startup gaps keep a native claim until WebKit owns the card")
+    func musicStartupGapsKeepNativeClaim() {
+        let track = (title: "Song", artist: "Artist")
+        let expected = NowPlayingManager.NowPlayingClaim.claim(
+            title: "Song",
+            artist: "Artist",
+            playbackState: .playing
+        )
+
+        #expect(NowPlayingManager.desiredClaim(state: .buffering, track: track, activeVideo: nil) == expected)
+        #expect(NowPlayingManager.desiredClaim(state: .loading, track: track, activeVideo: nil) == expected)
     }
 
     @Test("Not playing with a track yields a minimal claim")
