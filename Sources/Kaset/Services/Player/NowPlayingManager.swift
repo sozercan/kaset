@@ -226,8 +226,8 @@ final class NowPlayingManager {
                 self.isAssertingNativeClaim = false
                 return
             }
-            // Preserve the fallback until WebKit atomically replaces the app-wide metadata.
-            // The state update above cannot clear a concurrently published WebKit card.
+        // Preserve the fallback until WebKit atomically replaces the app-wide metadata.
+        // The state update above cannot clear a concurrently published WebKit card.
         case .release:
             guard self.isAssertingNativeClaim else { return }
             self.isAssertingNativeClaim = false
