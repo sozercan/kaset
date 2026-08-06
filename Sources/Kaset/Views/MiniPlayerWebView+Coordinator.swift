@@ -3,6 +3,69 @@ import Foundation
 import os
 import WebKit
 
+// MARK: - PlaybackBridgeEventQueue
+
+@MainActor
+final class PlaybackBridgeEventQueue {
+    private typealias Operation = @MainActor () async -> Void
+
+    private var activeDocumentGeneration: UInt64?
+    private var pendingOperations: [Operation] = []
+    private var workerTask: Task<Void, Never>?
+    private var workerID: UInt64 = 0
+
+    func enqueue(
+        documentGeneration: UInt64,
+        operation: @escaping @MainActor () async -> Void
+    ) {
+        if self.activeDocumentGeneration != documentGeneration {
+            self.cancelAll()
+            self.activeDocumentGeneration = documentGeneration
+        }
+
+        self.pendingOperations.append(operation)
+        guard self.workerTask == nil else { return }
+        self.startWorker()
+    }
+
+    func cancelAll() {
+        self.workerID &+= 1
+        self.workerTask?.cancel()
+        self.workerTask = nil
+        self.pendingOperations.removeAll()
+        self.activeDocumentGeneration = nil
+    }
+
+    func waitUntilIdle() async {
+        await self.workerTask?.value
+    }
+
+    private func startWorker() {
+        self.workerID &+= 1
+        let workerID = self.workerID
+        self.workerTask = Task { @MainActor [weak self] in
+            await self?.drainOperations(workerID: workerID)
+        }
+    }
+
+    private func drainOperations(workerID: UInt64) async {
+        defer {
+            if self.workerID == workerID {
+                self.pendingOperations.removeAll()
+                self.workerTask = nil
+            }
+        }
+
+        while self.workerID == workerID,
+              !Task.isCancelled,
+              !self.pendingOperations.isEmpty
+        {
+            let operation = self.pendingOperations.removeFirst()
+            await operation()
+        }
+    }
+}
+
 // MARK: - SingletonPlayerWebView.Coordinator
 
 extension SingletonPlayerWebView {
@@ -25,6 +88,10 @@ extension SingletonPlayerWebView {
         return decoded
     }
 
+    nonisolated static func playbackBridgeInt(from value: Any?) -> Int? {
+        WebPlaybackDocumentGeneration.decode(value).flatMap { Int(exactly: $0) }
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -36,6 +103,9 @@ extension SingletonPlayerWebView {
         private var lastAcceptedQueueEntryID: UUID?
         private var hasAcceptedQueueEntryBaseline = false
         private var lastAcceptedObservedVideoId: String?
+        private var lastHandledEndedObserverEpoch: Double?
+        private var lastHandledEndedMediaGeneration: Int?
+        private let playbackBridgeEvents = PlaybackBridgeEventQueue()
 
         init(playerService: PlayerService) {
             self.playerService = playerService
@@ -72,11 +142,21 @@ extension SingletonPlayerWebView {
                 : singleton.documentGeneration.accepts(generation: messageDocumentGeneration)
             guard acceptsGeneration else { return }
 
-            let observedVideoId = Self.observedVideoId(from: body)
-            let playbackOccurrence = Self.musicPlaybackOccurrence(
-                from: body,
-                documentGeneration: messageDocumentGeneration
+            self.dispatchAcceptedBridgeMessage(
+                body: body,
+                type: type,
+                documentGeneration: messageDocumentGeneration,
+                commandIssuedAtMilliseconds: commandIssuedAtMilliseconds
             )
+        }
+
+        private func dispatchAcceptedBridgeMessage(
+            body: [String: Any],
+            type: String,
+            documentGeneration: UInt64,
+            commandIssuedAtMilliseconds: Double?
+        ) {
+            let observedVideoId = Self.observedVideoId(from: body)
             let musicPlaybackIntent = self.playerService.currentMusicPlaybackIntent
             let eventIssuedAtMilliseconds = SingletonPlayerWebView.finitePlaybackBridgeDouble(
                 from: body["eventIssuedAtMilliseconds"]
@@ -84,60 +164,184 @@ extension SingletonPlayerWebView {
 
             switch type {
             case "TRACK_ENDED", "TRACK_ENDED_IDENTITY_DEADLINE":
-                let endedDuringAd = body["isAd"] as? Bool ?? false
-                let identityResolutionTimedOut = type == "TRACK_ENDED_IDENTITY_DEADLINE"
-                Task { @MainActor in
-                    guard SingletonPlayerWebView.shared.documentGeneration.accepts(
-                        generation: messageDocumentGeneration
-                    ), self.playerService.acceptsMusicTerminalBridgeEvent(
-                        intent: musicPlaybackIntent,
-                        eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
-                    ),
-                        !endedDuringAd,
-                        !identityResolutionTimedOut || playbackOccurrence != nil
-                    else { return }
-                    await self.playerService.handleTrackEnded(
-                        observedVideoId: observedVideoId,
-                        playbackOccurrence: playbackOccurrence,
-                        intent: musicPlaybackIntent,
-                        identityResolutionTimedOut: identityResolutionTimedOut
-                    )
-                }
+                self.enqueueTrackEnded(
+                    body: body,
+                    documentGeneration: documentGeneration,
+                    musicPlaybackIntent: musicPlaybackIntent,
+                    eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
+                    identityResolutionTimedOut: type == "TRACK_ENDED_IDENTITY_DEADLINE"
+                )
             case "REMOTE_NEXT", "REMOTE_PREVIOUS":
                 self.handleRemoteCommand(
                     type: type,
-                    documentGeneration: messageDocumentGeneration,
+                    documentGeneration: documentGeneration,
                     commandIssuedAtMilliseconds: commandIssuedAtMilliseconds,
                     musicPlaybackIntent: musicPlaybackIntent
                 )
             case "AIRPLAY_STATUS":
                 self.handleAirPlayStatusUpdate(
                     body: body,
-                    documentGeneration: messageDocumentGeneration
+                    documentGeneration: documentGeneration
                 )
             case "LYRICS_TIME":
                 self.handleLyricsTimeUpdate(
                     body: body,
-                    documentGeneration: messageDocumentGeneration
+                    documentGeneration: documentGeneration
                 )
             case "LYRICS_LINE":
                 self.handleLyricsLineUpdate(
                     body: body,
-                    documentGeneration: messageDocumentGeneration
+                    documentGeneration: documentGeneration
                 )
             case "PLAYBACK_AUDIO_QUALITY_STATS":
                 Self.logAudioQualityStats(body: body, observedVideoId: observedVideoId)
             case "STATE_UPDATE":
-                self.handleStateUpdate(
+                self.enqueueStateUpdate(
                     body: body,
                     observedVideoId: observedVideoId,
-                    documentGeneration: messageDocumentGeneration,
+                    documentGeneration: documentGeneration,
                     musicPlaybackIntent: musicPlaybackIntent,
                     eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
                 )
             default:
                 return
             }
+        }
+
+        private func enqueueTrackEnded(
+            body: [String: Any],
+            documentGeneration: UInt64,
+            musicPlaybackIntent: MusicPlaybackIntent,
+            eventIssuedAtMilliseconds: Double?,
+            identityResolutionTimedOut: Bool,
+            beforeHandling: (@MainActor () async -> Void)? = nil
+        ) {
+            let observedVideoId = Self.observedVideoId(from: body)
+            let playbackOccurrence = Self.musicPlaybackOccurrence(
+                from: body,
+                documentGeneration: documentGeneration
+            )
+            let endedDuringAd = body["isAd"] as? Bool ?? false
+            let observerEpoch = SingletonPlayerWebView.finitePlaybackBridgeDouble(
+                from: body["observerEpoch"]
+            ) ?? 0
+            let mediaGeneration = SingletonPlayerWebView.playbackBridgeInt(from: body["mediaGeneration"]) ?? 0
+            self.enqueuePlaybackBridgeMessage(generation: documentGeneration) { coordinator in
+                if let beforeHandling {
+                    await beforeHandling()
+                }
+                guard !Task.isCancelled,
+                      coordinator.isCurrentPlaybackBridgeDocument(documentGeneration),
+                      coordinator.playerService.acceptsMusicTerminalBridgeEvent(
+                          intent: musicPlaybackIntent,
+                          eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
+                      ),
+                      !endedDuringAd,
+                      !identityResolutionTimedOut || playbackOccurrence != nil,
+                      coordinator.consumeTrackEndedOccurrence(
+                          observerEpoch: observerEpoch,
+                          mediaGeneration: mediaGeneration
+                      )
+                else { return }
+                await coordinator.playerService.handleTrackEnded(
+                    observedVideoId: observedVideoId,
+                    playbackOccurrence: playbackOccurrence,
+                    intent: musicPlaybackIntent,
+                    identityResolutionTimedOut: identityResolutionTimedOut,
+                    shouldContinue: {
+                        !Task.isCancelled
+                            && coordinator.isCurrentPlaybackBridgeDocument(documentGeneration)
+                    }
+                )
+            }
+        }
+
+        private func enqueuePlaybackBridgeMessage(
+            generation: UInt64,
+            operation: @escaping @MainActor (Coordinator) async -> Void
+        ) {
+            self.playbackBridgeEvents.enqueue(documentGeneration: generation) { [weak self] in
+                guard let self,
+                      !Task.isCancelled,
+                      self.isCurrentPlaybackBridgeDocument(generation)
+                else { return }
+                await operation(self)
+            }
+        }
+
+        func enqueueWebQueueInjectionResult(
+            videoId: String,
+            attemptGeneration: Int,
+            success: Bool,
+            reason: String?,
+            documentGeneration: UInt64
+        ) {
+            guard self.isCurrentPlaybackBridgeDocument(documentGeneration) else { return }
+            self.enqueuePlaybackBridgeMessage(generation: documentGeneration) { coordinator in
+                coordinator.playerService.handleWebQueueInjectionResult(
+                    videoId: videoId,
+                    attemptGeneration: attemptGeneration,
+                    success: success,
+                    reason: reason
+                )
+            }
+        }
+
+        func cancelPlaybackBridgeTasks() {
+            self.playbackBridgeEvents.cancelAll()
+        }
+
+        func enqueueTrackEndedForTesting(
+            body: [String: Any],
+            documentGeneration: UInt64,
+            beforeHandling: @escaping @MainActor () async -> Void = {}
+        ) {
+            self.enqueueTrackEnded(
+                body: body,
+                documentGeneration: documentGeneration,
+                musicPlaybackIntent: self.playerService.currentMusicPlaybackIntent,
+                eventIssuedAtMilliseconds: self.playerService.musicPlaybackIntentIssuedAtMilliseconds + 1,
+                identityResolutionTimedOut: false,
+                beforeHandling: beforeHandling
+            )
+        }
+
+        func enqueueStateUpdateForTesting(
+            body: [String: Any],
+            observedVideoId: String?,
+            documentGeneration: UInt64
+        ) {
+            self.enqueueStateUpdate(
+                body: body,
+                observedVideoId: observedVideoId,
+                documentGeneration: documentGeneration,
+                musicPlaybackIntent: self.playerService.currentMusicPlaybackIntent,
+                eventIssuedAtMilliseconds: self.playerService.musicPlaybackIntentIssuedAtMilliseconds + 1
+            )
+        }
+
+        func awaitPlaybackBridgeDrainForTesting() async {
+            await self.playbackBridgeEvents.waitUntilIdle()
+        }
+
+        private func isCurrentPlaybackBridgeDocument(_ generation: UInt64) -> Bool {
+            SingletonPlayerWebView.shared.coordinator === self
+                && SingletonPlayerWebView.shared.documentGeneration.accepts(generation: generation)
+        }
+
+        private func consumeTrackEndedOccurrence(
+            observerEpoch: Double,
+            mediaGeneration: Int
+        ) -> Bool {
+            guard WebPlaybackIdentityTransition.shouldAcceptEndedOccurrence(
+                observerEpoch: observerEpoch,
+                lastHandledObserverEpoch: self.lastHandledEndedObserverEpoch,
+                mediaGeneration: mediaGeneration,
+                lastHandledMediaGeneration: self.lastHandledEndedMediaGeneration
+            ) else { return false }
+            self.lastHandledEndedObserverEpoch = observerEpoch
+            self.lastHandledEndedMediaGeneration = mediaGeneration
+            return true
         }
 
         private func handleRemoteCommand(
@@ -498,7 +702,12 @@ extension SingletonPlayerWebView {
         }
 
         func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
-            SingletonPlayerWebView.shared.commitDocumentNavigation(navigation, webView: webView)
+            let singleton = SingletonPlayerWebView.shared
+            let previousGeneration = singleton.documentGeneration.currentGeneration
+            singleton.commitDocumentNavigation(navigation, webView: webView)
+            if singleton.documentGeneration.currentGeneration != previousGeneration {
+                self.cancelPlaybackBridgeTasks()
+            }
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -619,7 +828,7 @@ extension SingletonPlayerWebView.Coordinator {
         )
     }
 
-    private func handleStateUpdate(
+    private func enqueueStateUpdate(
         body: [String: Any],
         observedVideoId: String?,
         documentGeneration: UInt64,
@@ -628,8 +837,8 @@ extension SingletonPlayerWebView.Coordinator {
     ) {
         let playbackVideoId = Self.playbackVideoId(from: body)
         let observationReceivedAt = ContinuousClock.now
-        Task { @MainActor in
-            await self.processStateUpdate(
+        self.enqueuePlaybackBridgeMessage(generation: documentGeneration) { coordinator in
+            await coordinator.processStateUpdate(
                 body: body,
                 observedVideoId: observedVideoId,
                 mediaVideoId: playbackVideoId,
@@ -637,7 +846,11 @@ extension SingletonPlayerWebView.Coordinator {
                 documentGeneration: documentGeneration,
                 musicPlaybackIntent: musicPlaybackIntent,
                 eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
-                validatesBridgeContext: true
+                validatesBridgeContext: true,
+                shouldContinue: {
+                    !Task.isCancelled
+                        && coordinator.isCurrentPlaybackBridgeDocument(documentGeneration)
+                }
             )
         }
     }
@@ -651,8 +864,11 @@ extension SingletonPlayerWebView.Coordinator {
         documentGeneration: UInt64?,
         musicPlaybackIntent: MusicPlaybackIntent?,
         eventIssuedAtMilliseconds: Double?,
-        validatesBridgeContext: Bool
+        validatesBridgeContext: Bool,
+        shouldContinue: @escaping @MainActor () -> Bool = { true }
     ) async {
+        guard shouldContinue() else { return }
+
         let isPlaying = body["isPlaying"] as? Bool ?? false
         let progress = SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["progress"]) ?? 0
         let duration = SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["duration"]) ?? 0
@@ -664,7 +880,7 @@ extension SingletonPlayerWebView.Coordinator {
         let trackChanged = body["trackChanged"] as? Bool ?? false
         let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
         let hasVideo = body["hasVideo"] as? Bool ?? false
-        let mediaGeneration = WebPlaybackDocumentGeneration.decode(body["mediaGeneration"]).map(Int.init) ?? 0
+        let mediaGeneration = SingletonPlayerWebView.playbackBridgeInt(from: body["mediaGeneration"]) ?? 0
         let observerEpoch = SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["observerEpoch"]) ?? 0
         let playbackOccurrence = documentGeneration.flatMap {
             Self.musicPlaybackOccurrence(from: body, documentGeneration: $0)
@@ -691,7 +907,7 @@ extension SingletonPlayerWebView.Coordinator {
         let terminalPlaybackOccurrence = self.playerService.currentMusicPlaybackOccurrence
             ?? playbackOccurrence
         defer {
-            if let playbackOccurrence, let documentGeneration {
+            if shouldContinue(), let playbackOccurrence, let documentGeneration {
                 self.playerService.bindWebMusicPlaybackOccurrence(
                     documentGeneration: documentGeneration,
                     mediaGeneration: playbackOccurrence.mediaGeneration,
@@ -751,10 +967,15 @@ extension SingletonPlayerWebView.Coordinator {
                 lastAcceptedMediaGeneration: self.lastAcceptedMediaGeneration
             ) else { return }
         }
+        guard shouldContinue() else { return }
         let shouldContinuePendingAdvance = await self.playerService
-            .reconcilePendingNativeQueueAdvanceObservation(videoId: playbackVideoId)
+            .reconcilePendingNativeQueueAdvanceObservation(
+                videoId: playbackVideoId,
+                shouldContinue: shouldContinue
+            )
         if validatesBridgeContext {
-            guard let documentGeneration,
+            guard shouldContinue(),
+                  let documentGeneration,
                   let musicPlaybackIntent,
                   SingletonPlayerWebView.shared.documentGeneration.accepts(
                       generation: documentGeneration

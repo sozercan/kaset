@@ -23,6 +23,14 @@ struct PlaybackEndedOccurrenceCase {
     let expected: Bool
 }
 
+// MARK: - PlaybackBridgeTransitionPayloads
+
+private struct PlaybackBridgeTransitionPayloads {
+    let sourceState: [String: Any]
+    let targetState: [String: Any]
+    let trackEnded: [String: Any]
+}
+
 extension PlayerServiceWebQueueSyncTests {
     // MARK: - Web Playback Identity Reconciliation
 
@@ -406,6 +414,127 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
         #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+    }
+
+    @Test("Playback bridge handles source end before the successor's first state")
+    func playbackBridgeSerializesTrackEndBeforeSuccessorState() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+
+        let singletonPlayer = SingletonPlayerWebView.shared
+        let previousCoordinator = singletonPlayer.coordinator
+        let previousWebVideoId = singletonPlayer.currentVideoId
+        let coordinator = SingletonPlayerWebView.Coordinator(playerService: self.playerService)
+        singletonPlayer.coordinator = coordinator
+        singletonPlayer.currentVideoId = "v1"
+        defer {
+            coordinator.cancelPlaybackBridgeTasks()
+            if singletonPlayer.coordinator === coordinator {
+                singletonPlayer.coordinator = previousCoordinator
+            }
+            singletonPlayer.currentVideoId = previousWebVideoId
+        }
+
+        let documentGeneration = singletonPlayer.documentGeneration.currentGeneration
+        let nativePlaybackGeneration = self.playerService.currentNativeMusicPlaybackGeneration
+        let trackEndStarted = AsyncGate()
+        let releaseTrackEnd = AsyncGate()
+        let payloads = self.playbackBridgeTransitionPayloads(
+            nativePlaybackGeneration: nativePlaybackGeneration
+        )
+
+        coordinator.enqueueStateUpdateForTesting(
+            body: payloads.sourceState,
+            observedVideoId: "v1",
+            documentGeneration: documentGeneration
+        )
+        await coordinator.awaitPlaybackBridgeDrainForTesting()
+        #expect(self.playerService.progress == 179)
+        self.playerService.injectedWebQueueVideoId = "v2"
+        #expect(self.playerService.injectedWebQueueVideoId == "v2")
+
+        let navigationGeneration = self.playerService.playbackNavigationGeneration
+        coordinator.enqueueTrackEndedForTesting(
+            body: payloads.trackEnded,
+            documentGeneration: documentGeneration
+        ) {
+            await trackEndStarted.open()
+            await releaseTrackEnd.wait()
+        }
+        coordinator.enqueueStateUpdateForTesting(
+            body: payloads.targetState,
+            observedVideoId: "v2",
+            documentGeneration: documentGeneration
+        )
+
+        await trackEndStarted.wait()
+        await Task.yield()
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.progress == 179)
+        #expect(self.playerService.injectedWebQueueVideoId == "v2")
+
+        await releaseTrackEnd.open()
+        await coordinator.awaitPlaybackBridgeDrainForTesting()
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.state == .playing)
+        #expect(self.playerService.progress == 0.5)
+        #expect(self.playerService.playbackNavigationGeneration == navigationGeneration + 1)
+        #expect(!self.playerService.isKasetInitiatedPlayback)
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+        #expect(self.playerService.protectedQueueNavigationVideoId == "v2")
+        #expect(singletonPlayer.currentVideoId == "v2")
+    }
+
+    private func playbackBridgeTransitionPayloads(
+        nativePlaybackGeneration: UInt64
+    ) -> PlaybackBridgeTransitionPayloads {
+        let sourceState: [String: Any] = [
+            "isPlaying": true,
+            "progress": NSNumber(value: 179),
+            "duration": NSNumber(value: 180),
+            "title": "Song 1",
+            "artist": "",
+            "thumbnailUrl": "",
+            "trackChanged": false,
+            "likeStatus": "INDIFFERENT",
+            "hasVideo": false,
+            "hasReadyMedia": true,
+            "isAd": false,
+            "videoId": "v1",
+            "mediaVideoId": "v1",
+            "mediaGeneration": 2,
+            "nativePlaybackGeneration": nativePlaybackGeneration,
+            "observerEpoch": NSNumber(value: 10),
+        ]
+        var targetState = sourceState
+        targetState["progress"] = NSNumber(value: 0.5)
+        targetState["duration"] = NSNumber(value: 200)
+        targetState["title"] = "Song 2"
+        targetState["trackChanged"] = true
+        targetState["videoId"] = "v2"
+        targetState["mediaVideoId"] = "v2"
+        targetState["mediaGeneration"] = 3
+        let trackEnded: [String: Any] = [
+            "videoId": "v1",
+            "mediaVideoId": "v1",
+            "mediaGeneration": 2,
+            "nativePlaybackGeneration": nativePlaybackGeneration,
+            "observerEpoch": NSNumber(value: 10),
+            "isAd": false,
+        ]
+        return PlaybackBridgeTransitionPayloads(
+            sourceState: sourceState,
+            targetState: targetState,
+            trackEnded: trackEnded
+        )
     }
 
     @Test("Mismatched Web video ID reconciles when bridge trackChanged is false")

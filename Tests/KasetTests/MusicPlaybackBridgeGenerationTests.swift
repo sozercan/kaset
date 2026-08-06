@@ -746,7 +746,9 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(source.contains("videoId: Self.playbackVideoId(from: body)"))
         #expect(source.contains("videoId: playbackVideoId"))
     }
+}
 
+extension MusicPlaybackBridgeGenerationTests {
     @Test("Router navigation confirms only after an accepted state observation")
     func routerNavigationConfirmationFollowsBridgeValidation() throws {
         let coordinatorSource = try String(
@@ -784,6 +786,67 @@ struct MusicPlaybackBridgeGenerationTests {
 
     private func occurrenceCount(of needle: String, in haystack: String) -> Int {
         haystack.components(separatedBy: needle).count - 1
+    }
+}
+
+// MARK: - PlaybackBridgeEventQueueTests
+
+@Suite("Playback bridge event queue", .tags(.service))
+@MainActor
+struct PlaybackBridgeEventQueueTests {
+    private final class LifetimeProbe {}
+
+    private final class WeakLifetimeProbe {
+        weak var value: LifetimeProbe?
+
+        init(_ value: LifetimeProbe?) {
+            self.value = value
+        }
+    }
+
+    @Test("A new document generation cancels the prior playback bridge backlog")
+    func newDocumentGenerationCancelsPlaybackBridgeBacklog() async {
+        let eventQueue = PlaybackBridgeEventQueue()
+        let activeEventStarted = AsyncGate()
+        let releaseActiveEvent = AsyncGate()
+        let activeEventFinished = AsyncGate()
+        var handledEvents: [String] = []
+        var queuedEventProbe: LifetimeProbe? = LifetimeProbe()
+        let retainedQueuedEventProbe = WeakLifetimeProbe(queuedEventProbe)
+
+        eventQueue.enqueue(documentGeneration: 1) {
+            await activeEventStarted.open()
+            await releaseActiveEvent.wait()
+            if !Task.isCancelled {
+                handledEvents.append("old-active")
+            }
+            await activeEventFinished.open()
+        }
+        await activeEventStarted.wait()
+        eventQueue.enqueue(documentGeneration: 1) { [queuedEventProbe] in
+            _ = queuedEventProbe
+            handledEvents.append("old-backlog")
+        }
+        queuedEventProbe = nil
+        #expect(retainedQueuedEventProbe.value != nil)
+        eventQueue.enqueue(documentGeneration: 2) {
+            handledEvents.append("new-document")
+        }
+
+        await eventQueue.waitUntilIdle()
+        #expect(retainedQueuedEventProbe.value == nil)
+        await releaseActiveEvent.open()
+        await activeEventFinished.wait()
+
+        #expect(handledEvents == ["new-document"])
+    }
+
+    @Test("Bridge integer decoding rejects values outside the platform range")
+    func bridgeIntegerDecodingRejectsOversizedValues() {
+        let oversizedGeneration = NSNumber(value: UInt64(Int.max) + 1)
+
+        #expect(SingletonPlayerWebView.playbackBridgeInt(from: NSNumber(value: 42)) == 42)
+        #expect(SingletonPlayerWebView.playbackBridgeInt(from: oversizedGeneration) == nil)
     }
 }
 
@@ -829,7 +892,7 @@ struct WebPlaybackTransitionFallbackPolicyTests {
         )
         let clearBoundary = try #require(source.range(of: "self.playerService.clearAdPlaybackBoundary()"))
         let pendingReconciliation = try #require(source.range(
-            of: ".reconcilePendingNativeQueueAdvanceObservation(videoId: playbackVideoId)"
+            of: ".reconcilePendingNativeQueueAdvanceObservation("
         ))
 
         #expect(clearBoundary.lowerBound < pendingReconciliation.lowerBound)

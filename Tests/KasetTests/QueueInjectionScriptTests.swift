@@ -24,6 +24,7 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-confirmed")
         #expect(context.evaluateScript("lastMessage.videoId")?.toString() == "target-video")
         #expect(context.evaluateScript("lastMessage.attemptGeneration")?.toInt32() == 7)
+        #expect(context.evaluateScript("lastMessage.documentGeneration")?.toInt32() == 42)
         #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
         #expect(context.evaluateScript("clickedFallbackVideoId")?.toString() == "target-video")
         #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "target-video")
@@ -499,6 +500,7 @@ struct QueueInjectionScriptTests {
         self.evaluate(
             """
             var window = this;
+            window.__kasetDocumentGeneration = 42;
             var messageCount = 0;
             var lastMessage = null;
             var clickedVideoId = null;

@@ -450,8 +450,6 @@ final class SingletonPlayerWebView {
 
     private final class PlaybackBridgeMultiplexer: NSObject, WKScriptMessageHandler {
         private weak var coordinator: Coordinator?
-        private var lastHandledEndedObserverEpoch: Double?
-        private var lastHandledEndedMediaGeneration: Int?
 
         init(coordinator: Coordinator) {
             self.coordinator = coordinator
@@ -482,12 +480,18 @@ final class SingletonPlayerWebView {
 
             switch type {
             case "QUEUE_INJECTION_RESULT":
-                self.handleQueueInjectionResult(body: body, coordinator: coordinator)
+                guard let documentGeneration = WebPlaybackDocumentGeneration.decode(
+                    body["documentGeneration"]
+                ) else { return }
+                self.handleQueueInjectionResult(
+                    body: body,
+                    coordinator: coordinator,
+                    documentGeneration: documentGeneration
+                )
                 return
             case "TRACK_ENDED":
                 // Keep an uncertain occurrence unclaimed so a resolved retry can consume it.
                 guard body["mediaIdentityUncertain"] as? Bool != true else { return }
-                guard self.consumeTrackEndedOccurrence(body: body) else { return }
             case "TRACK_ENDED_IDENTITY_DEADLINE":
                 guard let expectedDocumentID = singleton.expectedBridgeDocumentID,
                       body["documentID"] as? Int == expectedDocumentID,
@@ -514,8 +518,7 @@ final class SingletonPlayerWebView {
                               ),
                               isAd: body["isAd"] as? Bool
                           )
-                      ),
-                      self.consumeTrackEndedOccurrence(body: body)
+                      )
                 else { return }
             case "STATE_UPDATE":
                 break
@@ -528,48 +531,25 @@ final class SingletonPlayerWebView {
 
         private func handleQueueInjectionResult(
             body: [String: Any],
-            coordinator: Coordinator
+            coordinator: Coordinator,
+            documentGeneration: UInt64
         ) {
             guard let videoID = Self.normalizedVideoID(body["videoId"]),
                   let attemptGeneration = body["attemptGeneration"] as? Int
             else { return }
-            coordinator.playerService.handleWebQueueInjectionResult(
+            coordinator.enqueueWebQueueInjectionResult(
                 videoId: videoID,
                 attemptGeneration: attemptGeneration,
                 success: body["success"] as? Bool ?? false,
-                reason: body["reason"] as? String
+                reason: body["reason"] as? String,
+                documentGeneration: documentGeneration
             )
-        }
-
-        private func consumeTrackEndedOccurrence(body: [String: Any]) -> Bool {
-            let observerEpoch = Self.bridgeDouble(body["observerEpoch"])
-            let mediaGeneration = Self.bridgeInt(body["mediaGeneration"])
-            guard WebPlaybackIdentityTransition.shouldAcceptEndedOccurrence(
-                observerEpoch: observerEpoch,
-                lastHandledObserverEpoch: self.lastHandledEndedObserverEpoch,
-                mediaGeneration: mediaGeneration,
-                lastHandledMediaGeneration: self.lastHandledEndedMediaGeneration
-            ) else { return false }
-            self.lastHandledEndedObserverEpoch = observerEpoch
-            self.lastHandledEndedMediaGeneration = mediaGeneration
-            return true
         }
 
         private static func normalizedVideoID(_ value: Any?) -> String? {
             guard let value = value as? String else { return nil }
             let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
             return normalized.isEmpty ? nil : normalized
-        }
-
-        private static func bridgeDouble(_ value: Any?) -> Double {
-            SingletonPlayerWebView.finitePlaybackBridgeDouble(from: value) ?? 0
-        }
-
-        private static func bridgeInt(_ value: Any?) -> Int {
-            if let value = value as? NSNumber {
-                return value.intValue
-            }
-            return value as? Int ?? 0
         }
     }
 
@@ -862,6 +842,7 @@ final class SingletonPlayerWebView {
         self.webKitManager?.extensionHostWebViewDidDeactivate(role: .musicPlayer)
         self.webView = nil
         self.playbackBridgeMultiplexer = nil
+        self.coordinator?.cancelPlaybackBridgeTasks()
         self.coordinator = nil
         self.cancelledDocumentNavigations.removeAll()
         self.currentContainer = nil
@@ -1556,6 +1537,7 @@ extension SingletonPlayerWebView {
 
 extension SingletonPlayerWebView {
     func invalidateDocumentNavigationState() {
+        self.coordinator?.cancelPlaybackBridgeTasks()
         for (identifier, navigation) in self.documentNavigations {
             self.cancelledDocumentNavigations[identifier] = WebPlaybackCancelledNavigation(
                 generation: navigation.generation,
@@ -1574,6 +1556,7 @@ extension SingletonPlayerWebView {
     }
 
     func beginBlankDocumentNavigation() -> URL? {
+        self.coordinator?.cancelPlaybackBridgeTasks()
         self.documentNavigations.removeAll()
         self.continuationGenerationsAwaitingStart.removeAll()
         self.pendingDocumentID = nil

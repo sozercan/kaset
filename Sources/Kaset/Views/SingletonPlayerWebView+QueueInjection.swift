@@ -37,6 +37,7 @@ extension SingletonPlayerWebView {
         attemptGeneration: Int
     ) -> Bool {
         guard let webView else { return false }
+        let documentGeneration = self.documentGeneration.currentGeneration
 
         let injectionScript = Self.queueInjectionScript(
             videoId: videoId,
@@ -48,11 +49,13 @@ extension SingletonPlayerWebView {
             guard let error else { return }
             Task { @MainActor [weak self] in
                 self?.logger.error("Failed to inject next song: \(error.localizedDescription)")
-                self?.coordinator?.playerService.handleWebQueueInjectionResult(
+                guard let self, let coordinator = self.coordinator else { return }
+                coordinator.enqueueWebQueueInjectionResult(
                     videoId: videoId,
                     attemptGeneration: attemptGeneration,
                     success: false,
-                    reason: error.localizedDescription
+                    reason: error.localizedDescription,
+                    documentGeneration: documentGeneration
                 )
             }
         }
@@ -73,6 +76,7 @@ extension SingletonPlayerWebView {
                 && window.webkit.messageHandlers.singletonPlayer;
             const injectionAttemptId = \(attemptGeneration);
             const documentID = Number(window.__kasetDocumentID || 0);
+            const documentGeneration = Number(window.__kasetDocumentGeneration || 0);
             const startedAt = Date.now();
             let menuObserver = null;
             let menuWaitTimerId = null;
@@ -129,6 +133,7 @@ extension SingletonPlayerWebView {
                             videoId: reportedVideoId || targetVideoId,
                             attemptGeneration: injectionAttemptId,
                             documentID: documentID,
+                            documentGeneration: documentGeneration,
                             success: !!success,
                             reason: reason || ''
                         });

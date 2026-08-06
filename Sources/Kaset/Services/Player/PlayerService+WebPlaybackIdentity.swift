@@ -170,7 +170,11 @@ extension PlayerService {
 
     /// Reconciles an authoritative media-bound observation during a native handoff.
     /// - Returns: Whether the caller should continue applying this observation.
-    func reconcilePendingNativeQueueAdvanceObservation(videoId: String?) async -> Bool {
+    func reconcilePendingNativeQueueAdvanceObservation(
+        videoId: String?,
+        shouldContinue: @escaping @MainActor () -> Bool = { true }
+    ) async -> Bool {
+        guard shouldContinue() else { return false }
         guard let pending = self.pendingNativeQueueAdvance else { return true }
         guard let videoId = self.normalizedWebPlaybackVideoId(videoId) else { return false }
 
@@ -179,12 +183,14 @@ extension PlayerService {
             return false
         }
 
-        if videoId == pending.targetVideoId,
-           await self.confirmPendingNativeQueueAdvance(videoId: videoId)
-        {
+        if videoId == pending.targetVideoId {
+            guard shouldContinue(), self.confirmPendingNativeQueueAdvance(videoId: videoId) else {
+                return false
+            }
             return true
         }
 
+        guard shouldContinue() else { return false }
         await self.fallbackPendingNativeQueueAdvance(
             generation: pending.generation,
             reason: "observed unexpected native video \(videoId)"
@@ -317,8 +323,9 @@ extension PlayerService {
     }
 
     @discardableResult
-    private func confirmPendingNativeQueueAdvance(videoId: String) async -> Bool {
-        guard let pending = self.pendingNativeQueueAdvance,
+    private func confirmPendingNativeQueueAdvance(videoId: String) -> Bool {
+        guard !Task.isCancelled,
+              let pending = self.pendingNativeQueueAdvance,
               pending.targetVideoId == videoId,
               self.isPendingNativeQueueAdvanceValid,
               let targetIndex = self.expectedQueueIndexAfterCurrentTrack()
@@ -367,7 +374,8 @@ extension PlayerService {
         generation: Int,
         reason: String
     ) async {
-        guard let pending = self.pendingNativeQueueAdvance,
+        guard !Task.isCancelled,
+              let pending = self.pendingNativeQueueAdvance,
               pending.generation == generation,
               !self.isPendingNativeQueueAdvanceValid
         else {

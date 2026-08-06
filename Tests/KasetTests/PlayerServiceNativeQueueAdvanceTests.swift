@@ -66,6 +66,34 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(SingletonPlayerWebView.shared.currentVideoId == "v2")
     }
 
+    @Test("Canceled observation cannot confirm a pending native handoff")
+    func canceledObservationDoesNotConfirmNativeHandoff() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "v2"
+        await self.playerService.handleTrackEnded(observedVideoId: "v1")
+        var validationCount = 0
+
+        let shouldContinue = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(
+            videoId: "v2",
+            shouldContinue: {
+                validationCount += 1
+                return validationCount == 1
+            }
+        )
+
+        #expect(validationCount >= 2)
+        #expect(!shouldContinue)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == "v2")
+        self.playerService.clearPendingNativeQueueAdvance()
+    }
+
     @Test("Paused media confirmation completes a native handoff as paused")
     func pausedMediaConfirmationCompletesNativeHandoffAsPaused() async {
         let songs = [
