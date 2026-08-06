@@ -104,6 +104,8 @@ final class SettingsManager {
         case swedish
         case turkish
         case ukrainian
+        case simplifiedChinese
+        case traditionalChinese
 
         var id: String {
             rawValue
@@ -124,7 +126,9 @@ final class SettingsManager {
             case .portuguese: "Português"
             case .russian: "Русский"
             case .spanish: "Español"
+            case .simplifiedChinese: "简体中文"
             case .swedish: "Svenska"
+            case .traditionalChinese: "繁體中文"
             case .turkish: "Türkçe"
             case .ukrainian: "Українська"
             }
@@ -146,7 +150,13 @@ final class SettingsManager {
             case .portuguese: "pt"
             case .russian: "ru"
             case .spanish: "es"
+            // Chinese is distinguished by script, not region, matching Apple's
+            // localization identifiers. Verified against the InnerTube API: these
+            // same codes are valid `hl` values and return correctly-scripted
+            // responses, so no separate API mapping is needed.
+            case .simplifiedChinese: "zh-Hans"
             case .swedish: "sv"
+            case .traditionalChinese: "zh-Hant"
             case .turkish: "tr"
             case .ukrainian: "uk"
             }

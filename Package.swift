@@ -55,6 +55,8 @@ let package = Package(
                 .process("Resources/sv.lproj"),
                 .process("Resources/tr.lproj"),
                 .process("Resources/uk.lproj"),
+                .process("Resources/zh-Hans.lproj"),
+                .process("Resources/zh-Hant.lproj"),
                 .process("Resources/Kaset.sdef"),
                 .copy("Extensions"),
             ],

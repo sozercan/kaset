@@ -49,7 +49,7 @@
 - ⌨️ **[Keyboard Shortcuts](docs/keyboard-shortcuts.md)** — Full keyboard control for playback, navigation, and more
 - 📳 **Haptic Feedback** — Tactile feedback on Force Touch trackpads for player controls and navigation
 - 📣 **Share** — Share songs, playlists, albums, and artists via the native macOS share sheet
-- 🌍 **Localized** — UI available in 15 languages (Arabic, Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
+- 🌍 **Localized** — UI available in 17 languages (Arabic, Chinese (Simplified), Chinese (Traditional), Dutch, English, French, German, Indonesian, Italian, Korean, Polish, Portuguese, Russian, Spanish, Swedish, Turkish, Ukrainian); change under Settings → General → Language
 
 ### Automation & Extensibility
 

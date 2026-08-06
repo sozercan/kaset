@@ -98,6 +98,14 @@ nonisolated(unsafe) var authUserOptionWasSpecified = false
 /// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
 nonisolated(unsafe) var globalBrandAccountId: String?
 
+/// Language code sent as the InnerTube `hl` client parameter.
+///
+/// Overridable with `--hl` so response localization can be probed directly —
+/// YouTube's accepted `hl` vocabulary is not the same as Apple's localization
+/// identifiers (for example `zh-CN`/`zh-TW` versus `zh-Hans`/`zh-Hant`), and
+/// the difference is only observable by comparing real responses.
+nonisolated(unsafe) var globalHl = "en"
+
 private func effectivePort(for url: URL) -> Int? {
     if let port = url.port {
         return port
@@ -657,7 +665,7 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
         "client": [
             "clientName": activeClientName,
             "clientVersion": cachedClientVersion ?? activeFallbackClientVersion,
-            "hl": "en",
+            "hl": globalHl,
             "gl": "US",
             "browserName": "Safari",
             "browserVersion": "17.0",
@@ -3432,6 +3440,9 @@ func showHelp() {
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
           --client-version <version>     Override the resolved InnerTube client version
+          --hl <code>                    Override the InnerTube `hl` language parameter
+                                         (default: en). Use to compare how a locale
+                                         code localizes real responses.
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
           --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
@@ -3610,6 +3621,18 @@ func runMain() async {
             }
             index += 1
             globalBrandAccountId = value
+        case "--hl":
+            guard let rawValue = commandLineOptionValue(after: index, in: args) else {
+                print("❌ --hl requires a language code")
+                return
+            }
+            index += 1
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, !value.hasPrefix("-") else {
+                print("❌ Invalid --hl value: provide a language code such as en, ko, or zh-CN")
+                return
+            }
+            globalHl = value
         case "--client-version":
             guard let rawValue = commandLineOptionValue(after: index, in: args) else {
                 print("❌ --client-version requires a value")

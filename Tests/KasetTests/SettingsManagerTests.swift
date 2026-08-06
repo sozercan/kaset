@@ -169,13 +169,28 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.object(forKey: repeatKey) == nil)
     }
 
-    @Test("Content languages expose stable API codes in ISO-code order")
-    func contentLanguagesExposeAPICodesInISOCodeOrder() {
-        let expectedCodes = ["ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk"]
+    @Test("Content languages expose stable API codes in locale-code order")
+    func contentLanguagesExposeAPICodesInLocaleCodeOrder() {
+        // Chinese is identified by script rather than region, matching Apple's
+        // localization identifiers, so these two are not ISO 639-1 codes.
+        let expectedCodes = [
+            "ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk",
+            "zh-Hans", "zh-Hant",
+        ]
         let languages = SettingsManager.ContentLanguage.allCases
 
         #expect(languages.first == .system)
         #expect(languages.dropFirst().compactMap(\.languageCode) == expectedCodes)
+    }
+
+    /// Every other locale sends its bundle code straight through as the
+    /// InnerTube `hl` value. Chinese was the case most likely to need a
+    /// separate mapping, and a probe against the live API confirmed it does
+    /// not — so an accidental divergence should fail here.
+    @Test("Chinese content languages send their bundle code as the API code")
+    func chineseContentLanguagesSendBundleCodeAsAPICode() {
+        #expect(SettingsManager.ContentLanguage.simplifiedChinese.apiLanguageCode == "zh-Hans")
+        #expect(SettingsManager.ContentLanguage.traditionalChinese.apiLanguageCode == "zh-Hant")
     }
 
     @Test("System content language uses the current locale language code fallback")
