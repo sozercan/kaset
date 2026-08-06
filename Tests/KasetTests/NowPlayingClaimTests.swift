@@ -11,6 +11,35 @@ struct NowPlayingClaimTests {
         #expect(NowPlayingManager.desiredClaim(state: .playing, track: track, activeVideo: nil) == .handsOff)
     }
 
+    @Test("Recovery publishes a native fallback when WebKit metadata disappeared")
+    func recoveryReclaimsActiveMusicWithoutMetadata() {
+        let track = (title: "Song", artist: "Artist")
+        let expected = NowPlayingManager.NowPlayingClaim.claim(
+            title: "Song",
+            artist: "Artist",
+            playbackState: .playing
+        )
+
+        #expect(NowPlayingManager.recoveryClaim(
+            state: .playing,
+            track: track,
+            activeVideo: nil,
+            hasNowPlayingInfo: false
+        ) == expected)
+    }
+
+    @Test("Recovery preserves an existing WebKit Now Playing card")
+    func recoveryPreservesExistingPlaybackMetadata() {
+        let track = (title: "Song", artist: "Artist")
+
+        #expect(NowPlayingManager.recoveryClaim(
+            state: .playing,
+            track: track,
+            activeVideo: nil,
+            hasNowPlayingInfo: true
+        ) == .handsOff)
+    }
+
     @Test("Music startup gaps keep a native claim until WebKit owns the card")
     func musicStartupGapsKeepNativeClaim() {
         let track = (title: "Song", artist: "Artist")
@@ -81,6 +110,28 @@ struct NowPlayingClaimTests {
             track: track,
             activeVideo: video
         ) == .handsOff)
+    }
+
+    @Test("Recovery publishes a native fallback for confirmed video without metadata")
+    func recoveryReclaimsActiveVideoWithoutMetadata() {
+        let video = NowPlayingManager.ActiveVideoClaim(
+            title: "Video",
+            artist: "Channel",
+            playbackState: .playing,
+            isPlaybackConfirmed: true
+        )
+        let expected = NowPlayingManager.NowPlayingClaim.claim(
+            title: "Video",
+            artist: "Channel",
+            playbackState: .playing
+        )
+
+        #expect(NowPlayingManager.recoveryClaim(
+            state: .paused,
+            track: nil,
+            activeVideo: video,
+            hasNowPlayingInfo: false
+        ) == expected)
     }
 
     @Test("A loading video keeps its fallback even if the previous document was playing")

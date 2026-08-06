@@ -6,6 +6,7 @@ Kaset provides keyboard control for playback and navigation while preserving sta
 
 | Shortcut | Action                              |
 | -------- | ----------------------------------- |
+| `F8` / Play-Pause media key | Global play / pause through macOS media controls |
 | `Space`  | Play / Pause                        |
 | `⌘→`     | Next track                          |
 | `⌘←`     | Previous track                      |

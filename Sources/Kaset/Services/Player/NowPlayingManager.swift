@@ -1,4 +1,5 @@
 import AppKit
+import CoreAudio
 import Foundation
 import MediaPlayer
 import Observation
@@ -125,10 +126,10 @@ final class NowPlayingManager {
     private var playerService: PlayerService?
     private let logger = DiagnosticsLogger.player
     private var isConfigured = false
-    /// True while Kaset is asserting a tagged native Now Playing claim.
-    /// The tag lets release logic distinguish our metadata from a newer WebKit card.
-    private var isAssertingNativeClaim = false
     @ObservationIgnored private var nowPlayingObservationGeneration: UInt64 = 0
+    @ObservationIgnored private var mediaControlRecoveryTask: Task<Void, Never>?
+    @ObservationIgnored private var remoteCommandRegistrations: [RemoteCommandRegistration] = []
+    private var isMonitoringAudioRoutes = false
 
     /// YouTube video routing (optional; absent in music-only flows).
     /// When the arbiter says the video source played last, play/pause/toggle
@@ -139,7 +140,29 @@ final class NowPlayingManager {
     private let settings = SettingsManager.shared
     private let remoteMusicCommandIngress = RemoteMusicCommandIngress()
     private static let defaultSkipInterval: TimeInterval = 15
+    private static let mediaControlRecoveryDelay: Duration = .milliseconds(250)
     nonisolated static let nativeClaimServiceIdentifier = "com.sertacozercan.Kaset.native-now-playing-claim"
+
+    private struct RemoteCommandRegistration {
+        let command: MPRemoteCommand
+        let target: Any
+    }
+
+    enum MediaControlRecoveryReason: String, Sendable {
+        case applicationBecameActive
+        case audioRouteChanged
+        case systemDidWake
+    }
+
+    // Core Audio invokes this block on its own callback queue. Keep it nonisolated and hop to the
+    // main actor before touching the manager's state.
+    // swiftformat:disable:next modifierOrder
+    nonisolated private static let audioRouteChangeListener:
+        @Sendable (UInt32, UnsafePointer<AudioObjectPropertyAddress>) -> Void = { _, _ in
+            Task { @MainActor in
+                NowPlayingManager.shared.scheduleMediaControlRecovery(reason: .audioRouteChanged)
+            }
+        }
 
     private init() {}
 
@@ -198,6 +221,30 @@ final class NowPlayingManager {
         }
     }
 
+    /// Selects the claim used when macOS may have re-evaluated the active media session.
+    /// During confirmed playback WebKit normally owns the rich card. If that card disappeared,
+    /// publish a native fallback so media keys still have a live Kaset session to target.
+    nonisolated static func recoveryClaim(
+        state: PlayerService.PlaybackState,
+        track: (title: String, artist: String)?,
+        activeVideo: ActiveVideoClaim?,
+        hasNowPlayingInfo: Bool
+    ) -> NowPlayingClaim {
+        let desiredClaim = Self.desiredClaim(state: state, track: track, activeVideo: activeVideo)
+        guard desiredClaim == .handsOff, !hasNowPlayingInfo else { return desiredClaim }
+
+        if let activeVideo {
+            return .claim(
+                title: activeVideo.title,
+                artist: activeVideo.artist,
+                playbackState: activeVideo.playbackState
+            )
+        }
+
+        guard let track else { return .handsOff }
+        return .claim(title: track.title, artist: track.artist, playbackState: .playing)
+    }
+
     /// Reads current player state and pushes the desired claim to the system center.
     private func updateNowPlayingClaim() {
         guard let player = self.playerService else { return }
@@ -221,16 +268,9 @@ final class NowPlayingManager {
             // macOS requires apps to update playbackState whenever playback starts or stops.
             // This does not replace WebKit's richer nowPlayingInfo dictionary.
             center.playbackState = .playing
-            guard self.isAssertingNativeClaim else { return }
-            guard Self.isNativeClaim(center.nowPlayingInfo) else {
-                self.isAssertingNativeClaim = false
-                return
-            }
         // Preserve the fallback until WebKit atomically replaces the app-wide metadata.
         // The state update above cannot clear a concurrently published WebKit card.
         case .release:
-            guard self.isAssertingNativeClaim else { return }
-            self.isAssertingNativeClaim = false
             guard Self.isNativeClaim(center.nowPlayingInfo) else { return }
             center.playbackState = .stopped
             center.nowPlayingInfo = nil
@@ -247,8 +287,39 @@ final class NowPlayingManager {
             case .playing: .playing
             case .paused: .paused
             }
-            self.isAssertingNativeClaim = true
         }
+    }
+
+    /// Rebuilds only Kaset's remote-command targets and repairs its Now Playing publication after
+    /// lifecycle or audio-route changes. Calls are debounced because Bluetooth reconnects emit
+    /// bursts of Core Audio notifications while `mediaremoted` is still settling.
+    func scheduleMediaControlRecovery(reason: MediaControlRecoveryReason) {
+        guard self.isConfigured else { return }
+        self.mediaControlRecoveryTask?.cancel()
+        self.mediaControlRecoveryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.mediaControlRecoveryDelay)
+            guard let self, !Task.isCancelled else { return }
+            self.reassertMediaControlState(reason: reason)
+        }
+    }
+
+    private func reassertMediaControlState(reason: MediaControlRecoveryReason) {
+        guard let player = self.playerService else { return }
+
+        self.setupRemoteCommands()
+
+        let track = player.currentTrack.map { song in
+            (title: song.title, artist: song.artists.map(\.name).joined(separator: ", "))
+        }
+        let center = MPNowPlayingInfoCenter.default()
+        let claim = Self.recoveryClaim(
+            state: player.state,
+            track: track,
+            activeVideo: self.activeVideoClaimInput,
+            hasNowPlayingInfo: center.nowPlayingInfo != nil
+        )
+        self.applyNowPlayingClaim(claim)
+        self.logger.info("Media controls recovered after \(reason.rawValue)")
     }
 
     /// Returns whether the current center metadata is the tagged native claim Kaset published.
@@ -304,6 +375,7 @@ final class NowPlayingManager {
         self.isConfigured = true
         self.playerService = playerService
         self.setupRemoteCommands()
+        self.installAudioRouteChangeListeners()
         self.syncMediaControlSetting()
         self.syncPlaybackAudioQualitySetting()
         self.logger.info("NowPlayingManager configured")
@@ -374,6 +446,48 @@ final class NowPlayingManager {
 
     // MARK: - Remote Commands
 
+    private func installAudioRouteChangeListeners() {
+        guard !self.isMonitoringAudioRoutes else { return }
+        self.isMonitoringAudioRoutes = true
+
+        let selectors: [AudioObjectPropertySelector] = [
+            kAudioHardwarePropertyDevices,
+            kAudioHardwarePropertyDefaultOutputDevice,
+            kAudioHardwarePropertyDefaultSystemOutputDevice,
+        ]
+        for selector in selectors {
+            var address = AudioObjectPropertyAddress(
+                mSelector: selector,
+                mScope: kAudioObjectPropertyScopeGlobal,
+                mElement: kAudioObjectPropertyElementMain
+            )
+            let status = AudioObjectAddPropertyListenerBlock(
+                AudioObjectID(kAudioObjectSystemObject),
+                &address,
+                nil,
+                Self.audioRouteChangeListener
+            )
+            if status != noErr {
+                self.logger.warning("Failed to monitor audio-route changes: \(status)")
+            }
+        }
+    }
+
+    private func removeRemoteCommandRegistrations() {
+        for registration in self.remoteCommandRegistrations {
+            registration.command.removeTarget(registration.target)
+        }
+        self.remoteCommandRegistrations.removeAll(keepingCapacity: true)
+    }
+
+    private func registerRemoteCommand(
+        _ command: MPRemoteCommand,
+        handler: @escaping (MPRemoteCommandEvent) -> MPRemoteCommandHandlerStatus
+    ) {
+        let target = command.addTarget(handler: handler)
+        self.remoteCommandRegistrations.append(RemoteCommandRegistration(command: command, target: target))
+    }
+
     private func setupRemoteCommands() {
         guard self.playerService != nil else { return }
         let commandCenter = MPRemoteCommandCenter.shared()
@@ -385,47 +499,41 @@ final class NowPlayingManager {
             }
         }
 
-        // Remove any existing targets to prevent duplicates
-        commandCenter.playCommand.removeTarget(nil)
-        commandCenter.pauseCommand.removeTarget(nil)
-        commandCenter.togglePlayPauseCommand.removeTarget(nil)
-        commandCenter.nextTrackCommand.removeTarget(nil)
-        commandCenter.previousTrackCommand.removeTarget(nil)
-        commandCenter.skipForwardCommand.removeTarget(nil)
-        commandCenter.skipBackwardCommand.removeTarget(nil)
-        commandCenter.changePlaybackPositionCommand.removeTarget(nil)
+        // Remove only targets registered by this manager. WebKit owns a separate media session and
+        // must be allowed to keep its action handlers while Kaset refreshes native routing.
+        self.removeRemoteCommandRegistrations()
 
         // Play command
         commandCenter.playCommand.isEnabled = true
-        commandCenter.playCommand.addTarget { _ in
+        self.registerRemoteCommand(commandCenter.playCommand) { _ in
             captureCommand(.play)
             return .success
         }
 
         // Pause command
         commandCenter.pauseCommand.isEnabled = true
-        commandCenter.pauseCommand.addTarget { _ in
+        self.registerRemoteCommand(commandCenter.pauseCommand) { _ in
             captureCommand(.pause)
             return .success
         }
 
         // Toggle play/pause command
         commandCenter.togglePlayPauseCommand.isEnabled = true
-        commandCenter.togglePlayPauseCommand.addTarget { _ in
+        self.registerRemoteCommand(commandCenter.togglePlayPauseCommand) { _ in
             captureCommand(.togglePlayPause)
             return .success
         }
 
         // Next track command
         commandCenter.nextTrackCommand.isEnabled = true
-        commandCenter.nextTrackCommand.addTarget { _ in
+        self.registerRemoteCommand(commandCenter.nextTrackCommand) { _ in
             captureCommand(.nextPrevious(direction: .forward))
             return .success
         }
 
         // Previous track command
         commandCenter.previousTrackCommand.isEnabled = true
-        commandCenter.previousTrackCommand.addTarget { _ in
+        self.registerRemoteCommand(commandCenter.previousTrackCommand) { _ in
             captureCommand(.nextPrevious(direction: .backward))
             return .success
         }
@@ -433,7 +541,7 @@ final class NowPlayingManager {
         // Skip forward command (Control Center skip buttons or media keys)
         commandCenter.skipForwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipForwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
-        commandCenter.skipForwardCommand.addTarget { event in
+        self.registerRemoteCommand(commandCenter.skipForwardCommand) { event in
             let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
             captureCommand(.skip(interval: interval, direction: .forward))
             return .success
@@ -442,7 +550,7 @@ final class NowPlayingManager {
         // Skip backward command (Control Center skip buttons or media keys)
         commandCenter.skipBackwardCommand.isEnabled = self.settings.mediaControlStyle == .skipForwardBackward
         commandCenter.skipBackwardCommand.preferredIntervals = [NSNumber(value: Self.defaultSkipInterval)]
-        commandCenter.skipBackwardCommand.addTarget { event in
+        self.registerRemoteCommand(commandCenter.skipBackwardCommand) { event in
             let interval = (event as? MPSkipIntervalCommandEvent)?.interval ?? Self.defaultSkipInterval
             captureCommand(.skip(interval: interval, direction: .backward))
             return .success
@@ -450,7 +558,7 @@ final class NowPlayingManager {
 
         // Change playback position command
         commandCenter.changePlaybackPositionCommand.isEnabled = true
-        commandCenter.changePlaybackPositionCommand.addTarget { event in
+        self.registerRemoteCommand(commandCenter.changePlaybackPositionCommand) { event in
             guard let positionEvent = event as? MPChangePlaybackPositionCommandEvent else {
                 return .commandFailed
             }

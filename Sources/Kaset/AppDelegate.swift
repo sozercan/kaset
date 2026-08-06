@@ -126,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Note: We don't auto-resume by default as it could be surprising
         // Just log the wake event for now
         DiagnosticsLogger.player.info("System woke from sleep, wasPlayingBeforeSleep: \(self.wasPlayingBeforeSleep)")
+        NowPlayingManager.shared.scheduleMediaControlRecovery(reason: .systemDidWake)
     }
 
     func applicationDidResignActive(_: Notification) {
@@ -136,6 +137,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_: Notification) {
+        NowPlayingManager.shared.scheduleMediaControlRecovery(reason: .applicationBecameActive)
         // Foreground: the page's requestAnimationFrame loop resumes ownership of the
         // override. Stop the native timer and re-assert once immediately.
         SingletonPlayerWebView.shared.endBackgroundMediaControlReassertion()
