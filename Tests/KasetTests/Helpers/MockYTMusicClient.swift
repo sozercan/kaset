@@ -80,6 +80,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var onGetPodcasts: (@MainActor () -> Void)?
     var beforeGetHomeReturn: (@MainActor () async -> Void)?
     var beforeGetHomeContinuationReturn: (@MainActor () async -> Void)?
+    var beforeGetHistoryReturn: (@MainActor () async -> Void)?
     var beforeCreatePlaylistReturn: (@MainActor () async -> Void)?
     var beforeSubscribeToPlaylistReturn: (@MainActor (String) async -> Void)?
     var beforeUnsubscribeFromPlaylistReturn: (@MainActor (String) async -> Void)?
@@ -95,7 +96,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var editSongLibraryStatusResponseDelays: [Duration] = []
     var editSongLibraryStatusErrors: [(any Error)?] = []
     var getSongDelay: Duration?
-    var getHistoryDelay: Duration?
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
     var getPlaylistError: Error?
@@ -472,9 +472,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getHistory() async throws -> HomeResponse {
         self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
-        if let getHistoryDelay {
-            try? await Task.sleep(for: getHistoryDelay)
-        }
+        await self.beforeGetHistoryReturn?()
         if let error = shouldThrowError {
             throw error
         }
@@ -1378,6 +1376,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.onGetLibraryContent = nil
         self.beforeGetHomeReturn = nil
         self.beforeGetHomeContinuationReturn = nil
+        self.beforeGetHistoryReturn = nil
         self.fetchAccountsListCallCount = 0
         self.accountsListStartedGate = nil
         self.accountsListReleaseGate = nil
@@ -1436,7 +1435,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.editSongLibraryStatusResponseDelays = []
         self.editSongLibraryStatusErrors = []
         self.getSongDelay = nil
-        self.getHistoryDelay = nil
         self.mixQueueDelay = nil
         self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
