@@ -11,7 +11,13 @@
 //
 //  Commands:
 //    browse <browseId> [params]    - Explore a browse endpoint
-//    action <endpoint> <body>      - Explore an action endpoint (body as JSON)
+//    action <endpoint> <body>      - Explore a JSON action endpoint (body as JSON)
+//    wire-action <endpoint> <body> - Safely inspect JSON, streaming, or opaque responses
+//    ask-video-audit <videoId>     - Audit YouTube Ask Gemini / YouChat API surfaces
+//    ask-video-parity <videoId>    - Compare read-only Ask request profiles
+//    ask-video-live-test <videoId> - Replay server-issued summary/follow-up suggestions
+//    ask-video-free-text-test <videoId>
+//                                  - Guarded one-shot free-text validation
 //    search-audit <query>          - Audit live YouTube Music search shapes and filters
 //    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
@@ -23,6 +29,10 @@
 //    -v, --verbose                 - Show raw JSON, or expanded search-audit samples
 //    -o, --output <file>           - Save raw JSON response to a file
 //    --client-version <version>    - Override the resolved InnerTube client version
+//    --confirm-live-ai             - Required acknowledgement for live AI requests
+//    --prompt-file <path|->         - Read a private free-text prompt from a mode-0600 file or stdin
+//    --fresh-chats N               - Run 1-3 independent summary chats
+//    --follow-up                   - Replay one server-issued follow-up suggestion
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
 //    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
@@ -32,12 +42,16 @@
 //    swift run api-explorer browse FEmusic_charts
 //    swift run api-explorer browse FEmusic_liked_playlists   # Requires auth
 //    swift run api-explorer action search '{"query":"never gonna give you up"}'
+//    swift run api-explorer ask-video-parity <VIDEO_ID>
+//    swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow-up
+//    swift run api-explorer ask-video-free-text-test <VIDEO_ID> --confirm-live-ai --prompt-file -
 //    swift run api-explorer continuation <token> next        # Mix queue continuation
 //    swift run api-explorer auth
 //    swift run api-explorer list
 //
 
 import CommonCrypto
+import Darwin
 import Dispatch
 import Foundation
 
@@ -79,9 +93,215 @@ func activateYouTubeMode() {
 
 /// Global auth user index (0 = primary account, 1+ = brand accounts)
 nonisolated(unsafe) var globalAuthUserIndex = 0
+nonisolated(unsafe) var authUserOptionWasSpecified = false
 
 /// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
 nonisolated(unsafe) var globalBrandAccountId: String?
+
+private func effectivePort(for url: URL) -> Int? {
+    if let port = url.port {
+        return port
+    }
+    switch url.scheme?.lowercased() {
+    case "https": return 443
+    case "http": return 80
+    default: return nil
+    }
+}
+
+// MARK: - BoundedResponseDataDelegate
+
+private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
+    private let scheme: String?
+    private let host: String?
+    private let port: Int?
+    private let maximumBytes: Int
+    private let lock = NSLock()
+
+    private var continuation: CheckedContinuation<(Data, URLResponse), any Error>?
+    private var session: URLSession?
+    private var task: URLSessionDataTask?
+    private var response: URLResponse?
+    private var responseData = Data()
+    private var isFinished = false
+    private var cancellationRequested = false
+
+    init(originURL: URL, maximumBytes: Int) {
+        self.scheme = originURL.scheme?.lowercased()
+        self.host = originURL.host?.lowercased()
+        self.port = effectivePort(for: originURL)
+        self.maximumBytes = maximumBytes
+    }
+
+    func load(
+        configuration: URLSessionConfiguration,
+        request: URLRequest
+    ) async throws -> (Data, URLResponse) {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let session = URLSession(
+                    configuration: configuration,
+                    delegate: self,
+                    delegateQueue: nil
+                )
+                let task = session.dataTask(with: request)
+
+                self.lock.lock()
+                if self.cancellationRequested {
+                    self.isFinished = true
+                    self.lock.unlock()
+                    session.invalidateAndCancel()
+                    continuation.resume(throwing: CancellationError())
+                    return
+                }
+                self.continuation = continuation
+                self.session = session
+                self.task = task
+                self.lock.unlock()
+
+                task.resume()
+            }
+        } onCancel: {
+            self.cancel()
+        }
+    }
+
+    func urlSession(
+        _: URLSession,
+        task _: URLSessionTask,
+        willPerformHTTPRedirection _: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping (URLRequest?) -> Void
+    ) {
+        guard let url = request.url,
+              url.scheme?.lowercased() == self.scheme,
+              url.host?.lowercased() == self.host,
+              effectivePort(for: url) == self.port
+        else {
+            completionHandler(nil)
+            return
+        }
+        completionHandler(request)
+    }
+
+    func urlSession(
+        _: URLSession,
+        dataTask _: URLSessionDataTask,
+        didReceive response: URLResponse,
+        completionHandler: @escaping (URLSession.ResponseDisposition) -> Void
+    ) {
+        let exceedsLimit = response.expectedContentLength > 0
+            && response.expectedContentLength > Int64(self.maximumBytes)
+        guard !exceedsLimit else {
+            completionHandler(.cancel)
+            self.finish(
+                .failure(ResponseSizeLimitError(maximumBytes: self.maximumBytes)),
+                cancelSession: true
+            )
+            return
+        }
+
+        self.lock.lock()
+        if !self.isFinished {
+            self.response = response
+            if response.expectedContentLength > 0 {
+                self.responseData.reserveCapacity(
+                    min(Int(response.expectedContentLength), self.maximumBytes)
+                )
+            }
+        }
+        self.lock.unlock()
+        completionHandler(.allow)
+    }
+
+    func urlSession(
+        _: URLSession,
+        dataTask _: URLSessionDataTask,
+        didReceive data: Data
+    ) {
+        var exceedsLimit = false
+        self.lock.lock()
+        if !self.isFinished {
+            if data.count > self.maximumBytes - self.responseData.count {
+                exceedsLimit = true
+            } else {
+                self.responseData.append(data)
+            }
+        }
+        self.lock.unlock()
+
+        if exceedsLimit {
+            self.finish(
+                .failure(ResponseSizeLimitError(maximumBytes: self.maximumBytes)),
+                cancelSession: true
+            )
+        }
+    }
+
+    func urlSession(
+        _: URLSession,
+        task _: URLSessionTask,
+        didCompleteWithError error: (any Error)?
+    ) {
+        if let error {
+            self.finish(.failure(error), cancelSession: true)
+            return
+        }
+
+        self.lock.lock()
+        let response = self.response
+        let data = self.responseData
+        self.lock.unlock()
+
+        guard let response else {
+            self.finish(
+                .failure(NSError(
+                    domain: "APIExplorer",
+                    code: -1,
+                    userInfo: [NSLocalizedDescriptionKey: "Response completed without metadata"]
+                )),
+                cancelSession: true
+            )
+            return
+        }
+        self.finish(.success((data, response)), cancelSession: false)
+    }
+
+    private func cancel() {
+        self.lock.lock()
+        self.cancellationRequested = true
+        let shouldFinish = self.continuation != nil && !self.isFinished
+        self.lock.unlock()
+        if shouldFinish {
+            self.finish(.failure(CancellationError()), cancelSession: true)
+        }
+    }
+
+    private func finish(
+        _ result: Result<(Data, URLResponse), any Error>,
+        cancelSession: Bool
+    ) {
+        self.lock.lock()
+        guard !self.isFinished else {
+            self.lock.unlock()
+            return
+        }
+        self.isFinished = true
+        let continuation = self.continuation
+        let session = self.session
+        self.continuation = nil
+        self.session = nil
+        self.task = nil
+        self.lock.unlock()
+
+        if cancelSession {
+            session?.invalidateAndCancel()
+        } else {
+            session?.finishTasksAndInvalidate()
+        }
+        continuation?.resume(with: result)
+    }
+}
 
 // MARK: - Cookie Management
 
@@ -100,50 +320,69 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
         return nil
     }
 
-    let cookieFile =
+    let legacyCookieFile =
         appSupport
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    guard FileManager.default.fileExists(atPath: cookieFile.path) else {
-        return nil
-    }
+    let containerCookieFile = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data", isDirectory: true)
+        .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
+        .appendingPathComponent("cookies.dat")
 
-    guard let data = try? Data(contentsOf: cookieFile) else {
-        print("⚠️ Cookie file exists but failed to read: \(cookieFile.path)")
-        return nil
-    }
-
-    guard let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
-        ofClasses: [NSArray.self, NSData.self],
-        from: data
-    ) as? [Data]
-    else {
-        print(
-            "⚠️ Cookie file exists but failed to unarchive. File may be corrupted or use a different format."
-        )
-        print("   Path: \(cookieFile.path)")
-        print("   Size: \(data.count) bytes")
-        return nil
-    }
-
-    let cookies = cookieDataArray.compactMap { cookieData -> HTTPCookie? in
-        guard let stringProperties = try? NSKeyedUnarchiver.unarchivedObject(
-            ofClasses: [NSDictionary.self, NSString.self, NSDate.self, NSNumber.self],
-            from: cookieData
-        ) as? [String: Any]
-        else {
+    func decodeCookies(at cookieFile: URL) -> [HTTPCookie]? {
+        guard let data = try? Data(contentsOf: cookieFile) else {
+            print("⚠️ Cookie file exists but failed to read: \(cookieFile.path)")
             return nil
         }
 
-        var convertedProperties: [HTTPCookiePropertyKey: Any] = [:]
-        for (key, value) in stringProperties {
-            convertedProperties[HTTPCookiePropertyKey(key)] = value
+        guard let cookieDataArray = try? NSKeyedUnarchiver.unarchivedObject(
+            ofClasses: [NSArray.self, NSData.self],
+            from: data
+        ) as? [Data]
+        else {
+            print(
+                "⚠️ Cookie file exists but failed to unarchive. File may be corrupted or use a different format."
+            )
+            print("   Path: \(cookieFile.path)")
+            print("   Size: \(data.count) bytes")
+            return nil
         }
-        return HTTPCookie(properties: convertedProperties)
+
+        let cookies = cookieDataArray.compactMap { cookieData -> HTTPCookie? in
+            guard let stringProperties = try? NSKeyedUnarchiver.unarchivedObject(
+                ofClasses: [NSDictionary.self, NSString.self, NSDate.self, NSNumber.self],
+                from: cookieData
+            ) as? [String: Any]
+            else {
+                return nil
+            }
+
+            var convertedProperties: [HTTPCookiePropertyKey: Any] = [:]
+            for (key, value) in stringProperties {
+                convertedProperties[HTTPCookiePropertyKey(key)] = value
+            }
+            return HTTPCookie(properties: convertedProperties)
+        }
+        return cookies.isEmpty ? nil : cookies
     }
 
-    return cookies.isEmpty ? nil : cookies
+    // Once the sandboxed app has created its Application Support directory, its
+    // container export is authoritative. Never resurrect the legacy host archive
+    // after logout, account switching, expiry, corruption, or a cleared export.
+    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
+        return decodeCookies(at: containerCookieFile)
+    }
+
+    let containerStorageDirectory = containerCookieFile.deletingLastPathComponent()
+    if FileManager.default.fileExists(atPath: containerStorageDirectory.path) {
+        return nil
+    }
+
+    guard FileManager.default.fileExists(atPath: legacyCookieFile.path) else {
+        return nil
+    }
+    return decodeCookies(at: legacyCookieFile)
 }
 
 /// Filters cookies to those that match the active API host
@@ -168,9 +407,9 @@ func filterCookiesForAPIHost(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
 func getSAPISID(from cookies: [HTTPCookie]) -> String? {
     // Filter to youtube.com domain cookies first (better match for the API host)
     let ytCookies = filterCookiesForAPIHost(cookies)
-    let secureCookie = ytCookies.first { $0.name == "__Secure-3PAPISID" }
-    let fallbackCookie = ytCookies.first { $0.name == "SAPISID" }
-    return (secureCookie ?? fallbackCookie)?.value
+    let sapisid = ytCookies.first { $0.name == "SAPISID" }
+    let fallbackCookie = ytCookies.first { $0.name == "__Secure-3PAPISID" }
+    return (sapisid ?? fallbackCookie)?.value
 }
 
 /// Builds a cookie header string using HTTPCookie's built-in method.
@@ -200,6 +439,38 @@ func computeSAPISIDHASH(sapisid: String) -> String {
     return "\(timestamp)_\(hashHex)"
 }
 
+func buildSIDAuthorizationHeader(
+    from cookies: [HTTPCookie],
+    includeAllAvailableProofs: Bool
+) -> String? {
+    let ytCookies = filterCookiesForAPIHost(cookies)
+    let sapisid = ytCookies.first { $0.name == "SAPISID" }?.value
+        ?? ytCookies.first { $0.name == "__Secure-3PAPISID" }?.value
+    let oneParty = ytCookies.first { $0.name == "__Secure-1PAPISID" }?.value
+    let threeParty = ytCookies.first { $0.name == "__Secure-3PAPISID" }?.value
+    let timestamp = Int(Date().timeIntervalSince1970)
+
+    func authorization(scheme: String, sid: String?) -> String? {
+        guard let sid else { return nil }
+        let input = "\(timestamp) \(sid) \(activeOrigin)"
+        let data = Data(input.utf8)
+        var hash = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
+        data.withUnsafeBytes { buffer in
+            _ = CC_SHA1(buffer.baseAddress, CC_LONG(buffer.count), &hash)
+        }
+        return "\(scheme) \(timestamp)_\(hash.map { String(format: "%02x", $0) }.joined())"
+    }
+
+    var values = [authorization(scheme: "SAPISIDHASH", sid: sapisid)].compactMap(\.self)
+    if includeAllAvailableProofs {
+        values.append(contentsOf: [
+            authorization(scheme: "SAPISID1PHASH", sid: oneParty),
+            authorization(scheme: "SAPISID3PHASH", sid: threeParty),
+        ].compactMap(\.self))
+    }
+    return values.isEmpty ? nil : values.joined(separator: " ")
+}
+
 // MARK: - API Key Resolution
 
 private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLRequest {
@@ -214,7 +485,21 @@ private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLR
     return request
 }
 
-func resolveAPIKey() async throws -> String {
+private func webClientConfiguration(authenticated: Bool) -> URLSessionConfiguration {
+    let configuration = URLSessionConfiguration.ephemeral
+    if authenticated, let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty {
+        let storage = HTTPCookieStorage()
+        for cookie in cookies {
+            storage.setCookie(cookie)
+        }
+        configuration.httpCookieStorage = storage
+        configuration.httpShouldSetCookies = true
+        configuration.httpCookieAcceptPolicy = .always
+    }
+    return configuration
+}
+
+func resolveAPIKey(authenticated: Bool = false) async throws -> String {
     if let cachedAPIKey {
         return cachedAPIKey
     }
@@ -224,11 +509,16 @@ func resolveAPIKey() async throws -> String {
     {
         let trimmed = override.trimmingCharacters(in: .whitespacesAndNewlines)
         cachedAPIKey = trimmed
+        await resolveLiveClientVersionIfNeeded(authenticated: authenticated)
         return trimmed
     }
 
     let request = webClientConfigurationRequest()
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await boundedResponseData(
+        configuration: webClientConfiguration(authenticated: authenticated),
+        request: request,
+        maximumBytes: maximumConfigurationResponseBytes
+    )
     if let httpResponse = response as? HTTPURLResponse,
        !(200 ... 399).contains(httpResponse.statusCode)
     {
@@ -256,7 +546,6 @@ func resolveAPIKey() async throws -> String {
     {
         cachedClientVersion = version
     }
-
     cachedAPIKey = key
     return key
 }
@@ -264,21 +553,35 @@ func resolveAPIKey() async throws -> String {
 /// Resolves only the live client version when the API key came from an explicit
 /// environment override. Failure is non-fatal: callers can still use the
 /// configured fallback, and search-audit labels that source explicitly.
-func resolveLiveClientVersionIfNeeded() async {
+func resolveLiveClientVersionIfNeeded(authenticated: Bool = false) async {
     guard cachedClientVersion == nil else { return }
 
     let request = webClientConfigurationRequest(timeout: 5)
+    let data: Data
+    let response: URLResponse
+    do {
+        (data, response) = try await boundedResponseData(
+            configuration: webClientConfiguration(authenticated: authenticated),
+            request: request,
+            maximumBytes: maximumConfigurationResponseBytes
+        )
+    } catch let error as ResponseSizeLimitError {
+        print("⚠️ Web client configuration skipped: \(error.localizedDescription)")
+        return
+    } catch {
+        return
+    }
 
-    guard let (data, response) = try? await URLSession.shared.data(for: request),
-          let httpResponse = response as? HTTPURLResponse,
+    guard let httpResponse = response as? HTTPURLResponse,
           (200 ... 399).contains(httpResponse.statusCode),
-          let html = String(data: data, encoding: .utf8),
-          let version = extractInnertubeClientVersion(from: html)
+          let html = String(data: data, encoding: .utf8)
     else {
         return
     }
 
-    cachedClientVersion = version
+    if let version = extractInnertubeClientVersion(from: html) {
+        cachedClientVersion = version
+    }
 }
 
 func extractInnertubeAPIKey(from html: String) -> String? {
@@ -302,6 +605,34 @@ func extractConfigValue(named name: String, from html: String) -> String? {
         return nil
     }
     return String(html[range])
+}
+
+func extractConfigBoolean(named name: String, from html: String) -> Bool? {
+    let pattern = "\"\(name)\"\\s*:\\s*(true|false)"
+    guard let regex = try? NSRegularExpression(pattern: pattern),
+          let match = regex.firstMatch(
+              in: html,
+              range: NSRange(html.startIndex..., in: html)
+          ),
+          let range = Range(match.range(at: 1), in: html)
+    else {
+        return nil
+    }
+    return html[range] == "true"
+}
+
+func extractConfigInteger(named name: String, from html: String) -> Int? {
+    let pattern = "\"\(name)\"\\s*:\\s*(-?[0-9]+)"
+    guard let regex = try? NSRegularExpression(pattern: pattern),
+          let match = regex.firstMatch(
+              in: html,
+              range: NSRange(html.startIndex..., in: html)
+          ),
+          let range = Range(match.range(at: 1), in: html)
+    else {
+        return nil
+    }
+    return Int(html[range])
 }
 
 // MARK: - Request Builder
@@ -346,14 +677,15 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
         "Origin": activeOrigin,
         "Referer": "\(activeOrigin)/",
     ]
-
     if authenticated, let cookies = loadCookiesFromAppBackup() {
-        if let sapisid = getSAPISID(from: cookies),
-           let cookieHeader = buildCookieHeader(from: cookies)
+        if let authorization = buildSIDAuthorizationHeader(
+            from: cookies,
+            includeAllAvailableProofs: false
+        ),
+            let cookieHeader = buildCookieHeader(from: cookies)
         {
-            let sapisidhash = computeSAPISIDHASH(sapisid: sapisid)
             headers["Cookie"] = cookieHeader
-            headers["Authorization"] = "SAPISIDHASH \(sapisidhash)"
+            headers["Authorization"] = authorization
             headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
             headers["X-Origin"] = activeOrigin
             // Brand/delegated channel selection on the wire: real-world clients
@@ -375,12 +707,75 @@ func hasUsableAuthMaterial() -> Bool {
     return getSAPISID(from: cookies) != nil && buildCookieHeader(from: cookies) != nil
 }
 
-// MARK: - API Request
+// MARK: - APIWireResponse
 
-func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
-    -> (data: [String: Any], statusCode: Int)
+struct APIWireResponse {
+    let data: Data
+    let statusCode: Int
+    let contentType: String?
+}
+
+private let maximumWireResponseBytes = 32 * 1024 * 1024
+private let maximumConfigurationResponseBytes = 8 * 1024 * 1024
+
+// MARK: - ResponseSizeLimitError
+
+struct ResponseSizeLimitError: LocalizedError {
+    let maximumBytes: Int
+
+    var errorDescription: String? {
+        "Response exceeds the configured \(self.maximumBytes / 1_048_576) MiB limit"
+    }
+}
+
+func boundedResponseData(
+    configuration: URLSessionConfiguration,
+    request: URLRequest,
+    maximumBytes: Int
+) async throws -> (Data, URLResponse) {
+    guard let originURL = request.url else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Request URL is missing"]
+        )
+    }
+    let delegate = BoundedResponseDataDelegate(
+        originURL: originURL,
+        maximumBytes: maximumBytes
+    )
+    return try await delegate.load(configuration: configuration, request: request)
+}
+
+func canonicalAPIEndpoint(_ endpoint: String) throws -> String {
+    let pathSegments = endpoint.split(separator: "/", omittingEmptySubsequences: false)
+    guard !endpoint.isEmpty, endpoint.count <= 160,
+          !endpoint.hasPrefix("/"), !endpoint.hasSuffix("/"),
+          !endpoint.contains("//"),
+          pathSegments.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
+          endpoint.unicodeScalars.allSatisfy({ scalar in
+              switch scalar.value {
+              case 45, 47, 48 ... 57, 65 ... 90, 95, 97 ... 122:
+                  true
+              default:
+                  false
+              }
+          })
+    else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Endpoint must be a plain relative API path"]
+        )
+    }
+    return endpoint
+}
+
+func makeWireRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
+    -> APIWireResponse
 {
-    let apiKey = try await resolveAPIKey()
+    let endpoint = try canonicalAPIEndpoint(endpoint)
+    let apiKey = try await resolveAPIKey(authenticated: authenticated)
     var components = URLComponents(string: "\(activeBaseURL)/\(endpoint)")
     components?.queryItems = [
         URLQueryItem(name: "key", value: apiKey),
@@ -403,7 +798,11 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
     fullBody["context"] = buildContext()
     request.httpBody = try JSONSerialization.data(withJSONObject: fullBody)
 
-    let (data, response) = try await URLSession.shared.data(for: request)
+    let (data, response) = try await boundedResponseData(
+        configuration: .ephemeral,
+        request: request,
+        maximumBytes: maximumWireResponseBytes
+    )
 
     guard let httpResponse = response as? HTTPURLResponse else {
         throw NSError(
@@ -412,14 +811,31 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
         )
     }
 
-    guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+    return APIWireResponse(
+        data: data,
+        statusCode: httpResponse.statusCode,
+        contentType: httpResponse.value(forHTTPHeaderField: "Content-Type")
+    )
+}
+
+func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
+    -> (data: [String: Any], statusCode: Int)
+{
+    let response = try await makeWireRequest(
+        endpoint: endpoint, body: body, authenticated: authenticated
+    )
+
+    guard let json = try JSONSerialization.jsonObject(with: response.data) as? [String: Any] else {
         throw NSError(
             domain: "APIExplorer", code: -1,
-            userInfo: [NSLocalizedDescriptionKey: "Invalid JSON response"]
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Non-object JSON or streaming response; use wire-action for a safe structural audit",
+            ]
         )
     }
 
-    return (json, httpResponse.statusCode)
+    return (json, response.statusCode)
 }
 
 // MARK: - Response Analysis
@@ -1256,9 +1672,8 @@ func exploreBrowse(
             if let prettyData = try? JSONSerialization.data(
                 withJSONObject: data, options: .prettyPrinted
             ) {
-                let url = URL(fileURLWithPath: outputFile)
-                try prettyData.write(to: url)
-                print("\n💾 Saved to: \(outputFile)")
+                try writePrivateOutput(prettyData, to: outputFile)
+                print("\n💾 Saved with owner-only permissions: \(outputFile)")
             }
         }
     } catch {
@@ -1287,13 +1702,18 @@ let authRequiredActions = Set([
     "next",
 ])
 
+func actionNeedsAuthentication(_ endpoint: String) -> Bool {
+    guard !forceUnauthenticatedRequests else { return false }
+    // In YouTube mode, personalized actions (guide, next, search) return richer
+    // data signed in, so use auth whenever cookies are available.
+    return authRequiredActions.contains(endpoint)
+        || (youtubeMode && hasUsableAuthMaterial())
+}
+
 func exploreAction(
     _ endpoint: String, bodyJson: String, verbose: Bool = false, outputFile: String? = nil
 ) async {
-    // In YouTube mode, personalized actions (guide, next, search) return richer
-    // data signed in, so use auth whenever cookies are available.
-    let needsAuth = authRequiredActions.contains(endpoint)
-        || (youtubeMode && loadCookiesFromAppBackup() != nil)
+    let needsAuth = actionNeedsAuthentication(endpoint)
     let authIcon = needsAuth ? "🔐" : "🌐"
 
     print("\(authIcon) Exploring action endpoint: \(endpoint)")
@@ -1306,7 +1726,7 @@ func exploreAction(
     guard let bodyData = bodyJson.data(using: .utf8),
           let body = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
     else {
-        print("❌ Invalid JSON body: \(bodyJson)")
+        print("❌ Invalid JSON object body")
         return
     }
 
@@ -1344,10 +1764,444 @@ func exploreAction(
             if let prettyData = try? JSONSerialization.data(
                 withJSONObject: data, options: .prettyPrinted
             ) {
-                let url = URL(fileURLWithPath: outputFile)
-                try prettyData.write(to: url)
-                print("\n💾 Saved to: \(outputFile)")
+                try writePrivateOutput(prettyData, to: outputFile)
+                print("\n💾 Saved with owner-only permissions: \(outputFile)")
             }
+        }
+    } catch {
+        print("❌ Error: \(error.localizedDescription)")
+    }
+}
+
+private let maximumPrivateBodyBytes = 2 * 1024 * 1024
+private let maximumPrivatePromptBytes = 64 * 1024
+private let maximumPrivatePromptCharacters = 16000
+
+private func posixError(_ description: String, code: Int32 = errno) -> NSError {
+    NSError(
+        domain: NSPOSIXErrorDomain,
+        code: Int(code),
+        userInfo: [NSLocalizedDescriptionKey: description]
+    )
+}
+
+private func writeAll(_ data: Data, fileDescriptor: Int32) throws {
+    try data.withUnsafeBytes { rawBuffer in
+        guard let baseAddress = rawBuffer.baseAddress else { return }
+        var offset = 0
+        while offset < rawBuffer.count {
+            let written = Darwin.write(
+                fileDescriptor,
+                baseAddress.advanced(by: offset),
+                rawBuffer.count - offset
+            )
+            if written < 0 {
+                if errno == EINTR {
+                    continue
+                }
+                throw posixError("Could not write private output")
+            }
+            offset += written
+        }
+    }
+}
+
+private func extendedACLStatus(fileDescriptor: Int32) throws -> Bool {
+    errno = 0
+    guard let accessControlList = acl_get_fd_np(fileDescriptor, ACL_TYPE_EXTENDED) else {
+        if errno == ENOENT || errno == ENOTSUP || errno == EOPNOTSUPP {
+            return false
+        }
+        throw posixError("Could not inspect file access controls")
+    }
+    defer { _ = acl_free(UnsafeMutableRawPointer(accessControlList)) }
+
+    var firstEntry: acl_entry_t?
+    errno = 0
+    if acl_get_entry(accessControlList, Int32(ACL_FIRST_ENTRY.rawValue), &firstEntry) == 0 {
+        return true
+    }
+    if errno == EINVAL {
+        return false
+    }
+    throw posixError("Could not inspect file access controls")
+}
+
+private func clearExtendedACL(fileDescriptor: Int32) throws {
+    guard let emptyAccessControlList = acl_init(0) else {
+        throw posixError("Could not initialize file access controls")
+    }
+    defer { _ = acl_free(UnsafeMutableRawPointer(emptyAccessControlList)) }
+
+    let result = acl_set_fd_np(fileDescriptor, emptyAccessControlList, ACL_TYPE_EXTENDED)
+    if result == 0 || errno == ENOTSUP || errno == EOPNOTSUPP {
+        return
+    }
+    throw posixError("Could not clear inherited file access controls")
+}
+
+private func verifyOwnerOnlyNode(fileDescriptor: Int32, expectedType: mode_t) throws {
+    var status = stat()
+    guard fstat(fileDescriptor, &status) == 0 else {
+        throw posixError("Could not verify private file")
+    }
+    guard (status.st_mode & S_IFMT) == expectedType,
+          status.st_uid == geteuid(),
+          status.st_mode & 0o077 == 0,
+          try !extendedACLStatus(fileDescriptor: fileDescriptor)
+    else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "File access is not owner-only"]
+        )
+    }
+}
+
+func writePrivateOutput(_ data: Data, to path: String) throws {
+    let url = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath)
+    let destinationDirectory = url.deletingLastPathComponent().path
+    let filename = url.lastPathComponent.isEmpty ? "api-explorer-output" : url.lastPathComponent
+    var directoryTemplate = Array("\(destinationDirectory)/.\(filename).stage.XXXXXX".utf8CString)
+    guard mkdtemp(&directoryTemplate) != nil else {
+        throw posixError("Could not create private staging directory")
+    }
+    let stagingDirectory = String(
+        decoding: directoryTemplate.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) },
+        as: UTF8.self
+    )
+    guard stagingDirectory.withCString({ Darwin.chmod($0, S_IRWXU) }) == 0 else {
+        throw posixError("Could not secure private staging directory")
+    }
+    let stagingFile = "\(stagingDirectory)/payload"
+    var stagingFileExists = false
+    defer {
+        if stagingFileExists {
+            stagingFile.withCString { _ = Darwin.unlink($0) }
+        }
+        stagingDirectory.withCString { _ = Darwin.rmdir($0) }
+    }
+
+    let directoryDescriptor = stagingDirectory.withCString {
+        Darwin.open($0, O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+    }
+    guard directoryDescriptor >= 0 else {
+        throw posixError("Could not open private staging directory")
+    }
+    defer { _ = Darwin.close(directoryDescriptor) }
+    guard fchmod(directoryDescriptor, S_IRUSR | S_IWUSR | S_IXUSR) == 0 else {
+        throw posixError("Could not secure private staging directory")
+    }
+    try clearExtendedACL(fileDescriptor: directoryDescriptor)
+    try verifyOwnerOnlyNode(fileDescriptor: directoryDescriptor, expectedType: S_IFDIR)
+
+    let fileDescriptor = "payload".withCString {
+        Darwin.openat(
+            directoryDescriptor,
+            $0,
+            O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW,
+            S_IRUSR | S_IWUSR
+        )
+    }
+    guard fileDescriptor >= 0 else {
+        throw posixError("Could not create private output")
+    }
+    stagingFileExists = true
+    defer { _ = Darwin.close(fileDescriptor) }
+
+    guard fchmod(fileDescriptor, S_IRUSR | S_IWUSR) == 0 else {
+        throw posixError("Could not secure private output")
+    }
+    try clearExtendedACL(fileDescriptor: fileDescriptor)
+    try verifyOwnerOnlyNode(fileDescriptor: fileDescriptor, expectedType: S_IFREG)
+    try writeAll(data, fileDescriptor: fileDescriptor)
+    guard fsync(fileDescriptor) == 0 else {
+        throw posixError("Could not synchronize private output")
+    }
+
+    let renameResult = stagingFile.withCString { sourcePath in
+        url.path.withCString { destinationPath in
+            Darwin.rename(sourcePath, destinationPath)
+        }
+    }
+    guard renameResult == 0 else {
+        throw posixError("Could not replace output file")
+    }
+    stagingFileExists = false
+}
+
+private func readBoundedData(
+    fileDescriptor: Int32,
+    maximumBytes: Int = maximumPrivateBodyBytes,
+    contentDescription: String = "Request body"
+) throws -> Data {
+    var result = Data()
+    var buffer = [UInt8](repeating: 0, count: 64 * 1024)
+    while true {
+        let maximumRead = min(buffer.count, maximumBytes + 1 - result.count)
+        guard maximumRead > 0 else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "\(contentDescription) exceeds its size limit",
+                ]
+            )
+        }
+        let readCount = buffer.withUnsafeMutableBytes { rawBuffer in
+            Darwin.read(fileDescriptor, rawBuffer.baseAddress, maximumRead)
+        }
+        if readCount == 0 {
+            break
+        }
+        if readCount < 0 {
+            if errno == EINTR {
+                continue
+            }
+            throw posixError("Could not read request body")
+        }
+        result.append(buffer, count: readCount)
+        if result.count > maximumBytes {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "\(contentDescription) exceeds its size limit",
+                ]
+            )
+        }
+    }
+    return result
+}
+
+func loadPrivatePrompt(from promptFile: String) throws -> String {
+    let data: Data
+    if promptFile == "-" {
+        guard Darwin.isatty(STDIN_FILENO) == 0 else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Interactive stdin is not accepted; pipe or redirect the prompt instead",
+                ]
+            )
+        }
+        data = try readBoundedData(
+            fileDescriptor: STDIN_FILENO,
+            maximumBytes: maximumPrivatePromptBytes,
+            contentDescription: "Prompt"
+        )
+    } else {
+        let expandedPath = NSString(string: promptFile).expandingTildeInPath
+        let fileDescriptor = expandedPath.withCString {
+            Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        }
+        guard fileDescriptor >= 0 else {
+            throw posixError("Could not open private prompt file")
+        }
+        defer { _ = Darwin.close(fileDescriptor) }
+
+        var status = stat()
+        guard fstat(fileDescriptor, &status) == 0 else {
+            throw posixError("Could not inspect private prompt file")
+        }
+        guard (status.st_mode & S_IFMT) == S_IFREG else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Prompt path must be a regular file"]
+            )
+        }
+        guard status.st_uid == geteuid(),
+              status.st_mode & 0o777 == S_IRUSR | S_IWUSR
+        else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Prompt file must be owned by the current user with mode 0600",
+                ]
+            )
+        }
+        guard try !extendedACLStatus(fileDescriptor: fileDescriptor) else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Prompt file must not have an extended ACL (use chmod -N)",
+                ]
+            )
+        }
+        guard status.st_size >= 0,
+              status.st_size <= off_t(maximumPrivatePromptBytes)
+        else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Prompt exceeds its size limit"]
+            )
+        }
+        data = try readBoundedData(
+            fileDescriptor: fileDescriptor,
+            maximumBytes: maximumPrivatePromptBytes,
+            contentDescription: "Prompt"
+        )
+    }
+
+    guard var prompt = String(data: data, encoding: .utf8) else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Prompt must be valid UTF-8"]
+        )
+    }
+    prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !prompt.isEmpty, prompt.count <= maximumPrivatePromptCharacters else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [
+                NSLocalizedDescriptionKey:
+                    "Prompt must contain 1-\(maximumPrivatePromptCharacters) characters",
+            ]
+        )
+    }
+    return prompt
+}
+
+func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> String {
+    if inlineBody != nil, bodyFile != nil {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Use either an inline body or --body-file, not both"]
+        )
+    }
+    if let inlineBody {
+        return inlineBody
+    }
+    guard let bodyFile else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "A JSON body or --body-file is required"]
+        )
+    }
+
+    let data: Data
+    if bodyFile == "-" {
+        data = try readBoundedData(fileDescriptor: STDIN_FILENO)
+    } else {
+        let expandedPath = NSString(string: bodyFile).expandingTildeInPath
+        let fileDescriptor = expandedPath.withCString {
+            Darwin.open($0, O_RDONLY | O_CLOEXEC | O_NOFOLLOW | O_NONBLOCK)
+        }
+        guard fileDescriptor >= 0 else {
+            throw posixError("Could not open private request body")
+        }
+        defer { _ = Darwin.close(fileDescriptor) }
+
+        var status = stat()
+        guard fstat(fileDescriptor, &status) == 0 else {
+            throw posixError("Could not inspect private request body")
+        }
+        guard (status.st_mode & S_IFMT) == S_IFREG else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Request body path must be a regular file"]
+            )
+        }
+        guard status.st_mode & 0o077 == 0 else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Request body file must be owner-only (chmod 600)",
+                ]
+            )
+        }
+        guard try !extendedACLStatus(fileDescriptor: fileDescriptor) else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [
+                    NSLocalizedDescriptionKey:
+                        "Request body file must not have an extended ACL (use chmod -N)",
+                ]
+            )
+        }
+        guard status.st_size >= 0,
+              status.st_size <= off_t(maximumPrivateBodyBytes)
+        else {
+            throw NSError(
+                domain: "APIExplorer",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Request body exceeds 2 MiB"]
+            )
+        }
+        data = try readBoundedData(fileDescriptor: fileDescriptor)
+    }
+
+    guard !data.isEmpty, let body = String(data: data, encoding: .utf8)
+    else {
+        throw NSError(
+            domain: "APIExplorer",
+            code: -1,
+            userInfo: [NSLocalizedDescriptionKey: "Request body must be non-empty UTF-8 under 2 MiB"]
+        )
+    }
+    return body
+}
+
+func requiresPrivateBodySource(_ endpoint: String) -> Bool {
+    ["get_answer", "get_panel", "streaming_panel"].contains(endpoint)
+}
+
+func requiresRedactedWireInspection(_ endpoint: String) -> Bool {
+    endpoint == "next" || requiresPrivateBodySource(endpoint)
+}
+
+func exploreWireAction(
+    _ endpoint: String, bodyJson: String, outputFile: String? = nil
+) async {
+    let needsAuth = actionNeedsAuthentication(endpoint)
+    let authIcon = needsAuth ? "🔐" : "🌐"
+
+    print("\(authIcon) Inspecting wire response: \(endpoint)")
+    if needsAuth {
+        print("   Auth material: \(hasUsableAuthMaterial() ? "✅ available" : "❌ unavailable")")
+    }
+    print("   Raw response values stay hidden")
+    print()
+
+    guard let bodyData = bodyJson.data(using: .utf8),
+          let body = try? JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+    else {
+        print("❌ Invalid JSON object body")
+        return
+    }
+
+    do {
+        let response = try await makeWireRequest(
+            endpoint: endpoint, body: body, authenticated: needsAuth
+        )
+        print(wireResponseAuditSummary(
+            data: response.data,
+            statusCode: response.statusCode,
+            contentType: response.contentType
+        ))
+
+        if let outputFile {
+            try writePrivateOutput(response.data, to: outputFile)
+            print("\n💾 Saved raw response with owner-only permissions: \(outputFile)")
+            print("   ⚠️ Treat this file as sensitive; it may contain personalized or opaque data.")
         }
     } catch {
         print("❌ Error: \(error.localizedDescription)")
@@ -1438,7 +2292,7 @@ func auditSearch(_ query: String, verbose: Bool = false) async {
         if ProcessInfo.processInfo.environment[apiKeyEnvironmentVariable]?.trimmingCharacters(
             in: .whitespacesAndNewlines
         ).isEmpty == false {
-            await resolveLiveClientVersionIfNeeded()
+            await resolveLiveClientVersionIfNeeded(authenticated: authenticated)
         }
         let (baseResponse, baseStatus) = try await makeRequest(
             endpoint: "search",
@@ -1591,9 +2445,8 @@ func exploreContinuation(
             if let prettyData = try? JSONSerialization.data(
                 withJSONObject: data, options: .prettyPrinted
             ) {
-                let url = URL(fileURLWithPath: outputFile)
-                try prettyData.write(to: url)
-                print("\n💾 Saved to: \(outputFile)")
+                try writePrivateOutput(prettyData, to: outputFile)
+                print("\n💾 Saved with owner-only permissions: \(outputFile)")
             }
         }
     } catch {
@@ -1718,7 +2571,13 @@ func discoverAccounts(verbose: Bool) async {
 private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
     name: String, handle: String?
 )? {
-    guard let apiKey = try? await resolveAPIKey() else {
+    let apiKey: String
+    do {
+        apiKey = try await resolveAPIKey(authenticated: true)
+    } catch let error as ResponseSizeLimitError {
+        print("⚠️ Account discovery skipped: \(error.localizedDescription)")
+        return nil
+    } catch {
         return nil
     }
     var components = URLComponents(string: "\(activeBaseURL)/account/account_menu")
@@ -2122,7 +2981,8 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
         let dataSyncId = extractConfigValue(named: "DATASYNC_ID", from: html)
         let delegated = extractConfigValue(named: "DELEGATED_SESSION_ID", from: html)
         let sessionIndex = extractConfigValue(named: "SESSION_INDEX", from: html)
-        let loggedIn = extractConfigValue(named: "LOGGED_IN", from: html)
+            ?? extractConfigInteger(named: "SESSION_INDEX", from: html).map(String.init)
+        let loggedIn = extractConfigBoolean(named: "LOGGED_IN", from: html)
 
         func redact(_ value: String?) -> String {
             guard let value, !value.isEmpty else { return "(absent/empty)" }
@@ -2147,13 +3007,16 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
         }
         print("DELEGATED_SESSION_ID:  \(redact(delegated))")
         print("SESSION_INDEX:         \(sessionIndex ?? "(absent)")")
-        print("LOGGED_IN:             \(loggedIn ?? "(absent)")")
+        print("LOGGED_IN:             \(loggedIn.map(String.init) ?? "(absent)")")
 
         if verbose {
-            for name in ["DATASYNC_ID", "DELEGATED_SESSION_ID", "SESSION_INDEX"] {
-                if extractConfigValue(named: name, from: html) == nil {
-                    print("  (note: \(name) not found in page ytcfg)")
-                }
+            let missingFields = [
+                (name: "DATASYNC_ID", isMissing: dataSyncId == nil),
+                (name: "DELEGATED_SESSION_ID", isMissing: delegated == nil),
+                (name: "SESSION_INDEX", isMissing: sessionIndex == nil),
+            ]
+            for field in missingFields where field.isMissing {
+                print("  (note: \(field.name) not found in page ytcfg)")
             }
         }
     } catch {
@@ -2496,6 +3359,17 @@ func listEndpoints() {
         subscription/unsubscribe      Body: {"channelIds": ["UC..."]}
         browse/edit_playlist          Watch Later add/remove via playlistId "WL"
 
+        🤖 AI / PANEL TRANSPORTS (experimental, inspect with redacted audit commands)
+        ───────────────────────────────────────────────────────────────────────────────
+        get_answer                    Timed/polling AI answer command transport
+        get_panel                     Engagement-panel continuation/bootstrap transport
+        streaming_panel               Chunked engagement-panel response transport
+        get_watch                     Combined player + watch-next bootstrap transport
+
+        Audit a video:                swift run api-explorer ask-video-audit <VIDEO_ID>
+        Compare Ask request profiles: swift run api-explorer ask-video-parity <VIDEO_ID>
+        Inspect wire format:          swift run api-explorer --youtube wire-action <ep> '{}'
+
         ═══════════════════════════════════════════════════════════════════════════════
         💡 USAGE TIPS
         ═══════════════════════════════════════════════════════════════════════════════
@@ -2525,7 +3399,13 @@ func showHelp() {
 
         Commands:
           browse <browseId> [params]     Explore a browse endpoint
-          action <endpoint> <body>       Explore an action endpoint (body as JSON)
+          action <endpoint> [body]       Explore a JSON action endpoint
+          wire-action <endpoint> [body]  Safely inspect JSON, streaming, or opaque responses
+          ask-video-audit <videoId>      Audit Ask Gemini / YouChat without sending a prompt
+          ask-video-parity <videoId>     Compare ordered read-only Ask request profiles
+          ask-video-live-test <videoId>  Replay the server-issued summary suggestion
+          ask-video-free-text-test <videoId>
+                                         Validate one server-commanded free-text request
           search-audit <query>           Audit live Music search shapes, filters, and continuations
           continuation <token> [ep]      Explore a continuation (ep: 'browse', 'search', or 'next')
           analyze-file <path>            Safely summarize a saved JSON response
@@ -2542,8 +3422,13 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show raw JSON; expand samples/params for search-audit
-          -o, --output <file>            Save raw JSON response to a file
+          -v, --verbose                  Show raw JSON for browse/action/continuation; expand audits
+          -o, --output <file>            Save raw output with owner-only permissions (mode 0600)
+          --body-file <path|->           Read a sensitive JSON body from a chmod-600 file or stdin
+          --prompt-file <path|->         Read a private prompt from a mode-0600 file or stdin
+          --confirm-live-ai              Required acknowledgement for live Ask commands
+          --fresh-chats N                Run 1-3 independent summary chats (default: 1)
+          --follow-up                    Replay the first server-issued follow-up suggestion
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
           --client-version <version>     Override the resolved InnerTube client version
@@ -2562,6 +3447,12 @@ func showHelp() {
           swift run api-explorer --youtube --guest action search '{"query":"swift concurrency"}'
           swift run api-explorer --youtube action next '{"videoId":"dQw4w9WgXcQ"}'
           swift run api-explorer --youtube action guide '{}'          # Sidebar + subscriptions list
+          swift run api-explorer ask-video-audit dQw4w9WgXcQ          # Redacted AI audit
+          swift run api-explorer ask-video-parity dQw4w9WgXcQ         # Read-only profile matrix
+          swift run api-explorer ask-video-live-test dQw4w9WgXcQ --confirm-live-ai --follow-up
+          swift run api-explorer ask-video-free-text-test dQw4w9WgXcQ --confirm-live-ai --prompt-file -
+          swift run api-explorer --youtube wire-action get_watch '{"playerRequest":{"videoId":"dQw4w9WgXcQ"},"watchNextRequest":{"videoId":"dQw4w9WgXcQ"}}'
+          swift run api-explorer --youtube wire-action streaming_panel --body-file /path/to/private-body.json
 
         Examples:
           # Explore public endpoints
@@ -2629,94 +3520,135 @@ func analyzeSavedResponse(at path: String) {
 
 // MARK: - Main Entry Point
 
+private func commandLineOptionValue(
+    after index: Int,
+    in arguments: [String],
+    allowSingleDash: Bool = false
+) -> String? {
+    guard index + 1 < arguments.count else { return nil }
+    let value = arguments[index + 1]
+    if value == "-" {
+        return allowSingleDash ? value : nil
+    }
+    guard !value.hasPrefix("-") else { return nil }
+    return value
+}
+
 func runMain() async {
     let args = Array(CommandLine.arguments.dropFirst())
-    let verbose = args.contains("-v") || args.contains("--verbose")
-
-    // Parse output file option
+    var verbose = false
+    var confirmLiveAI = false
+    var includeAskFollowUp = false
+    var freshChatCount = 1
     var outputFile: String?
-    for (index, arg) in args.enumerated() {
-        if arg == "-o" || arg == "--output", index + 1 < args.count {
-            outputFile = args[index + 1]
-            break
-        }
-    }
-
-    // Parse authuser option
-    for (index, arg) in args.enumerated() {
-        if arg == "--authuser", index + 1 < args.count {
-            if let value = Int(args[index + 1]) {
-                globalAuthUserIndex = value
-            }
-            break
-        }
-    }
-
-    // Parse brand account option
-    for (index, arg) in args.enumerated() {
-        if arg == "--brand", index + 1 < args.count {
-            globalBrandAccountId = args[index + 1]
-            break
-        }
-    }
-
-    // Parse client version override. Keeping it in cachedClientVersion prevents
-    // live web configuration discovery from replacing the explicit probe value.
-    for (index, arg) in args.enumerated() {
-        guard arg == "--client-version" else { continue }
-        guard index + 1 < args.count else {
-            print("❌ --client-version requires a value")
-            return
-        }
-
-        let value = args[index + 1].trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !value.isEmpty, !value.hasPrefix("-") else {
-            print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
-            return
-        }
-
-        cachedClientVersion = value
-        clientVersionWasForced = true
-        break
-    }
-
-    // Parse YouTube mode option (target www.youtube.com / WEB client)
-    if args.contains("--youtube") || args.contains("--yt") {
-        activateYouTubeMode()
-    }
-
-    // Parse guest/no-auth option before filtering so cookie-backed auth checks
-    // behave as if no Kaset debug cookie export exists. This is useful for
-    // validating public signed-out API behavior on a developer machine that is
-    // normally signed in.
-    if args.contains("--no-auth") || args.contains("--guest") {
-        forceUnauthenticatedRequests = true
-    }
-
-    // Filter out option flags and their values
+    var bodyFile: String?
+    var promptFile: String?
     var filteredArgs: [String] = []
-    var skipNext = false
-    for arg in args {
-        if skipNext {
-            skipNext = false
+
+    var index = 0
+    while index < args.count {
+        let argument = args[index]
+        switch argument {
+        case "-v", "--verbose":
+            verbose = true
+        case "--youtube", "--yt":
+            activateYouTubeMode()
+        case "--no-auth", "--guest":
+            forceUnauthenticatedRequests = true
+        case "--confirm-live-ai":
+            confirmLiveAI = true
+        case "--follow-up":
+            includeAskFollowUp = true
+        case "-o", "--output":
+            guard let value = commandLineOptionValue(
+                after: index,
+                in: args,
+                allowSingleDash: true
+            ) else {
+                print("❌ \(argument) requires a path")
+                return
+            }
+            index += 1
+            outputFile = value
+        case "--body-file":
+            guard let value = commandLineOptionValue(
+                after: index,
+                in: args,
+                allowSingleDash: true
+            ) else {
+                print("❌ --body-file requires a path or -")
+                return
+            }
+            index += 1
+            bodyFile = value
+        case "--prompt-file":
+            guard let value = commandLineOptionValue(
+                after: index,
+                in: args,
+                allowSingleDash: true
+            ) else {
+                print("❌ --prompt-file requires a path or -")
+                return
+            }
+            index += 1
+            promptFile = value
+        case "--authuser":
+            guard let rawValue = commandLineOptionValue(after: index, in: args),
+                  let value = Int(rawValue),
+                  value >= 0
+            else {
+                print("❌ --authuser requires a nonnegative integer")
+                return
+            }
+            index += 1
+            authUserOptionWasSpecified = true
+            globalAuthUserIndex = value
+        case "--brand":
+            guard let value = commandLineOptionValue(after: index, in: args) else {
+                print("❌ --brand requires an account ID")
+                return
+            }
+            index += 1
+            globalBrandAccountId = value
+        case "--client-version":
+            guard let rawValue = commandLineOptionValue(after: index, in: args) else {
+                print("❌ --client-version requires a value")
+                return
+            }
+            index += 1
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, !value.hasPrefix("-") else {
+                print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
+                return
+            }
+            cachedClientVersion = value
+            clientVersionWasForced = true
+        case "--fresh-chats":
+            guard let rawValue = commandLineOptionValue(after: index, in: args),
+                  let value = Int(rawValue),
+                  (1 ... 3).contains(value)
+            else {
+                print("❌ --fresh-chats requires an integer between 1 and 3")
+                return
+            }
+            index += 1
+            freshChatCount = value
+        case "--":
+            filteredArgs.append(contentsOf: args.dropFirst(index + 1))
+            index = args.count
             continue
+        default:
+            filteredArgs.append(argument)
         }
-        if arg == "-v" || arg == "--verbose" || arg == "--youtube" || arg == "--yt"
-            || arg == "--no-auth" || arg == "--guest"
-        {
-            continue
-        }
-        if arg == "-o" || arg == "--output" || arg == "--authuser" || arg == "--brand"
-            || arg == "--client-version"
-        {
-            skipNext = true
-            continue
-        }
-        filteredArgs.append(arg)
+        index += 1
     }
 
     guard let command = filteredArgs.first else {
         showHelp()
+        return
+    }
+    guard promptFile == nil || command == "ask-video-free-text-test" else {
+        print("❌ --prompt-file is supported only by ask-video-free-text-test")
         return
     }
 
@@ -2731,14 +3663,145 @@ func runMain() async {
         await exploreBrowse(browseId, params: params, verbose: verbose, outputFile: outputFile)
 
     case "action":
-        guard filteredArgs.count >= 3 else {
-            print("❌ Usage: action <endpoint> <body-json>")
-            print("   Example: action search '{\"query\":\"hello\"}'")
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: action <endpoint> [body-json] [--body-file <path|->]")
             return
         }
-        let endpoint = filteredArgs[1]
-        let bodyJson = filteredArgs[2]
-        await exploreAction(endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile)
+        do {
+            let endpoint = try canonicalAPIEndpoint(filteredArgs[1])
+            if requiresPrivateBodySource(endpoint) {
+                print("❌ \(endpoint) must use wire-action, not action")
+                print("   Sensitive panel responses are always summarized with raw values hidden.")
+                return
+            }
+            let bodyJson = try loadRequestBodyJSON(
+                inlineBody: filteredArgs.count >= 3 ? filteredArgs[2] : nil,
+                bodyFile: bodyFile
+            )
+            if requiresRedactedWireInspection(endpoint) {
+                await exploreWireAction(
+                    endpoint, bodyJson: bodyJson, outputFile: outputFile
+                )
+            } else {
+                await exploreAction(
+                    endpoint, bodyJson: bodyJson, verbose: verbose, outputFile: outputFile
+                )
+            }
+        } catch {
+            print("❌ \(error.localizedDescription)")
+        }
+
+    case "wire-action":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: wire-action <endpoint> [body-json] [--body-file <path|->]")
+            print("   Safely reports structure without printing raw response values.")
+            return
+        }
+        do {
+            let endpoint = try canonicalAPIEndpoint(filteredArgs[1])
+            if requiresPrivateBodySource(endpoint), bodyFile == nil {
+                print("❌ \(endpoint) requires --body-file <chmod-600-path|->")
+                print("   Opaque panel/conversation values must not be placed in argv or shell history.")
+                return
+            }
+            let bodyJson = try loadRequestBodyJSON(
+                inlineBody: filteredArgs.count >= 3 ? filteredArgs[2] : nil,
+                bodyFile: bodyFile
+            )
+            await exploreWireAction(
+                endpoint, bodyJson: bodyJson, outputFile: outputFile
+            )
+        } catch {
+            print("❌ \(error.localizedDescription)")
+        }
+
+    case "ask-video-audit":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: ask-video-audit <videoId>")
+            return
+        }
+        if outputFile != nil {
+            print("⚠️ --output is ignored by ask-video-audit; the audit never saves raw payloads")
+        }
+        await auditAskVideo(filteredArgs[1], verbose: verbose)
+
+    case "ask-video-parity":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: ask-video-parity <videoId>")
+            return
+        }
+        await auditAskVideoRequestParity(
+            filteredArgs[1],
+            hasUnsupportedOptions: filteredArgs.count != 2
+                || outputFile != nil
+                || bodyFile != nil
+                || clientVersionWasForced
+                || includeAskFollowUp
+                || freshChatCount != 1
+        )
+
+    case "ask-video-live-test":
+        guard filteredArgs.count == 2 else {
+            print("❌ Usage: ask-video-live-test <videoId> --confirm-live-ai [--follow-up] [--fresh-chats N]")
+            return
+        }
+        guard confirmLiveAI else {
+            print("❌ ask-video-live-test requires --confirm-live-ai")
+            print("   This command sends the server-issued summary suggestion to YouTube.")
+            return
+        }
+        guard outputFile == nil,
+              bodyFile == nil,
+              !clientVersionWasForced,
+              !forceUnauthenticatedRequests,
+              !authUserOptionWasSpecified,
+              globalBrandAccountId == nil
+        else {
+            print("❌ ask-video-live-test received an unsupported authentication, client, or file option")
+            print("   Supported options: --confirm-live-ai, --follow-up, --fresh-chats N, --verbose")
+            return
+        }
+        await liveTestAskVideo(
+            filteredArgs[1],
+            freshChatCount: freshChatCount,
+            includeFollowUp: includeAskFollowUp,
+            verbose: verbose
+        )
+
+    case "ask-video-free-text-test":
+        guard filteredArgs.count == 2 else {
+            print("❌ Usage: ask-video-free-text-test <videoId> --confirm-live-ai --prompt-file <chmod-600-path|->")
+            return
+        }
+        guard confirmLiveAI else {
+            print("❌ ask-video-free-text-test requires --confirm-live-ai")
+            print("   This command submits one private free-text prompt to YouTube.")
+            return
+        }
+        guard let promptFile else {
+            print("❌ ask-video-free-text-test requires --prompt-file <chmod-600-path|->")
+            return
+        }
+        guard outputFile == nil,
+              bodyFile == nil,
+              !verbose,
+              !clientVersionWasForced,
+              !forceUnauthenticatedRequests,
+              !authUserOptionWasSpecified,
+              globalBrandAccountId == nil,
+              !includeAskFollowUp,
+              freshChatCount == 1
+        else {
+            print("❌ ask-video-free-text-test received an unsupported option or account mode")
+            print("   Supported options: --confirm-live-ai and --prompt-file <chmod-600-path|->")
+            return
+        }
+        do {
+            let prompt = try loadPrivatePrompt(from: promptFile)
+            await liveTestAskVideoFreeText(filteredArgs[1], prompt: prompt)
+        } catch {
+            print("❌ Could not load the private prompt: \(error.localizedDescription)")
+        }
 
     case "search-audit":
         guard filteredArgs.count >= 2 else {

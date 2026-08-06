@@ -19,6 +19,13 @@ and [playback.md](playback.md).
 - **Source switches preserve state.** Toggling to Music pauses a docked
   video in place and keeps the YouTube navigation intact for restore;
   music keeps playing while browsing YouTube until a video starts.
+- **Product data uses APIs, not the playback WebView.** The regular YouTube
+  WebView remains responsible for DRM playback. Optional watch-page features
+  such as Ask Gemini must use `YouTubeClient`, strict response parsing, and
+  account/lifecycle fences rather than DOM automation.
+- **Undocumented surfaces fail closed.** HTTP success is not enough to enable a
+  rollout-fragile feature. Ask Gemini remains hidden until a redacted parity run
+  proves an eligible signed-in primary-account request profile.
 
 ## Layer Map
 
@@ -28,6 +35,7 @@ and [playback.md](playback.md).
 | Protocol | `YTMusicClientProtocol` | `YouTubeClientProtocol` |
 | Models | Song/Album/Artist/Playlist | `YouTubeVideo`/`YouTubeChannel`/`YouTubePlaylist` |
 | Parsers | `Services/API/Parsers/` | `Services/API/Parsers/YouTube/` |
+| Ask safety core | — | `YouTubeAskCore` (Foundation-only wire decoding, strict parsing, sanitization, and request bodies) |
 | Playback WebView | `SingletonPlayerWebView` | `YouTubeWatchWebView` |
 | Player service | `PlayerService` | `YouTubePlayerService` |
 | Floating window | `VideoWindowController` | `YouTubeVideoWindowController` |
@@ -51,6 +59,16 @@ controls music while browsing YouTube), shared view components, and
 - **No API key**: the `key=` query parameter is no longer required by
   InnerTube (confirmed June 2026).
 
+Ask Gemini is an isolated optional path rather than a change to generic YouTube
+requests. `getWatchPage(videoId:)` parses normal watch data and an optional Ask
+bootstrap from the same `next` response. High-level conversation operations use
+an Ask-specific bounded, same-origin, no-cache, no-automatic-retry transport and
+expose only sanitized text plus local IDs to UI code. Opaque server commands stay
+inside memory-bound domain values. A read-only watch bootstrap may retry once
+when an account-scope publication resets the client after parsing; `get_panel`
+and suggestion submissions are never retried automatically. See
+[ADR-0032](adr/0032-youtube-ask-gemini.md).
+
 ### Endpoints
 
 | Surface | Request |
@@ -65,6 +83,8 @@ controls music while browsing YouTube), shared view components, and
 | Search | `search` (+`params` filters: videos `EgIQAQ==`, channels `EgIQAg==`, playlists `EgIQAw==`) |
 | Watch metadata + related | `next` |
 | Watch chapters | `next` (`playerOverlays…multiMarkersPlayerBarRenderer.markersMap[].value.chapters[]`) |
+| Ask eligibility/bootstrap | The existing watch `next` response, parsed only from confirmed YouChat structures |
+| Ask panel + server-issued chips | `get_panel` using the explicitly selected fixed WEB request profile |
 | Like / unlike | `like/like`, `like/dislike`, `like/removelike` |
 | Subscribe | `subscription/subscribe` / `subscription/unsubscribe` |
 | Watch Later edit | `browse/edit_playlist` (playlistId `WL`) |
@@ -85,6 +105,38 @@ walks responses recursively so container reshuffles don't break feeds.
 Use `swift run api-explorer --youtube browse <id>` to inspect live
 responses — the renderer histogram in its output shows what a surface
 currently serves.
+
+### Ask Gemini Activation Gate
+
+Current `get_panel` replies arrive through a singular list-mutation command.
+Kaset accepts text and follow-up chips only from the confirmed inserted
+`youChatItemViewModel` contents, while generated result/link objects remain
+non-interactive and undisplayed.
+
+Opening the watch-page toolbar panel may prepare an initial panel, but it
+never generates an answer until the user selects a server-issued suggestion or
+submits free text. Free text is exposed only when the canonical
+eligible `next` panel or its prompt-free initial `get_panel` materialization
+supplies the exact validated `sendUserQueryCommand`. The client uses the `next`
+command when present and otherwise prepares the exact server-issued panel
+continuation; it never synthesizes or merges capabilities. Submission uses
+`get_panel`, not `streaming_panel`. Each conversation revision may consume one
+chip or free-text action; successful responses advance the revision and keep the
+validated composer available unless YouTube supplies a replacement. Follow-up
+chips remain server-issued, and any uncertain failure requires New Chat. Visible labels and
+answers are sanitized but not localized by Kaset. Assistant messages render
+native Markdown blocks and inline emphasis; link destinations are stripped and
+never become interactive.
+
+Production activation uses the fixed WEB request profile selected on July 30,
+2026. Eligibility remains account- and video-scoped: signed-out, guest, brand,
+identity-mismatched, malformed, and unsupported responses omit the panel. A
+validated direct chip remains usable even when unrelated panel-bootstrap
+continuations are ambiguous; Kaset never guesses or replays those panel commands.
+The
+[API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27)
+is the wire-level source of truth; this document records only the product and
+architecture boundary. See also [ADR-0032](adr/0032-youtube-ask-gemini.md).
 
 ## Player Bar
 
@@ -213,6 +265,20 @@ natively. Comments come from the watch page's `comment-item-section` continuatio
 `comment/perform_comment_action` (like/unlike/dislike/undislike action
 tokens), expandable reply threads, and author → channel navigation.
 
+When enabled by a validated request profile and an eligible watch response, Ask
+Gemini appears as a sparkles action in the top toolbar. Activating it presents a
+top-centered floating glass panel while leaving Related in place. The panel
+discloses that YouTube generates the responses, prepares lazily, shows a
+height-bounded selectable transcript, disables all interactions during a
+single in-flight request, and offers New Chat after the first turn or when a
+submission outcome is uncertain. The input row matches the Music command bar
+and is enabled only for the validated first free-text turn. Outside click,
+Escape, or the close control dismisses the
+panel without discarding its current watch-scoped conversation. The
+conversation is owned by the current watch view—not `YouTubeViewModelStore`—and
+is discarded on navigation, source/account/authentication changes, cancellation,
+or app termination.
+
 ### Ads
 
 Kaset does not block ads. During an ad, `STATE_UPDATE.isAd` is true and
@@ -230,9 +296,30 @@ the native scrubber is disabled; YouTube Premium accounts see no ads.
   so playback state tests never create WebViews.
 - `InnerTubeSupportTests` pins SAPISIDHASH vectors for both origins —
   if those fail, auth is broken app-wide.
+- `YouTubeAskCoreTests` use small placeholder-only fixtures to cover bounded wire
+  formats, strict YouChat parsing, decoy rejection, server order, sanitization,
+  and accidental-secret detection. `YouTubeAskTransportTests`,
+  `YouTubeAskClientTests`, and `YouTubeAskViewModelTests` cover redirect and
+  response bounds, exact request shapes, identity fencing, direct-versus-
+  materialized free-text capability provenance, single-flight behavior, New
+  Chat, and command consumption without contacting YouTube.
+- Ask UI tests are never part of routine verification because they launch the
+  app. Run them only after explicit human approval. The read-only
+  `ask-video-parity` command is a manual compatibility check, not a unit test and
+  not evidence of a passing profile unless signed-in eligibility is confirmed.
 
 ## Known Limitations / Future Work
 
+- Ask Gemini production uses the fixed WEB request profile selected explicitly
+  by the app. Eligibility remains dependent on YouTube returning a supported
+  YouChat bootstrap for the signed-in primary account and current video. See
+  [ADR-0032](adr/0032-youtube-ask-gemini.md) and the
+  [API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27).
+- Ask Gemini supports repeated free-text turns with the validated `get_panel`
+  shape and one consumed action per bound conversation revision. It does not
+  invent additional multi-turn fields, and still omits `streaming_panel`, brand
+  accounts, persisted conversations, telemetry, clickable generated links, and
+  Apple Intelligence dependencies.
 - No auto-advance to the next related video after `VIDEO_ENDED` (YouTube
   autonav is disabled; Kaset shows the ended state — the bar's next
   button advances manually).

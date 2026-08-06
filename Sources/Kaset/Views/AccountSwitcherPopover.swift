@@ -5,6 +5,26 @@
 
 import SwiftUI
 
+// MARK: - AccountSwitcherSignOutDisposition
+
+enum AccountSwitcherSignOutDisposition: Equatable {
+    case dismiss
+    case presentFailure
+}
+
+// MARK: - AccountSwitcherSignOutFlow
+
+@MainActor
+enum AccountSwitcherSignOutFlow {
+    /// AuthService owns durable preflight and its registered account preparation.
+    /// Callers must not prepare AccountService independently before this operation.
+    static func perform(
+        signOut: () async -> Bool
+    ) async -> AccountSwitcherSignOutDisposition {
+        await signOut() ? .dismiss : .presentFailure
+    }
+}
+
 // MARK: - AccountSwitcherPopover
 
 /// A Liquid Glass styled popover for switching between accounts.
@@ -18,6 +38,8 @@ struct AccountSwitcherPopover: View {
 
     @State private var isGuestModeHovering = false
     @State private var isSignOutHovering = false
+    @State private var isSigningOut = false
+    @State private var signOutFailurePresented = false
 
     /// Namespace for glass effect morphing.
     @Namespace private var popoverNamespace
@@ -42,6 +64,20 @@ struct AccountSwitcherPopover: View {
             .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
         }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.container)
+        .alert(
+            String(localized: "Sign Out Incomplete"),
+            isPresented: self.$signOutFailurePresented
+        ) {
+            Button(String(localized: "Retry")) {
+                self.startSignOut()
+            }
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(
+                "Kaset could not remove saved sign-in data. Try signing out again before quitting.",
+                comment: "Sign-out durable storage failure message"
+            )
+        }
     }
 
     // MARK: - Header
@@ -176,11 +212,7 @@ struct AccountSwitcherPopover: View {
 
     private var signOutButton: some View {
         Button(role: .destructive) {
-            Task {
-                await self.accountService.prepareForSignOut()
-                await self.authService.signOut()
-                self.dismiss()
-            }
+            self.startSignOut()
         } label: {
             HStack(spacing: 10) {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
@@ -201,7 +233,27 @@ struct AccountSwitcherPopover: View {
         .onHover { hovering in
             self.isSignOutHovering = hovering
         }
+        .disabled(self.isSigningOut)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.signOutButton)
+    }
+
+    private func startSignOut() {
+        Task { @MainActor in
+            guard !self.isSigningOut else { return }
+            self.isSigningOut = true
+            defer { self.isSigningOut = false }
+
+            let disposition = await AccountSwitcherSignOutFlow.perform {
+                await self.authService.signOut()
+            }
+
+            switch disposition {
+            case .dismiss:
+                self.dismiss()
+            case .presentFailure:
+                self.signOutFailurePresented = true
+            }
+        }
     }
 
     @ViewBuilder

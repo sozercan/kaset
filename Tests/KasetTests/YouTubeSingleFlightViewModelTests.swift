@@ -333,6 +333,34 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         return self.watchNextData
     }
 
+    func getWatchPage(videoId _: String) async throws -> YouTubeWatchPage {
+        try await self.waitIfNeeded()
+        return YouTubeWatchPage(data: self.watchNextData, askBootstrap: nil)
+    }
+
+    func loadAskConversation(
+        from _: YouTubeAskBootstrap
+    ) async throws -> YouTubeAskConversation {
+        try await self.waitIfNeeded()
+        return YouTubeAskConversation.testing()
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        selecting _: YouTubeAskSuggestion.ID
+    ) async throws -> YouTubeAskConversation {
+        try await self.waitIfNeeded()
+        return conversation
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting _: String,
+        playerOffsetMilliseconds _: Int64
+    ) async throws -> YouTubeAskConversation {
+        conversation
+    }
+
     func getComments(continuation _: String) async throws -> YouTubeCommentsPage {
         try await self.waitIfNeeded()
         return self.commentsPage
