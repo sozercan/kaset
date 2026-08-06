@@ -4,11 +4,23 @@ import Foundation
 /// Returns deterministic fixture data so UI tests never hit the network.
 @MainActor
 final class MockUITestYouTubeClient: YouTubeClientProtocol {
+    private let isAskGeminiEligible: Bool
+
+    init(
+        isAskGeminiEligible: Bool =
+            UITestConfig.environmentValue(for: UITestConfig.mockAskGeminiEnabledKey) == "true"
+    ) {
+        self.isAskGeminiEligible = isAskGeminiEligible
+    }
+
     var hasMoreHomeFeed: Bool {
         false
     }
 
-    func resetSessionStateForAccountSwitch() {}
+    func resetSessionStateForAccountSwitch() {
+        // This mock retains no transient Ask conversation state. Eligibility is
+        // launch configuration and must survive normal account-scope resets.
+    }
 
     func getHomeFeed() async throws -> YouTubeFeed {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
@@ -96,6 +108,60 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
             publishedText: "1 day ago",
             channel: Self.sampleChannel,
             related: Array(Self.sampleVideos.dropFirst())
+        )
+    }
+
+    func getWatchPage(videoId: String) async throws -> YouTubeWatchPage {
+        try await YouTubeWatchPage(
+            data: self.getWatchNext(videoId: videoId),
+            askBootstrap: self.isAskGeminiEligible
+                ? YouTubeAskBootstrap.testing(
+                    suggestions: [
+                        "Explain the main idea",
+                        "List the key moments",
+                    ],
+                    allowsFreeText: true
+                )
+                : nil
+        )
+    }
+
+    func loadAskConversation(
+        from bootstrap: YouTubeAskBootstrap
+    ) async throws -> YouTubeAskConversation {
+        YouTubeAskConversation.direct(from: bootstrap)
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        selecting _: YouTubeAskSuggestion.ID
+    ) async throws -> YouTubeAskConversation {
+        YouTubeAskConversation.testing(
+            messages: conversation.messages + [
+                YouTubeAskMessage(
+                    role: .assistant,
+                    text: "This is a synthetic YouTube-generated response for UI tests."
+                ),
+            ],
+            suggestions: ["Show another detail"],
+            allowsFreeText: self.isAskGeminiEligible
+        )
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting _: String,
+        playerOffsetMilliseconds _: Int64
+    ) async throws -> YouTubeAskConversation {
+        YouTubeAskConversation.testing(
+            messages: conversation.messages + [
+                YouTubeAskMessage(
+                    role: .assistant,
+                    text: "This is a synthetic free-text response for UI tests."
+                ),
+            ],
+            suggestions: ["Show another detail"],
+            allowsFreeText: self.isAskGeminiEligible
         )
     }
 

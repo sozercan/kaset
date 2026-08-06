@@ -4,6 +4,11 @@ import Testing
 
 @Suite("Main window layout", .serialized)
 struct MainWindowLayoutTests {
+    @Test("AI task surfaces use the shared 72-point top inset")
+    func aiTaskSurfaceTopPadding() {
+        #expect(MainWindowLayout.aiTaskSurfaceTopPadding == 72)
+    }
+
     @Test("Clamps undersized restored content frames")
     func clampsUndersizedContentFrames() {
         let clamped = MainWindowLayout.clampedContentSize(NSSize(width: 640, height: 420))

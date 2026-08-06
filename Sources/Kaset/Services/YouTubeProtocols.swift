@@ -57,6 +57,31 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches watch-page companion data (metadata + related videos).
     func getWatchNext(videoId: String) async throws -> WatchNextData
 
+    /// Fetches normal watch data and an optional Ask Gemini bootstrap from one
+    /// shared `next` response.
+    func getWatchPage(videoId: String) async throws -> YouTubeWatchPage
+
+    /// Lazily materializes an Ask panel, or promotes direct bootstrap chips into
+    /// a conversation without generating an answer.
+    func loadAskConversation(
+        from bootstrap: YouTubeAskBootstrap
+    ) async throws -> YouTubeAskConversation
+
+    /// Submits exactly one server-issued suggestion in the current conversation.
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        selecting suggestionID: YouTubeAskSuggestion.ID
+    ) async throws -> YouTubeAskConversation
+
+    /// Submits one validated free-text prompt using the current watch-scoped
+    /// server command. A validated composer command may be reused only after
+    /// each successful response advances the bound conversation revision.
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) async throws -> YouTubeAskConversation
+
     /// Fetches a page of comments by continuation token.
     func getComments(continuation: String) async throws -> YouTubeCommentsPage
 

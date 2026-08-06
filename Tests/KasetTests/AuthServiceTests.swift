@@ -38,6 +38,17 @@ struct AuthServiceTests {
         #expect(self.authService.state == .loggingIn)
     }
 
+    @Test("Repeated start login keeps the active attempt stable")
+    func repeatedStartLoginKeepsAttemptStable() {
+        self.authService.startLogin()
+        let attemptID = self.authService.activeLoginAttemptID
+
+        self.authService.startLogin()
+
+        #expect(self.authService.activeLoginAttemptID == attemptID)
+        #expect(self.authService.state == .loggingIn)
+    }
+
     @Test("Cancel login restores prior logged-in session")
     func cancelLoginRestoresLoggedInState() {
         self.authService.completeLogin(sapisid: "existing-sapisid")
@@ -46,6 +57,24 @@ struct AuthServiceTests {
         self.authService.cancelLoginIfNeeded()
 
         #expect(self.authService.state == .loggedIn(sapisid: "existing-sapisid"))
+    }
+
+    @Test("Stale sheet cancellation cannot cancel a replacement login attempt")
+    func staleCancellationCannotCancelReplacementAttempt() async {
+        await self.authService.checkLoginStatus()
+        self.authService.startLogin()
+        guard let staleAttemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected an active login attempt")
+            return
+        }
+        self.authService.cancelLoginIfNeeded(expectedAttemptID: staleAttemptID)
+        self.authService.startLogin()
+        let replacementAttemptID = self.authService.activeLoginAttemptID
+
+        self.authService.cancelLoginIfNeeded(expectedAttemptID: staleAttemptID)
+
+        #expect(self.authService.activeLoginAttemptID == replacementAttemptID)
+        #expect(self.authService.state == .loggingIn)
     }
 
     @Test("Cancel login from signed out remains signed out")
@@ -107,6 +136,11 @@ struct AuthServiceTests {
 
     @Test("Complete login waits for account-boundary drain")
     func completeLoginWaitsForAccountBoundaryDrain() async {
+        self.authService.startLogin()
+        guard let attemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected an active login attempt")
+            return
+        }
         let drainStarted = AsyncGate()
         let releaseDrain = AsyncGate()
         self.authService.setAccountBoundaryHandlers(
@@ -119,14 +153,100 @@ struct AuthServiceTests {
         )
 
         let completionTask = Task {
-            await self.authService.completeLoginAfterDraining(sapisid: "test-sapisid")
+            await self.authService.completeLoginAfterDraining(
+                expectedAttemptID: attemptID,
+                persistBeforeCommit: { "test-sapisid" },
+                persistFinalSession: { "test-sapisid" },
+                willPublishLogin: {}
+            )
         }
         await drainStarted.wait()
-        #expect(self.authService.state == .initializing)
+        #expect(self.authService.state == .loggingIn)
 
         await releaseDrain.open()
-        await completionTask.value
+        let didComplete = await completionTask.value
+        #expect(didComplete)
         #expect(self.authService.state == .loggedIn(sapisid: "test-sapisid"))
+    }
+
+    @Test("Cancelling login while completion drains prevents authentication")
+    func cancelLoginWhileCompletionDrains() async {
+        await self.authService.checkLoginStatus()
+        self.authService.startLogin()
+        guard let attemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected an active login attempt")
+            return
+        }
+
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let completionTask = Task { @MainActor in
+            await self.authService.completeLoginAfterDraining(
+                expectedAttemptID: attemptID,
+                persistBeforeCommit: { "replacement-session" },
+                persistFinalSession: { "replacement-session" },
+                willPublishLogin: {}
+            )
+        }
+        await drainStarted.wait()
+
+        self.authService.cancelLoginIfNeeded()
+        await releaseDrain.open()
+        let didComplete = await completionTask.value
+
+        #expect(!didComplete)
+        #expect(self.authService.state == .loggedOut)
+    }
+
+    @Test("A newer login attempt supersedes a draining completion")
+    func newerLoginAttemptSupersedesDrainingCompletion() async {
+        await self.authService.checkLoginStatus()
+        self.authService.startLogin()
+        guard let attemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected an active login attempt")
+            return
+        }
+
+        let drainStarted = AsyncGate()
+        let releaseDrain = AsyncGate()
+        self.authService.setAccountBoundaryHandlers(
+            willBegin: {},
+            didEnd: {},
+            drain: {
+                await drainStarted.open()
+                await releaseDrain.wait()
+            }
+        )
+
+        let staleCompletion = Task { @MainActor in
+            await self.authService.completeLoginAfterDraining(
+                expectedAttemptID: attemptID,
+                persistBeforeCommit: { "stale-session" },
+                persistFinalSession: { "stale-session" },
+                willPublishLogin: {}
+            )
+        }
+        await drainStarted.wait()
+
+        self.authService.cancelLoginIfNeeded(expectedAttemptID: attemptID)
+        self.authService.startLogin()
+        let replacementAttemptID = self.authService.activeLoginAttemptID
+        await releaseDrain.open()
+        let didCompleteStaleAttempt = await staleCompletion.value
+
+        #expect(!didCompleteStaleAttempt)
+        #expect(replacementAttemptID != attemptID)
+        #expect(self.authService.activeLoginAttemptID == replacementAttemptID)
+        #expect(self.authService.state == .loggingIn)
     }
 
     @Test("Session expired transitions to loggedOut and sets needsReauth")
@@ -222,7 +342,7 @@ struct AuthServiceTests {
 
         self.authService.completeLogin(sapisid: "placeholder-2")
         let signOutRequest = try self.storeCachedResponse(identifier: "sign-out")
-        await self.authService.signOut()
+        _ = await self.authService.signOut()
         #expect(await self.cachedResponseWasCleared(for: signOutRequest))
     }
 
@@ -319,13 +439,24 @@ struct AuthServiceTests {
 
         let guestTask = Task { await self.authService.enterGuestMode() }
         await drainStarted.wait()
+        self.authService.startLogin()
+        guard let attemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected an active login attempt")
+            return
+        }
         let loginTask = Task {
-            await self.authService.completeLoginAfterDraining(sapisid: "replacement-session")
+            await self.authService.completeLoginAfterDraining(
+                expectedAttemptID: attemptID,
+                persistBeforeCommit: { "replacement-session" },
+                persistFinalSession: { "replacement-session" },
+                willPublishLogin: {}
+            )
         }
         await releaseDrain.open()
         await guestTask.value
-        await loginTask.value
+        let didComplete = await loginTask.value
 
+        #expect(didComplete)
         #expect(!self.authService.isGuestModeEnabled)
         #expect(self.authService.hasPersonalAccount)
         #expect(self.authService.state == .loggedIn(sapisid: "replacement-session"))
@@ -353,7 +484,7 @@ struct AuthServiceTests {
         #expect(FavoritesManager.shared.activeScopeID != "guest")
 
         await self.authService.enterGuestMode()
-        await self.authService.signOut()
+        _ = await self.authService.signOut()
         #expect(self.authService.isGuestModeEnabled == false)
         #expect(self.authService.hasPersonalAccount == false)
     }
@@ -371,11 +502,77 @@ struct AuthServiceTests {
         self.authService.completeLogin(sapisid: "test-sapisid")
         self.authService.needsReauth = true
 
-        await self.authService.signOut()
+        let didSignOutDurably = await self.authService.signOut()
 
+        #expect(didSignOutDurably)
         #expect(self.authService.state == .loggedOut)
         #expect(self.authService.needsReauth == false)
+        #expect(self.mockWebKitManager.invalidateAuthCookieRestorationCalled)
         #expect(self.mockWebKitManager.clearAllDataCalled == true)
+    }
+
+    @Test("Sign out reports durable invalidation failure")
+    func signOutReportsDurableFailure() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        self.mockWebKitManager.clearAllDataResult = false
+
+        let didSignOutDurably = await self.authService.signOut()
+
+        #expect(!didSignOutDurably)
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.authService.loginCleanupRequired)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore)
+        #expect(self.authService.shouldPersistGuestPlaybackState)
+        #expect(self.mockWebKitManager.clearAllDataCalled)
+
+        self.mockWebKitManager.sapisidValue = "surviving-session"
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.authService.loginCleanupRequired)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
+    }
+
+    @Test("Sign in after failed sign-out opens cleanup recovery")
+    func signInAfterFailedSignOutOpensCleanupRecovery() async {
+        self.authService.completeLogin(sapisid: "test-sapisid")
+        self.mockWebKitManager.clearAllDataResult = false
+        #expect(await !self.authService.signOut())
+
+        self.authService.startLogin()
+        guard let cleanupAttemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected a cleanup recovery attempt")
+            return
+        }
+
+        #expect(self.authService.state == .loggingIn)
+        #expect(self.authService.loginCleanupRequired)
+        #expect(self.authService.shouldUseCookieFreePlaybackDataStore)
+        #expect(self.authService.shouldPersistGuestPlaybackState)
+
+        let didRecover = await self.authService.clearFailedLoginAfterDraining(
+            expectedAttemptID: cleanupAttemptID,
+            expectedSignOutSequence: self.authService.signOutSequence,
+            clearCookies: { true }
+        )
+
+        #expect(didRecover == true)
+        #expect(self.authService.state == .loggedOut)
+        #expect(!self.authService.loginCleanupRequired)
+    }
+
+    @Test("Login-status checks do not consume an active login attempt")
+    func loginStatusCheckDoesNotConsumeActiveAttempt() async {
+        self.authService.startLogin()
+        let attemptID = self.authService.activeLoginAttemptID
+        self.mockWebKitManager.sapisidValue = "candidate-session"
+
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggingIn)
+        #expect(self.authService.activeLoginAttemptID == attemptID)
+        #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 0)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
     }
 
     @Test("Check login status waits for restore and logs in from SAPISID")
@@ -391,6 +588,93 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.waitForInitialCookieRestoreCallCount == 1)
         #expect(self.mockWebKitManager.getSAPISIDCallCount == 1)
         #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore", "getSAPISID"])
+    }
+
+    @Test("Failed startup cleanup refuses surviving authentication cookies")
+    func failedStartupCleanupRefusesAuthenticationCookies() async {
+        self.mockWebKitManager.waitForInitialCookieRestoreResult = false
+        self.mockWebKitManager.sapisidValue = "surviving-session"
+
+        await self.authService.checkLoginStatus()
+
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.authService.needsReauth)
+        #expect(self.authService.loginCleanupRequired)
+        #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
+        #expect(self.mockWebKitManager.callSequence == ["waitForInitialCookieRestore"])
+    }
+
+    @Test("Logged-out residual cleanup fences an in-flight login-status check")
+    func loggedOutResidualCleanupFencesLoginCheck() async {
+        self.authService.completeLogin(sapisid: "expired-session")
+        self.authService.sessionExpired()
+        self.mockWebKitManager.sapisidValue = "residual-session"
+        let cookieReadStarted = AsyncGate()
+        let releaseCookieRead = AsyncGate()
+        self.mockWebKitManager.getSAPISIDGate = {
+            await cookieReadStarted.open()
+            await releaseCookieRead.wait()
+        }
+
+        self.authService.startLogin()
+        guard let cleanupAttemptID = self.authService.activeLoginAttemptID else {
+            Issue.record("Expected a cleanup-owned login attempt")
+            return
+        }
+        self.authService.cancelLoginIfNeeded(expectedAttemptID: cleanupAttemptID)
+
+        let loginCheck = Task { @MainActor in
+            await self.authService.checkLoginStatus()
+        }
+        await cookieReadStarted.wait()
+        let cleanupStarted = AsyncGate()
+        let releaseCleanup = AsyncGate()
+        let cleanup = Task { @MainActor in
+            await self.authService.clearFailedLoginAfterDraining(
+                expectedAttemptID: cleanupAttemptID,
+                expectedSignOutSequence: self.authService.signOutSequence,
+                clearCookies: {
+                    await cleanupStarted.open()
+                    await releaseCleanup.wait()
+                    return true
+                }
+            )
+        }
+        await cleanupStarted.wait()
+        #expect(self.authService.state == .loggedOut)
+        #expect(self.authService.loginCleanupRequired)
+
+        await releaseCookieRead.open()
+        await loginCheck.value
+        #expect(self.authService.state == .loggedOut)
+
+        await releaseCleanup.open()
+        #expect(await cleanup.value == true)
+        #expect(self.authService.state == .loggedOut)
+        #expect(!self.authService.loginCleanupRequired)
+    }
+
+    @Test("Stale residual cleanup cannot overwrite a completed explicit sign-out")
+    func staleResidualCleanupCannotOverwriteSignOut() async {
+        self.authService.completeLogin(sapisid: "expired-session")
+        self.authService.sessionExpired()
+        let staleSignOutSequence = self.authService.signOutSequence
+
+        #expect(await self.authService.signOut())
+        let cleanupCalled = LockedCounter()
+        let result = await self.authService.clearFailedLoginAfterDraining(
+            expectedAttemptID: LoginAttemptID(rawValue: 999),
+            expectedSignOutSequence: staleSignOutSequence,
+            clearCookies: {
+                cleanupCalled.increment()
+                return true
+            }
+        )
+
+        #expect(result == nil)
+        #expect(cleanupCalled.isEmpty)
+        #expect(self.authService.state == .loggedOut)
+        #expect(!self.authService.needsReauth)
     }
 
     @Test("Checking login status fences replacement of a logged-in identity")
@@ -491,7 +775,7 @@ struct AuthServiceTests {
         self.mockWebKitManager.clearAllDataGate = { await release.wait() }
 
         let signOut = Task { @MainActor in
-            await self.authService.signOut()
+            _ = await self.authService.signOut()
         }
         for _ in 0 ..< 100 where !self.mockWebKitManager.clearAllDataCalled {
             await Task.yield()
@@ -499,6 +783,7 @@ struct AuthServiceTests {
 
         #expect(self.authService.state == .loggedOut)
         #expect(self.authService.accountIdentityGeneration == identityGeneration &+ 1)
+        #expect(self.mockWebKitManager.invalidateAuthCookieRestorationCalled)
         if let cachedRequest {
             #expect(await self.cachedResponseWasCleared(for: cachedRequest))
         }
@@ -513,7 +798,7 @@ struct AuthServiceTests {
         #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)
 
         await release.open()
-        await signOut.value
+        _ = await signOut.value
         await loginCheck.value
         #expect(self.authService.state == .loggedOut)
         #expect(self.mockWebKitManager.getSAPISIDCallCount == 0)

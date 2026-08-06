@@ -24,8 +24,9 @@ Sources/
       ├── ViewModels/   → State management (music view models plus YouTube/ video-source view models)
       ├── Utilities/    → Helpers (DiagnosticsLogger, extensions)
       └── Views/        → SwiftUI views (MainWindow, Sidebar, PlayerBar, YouTube views, etc.)
-  └── APIExplorer/      → API explorer CLI tool
-Tests/                  → Unit tests (KasetTests/)
+  ├── APIExplorer/      → API explorer CLI tool
+  └── YouTubeAskCore/   → Foundation-only Ask wire decoding, strict parsing, sanitization, and request construction
+Tests/                  → Unit tests (`KasetTests/` and isolated `YouTubeAskCoreTests/`)
 docs/                   → Documentation
   └── adr/              → Architecture Decision Records
 ```
@@ -57,7 +58,7 @@ final class HomeViewModel {
 }
 ```
 
-YouTube view models follow the same pattern with `YouTubeClientProtocol` and live under `Sources/Kaset/ViewModels/YouTube/`. `YouTubeViewModelStore` keeps the YouTube navigation stack and view-model caches warm while the user switches back to Music.
+YouTube view models follow the same pattern with `YouTubeClientProtocol` and live under `Sources/Kaset/ViewModels/YouTube/`. `YouTubeViewModelStore` keeps the YouTube navigation stack and view-model caches warm while the user switches back to Music. Watch-scoped Ask state is deliberately excluded from that store: `YouTubeWatchViewModel` owns a child `YouTubeAskViewModel`, so opaque conversation state cannot survive route destruction or a source/account boundary.
 
 ## State Management
 
@@ -68,6 +69,10 @@ YouTube view models follow the same pattern with `YouTubeClientProtocol` and liv
 ### Library State Reconciliation
 
 `LibraryViewModel` owns observable Library UI state, while `LibraryContentReconciler` owns optimistic add/remove reconciliation for eventually-consistent YouTube Music Library responses. `LibraryMutationActions` owns mutation orchestration: calling YouTube Music, invalidating stale caches, applying optimistic state, and scheduling delayed reconciliation when backend snapshots lag. This keeps pending mutation stabilization rules behind small Library interfaces instead of spreading them across view models and action helpers.
+
+### YouTube Ask State Boundary
+
+Ask Gemini uses a route-owned, memory-only state machine. Visible messages and local suggestion IDs are separated from opaque server commands. The canonical eligible `next` panel may supply the opaque free-text command directly. When it does not, the client may send the prompt-free initial `get_panel` continuation and accept a confirmed materialized command; if both stages provide commands, they must match exactly. One action consumes each bound conversation revision. A successful response advances the revision and retains the validated composer command unless YouTube supplies a replacement; uncertain failures discard it and require New Chat. Continuation and click-tracking values are never exposed to the UI. Hidden state is bound to the video ID, authentication generation, confirmed primary-account scope, local conversation ID, and revision. Navigation away, source/account/authentication changes, cancellation, or view-model destruction invalidates the operation and discards both visible and opaque conversation state. Nothing is written to `APICache`, UserDefaults, Keychain, navigation restoration, telemetry, or logs. See [ADR-0032](adr/0032-youtube-ask-gemini.md).
 
 ## Key Services
 
@@ -152,18 +157,21 @@ Makes authenticated requests to regular YouTube's internal InnerTube API. It del
 - Uses `https://www.youtube.com` for `SAPISIDHASH`, `Origin`, `Referer`, and `X-Origin`
 - Uses the `WEB` InnerTube client instead of YouTube Music's `WEB_REMIX`
 - Prefixes shared `APICache` keys with `yt:` so video-source entries do not collide with Music cache invalidation
-- Delegates response parsing to YouTube-specific parsers under `Services/API/Parsers/YouTube/`
+- Delegates normal response parsing to YouTube-specific parsers under `Services/API/Parsers/YouTube/`
+- Routes Ask Gemini through an isolated bounded, same-origin, no-cache, no-automatic-retry transport backed by `YouTubeAskCore`; generic YouTube request behavior is unchanged
 
 **Endpoints / surfaces**:
 - `getHomeBundle()` / `getHomeFeed()` → Recommendations, chips, shelves, and pagination
 - `search(query:filter:)` → Videos, channels, and playlists
-- `getWatchNext(videoId:)` → Watch metadata, related videos, channel state, and comment continuation
+- `getWatchNext(videoId:)` → Watch metadata, related videos, channel state, and comment continuation for playback/scrobbling callers
+- `getWatchPage(videoId:)` → The same watch data plus an optional strictly parsed Ask bootstrap from one `next` request
+- `loadAskConversation(from:)`, `continueAskConversation(_:selecting:)` → Initial Ask panel and exact server-issued chip continuations through `get_panel`
 - `getComments(continuation:)`, `postComment(...)`, `performCommentAction(...)` → Watch-page comments
 - `getChannel(channelId:)`, `getPlaylist(playlistId:)`, `getDestinationFeed(_:)`, `getShorts()` → Browse surfaces
 - `getSubscriptionsFeed()`, `getSubscribedChannels()`, `getHistory(forceRefresh:)`, `getUserPlaylists()` → Signed-in YouTube surfaces
 - `rateVideo(...)`, `setSubscribed(...)`, `addToWatchLater(...)`, `removeFromWatchLater(...)` → Mutations
 
-See [youtube.md](youtube.md) for the full source-toggle and regular YouTube architecture.
+Ask operations require a signed-in primary account. The production app explicitly selects the fixed WEB request profile; strict parser, identity, and transport failures still fail closed per conversation. See [youtube.md](youtube.md) for the product surface, [ADR-0032](adr/0032-youtube-ask-gemini.md) for the activation decision, and the [API discovery record](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27) for wire-level observations.
 
 ### API Parsers
 
@@ -186,7 +194,9 @@ Response parsing is extracted into specialized modules:
 | `LyricsParser.swift` | Lyrics extraction |
 | `YouTube/` | Regular YouTube feed, search, watch-next, comments, channel, playlist, guide, and renderer parsers |
 
-**Design**: Static enum-based parsers with pure functions for testability.
+`YouTubeAskCore` is a separate Foundation-only target rather than another recursive app parser. It owns the bounded JSON/XSSI/NDJSON/length-prefixed wire decoder, strict YouChat bootstrap/chip/message parser, visible-text sanitizer, opaque command carrier, and direct-chip request builder. The app and API Explorer consume the same package-scoped contract; API Explorer-only reporting and live-action confirmation stay outside the core.
+
+**Design**: Static enum-based parsers with pure functions for testability. Ask parsing is schema-directed and fail-closed rather than broad recursive discovery.
 
 ### Queue Song Metadata and Album Playback
 
@@ -610,6 +620,16 @@ YTMusicClient.getHome()
 
 `YouTubeClient` follows the same cookie/SAPISIDHASH flow with `https://www.youtube.com`, the `WEB` client context, and `yt:`-prefixed cache keys.
 
+The optional Ask path begins with the watch page's existing `next` request. A
+strict parser may return an account- and video-bound bootstrap; it never treats
+HTTP 200 alone as eligibility. Initial preparation and direct server-chip
+submission use the Ask-specific transport, whose response collection and frame
+sizes are bounded and whose redirects must remain same-origin. Panel calls are
+not cached or automatically retried. Only sanitized visible messages leave the
+Ask domain layer, while continuations and commands remain opaque in memory.
+Production calls are disabled until a request profile passes the read-only
+parity gate described in [ADR-0032](adr/0032-youtube-ask-gemini.md).
+
 ## Playback Flow
 
 This diagram covers YouTube Music playback. Regular YouTube playback is documented in [youtube.md](youtube.md) and uses `YouTubePlayerService` plus `YouTubeWatchWebView`.
@@ -929,6 +949,12 @@ Cancel async work when views disappear or inputs change:
     loadTask?.cancel()
 }
 ```
+
+For Ask Gemini, cancellation is also an identity boundary. The child view model
+owns preparation, submission, and New Chat tasks; canceling the watch route
+increments its operation generation and discards every opaque command. A late
+response must validate the captured video, authentication generation,
+primary-account scope, conversation ID, and revision before publishing.
 
 ### Memory Management
 

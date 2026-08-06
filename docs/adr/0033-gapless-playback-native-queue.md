@@ -1,4 +1,4 @@
-# ADR-0032: Gapless Playback via YouTube Music Native Queue
+# ADR-0033: Gapless Playback via YouTube Music Native Queue
 
 ## Status
 

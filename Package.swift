@@ -27,6 +27,7 @@ let package = Package(
         .executableTarget(
             name: "Kaset",
             dependencies: [
+                "YouTubeAskCore",
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
             exclude: [
@@ -65,6 +66,26 @@ let package = Package(
         // API Explorer CLI tool
         .executableTarget(
             name: "APIExplorer",
+            dependencies: ["YouTubeAskCore"],
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+            ]
+        ),
+        // Shared Foundation-only YouTube Ask parsing and safety core
+        .target(
+            name: "YouTubeAskCore",
+            swiftSettings: [
+                .swiftLanguageMode(.v6),
+                .enableExperimentalFeature("StrictConcurrency"),
+            ]
+        ),
+        // Unit tests for the shared YouTube Ask core
+        .testTarget(
+            name: "YouTubeAskCoreTests",
+            dependencies: ["YouTubeAskCore"],
+            resources: [
+                .process("Fixtures"),
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]

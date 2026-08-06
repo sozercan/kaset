@@ -887,13 +887,13 @@ struct AccountServiceTests {
         }
 
         let signOutFlow = Task { @MainActor in
-            await services.auth.signOut()
+            _ = await services.auth.signOut()
         }
         await Task.yield()
         #expect(mockWebKit.clearAllDataCalled == false)
 
         await oldPinGate.open()
-        await signOutFlow.value
+        _ = await signOutFlow.value
 
         #expect(mockWebKit.clearAllDataCalled == true)
         #expect(services.auth.state == .loggedOut)

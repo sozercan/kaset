@@ -142,12 +142,23 @@ struct KasetApp: App {
         }
 
         // YouTube (video) client — same login, www.youtube.com origin
-        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit)
+        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit, askFeatureEnabled: true)
         realYouTubeClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
         realYouTubeClient.accountCacheIdentityProvider = { [weak account] in
             account?.currentAccount?.cacheIdentity
+        }
+        realYouTubeClient.askAccountBindingProvider = { [weak account] in
+            guard let account,
+                  let currentAccount = account.currentAccount,
+                  currentAccount.isPrimary,
+                  account.verifiedAccountId == currentAccount.id,
+                  let scopeID = account.currentAccountScopeID
+            else {
+                return nil
+            }
+            return YouTubeAskAccountBinding(scopeID: scopeID)
         }
         let youtubeClient: YouTubeClientProtocol = if UITestConfig.isUITestMode {
             MockUITestYouTubeClient()

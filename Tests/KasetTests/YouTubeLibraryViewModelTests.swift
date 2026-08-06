@@ -230,6 +230,73 @@ struct YouTubeWatchViewModelActionTests {
         #expect(client.postedComments.first?.params == "create-params")
     }
 
+    @Test("Route cancellation clears comment posting and reply busy states")
+    func cancellationClearsCommentBusyStates() async {
+        let client = MockYouTubeClient()
+        client.watchNextData = WatchNextData(
+            videoTitle: "Title",
+            viewCountText: nil,
+            publishedText: nil,
+            channel: nil,
+            related: [],
+            commentsContinuation: "comments-token"
+        )
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [],
+            continuation: nil,
+            createCommentParams: "create-params"
+        )
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        await sut.load()
+
+        let postGate = AsyncGate()
+        client.beforePostCommentReturn = {
+            await postGate.wait()
+        }
+        let postTask = Task {
+            await sut.postComment(text: "Hello")
+        }
+        await self.waitUntil(sut.isPostingComment)
+
+        sut.cancel()
+        #expect(!sut.isPostingComment)
+        await postGate.open()
+        #expect(await postTask.value == false)
+
+        client.beforePostCommentReturn = nil
+        #expect(await sut.postComment(text: "Hello again"))
+
+        let replyGate = AsyncGate()
+        client.beforeCommentsReturn = { _ in
+            await replyGate.wait()
+        }
+        let comment = YouTubeComment(
+            id: "reply-parent",
+            author: "@a",
+            authorAvatarURL: nil,
+            text: "Parent",
+            publishedText: nil,
+            likeCountText: nil,
+            repliesContinuation: "replies-token"
+        )
+        let replyTask = Task {
+            await sut.loadReplies(for: comment)
+        }
+        await self.waitUntil(sut.loadingReplies.contains(comment.id))
+
+        sut.cancel()
+        #expect(sut.loadingReplies.isEmpty)
+        await replyGate.open()
+        await replyTask.value
+
+        client.beforeCommentsReturn = nil
+        await sut.loadReplies(for: comment)
+        #expect(sut.loadingReplies.isEmpty)
+    }
+
     @Test("Posting without create params is rejected")
     func postWithoutParamsRejected() async {
         let client = MockYouTubeClient()
@@ -293,6 +360,18 @@ struct YouTubeWatchViewModelActionTests {
         #expect(sut.isSubscribed)
         #expect(client.subscriptionChanges.first?.channelId == "UCxyz")
         #expect(client.subscriptionChanges.first?.subscribed == true)
+    }
+
+    private func waitUntil(
+        _ condition: @autoclosure () -> Bool,
+        timeout: Duration = .seconds(2)
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+        while !condition(), clock.now < deadline {
+            await Task.yield()
+        }
+        #expect(condition())
     }
 }
 

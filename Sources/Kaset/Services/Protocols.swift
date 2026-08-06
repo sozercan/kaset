@@ -21,17 +21,69 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool
 
+    /// Synchronously persists sign-out intent before asynchronous draining begins.
+    @discardableResult
+    func invalidateAuthCookieRestoration() -> Bool
+
     /// Clears only authentication cookies from WebKit and persisted storage.
-    func clearAuthCookies() async
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAuthCookies() async -> Bool
 
     /// Clears all website data (cookies, cache, etc.).
-    func clearAllData() async
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAllData() async -> Bool
 
     /// Forces an immediate backup of all YouTube/Google cookies.
-    func forceBackupCookies() async
+    /// Returns whether the latest snapshot is durably available.
+    func forceBackupCookies() async -> Bool
+
+    /// Whether the latest transaction setup failed to restore its prior durable state.
+    var loginCookieBackupSetupRequiresCleanup: Bool { get }
+
+    /// Starts a login-cookie transaction before the login WebView can mutate
+    /// authentication cookies, preserving the previous restorable archive.
+    func beginLoginCookieBackup() async -> CookieBackupTransaction?
+
+    /// Persists a fresh stable snapshot for the active login transaction while
+    /// keeping startup restoration disabled.
+    func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether this manager and its archive queue still own the transaction.
+    func isLoginCookieBackupActive(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether the current stable login-cookie snapshot differs from the
+    /// transaction's pre-login baseline.
+    func hasLoginCookieSnapshotChanged(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Makes a prepared login-cookie backup eligible for startup restoration.
+    @discardableResult
+    func commitLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Finishes a committed login transaction after AuthService publishes the
+    /// matching authenticated identity.
+    @discardableResult
+    func finalizeLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Disables restoration for a transaction before account work drains.
+    func prepareLoginCookieBackupRollback(
+        _ transaction: CookieBackupTransaction
+    ) async -> Bool
+
+    /// Restores the prior archive and restoration policy after a cancelled or
+    /// superseded login attempt.
+    func rollbackLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> CookieBackupRollbackResult
 
     /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
-    func waitForInitialCookieRestore() async
+    /// Returns whether authentication cookies are safe to evaluate afterward.
+    func waitForInitialCookieRestore() async -> Bool
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
@@ -307,6 +359,12 @@ extension YTMusicClientProtocol {
     }
 }
 
+// MARK: - LoginAttemptID
+
+struct LoginAttemptID: Equatable, Sendable {
+    let rawValue: UInt64
+}
+
 // MARK: - AuthServiceProtocol
 
 /// Protocol defining the interface for authentication operations.
@@ -319,6 +377,21 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool { get set }
 
+    /// Local identity of the currently presented login attempt.
+    var activeLoginAttemptID: LoginAttemptID? { get }
+
+    /// Whether a failed login cleanup must be retried before another sign-in.
+    var loginCleanupRequired: Bool { get }
+
+    /// Whether failed-login cleanup still owns the account boundary.
+    var isLoginCleanupInProgress: Bool { get }
+
+    /// Changes synchronously whenever an explicit sign-out begins.
+    var signOutSequence: UInt64 { get }
+
+    /// Records whether the failed-login cleanup still needs a retry.
+    func setLoginCleanupRequired(_ required: Bool)
+
     /// Starts the login flow by presenting the login sheet.
     func startLogin()
 
@@ -329,10 +402,32 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     func sessionExpired()
 
     /// Signs out the user by clearing all cookies and data.
-    func signOut() async
+    @discardableResult
+    func signOut() async -> Bool
 
-    /// Called when login completes successfully and account-scoped work has drained.
-    func completeLoginAfterDraining(sapisid: String) async
+    /// Commits a login after account-scoped work has drained.
+    /// Returns false when cancellation, sign-out, or a newer login attempt supersedes it.
+    func completeLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        persistBeforeCommit: @escaping @MainActor @Sendable () async -> String?,
+        persistFinalSession: @escaping @MainActor @Sendable () async -> String?,
+        willPublishLogin: @escaping @MainActor @Sendable () -> Void
+    ) async -> Bool
+
+    /// Resolves a login-cookie rollback while the account mutation boundary is held.
+    func resolveLoginRollbackAfterDraining(
+        expectedAttemptID: LoginAttemptID?,
+        prepareRollback: @escaping @MainActor @Sendable () async -> Bool,
+        rollback: @escaping @MainActor @Sendable (_ forceCleanup: Bool) async -> CookieBackupRollbackResult
+    ) async -> CookieBackupRollbackResult
+
+    /// Fences and drains a published or pending login before cookie cleanup,
+    /// then applies the cleanup result only while that boundary remains current.
+    func clearFailedLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        expectedSignOutSequence: UInt64,
+        clearCookies: @escaping @MainActor @Sendable () async -> Bool
+    ) async -> Bool?
 }
 
 // MARK: - PlayerServiceProtocol
