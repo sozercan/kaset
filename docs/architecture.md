@@ -272,11 +272,12 @@ Coordinates the two playback services so Music and YouTube do not play over each
 
 Remote command center integration for media key support:
 
-- Registers `MPRemoteCommandCenter` handlers
+- Registers `MPRemoteCommandCenter` handlers during app initialization, independent of the main-window lifecycle
+- Bridges Kaset-owned WebKit play/pause actions into the same ordered active-source transport path
 - Handles media keys (play/pause, next, previous, seek)
 - Routes commands to `PlayerService` / `YouTubePlayerService` based on the active source
 
-**Note**: Now Playing display (track/video info, artwork) is handled natively by WKWebView's Media Session API. This provides better integration with YouTube Music artwork and regular YouTube video metadata.
+**Note**: WKWebView's Media Session API owns the rich Now Playing display (track/video info and artwork) during healthy playback. Kaset owns its WebKit play/pause action handlers and publishes a tagged minimal fallback during loading and paused gaps so media keys remain routed to the app without replacing healthy WebKit metadata.
 
 ### HapticService
 

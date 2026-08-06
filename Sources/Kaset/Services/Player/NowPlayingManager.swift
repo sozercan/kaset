@@ -461,6 +461,25 @@ final class NowPlayingManager {
         self.logger.info("Remote commands configured")
     }
 
+    /// Admits a command from Kaset's WebKit media-session handlers into the same
+    /// ordered, active-source dispatcher used by native remote-command targets.
+    func captureWebMediaSessionCommand(
+        _ payload: RemoteMusicCommandPayload,
+        issuedAtMilliseconds: Double
+    ) {
+        guard issuedAtMilliseconds.isFinite,
+              self.remoteMusicCommandIngress.capture(
+                  payload,
+                  issuedAtMilliseconds: issuedAtMilliseconds,
+                  admittedAt: ContinuousClock.now
+              )
+        else { return }
+
+        Task { @MainActor [weak self] in
+            self?.drainRemoteMusicCommandIngress()
+        }
+    }
+
     private func drainRemoteMusicCommandIngress() {
         while true {
             let commands = self.remoteMusicCommandIngress.takePendingCommands()

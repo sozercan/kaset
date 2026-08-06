@@ -29,13 +29,15 @@ struct MediaControlScriptTests {
         #expect(windowPreference == "true")
     }
 
-    @Test("Bootstrap wrapper blocks YouTube-owned handlers when nextPrev is enabled")
+    @Test("Bootstrap wrapper blocks YouTube-owned playback handlers when nextPrev is enabled")
     func bootstrapWrapperBlocksYouTubeHandlersInNextPrevMode() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
         self.evaluate(
             """
+            navigator.mediaSession.setActionHandler('play', function() {});
+            navigator.mediaSession.setActionHandler('pause', function() {});
             navigator.mediaSession.setActionHandler('seekforward', function() {});
             navigator.mediaSession.setActionHandler('seekbackward', function() {});
             navigator.mediaSession.setActionHandler('nexttrack', function() {});
@@ -48,13 +50,15 @@ struct MediaControlScriptTests {
         #expect(calls == "seekforward:clear,seekbackward:clear")
     }
 
-    @Test("Bootstrap wrapper clears seekforward/seekbackward when skip mode uses native handlers")
+    @Test("Bootstrap wrapper blocks playback and clears skip handlers in skip mode")
     func bootstrapWrapperClearsSeekHandlersInSkipMode() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: false), in: context)
         self.evaluate(
             """
+            navigator.mediaSession.setActionHandler('play', function() {});
+            navigator.mediaSession.setActionHandler('pause', function() {});
             navigator.mediaSession.setActionHandler('seekforward', function() {});
             navigator.mediaSession.setActionHandler('seekbackward', function() {});
             navigator.mediaSession.setActionHandler('nexttrack', function() {});
@@ -108,7 +112,7 @@ struct MediaControlScriptTests {
         #expect(clearCount == 1)
     }
 
-    @Test("Bootstrap wrapper allows Kaset-owned nexttrack install under flag")
+    @Test("Bootstrap wrapper allows Kaset-owned playback and nexttrack install under flag")
     func bootstrapWrapperAllowsKasetOwnedHandlerInstall() throws {
         let context = try #require(self.makeBootstrapWrapperContext())
 
@@ -118,12 +122,16 @@ struct MediaControlScriptTests {
             window.__handlerInvoked = false;
             window.__kasetInstallingMediaControlHandlers = true;
             try {
+                navigator.mediaSession.setActionHandler('play', function() {
+                    window.__playHandlerInvoked = true;
+                });
                 navigator.mediaSession.setActionHandler('nexttrack', function() {
                     window.__handlerInvoked = true;
                 });
             } finally {
                 window.__kasetInstallingMediaControlHandlers = false;
             }
+            mediaSessionHandlers.play();
             mediaSessionHandlers.nexttrack();
             """,
             in: context
@@ -131,7 +139,9 @@ struct MediaControlScriptTests {
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
         let invoked = context.evaluateScript("String(window.__handlerInvoked)")?.toString()
-        #expect(calls == "nexttrack:set")
+        let playInvoked = context.evaluateScript("String(window.__playHandlerInvoked)")?.toString()
+        #expect(calls == "play:set,nexttrack:set")
+        #expect(playInvoked == "true")
         #expect(invoked == "true")
     }
 
@@ -175,16 +185,30 @@ struct MediaControlScriptTests {
 
         self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
         self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
-        self.evaluate("mediaSessionHandlers.nexttrack(); mediaSessionHandlers.previoustrack();", in: context)
+        self.evaluate(
+            """
+            mediaSessionHandlers.play();
+            mediaSessionHandlers.pause();
+            mediaSessionHandlers.nexttrack();
+            mediaSessionHandlers.previoustrack();
+            """,
+            in: context
+        )
 
         let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
         let firstMessageType = context.evaluateScript("postedMessages[0].type")?.toString()
         let secondMessageType = context.evaluateScript("postedMessages[1].type")?.toString()
+        let thirdMessageType = context.evaluateScript("postedMessages[2].type")?.toString()
+        let fourthMessageType = context.evaluateScript("postedMessages[3].type")?.toString()
 
+        #expect(calls.contains("play:set"))
+        #expect(calls.contains("pause:set"))
         #expect(calls.contains("nexttrack:set"))
         #expect(calls.contains("previoustrack:set"))
-        #expect(firstMessageType == "REMOTE_NEXT")
-        #expect(secondMessageType == "REMOTE_PREVIOUS")
+        #expect(firstMessageType == "REMOTE_PLAY")
+        #expect(secondMessageType == "REMOTE_PAUSE")
+        #expect(thirdMessageType == "REMOTE_NEXT")
+        #expect(fourthMessageType == "REMOTE_PREVIOUS")
     }
 
     @Test("Override script uses event-driven reassertion without endless animation-frame loop")

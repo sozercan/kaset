@@ -51,7 +51,7 @@ extension SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
-            let isUserCommand = type == "REMOTE_NEXT" || type == "REMOTE_PREVIOUS"
+            let isUserCommand = Self.remoteCommandPayload(for: type) != nil
             let commandIssuedAtMilliseconds = SingletonPlayerWebView.finitePlaybackBridgeDouble(
                 from: body["commandIssuedAtMilliseconds"]
             )
@@ -92,12 +92,11 @@ extension SingletonPlayerWebView {
                         intent: musicPlaybackIntent
                     )
                 }
-            case "REMOTE_NEXT", "REMOTE_PREVIOUS":
+            case "REMOTE_PLAY", "REMOTE_PAUSE", "REMOTE_NEXT", "REMOTE_PREVIOUS":
                 self.handleRemoteCommand(
                     type: type,
                     documentGeneration: messageDocumentGeneration,
-                    commandIssuedAtMilliseconds: commandIssuedAtMilliseconds,
-                    musicPlaybackIntent: musicPlaybackIntent
+                    commandIssuedAtMilliseconds: commandIssuedAtMilliseconds
                 )
             case "AIRPLAY_STATUS":
                 self.handleAirPlayStatusUpdate(
@@ -129,24 +128,31 @@ extension SingletonPlayerWebView {
             }
         }
 
+        nonisolated static func remoteCommandPayload(for messageType: String) -> RemoteMusicCommandPayload? {
+            switch messageType {
+            case "REMOTE_PLAY": .play
+            case "REMOTE_PAUSE": .pause
+            case "REMOTE_NEXT": .nextPrevious(direction: .forward)
+            case "REMOTE_PREVIOUS": .nextPrevious(direction: .backward)
+            default: nil
+            }
+        }
+
         private func handleRemoteCommand(
             type: String,
             documentGeneration: UInt64,
-            commandIssuedAtMilliseconds: Double?,
-            musicPlaybackIntent: MusicPlaybackIntent
+            commandIssuedAtMilliseconds: Double?
         ) {
-            guard SingletonPlayerWebView.shared.documentGeneration.acceptsUserCommand(
-                generation: documentGeneration,
-                issuedAtMilliseconds: commandIssuedAtMilliseconds,
-                navigationStartedAtMilliseconds: SingletonPlayerWebView.shared
-                    .documentNavigationStartedAtMilliseconds
-            ), self.playerService.acceptsMusicRemoteCommand(
-                intent: musicPlaybackIntent,
-                commandIssuedAtMilliseconds: commandIssuedAtMilliseconds
-            ), let commandIssuedAtMilliseconds
+            guard let payload = Self.remoteCommandPayload(for: type),
+                  SingletonPlayerWebView.shared.documentGeneration.acceptsUserCommand(
+                      generation: documentGeneration,
+                      issuedAtMilliseconds: commandIssuedAtMilliseconds,
+                      navigationStartedAtMilliseconds: SingletonPlayerWebView.shared
+                          .documentNavigationStartedAtMilliseconds
+                  ), let commandIssuedAtMilliseconds
             else { return }
-            self.playerService.enqueueRemoteMusicTransportCommand(
-                type == "REMOTE_NEXT" ? .next : .previous,
+            NowPlayingManager.shared.captureWebMediaSessionCommand(
+                payload,
                 issuedAtMilliseconds: commandIssuedAtMilliseconds
             )
         }

@@ -17,13 +17,13 @@ extension SingletonPlayerWebView {
         Self.mediaControlStyleBootstrapScript(useNextPrev: self.mediaControlUsesNextPrev)
     }
 
-    /// Re-asserts Kaset's `nexttrack`/`previoustrack` media-session override immediately.
+    /// Re-asserts Kaset's media-session transport handlers immediately.
     ///
     /// The document-start `setActionHandler` wrapper keeps YouTube from overwriting
-    /// Kaset-owned next/previous handlers, so normal operation relies on bounded
-    /// event-driven refreshes instead of a steady animation-frame loop.
+    /// Kaset-owned play/pause and next/previous handlers, so normal operation relies
+    /// on bounded event-driven refreshes instead of a steady animation-frame loop.
     func reassertMediaControlOverride() {
-        guard self.mediaControlUsesNextPrev, let webView = self.webView else { return }
+        guard let webView = self.webView else { return }
         webView.evaluateJavaScript(
             "if (typeof window.__kasetRefreshMediaControlStyle === 'function') { window.__kasetRefreshMediaControlStyle(); }",
             completionHandler: nil
@@ -33,9 +33,8 @@ extension SingletonPlayerWebView {
     /// Performs a bounded re-assertion when the app enters the background.
     ///
     /// YouTube handler writes are blocked by the document-start wrapper while Kaset owns
-    /// next/previous, so no steady background timer is needed.
+    /// play/pause and, when enabled, next/previous, so no steady background timer is needed.
     func beginBackgroundMediaControlReassertion() {
-        guard self.mediaControlUsesNextPrev else { return }
         self.reassertMediaControlOverride()
         self.mediaControlReassertTimer?.invalidate()
         self.mediaControlReassertTimer = nil
@@ -56,9 +55,10 @@ extension SingletonPlayerWebView {
                 } catch (e) {}
                 window.__kasetUseNextPrev = \(jsBoolean);
                 // Wrap setActionHandler at document start so YouTube registrations cannot
-                // steal remote-command ownership. Seek handlers always stay native-owned;
-                // next/previous stay Kaset-owned in nextPrev mode unless Kaset is installing
-                // its own handlers under the temporary install flag.
+                // steal remote-command ownership. Play/pause stay Kaset-owned in every
+                // mode, seek handlers always stay native-owned, and next/previous stay
+                // Kaset-owned in nextPrev mode unless Kaset is installing its own handlers
+                // under the temporary install flag.
                 try {
                     if (typeof window.__kasetInstallingMediaControlHandlers !== 'boolean') {
                         window.__kasetInstallingMediaControlHandlers = false;
@@ -67,8 +67,12 @@ extension SingletonPlayerWebView {
                     if (ms && !ms.__kasetSetActionHandlerWrapped) {
                         var orig = ms.setActionHandler.bind(ms);
                         ms.setActionHandler = function(type, handler) {
+                            var isPlayPause = type === 'play' || type === 'pause';
                             var isSeekSkip = type === 'seekforward' || type === 'seekbackward';
                             var isNextPrevious = type === 'nexttrack' || type === 'previoustrack';
+                            if (isPlayPause && !window.__kasetInstallingMediaControlHandlers) {
+                                return undefined;
+                            }
                             if (isSeekSkip) {
                                 return orig(type, null);
                             }
@@ -144,12 +148,28 @@ extension SingletonPlayerWebView {
             }
 
             function applyOverride() {
-                if (!window.__kasetUseNextPrev) {
-                    return;
-                }
                 try {
                     var ms = navigator.mediaSession;
                     withKasetMediaControlInstall(function() {
+                        ms.setActionHandler('play', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PLAY',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                });
+                        });
+                        ms.setActionHandler('pause', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PAUSE',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                });
+                        });
+                        if (!window.__kasetUseNextPrev) {
+                            return;
+                        }
                         ms.setActionHandler('seekforward', null);
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {

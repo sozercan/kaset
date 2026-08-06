@@ -635,11 +635,13 @@ struct MusicPlaybackBridgeGenerationTests {
             terminator: "});"
         )
 
-        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 2)
-        #expect(payloads.count == 2)
+        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 4)
+        #expect(payloads.count == 4)
         for payload in payloads {
             #expect(payload.contains("documentGeneration: window.__kasetDocumentGeneration"))
         }
+        #expect(payloads.contains { $0.contains("type: 'REMOTE_PLAY'") })
+        #expect(payloads.contains { $0.contains("type: 'REMOTE_PAUSE'") })
         #expect(payloads.contains { $0.contains("type: 'REMOTE_NEXT'") })
         #expect(payloads.contains { $0.contains("type: 'REMOTE_PREVIOUS'") })
         #expect(script.contains("function __kasetEventTimestampMilliseconds()"))
@@ -717,6 +719,29 @@ struct MusicPlaybackBridgeGenerationTests {
         #expect(source.contains("duration: Double(duration),\n                    observedVideoId: playbackVideoId"))
         #expect(source.contains("videoId: Self.playbackVideoId(from: body)"))
         #expect(source.contains("videoId: playbackVideoId"))
+    }
+
+    @Test("Media-session commands map to explicit app-wide remote payloads")
+    func mediaSessionCommandsMapToAppWideRemotePayloads() throws {
+        #expect(SingletonPlayerWebView.Coordinator.remoteCommandPayload(for: "REMOTE_PLAY") == .play)
+        #expect(SingletonPlayerWebView.Coordinator.remoteCommandPayload(for: "REMOTE_PAUSE") == .pause)
+        #expect(SingletonPlayerWebView.Coordinator.remoteCommandPayload(for: "REMOTE_NEXT") == .nextPrevious(
+            direction: .forward
+        ))
+        #expect(SingletonPlayerWebView.Coordinator.remoteCommandPayload(for: "REMOTE_PREVIOUS") == .nextPrevious(
+            direction: .backward
+        ))
+        #expect(SingletonPlayerWebView.Coordinator.remoteCommandPayload(for: "STATE_UPDATE") == nil)
+
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+        #expect(source.contains("NowPlayingManager.shared.captureWebMediaSessionCommand("))
+        #expect(!source.contains("enqueueRemoteMusicTransportCommand("))
     }
 
     private func objectPayloads(in script: String, marker: String, terminator: String) -> [String] {
