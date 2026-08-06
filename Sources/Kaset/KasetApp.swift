@@ -201,11 +201,7 @@ struct KasetApp: App {
 
         // Register system media commands during app initialization rather than waiting for a
         // window task. F8 must remain available even when no main-window task has run yet.
-        NowPlayingManager.shared.configure(playerService: player)
-        NowPlayingManager.shared.configureYouTubeRouting(
-            youtubePlayerService: youtubePlayer,
-            arbiter: arbiter
-        )
+        Self.configureMediaCommands(player, youtubePlayer, arbiter)
 
         if UITestConfig.isUITestMode {
             DiagnosticsLogger.ui.info("App launched in UI Test mode")
@@ -650,6 +646,18 @@ struct KasetApp: App {
 
     private static func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
         AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
+    }
+
+    private static func configureMediaCommands(
+        _ playerService: PlayerService,
+        _ youtubePlayerService: YouTubePlayerService,
+        _ arbiter: PlaybackArbiter
+    ) {
+        NowPlayingManager.shared.configure(playerService: playerService)
+        NowPlayingManager.shared.configureYouTubeRouting(
+            youtubePlayerService: youtubePlayerService,
+            arbiter: arbiter
+        )
     }
 
     /// Hides the main window while keeping playback and auxiliary windows alive.
