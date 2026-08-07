@@ -150,7 +150,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         .contextMenu {
             if let track = self.playerService.currentTrack {
-                self.currentSongContextMenu(for: track)
+                CurrentSongContextMenuContent(track: track)
             }
         }
     }
@@ -817,72 +817,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Current Song Context Menu
-
-    @ViewBuilder
-    private func currentSongContextMenu(for track: Song) -> some View {
-        FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-        }
-
-        Divider()
-
-        StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            Button {
-                self.playerService.toggleLibraryStatus()
-            } label: {
-                Label(
-                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
-                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
-                )
-            }
-        }
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: track)
-
-        Divider()
-
-        AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
-            Divider()
-
-            AddToPlaylistContextMenu(song: track, client: client)
-        }
-
-        let artist = track.artists.first(where: { $0.hasNavigableId })
-        let album = track.album
-        if artist != nil || album?.hasNavigableId == true {
-            Divider()
-        }
-
-        if let artist, self.navigationAction.openArtist != nil {
-            Button {
-                self.openArtist(artist)
-            } label: {
-                Label(String(localized: "Go to Artist"), systemImage: "person")
-            }
-        }
-
-        if let album, album.hasNavigableId, self.navigationAction.openAlbum != nil {
-            Button {
-                self.openAlbum(self.playlist(from: album, track: track))
-            } label: {
-                Label(String(localized: "Go to Album"), systemImage: "square.stack")
-            }
-        }
-    }
-
     // MARK: - Error View
 
     private func errorView(message: String) -> some View {
@@ -1280,6 +1214,111 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         case .one:
             String(localized: "One")
         }
+    }
+}
+
+// MARK: - CurrentSongContextMenuContent
+
+/// Now-playing context-menu content, isolated in its own value-typed `View` so
+/// `@Observable` does not subscribe it to the high-frequency `PlayerService.progress`
+/// ticks that re-evaluate `PlayerBar.body`. Because this struct's `body` reads no
+/// playback-progress property, an open submenu (e.g. "Add to Playlist") is no longer
+/// rebuilt and re-snapshotted ~1 Hz during playback.
+private struct CurrentSongContextMenuContent: View {
+    let track: Song
+
+    @Environment(AuthService.self) private var authService
+    @Environment(PlayerService.self) private var playerService
+    @Environment(FavoritesManager.self) private var favoritesManager
+    @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(\.playerBarNavigationAction) private var navigationAction
+
+    var body: some View {
+        FavoritesContextMenu.menuItem(for: self.track, manager: self.favoritesManager)
+
+        if self.hasPersonalAccount {
+            Divider()
+
+            LikeDislikeContextMenu(song: self.track, likeStatusManager: self.likeStatusManager)
+        }
+
+        Divider()
+
+        StartRadioContextMenu.menuItem(for: self.track, playerService: self.playerService)
+
+        if self.hasPersonalAccount {
+            Divider()
+
+            Button {
+                self.playerService.toggleLibraryStatus()
+            } label: {
+                Label(
+                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
+                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
+                )
+            }
+        }
+
+        Divider()
+
+        ShareContextMenu.menuItem(for: self.track)
+
+        Divider()
+
+        AddToQueueContextMenu(song: self.track, playerService: self.playerService)
+
+        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
+            Divider()
+
+            AddToPlaylistContextMenu(song: self.track, client: client)
+        }
+
+        let artist = self.track.artists.first(where: { $0.hasNavigableId })
+        let album = self.track.album
+        if artist != nil || album?.hasNavigableId == true {
+            Divider()
+        }
+
+        if let artist, self.navigationAction.openArtist != nil {
+            Button {
+                self.openArtist(artist)
+            } label: {
+                Label(String(localized: "Go to Artist"), systemImage: "person")
+            }
+        }
+
+        if let album, album.hasNavigableId, self.navigationAction.openAlbum != nil {
+            Button {
+                self.openAlbum(self.playlist(from: album, track: self.track))
+            } label: {
+                Label(String(localized: "Go to Album"), systemImage: "square.stack")
+            }
+        }
+    }
+
+    private var hasPersonalAccount: Bool {
+        self.authService.hasPersonalAccount
+    }
+
+    private func openArtist(_ artist: Artist) {
+        HapticService.toggle()
+        self.navigationAction.openArtist?(artist)
+    }
+
+    private func openAlbum(_ album: Playlist) {
+        HapticService.toggle()
+        self.navigationAction.openAlbum?(album)
+    }
+
+    private func playlist(from album: Album, track: Song) -> Playlist {
+        Playlist(
+            id: album.id,
+            title: album.title,
+            description: nil,
+            thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
+            trackCount: album.trackCount,
+            author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
+        )
     }
 }
 
