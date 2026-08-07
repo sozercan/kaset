@@ -65,7 +65,7 @@ struct PlayerServiceQueueEnrichmentTests {
         let mockClient = MockYTMusicClient()
         playerService.queueEnrichmentInitialDelay = .milliseconds(5)
         playerService.queueEnrichmentRetryDelay = .milliseconds(50)
-        mockClient.shouldThrowError = NSError(domain: "Transient", code: 500)
+        mockClient.getSongErrorsByCallCount[1] = NSError(domain: "Transient", code: 500)
         mockClient.songResponses["retry-me"] = TestFixtures.makeSong(
             id: "retry-me",
             title: "Recovered Song",
@@ -74,11 +74,6 @@ struct PlayerServiceQueueEnrichmentTests {
 
         playerService.setYTMusicClient(mockClient)
         playerService.setQueue([Self.incompleteSong(videoId: "retry-me")])
-
-        await Self.waitUntil {
-            mockClient.getSongVideoIds.count == 1 && playerService.enrichmentTask != nil
-        }
-        mockClient.shouldThrowError = nil
 
         await Self.waitUntil {
             playerService.enrichmentTask == nil && playerService.queue.first?.title == "Recovered Song"

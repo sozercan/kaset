@@ -21,17 +21,69 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool
 
+    /// Synchronously persists sign-out intent before asynchronous draining begins.
+    @discardableResult
+    func invalidateAuthCookieRestoration() -> Bool
+
     /// Clears only authentication cookies from WebKit and persisted storage.
-    func clearAuthCookies() async
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAuthCookies() async -> Bool
 
     /// Clears all website data (cookies, cache, etc.).
-    func clearAllData() async
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAllData() async -> Bool
 
     /// Forces an immediate backup of all YouTube/Google cookies.
-    func forceBackupCookies() async
+    /// Returns whether the latest snapshot is durably available.
+    func forceBackupCookies() async -> Bool
+
+    /// Whether the latest transaction setup failed to restore its prior durable state.
+    var loginCookieBackupSetupRequiresCleanup: Bool { get }
+
+    /// Starts a login-cookie transaction before the login WebView can mutate
+    /// authentication cookies, preserving the previous restorable archive.
+    func beginLoginCookieBackup() async -> CookieBackupTransaction?
+
+    /// Persists a fresh stable snapshot for the active login transaction while
+    /// keeping startup restoration disabled.
+    func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether this manager and its archive queue still own the transaction.
+    func isLoginCookieBackupActive(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether the current stable login-cookie snapshot differs from the
+    /// transaction's pre-login baseline.
+    func hasLoginCookieSnapshotChanged(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Makes a prepared login-cookie backup eligible for startup restoration.
+    @discardableResult
+    func commitLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Finishes a committed login transaction after AuthService publishes the
+    /// matching authenticated identity.
+    @discardableResult
+    func finalizeLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Disables restoration for a transaction before account work drains.
+    func prepareLoginCookieBackupRollback(
+        _ transaction: CookieBackupTransaction
+    ) async -> Bool
+
+    /// Restores the prior archive and restoration policy after a cancelled or
+    /// superseded login attempt.
+    func rollbackLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> CookieBackupRollbackResult
 
     /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
-    func waitForInitialCookieRestore() async
+    /// Returns whether authentication cookies are safe to evaluate afterward.
+    func waitForInitialCookieRestore() async -> Bool
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
@@ -135,11 +187,17 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for songs only with pagination support.
     func searchSongsWithPagination(query: String) async throws -> SearchResponse
 
+    /// Searches for videos only (filtered search with pagination).
+    func searchVideos(query: String) async throws -> SearchResponse
+
     /// Searches for albums only (filtered search with pagination).
     func searchAlbums(query: String) async throws -> SearchResponse
 
     /// Searches for artists only (filtered search with pagination).
     func searchArtists(query: String) async throws -> SearchResponse
+
+    /// Searches for profiles only (filtered search with pagination).
+    func searchProfiles(query: String) async throws -> SearchResponse
 
     /// Searches for playlists only (filtered search with pagination).
     func searchPlaylists(query: String) async throws -> SearchResponse
@@ -153,15 +211,11 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for podcasts only (podcast shows).
     func searchPodcasts(query: String) async throws -> SearchResponse
 
-    /// Fetches the next batch of search results via continuation.
-    /// Returns nil if no more results are available.
-    func getSearchContinuation() async throws -> SearchResponse?
+    /// Searches for podcast episodes only (filtered search with pagination).
+    func searchEpisodes(query: String) async throws -> SearchResponse
 
-    /// Whether more search results are available to load.
-    var hasMoreSearchResults: Bool { get }
-
-    /// Clears the search continuation token.
-    func clearSearchContinuation()
+    /// Fetches the next batch of search results for an explicit continuation value.
+    func getSearchContinuation(token: String) async throws -> SearchResponse
 
     /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch()
@@ -290,14 +344,25 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches the list of available accounts (primary + brand accounts).
     /// Used for account switching functionality.
-    func fetchAccountsList() async throws -> AccountsListResponse
+    func fetchAccountsList(allowGuestMode: Bool) async throws -> AccountsListResponse
 }
 
 extension YTMusicClientProtocol {
+    /// Fetches accounts using normal personal-mode authentication.
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        try await self.fetchAccountsList(allowGuestMode: false)
+    }
+
     /// Fetches a public playlist continuation by default.
     func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
         try await self.getPlaylistContinuation(token: token, requiresAuth: false)
     }
+}
+
+// MARK: - LoginAttemptID
+
+struct LoginAttemptID: Equatable, Sendable {
+    let rawValue: UInt64
 }
 
 // MARK: - AuthServiceProtocol
@@ -312,6 +377,21 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool { get set }
 
+    /// Local identity of the currently presented login attempt.
+    var activeLoginAttemptID: LoginAttemptID? { get }
+
+    /// Whether a failed login cleanup must be retried before another sign-in.
+    var loginCleanupRequired: Bool { get }
+
+    /// Whether failed-login cleanup still owns the account boundary.
+    var isLoginCleanupInProgress: Bool { get }
+
+    /// Changes synchronously whenever an explicit sign-out begins.
+    var signOutSequence: UInt64 { get }
+
+    /// Records whether the failed-login cleanup still needs a retry.
+    func setLoginCleanupRequired(_ required: Bool)
+
     /// Starts the login flow by presenting the login sheet.
     func startLogin()
 
@@ -322,10 +402,32 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     func sessionExpired()
 
     /// Signs out the user by clearing all cookies and data.
-    func signOut() async
+    @discardableResult
+    func signOut() async -> Bool
 
-    /// Called when login completes successfully.
-    func completeLogin(sapisid: String)
+    /// Commits a login after account-scoped work has drained.
+    /// Returns false when cancellation, sign-out, or a newer login attempt supersedes it.
+    func completeLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        persistBeforeCommit: @escaping @MainActor @Sendable () async -> String?,
+        persistFinalSession: @escaping @MainActor @Sendable () async -> String?,
+        willPublishLogin: @escaping @MainActor @Sendable () -> Void
+    ) async -> Bool
+
+    /// Resolves a login-cookie rollback while the account mutation boundary is held.
+    func resolveLoginRollbackAfterDraining(
+        expectedAttemptID: LoginAttemptID?,
+        prepareRollback: @escaping @MainActor @Sendable () async -> Bool,
+        rollback: @escaping @MainActor @Sendable (_ forceCleanup: Bool) async -> CookieBackupRollbackResult
+    ) async -> CookieBackupRollbackResult
+
+    /// Fences and drains a published or pending login before cookie cleanup,
+    /// then applies the cleanup result only while that boundary remains current.
+    func clearFailedLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        expectedSignOutSequence: UInt64,
+        clearCookies: @escaping @MainActor @Sendable () async -> Bool
+    ) async -> Bool?
 }
 
 // MARK: - PlayerServiceProtocol

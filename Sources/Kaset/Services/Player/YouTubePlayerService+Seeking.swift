@@ -36,7 +36,15 @@ extension YouTubePlayerService {
         guard time.isFinite else { return }
         self.invalidateExplicitStartTargetForUserSeek()
         let target = self.clampedSeekTarget(time)
-        if self.duration > 0, target >= self.duration - Self.seekToEndThreshold {
+        // A live stream's duration is its DVR window, not a finish line, so
+        // seeking to the edge must not count as watching to the end. Runtime
+        // bridge state covers URL launches and SPA drift whose feed model did
+        // not carry liveness.
+        if self.currentVideo?.isLive != true,
+           !self.currentMediaIsLive,
+           self.duration > 0,
+           target >= self.duration - Self.seekToEndThreshold
+        {
             self.handleManualSeekToEnd()
             return
         }

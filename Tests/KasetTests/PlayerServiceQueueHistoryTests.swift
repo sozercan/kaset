@@ -539,7 +539,10 @@ extension PlayerServiceQueueTests {
             videoId: "pause-undo-replacement",
             feedbackTokens: FeedbackTokens(add: "replacement-add", remove: "replacement-remove")
         )
-        await self.playerService.playQueue([restored], startingAt: 0)
+        let restoredQueue = [restored] + (1 ... SettingsManager.smartShuffleSuggestEveryNRange.upperBound).map { index in
+            TestFixtures.makeSong(id: "pause-undo-filler-\(index)")
+        }
+        await self.playerService.playQueue(restoredQueue, startingAt: 0)
         self.playerService.shuffleMode = .smart
         let smartState = self.playerService.makeQueueStateSnapshot()
         self.playerService.shuffleMode = .off
@@ -554,9 +557,10 @@ extension PlayerServiceQueueTests {
             videoId: restored.videoId,
             feedbackTokens: FeedbackTokens(add: "new-add", remove: "new-remove")
         )
-        self.mockClient.radioQueueSongs[restored.videoId] = [
-            TestFixtures.makeSong(id: "pause-undo-suggestion"),
-        ]
+        let suggestion = TestFixtures.makeSong(id: "pause-undo-suggestion")
+        for song in restoredQueue {
+            self.mockClient.radioQueueSongs[song.videoId] = [suggestion]
+        }
         let metadataStarted = AsyncGate()
         let releaseMetadata = AsyncGate()
         self.mockClient.beforeGetSongReturn = { videoID in

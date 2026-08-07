@@ -93,6 +93,63 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
     }
 
+    @Test("Missing keepYouTubeVideoOnTop value loads as false")
+    func missingKeepYouTubeVideoOnTopLoadsAsFalse() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.missing.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.removePersistentDomain(forName: suiteName)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == false)
+    }
+
+    @Test("Stored true keepYouTubeVideoOnTop value loads as true")
+    func storedTrueKeepYouTubeVideoOnTopLoadsAsTrue() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.true.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(true, forKey: SettingsManager.Keys.keepYouTubeVideoOnTop)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == true)
+    }
+
+    @Test("Stored false keepYouTubeVideoOnTop value loads as false")
+    func storedFalseKeepYouTubeVideoOnTopLoadsAsFalse() throws {
+        let suiteName = "SettingsManagerTests.keepYouTubeVideoOnTop.false.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(false, forKey: SettingsManager.Keys.keepYouTubeVideoOnTop)
+
+        #expect(SettingsManager.loadKeepYouTubeVideoOnTop(from: defaults) == false)
+    }
+
+    @Test("keepYouTubeVideoOnTop persists to shared UserDefaults")
+    func keepYouTubeVideoOnTopPersists() {
+        let manager = SettingsManager.shared
+        let defaults = UserDefaults.standard
+        let key = SettingsManager.Keys.keepYouTubeVideoOnTop
+        let originalValue = manager.keepYouTubeVideoOnTop
+        let originalStoredObject = defaults.object(forKey: key)
+
+        defer {
+            manager.keepYouTubeVideoOnTop = originalValue
+            if let originalStoredObject {
+                defaults.set(originalStoredObject, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        manager.keepYouTubeVideoOnTop = true
+        #expect(defaults.object(forKey: key) as? Bool == true)
+
+        manager.keepYouTubeVideoOnTop = false
+        #expect(defaults.object(forKey: key) as? Bool == false)
+    }
+
     @Test("Disabling rememberPlaybackSettings clears persisted values")
     func disablingRememberPlaybackSettingsClearsValues() {
         let manager = SettingsManager.shared
@@ -112,19 +169,68 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.object(forKey: repeatKey) == nil)
     }
 
-    @Test("Content languages expose stable API codes in ISO-code order")
-    func contentLanguagesExposeAPICodesInISOCodeOrder() {
-        let expectedCodes = ["ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk"]
+    @Test("Content languages expose stable API codes in locale-code order")
+    func contentLanguagesExposeAPICodesInLocaleCodeOrder() {
+        // Chinese is identified by script rather than region, matching Apple's
+        // localization identifiers, so these two are not ISO 639-1 codes.
+        let expectedCodes = [
+            "ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk",
+            "zh-Hans", "zh-Hant",
+        ]
         let languages = SettingsManager.ContentLanguage.allCases
 
         #expect(languages.first == .system)
         #expect(languages.dropFirst().compactMap(\.languageCode) == expectedCodes)
     }
 
-    @Test("System content language uses the current locale language code fallback")
-    func systemContentLanguageUsesCurrentLocaleLanguageCode() {
-        let expectedCode = Locale.current.language.languageCode?.identifier ?? "en"
+    /// Every other locale sends its bundle code straight through as the
+    /// InnerTube `hl` value. Chinese was the case most likely to need a
+    /// separate mapping, and a probe against the live API confirmed it does
+    /// not — so an accidental divergence should fail here.
+    @Test("Chinese content languages send their bundle code as the API code")
+    func chineseContentLanguagesSendBundleCodeAsAPICode() {
+        #expect(SettingsManager.ContentLanguage.simplifiedChinese.apiLanguageCode == "zh-Hans")
+        #expect(SettingsManager.ContentLanguage.traditionalChinese.apiLanguageCode == "zh-Hant")
+    }
+
+    @Test("System content language delegates to the current locale")
+    func systemContentLanguageDelegatesToCurrentLocale() {
+        let expectedCode = SettingsManager.ContentLanguage.system.apiLanguageCode(for: Locale.current)
         #expect(SettingsManager.ContentLanguage.system.apiLanguageCode == expectedCode)
+    }
+
+    @Test(
+        "System content language uses the language code for non-Chinese locales",
+        arguments: [
+            ("fr-FR", "fr"),
+            ("pt-BR", "pt"),
+        ]
+    )
+    func systemContentLanguageUsesLanguageCode(localeIdentifier: String, expectedCode: String) {
+        let locale = Locale(identifier: localeIdentifier)
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: locale) == expectedCode)
+    }
+
+    @Test("System content language falls back to English without a language code")
+    func systemContentLanguageFallsBackToEnglish() {
+        let localeWithoutLanguageCode = Locale(identifier: "")
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: localeWithoutLanguageCode) == "en")
+    }
+
+    @Test(
+        "System content language preserves the inferred Chinese script",
+        arguments: [
+            ("zh-CN", "zh-Hans"),
+            ("zh-TW", "zh-Hant"),
+            ("zh-HK", "zh-Hant"),
+        ]
+    )
+    func systemContentLanguagePreservesChineseScript(localeIdentifier: String, expectedCode: String) {
+        let locale = Locale(identifier: localeIdentifier)
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: locale) == expectedCode)
     }
 
     @Test("Changing content language invalidates API cache and updates localization bundle")

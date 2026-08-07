@@ -6,6 +6,7 @@ import SwiftUI
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
+    case albums = "Albums"
     case uploads = "Uploads"
     case artists = "Artists"
     case podcasts = "Podcasts"
@@ -18,6 +19,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         switch self {
         case .all: "square.grid.2x2"
         case .playlists: "music.note.list"
+        case .albums: "square.stack"
         case .uploads: "tray.and.arrow.up.fill"
         case .artists: "person.fill"
         case .podcasts: "mic.fill"
@@ -30,6 +32,8 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
             String(localized: "All")
         case .playlists:
             String(localized: "Playlists")
+        case .albums:
+            String(localized: "Albums")
         case .uploads:
             String(localized: "Uploads")
         case .artists:
@@ -42,7 +46,7 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 
 // MARK: - LibraryView
 
-/// Library view displaying user's playlists and podcast shows.
+/// Library view displaying the user's saved music and followed content.
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -92,6 +96,7 @@ struct LibraryView: View {
                         ),
                         playerBarNavigationAction: self.playerBarNavigationAction
                     )
+                    .environment(\.libraryViewModel, self.viewModel)
                 } else {
                     SimplePlaylistDetailView(
                         playlist: playlist,
@@ -101,6 +106,7 @@ struct LibraryView: View {
                         ),
                         playerBarNavigationAction: self.playerBarNavigationAction
                     )
+                    .environment(\.libraryViewModel, self.viewModel)
                 }
             }
             .navigationDestination(for: Artist.self) { artist in
@@ -128,7 +134,7 @@ struct LibraryView: View {
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
-        .environment(self.viewModel)
+        .environment(\.libraryViewModel, self.viewModel)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
                 .playerBarMusicNavigation(path: self.$navigationPath)
@@ -212,10 +218,13 @@ struct LibraryView: View {
         case .all:
             items = self.uploadItems
                 + self.viewModel.playlists.map { .playlist($0) }
+                + self.viewModel.albums.map { .album($0) }
                 + self.viewModel.artists.map { .artist($0) }
                 + self.viewModel.podcastShows.map { .podcast($0) }
         case .playlists:
             items = self.viewModel.playlists.map { .playlist($0) }
+        case .albums:
+            items = self.viewModel.albums.map { .album($0) }
         case .uploads:
             items = self.uploadItems
         case .artists:
@@ -246,6 +255,8 @@ struct LibraryView: View {
                     switch item {
                     case let .playlist(playlist):
                         self.playlistCard(playlist)
+                    case let .album(album):
+                        self.albumCard(album)
                     case let .uploadedSongs(playlist):
                         self.uploadedSongsCard(playlist)
                     case let .artist(artist):
@@ -284,6 +295,8 @@ struct LibraryView: View {
             String(localized: "Your library is empty")
         case .playlists:
             String(localized: "No playlists yet")
+        case .albums:
+            String(localized: "No albums yet")
         case .uploads:
             String(localized: "No uploaded songs yet")
         case .artists:
@@ -299,6 +312,8 @@ struct LibraryView: View {
             String(localized: "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here.")
         case .playlists:
             String(localized: "Create or save playlists on YouTube Music to see them here.")
+        case .albums:
+            String(localized: "Save albums on YouTube Music to see them here.")
         case .uploads:
             String(localized: "Upload songs to YouTube Music to browse them here.")
         case .artists:
@@ -362,6 +377,106 @@ struct LibraryView: View {
                 }
             }
         }
+    }
+
+    private func albumCard(_ album: Album) -> some View {
+        let metadata = [album.artistsDisplay.isEmpty ? nil : album.artistsDisplay, album.year]
+            .compactMap(\.self)
+            .joined(separator: " • ")
+
+        return Button {
+            self.navigationPath.append(self.playlist(from: album))
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                } placeholder: {
+                    Rectangle()
+                        .fill(.quaternary)
+                        .overlay {
+                            Image(systemName: "square.stack")
+                                .font(.largeTitle)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .frame(width: self.libraryItemSize, height: self.libraryItemSize)
+                .clipShape(.rect(cornerRadius: 8))
+
+                Text(album.title)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .frame(width: self.libraryItemSize, alignment: .topLeading)
+
+                Text(metadata.isEmpty ? String(localized: "Album") : metadata)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: self.libraryItemSize, alignment: .leading)
+            }
+            .frame(width: self.libraryItemSize, height: self.libraryItemCardHeight, alignment: .topLeading)
+        }
+        .buttonStyle(.plain)
+        .contextMenu {
+            Button {
+                self.navigationPath.append(self.playlist(from: album))
+            } label: {
+                Label("View Album", systemImage: "square.stack")
+            }
+
+            Divider()
+
+            Button {
+                SongActionsHelper.playAlbum(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play", systemImage: "play.fill")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueNext(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Play Next", systemImage: "text.insert")
+            }
+
+            Button {
+                SongActionsHelper.addAlbumToQueueLast(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            } label: {
+                Label("Add to Queue", systemImage: "text.append")
+            }
+
+            Divider()
+
+            FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
+            ShareContextMenu.menuItem(for: album)
+        }
+    }
+
+    private func playlist(from album: Album) -> Playlist {
+        Playlist(
+            id: album.id,
+            title: album.title,
+            description: nil,
+            thumbnailURL: album.thumbnailURL,
+            trackCount: album.trackCount,
+            author: album.artistsDisplay.isEmpty
+                ? nil
+                : Artist.inline(name: album.artistsDisplay, namespace: "album-artist"),
+            libraryTargetId: album.libraryTargetId
+        )
     }
 
     private func uploadedSongsCard(_ playlist: Playlist) -> some View {
@@ -498,9 +613,10 @@ struct LibraryView: View {
 
 // MARK: - LibraryItem
 
-/// Represents a library item that can be a playlist, artist, or podcast show.
+/// Represents a tile displayed in the combined Library grid.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
+    case album(Album)
     case uploadedSongs(Playlist)
     case artist(Artist)
     case podcast(PodcastShow)
@@ -509,6 +625,8 @@ enum LibraryItem: Identifiable {
         switch self {
         case let .playlist(playlist):
             "playlist-\(playlist.id)"
+        case let .album(album):
+            "album-\(album.id)"
         case let .uploadedSongs(playlist):
             "uploads-\(playlist.id)"
         case let .artist(artist):

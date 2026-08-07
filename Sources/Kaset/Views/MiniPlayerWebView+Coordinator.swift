@@ -152,8 +152,22 @@ extension SingletonPlayerWebView {
         }
 
         private static func observedVideoId(from body: [String: Any]) -> String? {
-            guard let videoId = body["videoId"] as? String, !videoId.isEmpty else { return nil }
-            return videoId
+            self.normalizedVideoId(body["videoId"])
+        }
+
+        /// Uses the physical media identity when a state payload carries one. An explicitly empty
+        /// media identity stays unknown instead of falling back to metadata that may lead playback.
+        static func playbackVideoId(from body: [String: Any]) -> String? {
+            if body.keys.contains("mediaVideoId") {
+                return self.normalizedVideoId(body["mediaVideoId"])
+            }
+            return self.observedVideoId(from: body)
+        }
+
+        private static func normalizedVideoId(_ value: Any?) -> String? {
+            guard let videoId = value as? String else { return nil }
+            let normalized = videoId.trimmingCharacters(in: .whitespacesAndNewlines)
+            return normalized.isEmpty ? nil : normalized
         }
 
         private static func musicPlaybackOccurrence(
@@ -171,7 +185,7 @@ extension SingletonPlayerWebView {
                 nativeGeneration: WebPlaybackDocumentGeneration.decode(
                     body["nativePlaybackGeneration"]
                 ) ?? 0,
-                videoId: Self.observedVideoId(from: body)
+                videoId: Self.playbackVideoId(from: body)
             )
         }
 
@@ -591,6 +605,7 @@ private extension SingletonPlayerWebView.Coordinator {
         let trackChanged = body["trackChanged"] as? Bool ?? false
         let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
         let hasVideo = body["hasVideo"] as? Bool ?? false
+        let playbackVideoId = Self.playbackVideoId(from: body)
         let playbackOccurrence = Self.musicPlaybackOccurrence(
             from: body,
             documentGeneration: documentGeneration
@@ -617,7 +632,7 @@ private extension SingletonPlayerWebView.Coordinator {
                         documentGeneration: documentGeneration,
                         mediaGeneration: playbackOccurrence.mediaGeneration,
                         nativeGeneration: playbackOccurrence.nativeGeneration,
-                        videoId: observedVideoId
+                        videoId: playbackVideoId
                     )
                 }
             }
@@ -628,7 +643,7 @@ private extension SingletonPlayerWebView.Coordinator {
             self.playerService.updateAdPlaybackState(
                 isShowingAd: isAd,
                 observedProgress: Double(progress),
-                observedVideoId: observedVideoId,
+                observedVideoId: playbackVideoId,
                 isAuthoritativeContent: isAuthoritativeContent
             )
             if isAuthoritativeContent {
@@ -636,7 +651,7 @@ private extension SingletonPlayerWebView.Coordinator {
                     isPlaying: isPlaying,
                     progress: Double(progress),
                     duration: Double(duration),
-                    observedVideoId: observedVideoId
+                    observedVideoId: playbackVideoId
                 )
             } else if hasReadyMedia, isAd {
                 self.playerService.updatePlaybackTransportState(isPlaying: isPlaying)

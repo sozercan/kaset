@@ -26,6 +26,7 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
+        static let keepYouTubeVideoOnTop = "settings.keepYouTubeVideoOnTop"
         static let smartShuffleEnabled = "settings.smartShuffleEnabled"
         static let smartShuffleSuggestEveryN = "settings.smartShuffleSuggestEveryN"
         static let smartShuffleBurst = "settings.smartShuffleBurst"
@@ -103,6 +104,8 @@ final class SettingsManager {
         case swedish
         case turkish
         case ukrainian
+        case simplifiedChinese
+        case traditionalChinese
 
         var id: String {
             rawValue
@@ -123,7 +126,9 @@ final class SettingsManager {
             case .portuguese: "Português"
             case .russian: "Русский"
             case .spanish: "Español"
+            case .simplifiedChinese: "简体中文"
             case .swedish: "Svenska"
+            case .traditionalChinese: "繁體中文"
             case .turkish: "Türkçe"
             case .ukrainian: "Українська"
             }
@@ -145,7 +150,13 @@ final class SettingsManager {
             case .portuguese: "pt"
             case .russian: "ru"
             case .spanish: "es"
+            // Chinese is distinguished by script, not region, matching Apple's
+            // localization identifiers. Verified against the InnerTube API: these
+            // same codes are valid `hl` values and return correctly-scripted
+            // responses, so no separate API mapping is needed.
+            case .simplifiedChinese: "zh-Hans"
             case .swedish: "sv"
+            case .traditionalChinese: "zh-Hant"
             case .turkish: "tr"
             case .ukrainian: "uk"
             }
@@ -155,7 +166,25 @@ final class SettingsManager {
         /// Returns the explicit language code or derives one from the system locale,
         /// falling back to `"en"`.
         var apiLanguageCode: String {
-            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
+            self.apiLanguageCode(for: Locale.current)
+        }
+
+        /// Resolves the API language code against an injectable system locale.
+        func apiLanguageCode(for systemLocale: Locale) -> String {
+            if let languageCode = self.languageCode {
+                return languageCode
+            }
+
+            let language = systemLocale.language
+            guard let languageCode = language.languageCode?.identifier else {
+                return "en"
+            }
+
+            return switch (languageCode, language.script?.identifier) {
+            case ("zh", "Hans"): "zh-Hans"
+            case ("zh", "Hant"): "zh-Hant"
+            default: languageCode
+            }
         }
 
         /// The locale matching this language selection.
@@ -328,6 +357,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the regular YouTube video window floats above standard windows.
+    var keepYouTubeVideoOnTop: Bool {
+        didSet {
+            UserDefaults.standard.set(self.keepYouTubeVideoOnTop, forKey: Keys.keepYouTubeVideoOnTop)
+        }
+    }
+
     // MARK: - Smart Shuffle defaults & ranges (single source of truth)
 
     /// Default cadence: insert a burst of suggestions every N originals.
@@ -454,6 +490,10 @@ final class SettingsManager {
 
     // MARK: - Initialization
 
+    static func loadKeepYouTubeVideoOnTop(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
+    }
+
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
@@ -474,6 +514,7 @@ final class SettingsManager {
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: UserDefaults.standard)
         self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
         // Property observers do not fire for assignments in init, so clamp persisted values here too.
         self.smartShuffleSuggestEveryN = Self.clamp(

@@ -16,8 +16,9 @@ extension PlayerService {
         }
         guard isAuthoritativeContent else { return }
         self.isShowingAd = false
+        guard let observedVideoId = self.normalizedPlaybackVideoId(observedVideoId) else { return }
         self.lastNonAdContentProgress = observedProgress
-        self.lastNonAdContentVideoId = observedVideoId ?? self.currentTrack?.videoId
+        self.lastNonAdContentVideoId = observedVideoId
     }
 
     func resetAdPlaybackState() {
@@ -69,24 +70,26 @@ extension PlayerService {
         observedVideoId: String?
     ) {
         let previousProgress = self.progress
-        self.recordPlaybackStateObservation(videoId: observedVideoId)
+        self.isApplyingPlaybackStateObservation = true
 
-        guard !self.isRestoringPlaybackSession else {
+        if self.isRestoringPlaybackSession {
             self.reconcileRestoredPlaybackState(
                 isPlaying: isPlaying,
                 progress: progress,
                 duration: duration,
                 previousProgress: previousProgress
             )
-            return
+        } else {
+            self.applyObservedPlaybackState(
+                isPlaying: isPlaying,
+                progress: progress,
+                duration: duration,
+                previousProgress: previousProgress
+            )
         }
 
-        self.applyObservedPlaybackState(
-            isPlaying: isPlaying,
-            progress: progress,
-            duration: duration,
-            previousProgress: previousProgress
-        )
+        self.isApplyingPlaybackStateObservation = false
+        self.recordPlaybackStateObservation(videoId: observedVideoId, duration: duration)
     }
 
     /// Updates only play/pause transport while deliberately preserving the
@@ -149,6 +152,7 @@ extension PlayerService {
 
         self.progress = clampedProgress
         self.duration = resolvedDuration
+        self.recordDurationObservation(videoId: currentSong.videoId, duration: resolvedDuration)
         self.state = .paused
         self.pendingRestoredSeek = clampedProgress
         self.isPendingRestoredLoadDeferred = true
@@ -211,6 +215,7 @@ extension PlayerService {
         self.progress = targetProgress
         self.currentTimeMs = Int(targetProgress * 1000)
         self.duration = resolvedDuration
+        self.recordDurationObservation(videoId: self.currentTrack?.videoId, duration: resolvedDuration)
         self.pendingRestoredSeek = targetProgress
         self.isRestoringPlaybackSession = true
         self.shouldAutoResumeAfterRestoredLoad = !startsPaused

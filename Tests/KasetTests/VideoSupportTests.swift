@@ -137,6 +137,61 @@ struct VideoSupportTests {
     }
 }
 
+// MARK: - YouTubeVideoWindowFullscreenIntentStateTests
+
+@Suite(.tags(.service))
+struct YouTubeVideoWindowFullscreenIntentStateTests {
+    @Test("Failed fullscreen entry clears return-inline intent")
+    func failureClearsReturnInlineIntent() {
+        var state = YouTubeVideoWindowFullscreenIntentState()
+        state.requestReturnInlineOnExit()
+
+        state.cancelReturnInlineOnExit()
+
+        let shouldReturn = state.consumeReturnInlineOnExit()
+        #expect(!shouldReturn)
+    }
+
+    @Test("Return-inline intent is consumed once on fullscreen exit")
+    func returnInlineIntentIsOneShot() {
+        var state = YouTubeVideoWindowFullscreenIntentState()
+        state.requestReturnInlineOnExit()
+
+        let firstExit = state.consumeReturnInlineOnExit()
+        let secondExit = state.consumeReturnInlineOnExit()
+        #expect(firstExit)
+        #expect(!secondExit)
+    }
+}
+
+// MARK: - YouTubeVideoWindowFrameAutosaveStateTests
+
+@Suite(.tags(.service))
+struct YouTubeVideoWindowFrameAutosaveStateTests {
+    private let autosaveName = "KasetYouTubeVideoWindow"
+
+    @Test("Failed fullscreen entry restores frame autosaving")
+    func failedEntryRestoresFrameAutosaving() {
+        var state = YouTubeVideoWindowFrameAutosaveState(restorableName: self.autosaveName)
+
+        state.handle(.willEnterFullScreen)
+        #expect(state.currentName.isEmpty)
+
+        state.handle(.didFailToEnterFullScreen)
+        #expect(state.currentName == self.autosaveName)
+    }
+
+    @Test("Fullscreen exit restores frame autosaving")
+    func exitRestoresFrameAutosaving() {
+        var state = YouTubeVideoWindowFrameAutosaveState(restorableName: self.autosaveName)
+
+        state.handle(.willEnterFullScreen)
+        state.handle(.didExitFullScreen)
+
+        #expect(state.currentName == self.autosaveName)
+    }
+}
+
 // MARK: - YouTubeVideoWindowResizeGuardTests
 
 @Suite(.tags(.service))

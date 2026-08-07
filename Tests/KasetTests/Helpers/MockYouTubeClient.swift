@@ -20,6 +20,12 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var searchResponsesByRequest: [String: YouTubeSearchResponse] = [:]
     var searchContinuation: YouTubeSearchResponse?
     var watchNextData = WatchNextData.empty
+    var askBootstrap: YouTubeAskBootstrap?
+    var watchPages: [YouTubeWatchPage] = []
+    var watchPageErrors: [Error] = []
+    var askConversation = YouTubeAskConversation.testing()
+    var continuedAskConversation: YouTubeAskConversation?
+    var askError: Error?
     var channelDetail: YouTubeChannelDetail?
     var playlistDetail: YouTubePlaylistDetail?
 
@@ -51,6 +57,11 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.homeFeedContinuation = nil
         self.homeContinuationPages = []
         self.searchContinuation = nil
+        self.askBootstrap = nil
+        self.watchPages = []
+        self.watchPageErrors = []
+        self.askConversation = YouTubeAskConversation.testing()
+        self.continuedAskConversation = nil
     }
 
     /// Optional queue of continuation pages, consumed front-to-back by
@@ -216,22 +227,131 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.watchNextData
     }
 
+    private(set) var getWatchPageCallCount = 0
+    private(set) var loadAskConversationCallCount = 0
+    private(set) var continueAskConversationCallCount = 0
+    private(set) var continueAskFreeTextCallCount = 0
+    private(set) var submittedAskFreeTextInputs: [String] = []
+    private(set) var submittedAskPlayerOffsets: [Int64] = []
+    private(set) var selectedAskSuggestionIDs: [YouTubeAskSuggestion.ID] = []
+    var beforeWatchPageReturn: (@Sendable () async -> Void)?
+    var beforeWatchPageReturnByCallCount: (@Sendable (Int) async -> Void)?
+    var beforeAskPreparationReturn: (@Sendable () async -> Void)?
+    var beforeAskContinuationReturn: (@Sendable () async -> Void)?
+
+    func getWatchPage(videoId _: String) async throws -> YouTubeWatchPage {
+        self.getWatchPageCallCount += 1
+        if !self.watchPageErrors.isEmpty {
+            throw self.watchPageErrors.removeFirst()
+        }
+        if let error {
+            throw error
+        }
+        if let beforeWatchPageReturn {
+            await beforeWatchPageReturn()
+        }
+        if let beforeWatchPageReturnByCallCount {
+            await beforeWatchPageReturnByCallCount(self.getWatchPageCallCount)
+        }
+        try Task.checkCancellation()
+        if !self.watchPages.isEmpty {
+            return self.watchPages.removeFirst()
+        }
+        return YouTubeWatchPage(
+            data: self.watchNextData,
+            askBootstrap: self.askBootstrap
+        )
+    }
+
+    func loadAskConversation(
+        from bootstrap: YouTubeAskBootstrap
+    ) async throws -> YouTubeAskConversation {
+        self.loadAskConversationCallCount += 1
+        if let askError {
+            throw askError
+        }
+        if let beforeAskPreparationReturn {
+            await beforeAskPreparationReturn()
+        }
+        try Task.checkCancellation()
+        if self.askConversation.messages.isEmpty,
+           self.askConversation.suggestions.isEmpty
+        {
+            return YouTubeAskConversation.direct(from: bootstrap)
+        }
+        return self.askConversation
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        selecting suggestionID: YouTubeAskSuggestion.ID
+    ) async throws -> YouTubeAskConversation {
+        self.continueAskConversationCallCount += 1
+        self.selectedAskSuggestionIDs.append(suggestionID)
+        if let askError {
+            throw askError
+        }
+        if let beforeAskContinuationReturn {
+            await beforeAskContinuationReturn()
+        }
+        try Task.checkCancellation()
+        if let continuedAskConversation {
+            return continuedAskConversation
+        }
+        return YouTubeAskConversation.testing(messages: conversation.messages)
+    }
+
+    func continueAskConversation(
+        _ conversation: YouTubeAskConversation,
+        submitting userInputText: String,
+        playerOffsetMilliseconds: Int64
+    ) async throws -> YouTubeAskConversation {
+        self.continueAskFreeTextCallCount += 1
+        self.submittedAskFreeTextInputs.append(userInputText)
+        self.submittedAskPlayerOffsets.append(playerOffsetMilliseconds)
+        if let askError {
+            throw askError
+        }
+        if let beforeAskContinuationReturn {
+            await beforeAskContinuationReturn()
+        }
+        try Task.checkCancellation()
+        if let continuedAskConversation {
+            return continuedAskConversation
+        }
+        return YouTubeAskConversation.testing(messages: conversation.messages)
+    }
+
     var commentsPage = YouTubeCommentsPage.empty
     private(set) var postedComments: [(text: String, params: String)] = []
     private(set) var lastCommentsContinuation: String?
+    private(set) var getCommentsCallCount = 0
+    private(set) var postCommentCallCount = 0
+    var beforeCommentsReturn: (@Sendable (String) async -> Void)?
+    var beforePostCommentReturn: (@Sendable () async -> Void)?
 
     func getComments(continuation: String) async throws -> YouTubeCommentsPage {
+        self.getCommentsCallCount += 1
         if let error {
             throw error
         }
         self.lastCommentsContinuation = continuation
+        if let beforeCommentsReturn {
+            await beforeCommentsReturn(continuation)
+        }
+        try Task.checkCancellation()
         return self.commentsPage
     }
 
     func postComment(text: String, createCommentParams: String) async throws {
+        self.postCommentCallCount += 1
         if let error {
             throw error
         }
+        if let beforePostCommentReturn {
+            await beforePostCommentReturn()
+        }
+        try Task.checkCancellation()
         self.postedComments.append((text, createCommentParams))
     }
 

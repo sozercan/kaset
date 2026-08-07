@@ -15,10 +15,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    private enum Layout {
-        static let commandBarTopPadding: CGFloat = 72
-    }
-
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -154,11 +150,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onAppear {
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
-            .task {
-                DiagnosticsLogger.app.info("MainWindow: Starting login check check...")
-                await self.authService.checkLoginStatus()
-                DiagnosticsLogger.app.info("MainWindow: Login check complete")
-            }
 
             // Persistent WebView - always present once a video has been requested.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
@@ -202,7 +193,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                    .padding(.top, Self.Layout.commandBarTopPadding)
+                    .padding(.top, MainWindowLayout.aiTaskSurfaceTopPadding)
                 }
                 .animation(.easeInOut(duration: 0.15), value: self.isCommandBarPresented)
             }
@@ -227,12 +218,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
             if newValue {
-                // Manual trigger from Help menu — fetch release notes, bypass version store
+                // Manual trigger from Help menu — fetch exact-version release notes, bypass version store
                 Task { @MainActor in
-                    await self.presentCurrentWhatsNew(
-                        respectingPresentedVersions: false,
-                        allowsGenericFallback: true
-                    )
+                    await self.presentCurrentWhatsNew(respectingPresentedVersions: false)
                 }
                 self.showWhatsNew.wrappedValue = false
             }
@@ -254,6 +242,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.showLoginSheet = true
             }
         }
+        .onChange(of: self.authService.loginCleanupRequired) { _, cleanupRequired in
+            guard cleanupRequired else { return }
+            self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: true)
+            self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
+        }
         .onChange(of: self.playerService.showVideo) { _, showVideo in
             DiagnosticsLogger.player.debug("showVideo onChange triggered: \(showVideo)")
             if showVideo {
@@ -265,8 +258,19 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 VideoWindowController.shared.close()
             }
         }
-        .onChange(of: self.accountService.currentAccount?.id) { _, newAccountId in
+        .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
+            let currentAccount = self.accountService.currentAccount
+            let newAccountId = self.accountService.currentAccount?.id
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.likeStatusManager.clearCache()
+            LibraryMutationActions.cancelAllPendingLibraryMutations()
+            self.libraryViewModel?.activateAccountScope(
+                newAccountScope,
+                isPrimary: currentAccount?.isPrimary == true
+            )
             self.playerService.resetTrackStatus()
+            self.searchViewModel?.clear()
             self.podcastsViewModel?.configure(
                 availabilityService: self.podcastsAvailability,
                 accountId: newAccountId
@@ -601,12 +605,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
                                     viewModel: vm,
                                     playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
                                 )
+                                .environment(\.libraryViewModel, self.libraryViewModel)
                             }
                         }
                         .navigationDestinations(
@@ -634,7 +640,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
     }
 
     private var hasPersonalAccount: Bool {
@@ -676,6 +682,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 } else {
                     SimplePlaylistDetailView(
                         playlist: item.playlistRoute,
@@ -684,12 +691,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             client: client
                         )
                     )
+                    .environment(\.libraryViewModel, self.libraryViewModel)
                 }
             }
             .id(item.contentId)
             .navigationDestinations(client: client)
         }
-        .environment(self.libraryViewModel)
+        .environment(\.libraryViewModel, self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
             self.selectedSidebarPinnedItem = nil
             self.navigationSelection = .home
@@ -709,6 +717,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func handleAuthStateChange(oldState: AuthService.State, newState: AuthService.State) {
+        self.accountService.authenticationIdentityDidChange()
         switch newState {
         case .initializing:
             // Still checking login status, do nothing
@@ -805,6 +814,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func rebuildMusicViewModels(accountId: String? = nil) {
+        LibraryMutationActions.cancelAllPendingLibraryMutations()
         self.homeViewModel = HomeViewModel(client: self.client)
         self.exploreViewModel = ExploreViewModel(client: self.client)
         self.searchViewModel = SearchViewModel(client: self.client)
@@ -818,7 +828,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             playlist: LikedMusicPlaylist.playlist,
             client: self.client
         )
-        self.libraryViewModel = LibraryViewModel(client: self.client)
+        let libraryViewModel = LibraryViewModel(client: self.client)
+        let currentAccount = self.accountService.currentAccount
+        libraryViewModel.activateAccountScope(
+            self.accountService.currentAccountScopeID,
+            isPrimary: currentAccount?.isPrimary == true
+        )
+        self.libraryViewModel = libraryViewModel
         self.historyViewModel = HistoryViewModel(client: self.client)
         self.likedMusicNavigationPath = NavigationPath()
         self.pinnedNavigationPaths = [:]
@@ -862,15 +878,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     @MainActor
-    private func presentCurrentWhatsNew(
-        respectingPresentedVersions: Bool = true,
-        allowsGenericFallback: Bool = false
-    ) async {
+    private func presentCurrentWhatsNew(respectingPresentedVersions: Bool = true) async {
         let currentVersion = WhatsNew.Version.current()
         let whatsNew = await WhatsNewProvider.fetchWhatsNew(
             for: currentVersion,
             respectingPresentedVersions: respectingPresentedVersions
-        ) ?? (allowsGenericFallback ? WhatsNewProvider.fallbackCollection.first : nil)
+        )
 
         guard let whatsNew else { return }
 

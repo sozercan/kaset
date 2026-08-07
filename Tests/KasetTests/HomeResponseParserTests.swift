@@ -171,6 +171,7 @@ struct HomeResponseParserTests {
         if case let .song(song) = item {
             #expect(song.videoId == "video123")
             #expect(song.musicVideoType == .omv)
+            #expect(song.artists.map(\.name) == ["Artist Name"])
         } else {
             Issue.record("Expected video item to parse as a song")
         }

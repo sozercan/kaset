@@ -1,506 +1,869 @@
 import Foundation
 
-/// Parser for search responses from YouTube Music API.
+// MARK: - SearchResponseParser
+
 enum SearchResponseParser {
     private static let logger = DiagnosticsLogger.api
 
-    /// Parses a search response.
-    static func parse(_ data: [String: Any]) -> SearchResponse {
-        var songs: [Song] = []
-        var albums: [Album] = []
-        var artists: [Artist] = []
-        var playlists: [Playlist] = []
-
-        // Navigate to contents
-        guard let contents = data["contents"] as? [String: Any],
-              let tabbedSearchResults = contents["tabbedSearchResultsRenderer"] as? [String: Any],
-              let tabs = tabbedSearchResults["tabs"] as? [[String: Any]],
-              let firstTab = tabs.first,
-              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-              let tabContent = tabRenderer["content"] as? [String: Any],
-              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            Self.logger.debug("SearchResponseParser: Failed to parse response structure. Top keys: \(data.keys.sorted())")
-            return SearchResponse.empty
-        }
-
-        for sectionData in sectionContents {
-            // Parse musicCardShelfRenderer (Top Result section)
-            if let cardShelfRenderer = sectionData["musicCardShelfRenderer"] as? [String: Any] {
-                if let item = parseCardShelfRenderer(cardShelfRenderer) {
-                    Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
-                }
-            }
-
-            // Parse musicShelfRenderer (regular results)
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                songs.reserveCapacity(songs.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData) {
-                        Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
-                    }
-                }
-            }
-        }
-
-        return SearchResponse(songs: songs, albums: albums, artists: artists, playlists: playlists)
+    private enum ContentKind {
+        case song
+        case video
+        case album
+        case audiobook
+        case artist
+        case profile
+        case playlist
+        case podcastShow
+        case podcastEpisode
     }
 
-    /// Helper to append a search result item to the appropriate array.
-    private static func appendItem(
-        _ item: SearchResultItem,
-        songs: inout [Song],
-        albums: inout [Album],
-        artists: inout [Artist],
-        playlists: inout [Playlist]
-    ) {
-        switch item {
-        case let .song(song):
-            songs.append(song)
-        case let .album(album):
-            albums.append(album)
-        case let .artist(artist):
-            artists.append(artist)
-        case let .playlist(playlist):
-            playlists.append(playlist)
-        case .podcastShow:
-            // Podcast shows not parsed in general search
-            break
-        }
+    private enum BrowseKind {
+        case album
+        case audiobook
+        case artist
+        case profile
+        case playlist
+        case podcastShow
+        case podcastEpisode
     }
 
-    /// Parses a filtered songs-only search response.
-    /// Filtered searches have a simpler structure without tabs.
-    static func parseSongsOnly(_ data: [String: Any]) -> [Song] {
-        var songs: [Song] = []
-
-        // Filtered search has a simpler structure - no tabs
-        guard let contents = data["contents"] as? [String: Any],
-              let sectionListRenderer = contents["sectionListRenderer"] as? [String: Any],
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            // Try tabbed structure as fallback
-            let response = self.parse(data)
-            return response.songs
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                songs.reserveCapacity(songs.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .song(song) = item
-                    {
-                        songs.append(song)
-                    }
-                }
-            }
-        }
-
-        return songs
+    private struct PlayableDestination {
+        let videoId: String
+        let musicVideoType: MusicVideoType?
     }
 
-    // MARK: - Item Parsing
-
-    /// Parses a musicCardShelfRenderer (Top Result section).
-    /// This renderer contains a single prominent result with title, subtitle, and browse endpoint.
-    private static func parseCardShelfRenderer(_ data: [String: Any]) -> SearchResultItem? {
-        // Extract title and navigation from the title runs
-        guard let titleData = data["title"] as? [String: Any],
-              let runs = titleData["runs"] as? [[String: Any]],
-              let firstRun = runs.first,
-              let title = firstRun["text"] as? String,
-              let navigationEndpoint = firstRun["navigationEndpoint"] as? [String: Any],
-              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String
-        else {
-            return nil
-        }
-
-        // Extract thumbnail
-        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
-
-        // Extract subtitle
-        var subtitle: String?
-        if let subtitleData = data["subtitle"] as? [String: Any],
-           let subtitleRuns = subtitleData["runs"] as? [[String: Any]]
-        {
-            subtitle = ParsingHelpers.joinedRunText(subtitleRuns)
-        }
-
-        let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
-        return self.createItemFromBrowseEndpoint(
-            browseId: browseId,
-            pageType: pageType,
-            title: title,
-            thumbnailURL: thumbnailURL,
-            subtitle: subtitle
-        )
-    }
-
-    private static func parseSearchResultItem(_ data: [String: Any]) -> SearchResultItem? {
-        guard let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] else {
-            return nil
-        }
-
-        // Try to get videoId for songs
-        if let playlistItemData = responsiveRenderer["playlistItemData"] as? [String: Any],
-           let videoId = playlistItemData["videoId"] as? String
-        {
-            return self.parseSongFromResponsiveRenderer(responsiveRenderer, videoId: videoId)
-        }
-
-        // Check navigation endpoint for other types
-        if let navigationEndpoint = responsiveRenderer["navigationEndpoint"] as? [String: Any],
-           let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-           let browseId = browseEndpoint["browseId"] as? String
-        {
-            let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer)
-            let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown"
-            let subtitle = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
-
-            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
-            return self.createItemFromBrowseEndpoint(
-                browseId: browseId,
-                pageType: pageType,
-                title: title,
-                thumbnailURL: thumbnailURL,
-                subtitle: subtitle
-            )
-        }
-
-        return nil
-    }
-
-    // MARK: - Helpers
-
-    private static func createItemFromBrowseEndpoint(
-        browseId: String,
-        pageType: String?,
-        title: String,
-        thumbnailURL: URL?,
-        subtitle: String?
-    ) -> SearchResultItem? {
-        if pageType == "MUSIC_PAGE_TYPE_ALBUM" || browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
-            let album = Album(
-                id: browseId,
-                title: title,
-                artists: nil,
-                thumbnailURL: thumbnailURL,
-                year: nil,
-                trackCount: nil
-            )
-            return .album(album)
-        }
-
-        if ParsingHelpers.isArtistPageType(pageType) || Artist.isNavigableId(browseId) {
-            let artist = Artist(
-                id: browseId,
-                name: title,
-                thumbnailURL: thumbnailURL,
-                profileKind: Artist.profileKind(forPageType: pageType)
-            )
-            return .artist(artist)
-        }
-
-        if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" || browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
-            let playlist = Playlist(
-                id: browseId,
-                title: title,
-                description: nil,
-                thumbnailURL: thumbnailURL,
-                trackCount: nil,
-                author: subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") }
-            )
-            return .playlist(playlist)
-        }
-
-        return nil
-    }
-
-    private static func parseSongFromResponsiveRenderer(
-        _ data: [String: Any],
-        videoId: String
-    ) -> SearchResultItem? {
-        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
-        let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
-        let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
-        let album = ParsingHelpers.extractAlbumFromFlexColumns(data)
-
-        let isExplicit = ParsingHelpers.extractIsExplicit(from: data)
-        let song = Song(
-            id: videoId,
-            title: title,
-            artists: artists,
-            album: album,
-            duration: nil,
-            thumbnailURL: thumbnailURL,
-            videoId: videoId,
-            isExplicit: isExplicit
-        )
-        return .song(song)
-    }
-
-    // MARK: - Filtered Search Parsing
-
-    /// Extracts the continuation token from a filtered search response.
-    private static func extractContinuationToken(from sectionListRenderer: [String: Any]) -> String? {
-        // Check for continuations array
-        if let continuations = sectionListRenderer["continuations"] as? [[String: Any]],
-           let firstContinuation = continuations.first,
-           let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
-           let token = nextContinuationData["continuation"] as? String
-        {
-            return token
-        }
-        return nil
-    }
-
-    /// Helper to get sectionListRenderer from filtered search response.
-    private static func getSectionListRenderer(from data: [String: Any]) -> [String: Any]? {
-        // Try filtered search structure first (no tabs)
-        if let contents = data["contents"] as? [String: Any],
-           let sectionListRenderer = contents["sectionListRenderer"] as? [String: Any]
-        {
-            return sectionListRenderer
-        }
-
-        // Try tabbed structure as fallback
-        if let contents = data["contents"] as? [String: Any],
-           let tabbedSearchResults = contents["tabbedSearchResultsRenderer"] as? [String: Any],
-           let tabs = tabbedSearchResults["tabs"] as? [[String: Any]],
-           let firstTab = tabs.first,
-           let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-           let tabContent = tabRenderer["content"] as? [String: Any],
-           let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any]
-        {
-            return sectionListRenderer
-        }
-
-        return nil
-    }
-
-    /// Parses albums from a filtered search response with continuation token.
-    static func parseAlbumsOnly(_ data: [String: Any]) -> ([Album], String?) {
-        var albums: [Album] = []
-
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return ([], nil)
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                albums.reserveCapacity(albums.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .album(album) = item
-                    {
-                        albums.append(album)
-                    }
-                }
-            }
-        }
-
-        let token = Self.extractContinuationToken(from: sectionListRenderer)
-        return (albums, token)
-    }
-
-    /// Parses artists from a filtered search response with continuation token.
-    static func parseArtistsOnly(_ data: [String: Any]) -> ([Artist], String?) {
-        var artists: [Artist] = []
-
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return ([], nil)
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                artists.reserveCapacity(artists.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .artist(artist) = item
-                    {
-                        artists.append(artist)
-                    }
-                }
-            }
-        }
-
-        let token = Self.extractContinuationToken(from: sectionListRenderer)
-        return (artists, token)
-    }
-
-    /// Parses playlists from a filtered search response with continuation token.
-    static func parsePlaylistsOnly(_ data: [String: Any]) -> ([Playlist], String?) {
-        var playlists: [Playlist] = []
-
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return ([], nil)
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                playlists.reserveCapacity(playlists.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .playlist(playlist) = item
-                    {
-                        playlists.append(playlist)
-                    }
-                }
-            }
-        }
-
-        let token = Self.extractContinuationToken(from: sectionListRenderer)
-        return (playlists, token)
-    }
-
-    /// Parses podcasts from a filtered search response with continuation token.
-    static func parsePodcastsOnly(_ data: [String: Any]) -> ([PodcastShow], String?) {
-        var podcasts: [PodcastShow] = []
-
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return ([], nil)
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                podcasts.reserveCapacity(podcasts.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
-                        podcasts.append(show)
-                    }
-                }
-            }
-        }
-
-        let token = Self.extractContinuationToken(from: sectionListRenderer)
-        return (podcasts, token)
-    }
-
-    /// Parses a podcast show from a search result item.
-    private static func parsePodcastShowFromSearchResult(_ data: [String: Any]) -> PodcastShow? {
-        guard let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] else {
-            return nil
-        }
-
-        // Check navigation endpoint for browse ID
-        guard let navigationEndpoint = responsiveRenderer["navigationEndpoint"] as? [String: Any],
-              let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
-              let browseId = browseEndpoint["browseId"] as? String,
-              browseId.hasPrefix("MPSPP")
-        else {
-            return nil
-        }
-
-        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: responsiveRenderer)
-        let title = ParsingHelpers.extractTitleFromFlexColumns(responsiveRenderer) ?? "Unknown Podcast"
-        let author = ParsingHelpers.extractSubtitleFromFlexColumns(responsiveRenderer)
-
-        return PodcastShow(
-            id: browseId,
-            title: title,
-            author: author,
-            description: nil,
-            thumbnailURL: thumbnailURL,
-            episodeCount: nil
-        )
-    }
-
-    /// Parses songs from a filtered search response with continuation token.
-    static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
-        var songs: [Song] = []
-
-        guard let sectionListRenderer = getSectionListRenderer(from: data),
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return ([], nil)
-        }
-
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
-               let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
-            {
-                songs.reserveCapacity(songs.count + shelfContents.count)
-                for itemData in shelfContents {
-                    if let item = parseSearchResultItem(itemData),
-                       case let .song(song) = item
-                    {
-                        songs.append(song)
-                    }
-                }
-            }
-        }
-
-        let token = Self.extractContinuationToken(from: sectionListRenderer)
-        return (songs, token)
-    }
-
-    /// Parses a search continuation response.
-    /// Returns a SearchResponse with all item types and optional continuation token.
-    static func parseContinuation(_ data: [String: Any]) -> SearchResponse {
-        var songs: [Song] = []
-        var albums: [Album] = []
-        var artists: [Artist] = []
-        var playlists: [Playlist] = []
-        var podcastShows: [PodcastShow] = []
+    private struct ParseAccumulator {
+        var items: [SearchResultItem] = []
+        var seenContentIdentities: Set<String> = []
         var continuationToken: String?
 
-        // Continuation responses have a different structure
-        if let continuationContents = data["continuationContents"] as? [String: Any],
-           let musicShelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any]
-        {
-            // Parse items
-            if let contents = musicShelfContinuation["contents"] as? [[String: Any]] {
-                songs.reserveCapacity(contents.count)
-                for itemData in contents {
-                    // Try to parse as podcast show first (for podcast search continuation)
-                    if let show = Self.parsePodcastShowFromSearchResult(itemData) {
-                        podcastShows.append(show)
-                    } else if let item = parseSearchResultItem(itemData) {
-                        Self.appendItem(item, songs: &songs, albums: &albums, artists: &artists, playlists: &playlists)
-                    }
-                }
+        mutating func append(_ item: SearchResultItem) {
+            guard self.seenContentIdentities.insert(item.contentIdentity).inserted else {
+                return
             }
+            self.items.append(item)
+        }
 
-            // Extract next continuation token
-            if let continuations = musicShelfContinuation["continuations"] as? [[String: Any]],
-               let firstContinuation = continuations.first,
-               let nextContinuationData = firstContinuation["nextContinuationData"] as? [String: Any],
-               let token = nextContinuationData["continuation"] as? String
-            {
-                continuationToken = token
+        mutating func captureContinuation(_ token: String?) {
+            guard self.continuationToken == nil,
+                  let token = token?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !token.isEmpty
+            else {
+                return
+            }
+            self.continuationToken = token
+        }
+    }
+
+    static func parse(_ data: [String: Any]) -> SearchResponse {
+        let sectionLists = Self.firstPageSectionLists(from: data)
+        guard !sectionLists.isEmpty else {
+            Self.logger.debug("SearchResponseParser: Failed to find a search section list. Top keys: \(data.keys.sorted())")
+            return .empty
+        }
+
+        var accumulator = ParseAccumulator()
+        for sectionList in sectionLists {
+            Self.parseSectionList(sectionList, into: &accumulator)
+        }
+
+        return SearchResponse(
+            items: accumulator.items,
+            continuationToken: accumulator.continuationToken
+        )
+    }
+
+    static func parseSongsOnly(_ data: [String: Any]) -> [Song] {
+        self.parse(data).songs
+    }
+
+    static func parseAlbumsOnly(_ data: [String: Any]) -> ([Album], String?) {
+        let response = Self.parse(data)
+        return (response.albums, response.continuationToken)
+    }
+
+    static func parseArtistsOnly(_ data: [String: Any]) -> ([Artist], String?) {
+        let response = Self.parse(data)
+        return (response.artists, response.continuationToken)
+    }
+
+    static func parsePlaylistsOnly(_ data: [String: Any]) -> ([Playlist], String?) {
+        let response = Self.parse(data)
+        return (response.playlists, response.continuationToken)
+    }
+
+    static func parsePodcastsOnly(_ data: [String: Any]) -> ([PodcastShow], String?) {
+        let response = Self.parse(data)
+        return (response.podcastShows, response.continuationToken)
+    }
+
+    static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
+        let response = Self.parse(data)
+        return (response.songs, response.continuationToken)
+    }
+
+    static func parseContinuation(_ data: [String: Any]) -> SearchResponse {
+        var accumulator = ParseAccumulator()
+
+        if let continuationContents = data["continuationContents"] as? [String: Any],
+           let shelf = continuationContents["musicShelfContinuation"] as? [String: Any]
+        {
+            Self.parseMusicShelf(shelf, into: &accumulator)
+        }
+
+        for items in Self.continuationActionItemGroups(from: data) {
+            accumulator.items.reserveCapacity(accumulator.items.count + items.count)
+            for item in items {
+                Self.parseContainer(item, into: &accumulator)
             }
         }
 
         return SearchResponse(
-            songs: songs,
-            albums: albums,
-            artists: artists,
-            playlists: playlists,
-            podcastShows: podcastShows,
-            continuationToken: continuationToken
+            items: accumulator.items,
+            continuationToken: accumulator.continuationToken
         )
+    }
+}
+
+private extension SearchResponseParser {
+    private static func firstPageSectionLists(from data: [String: Any]) -> [[String: Any]] {
+        guard let contents = data["contents"] as? [String: Any] else {
+            return []
+        }
+
+        if let directSectionList = contents["sectionListRenderer"] as? [String: Any] {
+            return [directSectionList]
+        }
+
+        guard let tabbed = contents["tabbedSearchResultsRenderer"] as? [String: Any],
+              let tabs = tabbed["tabs"] as? [[String: Any]]
+        else {
+            return []
+        }
+
+        var sectionLists: [[String: Any]] = []
+        sectionLists.reserveCapacity(tabs.count)
+        for tab in tabs {
+            guard let tabRenderer = tab["tabRenderer"] as? [String: Any],
+                  let content = tabRenderer["content"] as? [String: Any],
+                  let sectionList = content["sectionListRenderer"] as? [String: Any]
+            else {
+                continue
+            }
+            sectionLists.append(sectionList)
+        }
+        return sectionLists
+    }
+
+    private static func parseSectionList(
+        _ sectionList: [String: Any],
+        into accumulator: inout ParseAccumulator
+    ) {
+        if let contents = sectionList["contents"] as? [[String: Any]] {
+            accumulator.items.reserveCapacity(accumulator.items.count + contents.count)
+            for content in contents {
+                self.parseContainer(content, into: &accumulator)
+            }
+        }
+
+        accumulator.captureContinuation(Self.extractContinuationToken(from: sectionList))
+    }
+
+    private static func parseContainer(
+        _ container: [String: Any],
+        into accumulator: inout ParseAccumulator
+    ) {
+        if let card = container["musicCardShelfRenderer"] as? [String: Any] {
+            self.parseCardShelf(card, into: &accumulator)
+            return
+        }
+
+        if let shelf = container["musicShelfRenderer"] as? [String: Any] {
+            Self.parseMusicShelf(shelf, into: &accumulator)
+            return
+        }
+
+        if let itemSection = container["itemSectionRenderer"] as? [String: Any] {
+            Self.parseItemSection(itemSection, into: &accumulator)
+            return
+        }
+
+        if let renderer = container["musicResponsiveListItemRenderer"] as? [String: Any],
+           let item = Self.parseResponsiveListItem(renderer)
+        {
+            accumulator.append(item)
+            return
+        }
+
+        if let renderer = container["musicTwoRowItemRenderer"] as? [String: Any],
+           let item = Self.parseTwoRowItem(renderer)
+        {
+            accumulator.append(item)
+            return
+        }
+
+        if let renderer = container["musicMultiRowListItemRenderer"] as? [String: Any],
+           let item = Self.parseMultiRowItem(renderer)
+        {
+            accumulator.append(item)
+            return
+        }
+
+        accumulator.captureContinuation(Self.extractContinuationToken(fromContinuationItem: container))
+    }
+
+    private static func parseCardShelf(
+        _ card: [String: Any],
+        into accumulator: inout ParseAccumulator
+    ) {
+        let endpoints = Self.cardEndpointCandidates(from: card)
+        if let item = Self.parseItemRenderer(card, endpointCandidates: endpoints) {
+            accumulator.append(item)
+        }
+
+        if let contents = card["contents"] as? [[String: Any]] {
+            for content in contents {
+                Self.parseContainer(content, into: &accumulator)
+            }
+        }
+
+        accumulator.captureContinuation(Self.extractContinuationToken(from: card))
+    }
+
+    private static func parseMusicShelf(
+        _ shelf: [String: Any],
+        into accumulator: inout ParseAccumulator
+    ) {
+        accumulator.captureContinuation(self.extractContinuationToken(from: shelf))
+
+        guard let contents = shelf["contents"] as? [[String: Any]] else {
+            return
+        }
+        accumulator.items.reserveCapacity(accumulator.items.count + contents.count)
+        for content in contents {
+            Self.parseContainer(content, into: &accumulator)
+        }
+    }
+
+    private static func continuationActionItemGroups(
+        from data: [String: Any]
+    ) -> [[[String: Any]]] {
+        var groups: [[[String: Any]]] = []
+        for envelopeKey in [
+            "onResponseReceivedCommands",
+            "onResponseReceivedActions",
+            "onResponseReceivedEndpoints",
+        ] {
+            guard let actions = data[envelopeKey] as? [[String: Any]] else {
+                continue
+            }
+            for action in actions {
+                for commandKey in [
+                    "appendContinuationItemsAction",
+                    "reloadContinuationItemsCommand",
+                ] {
+                    guard let command = action[commandKey] as? [String: Any],
+                          let items = command["continuationItems"] as? [[String: Any]]
+                    else {
+                        continue
+                    }
+                    groups.append(items)
+                }
+            }
+        }
+        return groups
+    }
+
+    private static func parseItemSection(
+        _ itemSection: [String: Any],
+        into accumulator: inout ParseAccumulator
+    ) {
+        guard let contents = itemSection["contents"] as? [[String: Any]] else {
+            return
+        }
+        accumulator.items.reserveCapacity(accumulator.items.count + contents.count)
+        for content in contents {
+            Self.parseContainer(content, into: &accumulator)
+        }
+    }
+
+    private static func parseResponsiveListItem(_ renderer: [String: Any]) -> SearchResultItem? {
+        self.parseItemRenderer(
+            renderer,
+            endpointCandidates: self.responsiveEndpointCandidates(from: renderer)
+        )
+    }
+
+    private static func parseTwoRowItem(_ renderer: [String: Any]) -> SearchResultItem? {
+        self.parseItemRenderer(
+            renderer,
+            endpointCandidates: self.directItemEndpointCandidates(from: renderer)
+        )
+    }
+
+    private static func parseMultiRowItem(_ renderer: [String: Any]) -> SearchResultItem? {
+        self.parseItemRenderer(
+            renderer,
+            endpointCandidates: self.multiRowEndpointCandidates(from: renderer)
+        )
+    }
+
+    private static func parseItemRenderer(
+        _ renderer: [String: Any],
+        endpointCandidates: [[String: Any]]
+    ) -> SearchResultItem? {
+        let title = Self.itemTitle(from: renderer) ?? "Unknown"
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: renderer)
+        let contentKind = Self.contentKind(from: renderer)
+
+        var episodeBrowseId: String?
+        for endpoint in endpointCandidates {
+            guard let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
+                  let browseId = browseEndpoint["browseId"] as? String,
+                  let browseKind = Self.browseKind(
+                      browseId: browseId,
+                      pageType: ParsingHelpers.extractPageType(from: browseEndpoint),
+                      contentKind: contentKind
+                  )
+            else {
+                continue
+            }
+
+            if browseKind == .podcastEpisode {
+                episodeBrowseId = episodeBrowseId ?? browseId
+                continue
+            }
+
+            return Self.makeBrowseItem(
+                kind: browseKind,
+                browseId: browseId,
+                title: title,
+                thumbnailURL: thumbnailURL,
+                renderer: renderer
+            )
+        }
+
+        for endpoint in endpointCandidates {
+            let watchPlaylistId = (endpoint["watchPlaylistEndpoint"] as? [String: Any])?["playlistId"] as? String
+            let contextualPlaylistId = contentKind == .playlist
+                ? (endpoint["watchEndpoint"] as? [String: Any])?["playlistId"] as? String
+                : nil
+            if let playlistId = watchPlaylistId ?? contextualPlaylistId,
+               playlistId.hasPrefix("VL") || playlistId.hasPrefix("PL")
+               || playlistId.hasPrefix("VM") || playlistId.hasPrefix("RD")
+            {
+                return Self.makeBrowseItem(kind: .playlist, browseId: playlistId, title: title, thumbnailURL: thumbnailURL, renderer: renderer)
+            }
+        }
+
+        guard let playable = Self.playableDestination(
+            from: renderer,
+            endpointCandidates: endpointCandidates
+        ) else {
+            return nil
+        }
+
+        if episodeBrowseId != nil
+            || contentKind == .podcastEpisode
+            || playable.musicVideoType == .podcastEpisode
+        {
+            return .podcastEpisode(Self.makePodcastEpisode(
+                renderer: renderer,
+                title: title,
+                thumbnailURL: thumbnailURL,
+                videoId: playable.videoId
+            ))
+        }
+
+        let isVideo = contentKind == .video || Self.isVideoResult(playable.musicVideoType)
+        let song = Self.makeSong(
+            renderer: renderer,
+            title: title,
+            thumbnailURL: thumbnailURL,
+            destination: playable
+        )
+        return isVideo ? .video(song) : .song(song)
+    }
+
+    private static func makeBrowseItem(
+        kind: BrowseKind,
+        browseId: String,
+        title: String,
+        thumbnailURL: URL?,
+        renderer: [String: Any]
+    ) -> SearchResultItem? {
+        switch kind {
+        case .album, .audiobook:
+            let artists = Self.itemArtists(from: renderer, allowPlainTextFallback: false)
+            let album = Album(
+                id: browseId,
+                title: title,
+                artists: artists.isEmpty ? nil : artists,
+                thumbnailURL: thumbnailURL,
+                year: Self.metadataComponents(from: renderer).first(where: Self.isYear),
+                trackCount: nil
+            )
+            return kind == .audiobook ? .audiobook(album) : .album(album)
+
+        case .artist, .profile:
+            let profileKind: ArtistProfileKind = kind == .profile ? .profile : .artist
+            let artist = Artist(
+                id: browseId,
+                name: title,
+                thumbnailURL: thumbnailURL,
+                subtitle: Self.semanticSubtitle(from: renderer),
+                profileKind: profileKind
+            )
+            return kind == .profile ? .profile(artist) : .artist(artist)
+
+        case .playlist:
+            let subtitleRuns = Self.metadataRuns(from: renderer)
+            let author = ParsingHelpers.extractFirstNavigableArtist(from: subtitleRuns)
+                ?? Self.fallbackCreatorName(from: renderer).map {
+                    Artist.inline(name: $0, namespace: "playlist-author")
+                }
+            let songCount = Self.songCount(from: renderer)
+            return .playlist(Playlist(
+                id: browseId,
+                title: title,
+                description: nil,
+                thumbnailURL: thumbnailURL,
+                trackCount: songCount,
+                author: author
+            ))
+
+        case .podcastShow:
+            return .podcastShow(PodcastShow(
+                id: browseId,
+                title: title,
+                author: self.fallbackCreatorName(from: renderer),
+                description: self.descriptionText(from: renderer),
+                thumbnailURL: thumbnailURL,
+                episodeCount: nil
+            ))
+
+        case .podcastEpisode:
+            return nil
+        }
+    }
+
+    private static func makeSong(
+        renderer: [String: Any],
+        title: String,
+        thumbnailURL: URL?,
+        destination: PlayableDestination
+    ) -> Song {
+        let musicVideoType = destination.musicVideoType
+        return Song(
+            id: destination.videoId,
+            title: title,
+            artists: Self.itemArtists(from: renderer, allowPlainTextFallback: true),
+            album: ParsingHelpers.extractAlbumFromFlexColumns(renderer),
+            duration: ParsingHelpers.extractDurationFromFlexColumns(renderer),
+            thumbnailURL: thumbnailURL,
+            videoId: destination.videoId,
+            isPlayable: ParsingHelpers.isPlayableMusicItem(from: renderer),
+            hasVideo: musicVideoType?.hasVideoContent,
+            musicVideoType: musicVideoType,
+            isExplicit: ParsingHelpers.extractIsExplicit(from: renderer)
+        )
+    }
+
+    private static func makePodcastEpisode(
+        renderer: [String: Any],
+        title: String,
+        thumbnailURL: URL?,
+        videoId: String
+    ) -> PodcastEpisode {
+        let metadataRuns = Self.metadataRuns(from: renderer)
+        let showRun = metadataRuns.first { run in
+            guard let endpoint = Self.unwrapEndpoint(run["navigationEndpoint"]),
+                  let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
+                  let browseId = browseEndpoint["browseId"] as? String
+            else {
+                return false
+            }
+            return browseId.hasPrefix("MPSPP")
+        }
+        let showTitle = (showRun?["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let showBrowseId = showRun
+            .flatMap { Self.unwrapEndpoint($0["navigationEndpoint"]) }
+            .flatMap { $0["browseEndpoint"] as? [String: Any] }
+            .flatMap { $0["browseId"] as? String }
+
+        let components = Self.metadataComponents(from: renderer)
+        let publishedDate = components.first(where: Self.looksLikePublishedDate)
+        let durationText = components.first { component in
+            component != publishedDate && Self.looksLikeDuration(component)
+        }
+        let durationSeconds = ParsingHelpers.extractDurationFromFlexColumns(renderer)
+            ?? durationText.flatMap(Self.durationSeconds)
+        let fallbackShowTitle = components.first { component in
+            component != durationText
+                && component != publishedDate
+                && !Self.looksLikeCount(component)
+        }
+
+        let progress = Self.playbackProgress(from: renderer)
+        return PodcastEpisode(
+            id: videoId,
+            title: title,
+            showTitle: showTitle ?? fallbackShowTitle,
+            showBrowseId: showBrowseId,
+            description: Self.descriptionText(from: renderer),
+            thumbnailURL: thumbnailURL,
+            publishedDate: publishedDate,
+            duration: durationText,
+            durationSeconds: durationSeconds.map(Int.init),
+            playbackProgress: progress,
+            isPlayed: (renderer["isPlayed"] as? Bool) ?? (progress >= 1)
+        )
+    }
+}
+
+private extension SearchResponseParser {
+    private static func responsiveEndpointCandidates(from renderer: [String: Any]) -> [[String: Any]] {
+        var endpoints: [[String: Any]] = []
+        Self.appendEndpoint(renderer["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(Self.titleRun(from: renderer)?["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(renderer["onTap"], to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: renderer["overlay"]), to: &endpoints)
+        return endpoints
+    }
+
+    private static func directItemEndpointCandidates(from renderer: [String: Any]) -> [[String: Any]] {
+        var endpoints: [[String: Any]] = []
+        Self.appendEndpoint(renderer["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(Self.titleRun(from: renderer)?["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(renderer["onTap"], to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: renderer["thumbnailOverlay"]), to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: renderer["overlay"]), to: &endpoints)
+        return endpoints
+    }
+
+    private static func multiRowEndpointCandidates(from renderer: [String: Any]) -> [[String: Any]] {
+        var endpoints: [[String: Any]] = []
+        Self.appendEndpoint(renderer["onTap"], to: &endpoints)
+        Self.appendEndpoint(renderer["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(Self.titleRun(from: renderer)?["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: renderer["overlay"]), to: &endpoints)
+        return endpoints
+    }
+
+    private static func cardEndpointCandidates(from card: [String: Any]) -> [[String: Any]] {
+        var endpoints: [[String: Any]] = []
+        Self.appendEndpoint(Self.titleRun(from: card)?["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(card["navigationEndpoint"], to: &endpoints)
+        Self.appendEndpoint(card["onTap"], to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: card["thumbnailOverlay"]), to: &endpoints)
+        Self.appendEndpoint(Self.playEndpoint(from: card["overlay"]), to: &endpoints)
+        return endpoints
+    }
+
+    private static func appendEndpoint(_ value: Any?, to endpoints: inout [[String: Any]]) {
+        guard let endpoint = unwrapEndpoint(value) else {
+            return
+        }
+        endpoints.append(endpoint)
+    }
+
+    private static func unwrapEndpoint(_ value: Any?) -> [String: Any]? {
+        guard let endpoint = value as? [String: Any] else {
+            return nil
+        }
+        return (endpoint["innertubeCommand"] as? [String: Any]) ?? endpoint
+    }
+
+    private static func playEndpoint(from overlayValue: Any?) -> [String: Any]? {
+        guard let overlay = overlayValue as? [String: Any],
+              let thumbnailOverlay = overlay["musicItemThumbnailOverlayRenderer"] as? [String: Any],
+              let content = thumbnailOverlay["content"] as? [String: Any],
+              let playButton = content["musicPlayButtonRenderer"] as? [String: Any]
+        else {
+            return nil
+        }
+        return Self.unwrapEndpoint(playButton["playNavigationEndpoint"])
+    }
+
+    private static func playableDestination(
+        from renderer: [String: Any],
+        endpointCandidates: [[String: Any]]
+    ) -> PlayableDestination? {
+        let musicVideoType = Self.firstMusicVideoType(
+            from: renderer,
+            endpointCandidates: endpointCandidates
+        )
+
+        if let playlistItemData = renderer["playlistItemData"] as? [String: Any],
+           let videoId = playlistItemData["videoId"] as? String,
+           !videoId.isEmpty
+        {
+            return PlayableDestination(videoId: videoId, musicVideoType: musicVideoType)
+        }
+
+        for endpoint in endpointCandidates {
+            let wrapper = ["navigationEndpoint": endpoint]
+            guard let videoId = ParsingHelpers.extractVideoId(from: wrapper),
+                  !videoId.isEmpty
+            else {
+                continue
+            }
+            let endpointType = ParsingHelpers.extractMusicVideoType(from: wrapper) ?? musicVideoType
+            return PlayableDestination(videoId: videoId, musicVideoType: endpointType)
+        }
+
+        return nil
+    }
+
+    private static func firstMusicVideoType(
+        from renderer: [String: Any],
+        endpointCandidates: [[String: Any]]
+    ) -> MusicVideoType? {
+        if let type = ParsingHelpers.extractMusicVideoType(from: renderer) {
+            return type
+        }
+
+        for endpoint in endpointCandidates {
+            if let type = ParsingHelpers.extractMusicVideoType(from: ["navigationEndpoint": endpoint]) {
+                return type
+            }
+        }
+        return nil
+    }
+
+    private static func contentKind(from renderer: [String: Any]) -> ContentKind? {
+        for run in self.metadataRuns(from: renderer) {
+            guard let text = run["text"] as? String else {
+                continue
+            }
+            for component in Self.splitMetadataText(text) {
+                if let kind = Self.contentKind(fromLabel: component) {
+                    return kind
+                }
+            }
+        }
+        return nil
+    }
+
+    private static func contentKind(fromLabel label: String) -> ContentKind? {
+        switch label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "song", "أغنية", "titel", "canción", "morceau", "lagu", "brano", "노래",
+             "nummer", "utwór", "música", "трек", "låt", "şarkı", "пісня":
+            .song
+        case "video", "فيديو", "vídeo", "vidéo", "동영상", "wideo", "видео", "відео":
+            .video
+        case "album", "single", "ep", "ألبوم", "álbum", "앨범", "альбом", "albüm":
+            .album
+        case "audiobook", "كتاب صوتي", "hörbuch", "audiolibro", "livre audio", "buku audio",
+             "오디오북", "luisterboek", "аудиокнига", "ljudbok", "sesli kitap", "аудіокнига":
+            .audiobook
+        case "artist", "فنان", "interpret", "artista", "artiste", "artis", "아티스트",
+             "artiest", "artysta", "исполнитель", "sanatçı", "виконавець":
+            .artist
+        case "profile", "الملف الشخصي", "profil", "perfil", "profilo", "프로필", "profiel",
+             "профиль", "профіль":
+            .profile
+        case "playlist", "قائمة تشغيل", "lista de reproducción", "daftar putar", "재생목록",
+             "afspeellijst", "playlista", "lista de reprodução", "плейлист", "spellista", "çalma listesi":
+            .playlist
+        case "podcast", "بودكاست", "팟캐스트", "подкаст", "podd":
+            .podcastShow
+        case "episode", "podcast episode", "حلقة", "folge", "episodio", "épisode", "에피소드",
+             "aflevering", "odcinek", "episódio", "выпуск", "avsnitt", "bölüm", "епізод":
+            .podcastEpisode
+        default:
+            nil
+        }
+    }
+
+    private static func browseKind(
+        browseId: String,
+        pageType: String?,
+        contentKind: ContentKind?
+    ) -> BrowseKind? {
+        switch pageType {
+        case "MUSIC_PAGE_TYPE_ALBUM":
+            return .album
+        case "MUSIC_PAGE_TYPE_AUDIOBOOK":
+            return .audiobook
+        case "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_LIBRARY_ARTIST":
+            return .artist
+        case "MUSIC_PAGE_TYPE_USER_CHANNEL":
+            return .profile
+        case "MUSIC_PAGE_TYPE_PLAYLIST":
+            return .playlist
+        case "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE":
+            return .podcastShow
+        default:
+            break
+        }
+
+        if browseId.hasPrefix("MPSPP") {
+            return .podcastShow
+        }
+        if browseId.hasPrefix("MPED") || contentKind == .podcastEpisode {
+            return .podcastEpisode
+        }
+        if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+            return contentKind == .audiobook ? .audiobook : .album
+        }
+        if browseId.hasPrefix("VL") || browseId.hasPrefix("PL")
+            || browseId.hasPrefix("VM") || browseId.hasPrefix("RD")
+        {
+            return .playlist
+        }
+        if Artist.isNavigableId(browseId) {
+            return contentKind == .profile ? .profile : .artist
+        }
+        return nil
+    }
+
+    private static func isVideoResult(_ musicVideoType: MusicVideoType?) -> Bool {
+        switch musicVideoType {
+        case .omv, .ugc, .officialSourceMusic:
+            true
+        case .atv, .podcastEpisode, nil:
+            false
+        }
+    }
+
+    private static func itemTitle(from renderer: [String: Any]) -> String? {
+        ParsingHelpers.extractTitleFromFlexColumns(renderer)
+            ?? ParsingHelpers.extractTitle(from: renderer)
+    }
+
+    private static func titleRun(from renderer: [String: Any]) -> [String: Any]? {
+        if let flexColumns = renderer["flexColumns"] as? [[String: Any]],
+           let firstColumn = flexColumns.first,
+           let columnRenderer = firstColumn["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+           let text = columnRenderer["text"] as? [String: Any],
+           let runs = text["runs"] as? [[String: Any]]
+        {
+            return runs.first
+        }
+
+        if let title = renderer["title"] as? [String: Any],
+           let runs = title["runs"] as? [[String: Any]]
+        {
+            return runs.first
+        }
+        return nil
+    }
+
+    private static func metadataRuns(from renderer: [String: Any]) -> [[String: Any]] {
+        if let flexColumns = renderer["flexColumns"] as? [[String: Any]] {
+            var runs: [[String: Any]] = []
+            for column in flexColumns.dropFirst() {
+                guard let columnRenderer = column["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any],
+                      let text = columnRenderer["text"] as? [String: Any],
+                      let columnRuns = text["runs"] as? [[String: Any]]
+                else { continue }
+                runs.append(contentsOf: columnRuns)
+            }
+            if !runs.isEmpty {
+                return runs
+            }
+        }
+
+        var runs: [[String: Any]] = []
+        for key in ["subtitle", "secondSubtitle"] {
+            guard let subtitle = renderer[key] as? [String: Any],
+                  let subtitleRuns = subtitle["runs"] as? [[String: Any]]
+            else {
+                continue
+            }
+            runs.append(contentsOf: subtitleRuns)
+        }
+        return runs
+    }
+
+    private static func metadataComponents(from renderer: [String: Any]) -> [String] {
+        var components: [String] = []
+        for run in Self.metadataRuns(from: renderer) {
+            guard let text = run["text"] as? String else {
+                continue
+            }
+            for component in Self.splitMetadataText(text)
+                where Self.contentKind(fromLabel: component) == nil
+            {
+                components.append(component)
+            }
+        }
+        return components
+    }
+
+    private static func semanticSubtitle(from renderer: [String: Any]) -> String? {
+        let components = Self.metadataComponents(from: renderer)
+        return components.isEmpty ? nil : components.joined(separator: " • ")
+    }
+
+    private static func itemArtists(
+        from renderer: [String: Any],
+        allowPlainTextFallback: Bool
+    ) -> [Artist] {
+        if renderer["flexColumns"] != nil {
+            let artists = ParsingHelpers.extractArtistsFromFlexColumns(renderer).filter { artist in
+                artist.hasNavigableId || Self.contentKind(fromLabel: artist.name) == nil
+            }
+            if !artists.isEmpty {
+                return artists
+            }
+        }
+
+        let runs = Self.metadataRuns(from: renderer)
+        var artists: [Artist] = []
+        for run in runs {
+            guard let name = (run["text"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !name.isEmpty,
+                  let endpoint = Self.unwrapEndpoint(run["navigationEndpoint"]),
+                  let browseEndpoint = endpoint["browseEndpoint"] as? [String: Any],
+                  let artist = ParsingHelpers.extractArtist(from: browseEndpoint, name: name)
+            else {
+                continue
+            }
+            artists.append(artist)
+        }
+        if !artists.isEmpty || !allowPlainTextFallback {
+            return artists
+        }
+
+        guard let fallbackName = Self.metadataComponents(from: renderer).first(where: { component in
+            !Self.isNonArtistMetadata(component)
+        }) else {
+            return []
+        }
+        return [Artist.inline(name: fallbackName, namespace: "search-artist")]
+    }
+
+    private static func fallbackCreatorName(from renderer: [String: Any]) -> String? {
+        self.metadataComponents(from: renderer).first { component in
+            !Self.isNonArtistMetadata(component)
+        }
+    }
+
+    private static func isNonArtistMetadata(_ text: String) -> Bool {
+        if self.contentKind(fromLabel: text) != nil {
+            return true
+        }
+        if ParsingHelpers.parseDuration(text) != nil || self.hasLocalizedCountUnit(text) {
+            return true
+        }
+
+        let patterns = [
+            #"^\s*\d+(?:[.,]\d+)?\s*(?:seconds?|secs?|minutes?|mins?|hours?|hrs?)\s*$"#,
+            #"^\s*\d+\s*(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|[smhdwy])\s+ago\s*$"#,
+            #"^\s*(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+\d{1,2}(?:,\s*\d{4})?\s*$"#,
+            #"^\s*(?:\d{4}|\d{4}-\d{1,2}-\d{1,2})\s*$"#,
+        ]
+        return patterns.contains { pattern in
+            text.range(of: pattern, options: [.regularExpression, .caseInsensitive]) != nil
+        }
+    }
+
+    private static func songCount(from renderer: [String: Any]) -> Int? {
+        if renderer["flexColumns"] != nil {
+            return ParsingHelpers.extractSongCountFromFlexColumns(renderer)
+        }
+        return ParsingHelpers.extractSongCountFromSubtitle(from: renderer)
     }
 }

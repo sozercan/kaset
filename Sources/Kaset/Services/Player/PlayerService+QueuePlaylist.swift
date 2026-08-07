@@ -43,44 +43,46 @@ extension PlayerService {
         }
 
         let videoIds = songs.map(\.videoId)
-        let playlistId = try await client.createPlaylist(
-            title: trimmedTitle,
-            description: nil,
-            privacyStatus: .private,
-            videoIds: videoIds
-        )
-        guard self.acceptsAccountMutationOwner(owner) else {
-            throw CancellationError()
+        return try await LibraryMutationActions.withAccountBoundaryTracking {
+            let playlistId = try await client.createPlaylist(
+                title: trimmedTitle,
+                description: nil,
+                privacyStatus: .private,
+                videoIds: videoIds
+            )
+            guard !Task.isCancelled, self.acceptsAccountMutationOwner(owner) else {
+                throw CancellationError()
+            }
+
+            let playlist = Playlist(
+                id: playlistId,
+                title: trimmedTitle,
+                description: nil,
+                thumbnailURL: songs.first?.thumbnailURL,
+                trackCount: songs.count
+            )
+
+            SongActionsHelper.invalidateLibraryResponseCaches()
+            LibraryMutationBroadcaster.shared.playlistCreated(playlist)
+
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled, self.acceptsAccountMutationOwner(owner) else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
+            SongActionsHelper.invalidateLibraryResponseCaches()
+            let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
+                playlist,
+                whileValid: { !Task.isCancelled && self.acceptsAccountMutationOwner(owner) }
+            )
+            guard didReconcile, !Task.isCancelled, self.acceptsAccountMutationOwner(owner) else {
+                LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
+                throw CancellationError()
+            }
+            SongActionsHelper.invalidateLibraryResponseCaches()
+
+            self.logger.info("Saved queue as playlist '\(trimmedTitle)' with \(songs.count) songs")
+            return playlist
         }
-
-        let playlist = Playlist(
-            id: playlistId,
-            title: trimmedTitle,
-            description: nil,
-            thumbnailURL: songs.first?.thumbnailURL,
-            trackCount: songs.count
-        )
-
-        SongActionsHelper.invalidateLibraryResponseCaches()
-        LibraryMutationBroadcaster.shared.playlistCreated(playlist)
-
-        try? await Task.sleep(for: .milliseconds(500))
-        guard self.acceptsAccountMutationOwner(owner) else {
-            LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-            throw CancellationError()
-        }
-        SongActionsHelper.invalidateLibraryResponseCaches()
-        let didReconcile = await LibraryMutationBroadcaster.shared.reconcileCreatedPlaylist(
-            playlist,
-            whileValid: { self.acceptsAccountMutationOwner(owner) }
-        )
-        guard didReconcile, self.acceptsAccountMutationOwner(owner) else {
-            LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
-            throw CancellationError()
-        }
-        SongActionsHelper.invalidateLibraryResponseCaches()
-
-        self.logger.info("Saved queue as playlist '\(trimmedTitle)' with \(songs.count) songs")
-        return playlist
     }
 }

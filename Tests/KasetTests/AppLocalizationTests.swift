@@ -251,10 +251,34 @@ struct AppLocalizationTests {
             ("sv", "Smart blandning"),
             ("tr", "Akıllı Karıştırma"),
             ("uk", "Розумне перемішування"),
+            ("zh-Hans", "智能随机播放"),
+            ("zh-Hant", "智慧隨機播放"),
         ]
 
         for (locale, expectedValue) in expectedValues {
             #expect(self.localizedValue(key: "Smart Shuffle", localeIdentifier: locale) == expectedValue)
+        }
+    }
+
+    /// The two Chinese locales are distinguished by script, so a mix-up would
+    /// still produce plausible-looking Chinese. Assert on strings whose
+    /// simplified and traditional forms differ in wording, not just in
+    /// character shape, so a swapped or machine-converted file fails here.
+    @Test("Chinese locales use script-appropriate vocabulary")
+    func chineseLocalesUseScriptAppropriateVocabulary() {
+        let expectedValues = [
+            ("zh-Hans", "Playlist", "播放列表"),
+            ("zh-Hant", "Playlist", "播放清單"),
+            ("zh-Hans", "Search", "搜索"),
+            ("zh-Hant", "Search", "搜尋"),
+            ("zh-Hans", "Video", "视频"),
+            ("zh-Hant", "Video", "影片"),
+            ("zh-Hans", "Sign In", "登录"),
+            ("zh-Hant", "Sign In", "登入"),
+        ]
+
+        for (locale, key, expectedValue) in expectedValues {
+            #expect(self.localizedValue(key: key, localeIdentifier: locale) == expectedValue)
         }
     }
 
@@ -308,7 +332,7 @@ struct AppLocalizationTests {
         let title = String(format: localizedText, locale: Locale(identifier: "it"), "34.6M")
 
         #expect(artist == "Artista")
-        #expect(title.hasPrefix("Abbonati"))
+        #expect(title.hasPrefix("Iscriviti"))
         #expect(title.contains("34.6M"))
     }
 
@@ -376,6 +400,36 @@ struct AppLocalizationTests {
         #expect(artist == "Виконавець")
         #expect(title.hasPrefix("Підписатися"))
         #expect(title.contains("34.6M"))
+    }
+
+    @Test("Ask Gemini UI strings resolve from representative runtime bundles")
+    func askGeminiRuntimeStringsResolve() {
+        let expectedValues = [
+            ("ar", "New Chat", "محادثة جديدة"),
+            ("de", "Ask Gemini", "Gemini fragen"),
+            ("de", "Ask about this video...", "Frag etwas zu diesem Video…"),
+            ("de", "Ask anything about this video...", "Frag alles über dieses Video…"),
+            ("fr", "Send", "Envoyer"),
+            ("ko", "Try asking:", "이렇게 질문해 보세요:"),
+            ("ko", "YouTube response: %@", "YouTube 응답: %@"),
+            ("tr", "Sending…", "Gönderiliyor…"),
+        ]
+
+        for (locale, key, expectedValue) in expectedValues {
+            #expect(self.localizedValue(key: key, localeIdentifier: locale) == expectedValue)
+        }
+
+        let arabicTemplate = self.localizedValue(
+            key: "You asked: %@",
+            localeIdentifier: "ar"
+        )
+        let arabicLabel = String(
+            format: arabicTemplate,
+            locale: Locale(identifier: "ar"),
+            "محتوى تجريبي"
+        )
+        #expect(arabicLabel.hasPrefix("لقد سألت:"))
+        #expect(arabicLabel.contains("محتوى تجريبي"))
     }
 
     @Test("Override bundle lookup is scoped to Kaset-owned bundles")

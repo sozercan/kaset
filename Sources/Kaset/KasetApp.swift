@@ -26,6 +26,10 @@ extension EnvironmentValues {
 }
 
 extension EnvironmentValues {
+    @Entry var libraryViewModel: LibraryViewModel?
+}
+
+extension EnvironmentValues {
     @Entry var onPlaylistDeleted: (() -> Void)?
 }
 
@@ -52,6 +56,7 @@ struct KasetApp: App {
     @State private var likeStatusManager = SongLikeStatusManager.shared
     @State private var accountService: AccountService?
     @State private var scrobblingCoordinator: ScrobblingCoordinator
+    @State private var nowPlayingTracklistProvider: NowPlayingTracklistProvider
     @State private var syncedLyricsService: SyncedLyricsService
     @State private var equalizerService = EqualizerService.shared
     @State private var settings = SettingsManager.shared
@@ -59,6 +64,8 @@ struct KasetApp: App {
 
     /// Triggers search field focus when set to true.
     @State private var searchFocusTrigger = false
+
+    @State private var textInputFocusState = TextInputFocusState()
 
     @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
 
@@ -106,19 +113,52 @@ struct KasetApp: App {
 
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth, webKitManager: webkit)
+        let beginAccountBoundary: @MainActor @Sendable () -> Void = {
+            LibraryMutationActions.beginAccountBoundary()
+        }
+        let endAccountBoundary: @MainActor @Sendable () -> Void = {
+            LibraryMutationActions.endAccountBoundary()
+        }
+        let drainAccountBoundary: @MainActor @Sendable () async -> Void = {
+            await LibraryMutationActions.awaitAccountBoundaryDrain()
+        }
+        auth.setAccountBoundaryHandlers(
+            willBegin: beginAccountBoundary,
+            didEnd: endAccountBoundary,
+            drain: drainAccountBoundary
+        )
+        account.setAccountBoundaryHandlers(
+            willBegin: beginAccountBoundary,
+            didEnd: endAccountBoundary,
+            drain: drainAccountBoundary
+        )
 
         // Wire up brand account provider so API requests use the correct account
         realClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
+        realClient.accountScopeProvider = { [weak account] in
+            account?.currentAccountScopeID
+        }
 
         // YouTube (video) client — same login, www.youtube.com origin
-        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit)
+        let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit, askFeatureEnabled: true)
         realYouTubeClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
         realYouTubeClient.accountCacheIdentityProvider = { [weak account] in
             account?.currentAccount?.cacheIdentity
+        }
+        realYouTubeClient.askAccountBindingProvider = { [weak account] in
+            guard let account,
+                  let currentAccount = account.currentAccount,
+                  currentAccount.isPrimary,
+                  account.verifiedAccountId == currentAccount.id,
+                  let scopeID = account.currentAccountScopeID
+            else {
+                return nil
+            }
+            return YouTubeAskAccountBinding(scopeID: scopeID)
         }
         let youtubeClient: YouTubeClientProtocol = if UITestConfig.isUITestMode {
             MockUITestYouTubeClient()
@@ -145,9 +185,17 @@ struct KasetApp: App {
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
-        // Create scrobbling coordinator with mix tracklist parser
-        let lastFMService = LastFMService(credentialStore: KeychainCredentialStore())
+        // Playback-UI tracklist provider: owns seek-bar segmentation for the current item and is
+        // driven by the player, so segments show even without Last.fm connected. Scrobbling keeps
+        // its provisional classification state but shares the same cached/coalescing parser.
         let mixTracklistParser = MixTracklistParser(youTubeClient: youtubeClient)
+        let tracklistProvider = NowPlayingTracklistProvider(parser: mixTracklistParser)
+        player.setNowPlayingTracklistProvider(tracklistProvider)
+        _nowPlayingTracklistProvider = State(initialValue: tracklistProvider)
+
+        // Create the scrobbling coordinator with the shared parser. Its classification lifecycle is
+        // intentionally independent from the current-item UI provider.
+        let lastFMService = LastFMService(credentialStore: KeychainCredentialStore())
         let scrobblingCoordinator = ScrobblingCoordinator(
             playerService: player,
             services: [lastFMService],
@@ -192,6 +240,7 @@ struct KasetApp: App {
                 .environment(self.likeStatusManager)
                 .environment(self.accountService)
                 .environment(self.scrobblingCoordinator)
+                .environment(self.nowPlayingTracklistProvider)
                 .environment(self.syncedLyricsService)
                 .environment(self.equalizerService)
                 .environment(self.podcastsAvailabilityService)
@@ -203,6 +252,7 @@ struct KasetApp: App {
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
+                    self.textInputFocusState.startMonitoring()
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
@@ -281,6 +331,9 @@ struct KasetApp: App {
                 .onChange(of: self.settings.keepMiniPlayerOnTop) { _, _ in
                     MiniPlayerWindowController.shared.syncWindowState()
                 }
+                .onChange(of: self.settings.keepYouTubeVideoOnTop) { _, _ in
+                    YouTubeVideoWindowController.shared.syncWindowState()
+                }
             }
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
@@ -319,12 +372,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.space, modifiers: [])
-                .disabled(
-                    !self.playbackArbiter.routesMediaKeysToVideo
-                        && self.playerService.currentTrack == nil
-                        && self.playerService.pendingPlayVideoId == nil
-                )
+                .keyboardShortcut(self.playbackShortcut(.space, modifiers: []))
+                .disabled(self.shouldDisablePlaybackCommand)
 
                 Divider()
 
@@ -340,8 +389,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.rightArrow, modifiers: .command)
-                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
+                .keyboardShortcut(self.playbackShortcut(.rightArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 // Previous Track - ⌘←
                 Button(String(localized: "Previous")) {
@@ -353,8 +402,8 @@ struct KasetApp: App {
                         }
                     }
                 }
-                .keyboardShortcut(.leftArrow, modifiers: .command)
-                .disabled(!self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil)
+                .keyboardShortcut(self.playbackShortcut(.leftArrow, modifiers: .command))
+                .disabled(self.shouldDisableTrackNavigationCommands)
 
                 Divider()
 
@@ -364,7 +413,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
                     }
                 }
-                .keyboardShortcut(.upArrow, modifiers: .command)
+                .keyboardShortcut(self.playbackShortcut(.upArrow, modifiers: .command))
 
                 // Volume Down - ⌘↓
                 Button(String(localized: "Volume Down")) {
@@ -372,7 +421,7 @@ struct KasetApp: App {
                         await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
                     }
                 }
-                .keyboardShortcut(.downArrow, modifiers: .command)
+                .keyboardShortcut(self.playbackShortcut(.downArrow, modifiers: .command))
 
                 // Mute
                 Button(self.playerService.isMuted ? "Unmute" : "Mute") {
@@ -472,6 +521,14 @@ struct KasetApp: App {
                     }
                     .keyboardShortcut("k", modifiers: .command)
                 }
+
+                Divider()
+
+                Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
+                    .disabled(!YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
+                        isFloating: self.youtubePlayerService.surfaceLocation == .floating,
+                        isFullscreenOrTransitioning: self.youtubePlayerService.isWindowFullscreen
+                    ))
             }
 
             // Window menu - show main window
@@ -627,6 +684,21 @@ struct KasetApp: App {
         } else {
             self.playerService.isPlaying
         }
+    }
+
+    private func playbackShortcut(_ key: KeyEquivalent, modifiers: EventModifiers) -> KeyboardShortcut? {
+        guard !self.textInputFocusState.isFocused else { return nil }
+        return KeyboardShortcut(key, modifiers: modifiers)
+    }
+
+    private var shouldDisablePlaybackCommand: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo
+            && self.playerService.currentTrack == nil
+            && self.playerService.pendingPlayVideoId == nil
+    }
+
+    private var shouldDisableTrackNavigationCommands: Bool {
+        !self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil
     }
 
     /// Label for repeat mode menu item.

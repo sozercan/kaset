@@ -126,7 +126,7 @@ Brand accounts (YouTube channels) can be accessed by setting `context.user.onBeh
 
 #### Discovering Brand Accounts
 
-Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs:
+Use the `account/accounts_list` endpoint to get all accounts (primary + brand) with their IDs. An unauthenticated call can still return HTTP 200, but only with a sign-in/select response; account identities require SAPISIDHASH authentication. During an explicit account switch from Guest Mode, Kaset authorizes only this account-list refresh with the preserved signed-in session while keeping guest content published until the switch commits:
 
 ```bash
 swift run api-explorer brandaccounts
@@ -140,7 +140,7 @@ swift run api-explorer brandaccounts
 
   0: Primary Account (@handle) [Primary] ← current
   1: Brand Channel (@brand-handle) [Brand Account]
-     Brand ID: 111997145576882617490
+     Brand ID: <BRAND_ID>
 ```
 
 **API Response Path**:
@@ -166,7 +166,7 @@ let body: [String: Any] = [
             "clientVersion": "1.20231204.01.00"
         ],
         "user": [
-            "onBehalfOfUser": "111997145576882617490"  // Brand account ID
+            "onBehalfOfUser": "<BRAND_ID>"  // Brand account ID
         ]
     ],
     "browseId": "FEmusic_liked_playlists"
@@ -179,7 +179,7 @@ let body: [String: Any] = [
 swift run api-explorer brandaccounts
 
 # Access brand account library
-swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand <BRAND_ID>
 ```
 
 #### Key Differences: authuser vs brand
@@ -206,8 +206,9 @@ Browse endpoints use `POST /browse` with a `browseId` parameter.
 | `FEmusic_charts` | Charts | 🌐 | Top songs, albums by country/genre | `HomeResponseParser` |
 | `FEmusic_moods_and_genres` | Moods & Genres | 🌐 | Browse by mood/genre grids | `HomeResponseParser` |
 | `FEmusic_new_releases` | New Releases | 🌐 | Recent albums, singles, videos | `HomeResponseParser` |
-| `FEmusic_library_landing` | Library Landing | 🔐 | All library content (playlists, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
+| `FEmusic_library_landing` | Library Landing | 🔐 | Library content previews (playlists, albums, podcasts, artists) | `PlaylistParser.parseLibraryContent` |
 | `FEmusic_liked_playlists` | Library Playlists | 🔐 | User's saved/created playlists | `PlaylistParser` |
+| `FEmusic_liked_albums` | Library Albums | 🔐 | User's saved albums | `PlaylistParser.parseLibraryAlbumsPage` / `parseLibraryAlbumsContinuation` |
 | `FEmusic_library_privately_owned_tracks` | Uploaded Songs | 🔐 | User-uploaded songs with playlist-style rows and continuation | `PlaylistParser` |
 | `VLLM` | Liked Songs | 🔐 | All songs user has liked (with pagination) | `PlaylistParser` |
 | `VL{playlistId}` | Playlist Detail | 🌐 | Playlist tracks and metadata | `PlaylistParser` |
@@ -270,6 +271,21 @@ let body = ["browseId": "FEmusic_liked_playlists"]
 
 ---
 
+#### Library Albums (`FEmusic_liked_albums`)
+
+```swift
+let body = ["browseId": "FEmusic_liked_albums"]
+// Requires authentication; params are optional for the default order
+```
+
+**Returns**: A paginated grid of saved albums with album browse IDs, artwork, artist metadata, and release year. Kaset follows grid continuation tokens until the saved-album collection is exhausted.
+
+**Parser**: Uses `PlaylistParser.parseLibraryAlbumsPage()` for the initial response and `PlaylistParser.parseLibraryAlbumsContinuation()` for subsequent grid pages, then merges any landing-page preview albums as a fallback.
+
+**Library mutations**: Album detail navigation uses an `MPRE...` browse ID, but `like/like` and `like/removelike` must target the album's `OLAK...` playlist ID. Album browse responses expose that playlist ID through play/queue endpoints even when the personalized Save button is unavailable.
+
+---
+
 #### Liked Songs (`VLLM`)
 
 > ⚠️ **Use `VLLM`, not `FEmusic_liked_videos`** — The `FEmusic_liked_videos` browse ID returns only ~13 songs with NO continuation token. To fetch all liked songs, use `VLLM` (VL prefix + LM playlist ID) which returns the full list with proper pagination.
@@ -297,7 +313,6 @@ These endpoints are functional but not yet implemented in Kaset.
 |-----------|------|------|----------|-------|
 | `FEmusic_history` | History | 🔐 | **High** | Recently played tracks |
 | `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Medium | User's subscribed podcast shows |
-| `FEmusic_library_albums` | Library Albums | 🔐 | Medium | Requires auth + params* |
 | `FEmusic_library_corpus_track_artists` | Library Artists (Artists chip) | 🔐 | Medium | Sign-in backed; returns `MPLAUC...` library artist pages |
 | `FEmusic_library_artists` | Library Artists (param-based) | 🔐 | Medium | Requires auth + params*; distinct from the Artists chip |
 | `FEmusic_library_songs` | Library Songs | 🔐 | Low | Requires auth + params* |
@@ -307,7 +322,9 @@ These endpoints are functional but not yet implemented in Kaset.
 
 > `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
 >
-> \* `FEmusic_library_albums`, `FEmusic_library_artists`, and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
+> `FEmusic_library_albums` is a legacy browse ID that currently returns HTTP 400. Saved albums use `FEmusic_liked_albums`; optional sorting params are not required for the default order.
+>
+> \* `FEmusic_library_artists` and `FEmusic_library_songs` are separate param-based library endpoints. They return HTTP 400 without authentication and the correct `params` value.
 
 #### Uploaded Songs (`FEmusic_library_privately_owned_tracks`)
 
@@ -462,7 +479,7 @@ Action endpoints perform operations or fetch specific data.
 
 | Endpoint | Name | Auth | Description |
 |----------|------|------|-------------|
-| `search` | Search | 🌐 | Search songs, albums, artists, playlists |
+| `search` | Search | 🌐 | Search songs, videos, albums/audiobooks, artists/profiles, playlists, podcasts, and episodes |
 | `music/get_search_suggestions` | Suggestions | 🌐 | Autocomplete for search |
 | `next` | Now Playing | 🌐 | Track info, lyrics ID, radio queue |
 | `like/like` | Like | 🔐 | Like a song/album/playlist |
@@ -483,10 +500,12 @@ let body = ["query": "never gonna give you up"]
 ```
 
 **Response Structure**:
-- `musicCardShelfRenderer` — **Top Result** section (single prominent result: song, album, artist, or playlist)
-- `musicShelfRenderer` — Regular results (mixed songs, albums, artists, playlists)
+- `musicCardShelfRenderer` — **Top Result** section. Its title can navigate through either `browseEndpoint` or `watchEndpoint`, and its `contents` can include additional rows.
+- `itemSectionRenderer.contents[]` — Current mixed-search rows. Each wrapper commonly contains one `musicResponsiveListItemRenderer`.
+- `musicShelfRenderer` — Filtered result lists and occasional direct mixed-search sections.
+- `musicResponsiveListItemRenderer` — Songs, videos, albums, audiobooks, artists, profiles, playlists, podcast shows, and podcast episodes.
 
-> ⚠️ **Important**: The Top Result (most relevant match) is returned in `musicCardShelfRenderer`, not `musicShelfRenderer`. This is often the artist/album the user is looking for. Always parse both renderer types.
+> ⚠️ **Important**: Revalidated on 2026-07-19, mixed search no longer consistently returns direct `musicShelfRenderer` sections. Parse `musicCardShelfRenderer`, its nested `contents`, direct `musicShelfRenderer`, and `itemSectionRenderer.contents`. Top Results can be directly playable `watchEndpoint` videos, not only browse destinations.
 
 **Top Result Example** (searching "manifest"):
 ```json
@@ -514,7 +533,30 @@ let body = ["query": "never gonna give you up"]
 }
 ```
 
-**Parser**: `SearchResponseParser` (handles both `musicCardShelfRenderer` and `musicShelfRenderer`)
+**Observed mixed result types (guest session, 2026-07-19)**:
+
+- `Song` — usually `MUSIC_VIDEO_TYPE_ATV`
+- `Video` — `MUSIC_VIDEO_TYPE_OMV` or `MUSIC_VIDEO_TYPE_UGC`
+- `Album`
+- `Audiobook` — `MUSIC_PAGE_TYPE_AUDIOBOOK`; currently uses an album-like `MPRE...` browse destination
+- `Artist`
+- `Profile` — `MUSIC_PAGE_TYPE_USER_CHANNEL`
+- `Playlist`
+- `Podcast` — `MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE`
+- `Episode` — `MUSIC_VIDEO_TYPE_PODCAST_EPISODE` with an `MPED...` title destination
+
+Playable rows can expose the same video ID through several paths:
+
+```text
+playlistItemData.videoId
+navigationEndpoint.watchEndpoint.videoId
+flexColumns[0]...runs[0].navigationEndpoint.watchEndpoint.videoId
+overlay...musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId
+```
+
+Browse rows commonly use `musicResponsiveListItemRenderer.navigationEndpoint.browseEndpoint`.
+
+**Parser**: `SearchResponseParser`. The API shape audit command below reports which live rows the current parser can and cannot reach.
 
 **Filter Params** (base64-encoded filter values for `params` field):
 
@@ -528,7 +570,20 @@ let body = ["query": "never gonna give you up"]
 | Community Playlists | `EgeKAQQoAEABagwQDhAKEAMQBBAJEAU=` | User-created playlists |
 | Podcasts | `EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D` | Filter to podcast shows only |
 
-> **Filter Pattern**: `EgWKAQ` (base) + filter code + `AWoMEA4QChADEAQQCRAF` (no spelling correction suffix). The filter code encodes the content type (songs=II, albums=IY, artists=Ig, playlists=Io, podcasts=JQ).
+> **Static params vs. live chips**: The table above records Kaset's existing no-spelling-correction params. Live `chipCloudChipRenderer.navigationEndpoint.searchEndpoint.params` values are contextual: the same filter label had different complete suffixes for different queries on 2026-07-19. Do not assume one server-issued full params value is universal.
+
+Observed filter type codes in live chips:
+
+| Live Filter | Encoded Type Code | Current Kaset Filter |
+|-------------|-------------------|----------------------|
+| Songs | `II` | ✅ |
+| Videos | `IQ` | ✅ |
+| Albums | `IY` | ✅ |
+| Artists | `Ig` | ✅ |
+| Profiles | `JY` | ✅ |
+| Episodes | `JI` | ✅ |
+| Podcasts | `JQ` | ✅ |
+| Community / Featured playlists | Specialized playlist params | ✅ |
 
 **Usage Example** (podcasts):
 ```swift
@@ -537,6 +592,65 @@ let body: [String: Any] = [
     "params": "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
 ]
 ```
+
+**Filtered Search Continuation** (revalidated 2026-07-19):
+
+The first-page token is carried by the shelf, not the enclosing section list:
+
+```text
+contents.tabbedSearchResultsRenderer.tabs[0].tabRenderer.content
+  .sectionListRenderer.contents[].musicShelfRenderer
+  .continuations[0].nextContinuationData.continuation
+```
+
+Send that token back to the `search` endpoint:
+
+```swift
+let body = ["continuation": token]
+// POST /youtubei/v1/search
+```
+
+The common response uses:
+
+```text
+continuationContents.musicShelfContinuation.contents[]
+continuationContents.musicShelfContinuation.continuations[]
+```
+
+Search continuations can also use action envelopes. Preserve action order and parse both append and reload commands:
+
+```text
+onResponseReceivedActions[] | onResponseReceivedCommands[] | onResponseReceivedEndpoints[]
+  .appendContinuationItemsAction.continuationItems[]
+  .reloadContinuationItemsCommand.continuationItems[]
+```
+
+The `continuationItems` array can mix result renderers with a trailing `continuationItemRenderer` carrying the next token. `SearchResponseParser.parseContinuation` supports both the shelf envelope and these action envelopes.
+
+Sending the captured search token to `browse` returned unrelated browse/home sections in the same guest session, not the next search page.
+
+**Deep audit command**:
+
+```bash
+swift run api-explorer --guest search-audit "ambient electronic mix"
+```
+
+This probes the unfiltered response, every live filter chip, and one `/search` continuation page per filter when offered. It reports renderer wrappers, destination paths, content/page types, token carrier locations, and current mixed-parser coverage without printing continuation values.
+
+To compare a response against Kaset's currently configured WEB_REMIX version instead of the live web version resolved by API Explorer:
+
+```bash
+swift run api-explorer --guest --client-version 1.20231204.01.00 \
+  search-audit "ambient electronic mix"
+```
+
+`search-audit` labels the client-version source as `live`, `override`, or `fallback`. When it reports `fallback`, use `--client-version` before drawing a version-comparison conclusion. API Explorer also resolves the live version independently when the API key comes from its environment override.
+
+For this query, the live version `1.20260715.04.00` and Kaset's configured `1.20231204.01.00` showed no structural difference in section wrappers, result-type counts, filter chips, or continuation carriers. This does not prove that every result identity was identical or fully rule out version-specific behavior; it does show that the observed parser gaps reproduce with Kaset's configured version.
+
+A July 19, 2026 guest audit matrix covering the reported query, `Taylor Swift`, `The Daily podcast`, and `lofi hip hop` found no unhandled result rows after the parser update. It also exposed `MUSIC_PAGE_TYPE_AUDIOBOOK` inside mixed and Albums-filter results; Kaset now keeps those results semantically distinct as audiobooks while reusing the existing album payload and playlist-style detail navigation.
+
+`search-audit` labels the version source as `live`, `override`, or `fallback`. The audit performs a bounded live-version lookup even when `KASET_YTMUSIC_API_KEY` supplies the API key; unrelated API Explorer commands keep the environment override's immediate behavior. If web configuration discovery fails, the report explicitly identifies the configured fallback instead of presenting it as live.
 
 ---
 
@@ -1044,7 +1158,7 @@ All parsers are located in `Sources/Kaset/Services/API/Parsers/`. Each parser is
 | `HomeResponseParser` | `HomeResponseParser.swift` | Home/Explore browse response | `HomeResponse` with `[HomeSection]` | `FEmusic_home`, `FEmusic_explore` |
 | `SearchResponseParser` | `SearchResponseParser.swift` | Search response | `SearchResponse` with songs, albums, artists, playlists | `search` endpoint |
 | `SearchSuggestionsParser` | `SearchSuggestionsParser.swift` | Suggestions response | `[SearchSuggestion]` | `music/get_search_suggestions` |
-| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_library_landing` |
+| `PlaylistParser` | `PlaylistParser.swift` | Playlist/library response | `[Playlist]`, `[Album]`, `LibraryContent` | `VL{id}`, `VLLM`, `FEmusic_liked_playlists`, `FEmusic_liked_albums`, `FEmusic_library_landing` |
 | `ArtistParser` | `ArtistParser.swift` | Artist browse response | `ArtistDetail` with songs, albums | `UC{channelId}` |
 | `LyricsParser` | `LyricsParser.swift` | Next/lyrics response | `Lyrics` or lyrics browse ID | `next`, `MPLYt{id}` |
 | `PodcastParser` | `PodcastParser.swift` | Podcast browse response | `[PodcastSection]`, `PodcastShowDetail` | `FEmusic_podcasts`, `MPSPP{id}` |
@@ -1164,7 +1278,7 @@ let result = try await RetryPolicy.execute(
 
 | Feature | Endpoint | Effort | Impact |
 |---------|----------|--------|--------|
-| Library Albums | `FEmusic_library_albums` | Medium | Medium |
+| Library Albums | `FEmusic_liked_albums` | Implemented | Medium |
 | Library Artists | `FEmusic_library_corpus_track_artists` | Medium | Medium |
 | Add to Playlist | `playlist/get_add_to_playlist` + `browse/edit_playlist` | Implemented | Medium |
 
@@ -1269,6 +1383,258 @@ Field notes:
 
 Prefer the destination feeds documented in [youtube.md](youtube.md) for Explore; YouTube's old `FEtrending` feed is no longer a reliable target.
 
+#### YouTube Ask Gemini / YouChat investigation (2026-07-27)
+
+YouTube's **Ask Gemini** watch-page experience is an undocumented, internal
+YouChat engagement-panel surface. It is not a public API, and its availability,
+request schemas, and frontend identifiers are subject to account eligibility,
+server rollout, client version, and video-specific changes.
+
+Start with the redacted read-only audit. Use the separate live command only when
+an explicit request to contact the live AI service has been approved:
+
+```bash
+# Read-only: audits watch responses and frontend capability markers
+swift run api-explorer ask-video-audit <VIDEO_ID>
+
+# Read-only: compares the ordered production/request-compatibility profiles
+swift run api-explorer ask-video-parity <VIDEO_ID>
+
+# Live: replays only the server-issued summary suggestion
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai
+
+# Live: summary plus the first server-issued follow-up suggestion
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --follow-up
+
+# Live: two independent watch/panel bootstraps, capped at three
+swift run api-explorer ask-video-live-test <VIDEO_ID> --confirm-live-ai --fresh-chats 2
+
+# Live: one guarded free-text request from a private prompt source
+swift run api-explorer ask-video-free-text-test <VIDEO_ID> --confirm-live-ai --prompt-file <MODE_0600_PATH_OR_->
+
+# Manual structural probe for object, array, streaming, or opaque responses
+swift run api-explorer --youtube wire-action <ENDPOINT> '<JSON_OBJECT>'
+```
+
+`ask-video-audit` redacts opaque values, does not save raw payloads, and never
+submits a query. `ask-video-live-test` requires `--confirm-live-ai`, keeps all
+opaque continuations and message state in memory, rejects raw output files, and
+accepts no arbitrary prompt text. Its generated answer display strips control
+and bidirectional formatting characters, hides links and high-entropy opaque
+strings, and is bounded to 16,000 characters per answer.
+
+`ask-video-free-text-test` is a separate, one-shot validation command. It
+captures one immutable authenticated runtime-WEB request snapshot, fetches a
+fresh `next` response, and selects the first complete eligible `PAyouchat`
+panel, matching the browser's mirrored-panel behavior without merging opaque
+commands from responsive duplicates. If `next` contains the validated
+`sendUserQueryCommand`, the loader uses it directly. Otherwise, when the same
+bootstrap has one safe panel continuation, the loader sends its prompt-free
+initial `get_panel` body through that same snapshot and accepts only the strict
+parser's confirmed materialized `freeTextCommand`. The accepted command schema
+is intentionally narrow and may originate in either response. The August 2
+watch response placed it at
+`engagementPanelSectionListRenderer.footer.chatInputViewModel.sendUserQueryCommand`;
+confirmed materialized panel items may expose the same command under
+`youChatItemViewModel.sendUserQueryCommand`:
+
+```text
+sendUserQueryCommand
+└── innertubeCommand
+    ├── clickTrackingParams: nonempty string
+    └── continuationCommand
+        ├── request: CONTINUATION_REQUEST_TYPE_GET_PANEL
+        └── opaque continuation token is present
+```
+
+Initial materialization contains only the exact panel continuation plus the
+snapshot's request context; it has no `formData`, message ID, prompt, or click-
+tracking injection and cannot generate an answer. The resolved command then
+sends one generated `get_panel` request, without retry, using the exact server
+continuation and click-tracking context plus:
+
+```text
+formData.inputComposerFormData.clientMessageId: youchat-<Unix epoch milliseconds>
+formData.inputComposerFormData.playerOffsetMs: decimal millisecond string
+formData.inputComposerFormData.userInputText: private prompt contents
+```
+
+The runtime WEB `context` is added by the authenticated request transport.
+The same immutable context, headers, API identifier, cookie/account snapshot,
+and origin are used for `next`, optional initial materialization, and prompt
+submission; the backing identity is revalidated before either `get_panel`.
+Prompts must come from stdin or a regular file owned by the current user with
+exact mode `0600`, no extended ACL, valid UTF-8, at most 16,000 characters, and
+at most 64 KiB of UTF-8. The command rejects guest, `--authuser`, brand-account,
+client-version override, verbose, output, raw-body, follow-up, and multi-chat
+options. Responses use the bounded `YouTubeAskCore` decoder and strict confirmed
+YouChat parser; only sanitized assistant text and redacted structural metrics are
+printed. Raw prompts, commands, responses, and conversation values are never
+displayed or saved.
+
+**Live validation on August 2, 2026:**
+
+- The first guarded API candidate used `streaming_panel` and returned HTTP 400
+  before generation, confirming the earlier transport interpretation was stale.
+- A user-approved browser capture then submitted one 25-character prompt. The
+  frontend posted to `get_panel`, not `streaming_panel`, with top-level
+  `context`, `continuation`, and `formData` only.
+- `inputComposerFormData` contained exactly `clientMessageId`, string
+  `playerOffsetMs`, and `userInputText`; click tracking was nested in
+  `context.clickTracking`.
+- The response returned HTTP 200 as a JSON object with the confirmed singular
+  `onResponseReceivedCommand.listMutationCommand` shape. The existing bounded
+  decoder and strict conversation parser accept that response container.
+- No second arbitrary-text turn was sent in this browser capture, so multi-turn
+  behavior remained unvalidated at that point.
+
+**Read-only production-parity matrix (added July 28, 2026):**
+
+`ask-video-parity` tests the credential-free profiles defined by
+`YouTubeAskRequestProfile` in this order:
+
+1. Fixed production client version, no API key, no visitor data, and one SID proof.
+2. The same fixed production configuration with all available SID proof schemes.
+3. The runtime WEB client-version/API-key/visitor-data bundle with all available
+   SID proof schemes.
+
+For each profile, the command makes an authenticated `next` request and, only
+when strict parsing finds one unambiguous panel bootstrap, materializes the
+initial `get_panel`. It never submits a suggestion chip, free text, or any other
+generation request. Both responses use the bounded `YouTubeAskCore` wire decoder
+and strict parser. Terminal output is limited to the profile name, HTTP status,
+response size, wire format, eligibility, chip counts, whether a validated
+free-text capability was present in `next` and initial `get_panel`, and a
+redacted failure category. It never prints command continuations or click-
+tracking values. The command stops at the first passing profile and rejects
+raw-output, private-body, client-version override, follow-up, and multi-chat
+options.
+
+The read-only run on **July 28, 2026** completed all three profiles. Every
+`next` request returned HTTP 200, but each response reported the exported
+session as signed out, so `get_panel` was not run and no profile passed. This is
+an authentication rejection, not evidence that any request profile is valid or
+invalid for an eligible signed-in session. No profile passed that historical
+run. Production was later enabled through the explicitly selected fixed profile;
+future compatibility checks must still confirm signed-in primary-account
+eligibility and fail closed on unsupported responses.
+
+`get_panel`, `streaming_panel`, and `get_answer` must use `wire-action` for manual
+probes; the raw `action` command rejects them. Supply manual panel JSON through
+`--body-file` using a mode-0600 regular file, or use `--body-file -` to read
+stdin, so opaque values do not appear in argv or normal shell history. Endpoint
+arguments must be plain relative API paths.
+
+**Observed frontend identifiers**:
+
+- `PAyouchat`
+- `engagement-panel-youchat`
+- `PAai_companion`
+
+**Observed transport behavior**:
+
+| Transport | Current interpretation |
+|-----------|------------------------|
+| `get_panel` | Prompt-free initial panel materialization, direct suggestion chips, materialized free-text capability discovery, and the validated free-text composer transport |
+| `streaming_panel` | Frontend capability remains present, but the August 2 free-text candidate returned HTTP 400; not used by production |
+| `get_watch` | Combined player/watch bootstrap; observed responses use a top-level JSON array |
+| `get_answer` | Separate AI answer transport; not used by the verified watch-page suggestion flow |
+
+A direct suggestion chip does **not** submit its visible text. The current
+frontend creates a `CONTINUATION_REQUEST_TYPE_GET_PANEL` command from the exact
+server-issued `chipData.continuation` and posts it to `get_panel` with:
+
+```text
+continuation: exact server-issued chip continuation
+formData.inputComposerFormData.clientMessageId: youchat-<Unix epoch milliseconds>
+```
+
+The browser also supplies optional playback/page/previous-message timing context
+when available. API Explorer omits unavailable optional fields rather than
+inventing them. The chip's `id`, visible text, click-tracking command, and the
+free-text composer's `sendUserQueryCommand` are not copied into this direct-chip
+request.
+
+**Current direct-chip response container (August 1, 2026):**
+
+Successful `get_panel` responses used a top-level singular
+`onResponseReceivedCommand.listMutationCommand`. Assistant text items and
+follow-up chips were inserted under:
+
+```text
+operations.operations[].insertItemSectionContent.contents[].youChatItemViewModel
+```
+
+The confirmed insertion metadata uses `position: INSERTION_POSITION_LAST` with a
+nonempty section target. Other positions or missing placement metadata fail
+closed.
+
+Text-bearing `youChatItemViewModel` objects expose `text.content` plus optional
+style/action metadata. Chip-bearing objects expose `chipsData`. Kaset parses only
+those two visible surfaces under the confirmed insertion path; result/link
+objects such as `videoResultsData` and `webData`, plus sibling `frameworkUpdates`,
+remain ignored. The older
+`onResponseReceivedCommands[].appendContinuationItemsAction.continuationItems[]`
+shape remains supported for previously validated responses.
+
+**Signed-in production compatibility check on August 1, 2026**:
+
+- The authenticated watch response exposed validated direct chips whose
+  `chipData` entries could include a top-level `onClick` callback containing one
+  local interaction command.
+- The root `chipData.continuation` remained the only replayed capability. Kaset
+  ignores the callback only when it matches the observed `listMutationCommand`
+  structure, inserts the same visible label plus the allowlisted loading-animation
+  placeholder, and contains no extra keys or request capability.
+- The same response exposed multiple distinct panel-bootstrap continuations.
+  When direct chips are already present, Kaset discards the ambiguous panel
+  command instead of guessing; ambiguity still rejects bootstraps that have no
+  direct chips.
+- A read-only production-client probe then parsed the watch bootstrap
+  successfully. No panel materialization or suggestion submission was performed.
+
+The free-text composer uses the exact server-issued `sendUserQueryCommand`
+continuation and click tracking. Strict parsing may obtain that capability from
+the canonical eligible `next` panel or from the confirmed prompt-free initial
+`get_panel` materialization. `next` wins when it already supplies the command;
+the initial panel is queried only as a fallback, and distinct commands are never
+merged. The August 2 browser capture showed that the frontend posts the resolved
+command to `get_panel` with `clientMessageId`, decimal-string `playerOffsetMs`,
+and `userInputText`. Production permits that exact shape once per bound
+conversation revision. A successful response advances the revision and retains
+the validated composer command when the response omits a replacement; no
+additional multi-turn fields are invented.
+
+**Live production validation on August 3, 2026:**
+
+- Two free-text prompts succeeded in the same watch-scoped chat.
+- The first response contained no replacement `sendUserQueryCommand`; Kaset
+  retained the original validated composer command after advancing the bound
+  conversation revision.
+- The second request reused the validated `get_panel` shape with a fresh
+  monotonic `clientMessageId`, current playback offset, and new `userInputText`.
+- Each revision remained single-consumption: stale pending copies were rejected
+  before network access, and there was no automatic retry.
+
+**Live validation on July 27, 2026**:
+
+- The refreshed cookie export was accepted as a signed-in YouTube WEB session.
+- The watch bootstrap exposed `PAyouchat`, a summary chip, and a fresh panel
+  continuation.
+- Replaying the summary chip through `get_panel` returned HTTP 200 and a generated
+  summary.
+- Replaying the first follow-up chip from that response returned HTTP 200 and a
+  generated follow-up answer in the same flow.
+- Two independent watch/panel bootstraps both returned HTTP 200 summaries; the
+  generated text was not exactly identical.
+- Sending the chip continuation to `streaming_panel` without form data returned
+  HTTP 400, confirming that it is not the direct-chip transport.
+
+These results validate the current eligible-account flow, not a stable contract.
+Treat the surface as rollout-fragile. Never commit or display cookies,
+authorization material, account identifiers, conversation identifiers, visitor
+or session values, opaque params, continuations, or server-issued commands.
+
 ### Authenticated Endpoints
 
 For authenticated endpoints (🔐), sign in to the Kaset app first:
@@ -1280,7 +1646,7 @@ swift run api-explorer auth
 # If authenticated, explore library endpoints
 swift run api-explorer browse FEmusic_liked_playlists
 swift run api-explorer browse FEmusic_history
-swift run api-explorer browse FEmusic_library_albums ggMGKgQIARAA
+swift run api-explorer browse FEmusic_liked_albums
 ```
 
 Debug builds export auth cookies for the API explorer to `~/Library/Application Support/Kaset/cookies.dat`.
@@ -1292,7 +1658,7 @@ Debug builds export auth cookies for the API explorer to `~/Library/Application 
 swift run api-explorer brandaccounts
 
 # Access a brand account's library
-swift run api-explorer browse FEmusic_liked_playlists --brand 111997145576882617490
+swift run api-explorer browse FEmusic_liked_playlists --brand <BRAND_ID>
 ```
 
 The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [Brand Account Support](#brand-account-support) in the Authentication section for details.
@@ -1302,8 +1668,14 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 | Command | Description |
 |---------|-------------|
 | `browse <id> [params]` | Explore a browse endpoint |
-| `action <endpoint> <json>` | Explore an action endpoint |
-| `continuation <token> [ep]` | Explore a continuation (`browse` or `next`) |
+| `action <endpoint> <json>` | Explore an action endpoint that returns a top-level JSON object |
+| `wire-action <endpoint> <json>` | Safely inspect object, array, streaming, or opaque wire responses without printing raw values |
+| `ask-video-audit <videoId>` | Run a redacted, read-only Ask Gemini / YouChat audit without sending a prompt |
+| `ask-video-parity <videoId>` | Test ordered read-only Ask request profiles using only `next` and initial `get_panel`; never submits a chip |
+| `ask-video-live-test <videoId>` | With `--confirm-live-ai`, replay the server-issued summary chip; optionally add `--follow-up` or `--fresh-chats N` |
+| `ask-video-free-text-test <videoId>` | With `--confirm-live-ai` and `--prompt-file`, resolve the command from `next` or a prompt-free initial `get_panel`, then validate one exact server-commanded free-text request with no retry |
+| `search-audit <query>` | Audit live Music search shapes, filter chips, continuations, and parser coverage |
+| `continuation <token> [ep]` | Explore a continuation (`browse`, `search`, or `next`); use the same auth mode as the originating request (`--guest` for guest search) |
 | `list` | List all known endpoints |
 | `auth` | Check authentication status |
 | `accounts` | Discover accounts via authuser header |
@@ -1314,10 +1686,16 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Option | Description |
 |--------|-------------|
-| `-v, --verbose` | Show full raw JSON response |
-| `-o, --output <file>` | Save raw JSON to file |
+| `-v, --verbose` | Show full raw JSON for browse/action/continuation commands; expand audit and search samples |
+| `-o, --output <file>` | Save raw output with owner-only permissions; `ask-video-audit` ignores this option |
 | `--authuser N` | Use Google account at index N |
 | `--brand <ID>` | Use brand account (21-digit ID) |
+| `--client-version <version>` | Override the resolved InnerTube client version for compatibility probes |
+| `--body-file <path\|->` | Read a sensitive JSON action body from a mode-0600 regular file or stdin; required for panel/answer transports |
+| `--prompt-file <path\|->` | Read the free-text validation prompt from an exact mode-0600 regular file or stdin; accepted only by `ask-video-free-text-test` |
+| `--confirm-live-ai` | Required explicit acknowledgement before either guarded Ask live-test command sends an AI request |
+| `--follow-up` | Replay the first follow-up chip returned by the live summary response |
+| `--fresh-chats N` | Run 1-3 independent summary bootstraps (default: 1) |
 | `--youtube`, `--yt` | Target regular YouTube (`www.youtube.com`, WEB client) instead of YouTube Music |
 
 ---
@@ -1337,6 +1715,13 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-08-03 | Live-validated two free-text prompts in one chat; retained the validated composer command across successful bound revisions, enforced one action per revision, and preserved stale-revision rejection/no-retry behavior |
+| 2026-08-02 | Browser-validated the `get_panel` free-text request and response shape; added the guarded `ask-video-free-text-test`; selected the first content-equivalent mirrored YouChat panel; documented and implemented `sendUserQueryCommand` provenance from the watch footer `chatInputViewModel`, an eligible YouChat item, or prompt-free initial `get_panel`; added redacted parity capability reporting; deduplicated repeated visible suggestions; retained server-chip follow-ups |
+| 2026-08-01 | Revalidated an eligible signed-in production watch response; added strict support for the observed local user-turn/loading `onClick` mutation, preserved direct chips while discarding ambiguous panel-only commands, and added one bounded read-only retry for internal identity-fence cancellation |
+| 2026-07-30 | Enabled the fixed WEB Ask request profile in the production app by explicit product direction; eligibility and all strict parser, identity, and transport gates remain enforced |
+| 2026-07-28 | Added redacted read-only `ask-video-parity` tooling backed by `YouTubeAskCore`; all three profiles returned HTTP 200 `next` responses but the exported session was treated as signed out, so no profile passed and production remains disabled |
+| 2026-07-27 | Live-validated YouTube Ask Gemini / YouChat summary, follow-up, and two fresh chats; added guarded `ask-video-live-test`, corrected direct chips to `get_panel`, retained read-only `ask-video-audit`, and documented redaction/auth constraints |
+| 2026-07-19 | Revalidated Music search: `itemSectionRenderer` mixed rows, watch-endpoint Top Results, audiobooks, videos/profiles/episodes filters, shelf and action-envelope continuations, and `/search` routing; added `search-audit` |
 | 2026-06-24 | Documented regular YouTube `--youtube` API Explorer mode alongside YouTube Music |
 | 2026-01-16 | Added comprehensive Podcast ID Format section: MPSPP→PL conversion, L-prefix validation, double-L bug documentation |
 | 2026-01-14 | Added Brand Account Support: `account/accounts_list` endpoint, `--brand` flag, `brandaccounts` command |
@@ -1481,6 +1866,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 | Endpoint | Status | Notes |
 |----------|--------|-------|
 | `FEmusic_liked_playlists` | HTTP 200 | Works with session cookies |
+| `FEmusic_liked_albums` | HTTP 200* | Returns saved album rows with current auth; stale or missing auth returns a sign-in prompt |
 | `FEmusic_liked_videos` | HTTP 200 | Works with session cookies |
 | `FEmusic_history` | HTTP 200 | Returns login prompt without full auth |
 
@@ -1490,7 +1876,7 @@ The following endpoints were tested without authentication on 2024-12-21. `FEmus
 |----------|--------|-------|
 | `FEmusic_history` | HTTP 200* | Returns content with full auth, login prompt without |
 | `FEmusic_library_corpus_track_artists` | HTTP 200* | Returns library artist rows with full auth, sign-in prompt without |
-| `FEmusic_library_albums` | HTTP 400 | Needs auth + specific `params` value |
+| `FEmusic_library_albums` | HTTP 400 | Legacy saved-albums browse ID; use `FEmusic_liked_albums` |
 | `FEmusic_library_artists` | HTTP 400 | Rejected as invalid argument in current authenticated sessions |
 | `FEmusic_library_corpus_artists` | HTTP 200* | Returns followed artists with full auth and public `UC...` browseIds |
 | `FEmusic_library_songs` | HTTP 400 | Needs auth + specific `params` value |

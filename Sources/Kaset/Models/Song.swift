@@ -129,6 +129,26 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.playlistSetVideoId, forKey: .playlistSetVideoId)
     }
 
+    func replacingDisplayMetadata(title: String, artists: [Artist], thumbnailURL: URL?) -> Song {
+        Song(
+            id: self.id,
+            title: title,
+            artists: artists,
+            album: self.album,
+            duration: self.duration,
+            thumbnailURL: thumbnailURL,
+            videoId: self.videoId,
+            isPlayable: self.isPlayable,
+            hasVideo: self.hasVideo,
+            musicVideoType: self.musicVideoType,
+            likeStatus: self.likeStatus,
+            isInLibrary: self.isInLibrary,
+            feedbackTokens: self.feedbackTokens,
+            isExplicit: self.isExplicit,
+            playlistSetVideoId: self.playlistSetVideoId
+        )
+    }
+
     /// Display string for artists (comma-separated).
     var artistsDisplay: String {
         self.artists.map(\.name).joined(separator: ", ")

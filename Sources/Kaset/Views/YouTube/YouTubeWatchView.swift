@@ -14,6 +14,7 @@ struct YouTubeWatchView: View {
     let video: YouTubeVideo
 
     @Environment(AuthService.self) private var authService
+    @Environment(AccountService.self) private var accountService
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var viewModel: YouTubeWatchViewModel
 
@@ -53,6 +54,16 @@ struct YouTubeWatchView: View {
         return self.youtubePlayer.storyboardSpec
     }
 
+    private var askAccountScope: YouTubeAskAccountScopeObservation {
+        YouTubeAskAccountScopeObservation(
+            authenticationGeneration: self.authService.accountIdentityGeneration,
+            hasPersonalAccount: self.authService.hasPersonalAccount,
+            accountScopeID: self.accountService.currentAccountScopeID,
+            isPrimaryAccount: self.accountService.currentAccount?.isPrimary,
+            verifiedIdentitySequence: self.accountService.verifiedIdentitySequence
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -83,6 +94,7 @@ struct YouTubeWatchView: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 20)
         }
+        .disabled(self.viewModel.ask.isExpanded)
         // PROTOTYPE: full-bleed ambient color behind the page. `.ignoresSafeArea`
         // (inside the modifier) lets it bleed under the bottom player-bar inset,
         // so the bar's Liquid Glass capsule refracts the live color.
@@ -97,6 +109,20 @@ struct YouTubeWatchView: View {
         .navigationTitle(String(localized: ""))
         // Let the ambient reach under the nav bar, like the other accent pages.
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .toolbar {
+            if self.viewModel.ask.isAvailable {
+                ToolbarItem(placement: .primaryAction) {
+                    YouTubeAskToolbarButton(viewModel: self.viewModel.ask)
+                }
+            }
+        }
+        .overlay {
+            YouTubeAskFloatingOverlay(
+                viewModel: self.viewModel.ask,
+                playerOffsetMilliseconds: self.askPlayerOffsetMilliseconds
+            )
+        }
+        .youtubeAskAccessibilityAnnouncements(viewModel: self.viewModel.ask)
         #if DEBUG
             .toolbar {
                 self.ambientStylePicker
@@ -104,17 +130,27 @@ struct YouTubeWatchView: View {
         #endif
             .task {
                 self.startOrAdoptPlayback()
-                await self.viewModel.load()
-                // Feed the related list to the player so the bar's next/previous
-                // buttons can skip between videos.
-                if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
-                    self.youtubePlayer.setUpNext(self.viewModel.data.related)
-                    self.youtubePlayer.setChapters(self.viewModel.data.chapters)
-                }
+            }
+            .task(id: self.askAccountScope) {
+                let accountScope = self.askAccountScope
+                await self.viewModel.load(accountScope: accountScope)
+                YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
+                    videoId: self.video.videoId,
+                    player: self.youtubePlayer,
+                    data: self.viewModel.data
+                )
             }
             .onDisappear {
+                self.viewModel.cancel()
                 self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
             }
+    }
+
+    private var askPlayerOffsetMilliseconds: Int64 {
+        guard self.youtubePlayer.currentVideo?.videoId == self.video.videoId else {
+            return 0
+        }
+        return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
 
     // MARK: - Ambient Style Picker (PROTOTYPE)
@@ -227,20 +263,13 @@ struct YouTubeWatchView: View {
     /// Starts playback of this view's video, or adopts the surface if this
     /// video is already playing (e.g. docking back from the floating window).
     private func startOrAdoptPlayback(startAt: Double? = nil) {
-        if self.youtubePlayer.currentVideo?.videoId == self.video.videoId {
-            if self.youtubePlayer.surfaceLocation == .floating {
-                self.youtubePlayer.dockInline()
-            }
-        } else {
-            self.youtubePlayer.play(
-                video: self.video,
-                usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore,
-                startAt: startAt
-            )
-        }
-        self.youtubePlayer.setUpNext(self.viewModel.data.related)
-        self.youtubePlayer.setChapters(self.viewModel.data.chapters)
-        self.youtubePlayer.activeInlineVideoId = self.video.videoId
+        YouTubeWatchPlaybackLifecycle.presentSurface(
+            video: self.video,
+            player: self.youtubePlayer,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore,
+            startAt: startAt,
+            data: self.viewModel.data
+        )
     }
 
     // MARK: - Metadata

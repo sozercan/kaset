@@ -24,6 +24,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
     private(set) var prepareCount = 0
     private(set) var cancelPendingLoadCount = 0
     var cancelPendingLoadResult = false
+    var onCancelPendingLoad: (() -> Void)?
     var onLoadVideo: ((String) -> Void)?
     var onSeek: ((Double) -> Void)?
 
@@ -43,6 +44,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
 
     func cancelPendingLoad() -> Bool {
         self.cancelPendingLoadCount += 1
+        self.onCancelPendingLoad?()
         return self.cancelPendingLoadResult
     }
 
@@ -1555,7 +1557,7 @@ extension YouTubePlayerServiceTests {
         self.controller.captionTracks = [
             YouTubeCaptionTrack(languageCode: "en", displayName: "English"),
         ]
-        self.controller.quality = ["hd1080", "hd720", "auto"]
+        self.controller.quality = ["hd1080", "hd720"]
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
 
         await self.sut.refreshPlaybackOptions()
@@ -1569,7 +1571,150 @@ extension YouTubePlayerServiceTests {
 
         self.sut.selectQuality("hd720")
         #expect(self.sut.currentQuality == "hd720")
+        #expect(self.sut.userPinnedQuality == "hd720")
         #expect(self.controller.selectedQuality == "hd720")
+
+        self.sut.selectQuality("auto")
+        #expect(self.sut.currentQuality == "auto")
+        #expect(self.sut.userPinnedQuality == nil)
+        #expect(self.controller.selectedQuality == "auto")
+
+        self.sut.selectQuality("hd1080")
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
+        #expect(self.sut.userPinnedQuality == nil)
+    }
+
+    @Test("Playback options do not duplicate Auto and remain unavailable when empty")
+    func playbackOptionAutoBranches() async {
+        self.controller.captionTracks = [
+            YouTubeCaptionTrack(languageCode: "en", displayName: "English"),
+        ]
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        self.controller.quality = ["hd1080", "auto"]
+        await self.sut.refreshPlaybackOptions()
+        #expect(self.sut.qualityLevels == ["hd1080", "auto"])
+
+        self.controller.quality = []
+        await self.sut.refreshPlaybackOptions()
+        #expect(self.sut.qualityLevels.isEmpty)
+    }
+
+    @Test("Runtime live state prevents terminal seek handling after SPA drift")
+    func runtimeLiveStatePreventsTerminalSeekAfterDrift() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 10,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "a",
+            boundVideoId: "a"
+        ))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 99,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "live-b",
+            boundVideoId: "live-b",
+            isLive: true
+        ))
+
+        #expect(self.sut.currentVideo?.videoId == "live-b")
+        #expect(self.sut.currentVideo?.isLive == true)
+
+        self.sut.seek(to: 100)
+
+        #expect(self.controller.markCurrentPlaybackOccurrenceEndedCount == 0)
+        #expect(self.controller.pauseCount == 0)
+        #expect(self.controller.pendingRecoverySeeks.last == 100)
+    }
+
+    @Test("A later ready snapshot repairs SPA-drifted live metadata")
+    func readySnapshotRepairsDriftedLiveMetadata() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: false,
+            progress: 0,
+            duration: 0,
+            hasReadyMedia: false,
+            videoId: "live-b",
+            boundVideoId: "a",
+            isLive: false
+        ))
+        #expect(self.sut.currentVideo?.videoId == "live-b")
+        #expect(self.sut.currentVideo?.isLive == false)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 5,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "live-b",
+            boundVideoId: "live-b",
+            isLive: true
+        ))
+
+        #expect(self.sut.currentVideo?.isLive == true)
+    }
+
+    @Test("Leading live metadata does not relabel outgoing bound media")
+    func leadingLiveMetadataDoesNotRelabelOutgoingMedia() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 10,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "a",
+            boundVideoId: "a",
+            isLive: false
+        ))
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 11,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "live-b",
+            boundVideoId: "a",
+            isLive: true
+        ))
+
+        #expect(self.sut.currentVideo?.videoId == "live-b")
+        #expect(self.sut.currentVideo?.isLive == false)
+        #expect(!self.sut.currentMediaIsLive)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "live-b",
+            boundVideoId: "live-b",
+            isLive: true
+        ))
+
+        #expect(self.sut.currentVideo?.isLive == true)
+        #expect(self.sut.currentMediaIsLive)
+    }
+
+    @Test("A negative runtime sample does not downgrade known live metadata")
+    func negativeRuntimeSamplePreservesKnownLiveMetadata() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "live", isLive: true))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 5,
+            duration: 100,
+            hasReadyMedia: true,
+            videoId: "live",
+            boundVideoId: "live",
+            isLive: false
+        ))
+
+        #expect(self.sut.currentVideo?.isLive == true)
+        #expect(self.sut.currentMediaIsLive)
     }
 
     @Test("Source switch pauses the docked video in place — no pop-out")

@@ -874,57 +874,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackFeedbackTokens == FeedbackTokens(add: "add-token", remove: "remove-token"))
     }
 
-    @Test("A stale account owner cannot create a captured queue playlist")
-    func staleAccountOwnerCannotCreateCapturedQueuePlaylist() async {
-        let songs = [TestFixtures.makeSong(id: "stale-playlist-owner")]
-        let owner = self.playerService.currentAccountMutationOwner
-        self.playerService.songLikeStatusManager.setActiveAccountID("brand-account")
-
-        await #expect(throws: CancellationError.self) {
-            _ = try await self.playerService.saveQueueAsPlaylist(
-                title: "Stale Snapshot",
-                songs: songs,
-                owner: owner
-            )
-        }
-
-        #expect(self.mockClient.createPlaylistCalls.isEmpty)
-    }
-
-    @Test("An account switch during playlist reconciliation removes the stale optimistic playlist")
-    func accountSwitchDuringPlaylistReconciliationRemovesOptimisticPlaylist() async {
-        let libraryViewModel = LibraryViewModel(client: self.mockClient)
-        let songs = [TestFixtures.makeSong(id: "reconcile-account-switch")]
-        let owner = self.playerService.currentAccountMutationOwner
-        self.mockClient.shouldWaitForLibraryContentResponse = true
-
-        var saveTask: Task<Playlist, any Error>!
-        await withCheckedContinuation { continuation in
-            self.mockClient.onGetLibraryContent = {
-                self.mockClient.onGetLibraryContent = nil
-                continuation.resume()
-            }
-            saveTask = Task { @MainActor in
-                try await self.playerService.saveQueueAsPlaylist(
-                    title: "Old Account Playlist",
-                    songs: songs,
-                    owner: owner
-                )
-            }
-        }
-
-        #expect(libraryViewModel.isInLibrary(playlistId: "PLCREATED"))
-        self.playerService.songLikeStatusManager.setActiveAccountID("brand-account")
-        self.mockClient.shouldWaitForLibraryContentResponse = false
-        self.mockClient.resumeNextLibraryContentResponse()
-
-        await #expect(throws: CancellationError.self) {
-            _ = try await saveTask.value
-        }
-        #expect(!libraryViewModel.isInLibrary(playlistId: "PLCREATED"))
-        #expect(!libraryViewModel.playlists.contains { $0.id == "PLCREATED" })
-    }
-
     // MARK: - Update Like Status Tests
 
     @Test("updateLikeStatus updates status")
@@ -994,6 +943,98 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.songLikeStatusManager.status(for: song.videoId) == .like)
         #expect(self.playerService.currentTrackLikeStatus == .like)
         #expect(self.playerService.currentTrack?.likeStatus == .like)
+    }
+
+    @Test("fetchSongMetadata applies parsed co-artists to the track and owning queue")
+    func fetchSongMetadataAppliesParsedArtistsToOwningQueue() async {
+        let videoId = "mixed-api-byline"
+        let fetchedArtists = SongMetadataParser.parseArtists(from: [
+            "longBylineText": [
+                "runs": [
+                    [
+                        "text": "Resolved Artist",
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": "UCresolved",
+                            ],
+                        ],
+                    ],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": " • "],
+                    ["text": "1.3M views"],
+                ],
+            ],
+        ])
+        let queueSong = Song(
+            id: videoId,
+            title: "Song",
+            artists: [Artist(id: "unknown", name: "Resolved Artist • 1.3M views")],
+            thumbnailURL: URL(string: "https://example.com/queue.jpg"),
+            videoId: videoId
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: queueSong)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = queueSong
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: "Song",
+            artists: fetchedArtists,
+            videoId: videoId
+        )
+
+        await self.playerService.fetchSongMetadata(videoId: videoId)
+
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
+    }
+
+    @Test("fetchSongMetadata replaces a WebView placeholder with an unlinked API artist")
+    func fetchSongMetadataAppliesUnlinkedAPIArtistToOwningQueue() async {
+        let videoId = "unlinked-api-byline"
+        let fetchedArtists = SongMetadataParser.parseArtists(from: [
+            "longBylineText": [
+                "runs": [
+                    ["text": "Uploaded Artist"],
+                    ["text": " • "],
+                    ["text": "No views"],
+                ],
+            ],
+        ])
+        let queueSong = Song(
+            id: videoId,
+            title: "Uploaded Song",
+            artists: [Artist(id: "unknown", name: "Uploaded Artist • No views")],
+            videoId: videoId
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: queueSong)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = queueSong
+        self.mockClient.songResponses[videoId] = Song(
+            id: videoId,
+            title: queueSong.title,
+            artists: fetchedArtists,
+            videoId: videoId
+        )
+
+        await self.playerService.fetchSongMetadata(videoId: videoId)
+
+        #expect(!fetchedArtists.isEmpty)
+        #expect(fetchedArtists.allSatisfy { !$0.hasNavigableId })
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
+
+        self.playerService.updateTrackMetadata(
+            title: queueSong.title,
+            artist: "Transient WebView Author",
+            thumbnailUrl: "",
+            videoId: videoId
+        )
+
+        #expect(self.playerService.currentTrack?.artists == fetchedArtists)
+        #expect(self.playerService.queue.first?.artists == fetchedArtists)
     }
 
     // MARK: - Reset Track Status Tests

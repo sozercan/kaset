@@ -1,5 +1,7 @@
+// swiftlint:disable file_length
 import Foundation
 import os
+import YouTubeAskCore
 
 // MARK: - YouTubeClient
 
@@ -15,10 +17,13 @@ import os
 /// Unlike the music client, no API key is attached: the `key=` query
 /// parameter is no longer required by InnerTube (confirmed June 2026).
 @MainActor
-final class YouTubeClient: YouTubeClientProtocol {
+final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this type_body_length
     private let authService: AuthService
     private let webKitManager: WebKitManager
     private let session: URLSession
+    let askTransport: YouTubeAskTransport
+    let askMessageIDGenerator: YouTubeAskMessageIDGenerator
+    private let askRequestProfile: YouTubeAskRequestProfile?
     private let logger = DiagnosticsLogger.api
 
     /// Provider for the current brand account ID (mirrors `YTMusicClient`).
@@ -31,6 +36,10 @@ final class YouTubeClient: YouTubeClientProtocol {
     /// account responses across sign-in/account changes.
     var accountCacheIdentityProvider: (() -> String?)?
 
+    /// Provider for a verified primary-account scope eligible for Ask Gemini.
+    /// `nil` covers signed-out, guest, unresolved, and brand-account states.
+    var askAccountBindingProvider: (() -> YouTubeAskAccountBinding?)?
+
     /// YouTube API base URL.
     private static let baseURL = "https://www.youtube.com/youtubei/v1"
 
@@ -39,7 +48,7 @@ final class YouTubeClient: YouTubeClientProtocol {
 
     /// Client version for WEB (live value observed June 2026; InnerTube
     /// accepts moderately stale versions).
-    private static let clientVersion = "2.20260611.01.00"
+    private static let clientVersion = YouTubeAskRequestProfile.productionClientVersion
 
     /// Cache-key prefix so YouTube entries never collide with music
     /// invalidation patterns ("browse:", "next:", …).
@@ -47,6 +56,9 @@ final class YouTubeClient: YouTubeClientProtocol {
 
     private var homeContinuation: String?
     private var searchContinuation: String?
+    private var askSessionGeneration: UInt64 = 0
+    private var consumedAskBootstraps: Set<UUID> = []
+    private var consumedAskRevisions: Set<AskRevisionKey> = []
 
     var hasMoreHomeFeed: Bool {
         self.homeContinuation != nil
@@ -55,21 +67,32 @@ final class YouTubeClient: YouTubeClientProtocol {
     func resetSessionStateForAccountSwitch() {
         self.homeContinuation = nil
         self.searchContinuation = nil
+        self.askSessionGeneration &+= 1
+        self.consumedAskBootstraps = []
+        self.consumedAskRevisions = []
     }
 
     init(
         authService: AuthService,
         webKitManager: WebKitManager = .shared,
-        session: URLSession? = nil
+        session: URLSession? = nil,
+        askMessageIDGenerator: YouTubeAskMessageIDGenerator? = nil,
+        askFeatureEnabled: Bool = false
     ) {
         self.authService = authService
         self.webKitManager = webKitManager
 
-        if let session {
-            self.session = session
+        let resolvedSession: URLSession = if let session {
+            session
         } else {
-            self.session = URLSession(configuration: APISessionConfiguration.make())
+            URLSession(configuration: APISessionConfiguration.make())
         }
+        self.session = resolvedSession
+        self.askTransport = YouTubeAskTransport(configuration: resolvedSession.configuration)
+        self.askMessageIDGenerator = askMessageIDGenerator ?? YouTubeAskMessageIDGenerator()
+        // Ask remains an explicit construction-time capability. The production
+        // app selects the fixed WEB profile; isolated clients and tests default off.
+        self.askRequestProfile = askFeatureEnabled ? .fixedProduction : nil
     }
 
     // MARK: - Home Feed
@@ -120,13 +143,22 @@ final class YouTubeClient: YouTubeClientProtocol {
         let cacheKey = self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated)
 
         if let cacheKey, let cached = self.cachedHomeData(key: cacheKey) {
-            return try await Self.parseHomeBundle(from: cached)
+            let bundle = try await Self.parseHomeBundle(from: cached)
+            try self.validateAuthIdentity(
+                authenticated: homeAuth.authenticated,
+                generation: homeAuth.authIdentityGeneration
+            )
+            return bundle
         }
 
         let data = try await self.requestData("browse", body: homeBody, requestAuth: homeAuth)
         // Parse off-main; this throws on a non-JSON 200, so we never cache bytes
         // that don't parse.
         let bundle = try await Self.parseHomeBundle(from: data)
+        try self.validateAuthIdentity(
+            authenticated: homeAuth.authenticated,
+            generation: homeAuth.authIdentityGeneration
+        )
 
         // Cache only if no account switch / sign-out happened during the fetch
         // (key AND generation unchanged).
@@ -243,6 +275,62 @@ final class YouTubeClient: YouTubeClientProtocol {
 
         let data = try await self.request("next", body: ["videoId": videoId])
         return WatchNextParser.parse(data)
+    }
+
+    func getWatchPage(videoId: String) async throws -> YouTubeWatchPage {
+        self.logger.info("Fetching YouTube watch page")
+
+        let accountBinding = self.currentAskAccountBinding()
+        let askGeneration = self.askSessionGeneration
+        let requestAuth = try await self.buildRequestHeaders(authPolicy: .optional)
+        let data = try await self.requestData(
+            "next",
+            body: ["videoId": videoId],
+            requestAuth: requestAuth
+        )
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw YTMusicError.parseError(message: "Watch response is not a JSON object")
+        }
+
+        let watchData = WatchNextParser.parse(json)
+        guard requestAuth.authenticated,
+              let authenticationGeneration = requestAuth.authIdentityGeneration,
+              let accountBinding,
+              askGeneration == self.askSessionGeneration,
+              accountBinding == self.currentAskAccountBinding()
+        else {
+            return YouTubeWatchPage(data: watchData, askBootstrap: nil)
+        }
+
+        let parsedBootstrap: YouTubeAskParsedBootstrap?
+        do {
+            parsedBootstrap = try await Task.detached(priority: .userInitiated) {
+                let envelope = try YouTubeAskWireDecoder.decode(data)
+                return try YouTubeAskParser.parseBootstrap(from: envelope)
+            }.value
+            try self.validateAskIdentity(
+                authenticationGeneration: authenticationGeneration,
+                accountBinding: accountBinding,
+                clientGeneration: askGeneration
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            self.logger.warning("Ask bootstrap rejected by strict parser")
+            return YouTubeWatchPage(data: watchData, askBootstrap: nil)
+        }
+
+        guard let parsedBootstrap else {
+            return YouTubeWatchPage(data: watchData, askBootstrap: nil)
+        }
+        let bootstrap = YouTubeAskBootstrap.production(
+            videoID: videoId,
+            parsed: parsedBootstrap,
+            authenticationGeneration: authenticationGeneration,
+            accountBinding: accountBinding,
+            clientGeneration: askGeneration
+        )
+        return YouTubeWatchPage(data: watchData, askBootstrap: bootstrap)
     }
 
     func getComments(continuation: String) async throws -> YouTubeCommentsPage {
@@ -456,6 +544,7 @@ final class YouTubeClient: YouTubeClientProtocol {
     private struct RequestAuthHeaders {
         let headers: [String: String]
         let authenticated: Bool
+        let authIdentityGeneration: UInt64?
     }
 
     private func authPolicy(forEndpoint endpoint: String, body: [String: Any]) -> RequestAuthPolicy {
@@ -481,18 +570,39 @@ final class YouTubeClient: YouTubeClientProtocol {
 
     private func buildRequestHeaders(authPolicy: RequestAuthPolicy) async throws -> RequestAuthHeaders {
         if self.authService.hasPersonalAccount {
+            let authIdentityGeneration = self.authService.accountIdentityGeneration
             do {
                 let headers = try await self.buildAuthHeaders()
-                return RequestAuthHeaders(headers: headers, authenticated: true)
+                guard authIdentityGeneration == self.authService.accountIdentityGeneration,
+                      self.authService.hasPersonalAccount
+                else {
+                    throw CancellationError()
+                }
+                return RequestAuthHeaders(
+                    headers: headers,
+                    authenticated: true,
+                    authIdentityGeneration: authIdentityGeneration
+                )
             } catch {
-                self.authService.sessionExpired()
+                if error is CancellationError {
+                    throw error
+                }
+                try self.validateAuthIdentity(
+                    authenticated: true,
+                    generation: authIdentityGeneration
+                )
+                self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
                 throw YTMusicError.authExpired
             }
         } else if authPolicy == .required {
             throw YTMusicError.notAuthenticated
         }
 
-        return RequestAuthHeaders(headers: Self.unauthenticatedHeaders, authenticated: false)
+        return RequestAuthHeaders(
+            headers: Self.unauthenticatedHeaders,
+            authenticated: false,
+            authIdentityGeneration: nil
+        )
     }
 
     private static let unauthenticatedHeaders: [String: String] = [
@@ -620,7 +730,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                     endpoint,
                     fullBody: fullBody,
                     headers: requestAuth.headers,
-                    authenticated: requestAuth.authenticated
+                    authenticated: requestAuth.authenticated,
+                    authIdentityGeneration: requestAuth.authIdentityGeneration
                 )
             }
         } else {
@@ -628,7 +739,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                 endpoint,
                 fullBody: fullBody,
                 headers: requestAuth.headers,
-                authenticated: requestAuth.authenticated
+                authenticated: requestAuth.authenticated,
+                authIdentityGeneration: requestAuth.authIdentityGeneration
             )
         }
 
@@ -711,7 +823,8 @@ final class YouTubeClient: YouTubeClientProtocol {
                     endpoint,
                     fullBody: fullBody,
                     headers: requestAuth.headers,
-                    authenticated: requestAuth.authenticated
+                    authenticated: requestAuth.authenticated,
+                    authIdentityGeneration: requestAuth.authIdentityGeneration
                 )
             }
         }
@@ -719,7 +832,8 @@ final class YouTubeClient: YouTubeClientProtocol {
             endpoint,
             fullBody: fullBody,
             headers: requestAuth.headers,
-            authenticated: requestAuth.authenticated
+            authenticated: requestAuth.authenticated,
+            authIdentityGeneration: requestAuth.authIdentityGeneration
         )
     }
 
@@ -754,8 +868,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ endpoint: String,
         fullBody: [String: Any],
         headers: [String: String],
-        authenticated: Bool
+        authenticated: Bool,
+        authIdentityGeneration: UInt64?
     ) async throws -> [String: Any] {
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
             URLQueryItem(name: "prettyPrint", value: "false"),
@@ -777,6 +896,10 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.logger.debug("Making YouTube request to \(endpoint)")
 
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
 
         switch result {
         case let .success(data):
@@ -787,7 +910,9 @@ final class YouTubeClient: YouTubeClientProtocol {
         case let .authError(statusCode):
             self.logger.error("YouTube auth error: HTTP \(statusCode)")
             if authenticated {
-                self.authService.sessionExpired()
+                if let authIdentityGeneration {
+                    self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
+                }
                 throw YTMusicError.authExpired
             }
             throw YTMusicError.notAuthenticated
@@ -805,8 +930,13 @@ final class YouTubeClient: YouTubeClientProtocol {
         _ endpoint: String,
         fullBody: [String: Any],
         headers: [String: String],
-        authenticated: Bool
+        authenticated: Bool,
+        authIdentityGeneration: UInt64?
     ) async throws -> Data {
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
         var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
         components?.queryItems = [
             URLQueryItem(name: "prettyPrint", value: "false"),
@@ -828,6 +958,10 @@ final class YouTubeClient: YouTubeClientProtocol {
         self.logger.debug("Making YouTube request (data) to \(endpoint)")
 
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        try self.validateAuthIdentity(
+            authenticated: authenticated,
+            generation: authIdentityGeneration
+        )
 
         switch result {
         case let .success(data):
@@ -835,7 +969,9 @@ final class YouTubeClient: YouTubeClientProtocol {
         case let .authError(statusCode):
             self.logger.error("YouTube auth error: HTTP \(statusCode)")
             if authenticated {
-                self.authService.sessionExpired()
+                if let authIdentityGeneration {
+                    self.authService.sessionExpired(ifIdentityGenerationMatches: authIdentityGeneration)
+                }
                 throw YTMusicError.authExpired
             }
             throw YTMusicError.notAuthenticated
@@ -844,6 +980,172 @@ final class YouTubeClient: YouTubeClientProtocol {
             throw YTMusicError.apiError(message: "HTTP \(statusCode)", code: statusCode)
         case let .networkError(error):
             throw YTMusicError.networkError(underlying: error)
+        }
+    }
+
+    // MARK: - Ask Request Identity
+
+    private struct AskRevisionKey: Hashable {
+        let conversationID: UUID
+        let revision: UInt64
+    }
+
+    struct AskRequestSnapshot: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
+        let videoID: String
+        let authenticationGeneration: UInt64
+        let accountBinding: YouTubeAskAccountBinding
+        let clientGeneration: UInt64
+        let headers: [String: String]
+        let context: [String: Any]
+
+        var description: String {
+            "<redacted YouTube Ask request snapshot>"
+        }
+
+        var debugDescription: String {
+            self.description
+        }
+
+        var customMirror: Mirror {
+            Mirror(reflecting: self.description)
+        }
+    }
+
+    func makeAskRequestSnapshot(videoID: String) async throws -> AskRequestSnapshot {
+        guard self.authService.hasPersonalAccount,
+              let accountBinding = self.currentAskAccountBinding()
+        else {
+            throw YouTubeAskClientError.authenticationRequired
+        }
+        let requestAuth: RequestAuthHeaders
+        do {
+            requestAuth = try await self.buildRequestHeaders(authPolicy: .required)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw YouTubeAskClientError.authenticationRequired
+        }
+        guard requestAuth.authenticated,
+              let authenticationGeneration = requestAuth.authIdentityGeneration
+        else {
+            throw YouTubeAskClientError.authenticationRequired
+        }
+        let snapshot = AskRequestSnapshot(
+            videoID: videoID,
+            authenticationGeneration: authenticationGeneration,
+            accountBinding: accountBinding,
+            clientGeneration: self.askSessionGeneration,
+            headers: requestAuth.headers,
+            context: self.buildContext(authenticated: true)
+        )
+        try self.validateAskRequestSnapshot(snapshot)
+        return snapshot
+    }
+
+    func validateAskRequestSnapshot(_ snapshot: AskRequestSnapshot) throws {
+        try self.validateAskIdentity(
+            authenticationGeneration: snapshot.authenticationGeneration,
+            accountBinding: snapshot.accountBinding,
+            clientGeneration: snapshot.clientGeneration
+        )
+    }
+
+    func validateAskIdentity(
+        authenticationGeneration: UInt64,
+        accountBinding: YouTubeAskAccountBinding,
+        clientGeneration: UInt64
+    ) throws {
+        guard self.authService.hasPersonalAccount,
+              authenticationGeneration == self.authService.accountIdentityGeneration,
+              clientGeneration == self.askSessionGeneration,
+              accountBinding == self.currentAskAccountBinding()
+        else {
+            throw CancellationError()
+        }
+    }
+
+    func makeAskRequest(
+        endpoint: String,
+        bodyData: Data,
+        snapshot: AskRequestSnapshot,
+        clickTrackingContextData: Data? = nil
+    ) throws -> URLRequest {
+        guard endpoint == "get_panel",
+              var body = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        else {
+            throw YouTubeAskClientError.invalidResponse
+        }
+        var context = snapshot.context
+        if let clickTrackingContextData {
+            guard let clickTrackingContext = try JSONSerialization.jsonObject(
+                with: clickTrackingContextData
+            ) as? [String: Any],
+                let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any]
+            else {
+                throw YouTubeAskClientError.invalidResponse
+            }
+            context["clickTracking"] = clickTracking
+        }
+        body["context"] = context
+
+        var components = URLComponents(string: "\(Self.baseURL)/\(endpoint)")
+        components?.queryItems = [
+            URLQueryItem(name: "prettyPrint", value: "false"),
+        ]
+        guard let url = components?.url else {
+            throw YouTubeAskClientError.invalidResponse
+        }
+
+        var request = URLRequest(
+            url: url,
+            cachePolicy: .reloadIgnoringLocalCacheData,
+            timeoutInterval: 30
+        )
+        request.httpMethod = "POST"
+        request.httpShouldHandleCookies = false
+        for (key, value) in snapshot.headers {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    func consumeAskBootstrap(conversationID: UUID) -> Bool {
+        self.consumedAskBootstraps.insert(conversationID).inserted
+    }
+
+    func consumeAskRevision(
+        conversationID: UUID,
+        revision: UInt64
+    ) -> Bool {
+        self.consumedAskRevisions.insert(AskRevisionKey(
+            conversationID: conversationID,
+            revision: revision
+        )).inserted
+    }
+
+    func handleAskAuthenticationFailure(snapshot: AskRequestSnapshot) {
+        self.authService.sessionExpired(
+            ifIdentityGenerationMatches: snapshot.authenticationGeneration
+        )
+    }
+
+    func nextAskClientMessageID() -> String {
+        self.askMessageIDGenerator.next()
+    }
+
+    private func currentAskAccountBinding() -> YouTubeAskAccountBinding? {
+        guard self.askRequestProfile != nil, self.authService.hasPersonalAccount else { return nil }
+        return self.askAccountBindingProvider?()
+    }
+
+    private func validateAuthIdentity(authenticated: Bool, generation: UInt64?) throws {
+        guard authenticated else { return }
+        guard let generation,
+              generation == self.authService.accountIdentityGeneration,
+              self.authService.hasPersonalAccount
+        else {
+            throw CancellationError()
         }
     }
 

@@ -117,7 +117,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var isExplicitPauseIntentActive = false
 
     /// Currently playing track.
-    var currentTrack: Song?
+    var currentTrack: Song? {
+        didSet {
+            self.driveNowPlayingTracklistProvider()
+        }
+    }
+
+    @ObservationIgnored private var durationObservation: (videoId: String, duration: TimeInterval)?
+    @ObservationIgnored var isApplyingPlaybackStateObservation = false
 
     /// Artist-page episode backing the current playback, when applicable.
     var currentEpisode: ArtistEpisode?
@@ -142,7 +149,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var currentLyricsDisplayTimeMs: Int?
 
     /// Total duration of current track in seconds.
-    var duration: TimeInterval = 0
+    var duration: TimeInterval = 0 {
+        didSet {
+            guard !self.isApplyingPlaybackStateObservation else { return }
+            self.driveNowPlayingTracklistProvider()
+        }
+    }
 
     /// Whether the music playback WebView currently reports an advertisement.
     var isShowingAd = false
@@ -161,13 +173,63 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// a fresh same-video sample from progress/duration left behind by an earlier metadata identity.
     private(set) var playbackStateObservationSequence = 0
 
+    /// Updates only playback identity; it must not infer duration provenance from existing state.
     func setPlaybackStateVideoId(_ videoId: String?) {
-        self.playbackStateVideoId = videoId
+        self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)
     }
 
-    func recordPlaybackStateObservation(videoId: String?) {
+    /// Records duration provenance only when both values came from the same bridge sample.
+    func recordPlaybackStateObservation(videoId: String?, duration: TimeInterval) {
         self.playbackStateObservationSequence &+= 1
-        self.playbackStateVideoId = videoId
+        self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)
+        self.recordDurationObservation(videoId: self.playbackStateVideoId, duration: duration)
+    }
+
+    func normalizedPlaybackVideoId(_ videoId: String?) -> String? {
+        guard let normalized = videoId?.trimmingCharacters(in: .whitespacesAndNewlines), !normalized.isEmpty else {
+            return nil
+        }
+        return normalized
+    }
+
+    /// Returns the authoritative correlated playback duration when available, otherwise the track's
+    /// positive metadata duration. A bridge observation must replace rather than merge with metadata:
+    /// a persisted `Song` can carry either a stale shorter or stale longer duration.
+    func bestKnownDuration(for track: Song?) -> TimeInterval {
+        guard let track else { return 0 }
+        if let durationObservation, durationObservation.videoId == track.videoId {
+            return durationObservation.duration
+        }
+        return self.positiveMetadataDuration(for: track)
+    }
+
+    func positiveMetadataDuration(for track: Song?) -> TimeInterval {
+        track?.duration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? 0
+    }
+
+    func observedDuration(for videoId: String) -> TimeInterval? {
+        guard let durationObservation, durationObservation.videoId == videoId else { return nil }
+        return durationObservation.duration
+    }
+
+    func recordDurationObservation(videoId: String?, duration: TimeInterval) {
+        if let videoId, duration.isFinite, duration > 0 {
+            self.durationObservation = (videoId, duration)
+        }
+        self.driveNowPlayingTracklistProvider()
+    }
+
+    private func driveNowPlayingTracklistProvider() {
+        // Mix detection is a one-way fetch latch, so only a duration observed with this physical
+        // video identity may cross its gate. Track metadata remains a safe fallback for persistence,
+        // where it can still be corrected before being acted upon.
+        let observedDuration = self.currentTrack.flatMap {
+            self.observedDuration(for: $0.videoId)
+        } ?? 0
+        self.nowPlayingTracklistProvider?.update(
+            track: self.currentTrack,
+            duration: observedDuration
+        )
     }
 
     /// Current volume (0.0 - 1.0).
@@ -334,6 +396,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var ytMusicClient: (any YTMusicClientProtocol)?
     var authService: AuthService?
     var songLikeStatusManager = SongLikeStatusManager.shared
+
+    /// Drives sub-track (mix) segmentation for the current item. Held only to notify it of
+    /// track/duration changes; readers observe it directly via the environment.
+    private(set) var nowPlayingTracklistProvider: NowPlayingTracklistProvider?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
@@ -662,6 +728,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Sets the AuthService used to guard account-scoped mutations.
     func setAuthService(_ authService: AuthService) {
         self.authService = authService
+    }
+
+    /// Injects the provider that tracks sub-track segmentation for the current item, and primes it
+    /// with the current track so segments resolve even if playback started before wiring.
+    func setNowPlayingTracklistProvider(_ provider: NowPlayingTracklistProvider) {
+        self.nowPlayingTracklistProvider = provider
+        self.driveNowPlayingTracklistProvider()
     }
 
     /// Account-backed library/rating mutations should be no-ops in guest mode.
