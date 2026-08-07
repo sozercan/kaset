@@ -166,7 +166,25 @@ final class SettingsManager {
         /// Returns the explicit language code or derives one from the system locale,
         /// falling back to `"en"`.
         var apiLanguageCode: String {
-            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
+            self.apiLanguageCode(for: Locale.current)
+        }
+
+        /// Resolves the API language code against an injectable system locale.
+        func apiLanguageCode(for systemLocale: Locale) -> String {
+            if let languageCode = self.languageCode {
+                return languageCode
+            }
+
+            let language = systemLocale.language
+            guard let languageCode = language.languageCode?.identifier else {
+                return "en"
+            }
+
+            return switch (languageCode, language.script?.identifier) {
+            case ("zh", "Hans"): "zh-Hans"
+            case ("zh", "Hant"): "zh-Hant"
+            default: languageCode
+            }
         }
 
         /// The locale matching this language selection.

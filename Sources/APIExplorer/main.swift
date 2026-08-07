@@ -101,9 +101,9 @@ nonisolated(unsafe) var globalBrandAccountId: String?
 /// Language code sent as the InnerTube `hl` client parameter.
 ///
 /// Overridable with `--hl` so response localization can be probed directly —
-/// YouTube's accepted `hl` vocabulary is not the same as Apple's localization
-/// identifiers (for example `zh-CN`/`zh-TW` versus `zh-Hans`/`zh-Hant`), and
-/// the difference is only observable by comparing real responses.
+/// InnerTube accepts both Apple's script identifiers (`zh-Hans`/`zh-Hant`) and
+/// common region aliases (`zh-CN`/`zh-TW`), so either form can be compared
+/// against real responses.
 nonisolated(unsafe) var globalHl = "en"
 
 private func effectivePort(for url: URL) -> Int? {

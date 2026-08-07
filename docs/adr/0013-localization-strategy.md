@@ -6,7 +6,7 @@ Proposed
 
 ## Context
 
-Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for fifteen locales, with additional languages added incrementally.
+Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for seventeen locales, with additional languages added incrementally.
 
 Supported UI locales: `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`, `zh-Hans`, `zh-Hant`. The Settings → General → Language picker lists **System Default** first, then explicit languages in locale code order.
 

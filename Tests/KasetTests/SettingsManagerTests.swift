@@ -193,10 +193,44 @@ struct SettingsManagerTests {
         #expect(SettingsManager.ContentLanguage.traditionalChinese.apiLanguageCode == "zh-Hant")
     }
 
-    @Test("System content language uses the current locale language code fallback")
-    func systemContentLanguageUsesCurrentLocaleLanguageCode() {
-        let expectedCode = Locale.current.language.languageCode?.identifier ?? "en"
+    @Test("System content language delegates to the current locale")
+    func systemContentLanguageDelegatesToCurrentLocale() {
+        let expectedCode = SettingsManager.ContentLanguage.system.apiLanguageCode(for: Locale.current)
         #expect(SettingsManager.ContentLanguage.system.apiLanguageCode == expectedCode)
+    }
+
+    @Test(
+        "System content language uses the language code for non-Chinese locales",
+        arguments: [
+            ("fr-FR", "fr"),
+            ("pt-BR", "pt"),
+        ]
+    )
+    func systemContentLanguageUsesLanguageCode(localeIdentifier: String, expectedCode: String) {
+        let locale = Locale(identifier: localeIdentifier)
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: locale) == expectedCode)
+    }
+
+    @Test("System content language falls back to English without a language code")
+    func systemContentLanguageFallsBackToEnglish() {
+        let localeWithoutLanguageCode = Locale(identifier: "")
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: localeWithoutLanguageCode) == "en")
+    }
+
+    @Test(
+        "System content language preserves the inferred Chinese script",
+        arguments: [
+            ("zh-CN", "zh-Hans"),
+            ("zh-TW", "zh-Hant"),
+            ("zh-HK", "zh-Hant"),
+        ]
+    )
+    func systemContentLanguagePreservesChineseScript(localeIdentifier: String, expectedCode: String) {
+        let locale = Locale(identifier: localeIdentifier)
+
+        #expect(SettingsManager.ContentLanguage.system.apiLanguageCode(for: locale) == expectedCode)
     }
 
     @Test("Changing content language invalidates API cache and updates localization bundle")
