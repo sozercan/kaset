@@ -239,6 +239,12 @@ extension PlayerService {
             case let .pause(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.pause(intent: intent, origin: .unattributedRemote(admittedAt: admittedAt))
+                // Classification ran before this command was enqueued, and this queue drains
+                // later. A disappearance recorded in between — whose callback found no marker to
+                // attribute — is still unclaimed, and nothing else is guaranteed to come back for
+                // it. Retry now that the marker exists, completing the symmetry: whichever of the
+                // route event and the pause lands second performs the attribution.
+                NowPlayingManager.shared.attributeRouteLossPauseIfPending()
             case let .pauseForRouteChange(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))

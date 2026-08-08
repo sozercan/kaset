@@ -46,12 +46,14 @@ private final class RouteChangeRecord: @unchecked Sendable {
     /// disappearance *after* a pause that got there first — exactly the ordering the late
     /// re-attribution exists to serve, silently defeated.
     ///
-    /// The Core Audio queries still run under the lock. A `nil` dispatch queue means the
-    /// listener runs directly on the notifying thread with no serialization, so overlapping
-    /// callbacks would otherwise interleave their reads and pair one callback's device ID with
-    /// another's usability result. Arrival order and commit order can then differ, so events are
-    /// inserted in timestamp order rather than appended — and never dropped, since a discarded
-    /// disappearance is one a queued pause may still need.
+    /// The Core Audio queries run under the lock. A `nil` dispatch queue means the listener runs
+    /// directly on the notifying thread with no serialization, so overlapping callbacks would
+    /// otherwise interleave their reads and pair one callback's device ID with another's
+    /// usability result. Each transition is therefore consistent with the baseline it was
+    /// compared against, and the log is ordered the same way that baseline advanced: an arrival
+    /// stamp that predates the previous commit is clamped forward rather than sorted behind it,
+    /// which would describe a transition against a baseline that no longer applied.
+    /// Uncontended — the ordinary case — the stamp is exactly arrival time.
     func recordChange(
         at instant: ContinuousClock.Instant,
         currentDefaultDeviceID: () -> AudioDeviceID?,
@@ -59,12 +61,9 @@ private final class RouteChangeRecord: @unchecked Sendable {
     ) {
         self.lock.withLock {
             let isDisappearance = self.defaultDeviceID.map { !isDeviceUsable($0) } ?? false
-            let event = RouteChangeEvent(at: instant, isDisappearance: isDisappearance)
-            let index = self.events.firstIndex { $0.at > instant } ?? self.events.count
-            self.events.insert(event, at: index)
-
-            let newest = self.events.last?.at ?? instant
-            self.events.removeAll { newest - $0.at > Self.retention }
+            let at = self.events.last.map { max(instant, $0.at) } ?? instant
+            self.events.append(RouteChangeEvent(at: at, isDisappearance: isDisappearance))
+            self.events.removeAll { at - $0.at > Self.retention }
             if self.events.count > Self.capacity {
                 self.events.removeFirst(self.events.count - Self.capacity)
             }

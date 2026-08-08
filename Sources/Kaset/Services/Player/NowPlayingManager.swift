@@ -367,12 +367,23 @@ final class NowPlayingManager {
     /// Runs once the route event has been published, which is the earliest moment a pause that
     /// beat it can be attributed correctly.
     private func handleOutputDeviceChange() {
-        self.playerService?.reattributeRemotePauseToRouteLoss { admittedAt in
+        self.attributeRouteLossPauseIfPending()
+        self.resumeAfterRouteRestoredSoon()
+    }
+
+    /// Attributes a pending unattributed pause to a route loss, if one now explains it.
+    ///
+    /// Safe to call from either side of the race and at any time: it is a no-op without a pending
+    /// pause, and the claim is one-shot, so a disconnect still explains at most one pause.
+    func attributeRouteLossPauseIfPending() {
+        guard let playerService = self.playerService else { return }
+        playerService.reattributeRemotePauseToRouteLoss { admittedAt in
             DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
                 admittedAt: admittedAt,
                 within: Self.routeLossPauseWindow
             )
         }
+        guard playerService.routeLossPauseAt != nil else { return }
         self.resumeAfterRouteRestoredSoon()
     }
 
