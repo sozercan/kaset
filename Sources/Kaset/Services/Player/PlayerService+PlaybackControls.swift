@@ -368,6 +368,7 @@ extension PlayerService {
         guard shouldHideMiniPlayer || didStartPlayback || shouldRecordInteraction else { return }
 
         self.showMiniPlayer = false
+        self.routeLossPauseAt = nil
         self.state = .playing
 
         if shouldRecordInteraction {
@@ -483,12 +484,29 @@ extension PlayerService {
         await self.pause(intent: intent)
     }
 
-    func pause(intent: MusicPlaybackIntent) async {
+    /// Pauses playback.
+    ///
+    /// `origin` separates a pause the system imposed from one the user asked for — losing an
+    /// audio route arrives as an ordinary `pause` remote command. A system pause must not record
+    /// a standing intent to stay paused: `isExplicitPauseIntentActive` makes the observer
+    /// re-pause the page the instant anything resumes it, so a media key handled by WebKit would
+    /// start playback and be killed a moment later, and clearing `shouldResumeAfterInterruption`
+    /// additionally blocks transport recovery from resuming.
+    func pause(intent: MusicPlaybackIntent, origin: MusicPauseOrigin = .user) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        self.logger.debug("Pausing playback")
-        self.shouldResumeAfterInterruption = false
+        self.logger.debug("Pausing playback (origin: \(String(describing: origin)))")
         self.isAwaitingPlaybackConfirmation = false
-        self.isExplicitPauseIntentActive = true
+        switch origin {
+        case .user:
+            self.shouldResumeAfterInterruption = false
+            self.isExplicitPauseIntentActive = true
+            self.routeLossPauseAt = nil
+        case let .routeLoss(at):
+            // Dated to when the command was admitted, not to now: this runs after an unbounded
+            // hop to the MainActor, and a marker stamped late would sort *after* a reconnect
+            // that already happened, leaving `hasAudioRouteChanged` permanently false.
+            self.routeLossPauseAt = at
+        }
 
         if self.isPendingRestoredLoadDeferred {
             self.state = .paused
@@ -523,6 +541,33 @@ extension PlayerService {
     func resume() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.resume(intent: intent)
+    }
+
+    /// Resumes playback that the system stopped when its audio route disappeared, once a route
+    /// is available again.
+    ///
+    /// The offer stands for as long as the pause does — there is no expiry. Intent, not elapsed
+    /// time, is what retires it: a user pause or playback actually starting clears
+    /// `routeLossPauseAt`, so a resume can only ever continue exactly what the route loss
+    /// interrupted. Reconnecting headphones an hour later is still the same interrupted song.
+    ///
+    /// The marker deliberately survives issuing the resume; only confirmed playback clears it.
+    /// A route needs a moment to become usable, so the first attempt can be rejected while it
+    /// settles, and retiring the marker here would leave nothing for the retry to act on.
+    ///
+    /// Beyond restoring what the user was listening to, this is what rebinds WebKit's media
+    /// session: while it stays stale its Now Playing entry keeps swallowing media keys without
+    /// acting on them, which is why F8 does nothing until playback runs once.
+    func resumeAfterRouteRestored() async {
+        guard self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
+              // The disconnect drives this same path, and its route change predates the pause,
+              // so only output that came back afterwards — and is still there — qualifies.
+              !self.isPlaying,
+              !self.isExplicitPauseIntentActive,
+              self.currentTrack != nil || self.pendingPlayVideoId != nil
+        else { return }
+        self.logger.info("Audio route restored — resuming playback paused by the route loss")
+        await self.resume()
     }
 
     func resume(intent: MusicPlaybackIntent) async {

@@ -11,11 +11,26 @@ struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
 
+// MARK: - MusicPauseOrigin
+
+/// Why playback is being paused. The two are indistinguishable at the remote-command layer —
+/// macOS asks an app to pause a vanished route exactly as it asks for a user's Pause — so the
+/// distinction has to be carried explicitly.
+enum MusicPauseOrigin: Equatable {
+    case user
+    /// The system took the audio route away, as of when the command was admitted.
+    case routeLoss(at: ContinuousClock.Instant)
+}
+
 // MARK: - MusicRemoteTransportCommand
 
 enum MusicRemoteTransportCommand: Equatable {
     case play
     case pause
+    /// A `pause` the system imposed by taking the audio route away, not a user request.
+    /// Carries the ingress admission instant so the recovery marker is dated to when the
+    /// command arrived rather than to whenever the MainActor got around to draining it.
+    case pauseForRouteChange(admittedAt: ContinuousClock.Instant)
     case togglePlayPause
     case next
     case previous
@@ -219,6 +234,9 @@ extension PlayerService {
             case .pause:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.pause(intent: intent)
+            case let .pauseForRouteChange(admittedAt):
+                self.clearRemoteMusicSkipCoalescingTarget()
+                await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))
             case .togglePlayPause:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.playPause(intent: intent)

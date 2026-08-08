@@ -116,6 +116,20 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var isAwaitingPlaybackConfirmation = false
     var isExplicitPauseIntentActive = false
 
+    /// When the system paused playback because its audio route disappeared, if that is why
+    /// playback is currently stopped.
+    ///
+    /// The route coming back is the cue to resume. That matters beyond convenience: WebKit's
+    /// Now Playing registration survives the route loss as an entry that still captures the
+    /// media keys but no longer acts on them, and playing again is the only thing that rebinds
+    /// it. Until then F8 reaches a session that does nothing.
+    @ObservationIgnored var routeLossPauseAt: ContinuousClock.Instant?
+
+    /// Whether output came back after the given instant and is still available. Injectable for tests.
+    @ObservationIgnored var hasAudioRouteReturned: @MainActor (ContinuousClock.Instant) -> Bool = {
+        DefaultOutputDeviceMonitor.shared.routeRestored(since: $0)
+    }
+
     /// Currently playing track.
     var currentTrack: Song? {
         didSet {
