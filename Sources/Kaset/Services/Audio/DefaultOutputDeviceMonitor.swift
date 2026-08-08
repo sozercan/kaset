@@ -37,36 +37,29 @@ private final class RouteChangeRecord: @unchecked Sendable {
         self.lock.withLock { self.defaultDeviceID = defaultDeviceID }
     }
 
-    func currentDefaultDeviceID() -> AudioDeviceID? {
-        self.lock.withLock { self.defaultDeviceID }
-    }
-
     /// Appends a change, marking it a disappearance when the device that had been the default is
     /// gone — the difference between headphones being unplugged and the user picking a different
-    /// output. `previousDeviceIsUsable` is evaluated by the caller against the device it is
-    /// replacing, since only the caller can reach Core Audio.
-    func record(
-        at instant: ContinuousClock.Instant,
-        defaultDeviceID: AudioDeviceID?,
-        previousDeviceIsUsable: Bool
+    /// output.
+    ///
+    /// Timestamping and the Core Audio queries all happen under this lock. A `nil` dispatch queue
+    /// means the listener runs directly on the notifying thread with no serialization, so
+    /// overlapping callbacks would otherwise interleave: one could pair its device ID with
+    /// another's usability result, or commit out of order and drop the very disappearance a
+    /// queued pause needs to be attributed. Serializing the whole sequence also makes the
+    /// timestamps monotonic by construction.
+    func recordChange(
+        currentDefaultDeviceID: () -> AudioDeviceID?,
+        isDeviceUsable: (AudioDeviceID) -> Bool
     ) {
         self.lock.withLock {
-            // A `nil` dispatch queue means Core Audio invokes the listener directly on the
-            // notifying thread, so callbacks are not serialized: each timestamps itself and then
-            // queries Core Audio outside this lock, and a slow one can arrive after a newer one.
-            // Drop anything already superseded rather than letting a stale reading overwrite
-            // fresh state or leave the log out of order.
-            if let newest = self.events.last?.at, instant <= newest {
-                return
-            }
-
-            let isDisappearance = self.defaultDeviceID != nil && !previousDeviceIsUsable
+            let instant = ContinuousClock.now
+            let isDisappearance = self.defaultDeviceID.map { !isDeviceUsable($0) } ?? false
             self.events.append(RouteChangeEvent(at: instant, isDisappearance: isDisappearance))
             self.events.removeAll { instant - $0.at > Self.retention }
             if self.events.count > Self.capacity {
                 self.events.removeFirst(self.events.count - Self.capacity)
             }
-            self.defaultDeviceID = defaultDeviceID
+            self.defaultDeviceID = currentDefaultDeviceID()
         }
     }
 
@@ -220,17 +213,9 @@ final class DefaultOutputDeviceMonitor {
     // swiftformat:disable:next modifierOrder
     nonisolated private static let listener:
         @Sendable (UInt32, UnsafePointer<AudioObjectPropertyAddress>) -> Void = { _, _ in
-            // Timestamp on entry, before the Core Audio queries below and before the hop. Those
-            // queries take real time, and the `pause` this change provokes is admitted on
-            // another callback — a timestamp taken afterwards can sort after that command and
-            // read as though the route were still fine when it arrived.
-            let changedAt = ContinuousClock.now
-            let previousDeviceIsUsable = DefaultOutputDeviceMonitor.record.currentDefaultDeviceID()
-                .map(DefaultOutputDeviceMonitor.isDeviceUsable) ?? true
-            DefaultOutputDeviceMonitor.record.record(
-                at: changedAt,
-                defaultDeviceID: DefaultOutputDeviceMonitor.currentDefaultOutputDeviceID(),
-                previousDeviceIsUsable: previousDeviceIsUsable
+            DefaultOutputDeviceMonitor.record.recordChange(
+                currentDefaultDeviceID: DefaultOutputDeviceMonitor.currentDefaultOutputDeviceID,
+                isDeviceUsable: DefaultOutputDeviceMonitor.isDeviceUsable
             )
             Task { @MainActor in
                 DefaultOutputDeviceMonitor.shared.notifyChange()

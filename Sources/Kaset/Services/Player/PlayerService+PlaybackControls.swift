@@ -562,6 +562,9 @@ extension PlayerService {
     /// against a route log that does not yet contain the disappearance. Retrying from the other
     /// side closes it — the route event is the thing that arrives late, not the pause.
     func reattributeRemotePauseToRouteLoss(claim: (ContinuousClock.Instant) -> Bool) {
+        // The marker is checked before `claim` on purpose: this can run before the pause has
+        // drained, and consuming the disappearance here would leave nothing for the admission
+        // classification to find. Whichever of the two arrives second does the attribution.
         guard let admittedAt = self.unattributedRemotePauseAt,
               !self.isPlaying,
               claim(admittedAt)
