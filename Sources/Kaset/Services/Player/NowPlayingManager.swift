@@ -360,8 +360,20 @@ final class NowPlayingManager {
 
     private func observeOutputDeviceChanges() {
         DefaultOutputDeviceMonitor.shared.start { [weak self] in
-            self?.resumeAfterRouteRestoredSoon()
+            self?.handleOutputDeviceChange()
         }
+    }
+
+    /// Runs once the route event has been published, which is the earliest moment a pause that
+    /// beat it can be attributed correctly.
+    private func handleOutputDeviceChange() {
+        self.playerService?.reattributeRemotePauseToRouteLoss { admittedAt in
+            DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
+                admittedAt: admittedAt,
+                within: Self.routeLossPauseWindow
+            )
+        }
+        self.resumeAfterRouteRestoredSoon()
     }
 
     /// Resumes playback that a vanished audio route had stopped, once a route is back.
@@ -573,7 +585,7 @@ final class NowPlayingManager {
             } else {
                 let command: MusicRemoteTransportCommand = Self.isRouteChangePause(capturedCommand)
                     ? .pauseForRouteChange(admittedAt: capturedCommand.admittedAt)
-                    : .pause
+                    : .pause(admittedAt: capturedCommand.admittedAt)
                 self.enqueueMusicRemoteCommand(
                     command,
                     capturedCommand: capturedCommand,
@@ -646,9 +658,13 @@ final class NowPlayingManager {
     private static func isRouteChangePause(_ capturedCommand: CapturedRemoteMusicCommand) -> Bool {
         DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
             admittedAt: capturedCommand.admittedAt,
-            within: .milliseconds(1500)
+            within: self.routeLossPauseWindow
         )
     }
+
+    /// How closely a `pause` must follow a device disappearing to be attributed to it. Measured
+    /// at 40-60ms; generous enough for scheduling jitter, far below human reaction time.
+    private static let routeLossPauseWindow = Duration.milliseconds(1500)
 
     private func handleNextPreviousMediaKey(
         direction: RemoteMusicCommandDirection,

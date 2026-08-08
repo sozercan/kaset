@@ -369,6 +369,7 @@ extension PlayerService {
 
         self.showMiniPlayer = false
         self.routeLossPauseAt = nil
+        self.unattributedRemotePauseAt = nil
         self.state = .playing
 
         if shouldRecordInteraction {
@@ -501,7 +502,17 @@ extension PlayerService {
             self.shouldResumeAfterInterruption = false
             self.isExplicitPauseIntentActive = true
             self.routeLossPauseAt = nil
+            self.unattributedRemotePauseAt = nil
+        case let .unattributedRemote(admittedAt):
+            // Behaves as the user's until proven otherwise. Core Audio publishes a route change
+            // only after several synchronous device queries while this command drains
+            // independently, so a genuine route-loss pause can arrive first and look deliberate.
+            self.shouldResumeAfterInterruption = false
+            self.isExplicitPauseIntentActive = true
+            self.routeLossPauseAt = nil
+            self.unattributedRemotePauseAt = admittedAt
         case let .routeLoss(at):
+            self.unattributedRemotePauseAt = nil
             // Dated to when the command was admitted, not to now: this runs after an unbounded
             // hop to the MainActor, and a marker stamped late would sort *after* a reconnect
             // that already happened, leaving `hasAudioRouteChanged` permanently false.
@@ -543,6 +554,25 @@ extension PlayerService {
         await self.resume(intent: intent)
     }
 
+    /// Re-attributes a remote pause to the route loss that caused it, once the route event is
+    /// published and `claim` confirms it explains that pause.
+    ///
+    /// Classification at admission is a race the pause can win: the Core Audio listener runs
+    /// several synchronous device queries before publishing, so the command may be judged
+    /// against a route log that does not yet contain the disappearance. Retrying from the other
+    /// side closes it — the route event is the thing that arrives late, not the pause.
+    func reattributeRemotePauseToRouteLoss(claim: (ContinuousClock.Instant) -> Bool) {
+        guard let admittedAt = self.unattributedRemotePauseAt,
+              !self.isPlaying,
+              claim(admittedAt)
+        else { return }
+        self.unattributedRemotePauseAt = nil
+        self.shouldResumeAfterInterruption = true
+        self.isExplicitPauseIntentActive = false
+        self.routeLossPauseAt = admittedAt
+        self.logger.info("Re-attributed a remote pause to the audio route loss that caused it")
+    }
+
     /// Resumes playback that the system stopped when its audio route disappeared, once a route
     /// is available again.
     ///
@@ -573,6 +603,7 @@ extension PlayerService {
     func resume(intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("Resuming playback")
+        self.unattributedRemotePauseAt = nil
         self.isStoppingPlayback = false
         self.shouldResumeAfterInterruption = true
         self.isAwaitingPlaybackConfirmation = true

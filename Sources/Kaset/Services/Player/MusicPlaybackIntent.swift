@@ -18,6 +18,9 @@ struct MusicPlaybackIntent: Equatable {
 /// distinction has to be carried explicitly.
 enum MusicPauseOrigin: Equatable {
     case user
+    /// A remote pause that no route loss explained when it arrived. Treated as the user's, but
+    /// its admission instant is kept so a route event published afterwards can still claim it.
+    case unattributedRemote(admittedAt: ContinuousClock.Instant)
     /// The system took the audio route away, as of when the command was admitted.
     case routeLoss(at: ContinuousClock.Instant)
 }
@@ -26,7 +29,9 @@ enum MusicPauseOrigin: Equatable {
 
 enum MusicRemoteTransportCommand: Equatable {
     case play
-    case pause
+    /// A remote `pause` no route loss explained at admission. Carries the admission instant so
+    /// a route event that lands afterwards can still re-attribute it.
+    case pause(admittedAt: ContinuousClock.Instant)
     /// A `pause` the system imposed by taking the audio route away, not a user request.
     /// Carries the ingress admission instant so the recovery marker is dated to when the
     /// command arrived rather than to whenever the MainActor got around to draining it.
@@ -231,9 +236,9 @@ extension PlayerService {
             case .play:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.resume(intent: intent)
-            case .pause:
+            case let .pause(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
-                await self.pause(intent: intent)
+                await self.pause(intent: intent, origin: .unattributedRemote(admittedAt: admittedAt))
             case let .pauseForRouteChange(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))

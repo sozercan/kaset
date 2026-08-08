@@ -57,6 +57,12 @@ Supporting decisions:
   the previous default device and checks both device-list membership and
   `kAudioDevicePropertyDeviceIsAlive` — Core Audio can mark a device dead before dropping its
   ID.
+- **Attribute from both sides.** Core Audio's listener timestamps a change immediately but only
+  publishes it after several synchronous device queries, while the `pause` it provokes drains
+  independently. Either can win. A pause that arrives first is treated as the user's but keeps
+  its admission instant, and the route event re-attributes it when it lands — the route event is
+  the thing that arrives late, not the pause. Classifying only at admission would leave the
+  explicit-pause intent set with no way to undo it, which is precisely the original failure.
 - **Anchor timing to command admission.** Remote commands drain onto the MainActor
   asynchronously, so both the classification window and the recovery marker use the ingress
   admission instant. Dating either to handling time lets a busy main actor misclassify a real

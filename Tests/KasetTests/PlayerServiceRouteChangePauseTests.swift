@@ -115,6 +115,41 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A pause that beat the route event is re-attributed once it lands")
+    func lateRouteEventReattributesThePause() async {
+        // The Core Audio listener publishes only after several synchronous device queries, so a
+        // genuine route-loss pause can drain first and look deliberate. Classifying at admission
+        // alone would leave the explicit pause intent set and recovery permanently disabled.
+        let playerService = self.makePlayingService()
+        let admittedAt = ContinuousClock.now
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .unattributedRemote(admittedAt: admittedAt)
+        )
+        #expect(playerService.isExplicitPauseIntentActive)
+
+        playerService.reattributeRemotePauseToRouteLoss { $0 == admittedAt }
+
+        #expect(playerService.isExplicitPauseIntentActive == false)
+        #expect(playerService.shouldResumeAfterInterruption)
+        #expect(playerService.routeLossPauseAt == admittedAt)
+    }
+
+    @Test("A pause no route loss explains keeps its user semantics")
+    func unclaimedPauseStaysDeliberate() async {
+        let playerService = self.makePlayingService()
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .unattributedRemote(admittedAt: .now)
+        )
+
+        // No disappearance can account for it, so the claim is refused.
+        playerService.reattributeRemotePauseToRouteLoss { _ in false }
+
+        #expect(playerService.isExplicitPauseIntentActive)
+        #expect(playerService.routeLossPauseAt == nil)
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }

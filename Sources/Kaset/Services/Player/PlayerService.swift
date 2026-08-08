@@ -125,6 +125,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// it. Until then F8 reaches a session that does nothing.
     @ObservationIgnored var routeLossPauseAt: ContinuousClock.Instant?
 
+    /// A remote pause that no route loss explained when it arrived.
+    ///
+    /// The Core Audio listener timestamps a route change immediately but publishes it only after
+    /// several synchronous device queries, while the `pause` command it provokes drains
+    /// independently. When the command wins that race the pause looks deliberate, so its instant
+    /// is kept and the attribution retried once the route event lands.
+    @ObservationIgnored var unattributedRemotePauseAt: ContinuousClock.Instant?
+
     /// Whether output came back after the given instant and is still available. Injectable for tests.
     @ObservationIgnored var hasAudioRouteReturned: @MainActor (ContinuousClock.Instant) -> Bool = {
         DefaultOutputDeviceMonitor.shared.routeRestored(since: $0)
