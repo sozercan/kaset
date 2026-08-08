@@ -242,6 +242,11 @@ extension PlayerService {
             case let .pauseForRouteChange(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))
+                // A reconnect can be recorded and handled before this pause drains, spending
+                // both recovery attempts while there was still no marker to act on. Schedule
+                // from here too, so installing the marker is itself a trigger. Harmless when
+                // no route has returned: the resume re-checks that for itself.
+                NowPlayingManager.shared.resumeAfterRouteRestoredSoon()
             case .togglePlayPause:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.playPause(intent: intent)

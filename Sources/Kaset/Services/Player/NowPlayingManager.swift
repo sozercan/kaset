@@ -382,7 +382,7 @@ final class NowPlayingManager {
     /// route change in stages, so try twice rather than racing it once. Bursts of notifications
     /// collapse into the latest request. `resumeAfterRouteRestored` itself decides whether a
     /// resume is warranted, so both a disconnect and a reconnect can drive this safely.
-    private func resumeAfterRouteRestoredSoon() {
+    func resumeAfterRouteRestoredSoon() {
         self.routeRestoreGeneration &+= 1
         let generation = self.routeRestoreGeneration
         self.routeRestoreTask?.cancel()

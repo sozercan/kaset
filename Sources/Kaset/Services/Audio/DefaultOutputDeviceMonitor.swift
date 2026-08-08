@@ -41,21 +41,30 @@ private final class RouteChangeRecord: @unchecked Sendable {
     /// gone — the difference between headphones being unplugged and the user picking a different
     /// output.
     ///
-    /// Timestamping and the Core Audio queries all happen under this lock. A `nil` dispatch queue
-    /// means the listener runs directly on the notifying thread with no serialization, so
-    /// overlapping callbacks would otherwise interleave: one could pair its device ID with
-    /// another's usability result, or commit out of order and drop the very disappearance a
-    /// queued pause needs to be attributed. Serializing the whole sequence also makes the
-    /// timestamps monotonic by construction.
+    /// `instant` must be captured at listener entry, before any contention. This lock is also
+    /// held by `claimRouteLoss`, so stamping the event after acquiring it would date a
+    /// disappearance *after* a pause that got there first — exactly the ordering the late
+    /// re-attribution exists to serve, silently defeated.
+    ///
+    /// The Core Audio queries still run under the lock. A `nil` dispatch queue means the
+    /// listener runs directly on the notifying thread with no serialization, so overlapping
+    /// callbacks would otherwise interleave their reads and pair one callback's device ID with
+    /// another's usability result. Arrival order and commit order can then differ, so events are
+    /// inserted in timestamp order rather than appended — and never dropped, since a discarded
+    /// disappearance is one a queued pause may still need.
     func recordChange(
+        at instant: ContinuousClock.Instant,
         currentDefaultDeviceID: () -> AudioDeviceID?,
         isDeviceUsable: (AudioDeviceID) -> Bool
     ) {
         self.lock.withLock {
-            let instant = ContinuousClock.now
             let isDisappearance = self.defaultDeviceID.map { !isDeviceUsable($0) } ?? false
-            self.events.append(RouteChangeEvent(at: instant, isDisappearance: isDisappearance))
-            self.events.removeAll { instant - $0.at > Self.retention }
+            let event = RouteChangeEvent(at: instant, isDisappearance: isDisappearance)
+            let index = self.events.firstIndex { $0.at > instant } ?? self.events.count
+            self.events.insert(event, at: index)
+
+            let newest = self.events.last?.at ?? instant
+            self.events.removeAll { newest - $0.at > Self.retention }
             if self.events.count > Self.capacity {
                 self.events.removeFirst(self.events.count - Self.capacity)
             }
@@ -213,7 +222,10 @@ final class DefaultOutputDeviceMonitor {
     // swiftformat:disable:next modifierOrder
     nonisolated private static let listener:
         @Sendable (UInt32, UnsafePointer<AudioObjectPropertyAddress>) -> Void = { _, _ in
+            // Before any lock contention, so the stamp is arrival time rather than acquisition.
+            let changedAt = ContinuousClock.now
             DefaultOutputDeviceMonitor.record.recordChange(
+                at: changedAt,
                 currentDefaultDeviceID: DefaultOutputDeviceMonitor.currentDefaultOutputDeviceID,
                 isDeviceUsable: DefaultOutputDeviceMonitor.isDeviceUsable
             )
