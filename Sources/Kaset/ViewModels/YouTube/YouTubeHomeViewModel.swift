@@ -130,6 +130,10 @@ final class YouTubeHomeViewModel {
     /// `Task` decouples it from `.task` cancellation: the first call starts it,
     /// concurrent calls await the same task, and it runs to completion once.
     func load() async {
+        await self.load(forceRefresh: false)
+    }
+
+    private func load(forceRefresh: Bool) async {
         if case .loaded = self.loadingState {
             return // Already loaded — a repeat is a no-op (don't refetch/wipe rails).
         }
@@ -144,12 +148,12 @@ final class YouTubeHomeViewModel {
         // load() would see nil and start a duplicate fetch).
         self.loadGeneration += 1
         let token = self.loadGeneration
-        let task = Task { await self.performLoad(token: token) }
+        let task = Task { await self.performLoad(token: token, forceRefresh: forceRefresh) }
         self.loadTask = task
         await task.value
     }
 
-    private func performLoad(token: Int) async {
+    private func performLoad(token: Int, forceRefresh: Bool) async {
         defer {
             // Only clear shared handles if they still point at THIS run. A stale
             // run resuming late must not wipe a newer run's task OR clear the
@@ -169,7 +173,7 @@ final class YouTubeHomeViewModel {
             // ~2 MB `FEwhat_to_watch` response). Replaces three separate
             // getHomeFeed/getHomeShelves/getHomeChips calls that each re-fetched
             // and re-walked the same blob on the main thread.
-            let bundle = try await client.getHomeBundle()
+            let bundle = try await client.getHomeBundle(forceRefresh: forceRefresh)
 
             let shelves = bundle.shelves
 
@@ -230,12 +234,9 @@ final class YouTubeHomeViewModel {
             await self.streamTopicRails(
                 chips: initialChips,
                 shelves: shelves,
-                continueWatching: { [weak self] in
-                    guard let self else { return nil }
-                    return await self.continueWatchingSection()
-                },
                 gridReady: gridReady,
-                generation: generation
+                generation: generation,
+                forceRefresh: forceRefresh
             )
             // Streaming is done — `sections` is now stable, so a deferred
             // post-watch refresh can safely rebuild the rail in place. Only clear
@@ -379,9 +380,9 @@ final class YouTubeHomeViewModel {
     private func streamTopicRails(
         chips: [YouTubeHomeChip],
         shelves: [YouTubeHomeSection],
-        continueWatching: @escaping @Sendable () async -> YouTubeHomeSection?,
         gridReady: Bool,
-        generation: Int
+        generation: Int,
+        forceRefresh: Bool
     ) async {
         // One result channel for both rail kinds: the history rail (index -1,
         // pinned to the front) and the topic rails (chip index >= 0).
@@ -412,10 +413,12 @@ final class YouTubeHomeViewModel {
         }
 
         await withTaskGroup(of: (Int, YouTubeHomeSection?).self) { group in
-            group.addTask { await (-1, continueWatching()) }
+            group.addTask {
+                await (-1, self.continueWatchingSection(forceRefresh: forceRefresh))
+            }
             for (index, chip) in chips.enumerated() {
                 group.addTask {
-                    await (index, self.topicSection(for: chip))
+                    await (index, self.topicSection(for: chip, forceRefresh: forceRefresh))
                 }
             }
             for await (index, section) in group {
@@ -522,7 +525,7 @@ final class YouTubeHomeViewModel {
         self.pendingTopicChips = []
         self.hasMoreTopicRails = false
         self.isLoadingTopicRails = false
-        await self.load()
+        await self.load(forceRefresh: true)
     }
 
     /// Cancels any in-flight load when this view model is being discarded (e.g.
@@ -614,12 +617,12 @@ final class YouTubeHomeViewModel {
     // MARK: - Sections
 
     /// Started-but-unfinished videos from watch history (deduped, capped), or
-    /// `nil` on failure / when nothing is resumable. Used by the initial load,
-    /// where a failed history fetch should simply omit the rail (the cached
-    /// path). The post-watch rebuild calls `fetchContinueWatchingSection`
-    /// directly so it can both force-refresh and distinguish failure from empty.
-    private func continueWatchingSection() async -> YouTubeHomeSection? {
-        try? await self.fetchContinueWatchingSection(forceRefresh: false)
+    /// `nil` on failure / when nothing is resumable. Used by full Home loads,
+    /// where a failed history fetch should simply omit the rail. The post-watch
+    /// rebuild calls `fetchContinueWatchingSection` directly so it can
+    /// distinguish failure from empty.
+    private func continueWatchingSection(forceRefresh: Bool) async -> YouTubeHomeSection? {
+        try? await self.fetchContinueWatchingSection(forceRefresh: forceRefresh)
     }
 
     /// Fetches watch history and builds the Continue Watching section, throwing
@@ -820,9 +823,15 @@ final class YouTubeHomeViewModel {
 
     /// Browses a single chip token into a topic section outcome, preserving the
     /// distinction between a valid empty response and a transient fetch failure.
-    private func topicFetchOutcome(for chip: YouTubeHomeChip) async -> TopicFetchOutcome {
+    private func topicFetchOutcome(
+        for chip: YouTubeHomeChip,
+        forceRefresh: Bool = false
+    ) async -> TopicFetchOutcome {
         do {
-            let feed = try await self.client.getHomeTopicFeed(continuation: chip.continuation)
+            let feed = try await self.client.getHomeTopicFeed(
+                continuation: chip.continuation,
+                forceRefresh: forceRefresh
+            )
             guard !feed.videos.isEmpty else { return .empty }
             return .section(
                 YouTubeHomeSection(
@@ -843,9 +852,9 @@ final class YouTubeHomeViewModel {
     /// Browses a single chip token into a topic section, or `nil` on failure /
     /// empty result. Initial rail streaming keeps the older omit-on-failure
     /// behaviour; deferred auto-loading uses `topicFetchOutcome(for:)` so
-    /// failures can remain retryable.
-    private func topicSection(for chip: YouTubeHomeChip) async -> YouTubeHomeSection? {
-        switch await self.topicFetchOutcome(for: chip) {
+    /// failures can remain retryable. Full Home refreshes bypass the topic cache.
+    private func topicSection(for chip: YouTubeHomeChip, forceRefresh: Bool) async -> YouTubeHomeSection? {
+        switch await self.topicFetchOutcome(for: chip, forceRefresh: forceRefresh) {
         case let .section(section):
             section
         case .empty, .failed:

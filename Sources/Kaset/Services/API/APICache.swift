@@ -48,7 +48,7 @@ final class APICache {
     /// Minimum interval between automatic evictions (30 seconds).
     private static let evictionInterval: TimeInterval = 30
 
-    private init() {
+    init() {
         // Pre-allocate capacity to avoid rehashing during normal operation
         self.cache = Dictionary(minimumCapacity: Self.maxEntries)
     }

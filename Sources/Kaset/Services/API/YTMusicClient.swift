@@ -40,6 +40,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     private let webKitManager: WebKitManager
     private let session: URLSession
     private let apiKeyResolver: YTMusicAPIKeyResolver
+    private let cache: APICache
     private let logger = DiagnosticsLogger.api
 
     /// Provider for the current brand account ID.
@@ -71,7 +72,8 @@ final class YTMusicClient: YTMusicClientProtocol {
         authService: AuthService,
         webKitManager: WebKitManager = .shared,
         session: URLSession? = nil,
-        apiKeyResolver: YTMusicAPIKeyResolver? = nil
+        apiKeyResolver: YTMusicAPIKeyResolver? = nil,
+        cache: APICache = .shared
     ) {
         self.authService = authService
         self.webKitManager = webKitManager
@@ -84,13 +86,18 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         self.session = resolvedSession
         self.apiKeyResolver = apiKeyResolver ?? YTMusicAPIKeyResolver(session: resolvedSession)
+        self.cache = cache
     }
 
     // MARK: - Generic Pagination Methods
 
     /// Fetches paginated content for the given content type.
     /// Stores the continuation token for subsequent calls to `getContinuation`.
-    private func fetchPaginatedContent(type: PaginatedContentType, ttl: TimeInterval? = APICache.TTL.home) async throws -> HomeResponse {
+    private func fetchPaginatedContent(
+        type: PaginatedContentType,
+        ttl: TimeInterval? = APICache.TTL.home,
+        bypassCache: Bool = false
+    ) async throws -> HomeResponse {
         self.logger.info("Fetching \(type.displayName) page")
 
         let body: [String: Any] = [
@@ -98,7 +105,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
 
         let generation = self.continuationGeneration
-        let data = try await request("browse", body: body, ttl: ttl)
+        let data = try await request("browse", body: body, ttl: ttl, bypassCache: bypassCache)
         let response = HomeResponseParser.parse(data)
 
         // Store continuation token for progressive loading
@@ -151,8 +158,8 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Fetches the home page content (initial sections only for fast display).
     /// Call `getHomeContinuation` to load additional sections progressively.
-    func getHome() async throws -> HomeResponse {
-        try await self.fetchPaginatedContent(type: .home)
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse {
+        try await self.fetchPaginatedContent(type: .home, bypassCache: forceRefresh)
     }
 
     /// Fetches the next batch of home sections via continuation.
@@ -649,7 +656,7 @@ final class YTMusicClient: YTMusicClientProtocol {
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
         self.continuationGeneration &+= 1
-        APICache.shared.invalidateAll()
+        self.cache.invalidateAll()
         self.continuationTokens.removeAll()
         self.personalizedRecommendationsContinuationToken = nil
         self.likedSongsContinuationToken = nil
@@ -1470,7 +1477,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully rated song \(videoId)")
 
         // Invalidate mutation-affected caches in a single pass
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
     }
 
     /// Adds or removes a song from the user's library.
@@ -1491,7 +1498,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully edited library status")
 
         // Invalidate mutation-affected caches in a single pass
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
     }
 
     /// Adds a playlist to the user's library using the like/like endpoint.
@@ -1511,7 +1518,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully added playlist \(playlistId) to library")
 
         // Invalidate library cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     /// Permanently deletes one of the user's own playlists.
@@ -1529,7 +1536,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("playlist/delete", body: body)
         self.logger.info("Successfully deleted playlist \(playlistId)")
 
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
     }
 
     /// Fetches the add-to-playlist menu for a song.
@@ -1581,7 +1588,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
 
         self.logger.info("Successfully created playlist \(playlistId, privacy: .public)")
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
         return playlistId
     }
 
@@ -1605,7 +1612,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("browse/edit_playlist", body: body)
         self.logger.info("Successfully added song \(videoId) to playlist \(playlistId)")
 
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
     }
 
     /// Removes a song from a playlist.
@@ -1631,7 +1638,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("browse/edit_playlist", body: body)
         self.logger.info("Successfully removed song \(videoId) from playlist \(playlistId)")
 
-        APICache.shared.invalidateMutationCaches()
+        self.cache.invalidateMutationCaches()
     }
 
     /// Removes a playlist from the user's library using the like/removelike endpoint.
@@ -1651,7 +1658,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully removed playlist \(playlistId) from library")
 
         // Invalidate library cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     // MARK: - Podcast ID Conversion
@@ -1701,7 +1708,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully subscribed to podcast \(showId)")
 
         // Invalidate library cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     /// Unsubscribes from a podcast show (removes from library).
@@ -1722,7 +1729,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully unsubscribed from podcast \(showId)")
 
         // Invalidate library cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     /// Subscribes to an artist by channel ID.
@@ -1739,7 +1746,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully subscribed to artist \(channelId)")
 
         // Invalidate artist cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     /// Unsubscribes from an artist by channel ID.
@@ -1756,7 +1763,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Successfully unsubscribed from artist \(channelId)")
 
         // Invalidate artist cache so UI updates
-        APICache.shared.invalidate(matching: "browse:")
+        self.cache.invalidate(matching: "browse:")
     }
 
     // MARK: - Private Methods
@@ -1970,13 +1977,14 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ endpoint: String,
         body: [String: Any],
         ttl: TimeInterval? = nil,
+        bypassCache: Bool = false,
         authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil,
         allowGuestAuthentication: Bool = false
     ) async throws -> [String: Any] {
         // Account and guest-mode transitions invalidate the shared API cache.
         // Capture its generation before any auth/network await so stale responses
         // cannot repopulate the cache after a session reset.
-        let cacheGeneration = APICache.shared.generation
+        let cacheGeneration = self.cache.generation
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(
             authPolicy: authPolicy,
@@ -1992,7 +2000,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
 
         // Check cache first.
-        if ttl != nil, let cached = APICache.shared.get(key: cacheKey) {
+        if ttl != nil, !bypassCache, let cached = self.cache.get(key: cacheKey) {
             self.logger.debug("Cache hit for \(endpoint)")
             return cached
         }
@@ -2010,8 +2018,8 @@ final class YTMusicClient: YTMusicClientProtocol {
         // request was in flight. YTMusicClient and APICache are both
         // @MainActor, so this comparison and the synchronous set below are
         // atomic relative to invalidateAll().
-        if let ttl, cacheGeneration == APICache.shared.generation {
-            APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
+        if let ttl, cacheGeneration == self.cache.generation {
+            self.cache.set(key: cacheKey, data: json, ttl: ttl)
         }
 
         return json

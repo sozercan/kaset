@@ -21,6 +21,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     private let authService: AuthService
     private let webKitManager: WebKitManager
     private let session: URLSession
+    private let cache: APICache
     let askTransport: YouTubeAskTransport
     let askMessageIDGenerator: YouTubeAskMessageIDGenerator
     private let askRequestProfile: YouTubeAskRequestProfile?
@@ -77,7 +78,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         webKitManager: WebKitManager = .shared,
         session: URLSession? = nil,
         askMessageIDGenerator: YouTubeAskMessageIDGenerator? = nil,
-        askFeatureEnabled: Bool = false
+        askFeatureEnabled: Bool = false,
+        cache: APICache = .shared
     ) {
         self.authService = authService
         self.webKitManager = webKitManager
@@ -88,6 +90,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             URLSession(configuration: APISessionConfiguration.make())
         }
         self.session = resolvedSession
+        self.cache = cache
         self.askTransport = YouTubeAskTransport(configuration: resolvedSession.configuration)
         self.askMessageIDGenerator = askMessageIDGenerator ?? YouTubeAskMessageIDGenerator()
         // Ask remains an explicit construction-time capability. The production
@@ -111,10 +114,10 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return feed
     }
 
-    func getHomeBundle() async throws -> YouTubeHomeBundle {
+    func getHomeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         self.logger.info("Fetching YouTube home bundle (feed + chips + shelves)")
 
-        let bundle = try await self.homeBundle()
+        let bundle = try await self.homeBundle(forceRefresh: forceRefresh)
         // The detached parse is not cancelled when the Home view model is
         // discarded (account switch). Don't mutate shared client state after
         // cancellation — the providers may already have moved to the new account.
@@ -132,17 +135,17 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     /// raw bytes are cached only after a successful parse, with no main-actor
     /// deserialize and no redundant second parse. Home and Shorts share this so
     /// the response and its cache entry are reused.
-    private func homeBundle() async throws -> YouTubeHomeBundle {
+    private func homeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
         // Capture the cache key (current authenticated scope) and the cache
         // generation BEFORE any network await. A sign-out mid-flight keeps the
         // `pending` key unchanged, so the generation (bumped by invalidateAll)
         // is what rejects a stale write.
-        let cacheGeneration = APICache.shared.generation
+        let cacheGeneration = self.cache.generation
         let homeAuth = try await self.buildRequestHeaders(authPolicy: .optional)
         let cacheKey = self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated)
 
-        if let cacheKey, let cached = self.cachedHomeData(key: cacheKey) {
+        if !forceRefresh, let cacheKey, let cached = self.cachedHomeData(key: cacheKey) {
             let bundle = try await Self.parseHomeBundle(from: cached)
             try self.validateAuthIdentity(
                 authenticated: homeAuth.authenticated,
@@ -159,14 +162,15 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             authenticated: homeAuth.authenticated,
             generation: homeAuth.authIdentityGeneration
         )
+        try Task.checkCancellation()
 
         // Cache only if no account switch / sign-out happened during the fetch
         // (key AND generation unchanged).
         if let cacheKey,
            cacheKey == self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated),
-           cacheGeneration == APICache.shared.generation
+           cacheGeneration == self.cache.generation
         {
-            APICache.shared.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
+            self.cache.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
         }
         return bundle
     }
@@ -216,7 +220,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return shelves
     }
 
-    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed {
+    func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed {
         // A chip browse uses the same `browse` continuation wire shape as
         // pagination, but returns a fresh topic-filtered grid (reload
         // semantics) with its own trailing continuation token. Cached (keyed on
@@ -226,7 +230,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let data = try await self.request(
             "browse",
             body: ["continuation": continuation],
-            ttl: APICache.TTL.home
+            ttl: APICache.TTL.home,
+            bypassCache: forceRefresh
         )
         return YouTubeFeedParser.parseContinuation(data)
     }
@@ -410,7 +415,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     func getShorts() async throws -> [YouTubeVideo] {
         self.logger.info("Fetching YouTube Shorts")
 
-        let bundle = try await self.homeBundle()
+        let bundle = try await self.homeBundle(forceRefresh: false)
         if !bundle.feed.shorts.isEmpty {
             return bundle.feed.shorts
         }
@@ -499,7 +504,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
 
         let body: [String: Any] = ["target": ["videoId": videoId]]
         _ = try await self.request(rating.endpoint, body: body, retry: false)
-        APICache.shared.invalidate(matching: Self.cachePrefix)
+        self.cache.invalidate(matching: Self.cachePrefix)
     }
 
     func setSubscribed(_ subscribed: Bool, channelId: String) async throws {
@@ -508,7 +513,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let endpoint = subscribed ? "subscription/subscribe" : "subscription/unsubscribe"
         let body: [String: Any] = ["channelIds": [channelId]]
         _ = try await self.request(endpoint, body: body, retry: false)
-        APICache.shared.invalidate(matching: Self.cachePrefix)
+        self.cache.invalidate(matching: Self.cachePrefix)
     }
 
     func addToWatchLater(videoId: String) async throws {
@@ -531,7 +536,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             "actions": actions,
         ]
         _ = try await self.request("browse/edit_playlist", body: body, retry: false)
-        APICache.shared.invalidate(matching: Self.cachePrefix)
+        self.cache.invalidate(matching: Self.cachePrefix)
     }
 
     // MARK: - Request Core
@@ -706,7 +711,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     ) async throws -> [String: Any] {
         // Capture before auth-header awaits so sign-out/account-switch invalidations
         // during cookie extraction still reject any stale write.
-        let cacheGeneration = APICache.shared.generation
+        let cacheGeneration = self.cache.generation
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
 
@@ -719,7 +724,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             ttl: ttl,
             authenticated: requestAuth.authenticated
         )
-        if let cacheKey, !bypassCache, let cached = APICache.shared.get(key: cacheKey) {
+        if let cacheKey, !bypassCache, let cached = self.cache.get(key: cacheKey) {
             self.logger.debug("Cache hit for \(Self.cachePrefix)\(endpoint)")
             return cached
         }
@@ -747,8 +752,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         // Only cache if no account switch / sign-out happened during the request
         // (the cache generation is unchanged); otherwise this could write the
         // previous account's private data under a still-`pending` scope.
-        if let ttl, let cacheKey, cacheGeneration == APICache.shared.generation {
-            APICache.shared.set(key: cacheKey, data: json, ttl: ttl)
+        if let ttl, let cacheKey, cacheGeneration == self.cache.generation {
+            self.cache.set(key: cacheKey, data: json, ttl: ttl)
         }
 
         return json
@@ -856,7 +861,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     /// is captured before network awaits so stale account/sign-out completions
     /// cannot write through a later scope.
     private func cachedHomeData(key: String) -> Data? {
-        if let cached = APICache.shared.getData(key: key) {
+        if let cached = self.cache.getData(key: key) {
             self.logger.debug("Cache hit (data) for \(Self.cachePrefix)browse")
             return cached
         }

@@ -188,6 +188,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     private(set) var getHomeCalled = false
     private(set) var getHomeCallCount = 0
+    private(set) var getHomeForceRefreshes: [Bool] = []
     private(set) var getHomeContinuationCalled = false
     private(set) var getHomeContinuationCallCount = 0
     private(set) var getPersonalizedRecommendationsCalled = false
@@ -329,9 +330,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     // MARK: - Protocol Implementation
 
-    func getHome() async throws -> HomeResponse {
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse {
         self.getHomeCalled = true
         self.getHomeCallCount += 1
+        self.getHomeForceRefreshes.append(forceRefresh)
         self._homeContinuationIndex = 0
         let response = self.homeResponse
         await self.beforeGetHomeReturn?()
@@ -1325,6 +1327,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func reset() { // swiftlint:disable:this function_body_length
         self.getHomeCalled = false
         self.getHomeCallCount = 0
+        self.getHomeForceRefreshes = []
         self.getHomeContinuationCalled = false
         self.getHomeContinuationCallCount = 0
         self._homeContinuationIndex = 0
