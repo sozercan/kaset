@@ -101,6 +101,30 @@ struct APICacheTests {
         #expect(self.cache.get(key: "key")?["value"] as? Int == 2)
     }
 
+    @Test("Older in-flight responses cannot overwrite the newest cache write")
+    func newestWriteReservationWins() throws {
+        let generation = self.cache.generation
+        let older = try #require(self.cache.beginWrite(for: "key", cacheGeneration: generation))
+        let newer = try #require(self.cache.beginWrite(for: "key", cacheGeneration: generation))
+
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "newer"],
+            ttl: 60,
+            reservation: newer
+        )
+        self.cache.finishWrite(newer)
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "older"],
+            ttl: 60,
+            reservation: older
+        )
+        self.cache.finishWrite(older)
+
+        #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
+    }
+
     @Test("Cache TTL constants are correct")
     func cacheTTLConstants() {
         #expect(APICache.TTL.home == 5 * 60) // 5 minutes

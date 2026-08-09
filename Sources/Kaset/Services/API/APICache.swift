@@ -7,6 +7,12 @@ import Foundation
 final class APICache {
     static let shared = APICache()
 
+    struct WriteReservation {
+        fileprivate let key: String
+        fileprivate let cacheGeneration: Int
+        fileprivate let requestID: UUID
+    }
+
     struct CacheEntry {
         let data: [String: Any]
         let timestamp: Date
@@ -41,6 +47,11 @@ final class APICache {
 
     /// Pre-allocated dictionary with initial capacity to reduce rehashing.
     private var cache: [String: CacheEntry]
+
+    /// The newest in-flight network request eligible to populate each key.
+    /// Async actor methods are reentrant, so an older request can otherwise
+    /// finish after a forced refresh and overwrite its newer response.
+    private var latestWriteRequestIDs: [String: UUID] = [:]
 
     /// Timestamp of last eviction to avoid running on every access.
     private var lastEvictionTime: Date = .distantPast
@@ -102,6 +113,51 @@ final class APICache {
         self.set(key: key, data: [Self.rawDataBoxKey: data], ttl: ttl)
     }
 
+    /// Reserves a cache key for an in-flight network response. A later request
+    /// for the same key supersedes this reservation, making completion order
+    /// irrelevant: only the newest request may populate the cache.
+    func beginWrite(for key: String, cacheGeneration: Int) -> WriteReservation? {
+        guard cacheGeneration == self.generation else { return nil }
+        let requestID = UUID()
+        self.latestWriteRequestIDs[key] = requestID
+        return WriteReservation(
+            key: key,
+            cacheGeneration: cacheGeneration,
+            requestID: requestID
+        )
+    }
+
+    /// Stores a dictionary response only while its write reservation is still
+    /// current and no full cache invalidation occurred during the request.
+    func setIfCurrent(
+        key: String,
+        data: [String: Any],
+        ttl: TimeInterval,
+        reservation: WriteReservation
+    ) {
+        guard self.isCurrent(reservation, for: key) else { return }
+        self.set(key: key, data: data, ttl: ttl)
+    }
+
+    /// Raw-data counterpart to `setIfCurrent`, used by YouTube's large Home
+    /// response so it follows the same newest-request-wins rule.
+    func setDataIfCurrent(
+        key: String,
+        data: Data,
+        ttl: TimeInterval,
+        reservation: WriteReservation
+    ) {
+        guard self.isCurrent(reservation, for: key) else { return }
+        self.setData(key: key, data: data, ttl: ttl)
+    }
+
+    /// Releases a completed/failed request without removing a newer request's
+    /// reservation for the same key.
+    func finishWrite(_ reservation: WriteReservation) {
+        guard self.latestWriteRequestIDs[reservation.key] == reservation.requestID else { return }
+        self.latestWriteRequestIDs.removeValue(forKey: reservation.key)
+    }
+
     private static let logger = DiagnosticsLogger.api
 
     /// Generates a stable, deterministic cache key from endpoint, request body, and brand ID.
@@ -144,12 +200,14 @@ final class APICache {
     /// Invalidates all cached entries.
     func invalidateAll() {
         self.cache.removeAll()
+        self.latestWriteRequestIDs.removeAll()
         self.generation &+= 1
     }
 
     /// Invalidates entries matching the given prefix.
     func invalidate(matching prefix: String) {
         self.cache = self.cache.filter { !$0.key.hasPrefix(prefix) }
+        self.latestWriteRequestIDs = self.latestWriteRequestIDs.filter { !$0.key.hasPrefix(prefix) }
     }
 
     /// Invalidates all caches affected by mutation operations (like, library, feedback).
@@ -162,6 +220,9 @@ final class APICache {
             "playlist/get_add_to_playlist:",
         ]
         self.cache = self.cache.filter { entry in
+            !mutationPrefixes.contains { entry.key.hasPrefix($0) }
+        }
+        self.latestWriteRequestIDs = self.latestWriteRequestIDs.filter { entry in
             !mutationPrefixes.contains { entry.key.hasPrefix($0) }
         }
     }
@@ -185,5 +246,11 @@ final class APICache {
             return
         }
         self.cache.removeValue(forKey: lruKey)
+    }
+
+    private func isCurrent(_ reservation: WriteReservation, for key: String) -> Bool {
+        reservation.key == key
+            && reservation.cacheGeneration == self.generation
+            && self.latestWriteRequestIDs[key] == reservation.requestID
     }
 }

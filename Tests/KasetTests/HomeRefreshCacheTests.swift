@@ -2,7 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@Suite(.serialized, .tags(.api))
+// MARK: - HomeRefreshCacheTests
+
+@Suite(.serialized, .tags(.api), .timeLimit(.minutes(1)))
 @MainActor
 struct HomeRefreshCacheTests {
     @Test("YouTube Music force refresh bypasses and replaces the Home cache")
@@ -73,6 +75,86 @@ struct HomeRefreshCacheTests {
         #expect(refreshed.shelves.first?.title == "Shelf 2")
         #expect(refreshedCache.shelves.first?.title == "Shelf 2")
         #expect(requestCount.count == 2)
+    }
+
+    @Test("YouTube refresh keeps deferred topic rails cache-bypassed")
+    func youtubeRefreshForcesDeferredTopicRails() async {
+        let client = MockYouTubeClient()
+        let viewModel = YouTubeHomeViewModel(client: client)
+        client.homeFeed = YouTubeFeed(
+            videos: MockYouTubeClient.makeVideos(count: 3),
+            continuation: nil
+        )
+        client.homeChips = (0 ..< 4).map { index in
+            YouTubeHomeChip(title: "Topic \(index)", continuation: "tok-\(index)")
+        }
+        client.homeTopicFeeds = Dictionary(uniqueKeysWithValues: (0 ..< 4).map { index in
+            ("tok-\(index)", YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 2), continuation: nil))
+        })
+
+        await viewModel.load()
+        await viewModel.refresh()
+
+        #expect(client.requestedTopicForceRefreshes == [false, false, true, true])
+        #expect(viewModel.hasMoreTopicRails)
+
+        await viewModel.loadMoreTopicRails()
+
+        #expect(client.requestedTopicForceRefreshes == [false, false, true, true, true, true])
+        #expect(viewModel.hasMoreTopicRails == false)
+    }
+
+    @Test("A stale YouTube topic response cannot overwrite a forced refresh")
+    func youtubeTopicForceRefreshFencesStaleCacheWrite() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let client = YouTubeClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            cache: APICache()
+        )
+
+        let staleTask = Task {
+            try await client.getHomeTopicFeed(continuation: "topic", forceRefresh: false)
+        }
+        let staleRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        let freshTask = Task {
+            try await client.getHomeTopicFeed(continuation: "topic", forceRefresh: true)
+        }
+        let freshRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        try HomeRefreshControlledURLProtocol.respond(
+            freshRequest,
+            data: Self.youtubeTopicPayload(videoID: "fresh")
+        )
+        let refreshed = try await freshTask.value
+
+        try HomeRefreshControlledURLProtocol.respond(
+            staleRequest,
+            data: Self.youtubeTopicPayload(videoID: "stale")
+        )
+        _ = try await staleTask.value
+
+        try HomeRefreshControlledURLProtocol.setAutomaticResponse(
+            Self.youtubeTopicPayload(videoID: "unexpected-network-request")
+        )
+        let cached = try await client.getHomeTopicFeed(continuation: "topic", forceRefresh: false)
+
+        #expect(refreshed.videos.first?.videoId == "fresh")
+        #expect(cached.videos.first?.videoId == "fresh")
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 2)
     }
 
     nonisolated static func response(
@@ -158,5 +240,120 @@ struct HomeRefreshCacheTests {
                 ],
             ],
         ]
+    }
+
+    nonisolated static func youtubeTopicPayload(videoID: String) throws -> Data {
+        try JSONSerialization.data(withJSONObject: [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": [[
+                        "richItemRenderer": [
+                            "content": [
+                                "videoRenderer": [
+                                    "videoId": videoID,
+                                    "title": ["runs": [["text": "Video \(videoID)"]]],
+                                ],
+                            ],
+                        ],
+                    ]],
+                ],
+            ]],
+        ])
+    }
+}
+
+// MARK: - HomeRefreshControlledURLProtocol
+
+private final class HomeRefreshControlledURLProtocol: URLProtocol {
+    private static let lock = NSLock()
+    // swiftlint:disable:next modifier_order
+    private nonisolated(unsafe) static var pendingRequests: [HomeRefreshControlledURLProtocol] = []
+    // swiftlint:disable:next modifier_order
+    private nonisolated(unsafe) static var automaticResponse: Data?
+    // swiftlint:disable:next modifier_order
+    private nonisolated(unsafe) static var observedRequestCount = 0
+
+    static var requestCount: Int {
+        lock.withLock { Self.observedRequestCount }
+    }
+
+    override static func canInit(with _: URLRequest) -> Bool {
+        true
+    }
+
+    override static func canonicalRequest(for request: URLRequest) -> URLRequest {
+        request
+    }
+
+    override func startLoading() {
+        let automaticResponse: Data? = Self.lock.withLock {
+            Self.observedRequestCount += 1
+            if let automaticResponse = Self.automaticResponse {
+                return automaticResponse
+            }
+            Self.pendingRequests.append(self)
+            return nil
+        }
+
+        if let automaticResponse {
+            Self.respond(self, data: automaticResponse)
+        }
+    }
+
+    override func stopLoading() {}
+
+    @MainActor
+    static func nextRequest() async -> HomeRefreshControlledURLProtocol {
+        while true {
+            let request: HomeRefreshControlledURLProtocol? = Self.lock.withLock {
+                if !Self.pendingRequests.isEmpty {
+                    return Self.pendingRequests.removeFirst()
+                }
+                return nil
+            }
+            if let request {
+                return request
+            }
+            await Task.yield()
+        }
+    }
+
+    static func setAutomaticResponse(_ data: Data) {
+        self.lock.withLock {
+            Self.automaticResponse = data
+        }
+    }
+
+    static func reset() {
+        self.lock.withLock {
+            Self.pendingRequests = []
+            Self.automaticResponse = nil
+            Self.observedRequestCount = 0
+        }
+    }
+
+    static func respond(_ protocolInstance: HomeRefreshControlledURLProtocol, data: Data) {
+        guard let url = protocolInstance.request.url,
+              let response = HTTPURLResponse(
+                  url: url,
+                  statusCode: 200,
+                  httpVersion: nil,
+                  headerFields: ["Content-Type": "application/json"]
+              )
+        else {
+            protocolInstance.client?.urlProtocol(
+                protocolInstance,
+                didFailWithError: URLError(.badServerResponse)
+            )
+            return
+        }
+
+        protocolInstance.client?.urlProtocol(
+            protocolInstance,
+            didReceive: response,
+            cacheStoragePolicy: .notAllowed
+        )
+        protocolInstance.client?.urlProtocol(protocolInstance, didLoad: data)
+        protocolInstance.client?.urlProtocolDidFinishLoading(protocolInstance)
     }
 }

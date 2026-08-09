@@ -2005,6 +2005,15 @@ final class YTMusicClient: YTMusicClientProtocol {
             return cached
         }
 
+        let cacheWrite = ttl.flatMap { _ in
+            self.cache.beginWrite(for: cacheKey, cacheGeneration: cacheGeneration)
+        }
+        defer {
+            if let cacheWrite {
+                self.cache.finishWrite(cacheWrite)
+            }
+        }
+
         // Execute with retry policy.
         let json = try await RetryPolicy.default.execute { [self] in
             try await self.performRequest(
@@ -2018,8 +2027,13 @@ final class YTMusicClient: YTMusicClientProtocol {
         // request was in flight. YTMusicClient and APICache are both
         // @MainActor, so this comparison and the synchronous set below are
         // atomic relative to invalidateAll().
-        if let ttl, cacheGeneration == self.cache.generation {
-            self.cache.set(key: cacheKey, data: json, ttl: ttl)
+        if let ttl, let cacheWrite {
+            self.cache.setIfCurrent(
+                key: cacheKey,
+                data: json,
+                ttl: ttl,
+                reservation: cacheWrite
+            )
         }
 
         return json

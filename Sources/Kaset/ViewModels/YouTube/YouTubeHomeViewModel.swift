@@ -35,6 +35,11 @@ final class YouTubeHomeViewModel {
     /// clears them before a new Home bundle repopulates the queue.
     private var pendingTopicChips: [YouTubeHomeChip] = []
 
+    /// Whether the queued topic chips came from a forced Home refresh. Keep
+    /// bypassing their scoped caches when later batches load so one refresh
+    /// cannot mix fresh initial rails with stale deferred rails.
+    private var pendingTopicChipsForceRefresh = false
+
     /// Resume-progress band for the Continue Watching rail: started but not
     /// effectively finished. `nil`/0 = not started; ≥96 = finished.
     private static let continueWatchingRange = 1 ... 95
@@ -180,6 +185,7 @@ final class YouTubeHomeViewModel {
             try Task.checkCancellation()
             guard generation == self.loadGeneration else { return }
             self.pendingTopicChips = []
+            self.pendingTopicChipsForceRefresh = false
             self.hasMoreTopicRails = false
             self.isLoadingTopicRails = false
 
@@ -220,6 +226,7 @@ final class YouTubeHomeViewModel {
             let cappedChips = Array(bundle.chips.prefix(Self.topicRailCap))
             let initialChips = Array(cappedChips.prefix(Self.initialTopicRailBatchSize))
             self.pendingTopicChips = Array(cappedChips.dropFirst(initialChips.count))
+            self.pendingTopicChipsForceRefresh = forceRefresh && !self.pendingTopicChips.isEmpty
 
             let mayNeedGuestFallback = gridVideos.isEmpty && shelves.isEmpty
 
@@ -445,7 +452,8 @@ final class YouTubeHomeViewModel {
         self.pendingTopicChips.removeFirst(batch.count)
         self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
 
-        let result = await self.topicSections(for: batch)
+        let forceRefresh = self.pendingTopicChipsForceRefresh
+        let result = await self.topicSections(for: batch, forceRefresh: forceRefresh)
         guard generation == self.loadGeneration else { return .stale }
 
         if preserveOnFailure, !result.failedChips.isEmpty {
@@ -455,6 +463,9 @@ final class YouTubeHomeViewModel {
             self.pendingTopicChips.append(contentsOf: result.failedChips)
         }
         self.hasMoreTopicRails = !self.pendingTopicChips.isEmpty
+        if self.pendingTopicChips.isEmpty {
+            self.pendingTopicChipsForceRefresh = false
+        }
 
         guard !result.sections.isEmpty else {
             return preserveOnFailure && !result.failedChips.isEmpty ? .failed : .empty
@@ -467,12 +478,15 @@ final class YouTubeHomeViewModel {
         return .appended
     }
 
-    private func topicSections(for chips: [YouTubeHomeChip]) async -> TopicBatchFetchResult {
+    private func topicSections(
+        for chips: [YouTubeHomeChip],
+        forceRefresh: Bool
+    ) async -> TopicBatchFetchResult {
         var slots = [TopicFetchOutcome?](repeating: nil, count: chips.count)
         await withTaskGroup(of: (Int, TopicFetchOutcome).self) { group in
             for (index, chip) in chips.enumerated() {
                 group.addTask {
-                    await (index, self.topicFetchOutcome(for: chip))
+                    await (index, self.topicFetchOutcome(for: chip, forceRefresh: forceRefresh))
                 }
             }
             for await (index, outcome) in group {
@@ -523,6 +537,7 @@ final class YouTubeHomeViewModel {
         self.sections = []
         self.shelfVideoIDs = []
         self.pendingTopicChips = []
+        self.pendingTopicChipsForceRefresh = false
         self.hasMoreTopicRails = false
         self.isLoadingTopicRails = false
         await self.load(forceRefresh: true)
@@ -542,6 +557,7 @@ final class YouTubeHomeViewModel {
         self.pendingGeneration = nil
         self.inFlightRefreshGeneration = nil
         self.pendingTopicChips = []
+        self.pendingTopicChipsForceRefresh = false
         self.hasMoreTopicRails = false
         self.isLoadingTopicRails = false
     }

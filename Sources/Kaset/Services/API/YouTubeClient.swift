@@ -154,6 +154,15 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             return bundle
         }
 
+        let cacheWrite = cacheKey.flatMap {
+            self.cache.beginWrite(for: $0, cacheGeneration: cacheGeneration)
+        }
+        defer {
+            if let cacheWrite {
+                self.cache.finishWrite(cacheWrite)
+            }
+        }
+
         let data = try await self.requestData("browse", body: homeBody, requestAuth: homeAuth)
         // Parse off-main; this throws on a non-JSON 200, so we never cache bytes
         // that don't parse.
@@ -168,9 +177,14 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         // (key AND generation unchanged).
         if let cacheKey,
            cacheKey == self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated),
-           cacheGeneration == self.cache.generation
+           let cacheWrite
         {
-            self.cache.setData(key: cacheKey, data: data, ttl: APICache.TTL.home)
+            self.cache.setDataIfCurrent(
+                key: cacheKey,
+                data: data,
+                ttl: APICache.TTL.home,
+                reservation: cacheWrite
+            )
         }
         return bundle
     }
@@ -729,6 +743,15 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             return cached
         }
 
+        let cacheWrite = cacheKey.flatMap {
+            self.cache.beginWrite(for: $0, cacheGeneration: cacheGeneration)
+        }
+        defer {
+            if let cacheWrite {
+                self.cache.finishWrite(cacheWrite)
+            }
+        }
+
         let json: [String: Any] = if retry {
             try await RetryPolicy.default.execute { [self] in
                 try await self.performRequest(
@@ -752,8 +775,13 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         // Only cache if no account switch / sign-out happened during the request
         // (the cache generation is unchanged); otherwise this could write the
         // previous account's private data under a still-`pending` scope.
-        if let ttl, let cacheKey, cacheGeneration == self.cache.generation {
-            self.cache.set(key: cacheKey, data: json, ttl: ttl)
+        if let ttl, let cacheKey, let cacheWrite {
+            self.cache.setIfCurrent(
+                key: cacheKey,
+                data: json,
+                ttl: ttl,
+                reservation: cacheWrite
+            )
         }
 
         return json
