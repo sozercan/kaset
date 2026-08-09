@@ -15,6 +15,7 @@ enum PlaylistParser {
         var author: Artist?
         var trackCount: Int?
         var duration: String?
+        var year: String?
     }
 
     typealias LibraryAlbumsSource = LibraryContentParser.LibraryAlbumsSource
@@ -88,6 +89,7 @@ enum PlaylistParser {
             playlist: playlist,
             tracks: tracks,
             duration: header.duration,
+            year: playlist.isAlbum ? header.year : nil,
             libraryTargetId: Self.extractAlbumLibraryTargetId(from: data, albumId: playlistId)
         )
     }
@@ -114,6 +116,7 @@ enum PlaylistParser {
             playlist: playlist,
             tracks: tracks,
             duration: header.duration,
+            year: playlist.isAlbum ? header.year : nil,
             libraryTargetId: Self.extractAlbumLibraryTargetId(from: data, albumId: playlistId)
         )
         let continuationToken = Self.extractPlaylistContinuationToken(from: data)
@@ -897,8 +900,21 @@ enum PlaylistParser {
     }
 
     private static func isHeaderContentKind(_ text: String) -> Bool {
+        if self.isAlbumContentKind(text) {
+            return true
+        }
+
+        return switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "playlist", "song", "uploads":
+            true
+        default:
+            false
+        }
+    }
+
+    private static func isAlbumContentKind(_ text: String) -> Bool {
         switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-        case "album", "single", "ep", "playlist", "song", "uploads":
+        case "album", "single", "ep":
             true
         default:
             false
@@ -932,6 +948,12 @@ enum PlaylistParser {
 
         if header.duration == nil {
             header.duration = texts.last(where: Self.isDurationMetadata)
+        }
+
+        if header.year == nil,
+           texts.contains(where: Self.isAlbumContentKind)
+        {
+            header.year = texts.first(where: ParsingHelpers.isStandaloneYear)
         }
     }
 
