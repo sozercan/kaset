@@ -399,6 +399,10 @@ private func askParityContext(
         "osVersion": "10_15_7",
         "platform": "DESKTOP",
         "userAgent": askParityUserAgent,
+        // Minutes from UTC, UTC-behind negative — the same value YouTube's web client
+        // sends (its JS `-Date.getTimezoneOffset()`). Mirrors
+        // `InnerTubeSupport.utcOffsetMinutes(for:)`, inlined because APIExplorer cannot
+        // import the Kaset executable target.
         "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
     ]
     if profile.usesVisitorData {
