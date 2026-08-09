@@ -35,6 +35,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Binding to the YouTube (video) experience's navigation selection.
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
 
+    /// Monotonic request from the View menu to refresh the active Home feed.
+    @Binding var homeRefreshRequestID: Int
+
     /// Whether startup guest playback cleanup has completed.
     @Binding var didCompleteStartupPlaybackCleanup: Bool
 
@@ -82,12 +85,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     init(
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
+        homeRefreshRequestID: Binding<Int>,
         didCompleteStartupPlaybackCleanup: Binding<Bool>,
         client: any YTMusicClientProtocol,
         youtubeClient: any YouTubeClientProtocol
     ) {
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
+        self._homeRefreshRequestID = homeRefreshRequestID
         self._didCompleteStartupPlaybackCleanup = didCompleteStartupPlaybackCleanup
         self.client = client
         self.youtubeClient = youtubeClient
@@ -209,6 +214,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.presentCommandBarIfAvailable()
                 self.showCommandBar.wrappedValue = false
             }
+        }
+        .onChange(of: self.homeRefreshRequestID) { _, _ in
+            Task { await self.refreshActiveHome() }
         }
         .onChange(of: self.usesLegacyMacOS15UI) { _, usesLegacyUI in
             if usesLegacyUI {
@@ -401,6 +409,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     // MARK: - Main Content
+
+    private func refreshActiveHome() async {
+        switch self.settings.appSource {
+        case .music:
+            guard self.navigationSelection == .home, let homeViewModel else { return }
+            await homeViewModel.refresh()
+        case .video:
+            guard self.youtubeNavigationSelection == .home else { return }
+            await self.youtubeStore.home.refresh()
+        }
+    }
 
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
@@ -1047,12 +1066,14 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
 #Preview {
     @Previewable @State var navSelection: NavigationItem? = .home
     @Previewable @State var youtubeNavSelection: YouTubeNavigationItem? = .home
+    @Previewable @State var homeRefreshRequestID = 0
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
     MainWindow(
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
+        homeRefreshRequestID: $homeRefreshRequestID,
         didCompleteStartupPlaybackCleanup: .constant(true),
         client: ytMusicClient,
         youtubeClient: YouTubeClient(authService: authService)

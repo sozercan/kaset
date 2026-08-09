@@ -64,6 +64,8 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
+    /// Invalidates older initial-page and continuation requests for the same surface.
+    private var paginationEpochs: [PaginatedContentType: UInt64] = [:]
     private var continuationGeneration = 0
     /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
     private var personalizedRecommendationsContinuationToken: String?
@@ -100,6 +102,10 @@ final class YTMusicClient: YTMusicClientProtocol {
     ) async throws -> HomeResponse {
         self.logger.info("Fetching \(type.displayName) page")
 
+        let paginationEpoch = (self.paginationEpochs[type] ?? 0) &+ 1
+        self.paginationEpochs[type] = paginationEpoch
+        self.continuationTokens[type] = nil
+
         let body: [String: Any] = [
             "browseId": type.rawValue,
         ]
@@ -110,11 +116,13 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         // Store continuation token for progressive loading
         let token = HomeResponseParser.extractContinuationToken(from: data)
-        if generation == self.continuationGeneration {
+        let isCurrentRequest = generation == self.continuationGeneration
+            && self.paginationEpochs[type] == paginationEpoch
+        if isCurrentRequest {
             self.continuationTokens[type] = token
         }
 
-        let hasMore = generation == self.continuationGeneration && token != nil
+        let hasMore = isCurrentRequest && token != nil
         self.logger.info("\(type.displayName.capitalized) page loaded: \(response.sections.count) initial sections, hasMore: \(hasMore)")
         return response
     }
@@ -129,12 +137,15 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         self.logger.info("Fetching \(type.displayName) continuation")
         let generation = self.continuationGeneration
+        let paginationEpoch = self.paginationEpochs[type] ?? 0
 
         do {
             let continuationData = try await requestContinuation(token)
             let additionalSections = HomeResponseParser.parseContinuation(continuationData)
-            guard generation == self.continuationGeneration else {
-                self.logger.info("Discarding stale \(type.displayName) continuation after session reset")
+            guard generation == self.continuationGeneration,
+                  self.paginationEpochs[type] == paginationEpoch
+            else {
+                self.logger.info("Discarding stale \(type.displayName) continuation")
                 return nil
             }
             self.continuationTokens[type] = HomeResponseParser.extractContinuationTokenFromContinuation(continuationData)
@@ -144,7 +155,11 @@ final class YTMusicClient: YTMusicClientProtocol {
             return additionalSections
         } catch {
             self.logger.warning("Failed to fetch \(type.displayName) continuation: \(error.localizedDescription)")
-            self.continuationTokens[type] = nil
+            if generation == self.continuationGeneration,
+               self.paginationEpochs[type] == paginationEpoch
+            {
+                self.continuationTokens[type] = nil
+            }
             throw error
         }
     }
@@ -658,6 +673,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.continuationGeneration &+= 1
         self.cache.invalidateAll()
         self.continuationTokens.removeAll()
+        self.paginationEpochs.removeAll()
         self.personalizedRecommendationsContinuationToken = nil
         self.likedSongsContinuationToken = nil
     }
@@ -1982,9 +1998,17 @@ final class YTMusicClient: YTMusicClientProtocol {
         allowGuestAuthentication: Bool = false
     ) async throws -> [String: Any] {
         // Account and guest-mode transitions invalidate the shared API cache.
-        // Capture its generation before any auth/network await so stale responses
-        // cannot repopulate the cache after a session reset.
+        // Capture cache generation and logical request order before any auth or
+        // network await so stale responses cannot win after reentrant work.
         let cacheGeneration = self.cache.generation
+        let cacheWriteTicket = ttl.flatMap { _ in
+            self.cache.prepareWrite(cacheGeneration: cacheGeneration)
+        }
+        defer {
+            if let cacheWriteTicket {
+                self.cache.finishWrite(cacheWriteTicket)
+            }
+        }
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(
             authPolicy: authPolicy,
@@ -2005,13 +2029,8 @@ final class YTMusicClient: YTMusicClientProtocol {
             return cached
         }
 
-        let cacheWrite = ttl.flatMap { _ in
-            self.cache.beginWrite(for: cacheKey, cacheGeneration: cacheGeneration)
-        }
-        defer {
-            if let cacheWrite {
-                self.cache.finishWrite(cacheWrite)
-            }
+        let cacheWrite = cacheWriteTicket.flatMap {
+            self.cache.beginWrite(for: cacheKey, ticket: $0)
         }
 
         // Execute with retry policy.

@@ -56,9 +56,6 @@ struct HomeView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .focusedSceneValue(\.homeRefreshAction) {
-            Task { await self.viewModel.refresh() }
-        }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
     }
 

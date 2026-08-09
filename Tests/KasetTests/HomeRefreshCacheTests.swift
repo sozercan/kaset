@@ -77,6 +77,289 @@ struct HomeRefreshCacheTests {
         #expect(requestCount.count == 2)
     }
 
+    @Test("A stale YouTube Music Home response cannot replace a forced refresh continuation")
+    func musicHomeForceRefreshFencesStaleInitialResponse() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: resolver,
+            cache: APICache()
+        )
+
+        let staleTask = Task {
+            try await client.getHome(forceRefresh: false)
+        }
+        let staleRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        let freshTask = Task {
+            try await client.getHome(forceRefresh: true)
+        }
+        let freshRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        try HomeRefreshControlledURLProtocol.respond(
+            freshRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Fresh", continuation: "fresh-page")
+            )
+        )
+        _ = try await freshTask.value
+
+        try HomeRefreshControlledURLProtocol.respond(
+            staleRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Stale", continuation: "stale-page")
+            )
+        )
+        _ = try await staleTask.value
+
+        let continuationTask = Task {
+            try await client.getHomeContinuation()
+        }
+        let continuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        let continuationBody = try Self.requestBody(from: continuationRequest.request)
+        #expect(continuationBody["continuation"] as? String == "fresh-page")
+
+        try HomeRefreshControlledURLProtocol.respond(
+            continuationRequest,
+            data: Self.musicHomeContinuationPayload()
+        )
+        _ = try await continuationTask.value
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 3)
+    }
+
+    @Test("A stale YouTube Music continuation cannot replace a forced refresh continuation")
+    func musicHomeForceRefreshFencesInFlightContinuation() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: resolver,
+            cache: APICache()
+        )
+
+        let seedTask = Task {
+            try await client.getHome(forceRefresh: false)
+        }
+        let seedRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            seedRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Seed", continuation: "old-page")
+            )
+        )
+        _ = try await seedTask.value
+
+        let staleContinuationTask = Task {
+            try await client.getHomeContinuation()
+        }
+        let staleContinuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        let freshTask = Task {
+            try await client.getHome(forceRefresh: true)
+        }
+        let freshRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            freshRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Fresh", continuation: "fresh-page")
+            )
+        )
+        _ = try await freshTask.value
+
+        try HomeRefreshControlledURLProtocol.respond(
+            staleContinuationRequest,
+            data: Self.musicHomeContinuationPayload(continuation: "stale-next-page")
+        )
+        let staleSections = try await staleContinuationTask.value
+        #expect(staleSections == nil)
+
+        let continuationTask = Task {
+            try await client.getHomeContinuation()
+        }
+        let continuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        let continuationBody = try Self.requestBody(from: continuationRequest.request)
+        #expect(continuationBody["continuation"] as? String == "fresh-page")
+
+        try HomeRefreshControlledURLProtocol.respond(
+            continuationRequest,
+            data: Self.musicHomeContinuationPayload()
+        )
+        _ = try await continuationTask.value
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 4)
+    }
+
+    @Test("YouTube Music refresh immediately invalidates the previous continuation")
+    func musicHomeForceRefreshClearsPreviousContinuation() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let resolver = YTMusicAPIKeyResolver(session: session, environment: { name in
+            name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+        })
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: resolver,
+            cache: APICache()
+        )
+
+        let seedTask = Task {
+            try await client.getHome(forceRefresh: false)
+        }
+        let seedRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            seedRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Seed", continuation: "old-page")
+            )
+        )
+        _ = try await seedTask.value
+
+        let freshTask = Task {
+            try await client.getHome(forceRefresh: true)
+        }
+        let freshRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        let continuationDuringRefresh = try await client.getHomeContinuation()
+        #expect(continuationDuringRefresh == nil)
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 2)
+
+        try HomeRefreshControlledURLProtocol.respond(
+            freshRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Fresh", continuation: "fresh-page")
+            )
+        )
+        _ = try await freshTask.value
+
+        let continuationTask = Task {
+            try await client.getHomeContinuation()
+        }
+        let continuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        let continuationBody = try Self.requestBody(from: continuationRequest.request)
+        #expect(continuationBody["continuation"] as? String == "fresh-page")
+
+        try HomeRefreshControlledURLProtocol.respond(
+            continuationRequest,
+            data: Self.musicHomeContinuationPayload()
+        )
+        _ = try await continuationTask.value
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 3)
+    }
+
+    @Test("A stale YouTube continuation cannot replace a forced refresh continuation")
+    func youtubeHomeForceRefreshFencesInFlightContinuation() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let client = YouTubeClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            cache: APICache()
+        )
+
+        let seedTask = Task {
+            try await client.getHomeBundle(forceRefresh: false)
+        }
+        let seedRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            seedRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.youtubeHomePayload(title: "Seed", continuation: "old-page")
+            )
+        )
+        _ = try await seedTask.value
+
+        let staleContinuationTask = Task {
+            try await client.getHomeFeedContinuation()
+        }
+        let staleContinuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+
+        let freshTask = Task {
+            try await client.getHomeBundle(forceRefresh: true)
+        }
+        let freshRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            freshRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.youtubeHomePayload(title: "Fresh", continuation: "fresh-page")
+            )
+        )
+        _ = try await freshTask.value
+
+        try HomeRefreshControlledURLProtocol.respond(
+            staleContinuationRequest,
+            data: Self.youtubeHomeContinuationPayload(continuation: "stale-next-page")
+        )
+        let staleFeed = try await staleContinuationTask.value
+        #expect(staleFeed == nil)
+
+        let continuationTask = Task {
+            try await client.getHomeFeedContinuation()
+        }
+        let continuationRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        let continuationBody = try Self.requestBody(from: continuationRequest.request)
+        #expect(continuationBody["continuation"] as? String == "fresh-page")
+
+        try HomeRefreshControlledURLProtocol.respond(
+            continuationRequest,
+            data: Self.youtubeHomeContinuationPayload()
+        )
+        _ = try await continuationTask.value
+        #expect(HomeRefreshControlledURLProtocol.requestCount == 4)
+    }
+
     @Test("YouTube refresh keeps deferred topic rails cache-bypassed")
     func youtubeRefreshForcesDeferredTopicRails() async {
         let client = MockYouTubeClient()
@@ -174,8 +457,21 @@ struct HomeRefreshCacheTests {
         return (response, data)
     }
 
-    nonisolated static func musicHomePayload(title: String) -> [String: Any] {
-        [
+    nonisolated static func musicHomePayload(
+        title: String,
+        continuation: String? = nil
+    ) -> [String: Any] {
+        let continuations: [[String: Any]] = if let continuation {
+            [[
+                "nextContinuationData": [
+                    "continuation": continuation,
+                ],
+            ]]
+        } else {
+            []
+        }
+
+        return [
             "contents": [
                 "singleColumnBrowseResultsRenderer": [
                     "tabs": [[
@@ -197,6 +493,7 @@ struct HomeRefreshCacheTests {
                                             ]],
                                         ],
                                     ]],
+                                    "continuations": continuations,
                                 ],
                             ],
                         ],
@@ -206,37 +503,111 @@ struct HomeRefreshCacheTests {
         ]
     }
 
-    nonisolated static func youtubeHomePayload(title: String) -> [String: Any] {
-        [
+    nonisolated static func musicHomeContinuationPayload(continuation: String? = nil) throws -> Data {
+        var sectionListContinuation: [String: Any] = ["contents": []]
+        if let continuation {
+            sectionListContinuation["continuations"] = [[
+                "nextContinuationData": [
+                    "continuation": continuation,
+                ],
+            ]]
+        }
+
+        return try JSONSerialization.data(withJSONObject: [
+            "continuationContents": [
+                "sectionListContinuation": sectionListContinuation,
+            ],
+        ])
+    }
+
+    nonisolated static func requestBody(from request: URLRequest) throws -> [String: Any] {
+        let data: Data
+        if let body = request.httpBody {
+            data = body
+        } else if let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+
+            var result = Data()
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while true {
+                let count = stream.read(&buffer, maxLength: buffer.count)
+                guard count >= 0 else { throw stream.streamError ?? URLError(.cannotDecodeRawData) }
+                if count == 0 {
+                    break
+                }
+                result.append(buffer, count: count)
+            }
+            data = result
+        } else {
+            throw URLError(.cannotDecodeRawData)
+        }
+
+        return try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    }
+
+    nonisolated static func youtubeHomePayload(
+        title: String,
+        continuation: String? = nil
+    ) -> [String: Any] {
+        var contents: [[String: Any]] = [[
+            "richSectionRenderer": [
+                "content": [
+                    "richShelfRenderer": [
+                        "title": ["runs": [["text": title]]],
+                        "contents": [[
+                            "richItemRenderer": [
+                                "content": [
+                                    "videoRenderer": [
+                                        "videoId": "video",
+                                        "title": ["runs": [["text": "Video"]]],
+                                    ],
+                                ],
+                            ],
+                        ]],
+                    ],
+                ],
+            ],
+        ]]
+        if let continuation {
+            contents.append(Self.youtubeContinuationItem(continuation))
+        }
+
+        return [
             "contents": [
                 "twoColumnBrowseResultsRenderer": [
                     "tabs": [[
                         "tabRenderer": [
                             "content": [
                                 "richGridRenderer": [
-                                    "contents": [[
-                                        "richSectionRenderer": [
-                                            "content": [
-                                                "richShelfRenderer": [
-                                                    "title": ["runs": [["text": title]]],
-                                                    "contents": [[
-                                                        "richItemRenderer": [
-                                                            "content": [
-                                                                "videoRenderer": [
-                                                                    "videoId": "video",
-                                                                    "title": ["runs": [["text": "Video"]]],
-                                                                ],
-                                                            ],
-                                                        ],
-                                                    ]],
-                                                ],
-                                            ],
-                                        ],
-                                    ]],
+                                    "contents": contents,
                                 ],
                             ],
                         ],
                     ]],
+                ],
+            ],
+        ]
+    }
+
+    nonisolated static func youtubeHomeContinuationPayload(continuation: String? = nil) throws -> Data {
+        let items = continuation.map { [Self.youtubeContinuationItem($0)] } ?? []
+        return try JSONSerialization.data(withJSONObject: [
+            "onResponseReceivedActions": [[
+                "appendContinuationItemsAction": [
+                    "continuationItems": items,
+                ],
+            ]],
+        ])
+    }
+
+    nonisolated static func youtubeContinuationItem(_ continuation: String) -> [String: Any] {
+        [
+            "continuationItemRenderer": [
+                "continuationEndpoint": [
+                    "continuationCommand": [
+                        "token": continuation,
+                    ],
                 ],
             ],
         ]

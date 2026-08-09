@@ -104,8 +104,10 @@ struct APICacheTests {
     @Test("Older in-flight responses cannot overwrite the newest cache write")
     func newestWriteReservationWins() throws {
         let generation = self.cache.generation
-        let older = try #require(self.cache.beginWrite(for: "key", cacheGeneration: generation))
-        let newer = try #require(self.cache.beginWrite(for: "key", cacheGeneration: generation))
+        let olderTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newerTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let older = try #require(self.cache.beginWrite(for: "key", ticket: olderTicket))
+        let newer = try #require(self.cache.beginWrite(for: "key", ticket: newerTicket))
 
         self.cache.setIfCurrent(
             key: "key",
@@ -113,16 +115,49 @@ struct APICacheTests {
             ttl: 60,
             reservation: newer
         )
-        self.cache.finishWrite(newer)
+        self.cache.finishWrite(newerTicket)
         self.cache.setIfCurrent(
             key: "key",
             data: ["value": "older"],
             ttl: 60,
             reservation: older
         )
-        self.cache.finishWrite(older)
+        self.cache.finishWrite(olderTicket)
 
         #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
+    }
+
+    @Test("Request order survives out-of-order cache-key resolution")
+    func writeTicketOrderWinsBeforeKeyClaim() throws {
+        let generation = self.cache.generation
+        let olderTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newerTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newer = try #require(self.cache.beginWrite(for: "key", ticket: newerTicket))
+
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "newer"],
+            ttl: 60,
+            reservation: newer
+        )
+        self.cache.finishWrite(newerTicket)
+
+        let lateOlderClaim = self.cache.beginWrite(for: "key", ticket: olderTicket)
+        #expect(lateOlderClaim == nil)
+        self.cache.finishWrite(olderTicket)
+        #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
+    }
+
+    @Test("Invalidation rejects tickets prepared before it")
+    func invalidationRejectsPreparedWriteTicket() throws {
+        let ticket = try #require(
+            self.cache.prepareWrite(cacheGeneration: self.cache.generation)
+        )
+
+        self.cache.invalidate(matching: "key")
+
+        #expect(self.cache.beginWrite(for: "key", ticket: ticket) == nil)
+        self.cache.finishWrite(ticket)
     }
 
     @Test("Cache TTL constants are correct")

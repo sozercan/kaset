@@ -57,9 +57,6 @@ struct YouTubeHomeView: View {
         .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
-        .focusedSceneValue(\.homeRefreshAction) {
-            Task { await self.viewModel.refresh() }
-        }
     }
 
     /// Personalized rails (Continue Watching, shelves, topics) stacked above

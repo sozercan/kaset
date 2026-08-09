@@ -56,6 +56,9 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     private static let cachePrefix = "yt:"
 
     private var homeContinuation: String?
+    /// Advances whenever a new initial Home request starts, invalidating any
+    /// older initial-page or continuation cursor publication.
+    private var homePaginationEpoch: UInt64 = 0
     private var searchContinuation: String?
     private var askSessionGeneration: UInt64 = 0
     private var consumedAskBootstraps: Set<UUID> = []
@@ -66,6 +69,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     }
 
     func resetSessionStateForAccountSwitch() {
+        self.homePaginationEpoch &+= 1
         self.homeContinuation = nil
         self.searchContinuation = nil
         self.askSessionGeneration &+= 1
@@ -102,6 +106,9 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
 
     func getHomeFeed() async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube home feed")
+        self.homePaginationEpoch &+= 1
+        let paginationEpoch = self.homePaginationEpoch
+        self.homeContinuation = nil
 
         let data = try await self.request(
             "browse",
@@ -109,20 +116,27 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             ttl: APICache.TTL.home
         )
         let feed = YouTubeFeedParser.parse(data)
-        self.homeContinuation = feed.continuation
+        if paginationEpoch == self.homePaginationEpoch {
+            self.homeContinuation = feed.continuation
+        }
         self.logger.info("YouTube home feed loaded: \(feed.videos.count) videos, hasMore: \(feed.continuation != nil)")
         return feed
     }
 
     func getHomeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         self.logger.info("Fetching YouTube home bundle (feed + chips + shelves)")
+        self.homePaginationEpoch &+= 1
+        let paginationEpoch = self.homePaginationEpoch
+        self.homeContinuation = nil
 
         let bundle = try await self.homeBundle(forceRefresh: forceRefresh)
         // The detached parse is not cancelled when the Home view model is
         // discarded (account switch). Don't mutate shared client state after
         // cancellation — the providers may already have moved to the new account.
         try Task.checkCancellation()
-        self.homeContinuation = bundle.feed.continuation
+        if paginationEpoch == self.homePaginationEpoch {
+            self.homeContinuation = bundle.feed.continuation
+        }
         self.logger.info(
             "YouTube home bundle: \(bundle.feed.videos.count) videos, \(bundle.chips.count) chips, \(bundle.shelves.count) shelves"
         )
@@ -137,11 +151,15 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     /// the response and its cache entry are reused.
     private func homeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
-        // Capture the cache key (current authenticated scope) and the cache
-        // generation BEFORE any network await. A sign-out mid-flight keeps the
-        // `pending` key unchanged, so the generation (bumped by invalidateAll)
-        // is what rejects a stale write.
+        // Capture cache generation and logical request order before auth awaits.
+        // The scoped key is resolved afterward from the actual auth result.
         let cacheGeneration = self.cache.generation
+        let cacheWriteTicket = self.cache.prepareWrite(cacheGeneration: cacheGeneration)
+        defer {
+            if let cacheWriteTicket {
+                self.cache.finishWrite(cacheWriteTicket)
+            }
+        }
         let homeAuth = try await self.buildRequestHeaders(authPolicy: .optional)
         let cacheKey = self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated)
 
@@ -154,13 +172,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             return bundle
         }
 
-        let cacheWrite = cacheKey.flatMap {
-            self.cache.beginWrite(for: $0, cacheGeneration: cacheGeneration)
-        }
-        defer {
-            if let cacheWrite {
-                self.cache.finishWrite(cacheWrite)
-            }
+        let cacheWrite = cacheKey.flatMap { key in
+            cacheWriteTicket.flatMap { self.cache.beginWrite(for: key, ticket: $0) }
         }
 
         let data = try await self.requestData("browse", body: homeBody, requestAuth: homeAuth)
@@ -201,9 +214,14 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         guard let continuation = self.homeContinuation else {
             return nil
         }
+        let paginationEpoch = self.homePaginationEpoch
 
         let data = try await self.request("browse", body: ["continuation": continuation])
         let feed = YouTubeFeedParser.parseContinuation(data)
+        guard paginationEpoch == self.homePaginationEpoch else {
+            self.logger.info("Discarding stale YouTube home continuation after feed reload")
+            return nil
+        }
         self.homeContinuation = feed.continuation
         self.logger.info("YouTube home continuation: \(feed.videos.count) videos")
         return feed
@@ -723,9 +741,17 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         bypassCache: Bool = false,
         authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
     ) async throws -> [String: Any] {
-        // Capture before auth-header awaits so sign-out/account-switch invalidations
-        // during cookie extraction still reject any stale write.
+        // Capture generation and logical request order before auth-header awaits
+        // so invalidations and later requests still reject stale writes.
         let cacheGeneration = self.cache.generation
+        let cacheWriteTicket = ttl.flatMap { _ in
+            self.cache.prepareWrite(cacheGeneration: cacheGeneration)
+        }
+        defer {
+            if let cacheWriteTicket {
+                self.cache.finishWrite(cacheWriteTicket)
+            }
+        }
         let authPolicy = explicitAuthPolicy ?? self.authPolicy(forEndpoint: endpoint, body: body)
         let requestAuth = try await self.buildRequestHeaders(authPolicy: authPolicy)
 
@@ -743,13 +769,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             return cached
         }
 
-        let cacheWrite = cacheKey.flatMap {
-            self.cache.beginWrite(for: $0, cacheGeneration: cacheGeneration)
-        }
-        defer {
-            if let cacheWrite {
-                self.cache.finishWrite(cacheWrite)
-            }
+        let cacheWrite = cacheKey.flatMap { key in
+            cacheWriteTicket.flatMap { self.cache.beginWrite(for: key, ticket: $0) }
         }
 
         let json: [String: Any] = if retry {
