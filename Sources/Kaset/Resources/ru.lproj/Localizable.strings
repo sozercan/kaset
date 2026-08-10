@@ -573,5 +573,4 @@
 "Search in Playlist" = "Поиск в плейлисте";
 "Loading all songs…" = "Загрузка всех песен…";
 "Load All Songs When Opening a Playlist" = "Загружать все песни при открытии плейлиста";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "Когда включено, открытие большого плейлиста сразу загружает все страницы, что может создать много запросов.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "Когда выключено, песни загружаются постранично при прокрутке. Когда включено, открытие большого плейлиста сразу загружает все страницы.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "Когда выключено, песни загружаются постранично при прокрутке. Когда включено, открытие большого плейлиста сразу загружает все страницы, что может создать много запросов.";

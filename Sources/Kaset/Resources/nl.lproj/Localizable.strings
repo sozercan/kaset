@@ -573,5 +573,4 @@
 "Search in Playlist" = "Zoeken in afspeellijst";
 "Loading all songs…" = "Alle nummers laden…";
 "Load All Songs When Opening a Playlist" = "Alle nummers laden bij openen van afspeellijst";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "Indien ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op, wat veel verzoeken kan veroorzaken.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "Uitgeschakeld laden nummers per pagina terwijl je scrolt. Ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "Uitgeschakeld laden nummers per pagina terwijl je scrolt. Ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op, wat veel verzoeken kan veroorzaken.";

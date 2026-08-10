@@ -179,4 +179,56 @@ struct PlaylistTrackListPresenterTests {
         )
         #expect(result.map(\.videoId) == ["3", "1"])
     }
+
+    @Test("Search matches album title")
+    func searchMatchesAlbum() {
+        let songs = [
+            self.makeSong(title: "a", artist: "x", videoId: "1", albumTitle: "Kind of Blue"),
+            self.makeSong(title: "b", artist: "y", videoId: "2", albumTitle: "Blue Train"),
+            self.makeSong(title: "c", artist: "z", videoId: "3", albumTitle: "Giant Steps"),
+        ]
+        let result = PlaylistTrackListPresenter.displayedTracks(
+            from: songs,
+            sortOrder: .default,
+            searchQuery: "blue"
+        )
+        #expect(result.map(\.videoId) == ["1", "2"])
+    }
+
+    @Test("Multi-artist sort uses the joined artist display, not just the first artist")
+    func multiArtistSortUsesJoinedDisplay() {
+        let collab = Song(
+            id: "1",
+            title: "collab",
+            artists: [
+                Artist.inline(name: "Zed", namespace: "test"),
+                Artist.inline(name: "Abe", namespace: "test"),
+            ],
+            album: nil,
+            duration: nil,
+            thumbnailURL: nil,
+            videoId: "1"
+        )
+        let solo = self.makeSong(title: "solo", artist: "Mona", videoId: "2")
+        let result = PlaylistTrackListPresenter.displayedTracks(
+            from: [collab, solo],
+            sortOrder: PlaylistSortOrder(key: .artist, ascending: true),
+            searchQuery: ""
+        )
+        // "Mona" sorts before "Zed, Abe" — the key is the joined display string.
+        #expect(result.map(\.videoId) == ["2", "1"])
+    }
+
+    // MARK: - Row identity
+
+    @Test("Row identity prefers the per-occurrence playlist id so duplicates stay distinct")
+    func rowIdentityDistinguishesDuplicates() {
+        var first = self.makeSong(title: "same", artist: "x", videoId: "dup")
+        var second = self.makeSong(title: "same", artist: "x", videoId: "dup")
+        first.playlistSetVideoId = "set-a"
+        second.playlistSetVideoId = "set-b"
+
+        #expect(first.rowIdentity != second.rowIdentity)
+        #expect(self.makeSong(title: "a", artist: "x", videoId: "vid").rowIdentity == "vid")
+    }
 }

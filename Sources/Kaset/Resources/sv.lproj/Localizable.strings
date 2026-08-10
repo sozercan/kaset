@@ -573,5 +573,4 @@
 "Search in Playlist" = "Sök i spellista";
 "Loading all songs…" = "Läser in alla låtar…";
 "Load All Songs When Opening a Playlist" = "Läs in alla låtar när en spellista öppnas";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "När det är på hämtar en stor spellista alla sidor direkt, vilket kan ge många förfrågningar.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "När det är av läses låtar in en sida i taget när du bläddrar. När det är på hämtar en stor spellista alla sidor direkt.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "När det är av läses låtar in en sida i taget när du bläddrar. När det är på hämtar en stor spellista alla sidor direkt, vilket kan ge många förfrågningar.";

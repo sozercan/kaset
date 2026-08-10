@@ -27,6 +27,9 @@ enum PlaylistTrackListPresenter {
             if Self.contains(song.title, trimmed) {
                 return true
             }
+            if let albumTitle = song.album?.title, Self.contains(albumTitle, trimmed) {
+                return true
+            }
             return song.artists.contains { Self.contains($0.name, trimmed) }
         }
     }
@@ -40,23 +43,50 @@ enum PlaylistTrackListPresenter {
 
     // MARK: - Sorting
 
+    /// A track decorated with its sort key and original position. The key is built once
+    /// per track, not inside the comparator: `artistsDisplay` re-joins the artist array on
+    /// every access. The index keeps ties — and the whole comparison — stable.
+    private struct Decorated {
+        let song: Song
+        let index: Int
+        let stringKey: String?
+        let duration: TimeInterval?
+    }
+
     private static func sort(_ tracks: [Song], order: PlaylistSortOrder) -> [Song] {
         guard order.key != .original else { return tracks }
 
-        // Decorate with the original index so ties — and the whole comparison — stay stable.
-        let indexed = Array(tracks.enumerated())
-        let sorted = indexed.sorted { lhs, rhs in
-            Self.less(lhs.element, rhs.element, order: order, lhsIndex: lhs.offset, rhsIndex: rhs.offset)
+        let decorated = tracks.enumerated().map { index, song in
+            Decorated(
+                song: song,
+                index: index,
+                stringKey: Self.stringKey(for: song, key: order.key),
+                duration: order.key == .duration ? song.duration : nil
+            )
         }
-        return sorted.map(\.element)
+
+        return decorated
+            .sorted { Self.less($0, $1, order: order) }
+            .map(\.song)
     }
 
-    private static func less(
-        _ lhs: Song, _ rhs: Song, order: PlaylistSortOrder, lhsIndex: Int, rhsIndex: Int
-    ) -> Bool {
-        switch self.compareKeys(lhs, rhs, key: order.key) {
+    private static func stringKey(for song: Song, key: PlaylistSortKey) -> String? {
+        switch key {
+        case .title:
+            song.title
+        case .artist:
+            song.artistsDisplay.isEmpty ? nil : song.artistsDisplay
+        case .album:
+            song.album?.title
+        case .original, .duration:
+            nil
+        }
+    }
+
+    private static func less(_ lhs: Decorated, _ rhs: Decorated, order: PlaylistSortOrder) -> Bool {
+        switch Self.compareKeys(lhs, rhs, key: order.key) {
         case .orderedSame:
-            lhsIndex < rhsIndex // stable tie-break, direction-independent
+            lhs.index < rhs.index // stable tie-break, direction-independent
         case .orderedAscending:
             order.ascending
         case .orderedDescending:
@@ -76,21 +106,14 @@ enum PlaylistTrackListPresenter {
         case rhsMissing
     }
 
-    private static func compareKeys(_ lhs: Song, _ rhs: Song, key: PlaylistSortKey) -> KeyComparison {
+    private static func compareKeys(_ lhs: Decorated, _ rhs: Decorated, key: PlaylistSortKey) -> KeyComparison {
         switch key {
         case .original:
             .orderedSame
-        case .title:
-            self.compareStrings(lhs.title, rhs.title)
-        case .artist:
-            self.compareStrings(
-                lhs.artistsDisplay.isEmpty ? nil : lhs.artistsDisplay,
-                rhs.artistsDisplay.isEmpty ? nil : rhs.artistsDisplay
-            )
-        case .album:
-            self.compareStrings(lhs.album?.title, rhs.album?.title)
         case .duration:
-            self.compareDurations(lhs.duration, rhs.duration)
+            Self.compareDurations(lhs.duration, rhs.duration)
+        case .title, .artist, .album:
+            Self.compareStrings(lhs.stringKey, rhs.stringKey)
         }
     }
 

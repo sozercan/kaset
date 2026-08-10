@@ -573,5 +573,4 @@
 "Search in Playlist" = "البحث في قائمة التشغيل";
 "Loading all songs…" = "جارٍ تحميل كل الأغاني…";
 "Load All Songs When Opening a Playlist" = "تحميل كل الأغاني عند فتح قائمة التشغيل";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا، ما قد يُنشئ طلبات كثيرة.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "عند الإيقاف، تُحمَّل الأغاني صفحةً تلو الأخرى أثناء التمرير. عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "عند الإيقاف، تُحمَّل الأغاني صفحةً تلو الأخرى أثناء التمرير. عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا، ما قد يُنشئ طلبات كثيرة.";

@@ -571,5 +571,4 @@
 "Search in Playlist" = "在播放列表中搜索";
 "Loading all songs…" = "正在加载全部歌曲…";
 "Load All Songs When Opening a Playlist" = "打开播放列表时加载全部歌曲";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "开启后，打开大型播放列表会一次性获取全部分页，可能产生大量请求。";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "关闭时，滚动时按页加载歌曲。开启时，打开大型播放列表会一次性获取全部分页。";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "关闭时，滚动时按页加载歌曲。开启时，打开大型播放列表会一次性获取全部分页，可能产生大量请求。";

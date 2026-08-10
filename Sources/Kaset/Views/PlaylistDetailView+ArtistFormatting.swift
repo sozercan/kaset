@@ -22,6 +22,20 @@ extension PlaylistDetailView {
         return fallbackArtist
     }
 
+    /// The row's secondary line: artists, plus the album for playlist rows. Album appears
+    /// because it is sortable — sorting by a field the row never shows leaves the result
+    /// unreadable. Album pages omit it; it's already in the header.
+    func trackSubtitle(for track: Song, fallbackAuthor: String?, isAlbum: Bool) -> String? {
+        let artists = self.trackArtistsDisplay(for: track, fallbackAuthor: fallbackAuthor)
+        guard !isAlbum,
+              let albumTitle = track.album?.title.trimmingCharacters(in: .whitespacesAndNewlines),
+              !albumTitle.isEmpty
+        else { return artists }
+
+        guard let artists, !artists.isEmpty else { return albumTitle }
+        return "\(artists) • \(albumTitle)"
+    }
+
     func uniqueArtists(from artists: [Artist]) -> [Artist] {
         var seen = Set<String>()
         var uniqueArtists: [Artist] = []

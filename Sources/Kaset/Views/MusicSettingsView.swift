@@ -94,11 +94,12 @@ struct MusicSettingsView: View {
                     String(localized: "Load All Songs When Opening a Playlist"),
                     isOn: self.$settings.autoLoadFullPlaylistOnOpen
                 )
-                .help(String(localized: "When on, opening a large playlist fetches every page up front, which can make many requests."))
             } header: {
                 Text(String(localized: "Playlists"))
             } footer: {
-                Text(String(localized: "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front."))
+                // The request cost belongs here, not in a tooltip: it's the reason to leave
+                // this off, and a footer is always visible.
+                Text(String(localized: "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests."))
             }
         }
         .formStyle(.grouped)

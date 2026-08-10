@@ -573,5 +573,4 @@
 "Search in Playlist" = "Cari di playlist";
 "Loading all songs…" = "Memuat semua lagu…";
 "Load All Songs When Opening a Playlist" = "Muat semua lagu saat membuka playlist";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "Jika aktif, membuka playlist besar akan mengambil semua halaman di awal, yang dapat menghasilkan banyak permintaan.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "Jika nonaktif, lagu dimuat per halaman saat Anda menggulir. Jika aktif, membuka playlist besar akan mengambil semua halaman di awal.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "Jika nonaktif, lagu dimuat per halaman saat Anda menggulir. Jika aktif, membuka playlist besar akan mengambil semua halaman di awal, yang dapat menghasilkan banyak permintaan.";

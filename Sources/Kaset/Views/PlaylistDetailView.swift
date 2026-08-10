@@ -29,6 +29,10 @@ struct PlaylistDetailView: View {
     @State private var isRefining: Bool = false
     /// Error message from refine operation.
     @State private var refineError: String?
+    /// Whether this presentation already cleared sort/search left on a reused view model.
+    @State private var hasResetSortAndSearch: Bool = false
+    /// Focus of the toolbar search field, so clicking the page body can resign it.
+    @FocusState private var isSearchFocused: Bool
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         if self.playlist.isAlbum {
@@ -94,6 +98,14 @@ struct PlaylistDetailView: View {
                 }
             }
         }
+        // In the toolbar, not the scrolling content: it stays reachable — and clearable —
+        // deep into a long playlist, and sits next to the sort control it works with.
+        .searchable(
+            text: self.searchBinding,
+            placement: .toolbar,
+            prompt: Text(String(localized: "Search in Playlist"))
+        )
+        .searchFocused(self.$isSearchFocused)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -108,9 +120,13 @@ struct PlaylistDetailView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .onDisappear {
-            // Sort/search are ephemeral per open. Some detail view models are reused
-            // (e.g. the persistent Liked Music model), so reset explicitly on close.
+        .onAppear {
+            // Not `.onDisappear`: that also fires when this screen is pushed over —
+            // measured firing with an active sort — so it dropped the sort on the way to
+            // an artist page and back. `@State` survives a push/pop pair, so this clears
+            // a reused view model's stale sort only on a genuinely new open.
+            guard !self.hasResetSortAndSearch else { return }
+            self.hasResetSortAndSearch = true
             self.viewModel.resetSortAndSearch()
         }
         .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
@@ -151,8 +167,6 @@ struct PlaylistDetailView: View {
 
                 Divider()
 
-                self.searchField
-
                 // Tracks
                 let fallbackAlbum = Album(
                     id: detail.id,
@@ -163,10 +177,20 @@ struct PlaylistDetailView: View {
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
                 let displayed = self.viewModel.displayedTracks
+                let isDraining = self.viewModel.isFilteringOrSorting && self.viewModel.hasMore
+
+                if isDraining {
+                    self.drainProgressBanner
+                }
+
                 if displayed.isEmpty, self.hasActiveSearch {
-                    ContentUnavailableView.search(text: self.viewModel.searchQuery)
-                        .frame(maxWidth: .infinity)
-                        .padding(.top, 24)
+                    // Only claim no matches once every page has been searched — mid-drain
+                    // the track may still be coming, and the banner already explains it.
+                    if !isDraining {
+                        ContentUnavailableView.search(text: self.viewModel.searchQuery)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                    }
                 } else {
                     self.tracksView(
                         displayed, isAlbum: detail.isAlbum, author: detail.author?.name,
@@ -175,6 +199,14 @@ struct PlaylistDetailView: View {
                 }
             }
             .padding(.vertical, 24)
+            // Track rows are Buttons, which don't take first responder on macOS, and the
+            // scroll view isn't focusable — so without somewhere for focus to go, the
+            // search field never blurs. Clicking the page body resigns it.
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { self.isSearchFocused = false }
+            }
         }
         // Inset the resting content while the scroll view stays edge-to-edge so
         // content extends under the floating glass sidebar; the accent backdrop
@@ -277,15 +309,14 @@ struct PlaylistDetailView: View {
         _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
     ) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+            ForEach(Array(tracks.enumerated()), id: \.element.rowIdentity) { index, track in
                 self.trackRow(
                     track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
                     fallbackAlbum: fallbackAlbum
                 )
                 .onAppear {
-                    // Positional paging only applies to the natural (unsorted, unfiltered) list.
-                    // Once a sort or search is active, list position no longer maps to the load
-                    // frontier, so completeness is driven by loadAllRemaining() instead.
+                    // Position only maps to the load frontier in the natural order; once
+                    // sorted or filtered, loadAllRemaining() drives completeness instead.
                     if !self.viewModel.isFilteringOrSorting,
                        index >= tracks.count - 3,
                        self.viewModel.hasMore
@@ -302,21 +333,8 @@ struct PlaylistDetailView: View {
                 }
             }
 
-            // While a sort/search is active and pages are still draining, tell the user
-            // more matches may appear.
-            if self.viewModel.isFilteringOrSorting, self.viewModel.hasMore {
-                HStack(spacing: 8) {
-                    Spacer()
-                    ProgressView()
-                        .controlSize(.small)
-                    Text(String(localized: "Loading all songs…"))
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                }
-                .padding()
-            } else if self.viewModel.loadingState == .loadingMore {
-                // Loading indicator for scroll pagination
+            // Scroll pagination only; the sort/search drain reports via `drainProgressBanner`.
+            if self.viewModel.loadingState == .loadingMore {
                 HStack {
                     Spacer()
                     ProgressView()
@@ -336,7 +354,7 @@ struct PlaylistDetailView: View {
             track: track,
             index: index,
             isAlbum: isAlbum,
-            subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            subtitle: self.trackSubtitle(for: track, fallbackAuthor: author, isAlbum: isAlbum),
             allowsLikeActions: self.hasPersonalAccount,
             onPlay: {
                 self.playTrackInQueue(

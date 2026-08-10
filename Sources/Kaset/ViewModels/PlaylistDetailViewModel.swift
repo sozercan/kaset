@@ -65,8 +65,13 @@ final class PlaylistDetailViewModel {
     /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// The loaded playlist detail.
-    private(set) var playlistDetail: PlaylistDetail?
+    /// The loaded playlist detail. Any mutation — including appending a page — invalidates
+    /// the cached `displayedTracks`, so no load path has to remember to refresh.
+    private(set) var playlistDetail: PlaylistDetail? {
+        didSet {
+            self.refreshDisplayedTracks()
+        }
+    }
 
     /// Whether more tracks are available to load.
     private(set) var hasMore: Bool = false
@@ -76,6 +81,16 @@ final class PlaylistDetailViewModel {
 
     /// Current client-side search query for the displayed track list.
     private(set) var searchQuery: String = ""
+
+    /// The tracks to display, after applying the current search filter and sort order.
+    /// Cached; recomputed only when the track set, sort order, or query changes.
+    private(set) var displayedTracks: [Song] = []
+
+    /// Debounce window, in milliseconds, between the last keystroke and the drain it triggers.
+    private static let searchDrainDebounce = 300
+
+    /// Pending debounced drain kicked off by typing in the search field.
+    @ObservationIgnored private var searchDrainTask: Task<Void, Never>?
 
     private let playlist: Playlist
     /// The API client (exposed for add to library action).
@@ -136,15 +151,6 @@ final class PlaylistDetailViewModel {
         self.playlist.id
     }
 
-    /// The tracks to display, after applying the current search filter and sort order.
-    var displayedTracks: [Song] {
-        PlaylistTrackListPresenter.displayedTracks(
-            from: self.playlistDetail?.tracks ?? [],
-            sortOrder: self.sortOrder,
-            searchQuery: self.searchQuery
-        )
-    }
-
     /// Whether a non-default sort or a non-empty search is currently active.
     var isFilteringOrSorting: Bool {
         self.sortOrder.key != .original
@@ -154,32 +160,61 @@ final class PlaylistDetailViewModel {
     /// Updates the sort order and, when the playlist is still paging, drains every
     /// remaining page so the sort covers the complete track set.
     func setSortOrder(_ order: PlaylistSortOrder) {
+        guard order != self.sortOrder else { return }
         self.sortOrder = order
+        self.refreshDisplayedTracks()
         self.drainAllIfNeededForDisplay()
     }
 
-    /// Updates the search query and, when the playlist is still paging, drains every
-    /// remaining page so the search covers the complete track set.
+    /// Updates the search query. Filtering applies immediately; only the drain is debounced.
     func setSearchQuery(_ query: String) {
+        guard query != self.searchQuery else { return }
         self.searchQuery = query
-        self.drainAllIfNeededForDisplay()
+        self.refreshDisplayedTracks()
+        self.scheduleSearchDrain()
     }
 
     /// Resets sort and search back to the default (server order, no filter).
     func resetSortAndSearch() {
+        self.searchDrainTask?.cancel()
+        self.searchDrainTask = nil
+        guard self.sortOrder != .default || !self.searchQuery.isEmpty else { return }
         self.sortOrder = .default
         self.searchQuery = ""
+        self.refreshDisplayedTracks()
     }
 
-    /// Kicks a full drain (single-flight; coalesces with any in-flight drain) when a
-    /// sort/search is active and more pages remain, so client-side ordering covers
-    /// every track rather than just the loaded window.
+    /// Recomputes the cached display list. Deliberately not a computed property: the detail
+    /// body re-evaluates on every observed change, and each one would re-run the full
+    /// filter + sort — thousands of collation calls per frame on a large playlist.
+    private func refreshDisplayedTracks() {
+        self.displayedTracks = PlaylistTrackListPresenter.displayedTracks(
+            from: self.playlistDetail?.tracks ?? [],
+            sortOrder: self.sortOrder,
+            searchQuery: self.searchQuery
+        )
+    }
+
+    /// Debounces the drain, so typing a word doesn't start a round of continuation
+    /// requests per keystroke.
+    private func scheduleSearchDrain() {
+        self.searchDrainTask?.cancel()
+        self.searchDrainTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(Self.searchDrainDebounce))
+            guard !Task.isCancelled else { return }
+            self.drainAllIfNeededForDisplay()
+        }
+    }
+
+    /// Kicks a single-flight full drain when a sort/search is active and pages remain, so
+    /// client-side ordering covers every track rather than just the loaded window.
     private func drainAllIfNeededForDisplay() {
         guard self.isFilteringOrSorting, self.hasMore else { return }
         Task { await self.loadAllRemaining() }
     }
 
     deinit {
+        self.searchDrainTask?.cancel()
         self.loadTask?.cancel()
         self.fullLoadTask?.cancel()
         self.pagingTask?.cancel()

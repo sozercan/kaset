@@ -42,5 +42,4 @@
 "Search in Playlist" = "Search in Playlist";
 "Loading all songs…" = "Loading all songs…";
 "Load All Songs When Opening a Playlist" = "Load All Songs When Opening a Playlist";
-"When on, opening a large playlist fetches every page up front, which can make many requests." = "When on, opening a large playlist fetches every page up front, which can make many requests.";
-"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests.";

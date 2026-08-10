@@ -57409,214 +57409,108 @@
         }
       }
     },
-    "When on, opening a large playlist fetches every page up front, which can make many requests.": {
+    "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا، ما قد يُنشئ طلبات كثيرة."
+            "value": "عند الإيقاف، تُحمَّل الأغاني صفحةً تلو الأخرى أثناء التمرير. عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا، ما قد يُنشئ طلبات كثيرة."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Wenn aktiviert, werden beim Öffnen einer großen Playlist alle Seiten sofort geladen, was viele Anfragen verursachen kann."
+            "value": "Wenn aus, werden Titel beim Scrollen seitenweise geladen. Wenn an, werden beim Öffnen einer großen Playlist alle Seiten sofort geladen, was viele Anfragen verursachen kann."
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "When on, opening a large playlist fetches every page up front, which can make many requests."
+            "value": "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si está activado, abrir una lista grande carga todas las páginas de inmediato, lo que puede generar muchas solicitudes."
+            "value": "Si está desactivado, las canciones se cargan página por página al desplazarte. Si está activado, abrir una lista grande carga todas las páginas de inmediato, lo que puede generar muchas solicitudes."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lorsque cette option est activée, l’ouverture d’une grande playlist charge toutes les pages d’emblée, ce qui peut générer de nombreuses requêtes."
+            "value": "Désactivé, les titres se chargent page par page au défilement. Activé, l’ouverture d’une grande playlist charge toutes les pages d’emblée, ce qui peut générer de nombreuses requêtes."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Jika aktif, membuka playlist besar akan mengambil semua halaman di awal, yang dapat menghasilkan banyak permintaan."
+            "value": "Jika nonaktif, lagu dimuat per halaman saat Anda menggulir. Jika aktif, membuka playlist besar akan mengambil semua halaman di awal, yang dapat menghasilkan banyak permintaan."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Se attivo, l’apertura di una playlist grande carica subito tutte le pagine, generando potenzialmente molte richieste."
+            "value": "Se disattivo, i brani si caricano una pagina alla volta durante lo scorrimento. Se attivo, l’apertura di una playlist grande carica subito tutte le pagine, generando potenzialmente molte richieste."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "켜면 큰 재생목록을 열 때 모든 페이지를 미리 가져오므로 요청이 많아질 수 있습니다."
+            "value": "끄면 스크롤할 때 노래가 페이지 단위로 로드됩니다. 켜면 큰 재생목록을 열 때 모든 페이지를 미리 가져오므로 요청이 많아질 수 있습니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Indien ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op, wat veel verzoeken kan veroorzaken."
+            "value": "Uitgeschakeld laden nummers per pagina terwijl je scrolt. Ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op, wat veel verzoeken kan veroorzaken."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Gdy włączone, otwarcie dużej playlisty od razu pobiera wszystkie strony, co może generować wiele żądań."
+            "value": "Gdy wyłączone, utwory ładują się stronami podczas przewijania. Gdy włączone, otwarcie dużej playlisty od razu pobiera wszystkie strony, co może generować wiele żądań."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Quando ativado, abrir uma playlist grande busca todas as páginas de uma vez, o que pode gerar muitas solicitações."
+            "value": "Quando desativado, as músicas carregam uma página por vez conforme você rola. Quando ativado, abrir uma playlist grande busca todas as páginas de uma vez, o que pode gerar muitas solicitações."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Когда включено, открытие большого плейлиста сразу загружает все страницы, что может создать много запросов."
+            "value": "Когда выключено, песни загружаются постранично при прокрутке. Когда включено, открытие большого плейлиста сразу загружает все страницы, что может создать много запросов."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "När det är på hämtar en stor spellista alla sidor direkt, vilket kan ge många förfrågningar."
+            "value": "När det är av läses låtar in en sida i taget när du bläddrar. När det är på hämtar en stor spellista alla sidor direkt, vilket kan ge många förfrågningar."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Açıkken, büyük bir çalma listesini açmak tüm sayfaları önceden getirir; bu çok sayıda istek oluşturabilir."
+            "value": "Kapalıyken, kaydırdıkça şarkılar sayfa sayfa yüklenir. Açıkken, büyük bir çalma listesini açmak tüm sayfaları önceden getirir; bu çok sayıda istek oluşturabilir."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Коли ввімкнено, відкриття великого плейлиста одразу завантажує всі сторінки, що може створити багато запитів."
+            "value": "Коли вимкнено, пісні завантажуються посторінково під час прокручування. Коли ввімкнено, відкриття великого плейлиста одразу завантажує всі сторінки, що може створити багато запитів."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "开启后，打开大型播放列表会一次性获取全部分页，可能产生大量请求。"
+            "value": "关闭时，滚动时按页加载歌曲。开启时，打开大型播放列表会一次性获取全部分页，可能产生大量请求。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "開啟後，打開大型播放清單會一次擷取全部分頁，可能產生大量請求。"
-          }
-        }
-      }
-    },
-    "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front.": {
-      "localizations": {
-        "ar": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "عند الإيقاف، تُحمَّل الأغاني صفحةً تلو الأخرى أثناء التمرير. عند التفعيل، يؤدي فتح قائمة تشغيل كبيرة إلى جلب كل الصفحات مسبقًا."
-          }
-        },
-        "de": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Wenn aus, werden Titel beim Scrollen seitenweise geladen. Wenn an, werden beim Öffnen einer großen Playlist alle Seiten sofort geladen."
-          }
-        },
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front."
-          }
-        },
-        "es": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si está desactivado, las canciones se cargan página por página al desplazarte. Si está activado, abrir una lista grande carga todas las páginas de inmediato."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Désactivé, les titres se chargent page par page au défilement. Activé, l’ouverture d’une grande playlist charge toutes les pages d’emblée."
-          }
-        },
-        "id": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Jika nonaktif, lagu dimuat per halaman saat Anda menggulir. Jika aktif, membuka playlist besar akan mengambil semua halaman di awal."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Se disattivo, i brani si caricano una pagina alla volta durante lo scorrimento. Se attivo, l’apertura di una playlist grande carica subito tutte le pagine."
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "끄면 스크롤할 때 노래가 페이지 단위로 로드됩니다. 켜면 큰 재생목록을 열 때 모든 페이지를 미리 가져옵니다."
-          }
-        },
-        "nl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Uitgeschakeld laden nummers per pagina terwijl je scrolt. Ingeschakeld haalt het openen van een grote afspeellijst meteen alle pagina’s op."
-          }
-        },
-        "pl": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Gdy wyłączone, utwory ładują się stronami podczas przewijania. Gdy włączone, otwarcie dużej playlisty od razu pobiera wszystkie strony."
-          }
-        },
-        "pt": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Quando desativado, as músicas carregam uma página por vez conforme você rola. Quando ativado, abrir uma playlist grande busca todas as páginas de uma vez."
-          }
-        },
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Когда выключено, песни загружаются постранично при прокрутке. Когда включено, открытие большого плейлиста сразу загружает все страницы."
-          }
-        },
-        "sv": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "När det är av läses låtar in en sida i taget när du bläddrar. När det är på hämtar en stor spellista alla sidor direkt."
-          }
-        },
-        "tr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Kapalıyken, kaydırdıkça şarkılar sayfa sayfa yüklenir. Açıkken, büyük bir çalma listesini açmak tüm sayfaları önceden getirir."
-          }
-        },
-        "uk": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Коли вимкнено, пісні завантажуються посторінково під час прокручування. Коли ввімкнено, відкриття великого плейлиста одразу завантажує всі сторінки."
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "关闭时，滚动时按页加载歌曲。开启时，打开大型播放列表会一次性获取全部分页。"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "關閉時，捲動時逐頁載入歌曲。開啟時，打開大型播放清單會一次擷取全部分頁。"
+            "value": "關閉時，捲動時逐頁載入歌曲。開啟時，打開大型播放清單會一次擷取全部分頁，可能產生大量請求。"
           }
         }
       }

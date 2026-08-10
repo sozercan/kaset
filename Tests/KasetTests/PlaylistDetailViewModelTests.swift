@@ -445,6 +445,58 @@ struct PlaylistDetailViewModelTests {
         #expect(vm.isFilteringOrSorting == false)
     }
 
+    @Test("Newly paged-in tracks are folded into the active sort")
+    func pagedTracksRespectActiveSort() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-page-sort", title: "Paged")
+        self.mockClient.playlistDetails["VL-page-sort"] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [TestFixtures.makeSong(id: "1", title: "Mango")],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks["VL-page-sort"] = [
+            [TestFixtures.makeSong(id: "2", title: "Apple")],
+        ]
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        vm.setSortOrder(PlaylistSortOrder(key: .title, ascending: true))
+        #expect(vm.displayedTracks.map(\.videoId) == ["1"])
+
+        // The cached display list must be invalidated by the append, not just by
+        // setSortOrder — otherwise the page arrives and is never sorted in.
+        await vm.loadAllRemaining()
+        #expect(vm.displayedTracks.map(\.videoId) == ["2", "1"])
+    }
+
+    @Test("Search drain is debounced rather than fired on every keystroke")
+    func searchDrainIsDebounced() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-debounce", title: "Debounce")
+        self.mockClient.playlistDetails["VL-debounce"] = PlaylistDetail(
+            playlist: playlist, tracks: TestFixtures.makeSongs(count: 100), duration: nil
+        )
+        self.mockClient.playlistContinuationTracks["VL-debounce"] = [
+            (100 ..< 110).map { TestFixtures.makeSong(id: "video-\($0)", title: "Song \($0)") },
+        ]
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        for prefix in ["s", "so", "son", "song"] {
+            vm.setSearchQuery(prefix)
+        }
+        // Filtering is applied immediately; only the pagination drain waits.
+        #expect(vm.isFilteringOrSorting == true)
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationCallCount >= 1,
+            description: "debounced drain eventually runs once"
+        )
+    }
+
     @Test("Auto-load setting drains all pages on open")
     func autoLoadOnOpenDrains() async {
         let manager = SettingsManager.shared
