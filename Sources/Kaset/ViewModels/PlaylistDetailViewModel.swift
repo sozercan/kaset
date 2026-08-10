@@ -71,6 +71,12 @@ final class PlaylistDetailViewModel {
     /// Whether more tracks are available to load.
     private(set) var hasMore: Bool = false
 
+    /// Current client-side sort order for the displayed track list.
+    private(set) var sortOrder: PlaylistSortOrder = .default
+
+    /// Current client-side search query for the displayed track list.
+    private(set) var searchQuery: String = ""
+
     private let playlist: Playlist
     /// The API client (exposed for add to library action).
     let client: any YTMusicClientProtocol
@@ -130,6 +136,49 @@ final class PlaylistDetailViewModel {
         self.playlist.id
     }
 
+    /// The tracks to display, after applying the current search filter and sort order.
+    var displayedTracks: [Song] {
+        PlaylistTrackListPresenter.displayedTracks(
+            from: self.playlistDetail?.tracks ?? [],
+            sortOrder: self.sortOrder,
+            searchQuery: self.searchQuery
+        )
+    }
+
+    /// Whether a non-default sort or a non-empty search is currently active.
+    var isFilteringOrSorting: Bool {
+        self.sortOrder.key != .original
+            || !self.searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    /// Updates the sort order and, when the playlist is still paging, drains every
+    /// remaining page so the sort covers the complete track set.
+    func setSortOrder(_ order: PlaylistSortOrder) {
+        self.sortOrder = order
+        self.drainAllIfNeededForDisplay()
+    }
+
+    /// Updates the search query and, when the playlist is still paging, drains every
+    /// remaining page so the search covers the complete track set.
+    func setSearchQuery(_ query: String) {
+        self.searchQuery = query
+        self.drainAllIfNeededForDisplay()
+    }
+
+    /// Resets sort and search back to the default (server order, no filter).
+    func resetSortAndSearch() {
+        self.sortOrder = .default
+        self.searchQuery = ""
+    }
+
+    /// Kicks a full drain (single-flight; coalesces with any in-flight drain) when a
+    /// sort/search is active and more pages remain, so client-side ordering covers
+    /// every track rather than just the loaded window.
+    private func drainAllIfNeededForDisplay() {
+        guard self.isFilteringOrSorting, self.hasMore else { return }
+        Task { await self.loadAllRemaining() }
+    }
+
     deinit {
         self.loadTask?.cancel()
         self.fullLoadTask?.cancel()
@@ -187,6 +236,12 @@ final class PlaylistDetailViewModel {
         self.loadTask = task
         await task.value
         self.loadTask = nil
+
+        // When the user opts in, eagerly drain every page on open so sort/search
+        // (and scrolling) see the complete playlist without incremental paging.
+        if SettingsManager.shared.autoLoadFullPlaylistOnOpen, self.hasMore {
+            Task { await self.loadAllRemaining() }
+        }
     }
 
     /// Drives pagination to completion (every track), for callers that need the full playlist

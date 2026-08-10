@@ -87,6 +87,13 @@ struct PlaylistDetailView: View {
         )
         .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .toolbar {
+            if self.viewModel.playlistDetail != nil {
+                ToolbarItem(placement: .automatic) {
+                    self.sortMenu
+                }
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -100,6 +107,11 @@ struct PlaylistDetailView: View {
         }
         .refreshable {
             await self.viewModel.refresh()
+        }
+        .onDisappear {
+            // Sort/search are ephemeral per open. Some detail view models are reused
+            // (e.g. the persistent Liked Music model), so reset explicitly on close.
+            self.viewModel.resetSortAndSearch()
         }
         .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
             guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
@@ -139,6 +151,8 @@ struct PlaylistDetailView: View {
 
                 Divider()
 
+                self.searchField
+
                 // Tracks
                 let fallbackAlbum = Album(
                     id: detail.id,
@@ -148,10 +162,17 @@ struct PlaylistDetailView: View {
                     year: nil,
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
-                self.tracksView(
-                    detail.tracks, isAlbum: detail.isAlbum, author: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
+                let displayed = self.viewModel.displayedTracks
+                if displayed.isEmpty, self.hasActiveSearch {
+                    ContentUnavailableView.search(text: self.viewModel.searchQuery)
+                        .frame(maxWidth: .infinity)
+                        .padding(.top, 24)
+                } else {
+                    self.tracksView(
+                        displayed, isAlbum: detail.isAlbum, author: detail.author?.name,
+                        fallbackAlbum: fallbackAlbum
+                    )
+                }
             }
             .padding(.vertical, 24)
         }
@@ -262,8 +283,13 @@ struct PlaylistDetailView: View {
                     fallbackAlbum: fallbackAlbum
                 )
                 .onAppear {
-                    // Load more when reaching the last few items
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
+                    // Positional paging only applies to the natural (unsorted, unfiltered) list.
+                    // Once a sort or search is active, list position no longer maps to the load
+                    // frontier, so completeness is driven by loadAllRemaining() instead.
+                    if !self.viewModel.isFilteringOrSorting,
+                       index >= tracks.count - 3,
+                       self.viewModel.hasMore
+                    {
                         Task { await self.viewModel.loadMore() }
                     }
                 }
@@ -276,8 +302,21 @@ struct PlaylistDetailView: View {
                 }
             }
 
-            // Loading indicator for pagination
-            if self.viewModel.loadingState == .loadingMore {
+            // While a sort/search is active and pages are still draining, tell the user
+            // more matches may appear.
+            if self.viewModel.isFilteringOrSorting, self.viewModel.hasMore {
+                HStack(spacing: 8) {
+                    Spacer()
+                    ProgressView()
+                        .controlSize(.small)
+                    Text(String(localized: "Loading all songs…"))
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding()
+            } else if self.viewModel.loadingState == .loadingMore {
+                // Loading indicator for scroll pagination
                 HStack {
                     Spacer()
                     ProgressView()
@@ -316,73 +355,6 @@ struct PlaylistDetailView: View {
             }
         )
         .staggeredAppearance(index: min(index, 10))
-    }
-
-    private func headerArtists(for detail: PlaylistDetail) -> [Artist] {
-        if let author = self.cleanedArtist(detail.author) {
-            return [author]
-        }
-
-        return self.uniqueArtists(from: detail.tracks.flatMap(\.artists))
-    }
-
-    private func trackArtistsDisplay(for track: Song, fallbackAuthor: String?) -> String? {
-        let artists = self.uniqueArtists(from: track.artists)
-        if !artists.isEmpty {
-            return artists.map(\.name).joined(separator: ", ")
-        }
-
-        guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
-        return fallbackArtist
-    }
-
-    private func uniqueArtists(from artists: [Artist]) -> [Artist] {
-        var seen = Set<String>()
-        var uniqueArtists: [Artist] = []
-
-        for artist in artists {
-            guard let cleanedArtist = self.cleanedArtist(artist) else { continue }
-            let key = cleanedArtist.hasNavigableId ? cleanedArtist.id : cleanedArtist.name.lowercased()
-            guard seen.insert(key).inserted else { continue }
-            uniqueArtists.append(cleanedArtist)
-        }
-
-        return uniqueArtists
-    }
-
-    private func cleanedArtist(_ artist: Artist?) -> Artist? {
-        guard let artist,
-              let name = self.cleanedArtistName(artist.name)
-        else { return nil }
-
-        return Artist(
-            id: artist.id,
-            name: name,
-            thumbnailURL: artist.thumbnailURL,
-            subtitle: artist.subtitle,
-            profileKind: artist.profileKind
-        )
-    }
-
-    private func cleanedArtistName(_ name: String?) -> String? {
-        guard var cleanName = name?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !cleanName.isEmpty
-        else { return nil }
-
-        if cleanName == "Album" {
-            return nil
-        }
-
-        if cleanName.hasPrefix("Album, ") {
-            cleanName = String(cleanName.dropFirst(7))
-        } else if cleanName.contains("Album,") {
-            let parts = cleanName.split(separator: ",", maxSplits: 1)
-            if parts.count > 1 {
-                cleanName = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        return cleanName.isEmpty ? nil : cleanName
     }
 
     // MARK: - Actions

@@ -566,3 +566,12 @@
 "Start a new chat to continue." = "Devam etmek için yeni bir sohbet başlatın.";
 "Ask Gemini response ready" = "Gemini'ye Sor yanıtı hazır";
 "New Ask Gemini chat ready" = "Yeni Gemini sohbeti hazır";
+"Original Order" = "Orijinal Sıra";
+"Title" = "Başlık";
+"Duration" = "Süre";
+"Sort songs" = "Şarkıları sırala";
+"Search in Playlist" = "Çalma listesinde ara";
+"Loading all songs…" = "Tüm şarkılar yükleniyor…";
+"Load All Songs When Opening a Playlist" = "Bir çalma listesi açıldığında tüm şarkıları yükle";
+"When on, opening a large playlist fetches every page up front, which can make many requests." = "Açıkken, büyük bir çalma listesini açmak tüm sayfaları önceden getirir; bu çok sayıda istek oluşturabilir.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "Kapalıyken, kaydırdıkça şarkılar sayfa sayfa yüklenir. Açıkken, büyük bir çalma listesini açmak tüm sayfaları önceden getirir.";

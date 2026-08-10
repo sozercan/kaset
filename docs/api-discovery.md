@@ -902,6 +902,23 @@ let body = ["playlistId": "RDCLAK5uy_l2pHac-aawJYLcesgTf67gaKU-B9ekk1o"]
 
 ---
 
+#### Playlist Sort Order (client-side only)
+
+A playlist's `musicPlaylistShelfRenderer` header carries a `sortFilterSubMenuRenderer` with six orderings — Top voted, Default ordering, Newest first, Oldest first, Title, Artist — each a `browseEndpoint` with a `2gg…` param:
+
+| Ordering | `params` |
+|----------|----------|
+| Top voted | `2ggECAIQBA%3D%3D` |
+| Default ordering | `2ggA` |
+| Newest first | `2ggECAIQAw%3D%3D` |
+| Oldest first | `2ggECAEQAw%3D%3D` |
+| Title | `2ggECAEQBQ%3D%3D` |
+| Artist | `2ggECAEQBg%3D%3D` |
+
+**These params only reorder the returned window — they cannot be paginated.** Sending a sort param correctly sorts page 1, but the continuation token for page 2 is structurally identical with or without the param (decoding its protobuf shows only an opaque per-page cursor and no sort field). Fetching page 2 — with or without the param — returns the **default-order** next slice, and the page-2 set is identical between sorted and unsorted requests. Verified against a 111-track public playlist with `WEB_REMIX`.
+
+Consequence: Kaset does **not** send these params. Playlist sort (and search) run client-side in `PlaylistTrackListPresenter` over the fully-drained track set (`loadAllRemaining()`), which is the only way to get a correct order across a playlist larger than one page.
+
 #### Playlist Management
 
 All playlist management endpoints require authentication (HTTP 401 without auth). The app exposes these through `YTMusicClientProtocol` so context menus and view models can be tested with mocks.

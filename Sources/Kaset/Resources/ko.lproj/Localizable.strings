@@ -566,3 +566,12 @@
 "Start a new chat to continue." = "계속하려면 새 채팅을 시작하세요.";
 "Ask Gemini response ready" = "Gemini에게 질문 응답 준비됨";
 "New Ask Gemini chat ready" = "새 Gemini 채팅이 준비되었습니다";
+"Original Order" = "원래 순서";
+"Title" = "제목";
+"Duration" = "재생 시간";
+"Sort songs" = "노래 정렬";
+"Search in Playlist" = "재생목록에서 검색";
+"Loading all songs…" = "모든 노래 불러오는 중…";
+"Load All Songs When Opening a Playlist" = "재생목록을 열 때 모든 노래 불러오기";
+"When on, opening a large playlist fetches every page up front, which can make many requests." = "켜면 큰 재생목록을 열 때 모든 페이지를 미리 가져오므로 요청이 많아질 수 있습니다.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "끄면 스크롤할 때 노래가 페이지 단위로 로드됩니다. 켜면 큰 재생목록을 열 때 모든 페이지를 미리 가져옵니다.";

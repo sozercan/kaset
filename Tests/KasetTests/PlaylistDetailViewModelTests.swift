@@ -396,6 +396,136 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.hasMore == false)
     }
 
+    // MARK: - Sort & Search
+
+    @Test("displayedTracks reflects sort order over loaded tracks")
+    func displayedTracksSorted() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "1", title: "Zulu"),
+            TestFixtures.makeSong(id: "2", title: "Alpha"),
+        ]
+        let playlist = TestFixtures.makePlaylist(id: "VL-sort", title: "Sort")
+        self.mockClient.playlistDetails["VL-sort"] = PlaylistDetail(
+            playlist: playlist, tracks: tracks, duration: nil
+        )
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        #expect(vm.displayedTracks.map(\.videoId) == ["1", "2"])
+        vm.setSortOrder(PlaylistSortOrder(key: .title, ascending: true))
+        #expect(vm.displayedTracks.map(\.videoId) == ["2", "1"])
+        #expect(vm.isFilteringOrSorting == true)
+        vm.setSortOrder(.default)
+        #expect(vm.displayedTracks.map(\.videoId) == ["1", "2"])
+        #expect(vm.isFilteringOrSorting == false)
+    }
+
+    @Test("displayedTracks filters by search query")
+    func displayedTracksFiltered() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "1", title: "Hello"),
+            TestFixtures.makeSong(id: "2", title: "Goodbye"),
+        ]
+        let playlist = TestFixtures.makePlaylist(id: "VL-search", title: "Search")
+        self.mockClient.playlistDetails["VL-search"] = PlaylistDetail(
+            playlist: playlist, tracks: tracks, duration: nil
+        )
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        vm.setSearchQuery("hello")
+        #expect(vm.displayedTracks.map(\.videoId) == ["1"])
+        #expect(vm.isFilteringOrSorting == true)
+        vm.setSearchQuery("")
+        #expect(vm.displayedTracks.count == 2)
+        #expect(vm.isFilteringOrSorting == false)
+    }
+
+    @Test("Auto-load setting drains all pages on open")
+    func autoLoadOnOpenDrains() async {
+        let manager = SettingsManager.shared
+        let original = manager.autoLoadFullPlaylistOnOpen
+        defer { manager.autoLoadFullPlaylistOnOpen = original }
+        manager.autoLoadFullPlaylistOnOpen = true
+
+        let playlist = Playlist(
+            id: "VL-test-playlist", title: "Large Playlist", description: nil,
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 125, author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist, tracks: TestFixtures.makeSongs(count: 100), duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            (100 ..< 115).map { TestFixtures.makeSong(id: "video-\($0)", title: "Song \($0)") },
+            (115 ..< 125).map { TestFixtures.makeSong(id: "video-\($0)", title: "Song \($0)") },
+        ]
+
+        await self.viewModel.ensureLoaded()
+        await self.waitUntil(
+            self.mockClient.getPlaylistContinuationCallCount >= 2,
+            description: "auto-load drains both continuations"
+        )
+        #expect(self.viewModel.hasMore == false)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 125)
+    }
+
+    @Test("No auto-load on open when setting is off")
+    func noAutoLoadWhenOff() async {
+        let manager = SettingsManager.shared
+        let original = manager.autoLoadFullPlaylistOnOpen
+        defer { manager.autoLoadFullPlaylistOnOpen = original }
+        manager.autoLoadFullPlaylistOnOpen = false
+
+        let playlist = Playlist(
+            id: "VL-test-playlist", title: "Large Playlist", description: nil,
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 125, author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist, tracks: TestFixtures.makeSongs(count: 100), duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            (100 ..< 125).map { TestFixtures.makeSong(id: "video-\($0)", title: "Song \($0)") },
+        ]
+
+        await self.viewModel.ensureLoaded()
+        try? await Task.sleep(for: .milliseconds(150))
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(self.viewModel.hasMore == true)
+    }
+
+    @Test("Sorting a still-paging playlist drains all pages")
+    func sortTriggersDrainWhenHasMore() async {
+        let playlist = Playlist(
+            id: "VL-test-playlist", title: "Large Playlist", description: nil,
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 125, author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist, tracks: TestFixtures.makeSongs(count: 100), duration: nil
+        )
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            (100 ..< 125).map { TestFixtures.makeSong(id: "video-\($0)", title: "Song \($0)") },
+        ]
+
+        await self.viewModel.load()
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+        #expect(self.viewModel.hasMore == true)
+
+        self.viewModel.setSortOrder(PlaylistSortOrder(key: .title, ascending: true))
+        await self.waitUntil(
+            self.viewModel.hasMore == false,
+            description: "sort triggers a full drain"
+        )
+        #expect(self.mockClient.getPlaylistContinuationCallCount >= 1)
+        #expect(self.viewModel.playlistDetail?.tracks.count == 125)
+    }
+
     @Test("Large playlist load keeps delayed continuation lazy")
     func largePlaylistLoadKeepsDelayedContinuationLazy() async {
         let playlist = Playlist(

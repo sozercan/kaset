@@ -35,3 +35,12 @@
 "Start a new chat to continue." = "Start a new chat to continue.";
 "Ask Gemini response ready" = "Ask Gemini response ready";
 "New Ask Gemini chat ready" = "New Ask Gemini chat ready";
+"Original Order" = "Original Order";
+"Title" = "Title";
+"Duration" = "Duration";
+"Sort songs" = "Sort songs";
+"Search in Playlist" = "Search in Playlist";
+"Loading all songs…" = "Loading all songs…";
+"Load All Songs When Opening a Playlist" = "Load All Songs When Opening a Playlist";
+"When on, opening a large playlist fetches every page up front, which can make many requests." = "When on, opening a large playlist fetches every page up front, which can make many requests.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front.";

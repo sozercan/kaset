@@ -566,3 +566,12 @@
 "Start a new chat to continue." = "Starte einen neuen Chat, um fortzufahren.";
 "Ask Gemini response ready" = "Antwort von „Gemini fragen“ ist bereit";
 "New Ask Gemini chat ready" = "Neuer Chat mit „Gemini fragen“ ist bereit";
+"Original Order" = "Ursprüngliche Reihenfolge";
+"Title" = "Titel";
+"Duration" = "Dauer";
+"Sort songs" = "Titel sortieren";
+"Search in Playlist" = "In Playlist suchen";
+"Loading all songs…" = "Alle Titel werden geladen …";
+"Load All Songs When Opening a Playlist" = "Beim Öffnen einer Playlist alle Titel laden";
+"When on, opening a large playlist fetches every page up front, which can make many requests." = "Wenn aktiviert, werden beim Öffnen einer großen Playlist alle Seiten sofort geladen, was viele Anfragen verursachen kann.";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front." = "Wenn aus, werden Titel beim Scrollen seitenweise geladen. Wenn an, werden beim Öffnen einer großen Playlist alle Seiten sofort geladen.";
