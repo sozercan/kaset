@@ -1,0 +1,56 @@
+{
+  "engagementPanels": [
+    {
+      "engagementPanelSectionListRenderer": {
+        "panelIdentifier": "PAyouchat",
+        "continuationEndpoint": {
+          "continuationCommand": {
+            "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+            "token": "fixture-panel-continuation"
+          }
+        },
+        "content": {
+          "youChatItemViewModel": {
+            "chipsData": {
+              "chipData": [
+                {
+                  "text": {
+                    "simpleText": "Explain this video"
+                  },
+                  "continuation": "fixture-chip-continuation-a"
+                },
+                {
+                  "text": {
+                    "runs": [
+                      {
+                        "text": "Résumer les points clés"
+                      }
+                    ]
+                  },
+                  "continuation": "fixture-chip-continuation-b"
+                }
+              ]
+            },
+            "sendUserQueryCommand": {
+              "innertubeCommand": {
+                "clickTrackingParams": "fixture-free-text-click-tracking",
+                "continuationCommand": {
+                  "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+                  "token": "fixture-free-text-continuation"
+                }
+              }
+            }
+          }
+        },
+        "decoy": {
+          "sendUserQueryCommand": {
+            "continuationCommand": {
+              "request": "CONTINUATION_REQUEST_TYPE_GET_PANEL",
+              "token": "fixture-query-continuation"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

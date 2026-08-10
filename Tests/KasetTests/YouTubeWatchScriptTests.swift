@@ -31,6 +31,8 @@ struct YouTubeWatchScriptTests {
         #expect(payloads.contains { $0.contains("type: 'VIDEO_ENDED'") })
         let statePayload = payloads.first { $0.contains("type: 'STATE_UPDATE'") }
         #expect(statePayload?.contains("hasReadyMedia: hasReadyMedia") == true)
+        #expect(statePayload?.contains("hasMediaError: hasMediaError") == true)
+        #expect(statePayload?.contains("isLive: isLive") == true)
         #expect(statePayload?.contains("pendingSeekApplied: pendingSeekApplied") == true)
         #expect(statePayload?.contains("pendingSeekFailed: pendingSeekFailed") == true)
         #expect(statePayload?.contains("pendingSeekVideoId: pendingSeekVideoId") == true)
@@ -717,7 +719,7 @@ struct YouTubeWatchScriptTests {
     }
 }
 
-private extension YouTubeWatchScriptTests {
+extension YouTubeWatchScriptTests {
     func makeObserverContext(paused: Bool) throws -> JSContext {
         let context = try #require(JSContext())
         try self.evaluate(

@@ -50,7 +50,7 @@ struct RadioQueueParserTests {
         let result = RadioQueueParser.parse(from: data)
 
         #expect(result.songs.count == 1)
-        #expect(!result.songs[0].artists.isEmpty)
+        #expect(result.songs[0].artists.count == 1)
         #expect(result.songs[0].artists[0].name == "Artist 0")
     }
 
@@ -373,6 +373,10 @@ struct RadioQueueParserTests {
                                 ],
                             ],
                         ],
+                        ["text": " • "],
+                        ["text": "1.3M views"],
+                        ["text": " • "],
+                        ["text": "42K likes"],
                     ],
                 ],
                 "thumbnail": [

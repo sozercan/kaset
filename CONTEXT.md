@@ -51,3 +51,32 @@ The two identifiers required for album Library behavior. An `MPRE...` browse ID 
 ## Playlist Playback Actions
 
 The workflows that turn playlist browse data into native playback queues. This includes radio playlist queue fallback, browse playability correction, playlist artwork fallback, continuation loading, duplicate filtering, and discarding continuations when the active queue has changed.
+
+## YouTube Ask
+
+The watch-page Ask Gemini capability in the regular YouTube experience. Kaset supports server-issued suggestion chips plus revision-bound free-text turns using the validated composer command. It uses YouTube APIs rather than the playback WebView, selects the fixed WEB request profile explicitly in production, and appears only when YouTube returns an eligible bootstrap for a signed-in primary account.
+
+## Ask Bootstrap
+
+The eligible YouChat material discovered in the current video's watch-page `next` response. A bootstrap may expose suggestions and the revision-bound free-text capability directly, or carry the opaque command needed to prepare the prompt-free initial Ask panel. Initial panel materialization may supply a missing free-text capability. The bootstrap and anything materialized from it are valid only for the video, authentication generation, and primary-account scope that produced them.
+
+## Ask Conversation
+
+The memory-only visible transcript, revision-bound free-text capability, and server-issued follow-up suggestions for one watch-scoped Ask chat. New Chat replaces it only after a fresh bootstrap and panel preparation succeed. Navigation, account/authentication changes, cancellation, or app termination discard it.
+
+## Server-Issued Ask Suggestion
+
+A sanitized visible chip label paired internally with an opaque server command. The label is displayed verbatim and is not a localized Kaset string. Selecting the suggestion replays its exact command; Kaset never turns the label into free-form input.
+
+
+## Server-Issued Ask Free-Text Command
+
+The opaque `sendUserQueryCommand` found either in the canonical eligible watch-page `next` panel—currently under its footer `chatInputViewModel` or an eligible YouChat item—or in its prompt-free initial `get_panel` materialization. Kaset uses the `next` command when present; otherwise it may materialize the exact server-issued panel continuation and accept only a confirmed command from that response. Each bound conversation revision may consume the command once with the validated `get_panel` form fields and current playback offset. A successful response advances the revision and keeps the command available unless YouTube supplies a replacement; uncertain failures discard it and require New Chat. Its continuation and click-tracking values remain in memory and are never printed or persisted.
+
+## Opaque Ask Command
+
+Unprintable, non-persistent server state used only to continue the current Ask conversation. It must never be logged, cached, serialized, restored, placed in fixtures, exposed through accessibility identifiers, or reused across a video, account, conversation, or revision boundary.
+
+## Ask Request Profile
+
+The bounded YouTube WEB client configuration used only for Ask compatibility. A profile is selectable for production only after the read-only parity workflow confirms signed-in eligibility and initial panel preparation. An HTTP 200 response that contains signed-out state is a failed profile.

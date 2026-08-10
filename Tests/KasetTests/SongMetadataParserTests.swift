@@ -124,9 +124,9 @@ struct SongMetadataParserTests {
             "longBylineText": [
                 "runs": [
                     ["text": "Artist One"],
-                    ["text": " • "],
-                    ["text": "Artist Two"],
                     ["text": " & "],
+                    ["text": "Artist Two"],
+                    ["text": ", "],
                     ["text": "Artist Three"],
                 ],
             ],
@@ -136,6 +136,36 @@ struct SongMetadataParserTests {
 
         #expect(artists.count == 3)
         #expect(artists.map(\.name) == ["Artist One", "Artist Two", "Artist Three"])
+    }
+
+    @Test("parseArtists stops before metadata runs while preserving co-artists")
+    func parseArtistsStopsBeforeMetadata() {
+        let renderer: [String: Any] = [
+            "longBylineText": [
+                "runs": [
+                    [
+                        "text": "Primary Artist",
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": "UC-primary",
+                            ],
+                        ],
+                    ],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": " • "],
+                    ["text": "1.3M views"],
+                    ["text": " • "],
+                    ["text": "42K likes"],
+                ],
+            ],
+        ]
+
+        let artists = SongMetadataParser.parseArtists(from: renderer)
+
+        #expect(artists.map(\.name) == ["Primary Artist", "Guest Artist"])
+        #expect(artists[0].hasNavigableId)
+        #expect(!artists[1].hasNavigableId)
     }
 
     @Test("parseArtists generates UUID for artist without ID")

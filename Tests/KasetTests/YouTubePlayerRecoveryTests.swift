@@ -208,9 +208,11 @@ struct YouTubePlayerRecoveryTests {
             duration: 15,
             hasReadyMedia: true,
             videoId: "abc",
+            boundVideoId: "abc",
             isAd: true
         ))
 
+        #expect(!self.sut.isPlaybackLoading)
         self.sut.playPause()
 
         #expect(self.controller.playCount == 1)

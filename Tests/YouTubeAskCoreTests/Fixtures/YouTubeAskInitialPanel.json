@@ -1,0 +1,30 @@
+{
+  "onResponseReceivedCommands": [
+    {
+      "appendContinuationItemsAction": {
+        "continuationItems": [
+          {
+            "youChatItemViewModel": {
+              "chipsData": {
+                "chipData": [
+                  {
+                    "text": {
+                      "content": "Ask a follow-up"
+                    },
+                    "continuation": "fixture-follow-up-continuation"
+                  },
+                  {
+                    "text": {
+                      "content": "Ask a follow-up"
+                    },
+                    "continuation": "fixture-follow-up-continuation"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

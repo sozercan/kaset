@@ -320,6 +320,7 @@ struct MusicPlaybackOccurrenceJSTests {
             function MutationObserver() { this.observe = function() {}; }
 
             var currentDataVideoId = 'v1';
+            var currentDataArtist = 'Artist';
             var video = {
                 paused: false,
                 ended: false,
@@ -337,7 +338,11 @@ struct MusicPlaybackOccurrenceJSTests {
             var player = {
                 playerApi: {
                     getVideoData: function() {
-                        return { video_id: currentDataVideoId, title: currentDataVideoId, author: 'Artist' };
+                        return {
+                            video_id: currentDataVideoId,
+                            title: currentDataVideoId,
+                            author: currentDataArtist
+                        };
                     },
                     setVolume: function() {}
                 }
@@ -432,6 +437,44 @@ struct MusicPlaybackOccurrenceJSTests {
         #expect(context.evaluateScript(
             "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })[0].duration"
         ).toDouble() == 180)
+    }
+
+    @Test("Observer prefers the structured artist even when the title already matches")
+    func observerPrefersStructuredArtistForMatchingTitle() {
+        let context = self.makeObserverContext()
+        #expect(context.exception == nil)
+
+        context.evaluateScript(
+            """
+            messages = [];
+            currentDataArtist = 'Structured Artist';
+            artistElement.textContent = 'Artist • Topic';
+            dispatch('waiting');
+            """
+        )
+
+        #expect(context.evaluateScript(
+            "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; }).slice(-1)[0].artist"
+        ).toString() == "Structured Artist")
+    }
+
+    @Test("Observer preserves every DOM byline segment when no structured artist exists")
+    func observerPreservesDOMArtistFallback() {
+        let context = self.makeObserverContext()
+        #expect(context.exception == nil)
+
+        context.evaluateScript(
+            """
+            messages = [];
+            currentDataArtist = '';
+            artistElement.textContent = 'Song • Artist • 1.2M views';
+            dispatch('waiting');
+            """
+        )
+
+        #expect(context.evaluateScript(
+            "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; }).slice(-1)[0].artist"
+        ).toString() == "Song • Artist • 1.2M views")
     }
 
     @Test("A replay after ended advances only the consumed occurrence")

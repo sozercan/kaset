@@ -112,6 +112,12 @@ extension YouTubeWatchWebView {
 
                     const videoId = currentVideoId();
                     const hasReadyMedia = !!(video.currentSrc && video.readyState >= 1);
+                    const hasMediaError = !!video.error;
+                    const data = videoData();
+                    const isLive = !!(
+                        (data && data.isLive === true)
+                        || (hasReadyMedia && !isFinite(video.duration))
+                    );
                     const pendingSeekApplied = window.__kasetPendingSeekApplied === true;
                     const pendingSeekFailed = window.__kasetPendingSeekFailed === true;
                     const pendingSeekTarget = window.__kasetPendingSeekResultTarget;
@@ -126,10 +132,12 @@ extension YouTubeWatchWebView {
                         progress: video.currentTime || 0,
                         duration: (video.duration && isFinite(video.duration)) ? video.duration : 0,
                         hasReadyMedia: hasReadyMedia,
+                        hasMediaError: hasMediaError,
                         videoId: videoId,
                         boundVideoId: video.__kasetBoundVideoId || '',
                         title: currentTitle(),
                         isAd: isAdShowing(),
+                        isLive: isLive,
                         pendingSeekApplied: pendingSeekApplied,
                         pendingSeekFailed: pendingSeekFailed,
                         pendingSeekTarget: pendingSeekTarget,
@@ -225,7 +233,10 @@ extension YouTubeWatchWebView {
             }
 
             function enforceVolume(video) {
-                if (window.__kasetIsSettingVolume) { return; }
+                if (typeof window.__kasetApplyTargetVolume === 'function') {
+                    window.__kasetApplyTargetVolume(video);
+                    return;
+                }
                 const target = window.__kasetTargetVolume;
                 // YouTube persists its own mute state across sessions; Kaset
                 // owns audio, so unmute whenever our target volume is audible.
@@ -236,10 +247,15 @@ extension YouTubeWatchWebView {
                         try { player.unMute(); } catch (e) {}
                     }
                 }
+                if (typeof target === 'number' && target <= 0 && !video.muted) {
+                    video.muted = true;
+                    const player = moviePlayer();
+                    if (player && typeof player.mute === 'function') {
+                        try { player.mute(); } catch (e) {}
+                    }
+                }
                 if (typeof target === 'number' && Math.abs(video.volume - target) > 0.01) {
-                    window.__kasetIsSettingVolume = true;
                     video.volume = target;
-                    setTimeout(function() { window.__kasetIsSettingVolume = false; }, 50);
                 }
             }
 
@@ -416,7 +432,7 @@ extension YouTubeWatchWebView {
                 ['play', 'playing'].forEach(function(evt) {
                     video.addEventListener(evt, handlePlaybackStarted);
                 });
-                ['pause', 'seeked', 'loadedmetadata', 'durationchange', 'canplay', 'waiting'].forEach(function(evt) {
+                ['pause', 'seeked', 'loadedmetadata', 'durationchange', 'canplay', 'waiting', 'error'].forEach(function(evt) {
                     video.addEventListener(evt, handlePlaybackStopped);
                 });
                 video.addEventListener('timeupdate', handleTimelineUpdate);
@@ -465,6 +481,29 @@ extension YouTubeWatchWebView {
             } else {
                 attachWithBoundedRetry();
             }
+        })();
+        """
+    }
+
+    /// Stops the chrome-hiding extraction and drops its style elements.
+    ///
+    /// Consent, CAPTCHA and sign-in interstitials are deliberately allowed to
+    /// commit in this WebView so the user can clear them, but the
+    /// document-start blackout hides every element — and a `visibility:
+    /// hidden` element cannot be hit-tested, so the form is both invisible and
+    /// unclickable. Revealing the page is the only way out of that dead end.
+    static var revealInterstitialScript: String {
+        """
+        (function() {
+            try {
+                if (typeof window.__kasetStopYTExtraction === 'function') {
+                    window.__kasetStopYTExtraction();
+                }
+            } catch (e) {}
+            ['kaset-yt-blackout', 'kaset-yt-video-style'].forEach(function(id) {
+                const style = document.getElementById(id);
+                if (style && style.parentNode) { style.parentNode.removeChild(style); }
+            });
         })();
         """
     }
@@ -1073,20 +1112,29 @@ extension YouTubeWatchWebView {
             """
             (function() {
                 window.__kasetTargetVolume = \(clamped);
-                window.__kasetIsSettingVolume = true;
+                if (typeof window.__kasetApplyTargetVolumeToAllMedia === 'function') {
+                    window.__kasetApplyTargetVolumeToAllMedia();
+                    return;
+                }
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');
                 if (video) {
-                    video.volume = \(clamped);
-                    if (\(clamped) > 0 && video.muted) { video.muted = false; }
+                    if (\(clamped) <= 0) {
+                        video.muted = true;
+                        video.volume = 0;
+                    } else {
+                        video.volume = \(clamped);
+                        video.muted = false;
+                    }
                 }
                 const player = document.getElementById('movie_player');
                 if (player && typeof player.setVolume === 'function') {
                     player.setVolume(\(Int((clamped * 100).rounded())));
                 }
-                if (player && \(clamped) > 0 && typeof player.unMute === 'function') {
+                if (player && \(clamped) <= 0 && typeof player.mute === 'function') {
+                    try { player.mute(); } catch (e) {}
+                } else if (player && typeof player.unMute === 'function') {
                     try { player.unMute(); } catch (e) {}
                 }
-                setTimeout(function() { window.__kasetIsSettingVolume = false; }, 100);
             })();
             """,
             completionHandler: nil

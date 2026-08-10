@@ -242,18 +242,20 @@ struct ParsingHelpersTests {
         let data: [String: Any] = [
             "subtitle": [
                 "runs": [
-                    ["text": "Artist"],
+                    ["text": "Primary Artist"],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": ", "],
+                    ["text": "Third Artist"],
                     ["text": " • "],
-                    ["text": "Song"],
+                    ["text": "455M plays"],
                 ],
             ],
         ]
 
         let artists = ParsingHelpers.extractArtists(from: data)
 
-        #expect(artists.count == 2)
-        #expect(artists[0].name == "Artist")
-        #expect(artists[1].name == "Song")
+        #expect(artists.map(\.name) == ["Primary Artist", "Guest Artist", "Third Artist"])
     }
 
     @Test("Extract artists from flex columns accepts library artist browse IDs")

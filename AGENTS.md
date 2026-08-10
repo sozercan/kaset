@@ -6,7 +6,7 @@ Guidance for AI coding assistants working on this repository.
 
 You are a Senior Swift Engineer specializing in SwiftUI, Swift Concurrency, and macOS development. Your code must adhere to Apple's Human Interface Guidelines. Target **Swift 6.0+** and **macOS 26.0+**.
 
-Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI). It uses WebViews only for DRM/playback/auth surfaces and uses `YTMusicClient` / `YouTubeClient` API calls for data fetching.
+Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI).
 
 ## Critical Rules
 
@@ -39,11 +39,15 @@ swiftlint --strict && swiftformat .
 
 Default local workflow is CLI-first: use the commands above for day-to-day verification, and escalate to Xcode/`xcodebuild` only for simulator, UI, or runtime debugging, screenshots, or scheme-specific investigation.
 
-> ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. This means:
-> - In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`)
-> - In instance methods, use `self.property` explicitly
->
-> Always run `swiftformat .` before completing work to auto-fix these issues.
+> ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`); in instance methods, use `self.property` explicitly.
+
+## Localization
+
+> 🌐 **`Sources/Kaset/Resources/Localizable.xcstrings` is the localization source of truth.** Packaged builds compile the catalog directly, but SwiftPM/Xcode runtime builds use the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` mirrors.
+
+- When adding localization keys or changing translations, update the catalog first and update the corresponding checked-in `.lproj/Localizable.strings` files in the same change. Never update only one side.
+- Run `swift test --skip KasetUITests --filter LocalizationCatalogParityTests` after localization changes.
+- When adding a locale, also register its `.lproj` in `Package.swift`, add the `SettingsManager.ContentLanguage` case, and extend localization tests.
 
 ## Debugging & Measurement
 
@@ -51,7 +55,7 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 
 > ⚠️ **The app is sandboxed — most ad-hoc logging silently fails.** `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably surface in `log stream`/`log show`, and a hardcoded `/tmp/...` file write is blocked by the sandbox and fails with no error. For throwaway diagnostics, write to **`NSTemporaryDirectory()`** (the app's container tmp), `synchronize()` after each line, and read it from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/`. Macro-level: window-screenshot automation is also unreliable here, so prefer file traces over visual capture. Always strip diagnostic instrumentation before commit.
 
-See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, and the single-flight load pattern that resolves the `.task`-restart cancellation deadlock.
+See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, the single-flight load pattern that resolves the `.task`-restart cancellation deadlock, concurrency anti-patterns, and the pre-submit checklist.
 
 > 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`.
 
@@ -65,7 +69,7 @@ For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKIL
 
 ## API Discovery
 
-> ⚠️ **MANDATORY**: Before implementing ANY feature that requires a new or modified API call, you MUST explore the endpoint first using `swift run api-explorer`. Do NOT guess or assume API response structures.
+> ⚠️ **Explore endpoints before writing code against them.** YouTube's response shapes are undocumented and change without notice, so a plausible-looking parser written from inference will compile and silently return nothing. Verify the real request and response with `swift run api-explorer` before adding or modifying an API call, request shape, or response parser. Prefer read-only probes; for mutations, prefer sanitized captured responses or disposable resources, and get explicit human approval before sending a live action that changes account data.
 
 ```bash
 swift run api-explorer auth          # Check auth status
@@ -77,30 +81,20 @@ Put repeatable, repo-specific workflows in `.agents/skills/` so `AGENTS.md` stay
 
 ## Coding Rules
 
-These are project-specific rules that differ from standard Swift/SwiftUI conventions:
+These are project-specific rules that differ from standard Swift/SwiftUI conventions and are not mechanically checked:
 
 | ❌ Avoid | ✅ Use | Why |
 |----------|--------|-----|
-| `print()` | `DiagnosticsLogger` | Project-specific logging |
 | `.background(.ultraThinMaterial)` | `.glassEffect()` | macOS 26+ Liquid Glass |
-| `DispatchQueue` | Swift concurrency (`async`/`await`) | Strict concurrency policy |
 | Force unwraps (`!`) | Optional handling or `guard` | Project policy |
 
 - Mark `@Observable` classes with `@MainActor`
 - Use Swift Testing (`@Test`, `#expect`) for all new unit tests
 - Throw `YTMusicError.authExpired` on HTTP 401/403
 - Use `.task` instead of `.onAppear { Task { } }`
-- See `docs/common-bug-patterns.md` for concurrency anti-patterns and pre-submit checklists
+
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
 
 ## Task Planning
 
 For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Run `swift build` continuously during implementation. If things go wrong, revert and re-scope rather than patching.
-
-## GitHub PRs & Issues
-
-Before creating or updating a GitHub PR or issue body for agent-authored work, read `$agent-transcript` (`.agents/skills/agent-transcript/SKILL.md`) if available and check for a safe local session transcript.
-
-- If a high-confidence transcript is found, ask exactly: "Include a redacted agent transcript? It helps reviewers and can make the PR easier to prioritize. I can open a local preview first."
-- Never upload raw logs. Include an `## Agent Transcript` section only after human approval and only with a sanitized, scoped transcript.
-- Drop system/developer prompts, reasoning, raw tool outputs, env, cookies, tokens, auth URLs, secrets, broad local paths, and unrelated session turns.
-- If no safe transcript exists or the human declines, continue without a transcript and do not add a placeholder section.

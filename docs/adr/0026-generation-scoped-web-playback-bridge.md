@@ -49,14 +49,26 @@ Every full-page playback navigation receives a monotonically increasing
   selected item as a deferred retry rather than re-authorizing an outgoing page
   that may represent different content.
 - Main-frame document navigations not initiated by Kaset are cancelled; the
-  hidden playback pages are not user-facing browser tabs. Fragment-only
-  same-document navigation is left alone. While a navigation is reserved, other
-  document-changing page actions are cancelled; while it is provisional, only
-  requests carrying that provisional generation are allowed only across the
-  expected HTTPS playback origin and an explicit allowlist of Google/YouTube
-  consent or authentication origins. Trusted intermediates remain provisional;
-  only the expected playback origin may commit and publish bridge messages.
-  Captive-portal and unrelated error origins are cancelled into the retry path.
+  playback document itself remains a hidden media surface rather than a general
+  browser tab. Fragment-only same-document navigation is left alone. While a
+  navigation is reserved, other document-changing page actions are cancelled;
+  while it is provisional, only requests associated with that generation may
+  cross the expected HTTPS playback origin or an explicit allowlist of
+  Google/YouTube consent and authentication origins.
+- An allowlisted HTTPS consent or authentication intermediary may commit as the
+  current WebKit document and is temporarily revealed so the user can complete
+  the interaction. Its generation remains in-flight, so it cannot publish
+  playback bridge state; only the expected playback origin activates the
+  generation. Tokenless GET continuations are rebound with the generation
+  token. A tokenless POST is passed through unchanged only when the committed
+  intermediary generation matches, both the current and destination URLs are
+  trusted intermediaries, and any `mainDocumentURL` generation is absent or
+  matching. This narrow exception preserves form bodies that WebKit omits from
+  the navigation-policy request. A server-redirected tokenless GET re-enters
+  navigation-action policy and is cancelled and restarted with the generation
+  token before response validation. Untrusted origins, captive portals,
+  unrelated error pages, and unsupported challenges remain in the
+  cancellation/retry path.
 - Starting a newer explicit load cancels the previous provisional load before
   replacing the WebView-wide user-script list. Server redirects refresh the
   bootstrap fallback; redirect requests remain associated through the original

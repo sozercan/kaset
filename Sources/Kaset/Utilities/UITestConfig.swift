@@ -46,6 +46,9 @@ enum UITestConfig {
     /// When true, force logged-out state in UI tests.
     static let mockLoggedOutKey = "MOCK_LOGGED_OUT"
 
+    /// When true, expose synthetic Ask Gemini eligibility on watch pages.
+    static let mockAskGeminiEnabledKey = "MOCK_ASK_GEMINI_ENABLED"
+
     /// When true, the mock client returns HTTP 404 from `getPodcasts()`
     /// to simulate a region where YouTube Music does not offer the
     /// Podcasts discovery surface. Used to UI-test sidebar visibility.

@@ -6,6 +6,7 @@ struct GeneralSettingsView: View {
     @State private var settings = SettingsManager.shared
     @State private var cacheSize: String = .init(localized: "Calculating...")
     @State private var isClearing = false
+    @State private var signOutFailurePresented = false
 
     /// The updater service for managing app updates.
     var updaterService: UpdaterService
@@ -30,7 +31,9 @@ struct GeneralSettingsView: View {
                     if self.authService.state.isLoggedIn {
                         Button(String(localized: "Sign Out")) {
                             Task {
-                                await self.authService.signOut()
+                                if await self.authService.signOut() == false {
+                                    self.signOutFailurePresented = true
+                                }
                             }
                         }
                     }
@@ -163,6 +166,22 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .alert(
+            String(localized: "Sign Out Incomplete"),
+            isPresented: self.$signOutFailurePresented
+        ) {
+            Button(String(localized: "Retry")) {
+                Task {
+                    self.signOutFailurePresented = await self.authService.signOut() == false
+                }
+            }
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(
+                "Kaset could not remove saved sign-in data. Try signing out again before quitting.",
+                comment: "Sign-out durable storage failure message"
+            )
+        }
         .frame(minWidth: 400, minHeight: 300)
         .localizedNavigationTitle("General")
         .task {
