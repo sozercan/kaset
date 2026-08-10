@@ -47,9 +47,6 @@ struct YouTubeHomeView: View {
             }
         }
         .navigationTitle(Text("Home", comment: "YouTube home feed title"))
-        .refreshable {
-            await self.viewModel.refresh()
-        }
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.homeGrid)
         // Key on the view-model identity, not a bare `.task`. On cold launch the
         // account resolves after first paint and `resetForAccountChange()` swaps
@@ -106,6 +103,9 @@ struct YouTubeHomeView: View {
             // late rails land, this animates their insertion and the grid's
             // downward shift in one smooth move.
             .animation(AppAnimation.smooth, value: self.viewModel.sections.map(\.id))
+        }
+        .pullToRefresh {
+            await self.viewModel.refresh()
         }
     }
 
