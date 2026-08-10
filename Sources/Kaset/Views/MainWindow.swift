@@ -267,62 +267,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
         }
         .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
-            let currentAccount = self.accountService.currentAccount
-            let newAccountId = self.accountService.currentAccount?.id
-            self.client.resetSessionStateForAccountSwitch()
-            self.youtubeClient.resetSessionStateForAccountSwitch()
-            self.likeStatusManager.clearCache()
-            LibraryMutationActions.cancelAllPendingLibraryMutations()
-            self.libraryViewModel?.activateAccountScope(
-                newAccountScope,
-                isPrimary: currentAccount?.isPrimary == true
-            )
-            self.playerService.resetTrackStatus()
-            self.searchViewModel?.clear()
-            self.podcastsViewModel?.configure(
-                availabilityService: self.podcastsAvailability,
-                accountId: newAccountId
-            )
-            if let newAccountId {
-                self.podcastsAvailability.activateAccount(newAccountId)
-            }
-
-            Task { @MainActor in
-                APICache.shared.invalidateAll()
-                URLCache.shared.removeAllCachedResponses()
-
-                guard newAccountId != nil else { return }
-
-                self.historyViewModel?.reset()
-                // YouTube surfaces are account-scoped too.
-                self.youtubeStore.resetForAccountChange()
-
-                // Brand accounts can have a different region than the
-                // primary; re-probe in the background so the sidebar
-                // reflects the new account. We deliberately do NOT
-                // reset the gate (`didResolveFirstProbe`) here — that
-                // would tear down `mainContent` and show the loading
-                // spinner full-screen during the switch. Sidebar may
-                // briefly show the prior account's tab state until the
-                // probe lands.
-                DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
-
-                await withTaskGroup(of: Void.self) { group in
-                    group.addTask {
-                        await self.refreshAllContent()
-                    }
-
-                    group.addTask {
-                        await self.podcastsAvailability.probe(for: newAccountId, using: self.client)
-                    }
-
-                    if let currentVideoId = self.playerService.currentTrack?.videoId {
-                        group.addTask {
-                            await self.playerService.fetchSongMetadata(videoId: currentVideoId)
-                        }
-                    }
-                }
-            }
+            self.handleAccountScopeChange(newAccountScope: newAccountScope)
         }
         .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
             // Re-point in-flight playback ONLY once the new session identity is
@@ -409,6 +354,65 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     // MARK: - Main Content
+
+    private func handleAccountScopeChange(newAccountScope: String?) {
+        let currentAccount = self.accountService.currentAccount
+        let newAccountId = self.accountService.currentAccount?.id
+        self.client.resetSessionStateForAccountSwitch()
+        self.youtubeClient.resetSessionStateForAccountSwitch()
+        self.likeStatusManager.clearCache()
+        LibraryMutationActions.cancelAllPendingLibraryMutations()
+        self.libraryViewModel?.activateAccountScope(
+            newAccountScope,
+            isPrimary: currentAccount?.isPrimary == true
+        )
+        self.playerService.resetTrackStatus()
+        self.searchViewModel?.clear()
+        self.podcastsViewModel?.configure(
+            availabilityService: self.podcastsAvailability,
+            accountId: newAccountId
+        )
+        if let newAccountId {
+            self.podcastsAvailability.activateAccount(newAccountId)
+        }
+
+        Task { @MainActor in
+            APICache.shared.invalidateAll()
+            URLCache.shared.removeAllCachedResponses()
+
+            guard newAccountId != nil else { return }
+
+            self.historyViewModel?.reset()
+            // YouTube surfaces are account-scoped too.
+            self.youtubeStore.resetForAccountChange()
+
+            // Brand accounts can have a different region than the
+            // primary; re-probe in the background so the sidebar
+            // reflects the new account. We deliberately do NOT
+            // reset the gate (`didResolveFirstProbe`) here — that
+            // would tear down `mainContent` and show the loading
+            // spinner full-screen during the switch. Sidebar may
+            // briefly show the prior account's tab state until the
+            // probe lands.
+            DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
+
+            await withTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    await self.refreshAllContent()
+                }
+
+                group.addTask {
+                    await self.podcastsAvailability.probe(for: newAccountId, using: self.client)
+                }
+
+                if let currentVideoId = self.playerService.currentTrack?.videoId {
+                    group.addTask {
+                        await self.playerService.fetchSongMetadata(videoId: currentVideoId)
+                    }
+                }
+            }
+        }
+    }
 
     private func refreshActiveHome() async {
         switch self.settings.appSource {
