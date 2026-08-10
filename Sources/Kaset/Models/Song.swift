@@ -154,11 +154,14 @@ struct Song: Identifiable, Codable, Hashable {
         self.artists.map(\.name).joined(separator: ", ")
     }
 
-    /// Stable `ForEach` identity for a track row. Position can't serve as identity in a
-    /// sortable list — the row keeps its index while its content changes, so SwiftUI
-    /// recycles row-local state (hover, in-flight like) onto the wrong track.
+    /// Stable per-occurrence identity, also safe as a SwiftUI `ForEach` id — position isn't
+    /// identity in a sortable list. The blank guard and namespacing prevent collisions: a
+    /// blank set id would collapse every such row onto one identity.
     var rowIdentity: String {
-        self.playlistSetVideoId ?? self.id
+        if let setVideoId = self.playlistSetVideoId, !setVideoId.isEmpty {
+            return "set:\(setVideoId)"
+        }
+        return "video:\(self.videoId)"
     }
 
     /// Formatted duration string (e.g., "3:45").

@@ -219,6 +219,46 @@ struct PlaylistTrackListPresenterTests {
         #expect(result.map(\.videoId) == ["2", "1"])
     }
 
+    @Test("Sorting is a permutation — every track survives, in every direction", arguments: [true, false])
+    func sortPreservesEveryTrack(ascending: Bool) {
+        let songs = [
+            self.makeSong(title: "b", artist: "z", videoId: "1", duration: 100, albumTitle: "X"),
+            self.makeSong(title: "a", artist: "y", videoId: "2", duration: nil, albumTitle: nil),
+            self.makeSong(title: "c", artist: "", videoId: "3", duration: 50, albumTitle: "Y"),
+            self.makeSong(title: "a", artist: "y", videoId: "4", duration: 100, albumTitle: "X"),
+        ]
+        for key in PlaylistSortKey.allCases {
+            let result = PlaylistTrackListPresenter.displayedTracks(
+                from: songs,
+                sortOrder: PlaylistSortOrder(key: key, ascending: ascending),
+                searchQuery: ""
+            )
+            // The header Play button queues this list, so a sort that drops or duplicates a
+            // track would silently shorten or corrupt the play queue.
+            #expect(result.count == songs.count, "\(key) changed the track count")
+            #expect(Set(result.map(\.videoId)) == Set(songs.map(\.videoId)), "\(key) lost or duplicated a track")
+        }
+    }
+
+    @Test("Filtering never reorders the survivors relative to the active sort")
+    func filterPreservesSortedOrder() {
+        let songs = [
+            self.makeSong(title: "love song", artist: "Zed", videoId: "1"),
+            self.makeSong(title: "other", artist: "Abe", videoId: "2"),
+            self.makeSong(title: "love ballad", artist: "Mona", videoId: "3"),
+        ]
+        let order = PlaylistSortOrder(key: .artist, ascending: true)
+        let sorted = PlaylistTrackListPresenter.displayedTracks(
+            from: songs, sortOrder: order, searchQuery: ""
+        )
+        let filtered = PlaylistTrackListPresenter.displayedTracks(
+            from: songs, sortOrder: order, searchQuery: "love"
+        )
+        let expected = sorted.map(\.videoId).filter { filtered.map(\.videoId).contains($0) }
+        #expect(filtered.map(\.videoId) == expected)
+        #expect(filtered.map(\.videoId) == ["3", "1"]) // Mona before Zed
+    }
+
     // MARK: - Row identity
 
     @Test("Row identity prefers the per-occurrence playlist id so duplicates stay distinct")
@@ -229,6 +269,22 @@ struct PlaylistTrackListPresenterTests {
         second.playlistSetVideoId = "set-b"
 
         #expect(first.rowIdentity != second.rowIdentity)
-        #expect(self.makeSong(title: "a", artist: "x", videoId: "vid").rowIdentity == "vid")
+        #expect(self.makeSong(title: "a", artist: "x", videoId: "vid").rowIdentity == "video:vid")
+    }
+
+    @Test("Row identity survives a blank set id and never collides across namespaces")
+    func rowIdentityGuardsBlankAndNamespaces() {
+        // Duplicate ForEach ids break SwiftUI rendering outright.
+        var blankA = self.makeSong(title: "a", artist: "x", videoId: "v1")
+        var blankB = self.makeSong(title: "b", artist: "y", videoId: "v2")
+        blankA.playlistSetVideoId = ""
+        blankB.playlistSetVideoId = ""
+        #expect(blankA.rowIdentity != blankB.rowIdentity)
+
+        // A set id equal to another track's video id must not collide either.
+        var setTrack = self.makeSong(title: "c", artist: "z", videoId: "other")
+        setTrack.playlistSetVideoId = "shared"
+        let videoTrack = self.makeSong(title: "d", artist: "w", videoId: "shared")
+        #expect(setTrack.rowIdentity != videoTrack.rowIdentity)
     }
 }

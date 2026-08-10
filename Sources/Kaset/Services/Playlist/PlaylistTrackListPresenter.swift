@@ -84,7 +84,7 @@ enum PlaylistTrackListPresenter {
     }
 
     private static func less(_ lhs: Decorated, _ rhs: Decorated, order: PlaylistSortOrder) -> Bool {
-        switch Self.compareKeys(lhs, rhs, key: order.key) {
+        switch self.compareKeys(lhs, rhs, key: order.key) {
         case .orderedSame:
             lhs.index < rhs.index // stable tie-break, direction-independent
         case .orderedAscending:
@@ -111,9 +111,9 @@ enum PlaylistTrackListPresenter {
         case .original:
             .orderedSame
         case .duration:
-            Self.compareDurations(lhs.duration, rhs.duration)
+            self.compareDurations(lhs.duration, rhs.duration)
         case .title, .artist, .album:
-            Self.compareStrings(lhs.stringKey, rhs.stringKey)
+            self.compareStrings(lhs.stringKey, rhs.stringKey)
         }
     }
 

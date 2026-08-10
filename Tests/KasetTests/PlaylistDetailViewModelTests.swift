@@ -445,6 +445,32 @@ struct PlaylistDetailViewModelTests {
         #expect(vm.isFilteringOrSorting == false)
     }
 
+    @Test("displayedTracks is the single playback source for sort and search")
+    func displayedTracksDrivesPlayback() async {
+        let tracks = [
+            TestFixtures.makeSong(id: "1", title: "Zulu"),
+            TestFixtures.makeSong(id: "2", title: "Alpha"),
+            TestFixtures.makeSong(id: "3", title: "Mango"),
+        ]
+        let playlist = TestFixtures.makePlaylist(id: "VL-playback", title: "Playback")
+        self.mockClient.playlistDetails["VL-playback"] = PlaylistDetail(
+            playlist: playlist, tracks: tracks, duration: nil
+        )
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        // Header actions and row taps all queue `displayedTracks`.
+        vm.setSortOrder(PlaylistSortOrder(key: .title, ascending: true))
+        #expect(vm.displayedTracks.map(\.videoId) == ["2", "3", "1"])
+        #expect(vm.displayedTracks.count == vm.playlistDetail?.tracks.count)
+
+        vm.setSearchQuery("mango")
+        #expect(vm.displayedTracks.map(\.videoId) == ["3"])
+        #expect(vm.displayedTracks.count < (vm.playlistDetail?.tracks.count ?? 0))
+    }
+
     @Test("Newly paged-in tracks are folded into the active sort")
     func pagedTracksRespectActiveSort() async {
         let playlist = TestFixtures.makePlaylist(id: "VL-page-sort", title: "Paged")
@@ -468,6 +494,41 @@ struct PlaylistDetailViewModelTests {
         // setSortOrder — otherwise the page arrives and is never sorted in.
         await vm.loadAllRemaining()
         #expect(vm.displayedTracks.map(\.videoId) == ["2", "1"])
+    }
+
+    @Test("Draining before playback yields the complete filtered set, with the tapped track still locatable")
+    func drainBeforePlaybackCompletesTheFilteredSet() async {
+        let playlist = TestFixtures.makePlaylist(id: "VL-play-drain", title: "Drain")
+        self.mockClient.playlistDetails["VL-play-drain"] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [
+                TestFixtures.makeSong(id: "1", title: "Love Song"),
+                TestFixtures.makeSong(id: "2", title: "Something Else"),
+            ],
+            duration: nil
+        )
+        self.mockClient.playlistContinuationTracks["VL-play-drain"] = [
+            [TestFixtures.makeSong(id: "3", title: "Lovely Day")],
+            [TestFixtures.makeSong(id: "4", title: "Endless Love")],
+        ]
+        let vm = PlaylistDetailViewModel(
+            playlist: playlist, client: self.mockClient, likeStatusManager: self.likeStatusManager
+        )
+        await vm.ensureLoaded()
+
+        vm.setSearchQuery("love")
+        // Pre-drain snapshot: only the first page has been searched.
+        let snapshot = vm.displayedTracks
+        #expect(snapshot.map(\.videoId) == ["1"])
+        let tapped = snapshot[0].rowIdentity
+
+        // This is what playback waits on before building the queue.
+        await vm.loadAllRemaining()
+
+        #expect(vm.hasMore == false)
+        // Queueing the snapshot instead would play one track, then append what the search excluded.
+        #expect(Set(vm.displayedTracks.map(\.videoId)) == ["1", "3", "4"])
+        #expect(vm.displayedTracks.contains { $0.rowIdentity == tapped }) // start index relocatable
     }
 
     @Test("Search drain is debounced rather than fired on every keystroke")

@@ -520,11 +520,32 @@ struct PlaylistDetailView: View {
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
         let intent = self.playerService.beginMusicPlaybackIntent()
+        let honorsDisplayedList = self.viewModel.isFilteringOrSorting
         Task { @MainActor in
+            var tracks = cleanedTracks
+            var startIndex = index
+
+            // A partially-paged queue is the wrong *set* here, not merely a short one: the
+            // top-up below would append tracks the search excluded, in the order the sort
+            // replaced. The drain is already running, so wait and queue what the list shows.
+            if honorsDisplayedList, self.viewModel.hasMore {
+                let anchor = cleanedTracks.indices.contains(index)
+                    ? cleanedTracks[index].rowIdentity
+                    : nil
+                await self.viewModel.loadAllRemaining()
+                tracks = self.playableTracks(
+                    self.viewModel.displayedTracks,
+                    fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+                )
+                startIndex = anchor
+                    .flatMap { id in tracks.firstIndex { $0.rowIdentity == id } } ?? 0
+                guard !tracks.isEmpty else { return }
+            }
+
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
-                cleanedTracks,
-                startingAt: index,
+                tracks,
+                startingAt: startIndex,
                 deferringSmartShuffleFill: willDeferLoad,
                 intent: intent
             )
@@ -539,11 +560,13 @@ struct PlaylistDetailView: View {
             guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
 
             let fullTracks = self.playableTracks(
-                self.viewModel.playlistDetail?.tracks ?? [],
+                honorsDisplayedList
+                    ? self.viewModel.displayedTracks
+                    : (self.viewModel.playlistDetail?.tracks ?? []),
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
             let remaining = PlaylistPlaybackActions.remainingTracks(
-                after: cleanedTracks,
+                after: tracks,
                 in: fullTracks
             )
             self.playerService.appendOriginalTracks(remaining)

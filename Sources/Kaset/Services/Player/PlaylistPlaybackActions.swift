@@ -137,11 +137,11 @@ enum PlaylistPlaybackActions {
     static func remainingTracks(after initialTracks: [Song], in fullTracks: [Song]) -> [Song] {
         var unmatchedInitialCounts: [String: Int] = [:]
         for track in initialTracks {
-            unmatchedInitialCounts[self.playlistOccurrenceIdentity(for: track), default: 0] += 1
+            unmatchedInitialCounts[track.rowIdentity, default: 0] += 1
         }
 
         return fullTracks.filter { track in
-            let identity = self.playlistOccurrenceIdentity(for: track)
+            let identity = track.rowIdentity
             guard let remainingCount = unmatchedInitialCounts[identity], remainingCount > 0 else {
                 return true
             }
@@ -208,12 +208,5 @@ enum PlaylistPlaybackActions {
             isExplicit: song.isExplicit,
             playlistSetVideoId: song.playlistSetVideoId
         )
-    }
-
-    private static func playlistOccurrenceIdentity(for song: Song) -> String {
-        if let setVideoId = song.playlistSetVideoId, !setVideoId.isEmpty {
-            return "set:\(setVideoId)"
-        }
-        return "video:\(song.videoId)"
     }
 }
