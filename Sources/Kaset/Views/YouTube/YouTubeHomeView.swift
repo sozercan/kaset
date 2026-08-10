@@ -47,6 +47,9 @@ struct YouTubeHomeView: View {
             }
         }
         .navigationTitle(Text("Home", comment: "YouTube home feed title"))
+        .refreshable {
+            await self.viewModel.refresh()
+        }
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.homeGrid)
         // Key on the view-model identity, not a bare `.task`. On cold launch the
         // account resolves after first paint and `resetForAccountChange()` swaps
