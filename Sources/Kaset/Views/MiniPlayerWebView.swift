@@ -343,9 +343,12 @@ final class SingletonPlayerWebView {
             nativePlaybackGeneration: playerService.currentNativeMusicPlaybackGeneration
         )
 
-        let newWebView = WKWebView(frame: .zero, configuration: configuration)
+        let newWebView = KasetWebView(frame: .zero, configuration: configuration)
         newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
+        // Key equivalents are suppressed until the WebView enters video mode;
+        // see KasetWebView for the rationale.
+        newWebView.shouldInterceptKeyEquivalents = false
         self.webKitManager = webKitManager
         webKitManager.registerExtensionHostWebView(newWebView, role: .musicPlayer)
 
