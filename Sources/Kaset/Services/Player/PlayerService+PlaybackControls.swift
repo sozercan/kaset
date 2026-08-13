@@ -90,6 +90,7 @@ extension PlayerService {
     func play(videoId: String, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("play() called with videoId: \(videoId)")
+        self.sourcePlaylistId = nil
         let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
             videoId: videoId,
             strategy: .standard
@@ -164,6 +165,7 @@ extension PlayerService {
     /// Plays a song.
     func play(song: Song) async {
         let intent = self.beginMusicPlaybackIntent()
+        self.sourcePlaylistId = nil
         await self.play(
             song: song,
             webLoadStrategy: .standard,
@@ -182,6 +184,7 @@ extension PlayerService {
         episode: ArtistEpisode? = nil
     ) async {
         let intent = self.beginMusicPlaybackIntent()
+        self.sourcePlaylistId = nil
         await self.play(
             song: song,
             webLoadStrategy: webLoadStrategy,
