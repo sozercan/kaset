@@ -123,6 +123,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// The playlist ID the current track was played from, if any.
+    /// Set when playback starts from a playlist/album and cleared when a non-playlist
+    /// source (radio, mix, standalone track, or stop) takes over. The sidebar reads
+    /// this to highlight the originating pinned playlist row.
+    var sourcePlaylistId: String?
+
     @ObservationIgnored private var durationObservation: (videoId: String, duration: TimeInterval)?
     @ObservationIgnored var isApplyingPlaybackStateObservation = false
 

@@ -442,6 +442,9 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Currently playing track.
     var currentTrack: Song? { get }
 
+    /// The playlist ID the current track was played from, if any.
+    var sourcePlaylistId: String? { get }
+
     /// Whether playback is active.
     var isPlaying: Bool { get }
 

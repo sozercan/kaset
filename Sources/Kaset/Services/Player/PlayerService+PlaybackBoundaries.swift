@@ -91,6 +91,7 @@ extension PlayerService {
         if !preservesQueueContext {
             self.cancelDeferredQueueWork()
         }
+        self.sourcePlaylistId = nil
         self.logger.debug("Stopping playback")
         self.isStoppingPlayback = true
         self.shouldResumeAfterInterruption = false
