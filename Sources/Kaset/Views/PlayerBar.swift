@@ -37,7 +37,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @State private var resolvedAlbum: Playlist?
     @State private var isResolvingArtist = false
     @State private var isResolvingAlbum = false
-
+    @State private var showsArtworkViewer = false
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
     @State private var formattedRemaining: String = "-0:00"
@@ -119,8 +119,13 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 self.seekValue = self.playerService.progress / self.playerService.duration
             }
         }
+        .fullScreenCover(isPresented: self.$showsArtworkViewer) {
+            ArtworkViewer(
+                artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
+                onDismiss: { self.showsArtworkViewer = false }
+            )
+        }
     }
-
     private var playerAreaFade: some View {
         LinearGradient(
             colors: [
@@ -162,38 +167,48 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     @ViewBuilder
     private var thumbnailView: some View {
-        if let track = self.playerService.currentTrack {
-            if self.canOpenCurrentAlbum {
-                Button {
-                    self.openCurrentAlbum()
-                } label: {
-                    self.trackArtwork(for: track)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
-                .accessibilityLabel(Text(String(localized: "Go to Album")))
-            } else {
-                self.trackArtwork(for: track)
-                    .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
-            }
-        } else {
-            PlayerBarArtworkView(
-                width: 32,
-                height: 32,
-                cornerRadius: 6,
-                showsHoverOverlay: false
-            ) {
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(.quaternary)
-                    .overlay {
-                        CassetteIcon(size: 18)
-                            .foregroundStyle(.secondary)
+        Group {
+            if let track = self.playerService.currentTrack {
+                if self.canOpenCurrentAlbum {
+                    Button {
+                        self.openCurrentAlbum()
+                    } label: {
+                        self.trackArtwork(for: track)
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
+                    .accessibilityLabel(Text(String(localized: "Go to Album")))
+                } else {
+                    self.trackArtwork(for: track)
+                        .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
+                }
+            } else {
+                PlayerBarArtworkView(
+                    width: 32,
+                    height: 32,
+                    cornerRadius: 6,
+                    showsHoverOverlay: false
+                ) {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(.quaternary)
+                        .overlay {
+                            CassetteIcon(size: 18)
+                                .foregroundStyle(.secondary)
+                        }
+                }
+                .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
             }
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.thumbnail)
+        }
+        .contextMenu {
+            if self.playerService.currentTrack != nil {
+                Button {
+                    self.showsArtworkViewer = true
+                } label: {
+                    Label(String(localized: "View Artwork"), systemImage: "photo")
+                }
+            }
         }
     }
-
     private func trackArtwork(for track: Song) -> some View {
         PlayerBarArtworkView(
             width: 32,
