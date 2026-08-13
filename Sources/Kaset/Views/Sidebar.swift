@@ -204,7 +204,8 @@ struct Sidebar: View {
         KasetSidebarRow(
             title: item.title,
             systemImage: item.systemImage,
-            isSelected: self.currentSidebarSelection == .pinned(item)
+            isSelected: self.currentSidebarSelection == .pinned(item),
+            isPlaying: self.playerService.sourcePlaylistId == item.contentId
         ) {
             self.selectPinnedItem(item)
         }
