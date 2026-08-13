@@ -15,24 +15,15 @@ extension SingletonPlayerWebView {
             // WebView stays in hierarchy but tiny
             webView.frame = CGRect(x: 0, y: 0, width: 1, height: 1)
             self.removeVideoModeCSS()
-            if let kasetWebView = webView as? KasetWebView {
-                kasetWebView.shouldInterceptKeyEquivalents = false
-            }
         case .miniPlayer:
             webView.frame = CGRect(x: 0, y: 0, width: 160, height: 90)
             self.removeVideoModeCSS()
-            if let kasetWebView = webView as? KasetWebView {
-                kasetWebView.shouldInterceptKeyEquivalents = false
-            }
         case .video:
             // Immediately inject blackout CSS to hide web UI while we prepare video
             self.injectBlackoutCSS()
             // Full size - parent container determines size
             // Defer injection until container has valid bounds (SwiftUI layout)
             self.waitForValidBoundsAndInject()
-            if let kasetWebView = webView as? KasetWebView {
-                kasetWebView.shouldInterceptKeyEquivalents = true
-            }
         }
     }
 
