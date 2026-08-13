@@ -120,14 +120,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 self.seekValue = self.playerService.progress / self.playerService.duration
             }
         }
-        .overlay {
-            if self.showsArtworkViewer {
-                ArtworkViewer(
-                    artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
-                    onDismiss: { self.showsArtworkViewer = false }
-                )
-                .transition(.opacity)
-            }
+        .sheet(isPresented: self.$showsArtworkViewer) {
+            ArtworkViewer(
+                artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
+                onDismiss: { self.showsArtworkViewer = false }
+            )
         }
     }
 

@@ -2,9 +2,9 @@ import SwiftUI
 
 // MARK: - ArtworkViewer
 
-/// A full-screen overlay that displays album artwork at high resolution.
+/// A full-screen sheet that displays album artwork at high resolution.
 ///
-/// Shows the image centered with a dark, blurred background. The viewer can be dismissed
+/// Shows the image centered with a dark background. The viewer can be dismissed
 /// by tapping anywhere, pressing Escape, or clicking the close button in the top-right corner.
 struct ArtworkViewer: View {
     /// The high-quality thumbnail URL to display.
@@ -15,15 +15,13 @@ struct ArtworkViewer: View {
 
     var body: some View {
         ZStack {
-            // Dark, blurred background
+            // Dark background
             self.backgroundLayer
                 .ignoresSafeArea()
 
             // Centered artwork
-            VStack {
-                Spacer()
-
-                CachedAsyncImage(url: self.artworkURL, targetSize: CGSize(width: 800, height: 800)) { image in
+            if let url = self.artworkURL {
+                CachedAsyncImage(url: url, targetSize: CGSize(width: 800, height: 800)) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -31,10 +29,9 @@ struct ArtworkViewer: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(60)
                 .accessibilityLabel(Text(String(localized: "Album Artwork")))
-
+            } else {
                 Spacer()
             }
-            .ignoresSafeArea()
         }
         .contentShape(Rectangle())
         .onTapGesture {
@@ -44,19 +41,14 @@ struct ArtworkViewer: View {
             self.closeButton
                 .padding(20)
         }
-        .focusable()
-        .onKeyPress(.escape) {
-            self.onDismiss()
-            return .handled
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.black)
     }
 
     // MARK: - Subviews
 
     private var backgroundLayer: some View {
-        ZStack {
-            Color.black.opacity(0.85)
-        }
+        Color.black.opacity(0.85)
     }
 
     private var closeButton: some View {
