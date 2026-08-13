@@ -298,6 +298,7 @@ struct PlaylistDetailView: View {
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            artists: self.trackArtists(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
             onPlay: {
                 self.playTrackInQueue(
@@ -334,6 +335,12 @@ struct PlaylistDetailView: View {
 
         guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
         return fallbackArtist
+    }
+
+    private func trackArtists(for track: Song, fallbackAuthor: String?) -> [Artist]? {
+        let artists = self.uniqueArtists(from: track.artists)
+        guard !artists.isEmpty else { return nil }
+        return artists
     }
 
     private func uniqueArtists(from artists: [Artist]) -> [Artist] {
@@ -530,6 +537,7 @@ struct PlaylistDetailView: View {
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
         let intent = self.playerService.beginMusicPlaybackIntent()
+        self.playerService.sourcePlaylistId = self.viewModel.playlistDetail?.id
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
@@ -748,6 +756,7 @@ private struct PlaylistTrackRow<Menu: View>: View {
     let index: Int
     let isAlbum: Bool
     let subtitle: String?
+    let artists: [Artist]?
     let allowsLikeActions: Bool
     let onPlay: () -> Void
     @ViewBuilder let menu: () -> Menu
@@ -792,10 +801,14 @@ private struct PlaylistTrackRow<Menu: View>: View {
                         }
                     }
                     if let subtitle = self.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                        if self.hasNavigableArtists {
+                            self.artistLinksView
+                        } else {
+                            Text(subtitle)
+                                .font(.system(size: 12))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -817,6 +830,40 @@ private struct PlaylistTrackRow<Menu: View>: View {
         .onHover { hovering in self.isHovered = hovering }
         .contextMenu { self.menu() }
     }
+
+    private var hasNavigableArtists: Bool {
+        self.artists?.contains(where: { $0.hasNavigableId }) ?? false
+    }
+
+    @ViewBuilder
+    private var artistLinksView: some View {
+        let artists = self.artists ?? []
+
+        HStack(spacing: 0) {
+            ForEach(Array(artists.enumerated()), id: \.offset) { index, artist in
+                if artist.hasNavigableId {
+                    HoverUnderlineNavigationLink(
+                        value: artist,
+                        title: artist.name,
+                        font: .system(size: 12),
+                        foregroundStyle: .secondary
+                    )
+                } else {
+                    Text(artist.name)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+
+                if index < artists.count - 1 {
+                    Text(verbatim: ", ")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+        }
+    }
 }
 
 // MARK: - HoverUnderlineNavigationLink
@@ -824,14 +871,18 @@ private struct PlaylistTrackRow<Menu: View>: View {
 private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
     let value: Value
     let title: String
+    var font: Font = .subheadline
+    var foregroundStyle: Color = .secondary
 
     @State private var isHovering = false
 
     var body: some View {
         NavigationLink(value: self.value) {
             Text(self.title)
-                .font(.subheadline)
+                .font(self.font)
+                .foregroundStyle(self.foregroundStyle)
                 .underline(self.isHovering)
+                .lineLimit(1)
         }
         .buttonStyle(.plain)
         .onHover { hovering in
