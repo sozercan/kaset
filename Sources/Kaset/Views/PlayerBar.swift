@@ -119,11 +119,14 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 self.seekValue = self.playerService.progress / self.playerService.duration
             }
         }
-        .fullScreenCover(isPresented: self.$showsArtworkViewer) {
-            ArtworkViewer(
-                artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
-                onDismiss: { self.showsArtworkViewer = false }
-            )
+        .overlay {
+            if self.showsArtworkViewer {
+                ArtworkViewer(
+                    artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
+                    onDismiss: { self.showsArtworkViewer = false }
+                )
+                .transition(.opacity)
+            }
         }
     }
     private var playerAreaFade: some View {

@@ -58,9 +58,6 @@ struct ArtworkViewer: View {
     private var backgroundLayer: some View {
         ZStack {
             Color.black.opacity(0.85)
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .blur(radius: 40)
         }
     }
 
