@@ -38,6 +38,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @State private var isResolvingArtist = false
     @State private var isResolvingAlbum = false
     @State private var showsArtworkViewer = false
+
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
     @State private var formattedRemaining: String = "-0:00"
@@ -124,6 +125,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             }
         }
     }
+
     private var playerAreaFade: some View {
         LinearGradient(
             colors: [
@@ -207,6 +209,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             }
         }
     }
+
     private func trackArtwork(for track: Song) -> some View {
         PlayerBarArtworkView(
             width: 32,

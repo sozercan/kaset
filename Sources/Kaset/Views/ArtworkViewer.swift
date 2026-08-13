@@ -13,12 +13,10 @@ struct ArtworkViewer: View {
     /// Called when the viewer should be dismissed.
     let onDismiss: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
     var body: some View {
         ZStack {
             // Dark, blurred background
-            backgroundLayer
+            self.backgroundLayer
                 .ignoresSafeArea()
 
             // Centered artwork
