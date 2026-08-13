@@ -758,6 +758,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
             .id(item.contentId)
             .navigationDestinations(client: client)
+            .playerBarMusicNavigation(path: Binding(
+                get: { self.pinnedNavigationPaths[item.contentId, default: NavigationPath()] },
+                set: { self.pinnedNavigationPaths[item.contentId] = $0 }
+            ))
         }
         .environment(\.libraryViewModel, self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
