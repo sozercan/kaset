@@ -20,8 +20,11 @@ struct HoverUnderlineNavigationLink<Value: Hashable>: View {
                 .foregroundStyle(self.foregroundStyle)
                 .underline(self.isHovering)
                 .lineLimit(1)
+                .padding(.vertical, 2)
+                .contentShape(.rect)
         }
         .buttonStyle(.plain)
+        .pointerStyle(.link)
         .onHover { hovering in
             self.isHovering = hovering
         }
