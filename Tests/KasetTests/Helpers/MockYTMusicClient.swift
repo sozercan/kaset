@@ -96,6 +96,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var editSongLibraryStatusErrors: [(any Error)?] = []
     var getSongDelay: Duration?
     var getHistoryDelay: Duration?
+    var shouldWaitForGetHistoryResponse = false
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
     var getPlaylistError: Error?
@@ -302,6 +303,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
     private(set) var removeSongFromPlaylistCalls: [RemoveSongFromPlaylistCall] = []
     private var removeSongFromPlaylistResponseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var getHistoryResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -472,6 +474,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getHistory() async throws -> HomeResponse {
         self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
+        if self.shouldWaitForGetHistoryResponse {
+            await withCheckedContinuation { continuation in
+                self.getHistoryResponseContinuations.append(continuation)
+            }
+        }
         if let getHistoryDelay {
             try? await Task.sleep(for: getHistoryDelay)
         }
@@ -1101,6 +1108,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
     }
 
+    func resumeNextGetHistoryResponse() {
+        guard !self.getHistoryResponseContinuations.isEmpty else { return }
+        self.getHistoryResponseContinuations.removeFirst().resume()
+    }
+
     func resumeNextRemoveSongFromPlaylistResponse() {
         guard !self.removeSongFromPlaylistResponseContinuations.isEmpty else { return }
         self.removeSongFromPlaylistResponseContinuations.removeFirst().resume()
@@ -1437,6 +1449,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.editSongLibraryStatusErrors = []
         self.getSongDelay = nil
         self.getHistoryDelay = nil
+        self.shouldWaitForGetHistoryResponse = false
         self.mixQueueDelay = nil
         self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
