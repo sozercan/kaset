@@ -778,4 +778,28 @@ struct MusicPlaybackBridgeDecodingTests {
         #expect(SingletonPlayerWebView.finitePlaybackBridgeDouble(from: true) == nil)
         #expect(SingletonPlayerWebView.finitePlaybackBridgeDouble(from: "1.75") == nil)
     }
+
+    @Test("Playback bridge rejects the document URL reported by an unset thumbnail element")
+    func rejectsDocumentURLThumbnail() {
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: "https://music.youtube.com/").isEmpty)
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: "https://music.youtube.com").isEmpty)
+    }
+
+    @Test("Playback bridge rejects empty and malformed thumbnail sources")
+    func rejectsInvalidThumbnails() {
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: "").isEmpty)
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: "   ").isEmpty)
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: nil).isEmpty)
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: 42).isEmpty)
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: "data:image/png;base64,AAAA").isEmpty)
+    }
+
+    @Test("Playback bridge preserves real artwork sources")
+    func preservesArtworkThumbnails() {
+        let artwork = "https://lh3.googleusercontent.com/abc=w544-h544-l90-rj"
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: artwork) == artwork)
+
+        let fallback = "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg"
+        #expect(SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: fallback) == fallback)
+    }
 }
