@@ -109,6 +109,43 @@ struct ExtensionsTests {
         #expect(highQuality == url)
     }
 
+    // MARK: - URL Artwork Size Tests
+
+    @Test("Rescales artwork options past the 226px thumbnail ceiling")
+    func artworkURLRescalesOptions() throws {
+        let url = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w544-h544-l90-rj"))
+        let artwork = try #require(url.artworkURL(side: 1200))
+
+        #expect(artwork.absoluteString == "https://lh3.googleusercontent.com/abc=w1200-h1200-l90-rj")
+    }
+
+    @Test("Artwork rescaling preserves non-dimension options")
+    func artworkURLPreservesOtherOptions() throws {
+        let url = try #require(URL(string: "https://yt3.googleusercontent.com/xyz=w226-h226-l90-rj-flags"))
+        let artwork = try #require(url.artworkURL(side: 800))
+
+        #expect(artwork.absoluteString.contains("w800-h800"))
+        #expect(artwork.absoluteString.hasSuffix("-l90-rj-flags"))
+    }
+
+    @Test("Artwork rescaling leaves sizeless YouTube thumbnails untouched")
+    func artworkURLIgnoresSizelessPaths() throws {
+        let url = try #require(URL(string: "https://i.ytimg.com/vi/abc123/hqdefault.jpg"))
+        #expect(url.artworkURL(side: 1200) == url)
+
+        let wide = try #require(URL(string: "https://i.ytimg.com/vi/abc123/hq720.jpg?kaset=wide-v2"))
+        #expect(wide.artworkURL(side: 1200) == wide)
+    }
+
+    @Test("Artwork rescaling ignores non-YouTube hosts and invalid sizes")
+    func artworkURLIgnoresForeignHosts() throws {
+        let foreign = try #require(URL(string: "https://example.com/abc=w544-h544"))
+        #expect(foreign.artworkURL(side: 1200) == foreign)
+
+        let url = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w544-h544"))
+        #expect(url.artworkURL(side: 0) == url)
+    }
+
     @Test("Returns same URL for already high quality thumbnails")
     func highQualityThumbnailAlreadyHighQuality() throws {
         let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/w400-h400-l90-rj"))
