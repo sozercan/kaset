@@ -162,7 +162,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    @ViewBuilder
     private var thumbnailView: some View {
         Group {
             if let track = self.playerService.currentTrack {
