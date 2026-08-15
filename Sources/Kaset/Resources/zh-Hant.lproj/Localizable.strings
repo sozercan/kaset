@@ -566,3 +566,5 @@
 "tracks" = "首曲目";
 "View Artwork" = "查看封面";
 "Album Artwork" = "專輯封面";
+"Artwork Unavailable" = "無可用封面";
+"This track has no artwork available." = "此曲目沒有可用封面。";

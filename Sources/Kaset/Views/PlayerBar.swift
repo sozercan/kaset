@@ -118,6 +118,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .sheet(isPresented: self.$showsArtworkViewer) {
             ArtworkViewer(
                 artworkURL: self.playerService.currentTrack?.thumbnailURL?.highQualityThumbnailURL,
+                fallbackArtworkURL: self.playerService.currentTrack?.fallbackThumbnailURL,
                 onDismiss: { self.showsArtworkViewer = false }
             )
         }
