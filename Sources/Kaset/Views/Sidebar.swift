@@ -205,7 +205,7 @@ struct Sidebar: View {
             title: item.title,
             systemImage: item.systemImage,
             isSelected: self.currentSidebarSelection == .pinned(item),
-            isPlaying: self.playerService.sourcePlaylistId == item.contentId
+            isNowPlayingSource: self.playerService.sourcePlaylistId == item.contentId
         ) {
             self.selectPinnedItem(item)
         }

@@ -14,7 +14,7 @@ struct KasetSidebarRow: View {
     let title: String
     let systemImage: String
     let isSelected: Bool
-    var isPlaying: Bool = false
+    var isNowPlayingSource: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -22,14 +22,10 @@ struct KasetSidebarRow: View {
             Label {
                 Text(self.title)
                     .lineLimit(1)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(self.isNowPlayingSource ? PackageResourceLookup.brandAccent : .primary)
             } icon: {
-                if self.isPlaying {
-                    NowPlayingIndicator(isPlaying: true, size: 18)
-                } else {
-                    Image(systemName: self.systemImage)
-                        .foregroundStyle(PackageResourceLookup.brandAccent)
-                }
+                Image(systemName: self.systemImage)
+                    .foregroundStyle(PackageResourceLookup.brandAccent)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 5)
