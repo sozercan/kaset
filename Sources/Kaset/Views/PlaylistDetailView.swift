@@ -337,10 +337,19 @@ struct PlaylistDetailView: View {
         return fallbackArtist
     }
 
-    private func trackArtists(for track: Song, fallbackAuthor _: String?) -> [Artist]? {
+    private func trackArtists(for track: Song, fallbackAuthor: String?) -> [Artist]? {
         let artists = self.uniqueArtists(from: track.artists)
-        guard !artists.isEmpty else { return nil }
-        return artists
+        if !artists.isEmpty {
+            return artists
+        }
+
+        guard let fallbackName = self.cleanedArtistName(fallbackAuthor),
+              let author = self.cleanedArtist(self.viewModel.playlistDetail?.author),
+              author.hasNavigableId,
+              author.name == fallbackName
+        else { return nil }
+
+        return [author]
     }
 
     private func uniqueArtists(from artists: [Artist]) -> [Artist] {
