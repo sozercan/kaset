@@ -12,6 +12,8 @@ enum AddSongOutcome: Equatable {
     case failed
 }
 
+// MARK: - LibraryMutationActions
+
 /// Orchestrates Library mutations that need optimistic UI updates, cache invalidation,
 /// and eventual-consistency reconciliation after YouTube Music accepts a change.
 @MainActor
@@ -290,6 +292,7 @@ enum LibraryMutationActions {
             task.cancel()
         }
     }
+
     /// Adds a song to a drop target, routing Liked Music through the like flow and every other
     /// (editable) playlist through `edit_playlist`. Owns cache invalidation and logging; returns an
     /// outcome so callers can render feedback. This is the single entry both the sidebar drop and

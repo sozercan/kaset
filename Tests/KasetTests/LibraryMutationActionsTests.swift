@@ -91,7 +91,7 @@ extension LibraryMutationSerialTests {
                 song,
                 to: .likedMusic,
                 client: self.mockClient,
-                likeStatusManager: SongLikeStatusManager.shared
+                likeStatusManager: SongLikeStatusManager()
             )
 
             #expect(outcome == .liked)
