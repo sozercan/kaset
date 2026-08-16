@@ -16,12 +16,12 @@ extension WebKitManager {
         try? await Task.sleep(for: .milliseconds(100))
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
 
-        switch await CookieArchiveWriteQueue.shared.restoreDecision() {
+        switch await self.cookieArchiveQueue.restoreDecision() {
         case .allowed:
             break
         case .denied:
             self.logger.info("Cookie backup restoration is disabled after explicit invalidation")
-            let didDeletePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+            let didDeletePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
             guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
             let didClearLiveCookies = await self.clearLiveLoginSessionCookies(
                 expectedGeneration: expectedGeneration

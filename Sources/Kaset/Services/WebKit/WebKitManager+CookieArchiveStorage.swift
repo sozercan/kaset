@@ -312,6 +312,26 @@ extension WebKitManager {
     }
 }
 
+// MARK: - InMemoryCookieArchiveBox
+
+/// Backing store for `CookieArchiveStorage.inMemory()`.
+final class InMemoryCookieArchiveBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var archiveData: Data?
+
+    func store(_ data: Data?) {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        self.archiveData = data
+    }
+
+    func load() -> Data? {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.archiveData
+    }
+}
+
 // MARK: - CookieArchiveStorage
 
 struct CookieArchiveStorage: Sendable {
@@ -339,6 +359,28 @@ struct CookieArchiveStorage: Sendable {
         self.setRestoreAllowed = setRestoreAllowed
         self.exportsDebugArchive = exportsDebugArchive
         self.deleteDebugArchive = deleteDebugArchive
+    }
+
+    /// An archive that lives only for the lifetime of its queue. Keeps a manager's cookie
+    /// archive off the process-wide Keychain/`cookies.dat` store so parallel test suites
+    /// stay isolated from each other's invalidations.
+    static func inMemory() -> CookieArchiveStorage {
+        let box = InMemoryCookieArchiveBox()
+        return CookieArchiveStorage(
+            save: { data, _ in
+                box.store(data)
+                return true
+            },
+            load: { box.load() },
+            delete: {
+                box.store(nil)
+                return true
+            },
+            restoreDecision: { .allowed },
+            setRestoreAllowed: { _ in true },
+            exportsDebugArchive: false,
+            deleteDebugArchive: { true }
+        )
     }
 
     static let live = CookieArchiveStorage(

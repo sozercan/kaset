@@ -3,65 +3,6 @@ import os
 import Security
 import WebKit
 
-// MARK: - AuthCookieOperationFence
-
-struct AuthCookieOperationFence {
-    private(set) var generation: UInt64 = 0
-
-    mutating func invalidate() {
-        self.generation &+= 1
-    }
-
-    func isCurrent(_ expectedGeneration: UInt64) -> Bool {
-        expectedGeneration == self.generation
-    }
-}
-
-// MARK: - LiveAuthCookieClearResult
-
-struct LiveAuthCookieClearResult: Equatable {
-    let didClear: Bool
-    let usedCookieStoreFallback: Bool
-}
-
-// MARK: - LiveAuthCookieStoreClearer
-
-@MainActor
-enum LiveAuthCookieStoreClearer {
-    struct Operations {
-        let readCookies: @MainActor () async -> [HTTPCookie]
-        let deleteCookie: @MainActor (HTTPCookie) async -> Void
-        let removeAllCookies: @MainActor () async -> Void
-    }
-
-    static func clear(
-        maximumDeletePasses: Int = 3,
-        operations: Operations
-    ) async -> LiveAuthCookieClearResult {
-        for _ in 0 ..< max(maximumDeletePasses, 0) {
-            let cookies = await operations.readCookies()
-            for cookie in cookies where KeychainCookieStorage.isLoginSessionCookie(cookie) {
-                await operations.deleteCookie(cookie)
-            }
-            let remainingCookies = await operations.readCookies()
-            if !remainingCookies.contains(where: KeychainCookieStorage.isLoginSessionCookie) {
-                return LiveAuthCookieClearResult(
-                    didClear: true,
-                    usedCookieStoreFallback: false
-                )
-            }
-            await Task.yield()
-        }
-
-        await operations.removeAllCookies()
-        let remainingCookies = await operations.readCookies()
-        return LiveAuthCookieClearResult(
-            didClear: !remainingCookies.contains(where: KeychainCookieStorage.isLoginSessionCookie),
-            usedCookieStoreFallback: true
-        )
-    }
-}
-
 // MARK: - WebKitManager
 
 /// Manages WebKit data store for persistent cookies and session management.
@@ -71,13 +12,24 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Shared singleton instance.
     static let shared = WebKitManager(dataStore: .default(), restoresCookies: true, loadsExtensions: true)
 
-    /// Creates an isolated manager for unit tests.
+    /// Creates an isolated manager for unit tests. The cookie archive queue is private to the
+    /// instance and backed by in-memory storage, so parallel suites cannot clear or overwrite
+    /// each other's archive through the process-wide `CookieArchiveWriteQueue.shared`.
     static func makeTestInstance() -> WebKitManager {
-        WebKitManager(dataStore: .nonPersistent(), restoresCookies: false, loadsExtensions: false)
+        WebKitManager(
+            dataStore: .nonPersistent(),
+            restoresCookies: false,
+            loadsExtensions: false,
+            cookieArchiveQueue: CookieArchiveWriteQueue(storage: .inMemory())
+        )
     }
 
     /// The persistent website data store used across all WebViews.
     let dataStore: WKWebsiteDataStore
+
+    /// Serializes archive reads and writes for this manager's cookies. Defaults to the
+    /// process-wide queue so production keeps a single archive; tests inject their own.
+    let cookieArchiveQueue: CookieArchiveWriteQueue
 
     /// Timestamp of the last cookie change (for observation).
     private(set) var cookiesDidChange: Date = .distantPast
@@ -153,8 +105,14 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         )
     #endif
 
-    private init(dataStore: WKWebsiteDataStore, restoresCookies: Bool, loadsExtensions: Bool) {
+    private init(
+        dataStore: WKWebsiteDataStore,
+        restoresCookies: Bool,
+        loadsExtensions: Bool,
+        cookieArchiveQueue: CookieArchiveWriteQueue = .shared
+    ) {
         self.dataStore = dataStore
+        self.cookieArchiveQueue = cookieArchiveQueue
 
         super.init()
 
@@ -576,7 +534,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Invalidate once more after the initial fence so no operation that was
         // already queued before it can leave a durable stale snapshot. All live
         // verification happens after this final persistence suspension.
-        let didInvalidatePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+        let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
 
         let liveClearResult = await LiveAuthCookieStoreClearer.clear(
             operations: LiveAuthCookieStoreClearer.Operations(
@@ -630,7 +588,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         // Repeat the invalidation after WebKit finishes clearing to close the
         // window for any already-enqueued observer or backup work.
-        let didInvalidatePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+        let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
         let remainingCookies = await self.dataStore.httpCookieStore.allCookies()
         let didClearLiveCookies = !remainingCookies.contains(where: KeychainCookieStorage.isLoginDomainCookie)
         let didClear = didInvalidatePersistedCookies && didClearLiveCookies
@@ -656,7 +614,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         restoreTask?.cancel()
         backupTask?.cancel()
 
-        _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+        _ = await self.cookieArchiveQueue.invalidateAndDelete()
         _ = await restoreTask?.value
         _ = await backupTask?.value
     }

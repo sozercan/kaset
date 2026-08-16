@@ -5,6 +5,26 @@ import Testing
 @Suite("WebKit cookie restoration", .serialized, .tags(.service))
 @MainActor
 struct WebKitCookieRestoreTests {
+    @Test("Clearing one manager's data leaves another manager's cookie archive intact")
+    func clearingOneManagerPreservesAnotherManagersArchive() async {
+        let archiveOwner = WebKitManager.makeTestInstance()
+        let clearingManager = WebKitManager.makeTestInstance()
+        let archiveData = Data("archived-cookies".utf8)
+
+        let generation = await archiveOwner.cookieArchiveQueue.reserveGeneration()
+        let saveResult = await archiveOwner.cookieArchiveQueue.save(
+            archiveData: archiveData,
+            cookieCount: 1,
+            generation: generation
+        )
+        #expect(saveResult == .saved)
+
+        _ = await clearingManager.clearAllData()
+
+        #expect(await archiveOwner.cookieArchiveQueue.persistedArchiveData() == archiveData)
+        #expect(await clearingManager.cookieArchiveQueue.persistedArchiveData() == nil)
+    }
+
     @Test("Persisted archive replaces stale live authentication cookies")
     func persistedArchiveReplacesStaleLiveCookies() async throws {
         let expectedCookie = try #require(HTTPCookie(properties: [
