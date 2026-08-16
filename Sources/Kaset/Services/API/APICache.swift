@@ -9,7 +9,7 @@ final class APICache {
 
     struct WriteTicket {
         fileprivate let cacheGeneration: Int
-        fileprivate let writeGeneration: UInt64
+        fileprivate let scopedInvalidationOrder: UInt64
         fileprivate let requestOrder: UInt64
     }
 
@@ -58,9 +58,11 @@ final class APICache {
     /// older request from becoming the newest writer merely because its header
     /// construction resumed later.
     private var nextWriteOrder: UInt64 = 0
-    private var writeGeneration: UInt64 = 0
+    private var nextScopedInvalidationOrder: UInt64 = 0
     private var activeWriteOrders: Set<UInt64> = []
     private var latestWriteOrders: [String: UInt64] = [:]
+    /// Most recent invalidation order for each cache-key prefix.
+    private var latestScopedInvalidationOrders: [String: UInt64] = [:]
 
     /// Timestamp of last eviction to avoid running on every access.
     private var lastEvictionTime: Date = .distantPast
@@ -128,7 +130,7 @@ final class APICache {
         self.nextWriteOrder &+= 1
         let ticket = WriteTicket(
             cacheGeneration: cacheGeneration,
-            writeGeneration: self.writeGeneration,
+            scopedInvalidationOrder: self.nextScopedInvalidationOrder,
             requestOrder: self.nextWriteOrder
         )
         self.activeWriteOrders.insert(ticket.requestOrder)
@@ -139,8 +141,8 @@ final class APICache {
     /// the same key supersedes an older one regardless of await completion order.
     func beginWrite(for key: String, ticket: WriteTicket) -> WriteReservation? {
         guard ticket.cacheGeneration == self.generation,
-              ticket.writeGeneration == self.writeGeneration,
               self.activeWriteOrders.contains(ticket.requestOrder),
+              !self.wasInvalidated(ticket, for: key),
               ticket.requestOrder > (self.latestWriteOrders[key] ?? 0)
         else {
             return nil
@@ -150,7 +152,7 @@ final class APICache {
     }
 
     /// Stores a dictionary response only while its write reservation is still
-    /// current and no full cache invalidation occurred during the request.
+    /// current and no relevant cache invalidation occurred during the request.
     func setIfCurrent(
         key: String,
         data: [String: Any],
@@ -176,9 +178,7 @@ final class APICache {
     /// Releases a completed, failed, or cache-hit request ticket. Key ordering
     /// stays recorded while any older ticket could still resume and claim it.
     func finishWrite(_ ticket: WriteTicket) {
-        guard ticket.cacheGeneration == self.generation,
-              ticket.writeGeneration == self.writeGeneration
-        else {
+        guard ticket.cacheGeneration == self.generation else {
             return
         }
         self.activeWriteOrders.remove(ticket.requestOrder)
@@ -228,13 +228,13 @@ final class APICache {
     func invalidateAll() {
         self.cache.removeAll()
         self.generation &+= 1
-        self.invalidatePendingWrites()
+        self.invalidateAllPendingWrites()
     }
 
     /// Invalidates entries matching the given prefix.
     func invalidate(matching prefix: String) {
         self.cache = self.cache.filter { !$0.key.hasPrefix(prefix) }
-        self.invalidatePendingWrites()
+        self.invalidatePendingWrites(matching: [prefix])
     }
 
     /// Invalidates all caches affected by mutation operations (like, library, feedback).
@@ -249,7 +249,7 @@ final class APICache {
         self.cache = self.cache.filter { entry in
             !mutationPrefixes.contains { entry.key.hasPrefix($0) }
         }
-        self.invalidatePendingWrites()
+        self.invalidatePendingWrites(matching: mutationPrefixes)
     }
 
     /// Returns current cache statistics for debugging.
@@ -276,15 +276,34 @@ final class APICache {
     private func isCurrent(_ reservation: WriteReservation, for key: String) -> Bool {
         reservation.key == key
             && reservation.ticket.cacheGeneration == self.generation
-            && reservation.ticket.writeGeneration == self.writeGeneration
             && self.activeWriteOrders.contains(reservation.ticket.requestOrder)
+            && !self.wasInvalidated(reservation.ticket, for: key)
             && self.latestWriteOrders[key] == reservation.ticket.requestOrder
     }
 
-    private func invalidatePendingWrites() {
-        self.writeGeneration &+= 1
+    private func invalidateAllPendingWrites() {
         self.activeWriteOrders.removeAll()
         self.latestWriteOrders.removeAll()
+        self.latestScopedInvalidationOrders.removeAll()
+    }
+
+    private func invalidatePendingWrites(matching prefixes: [String]) {
+        guard !prefixes.isEmpty else { return }
+
+        self.nextScopedInvalidationOrder &+= 1
+        let invalidationOrder = self.nextScopedInvalidationOrder
+        for prefix in prefixes {
+            self.latestScopedInvalidationOrders[prefix] = invalidationOrder
+        }
+        self.latestWriteOrders = self.latestWriteOrders.filter { entry in
+            !prefixes.contains { entry.key.hasPrefix($0) }
+        }
+    }
+
+    private func wasInvalidated(_ ticket: WriteTicket, for key: String) -> Bool {
+        self.latestScopedInvalidationOrders.contains { entry in
+            entry.value > ticket.scopedInvalidationOrder && key.hasPrefix(entry.key)
+        }
     }
 
     private func pruneWriteOrderState() {

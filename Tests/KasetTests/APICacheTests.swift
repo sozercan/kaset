@@ -148,7 +148,7 @@ struct APICacheTests {
         #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
     }
 
-    @Test("Invalidation rejects tickets prepared before it")
+    @Test("Matching invalidation rejects tickets prepared before key resolution")
     func invalidationRejectsPreparedWriteTicket() throws {
         let ticket = try #require(
             self.cache.prepareWrite(cacheGeneration: self.cache.generation)
@@ -158,6 +158,60 @@ struct APICacheTests {
 
         #expect(self.cache.beginWrite(for: "key", ticket: ticket) == nil)
         self.cache.finishWrite(ticket)
+    }
+
+    @Test("Scoped invalidation cancels only matching active writes")
+    func scopedInvalidationCancelsOnlyMatchingActiveWrites() throws {
+        let browseKey = "browse:home"
+        let youtubeKey = "yt:data:browse"
+        self.cache.set(key: browseKey, data: ["value": "old"], ttl: 60)
+        self.cache.set(key: youtubeKey, data: ["value": "old"], ttl: 60)
+
+        let generation = self.cache.generation
+        let browseTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let youtubeTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let browseWrite = try #require(self.cache.beginWrite(for: browseKey, ticket: browseTicket))
+        let youtubeWrite = try #require(self.cache.beginWrite(for: youtubeKey, ticket: youtubeTicket))
+
+        self.cache.invalidate(matching: "yt:")
+        self.cache.setIfCurrent(
+            key: browseKey,
+            data: ["value": "fresh"],
+            ttl: 60,
+            reservation: browseWrite
+        )
+        self.cache.setIfCurrent(
+            key: youtubeKey,
+            data: ["value": "stale"],
+            ttl: 60,
+            reservation: youtubeWrite
+        )
+        self.cache.finishWrite(browseTicket)
+        self.cache.finishWrite(youtubeTicket)
+
+        #expect(self.cache.get(key: browseKey)?["value"] as? String == "fresh")
+        #expect(self.cache.get(key: youtubeKey) == nil)
+    }
+
+    @Test("Mutation invalidation preserves unrelated active writes")
+    func mutationInvalidationPreservesUnrelatedActiveWrite() throws {
+        let key = "yt:data:browse"
+        self.cache.set(key: key, data: ["value": "old"], ttl: 60)
+        let ticket = try #require(
+            self.cache.prepareWrite(cacheGeneration: self.cache.generation)
+        )
+        let write = try #require(self.cache.beginWrite(for: key, ticket: ticket))
+
+        self.cache.invalidateMutationCaches()
+        self.cache.setIfCurrent(
+            key: key,
+            data: ["value": "fresh"],
+            ttl: 60,
+            reservation: write
+        )
+        self.cache.finishWrite(ticket)
+
+        #expect(self.cache.get(key: key)?["value"] as? String == "fresh")
     }
 
     @Test("Cache TTL constants are correct")
