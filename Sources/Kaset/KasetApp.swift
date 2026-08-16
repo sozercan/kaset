@@ -67,6 +67,9 @@ struct KasetApp: App {
 
     @State private var textInputFocusState = TextInputFocusState()
 
+    /// Delivers the modifier-less Space shortcut, which AppKit never routes to the menu.
+    @State private var playbackSpaceKeyMonitor = PlaybackSpaceKeyMonitor()
+
     @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
 
     /// Current navigation selection for keyboard navigation.
@@ -267,6 +270,10 @@ struct KasetApp: App {
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
                     self.textInputFocusState.startMonitoring()
+                    self.playbackSpaceKeyMonitor.start(
+                        isPlaybackCommandEnabled: { !self.shouldDisablePlaybackCommand },
+                        onPlayPause: { self.performPlayPause() }
+                    )
                     // Wire up PlayerService to AppDelegate for dock menu and AppleScript actions
                     // This runs synchronously so AppleScript commands can access playerService immediately
                     self.appDelegate.playerService = self.playerService
@@ -378,13 +385,7 @@ struct KasetApp: App {
             CommandMenu("Playback") {
                 // Play/Pause - Space
                 Button(self.activePlayerIsPlaying ? "Pause" : "Play") {
-                    if self.playbackArbiter.routesMediaKeysToVideo {
-                        self.youtubePlayerService.playPause()
-                    } else {
-                        Task {
-                            await self.playerService.playPause()
-                        }
-                    }
+                    self.performPlayPause()
                 }
                 .keyboardShortcut(self.playbackShortcut(.space, modifiers: []))
                 .disabled(self.shouldDisablePlaybackCommand)
@@ -700,6 +701,18 @@ struct KasetApp: App {
     }
 
     /// Whether the currently routed player (video or music) is playing.
+    /// Toggles playback on whichever player is active. Shared by the Playback menu item and
+    /// `PlaybackSpaceKeyMonitor`, so the Space key and the menu can never diverge.
+    private func performPlayPause() {
+        if self.playbackArbiter.routesMediaKeysToVideo {
+            self.youtubePlayerService.playPause()
+        } else {
+            Task {
+                await self.playerService.playPause()
+            }
+        }
+    }
+
     private var activePlayerIsPlaying: Bool {
         if self.playbackArbiter.routesMediaKeysToVideo {
             self.youtubePlayerService.isPlaying
