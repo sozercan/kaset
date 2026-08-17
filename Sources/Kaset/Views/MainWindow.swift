@@ -286,10 +286,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
             .onAppear {
-                self.musicNavigation.updateActiveRoute(
-                    tab: self.navigationSelection,
-                    pinnedContentID: self.selectedSidebarPinnedItem?.contentId
-                )
+                self.refreshMusicNavigationRoute()
             }
             .modifier(PinnedNavigationPathLifecycleModifier(
                 navigationSelection: self.$navigationSelection,
@@ -298,16 +295,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 committedRemovalGenerations: self.sidebarPinnedItemsManager.committedRemovalGenerations
             ))
             .onChange(of: self.navigationSelection) { _, newValue in
-                self.musicNavigation.updateActiveRoute(
-                    tab: newValue,
-                    pinnedContentID: self.selectedSidebarPinnedItem?.contentId
-                )
+                self.refreshMusicNavigationRoute(tab: newValue)
             }
             .onChange(of: self.selectedSidebarPinnedItem?.contentId) { _, newValue in
-                self.musicNavigation.updateActiveRoute(
-                    tab: self.navigationSelection,
-                    pinnedContentID: newValue
-                )
+                self.refreshMusicNavigationRoute(pinnedContentID: newValue)
             }
             .onChange(of: self.authService.state) { oldState, newState in
                 self.handleAuthStateChange(oldState: oldState, newState: newState)
@@ -707,6 +698,30 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         item.requiresSignIn && !self.hasPersonalAccount
     }
 
+    private func musicNavigationStackIsMounted(tab: NavigationItem?, pinnedContentID: String?) -> Bool {
+        if pinnedContentID != nil {
+            return true
+        }
+        guard let tab else { return false }
+        return !self.requiresSignIn(tab)
+    }
+
+    private func refreshMusicNavigationRoute(
+        tab: NavigationItem? = nil,
+        pinnedContentID: String?? = nil
+    ) {
+        let resolvedTab = tab ?? self.navigationSelection
+        let resolvedPinnedContentID = pinnedContentID ?? self.selectedSidebarPinnedItem?.contentId
+        self.musicNavigation.updateActiveRoute(
+            tab: resolvedTab,
+            pinnedContentID: resolvedPinnedContentID,
+            hasNavigationStack: self.musicNavigationStackIsMounted(
+                tab: resolvedTab,
+                pinnedContentID: resolvedPinnedContentID
+            )
+        )
+    }
+
     private func signInRequiredView(for item: NavigationItem) -> some View {
         SignInRequiredView(
             title: String(localized: "Sign in to use \(item.displayName)"),
@@ -829,6 +844,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
+        self.refreshMusicNavigationRoute()
     }
 
     private func handleGuestModeChange(isGuestModeEnabled: Bool) {
@@ -857,6 +873,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 await self.refreshAuthenticatedContent()
             }
         }
+        self.refreshMusicNavigationRoute()
     }
 
     private func rebuildMusicViewModels(accountId: String? = nil) {

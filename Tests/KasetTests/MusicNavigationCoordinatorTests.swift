@@ -61,6 +61,27 @@ struct MusicNavigationCoordinatorTests {
         #expect(coordinator.routeAlbumID == nil)
     }
 
+    @Test("playerBarNavigationAction is disabled when active route has no mounted navigation stack")
+    func disabledWhenNoMountedStack() {
+        let coordinator = MusicNavigationCoordinator()
+        coordinator.updateActiveRoute(tab: .library, pinnedContentID: nil, hasNavigationStack: false)
+
+        #expect(coordinator.playerBarNavigationAction.openArtist == nil)
+        #expect(coordinator.playerBarNavigationAction.openAlbum == nil)
+        #expect(coordinator.activeNavigationPathBinding() == nil)
+    }
+
+    @Test("guest-gated tabs disable navigation for liked music, library, and history")
+    func disabledForGuestGatedTabs() {
+        let coordinator = MusicNavigationCoordinator()
+        for tab in [NavigationItem.likedMusic, .library, .history] {
+            coordinator.updateActiveRoute(tab: tab, pinnedContentID: nil, hasNavigationStack: false)
+
+            #expect(coordinator.playerBarNavigationAction.openArtist == nil)
+            #expect(coordinator.playerBarNavigationAction.openAlbum == nil)
+        }
+    }
+
     @Test("active route binding returns nil when no tab or pin is selected")
     func disabledNavigationWhenNoActiveRoute() {
         let coordinator = MusicNavigationCoordinator()

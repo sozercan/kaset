@@ -19,6 +19,7 @@ final class MusicNavigationCoordinator {
 
     var activeTab: NavigationItem?
     var activePinnedContentID: String?
+    private(set) var activeRouteHasNavigationStack = false
 
     var routeArtistID: String?
     var routeAlbumID: String?
@@ -55,12 +56,14 @@ final class MusicNavigationCoordinator {
         )
     }
 
-    func updateActiveRoute(tab: NavigationItem?, pinnedContentID: String?) {
+    func updateActiveRoute(tab: NavigationItem?, pinnedContentID: String?, hasNavigationStack: Bool = true) {
         self.activeTab = tab
         self.activePinnedContentID = pinnedContentID
+        self.activeRouteHasNavigationStack = hasNavigationStack
     }
 
     func activeNavigationPathBinding() -> Binding<NavigationPath>? {
+        guard self.activeRouteHasNavigationStack else { return nil }
         if let contentID = self.activePinnedContentID {
             return self.pinnedPathBinding(for: contentID)
         }
@@ -71,7 +74,8 @@ final class MusicNavigationCoordinator {
     }
 
     var playerBarNavigationAction: PlayerBarNavigationAction {
-        guard let binding = self.activeNavigationPathBinding() else { return .disabled }
+        guard self.activeRouteHasNavigationStack,
+              let binding = self.activeNavigationPathBinding() else { return .disabled }
         return PlayerBarNavigationAction(
             openArtist: { artist in binding.wrappedValue.append(artist) },
             openAlbum: { album in binding.wrappedValue.append(album) }
