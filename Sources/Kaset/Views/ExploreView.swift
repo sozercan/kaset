@@ -33,9 +33,7 @@ struct ExploreView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Explore")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .explore))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .explore))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

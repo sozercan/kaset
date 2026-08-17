@@ -24,8 +24,8 @@ re-derived `PlayerBarNavigationAction` plumbing across ~18 call sites.
    `playerBarCurrentArtistID`) is updated by detail views through the coordinator on
    appear/disappear.
 4. Remove per-view `PlayerBar` instances and `playerBarNavigationAction` init parameters;
-   navigation destinations read `playerBarNavigationAction` from the environment set by
-   `.playerBarMusicNavigation(path:)`.
+   the shared bar in `MainWindow` reads `playerBarNavigationAction` from
+   `MusicNavigationCoordinator`.
 
 ## Consequences
 

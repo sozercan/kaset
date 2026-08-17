@@ -15,30 +15,6 @@ extension EnvironmentValues {
     @Entry var playerBarCurrentArtistID: String?
 }
 
-// MARK: - PlayerBarMusicNavigationModifier
-
-private struct PlayerBarMusicNavigationModifier: ViewModifier {
-    @Binding var navigationPath: NavigationPath
-
-    func body(content: Content) -> some View {
-        content
-            .environment(\.playerBarNavigationAction, PlayerBarNavigationAction(
-                openArtist: { artist in
-                    self.navigationPath.append(artist)
-                },
-                openAlbum: { album in
-                    self.navigationPath.append(album)
-                }
-            ))
-    }
-}
-
-extension View {
-    func playerBarMusicNavigation(path: Binding<NavigationPath>) -> some View {
-        self.modifier(PlayerBarMusicNavigationModifier(navigationPath: path))
-    }
-}
-
 // MARK: - SidebarReselectNavigationModifier
 
 private struct SidebarReselectNavigationModifier: ViewModifier {

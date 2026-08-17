@@ -1,0 +1,72 @@
+import SwiftUI
+import Testing
+@testable import Kaset
+
+// MARK: - MusicNavigationCoordinatorTests
+
+@Suite(.tags(.model))
+@MainActor
+struct MusicNavigationCoordinatorTests {
+    @Test("playerBarNavigationAction routes artist pushes to the active tab stack")
+    func routesArtistToActiveTab() {
+        let coordinator = MusicNavigationCoordinator()
+        coordinator.updateActiveRoute(tab: .home, pinnedContentID: nil)
+
+        let artist = TestFixtures.makeArtist(id: "UC-home-artist", name: "Home Artist")
+        coordinator.playerBarNavigationAction.openArtist?(artist)
+
+        #expect(coordinator.homeNavigationPath.count == 1)
+        #expect(coordinator.searchNavigationPath.isEmpty)
+    }
+
+    @Test("playerBarNavigationAction follows sidebar route changes without resetting other stacks")
+    func followsActiveRouteChanges() {
+        let coordinator = MusicNavigationCoordinator()
+        coordinator.updateActiveRoute(tab: .home, pinnedContentID: nil)
+        coordinator.playerBarNavigationAction.openArtist?(TestFixtures.makeArtist(id: "UC-1", name: "One"))
+
+        coordinator.updateActiveRoute(tab: .search, pinnedContentID: nil)
+        coordinator.playerBarNavigationAction.openArtist?(TestFixtures.makeArtist(id: "UC-2", name: "Two"))
+
+        #expect(coordinator.homeNavigationPath.count == 1)
+        #expect(coordinator.searchNavigationPath.count == 1)
+    }
+
+    @Test("playerBarNavigationAction routes album pushes to the active pinned playlist stack")
+    func routesAlbumToPinnedStack() {
+        let coordinator = MusicNavigationCoordinator()
+        coordinator.updateActiveRoute(tab: .home, pinnedContentID: "pinned-playlist-1")
+
+        let album = TestFixtures.makePlaylist(id: "MPRE-pinned-album", title: "Pinned Album")
+        coordinator.playerBarNavigationAction.openAlbum?(album)
+
+        #expect(coordinator.pinnedNavigationPaths["pinned-playlist-1"]?.count == 1)
+        #expect(coordinator.homeNavigationPath.isEmpty)
+    }
+
+    @Test("resetAllNavigationPaths clears every stack and route context")
+    func resetClearsStacksAndRouteContext() {
+        let coordinator = MusicNavigationCoordinator()
+        coordinator.updateActiveRoute(tab: .library, pinnedContentID: nil)
+        coordinator.setRouteArtistID("artist-on-screen")
+        coordinator.setRouteAlbumID("album-on-screen")
+        coordinator.libraryNavigationPath.append(TestFixtures.makeArtist(id: "UC-lib", name: "Library Artist"))
+        coordinator.pinnedNavigationPaths["pin-1"] = NavigationPath()
+
+        coordinator.resetAllNavigationPaths()
+
+        #expect(coordinator.libraryNavigationPath.isEmpty)
+        #expect(coordinator.pinnedNavigationPaths.isEmpty)
+        #expect(coordinator.routeArtistID == nil)
+        #expect(coordinator.routeAlbumID == nil)
+    }
+
+    @Test("active route binding returns nil when no tab or pin is selected")
+    func disabledNavigationWhenNoActiveRoute() {
+        let coordinator = MusicNavigationCoordinator()
+
+        #expect(coordinator.activeNavigationPathBinding() == nil)
+        #expect(coordinator.playerBarNavigationAction.openArtist == nil)
+        #expect(coordinator.playerBarNavigationAction.openAlbum == nil)
+    }
+}

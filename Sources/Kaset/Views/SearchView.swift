@@ -41,9 +41,7 @@ struct SearchView: View {
             }
             .localizedNavigationTitle("Search")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .search))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .search))
         .onAppear {
             self.isSearchFieldFocused = true
         }

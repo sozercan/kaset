@@ -128,9 +128,7 @@ struct LibraryView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .library))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .library))
         .environment(\.libraryViewModel, self.viewModel)
         .task {
             if self.viewModel.loadingState == .idle {

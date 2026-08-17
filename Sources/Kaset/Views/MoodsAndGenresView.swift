@@ -33,9 +33,7 @@ struct MoodsAndGenresView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Moods & Genres")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

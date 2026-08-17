@@ -36,9 +36,7 @@ struct HomeView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Home")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .home))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .home))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

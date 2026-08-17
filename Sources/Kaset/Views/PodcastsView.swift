@@ -39,7 +39,6 @@ struct PodcastsView: View {
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .podcasts))
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {

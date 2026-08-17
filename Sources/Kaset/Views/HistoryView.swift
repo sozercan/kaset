@@ -52,9 +52,7 @@ struct HistoryView: View {
                 }
             }
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .history))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .history))
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()

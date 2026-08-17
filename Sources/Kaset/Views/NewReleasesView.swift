@@ -33,9 +33,7 @@ struct NewReleasesView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("New Releases")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .newReleases))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .newReleases))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

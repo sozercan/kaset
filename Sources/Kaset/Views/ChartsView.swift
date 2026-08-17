@@ -33,9 +33,7 @@ struct ChartsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Charts")
             .navigationDestinations(client: self.viewModel.client)
-            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .charts))
         }
-        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .charts))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

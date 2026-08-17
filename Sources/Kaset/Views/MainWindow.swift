@@ -676,9 +676,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             }
                         }
                         .navigationDestinations(client: self.client)
-                        .playerBarMusicNavigation(
-                            path: self.musicNavigation.navigationPathBinding(for: .likedMusic)
-                        )
                     }
                     .popsNavigationStackOnSidebarReselect(
                         path: self.musicNavigation.navigationPathBinding(for: .likedMusic),
