@@ -73,11 +73,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var libraryViewModel: LibraryViewModel?
     @State private var historyViewModel: HistoryViewModel?
 
-    /// Navigation path for the Liked Music route.
-    @State private var likedMusicNavigationPath = NavigationPath()
-
-    /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
-    @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
+    /// Music sidebar navigation paths and active route for the shared PlayerBar.
+    @State private var musicNavigation = MusicNavigationCoordinator()
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -288,12 +285,30 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     self.showWhatsNew.wrappedValue = false
                 }
             }
+            .onAppear {
+                self.musicNavigation.updateActiveRoute(
+                    tab: self.navigationSelection,
+                    pinnedContentID: self.selectedSidebarPinnedItem?.contentId
+                )
+            }
             .modifier(PinnedNavigationPathLifecycleModifier(
                 navigationSelection: self.$navigationSelection,
                 selectedPinnedItem: self.$selectedSidebarPinnedItem,
-                navigationPaths: self.$pinnedNavigationPaths,
+                musicNavigation: self.musicNavigation,
                 committedRemovalGenerations: self.sidebarPinnedItemsManager.committedRemovalGenerations
             ))
+            .onChange(of: self.navigationSelection) { _, newValue in
+                self.musicNavigation.updateActiveRoute(
+                    tab: newValue,
+                    pinnedContentID: self.selectedSidebarPinnedItem?.contentId
+                )
+            }
+            .onChange(of: self.selectedSidebarPinnedItem?.contentId) { _, newValue in
+                self.musicNavigation.updateActiveRoute(
+                    tab: self.navigationSelection,
+                    pinnedContentID: newValue
+                )
+            }
             .onChange(of: self.authService.state) { oldState, newState in
                 self.handleAuthStateChange(oldState: oldState, newState: newState)
             }
@@ -454,8 +469,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             }
                         },
                         onReselectPinnedItem: { item in
-                            guard !(self.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
-                            self.pinnedNavigationPaths[item.contentId] = NavigationPath()
+                            guard !(self.musicNavigation.pinnedNavigationPaths[item.contentId]?.isEmpty ?? true) else { return }
+                            self.musicNavigation.pinnedNavigationPaths[item.contentId] = NavigationPath()
                         }
                     )
                 } else {
@@ -467,21 +482,35 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     )
                 }
             } detail: {
-                if self.settings.appSource == .music {
-                    self.detailView(
-                        for: self.navigationSelection,
-                        pinnedItem: self.selectedSidebarPinnedItem,
-                        client: self.client
-                    )
-                } else {
-                    YouTubeContentView(
-                        selection: self.youtubeNavigationSelection,
-                        store: self.youtubeStore
-                    )
+                Group {
+                    if self.settings.appSource == .music {
+                        self.detailView(
+                            for: self.navigationSelection,
+                            pinnedItem: self.selectedSidebarPinnedItem,
+                            client: self.client
+                        )
+                    } else {
+                        YouTubeContentView(
+                            selection: self.youtubeNavigationSelection,
+                            store: self.youtubeStore
+                        )
+                    }
+                }
+                .safeAreaInset(edge: .bottom, spacing: 0) {
+                    if self.settings.appSource == .music {
+                        PlayerBar()
+                            .environment(
+                                \.playerBarNavigationAction,
+                                self.musicNavigation.playerBarNavigationAction
+                            )
+                            .environment(\.playerBarCurrentArtistID, self.musicNavigation.routeArtistID)
+                            .environment(\.playerBarCurrentAlbumID, self.musicNavigation.routeAlbumID)
+                    }
                 }
             }
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(self.musicNavigation)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
                 // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
                 if self.columnVisibility != .all {
@@ -630,32 +659,29 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 if self.requiresSignIn(item) {
                     self.signInRequiredView(for: item)
                 } else if let vm = likedMusicViewModel {
-                    NavigationStack(path: self.$likedMusicNavigationPath) {
+                    NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .likedMusic)) {
                         Group {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                                 PlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm,
-                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
+                                    viewModel: vm
                                 )
                                 .environment(\.libraryViewModel, self.libraryViewModel)
                             } else {
                                 SimplePlaylistDetailView(
                                     playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm,
-                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
+                                    viewModel: vm
                                 )
                                 .environment(\.libraryViewModel, self.libraryViewModel)
                             }
                         }
-                        .navigationDestinations(
-                            client: self.client,
-                            playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
+                        .navigationDestinations(client: self.client)
+                        .playerBarMusicNavigation(
+                            path: self.musicNavigation.navigationPathBinding(for: .likedMusic)
                         )
-                        .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     }
                     .popsNavigationStackOnSidebarReselect(
-                        path: self.$likedMusicNavigationPath,
+                        path: self.musicNavigation.navigationPathBinding(for: .likedMusic),
                         for: .likedMusic
                     )
                 }
@@ -691,21 +717,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         )
     }
 
-    private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.likedMusicNavigationPath.append($0) },
-            openAlbum: { self.likedMusicNavigationPath.append($0) }
-        )
-    }
-
     private func viewForSidebarPinnedItem(
         _ item: SidebarPinnedItem,
         client: any YTMusicClientProtocol
     ) -> some View {
-        NavigationStack(path: Binding(
-            get: { self.pinnedNavigationPaths[item.contentId, default: NavigationPath()] },
-            set: { self.pinnedNavigationPaths[item.contentId] = $0 }
-        )) {
+        NavigationStack(path: self.musicNavigation.pinnedPathBinding(for: item.contentId)) {
             Group {
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
@@ -869,8 +885,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         )
         self.libraryViewModel = libraryViewModel
         self.historyViewModel = HistoryViewModel(client: self.client)
-        self.likedMusicNavigationPath = NavigationPath()
-        self.pinnedNavigationPaths = [:]
+        self.musicNavigation.resetAllNavigationPaths()
         self.contentResetID = UUID()
     }
 
@@ -977,7 +992,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
     @Binding var navigationSelection: NavigationItem?
     @Binding var selectedPinnedItem: SidebarPinnedItem?
-    @Binding var navigationPaths: [String: NavigationPath]
+    var musicNavigation: MusicNavigationCoordinator
     let committedRemovalGenerations: [String: UInt]
 
     func body(content: Content) -> some View {
@@ -989,11 +1004,11 @@ private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
             }
             .onChange(of: self.selectedPinnedItem?.contentId) { oldContentId, newContentId in
                 guard oldContentId != newContentId, let oldContentId else { return }
-                self.navigationPaths.removeValue(forKey: oldContentId)
+                self.musicNavigation.pinnedNavigationPaths.removeValue(forKey: oldContentId)
             }
             .onChange(of: self.committedRemovalGenerations) { oldValue, newValue in
                 for (contentId, generation) in newValue where oldValue[contentId] != generation {
-                    self.navigationPaths.removeValue(forKey: contentId)
+                    self.musicNavigation.pinnedNavigationPaths.removeValue(forKey: contentId)
                 }
             }
     }

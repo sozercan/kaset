@@ -9,8 +9,8 @@ struct SearchView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(AuthService.self) private var authService
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
     /// External trigger for focusing the search field (from keyboard shortcut).
@@ -28,7 +28,7 @@ struct SearchView: View {
     }
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .search)) {
             VStack(spacing: 0) {
                 // Search bar
                 self.searchBar
@@ -40,17 +40,10 @@ struct SearchView: View {
                 self.contentView
             }
             .localizedNavigationTitle("Search")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .search))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .search))
         .onAppear {
             self.isSearchFieldFocused = true
         }
@@ -60,15 +53,9 @@ struct SearchView: View {
                 self.focusTrigger = false
             }
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .search), for: .search)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Search Bar
 
@@ -527,7 +514,7 @@ struct SearchView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.searchNavigationPath.append(playlist)
         } label: {
             Label(viewTitle, systemImage: icon)
         }
@@ -575,7 +562,7 @@ struct SearchView: View {
     @ViewBuilder
     private func artistContextMenu(_ artist: Artist) -> some View {
         Button {
-            self.navigationPath.append(artist)
+            self.musicNavigation.searchNavigationPath.append(artist)
         } label: {
             Label(
                 artist.profileKind == .profile
@@ -619,7 +606,7 @@ struct SearchView: View {
         Divider()
 
         Button {
-            self.navigationPath.append(playlist)
+            self.musicNavigation.searchNavigationPath.append(playlist)
         } label: {
             Label(String(localized: "View Playlist"), systemImage: "music.note.list")
         }
@@ -628,7 +615,7 @@ struct SearchView: View {
     @ViewBuilder
     private func podcastShowContextMenu(_ show: PodcastShow) -> some View {
         Button {
-            self.navigationPath.append(show)
+            self.musicNavigation.searchNavigationPath.append(show)
         } label: {
             Label(String(localized: "View Podcast"), systemImage: "mic.fill")
         }
@@ -661,7 +648,7 @@ struct SearchView: View {
             Divider()
 
             Button {
-                self.navigationPath.append(PodcastShow(
+                self.musicNavigation.searchNavigationPath.append(PodcastShow(
                     id: showBrowseId,
                     title: showTitle,
                     author: nil,
@@ -708,7 +695,7 @@ struct SearchView: View {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .artist(artist), let .profile(artist):
-            self.navigationPath.append(artist)
+            self.musicNavigation.searchNavigationPath.append(artist)
         case let .album(album), let .audiobook(album):
             // Navigate as playlist for now
             let playlist = Playlist(
@@ -719,11 +706,11 @@ struct SearchView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.searchNavigationPath.append(playlist)
         case let .playlist(playlist):
-            self.navigationPath.append(playlist)
+            self.musicNavigation.searchNavigationPath.append(playlist)
         case let .podcastShow(show):
-            self.navigationPath.append(show)
+            self.musicNavigation.searchNavigationPath.append(show)
         case let .podcastEpisode(episode):
             Task {
                 await self.playerService.play(song: episode.playbackSong)

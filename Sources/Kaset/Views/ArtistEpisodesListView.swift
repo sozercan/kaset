@@ -32,11 +32,6 @@ struct ArtistEpisodesListView: View {
         .navigationTitle(self.viewModel.destination.sectionTitle)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
         .topFade()
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .error = self.viewModel.loadingState {} else {
-                PlayerBar()
-            }
-        }
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()

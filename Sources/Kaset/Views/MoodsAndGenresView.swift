@@ -3,12 +3,12 @@ import SwiftUI
 /// Moods & Genres view for browsing music by mood or genre.
 struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -32,17 +32,10 @@ struct MoodsAndGenresView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Moods & Genres")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {
@@ -53,15 +46,9 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres), for: .moodsAndGenres)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Views
 
@@ -158,7 +145,7 @@ struct MoodsAndGenresView: View {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .playlist(playlist):
-            self.navigationPath.append(playlist)
+            self.musicNavigation.moodsAndGenresNavigationPath.append(playlist)
         case let .album(album):
             let playlist = Playlist(
                 id: album.id,
@@ -168,9 +155,9 @@ struct MoodsAndGenresView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.moodsAndGenresNavigationPath.append(playlist)
         case let .artist(artist):
-            self.navigationPath.append(artist)
+            self.musicNavigation.moodsAndGenresNavigationPath.append(artist)
         }
     }
 }

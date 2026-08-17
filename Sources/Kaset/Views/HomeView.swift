@@ -7,11 +7,11 @@ struct HomeView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(AuthService.self) private var authService
-    @State private var navigationPath = NavigationPath()
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .home)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -35,17 +35,10 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Home")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .home))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .home))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {
@@ -53,13 +46,9 @@ struct HomeView: View {
                 }
             }
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
+        .popsNavigationStackOnSidebarReselect(
+            path: self.musicNavigation.navigationPathBinding(for: .home),
+            for: .home
         )
     }
 
@@ -73,11 +62,11 @@ struct HomeView: View {
                     FavoritesSection(
                         onNavigate: { destination in
                             if let playlist = destination as? Playlist {
-                                self.navigationPath.append(playlist)
+                                self.musicNavigation.homeNavigationPath.append(playlist)
                             } else if let artist = destination as? Artist {
-                                self.navigationPath.append(artist)
+                                self.musicNavigation.homeNavigationPath.append(artist)
                             } else if let podcastShow = destination as? PodcastShow {
-                                self.navigationPath.append(podcastShow)
+                                self.musicNavigation.homeNavigationPath.append(podcastShow)
                             }
                         },
                         contentInset: DetailContentLayout.horizontalInset
@@ -270,7 +259,7 @@ struct HomeView: View {
 
         case let .playlist(playlist):
             Button {
-                self.navigationPath.append(playlist)
+                self.musicNavigation.homeNavigationPath.append(playlist)
             } label: {
                 Label(String(localized: "View Playlist"), systemImage: "music.note.list")
             }
@@ -285,7 +274,7 @@ struct HomeView: View {
 
         case let .artist(artist):
             Button {
-                self.navigationPath.append(artist)
+                self.musicNavigation.homeNavigationPath.append(artist)
             } label: {
                 Label(String(localized: "View Artist"), systemImage: "person")
             }
@@ -327,7 +316,7 @@ struct HomeView: View {
             }
         case let .playlist(playlist):
             // Navigate to playlist detail
-            self.navigationPath.append(playlist)
+            self.musicNavigation.homeNavigationPath.append(playlist)
         case let .album(album):
             // For now, we'll create a playlist-like navigation for albums
             // In a full implementation, we'd have an AlbumDetailView
@@ -339,10 +328,10 @@ struct HomeView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.homeNavigationPath.append(playlist)
         case let .artist(artist):
             // Navigate to artist detail
-            self.navigationPath.append(artist)
+            self.musicNavigation.homeNavigationPath.append(artist)
         }
     }
 }

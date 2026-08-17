@@ -49,12 +49,12 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 /// Library view displaying the user's saved music and followed content.
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
     @State private var networkMonitor = NetworkMonitor.shared
 
-    @State private var navigationPath = NavigationPath()
     @State private var selectedFilter: LibraryFilter = .all
 
     private let libraryItemSize: CGFloat = 160
@@ -62,7 +62,7 @@ struct LibraryView: View {
     private let libraryItemCardHeight: CGFloat = 222
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .library)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -93,8 +93,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 } else {
@@ -103,8 +102,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 }
@@ -116,8 +114,7 @@ struct LibraryView: View {
                         artist: artist,
                         client: self.viewModel.client,
                         libraryViewModel: self.viewModel
-                    ),
-                    playerBarNavigationAction: self.playerBarNavigationAction
+                    )
                 )
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
@@ -131,36 +128,26 @@ struct LibraryView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .library))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .library))
         .environment(\.libraryViewModel, self.viewModel)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
             }
             await self.viewModel.reloadIfNeededOnActivation()
         }
-        .task(id: "\(self.navigationPath.count)-\(self.viewModel.activationReloadGeneration)") {
-            guard self.navigationPath.isEmpty else { return }
+        .task(id: "\(self.musicNavigation.libraryNavigationPath.count)-\(self.viewModel.activationReloadGeneration)") {
+            guard self.musicNavigation.libraryNavigationPath.isEmpty else { return }
             await self.viewModel.reloadIfNeededOnActivation()
         }
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .library), for: .library)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Views
 
@@ -325,7 +312,7 @@ struct LibraryView: View {
 
     private func playlistCard(_ playlist: Playlist) -> some View {
         Button {
-            self.navigationPath.append(playlist)
+            self.musicNavigation.libraryNavigationPath.append(playlist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 // Thumbnail
@@ -385,7 +372,7 @@ struct LibraryView: View {
             .joined(separator: " • ")
 
         return Button {
-            self.navigationPath.append(self.playlist(from: album))
+            self.musicNavigation.libraryNavigationPath.append(self.playlist(from: album))
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
@@ -421,7 +408,7 @@ struct LibraryView: View {
         .buttonStyle(.plain)
         .contextMenu {
             Button {
-                self.navigationPath.append(self.playlist(from: album))
+                self.musicNavigation.libraryNavigationPath.append(self.playlist(from: album))
             } label: {
                 Label("View Album", systemImage: "square.stack")
             }
@@ -481,7 +468,7 @@ struct LibraryView: View {
 
     private func uploadedSongsCard(_ playlist: Playlist) -> some View {
         Button {
-            self.navigationPath.append(playlist)
+            self.musicNavigation.libraryNavigationPath.append(playlist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
@@ -525,7 +512,7 @@ struct LibraryView: View {
 
     private func podcastCard(_ show: PodcastShow) -> some View {
         Button {
-            self.navigationPath.append(show)
+            self.musicNavigation.libraryNavigationPath.append(show)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 // Thumbnail
@@ -571,7 +558,7 @@ struct LibraryView: View {
 
     private func artistCard(_ artist: Artist) -> some View {
         Button {
-            self.navigationPath.append(artist)
+            self.musicNavigation.libraryNavigationPath.append(artist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
                 CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in

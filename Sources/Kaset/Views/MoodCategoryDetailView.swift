@@ -24,11 +24,6 @@ struct MoodCategoryDetailView: View {
             }
         }
         .navigationTitle(self.viewModel.category.title)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .error = self.viewModel.loadingState {} else {
-                PlayerBar()
-            }
-        }
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {

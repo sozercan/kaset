@@ -5,20 +5,18 @@ import SwiftUI
 /// Detail view for an artist showing their songs and albums.
 struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
-    var playerBarNavigationAction: PlayerBarNavigationAction = .disabled
     @State var viewModel: ArtistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
 
     init(
         artist: Artist,
-        viewModel: ArtistDetailViewModel,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
+        viewModel: ArtistDetailViewModel
     ) {
         self.artist = artist
-        self.playerBarNavigationAction = playerBarNavigationAction
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -44,11 +42,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         .accentBackground(from: self.viewModel.artistDetail?.thumbnailURL?.highQualityThumbnailURL)
         .navigationTitle(self.artist.name)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .error = self.viewModel.loadingState {} else {
-                PlayerBar()
-                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
-                    .environment(\.playerBarCurrentArtistID, self.artist.id)
+        .onAppear {
+            self.musicNavigation.setRouteArtistID(self.artist.id)
+        }
+        .onDisappear {
+            if self.musicNavigation.routeArtistID == self.artist.id {
+                self.musicNavigation.setRouteArtistID(nil)
             }
         }
         .task {

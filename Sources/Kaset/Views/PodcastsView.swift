@@ -5,13 +5,13 @@ import SwiftUI
 /// Podcasts discovery view displaying podcast shows and episodes.
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .podcasts)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -38,15 +38,8 @@ struct PodcastsView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .podcasts))
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -58,15 +51,9 @@ struct PodcastsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .podcasts), for: .podcasts)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Views
 
@@ -114,7 +101,7 @@ struct PodcastsView: View {
         switch item {
         case let .show(show):
             PodcastShowCard(show: show, favoritesManager: self.favoritesManager) {
-                self.navigationPath.append(show)
+                self.musicNavigation.podcastsNavigationPath.append(show)
             }
         case let .episode(episode):
             PodcastEpisodeCard(episode: episode) {
@@ -259,6 +246,7 @@ struct PodcastShowView: View {
     let show: PodcastShow
     let client: any YTMusicClientProtocol
     @Environment(AuthService.self) private var authService
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
@@ -307,9 +295,6 @@ struct PodcastShowView: View {
                 continuationToken: self.continuationToken,
                 client: self.client
             )
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
         }
         .task {
             await self.loadShow()
@@ -635,9 +620,6 @@ struct AllEpisodesView: View {
         .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .accentBackground(from: self.show.thumbnailURL)
         .localizedNavigationTitle("All Episodes")
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-        }
         .onAppear {
             // Initialize with episodes passed from parent
             if self.episodes.isEmpty {

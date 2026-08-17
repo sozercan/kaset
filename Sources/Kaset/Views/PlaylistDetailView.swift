@@ -7,13 +7,13 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
-    let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
     @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
     @Environment(\.dismiss) var dismiss
     @Environment(\.onPlaylistDeleted) var onPlaylistDeleted
@@ -52,11 +52,9 @@ struct PlaylistDetailView: View {
 
     init(
         playlist: Playlist,
-        viewModel: PlaylistDetailViewModel,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
+        viewModel: PlaylistDetailViewModel
     ) {
         self.playlist = playlist
-        self.playerBarNavigationAction = playerBarNavigationAction
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -87,12 +85,14 @@ struct PlaylistDetailView: View {
         )
         .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .error = self.viewModel.loadingState {
-            } else {
-                PlayerBar()
-                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
-                    .environment(\.playerBarCurrentAlbumID, self.playlist.isAlbum ? self.playlist.id : nil)
+        .onAppear {
+            if self.playlist.isAlbum {
+                self.musicNavigation.setRouteAlbumID(self.playlist.id)
+            }
+        }
+        .onDisappear {
+            if self.playlist.isAlbum, self.musicNavigation.routeAlbumID == self.playlist.id {
+                self.musicNavigation.setRouteAlbumID(nil)
             }
         }
         .task {

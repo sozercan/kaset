@@ -12,18 +12,16 @@ import SwiftUI
 /// Minimal playlist view used on macOS 15 (no Liquid Glass, no AI refine).
 struct SimplePlaylistDetailView: View {
     let playlist: Playlist
-    let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
 
     init(
         playlist: Playlist,
-        viewModel: PlaylistDetailViewModel,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
+        viewModel: PlaylistDetailViewModel
     ) {
         self.playlist = playlist
-        self.playerBarNavigationAction = playerBarNavigationAction
         self._viewModel = State(initialValue: viewModel)
     }
 
@@ -50,12 +48,14 @@ struct SimplePlaylistDetailView: View {
             }
         }
         .navigationTitle(self.playlist.title)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            if case .error = self.viewModel.loadingState {
-            } else {
-                PlayerBar()
-                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
-                    .environment(\.playerBarCurrentAlbumID, self.playlist.isAlbum ? self.playlist.id : nil)
+        .onAppear {
+            if self.playlist.isAlbum {
+                self.musicNavigation.setRouteAlbumID(self.playlist.id)
+            }
+        }
+        .onDisappear {
+            if self.playlist.isAlbum, self.musicNavigation.routeAlbumID == self.playlist.id {
+                self.musicNavigation.setRouteAlbumID(nil)
             }
         }
         .task {

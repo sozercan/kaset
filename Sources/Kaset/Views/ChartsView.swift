@@ -3,12 +3,12 @@ import SwiftUI
 /// Charts view displaying top songs, albums, and trending charts.
 struct ChartsView: View {
     @State var viewModel: ChartsViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .charts)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -32,17 +32,10 @@ struct ChartsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Charts")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .charts))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .charts))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {
@@ -53,15 +46,9 @@ struct ChartsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .charts)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .charts), for: .charts)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Views
 
@@ -137,7 +124,7 @@ struct ChartsView: View {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .playlist(playlist):
-            self.navigationPath.append(playlist)
+            self.musicNavigation.chartsNavigationPath.append(playlist)
         case let .album(album):
             let playlist = Playlist(
                 id: album.id,
@@ -147,9 +134,9 @@ struct ChartsView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.chartsNavigationPath.append(playlist)
         case let .artist(artist):
-            self.navigationPath.append(artist)
+            self.musicNavigation.chartsNavigationPath.append(artist)
         }
     }
 }

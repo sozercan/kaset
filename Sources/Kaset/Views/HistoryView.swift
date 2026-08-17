@@ -4,14 +4,14 @@ import SwiftUI
 /// Fetches history from the API and displays songs grouped by time period.
 struct HistoryView: View {
     @State var viewModel: HistoryViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
     @State private var isRefreshing = false
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .history)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -51,17 +51,10 @@ struct HistoryView: View {
                     .disabled(self.isRefreshing)
                 }
             }
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .history))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .history))
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()
@@ -77,15 +70,9 @@ struct HistoryView: View {
         .refreshable {
             await self.performRefresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .history)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .history), for: .history)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     /// Refreshes with visual feedback: spinning icon → data swap.
     @discardableResult

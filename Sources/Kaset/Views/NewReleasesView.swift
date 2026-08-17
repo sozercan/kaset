@@ -3,12 +3,12 @@ import SwiftUI
 /// New Releases view displaying recently released music.
 struct NewReleasesView: View {
     @State var viewModel: NewReleasesViewModel
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
     @Environment(PlayerService.self) private var playerService
-    @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
     var body: some View {
-        NavigationStack(path: self.$navigationPath) {
+        NavigationStack(path: self.musicNavigation.navigationPathBinding(for: .newReleases)) {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
@@ -32,17 +32,10 @@ struct NewReleasesView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("New Releases")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.$navigationPath)
+            .navigationDestinations(client: self.viewModel.client)
+            .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .newReleases))
         }
-        .playerBarMusicNavigation(path: self.$navigationPath)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            PlayerBar()
-                .playerBarMusicNavigation(path: self.$navigationPath)
-        }
+        .playerBarMusicNavigation(path: self.musicNavigation.navigationPathBinding(for: .newReleases))
         .onAppear {
             if self.viewModel.loadingState == .idle {
                 Task {
@@ -53,15 +46,9 @@ struct NewReleasesView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .newReleases)
+        .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .newReleases), for: .newReleases)
     }
 
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
-    }
 
     // MARK: - Views
 
@@ -137,7 +124,7 @@ struct NewReleasesView: View {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .playlist(playlist):
-            self.navigationPath.append(playlist)
+            self.musicNavigation.newReleasesNavigationPath.append(playlist)
         case let .album(album):
             let playlist = Playlist(
                 id: album.id,
@@ -147,9 +134,9 @@ struct NewReleasesView: View {
                 trackCount: album.trackCount,
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
-            self.navigationPath.append(playlist)
+            self.musicNavigation.newReleasesNavigationPath.append(playlist)
         case let .artist(artist):
-            self.navigationPath.append(artist)
+            self.musicNavigation.newReleasesNavigationPath.append(artist)
         }
     }
 }
