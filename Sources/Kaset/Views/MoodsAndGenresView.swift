@@ -47,7 +47,6 @@ struct MoodsAndGenresView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .moodsAndGenres), for: .moodsAndGenres)
     }
 
-
     // MARK: - Views
 
     @ViewBuilder

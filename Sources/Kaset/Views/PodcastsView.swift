@@ -53,7 +53,6 @@ struct PodcastsView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .podcasts), for: .podcasts)
     }
 
-
     // MARK: - Views
 
     private var contentView: some View {

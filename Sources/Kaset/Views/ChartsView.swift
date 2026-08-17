@@ -47,7 +47,6 @@ struct ChartsView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .charts), for: .charts)
     }
 
-
     // MARK: - Views
 
     private var contentView: some View {

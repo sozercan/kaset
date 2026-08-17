@@ -71,7 +71,6 @@ struct HistoryView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .history), for: .history)
     }
 
-
     /// Refreshes with visual feedback: spinning icon → data swap.
     @discardableResult
     private func performRefresh() async -> Bool {

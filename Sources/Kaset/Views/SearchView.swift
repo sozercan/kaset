@@ -54,7 +54,6 @@ struct SearchView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .search), for: .search)
     }
 
-
     // MARK: - Search Bar
 
     private var searchBar: some View {

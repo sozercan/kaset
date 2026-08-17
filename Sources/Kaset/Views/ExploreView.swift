@@ -47,7 +47,6 @@ struct ExploreView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .explore), for: .explore)
     }
 
-
     // MARK: - Views
 
     private var contentView: some View {

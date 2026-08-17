@@ -146,7 +146,6 @@ struct LibraryView: View {
         .popsNavigationStackOnSidebarReselect(path: self.musicNavigation.navigationPathBinding(for: .library), for: .library)
     }
 
-
     // MARK: - Views
 
     private var contentView: some View {
