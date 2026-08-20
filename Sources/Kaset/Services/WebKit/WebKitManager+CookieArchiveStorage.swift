@@ -336,7 +336,7 @@ final class InMemoryCookieArchiveBox: @unchecked Sendable {
 
 struct CookieArchiveStorage: Sendable {
     let save: @Sendable (Data, Int) -> Bool
-    let load: @Sendable () -> Data?
+    let loadResult: @Sendable () -> CookieArchiveLoadResult
     let delete: @Sendable () -> Bool
     let restoreDecision: @Sendable () -> CookieArchiveRestoreDecision
     let setRestoreAllowed: @Sendable (Bool) -> Bool
@@ -345,7 +345,7 @@ struct CookieArchiveStorage: Sendable {
 
     init(
         save: @escaping @Sendable (Data, Int) -> Bool,
-        load: @escaping @Sendable () -> Data?,
+        loadResult: @escaping @Sendable () -> CookieArchiveLoadResult,
         delete: @escaping @Sendable () -> Bool,
         restoreDecision: @escaping @Sendable () -> CookieArchiveRestoreDecision = { .allowed },
         setRestoreAllowed: @escaping @Sendable (Bool) -> Bool = { _ in true },
@@ -353,12 +353,17 @@ struct CookieArchiveStorage: Sendable {
         deleteDebugArchive: @escaping @Sendable () -> Bool = { true }
     ) {
         self.save = save
-        self.load = load
+        self.loadResult = loadResult
         self.delete = delete
         self.restoreDecision = restoreDecision
         self.setRestoreAllowed = setRestoreAllowed
         self.exportsDebugArchive = exportsDebugArchive
         self.deleteDebugArchive = deleteDebugArchive
+    }
+
+    func load() -> Data? {
+        guard case let .data(data) = self.loadResult() else { return nil }
+        return data
     }
 
     /// An archive that lives only for the lifetime of its queue. Keeps a manager's cookie
@@ -371,7 +376,10 @@ struct CookieArchiveStorage: Sendable {
                 box.store(data)
                 return true
             },
-            load: { box.load() },
+            loadResult: {
+                guard let data = box.load() else { return .notFound }
+                return .data(data)
+            },
             delete: {
                 box.store(nil)
                 return true
@@ -387,7 +395,7 @@ struct CookieArchiveStorage: Sendable {
         save: { data, cookieCount in
             KeychainCookieStorage.saveArchiveData(data, cookieCount: cookieCount)
         },
-        load: { KeychainCookieStorage.loadArchiveData() },
+        loadResult: { KeychainCookieStorage.loadArchiveResult() },
         delete: { KeychainCookieStorage.deleteCookies() },
         restoreDecision: { CookieArchiveRestorePolicy.restoreDecision },
         setRestoreAllowed: { CookieArchiveRestorePolicy.setRestoreAllowed($0) },
@@ -457,6 +465,17 @@ actor CookieArchiveWriteQueue {
     func persistedArchiveData() -> Data? {
         self.storage.load()
     }
+
+    func loadArchiveResult() -> CookieArchiveLoadResult {
+        self.storage.loadResult()
+    }
+
+    #if DEBUG
+        func exportDebugArchiveIfEnabled(_ archiveData: Data) {
+            guard self.storage.exportsDebugArchive else { return }
+            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
+        }
+    #endif
 
     func consumeLoginTransactionSetupCleanupRequirement() -> Bool {
         let requiresCleanup = self.loginTransactionSetupRequiresCleanup

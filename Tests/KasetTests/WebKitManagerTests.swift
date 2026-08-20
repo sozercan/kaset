@@ -840,8 +840,11 @@ private final class InMemoryCookieArchiveStorage: @unchecked Sendable {
                 }
                 return self.saveResult
             },
-            load: { [self] in
-                self.lock.withLock { self.data }
+            loadResult: { [self] in
+                self.lock.withLock {
+                    guard let data = self.data else { return .notFound }
+                    return .data(data)
+                }
             },
             delete: { [self] in
                 self.lock.withLock {

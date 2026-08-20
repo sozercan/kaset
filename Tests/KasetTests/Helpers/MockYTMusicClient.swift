@@ -1450,6 +1450,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.getSongDelay = nil
         self.getHistoryDelay = nil
         self.shouldWaitForGetHistoryResponse = false
+        while !self.getHistoryResponseContinuations.isEmpty {
+            self.getHistoryResponseContinuations.removeFirst().resume()
+        }
         self.mixQueueDelay = nil
         self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
