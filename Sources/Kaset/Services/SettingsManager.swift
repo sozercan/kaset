@@ -34,6 +34,7 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let autoLoadFullPlaylistOnOpen = "settings.autoLoadFullPlaylistOnOpen"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -269,6 +270,13 @@ final class SettingsManager {
         }
     }
 
+    /// Whether opening a playlist immediately loads every page instead of paging on scroll.
+    var autoLoadFullPlaylistOnOpen: Bool {
+        didSet {
+            UserDefaults.standard.set(self.autoLoadFullPlaylistOnOpen, forKey: Keys.autoLoadFullPlaylistOnOpen)
+        }
+    }
+
     /// Whether to remember shuffle/repeat settings across app restarts.
     var rememberPlaybackSettings: Bool {
         didSet {
@@ -498,6 +506,7 @@ final class SettingsManager {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
+        self.autoLoadFullPlaylistOnOpen = UserDefaults.standard.object(forKey: Keys.autoLoadFullPlaylistOnOpen) as? Bool ?? false
         self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
 
         // Load per-service enabled flags, migrating from legacy lastFMEnabled if needed

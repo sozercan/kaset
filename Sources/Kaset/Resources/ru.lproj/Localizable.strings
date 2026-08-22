@@ -566,3 +566,11 @@
 "Start a new chat to continue." = "Начните новый чат, чтобы продолжить.";
 "Ask Gemini response ready" = "Ответ «Спросить Gemini» готов";
 "New Ask Gemini chat ready" = "Новый чат «Спросить Gemini» готов";
+"Original Order" = "Исходный порядок";
+"Title" = "Название";
+"Duration" = "Длительность";
+"Sort songs" = "Сортировать песни";
+"Search in Playlist" = "Поиск в плейлисте";
+"Loading all songs…" = "Загрузка всех песен…";
+"Load All Songs When Opening a Playlist" = "Загружать все песни при открытии плейлиста";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "Когда выключено, песни загружаются постранично при прокрутке. Когда включено, открытие большого плейлиста сразу загружает все страницы, что может создать много запросов.";

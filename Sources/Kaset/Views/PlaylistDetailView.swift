@@ -29,6 +29,10 @@ struct PlaylistDetailView: View {
     @State private var isRefining: Bool = false
     /// Error message from refine operation.
     @State private var refineError: String?
+    /// Whether this presentation already cleared sort/search left on a reused view model.
+    @State private var hasResetSortAndSearch: Bool = false
+    /// Focus of the toolbar search field, so clicking the page body can resign it.
+    @FocusState private var isSearchFocused: Bool
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         if self.playlist.isAlbum {
@@ -87,6 +91,21 @@ struct PlaylistDetailView: View {
         )
         .navigationTitle(self.playlist.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .toolbar {
+            if self.viewModel.playlistDetail != nil {
+                ToolbarItem(placement: .automatic) {
+                    self.sortMenu
+                }
+            }
+        }
+        // In the toolbar, not the scrolling content: it stays reachable — and clearable —
+        // deep into a long playlist, and sits next to the sort control it works with.
+        .searchable(
+            text: self.searchBinding,
+            placement: .toolbar,
+            prompt: Text(String(localized: "Search in Playlist"))
+        )
+        .searchFocused(self.$isSearchFocused)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {
             } else {
@@ -100,6 +119,15 @@ struct PlaylistDetailView: View {
         }
         .refreshable {
             await self.viewModel.refresh()
+        }
+        .onAppear {
+            // Not `.onDisappear`: that also fires when this screen is pushed over —
+            // measured firing with an active sort — so it dropped the sort on the way to
+            // an artist page and back. `@State` survives a push/pop pair, so this clears
+            // a reused view model's stale sort only on a genuinely new open.
+            guard !self.hasResetSortAndSearch else { return }
+            self.hasResetSortAndSearch = true
+            self.viewModel.resetSortAndSearch()
         }
         .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
             guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
@@ -148,12 +176,37 @@ struct PlaylistDetailView: View {
                     year: nil,
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
-                self.tracksView(
-                    detail.tracks, isAlbum: detail.isAlbum, author: detail.author?.name,
-                    fallbackAlbum: fallbackAlbum
-                )
+                let displayed = self.viewModel.displayedTracks
+                let isDraining = self.viewModel.isFilteringOrSorting && self.viewModel.hasMore
+
+                if isDraining {
+                    self.drainProgressBanner
+                }
+
+                if displayed.isEmpty, self.hasActiveSearch {
+                    // Only claim no matches once every page has been searched — mid-drain
+                    // the track may still be coming, and the banner already explains it.
+                    if !isDraining {
+                        ContentUnavailableView.search(text: self.viewModel.searchQuery)
+                            .frame(maxWidth: .infinity)
+                            .padding(.top, 24)
+                    }
+                } else {
+                    self.tracksView(
+                        displayed, isAlbum: detail.isAlbum, author: detail.author?.name,
+                        fallbackAlbum: fallbackAlbum
+                    )
+                }
             }
             .padding(.vertical, 24)
+            // Track rows are Buttons, which don't take first responder on macOS, and the
+            // scroll view isn't focusable — so without somewhere for focus to go, the
+            // search field never blurs. Clicking the page body resigns it.
+            .background {
+                Color.clear
+                    .contentShape(Rectangle())
+                    .onTapGesture { self.isSearchFocused = false }
+            }
         }
         // Inset the resting content while the scroll view stays edge-to-edge so
         // content extends under the floating glass sidebar; the accent backdrop
@@ -256,14 +309,18 @@ struct PlaylistDetailView: View {
         _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
     ) -> some View {
         LazyVStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+            ForEach(Array(tracks.enumerated()), id: \.element.rowIdentity) { index, track in
                 self.trackRow(
                     track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
                     fallbackAlbum: fallbackAlbum
                 )
                 .onAppear {
-                    // Load more when reaching the last few items
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
+                    // Position only maps to the load frontier in the natural order; once
+                    // sorted or filtered, loadAllRemaining() drives completeness instead.
+                    if !self.viewModel.isFilteringOrSorting,
+                       index >= tracks.count - 3,
+                       self.viewModel.hasMore
+                    {
                         Task { await self.viewModel.loadMore() }
                     }
                 }
@@ -276,7 +333,7 @@ struct PlaylistDetailView: View {
                 }
             }
 
-            // Loading indicator for pagination
+            // Scroll pagination only; the sort/search drain reports via `drainProgressBanner`.
             if self.viewModel.loadingState == .loadingMore {
                 HStack {
                     Spacer()
@@ -297,7 +354,7 @@ struct PlaylistDetailView: View {
             track: track,
             index: index,
             isAlbum: isAlbum,
-            subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            subtitle: self.trackSubtitle(for: track, fallbackAuthor: author, isAlbum: isAlbum),
             allowsLikeActions: self.hasPersonalAccount,
             onPlay: {
                 self.playTrackInQueue(
@@ -316,73 +373,6 @@ struct PlaylistDetailView: View {
             }
         )
         .staggeredAppearance(index: min(index, 10))
-    }
-
-    private func headerArtists(for detail: PlaylistDetail) -> [Artist] {
-        if let author = self.cleanedArtist(detail.author) {
-            return [author]
-        }
-
-        return self.uniqueArtists(from: detail.tracks.flatMap(\.artists))
-    }
-
-    private func trackArtistsDisplay(for track: Song, fallbackAuthor: String?) -> String? {
-        let artists = self.uniqueArtists(from: track.artists)
-        if !artists.isEmpty {
-            return artists.map(\.name).joined(separator: ", ")
-        }
-
-        guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
-        return fallbackArtist
-    }
-
-    private func uniqueArtists(from artists: [Artist]) -> [Artist] {
-        var seen = Set<String>()
-        var uniqueArtists: [Artist] = []
-
-        for artist in artists {
-            guard let cleanedArtist = self.cleanedArtist(artist) else { continue }
-            let key = cleanedArtist.hasNavigableId ? cleanedArtist.id : cleanedArtist.name.lowercased()
-            guard seen.insert(key).inserted else { continue }
-            uniqueArtists.append(cleanedArtist)
-        }
-
-        return uniqueArtists
-    }
-
-    private func cleanedArtist(_ artist: Artist?) -> Artist? {
-        guard let artist,
-              let name = self.cleanedArtistName(artist.name)
-        else { return nil }
-
-        return Artist(
-            id: artist.id,
-            name: name,
-            thumbnailURL: artist.thumbnailURL,
-            subtitle: artist.subtitle,
-            profileKind: artist.profileKind
-        )
-    }
-
-    private func cleanedArtistName(_ name: String?) -> String? {
-        guard var cleanName = name?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !cleanName.isEmpty
-        else { return nil }
-
-        if cleanName == "Album" {
-            return nil
-        }
-
-        if cleanName.hasPrefix("Album, ") {
-            cleanName = String(cleanName.dropFirst(7))
-        } else if cleanName.contains("Album,") {
-            let parts = cleanName.split(separator: ",", maxSplits: 1)
-            if parts.count > 1 {
-                cleanName = String(parts[1]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-        }
-
-        return cleanName.isEmpty ? nil : cleanName
     }
 
     // MARK: - Actions
@@ -530,11 +520,32 @@ struct PlaylistDetailView: View {
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
         let intent = self.playerService.beginMusicPlaybackIntent()
+        let honorsDisplayedList = self.viewModel.isFilteringOrSorting
         Task { @MainActor in
+            var tracks = cleanedTracks
+            var startIndex = index
+
+            // A partially-paged queue is the wrong *set* here, not merely a short one: the
+            // top-up below would append tracks the search excluded, in the order the sort
+            // replaced. The drain is already running, so wait and queue what the list shows.
+            if honorsDisplayedList, self.viewModel.hasMore {
+                let anchor = cleanedTracks.indices.contains(index)
+                    ? cleanedTracks[index].rowIdentity
+                    : nil
+                await self.viewModel.loadAllRemaining()
+                tracks = self.playableTracks(
+                    self.viewModel.displayedTracks,
+                    fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+                )
+                startIndex = anchor
+                    .flatMap { id in tracks.firstIndex { $0.rowIdentity == id } } ?? 0
+                guard !tracks.isEmpty else { return }
+            }
+
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(
-                cleanedTracks,
-                startingAt: index,
+                tracks,
+                startingAt: startIndex,
                 deferringSmartShuffleFill: willDeferLoad,
                 intent: intent
             )
@@ -549,11 +560,13 @@ struct PlaylistDetailView: View {
             guard self.playerService.isCurrentQueueLoad(loadGeneration) else { return }
 
             let fullTracks = self.playableTracks(
-                self.viewModel.playlistDetail?.tracks ?? [],
+                honorsDisplayedList
+                    ? self.viewModel.displayedTracks
+                    : (self.viewModel.playlistDetail?.tracks ?? []),
                 fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
             )
             let remaining = PlaylistPlaybackActions.remainingTracks(
-                after: cleanedTracks,
+                after: tracks,
                 in: fullTracks
             )
             self.playerService.appendOriginalTracks(remaining)

@@ -564,3 +564,11 @@
 "e.g., Remove slow songs, reorder by energy..." = "例如：移除慢歌、依能量重新排序…";
 "songs" = "首歌曲";
 "tracks" = "首曲目";
+"Original Order" = "原始順序";
+"Title" = "標題";
+"Duration" = "時長";
+"Sort songs" = "排序歌曲";
+"Search in Playlist" = "在播放清單中搜尋";
+"Loading all songs…" = "正在載入全部歌曲…";
+"Load All Songs When Opening a Playlist" = "開啟播放清單時載入全部歌曲";
+"When off, songs load a page at a time as you scroll. When on, opening a large playlist fetches every page up front, which can make many requests." = "關閉時，捲動時逐頁載入歌曲。開啟時，打開大型播放清單會一次擷取全部分頁，可能產生大量請求。";

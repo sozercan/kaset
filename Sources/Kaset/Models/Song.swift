@@ -154,6 +154,16 @@ struct Song: Identifiable, Codable, Hashable {
         self.artists.map(\.name).joined(separator: ", ")
     }
 
+    /// Stable per-occurrence identity, also safe as a SwiftUI `ForEach` id — position isn't
+    /// identity in a sortable list. The blank guard and namespacing prevent collisions: a
+    /// blank set id would collapse every such row onto one identity.
+    var rowIdentity: String {
+        if let setVideoId = self.playlistSetVideoId, !setVideoId.isEmpty {
+            return "set:\(setVideoId)"
+        }
+        return "video:\(self.videoId)"
+    }
+
     /// Formatted duration string (e.g., "3:45").
     var durationDisplay: String {
         guard let duration else { return "--:--" }

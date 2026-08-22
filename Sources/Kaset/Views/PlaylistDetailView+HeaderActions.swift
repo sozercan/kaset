@@ -15,8 +15,10 @@ extension PlaylistDetailView {
 
     func headerButtons(_ detail: PlaylistDetail) -> some View {
         let fallbackAlbum = self.makeFallbackAlbum(from: detail)
+        // What you see is what you play: these act on the displayed list, so they follow an
+        // active sort and stay inside an active search — the same list a row tap queues.
         let playableTracks = self.playableTracks(
-            detail.tracks,
+            self.viewModel.displayedTracks,
             fallbackArtist: detail.author?.name,
             fallbackAlbum: fallbackAlbum
         )
@@ -68,7 +70,7 @@ extension PlaylistDetailView {
     ) -> some View {
         Button {
             self.playAll(
-                detail.tracks, fallbackArtist: detail.author?.name,
+                self.viewModel.displayedTracks, fallbackArtist: detail.author?.name,
                 fallbackAlbum: fallbackAlbum
             )
         } label: {
