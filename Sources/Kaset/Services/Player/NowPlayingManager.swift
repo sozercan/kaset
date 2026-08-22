@@ -111,6 +111,20 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
     }
 }
 
+// MARK: - NowPlayingInfoCenter
+
+/// The slice of `MPNowPlayingInfoCenter` the claim logic writes, so withdrawal can be tested
+/// without a live system center.
+@MainActor
+protocol NowPlayingInfoCenter: AnyObject {
+    var nowPlayingInfo: [String: Any]? { get set }
+    var playbackState: MPNowPlayingPlaybackState { get set }
+}
+
+// MARK: - MPNowPlayingInfoCenter + NowPlayingInfoCenter
+
+extension MPNowPlayingInfoCenter: NowPlayingInfoCenter {}
+
 // MARK: - NowPlayingManager
 
 /// Manages remote-command routing and the app's Now Playing ownership.
@@ -141,6 +155,13 @@ final class NowPlayingManager {
     private static let defaultSkipInterval: TimeInterval = 15
     nonisolated static let nativeClaimServiceIdentifier = "com.sertacozercan.Kaset.native-now-playing-claim"
 
+    @ObservationIgnored private var routeRestoreTask: Task<Void, Never>?
+    @ObservationIgnored private var routeRestoreGeneration: UInt64 = 0
+    private static let routeRestoreDelays: [Duration] = [
+        .milliseconds(500),
+        .milliseconds(2000),
+    ]
+
     private init() {}
 
     // MARK: - Now Playing Claim
@@ -151,8 +172,9 @@ final class NowPlayingManager {
     }
 
     /// What Kaset should tell the system Now Playing center for the current player state.
-    /// `handsOff` lets WebKit replace an existing fallback during active playback, while
-    /// `release` clears a native claim only when no resumable media remains.
+    /// Both non-claim cases withdraw Kaset's tagged entry — they differ only in why:
+    /// `handsOff` because WebKit's own Now Playing client owns the card during playback,
+    /// `release` because no resumable media remains.
     enum NowPlayingClaim: Equatable {
         case handsOff
         case release
@@ -187,8 +209,19 @@ final class NowPlayingManager {
         }
 
         switch state {
-        case .playing, .buffering, .loading:
+        case .playing, .buffering:
+            // `buffering` is a stall inside playback that already started, so WebKit owns
+            // its card by now. Claiming here would recreate the competing second entry.
+            // Nothing in the music player assigns `buffering` today; if that changes, decide
+            // this case by whether playback was ever confirmed rather than by the state name,
+            // the way `activeVideo` already does with `isPlaybackConfirmed`.
             return .handsOff
+        case .loading:
+            // Playback is starting and WebKit has not published its card yet. Withdrawing
+            // here would leave the app with no Now Playing entry — and no media keys — for
+            // the whole load, so hold a playing-state claim until `.playing` hands over.
+            guard let track else { return .release }
+            return .claim(title: track.title, artist: track.artist, playbackState: .playing)
         case .idle, .paused, .ended, .error:
             guard let track else { return .release }
             return .claim(title: track.title, artist: track.artist, playbackState: .paused)
@@ -209,25 +242,39 @@ final class NowPlayingManager {
         self.applyNowPlayingClaim(claim)
     }
 
-    /// Maps a claim onto `MPNowPlayingInfoCenter`. Hands-off only clears info we still own.
+    /// Maps a claim onto the Now Playing center, withdrawing our entry unless we want one.
     private func applyNowPlayingClaim(_ claim: NowPlayingClaim) {
-        let center = MPNowPlayingInfoCenter.default()
+        self.isAssertingNativeClaim = Self.applyClaim(
+            claim,
+            isAssertingNativeClaim: self.isAssertingNativeClaim,
+            to: MPNowPlayingInfoCenter.default()
+        )
+    }
+
+    /// Applies `claim` to `center`, returning whether Kaset asserts a native claim afterwards.
+    ///
+    /// Withdrawing is the interesting half. WebKit registers its own Now Playing client with the
+    /// system rather than writing `MPNowPlayingInfoCenter`, so a Kaset claim left in place during
+    /// playback does not get replaced — it survives as a second, competing entry for the same
+    /// app. Whichever entry was updated most recently owns the media keys, so a stale claim can
+    /// silently capture them and answer Play/Pause from a playback state that no longer matches
+    /// the page. Clearing here cannot disturb WebKit's card; they are separate clients.
+    ///
+    /// Only metadata carrying our tag is ever cleared, so a card published by anything else is
+    /// left alone.
+    @discardableResult
+    static func applyClaim(
+        _ claim: NowPlayingClaim,
+        isAssertingNativeClaim: Bool,
+        to center: any NowPlayingInfoCenter
+    ) -> Bool {
         switch claim {
-        case .handsOff:
-            guard self.isAssertingNativeClaim else { return }
-            guard Self.isNativeClaim(center.nowPlayingInfo) else {
-                self.isAssertingNativeClaim = false
-                return
-            }
-            // Preserve the fallback until WebKit atomically replaces the app-wide metadata.
-            // A non-destructive state update cannot clear a concurrently published WebKit card.
-            center.playbackState = .playing
-        case .release:
-            guard self.isAssertingNativeClaim else { return }
-            self.isAssertingNativeClaim = false
-            guard Self.isNativeClaim(center.nowPlayingInfo) else { return }
+        case .handsOff, .release:
+            guard isAssertingNativeClaim else { return false }
+            guard self.isNativeClaim(center.nowPlayingInfo) else { return false }
             center.playbackState = .stopped
             center.nowPlayingInfo = nil
+            return false
         case let .claim(title, artist, playbackState):
             var info: [String: Any] = [
                 MPMediaItemPropertyTitle: title,
@@ -241,7 +288,7 @@ final class NowPlayingManager {
             case .playing: .playing
             case .paused: .paused
             }
-            self.isAssertingNativeClaim = true
+            return true
         }
     }
 
@@ -303,9 +350,70 @@ final class NowPlayingManager {
         self.logger.info("NowPlayingManager configured")
 
         self.observeSettingsChanges()
+        self.observeOutputDeviceChanges()
 
         self.updateNowPlayingClaim()
         self.restartNowPlayingObservation()
+    }
+
+    // MARK: - Transport Reconciliation
+
+    private func observeOutputDeviceChanges() {
+        DefaultOutputDeviceMonitor.shared.start { [weak self] in
+            self?.handleOutputDeviceChange()
+        }
+    }
+
+    /// Runs once the route event has been published, which is the earliest moment a pause that
+    /// beat it can be attributed correctly.
+    private func handleOutputDeviceChange() {
+        self.attributeRouteLossPauseIfPending()
+        self.resumeAfterRouteRestoredSoon()
+    }
+
+    /// Attributes a pending unattributed pause to a route loss, if one now explains it.
+    ///
+    /// Safe to call from either side of the race and at any time: it is a no-op without a pending
+    /// pause, and the claim is one-shot, so a disconnect still explains at most one pause.
+    func attributeRouteLossPauseIfPending() {
+        guard let playerService = self.playerService else { return }
+        playerService.reattributeRemotePauseToRouteLoss { admittedAt in
+            DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
+                admittedAt: admittedAt,
+                within: Self.routeLossPauseWindow
+            )
+        }
+        guard playerService.routeLossPauseAt != nil else { return }
+        self.resumeAfterRouteRestoredSoon()
+    }
+
+    /// Resumes playback that a vanished audio route had stopped, once a route is back.
+    ///
+    /// The device is not immediately usable when the notification lands, and WebKit settles a
+    /// route change in stages, so try twice rather than racing it once. Bursts of notifications
+    /// collapse into the latest request. `resumeAfterRouteRestored` itself decides whether a
+    /// resume is warranted, so both a disconnect and a reconnect can drive this safely.
+    func resumeAfterRouteRestoredSoon() {
+        self.routeRestoreGeneration &+= 1
+        let generation = self.routeRestoreGeneration
+        self.routeRestoreTask?.cancel()
+        self.routeRestoreTask = Task { @MainActor [weak self] in
+            defer {
+                if self?.routeRestoreGeneration == generation {
+                    self?.routeRestoreTask = nil
+                }
+            }
+            var elapsed = Duration.zero
+            for delay in Self.routeRestoreDelays {
+                try? await Task.sleep(for: delay - elapsed)
+                elapsed = delay
+                guard !Task.isCancelled,
+                      let self,
+                      self.routeRestoreGeneration == generation
+                else { return }
+                await self.playerService?.resumeAfterRouteRestored()
+            }
+        }
     }
 
     /// Registers the YouTube video player for media-key routing.
@@ -486,7 +594,14 @@ final class NowPlayingManager {
                     issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
                 )
             } else {
-                self.enqueueMusicRemoteCommand(.pause, capturedCommand: capturedCommand, player: player)
+                let command: MusicRemoteTransportCommand = Self.isRouteChangePause(capturedCommand)
+                    ? .pauseForRouteChange(admittedAt: capturedCommand.admittedAt)
+                    : .pause(admittedAt: capturedCommand.admittedAt)
+                self.enqueueMusicRemoteCommand(
+                    command,
+                    capturedCommand: capturedCommand,
+                    player: player
+                )
             }
         case .togglePlayPause:
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
@@ -537,6 +652,30 @@ final class NowPlayingManager {
             }
         }
     }
+
+    /// Whether the `pause` we just received is the system reacting to a vanished audio route
+    /// (unplugged headphones, a Bluetooth device disconnecting) rather than a user request.
+    ///
+    /// macOS delivers both as the same remote command, so the only thing separating them is
+    /// that a route-driven one lands immediately after the output device it was playing to
+    /// disappears — measured at 40–60ms. The window absorbs scheduling jitter while staying far
+    /// below the time it takes a person to reach for the key, and requiring a *disappearance*
+    /// rather than any device change keeps a deliberate pause next to a manual output switch
+    /// from being mistaken for one.
+    ///
+    /// The comparison anchors on when the ingress admitted the command, not on when this drain
+    /// runs: the hop to the MainActor is unbounded, and dating the decision to handling time
+    /// would let a busy main actor push a real route pause out of the window.
+    private static func isRouteChangePause(_ capturedCommand: CapturedRemoteMusicCommand) -> Bool {
+        DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
+            admittedAt: capturedCommand.admittedAt,
+            within: self.routeLossPauseWindow
+        )
+    }
+
+    /// How closely a `pause` must follow a device disappearing to be attributed to it. Measured
+    /// at 40-60ms; generous enough for scheduling jitter, far below human reaction time.
+    private static let routeLossPauseWindow = Duration.milliseconds(1500)
 
     private func handleNextPreviousMediaKey(
         direction: RemoteMusicCommandDirection,

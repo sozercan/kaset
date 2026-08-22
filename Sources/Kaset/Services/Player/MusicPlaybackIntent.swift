@@ -11,11 +11,31 @@ struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
 
+// MARK: - MusicPauseOrigin
+
+/// Why playback is being paused. The two are indistinguishable at the remote-command layer —
+/// macOS asks an app to pause a vanished route exactly as it asks for a user's Pause — so the
+/// distinction has to be carried explicitly.
+enum MusicPauseOrigin: Equatable {
+    case user
+    /// A remote pause that no route loss explained when it arrived. Treated as the user's, but
+    /// its admission instant is kept so a route event published afterwards can still claim it.
+    case unattributedRemote(admittedAt: ContinuousClock.Instant)
+    /// The system took the audio route away, as of when the command was admitted.
+    case routeLoss(at: ContinuousClock.Instant)
+}
+
 // MARK: - MusicRemoteTransportCommand
 
 enum MusicRemoteTransportCommand: Equatable {
     case play
-    case pause
+    /// A remote `pause` no route loss explained at admission. Carries the admission instant so
+    /// a route event that lands afterwards can still re-attribute it.
+    case pause(admittedAt: ContinuousClock.Instant)
+    /// A `pause` the system imposed by taking the audio route away, not a user request.
+    /// Carries the ingress admission instant so the recovery marker is dated to when the
+    /// command arrived rather than to whenever the MainActor got around to draining it.
+    case pauseForRouteChange(admittedAt: ContinuousClock.Instant)
     case togglePlayPause
     case next
     case previous
@@ -216,9 +236,23 @@ extension PlayerService {
             case .play:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.resume(intent: intent)
-            case .pause:
+            case let .pause(admittedAt):
                 self.clearRemoteMusicSkipCoalescingTarget()
-                await self.pause(intent: intent)
+                await self.pause(intent: intent, origin: .unattributedRemote(admittedAt: admittedAt))
+                // Classification ran before this command was enqueued, and this queue drains
+                // later. A disappearance recorded in between — whose callback found no marker to
+                // attribute — is still unclaimed, and nothing else is guaranteed to come back for
+                // it. Retry now that the marker exists, completing the symmetry: whichever of the
+                // route event and the pause lands second performs the attribution.
+                NowPlayingManager.shared.attributeRouteLossPauseIfPending()
+            case let .pauseForRouteChange(admittedAt):
+                self.clearRemoteMusicSkipCoalescingTarget()
+                await self.pause(intent: intent, origin: .routeLoss(at: admittedAt))
+                // A reconnect can be recorded and handled before this pause drains, spending
+                // both recovery attempts while there was still no marker to act on. Schedule
+                // from here too, so installing the marker is itself a trigger. Harmless when
+                // no route has returned: the resume re-checks that for itself.
+                NowPlayingManager.shared.resumeAfterRouteRestoredSoon()
             case .togglePlayPause:
                 self.clearRemoteMusicSkipCoalescingTarget()
                 await self.playPause(intent: intent)
