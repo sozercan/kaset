@@ -20,6 +20,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
 
     private var socketFD: Int32?
     private var isConnected = false
+    private var isExplicitlyDisconnected = false
     private var retryCount = 0
     private var pendingPayload: DiscordPresencePayload?
 
@@ -39,6 +40,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     // MARK: - Connection
 
     func connect() async {
+        self.isExplicitlyDisconnected = false
         guard !self.state.isConnected, !self.state.isConnecting else { return }
         self.retryCount = 0
         self.retryTask?.cancel()
@@ -46,6 +48,8 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     }
 
     func disconnect() async {
+        self.isExplicitlyDisconnected = true
+        self.pendingPayload = nil
         self.retryTask?.cancel()
         self.retryTask = nil
         self.readTask?.cancel()
@@ -276,8 +280,8 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         self.pendingPayload = payload
 
         guard let fd = self.socketFD, self.isConnected else {
-            // If disconnected, initiate connect so pending payload will be dispatched
-            if case .disconnected = self.state {
+            // Only auto-reconnect if not explicitly disconnected and payload is active
+            if !self.isExplicitlyDisconnected, payload != nil, case .disconnected = self.state {
                 await self.connect()
             }
             return
@@ -395,6 +399,10 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
 
                 var nosigpipe: Int32 = 1
                 setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, socklen_t(MemoryLayout<Int32>.size))
+
+                var timeout = timeval(tv_sec: 2, tv_usec: 0)
+                setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
+                setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, socklen_t(MemoryLayout<timeval>.size))
 
                 var addr = sockaddr_un()
                 addr.sun_family = sa_family_t(AF_UNIX)

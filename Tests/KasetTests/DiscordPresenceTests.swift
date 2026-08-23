@@ -377,7 +377,9 @@ struct DiscordPresenceTests {
         player.state = .playing
         player.progress = 30
 
+        let beforeTime = Date().timeIntervalSince1970
         await coordinator.syncPresence()
+        let afterTime = Date().timeIntervalSince1970
 
         guard let timestamps = mockService.lastPayload?.timestamps,
               let start = timestamps.start,
@@ -387,6 +389,11 @@ struct DiscordPresenceTests {
             return
         }
 
+        let expectedStart = Int((beforeTime - 30.0) * 1000)
+        let expectedEnd = Int((afterTime + 70.0) * 1000)
+
+        #expect(abs(Double(start - expectedStart)) < 1500)
+        #expect(abs(Double(end - expectedEnd)) < 1500)
         let diff = Double(end - start) / 1000.0
         #expect(abs(diff - 100.0) < 1.0)
     }
