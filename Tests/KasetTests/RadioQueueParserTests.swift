@@ -50,7 +50,7 @@ struct RadioQueueParserTests {
         let result = RadioQueueParser.parse(from: data)
 
         #expect(result.songs.count == 1)
-        #expect(!result.songs[0].artists.isEmpty)
+        #expect(result.songs[0].artists.count == 1)
         #expect(result.songs[0].artists[0].name == "Artist 0")
     }
 
@@ -134,6 +134,58 @@ struct RadioQueueParserTests {
     // MARK: - Test Helpers
 
     /// Creates a mock radio queue response with the specified number of songs.
+    @Test("Parse radio queue propagates explicit badge")
+    func parseRadioQueuePropagatesExplicitBadge() {
+        let explicitRenderer: [String: Any] = [
+            "playlistPanelVideoRenderer": [
+                "videoId": "explicit-video",
+                "title": ["runs": [["text": "Explicit Track"]]],
+                "badges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let cleanRenderer: [String: Any] = [
+            "playlistPanelVideoRenderer": [
+                "videoId": "clean-video",
+                "title": ["runs": [["text": "Clean Track"]]],
+            ],
+        ]
+        let data: [String: Any] = [
+            "contents": [
+                "singleColumnMusicWatchNextResultsRenderer": [
+                    "tabbedRenderer": [
+                        "watchNextTabbedResultsRenderer": [
+                            "tabs": [[
+                                "tabRenderer": [
+                                    "content": [
+                                        "musicQueueRenderer": [
+                                            "content": [
+                                                "playlistPanelRenderer": [
+                                                    "contents": [explicitRenderer, cleanRenderer],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let result = RadioQueueParser.parse(from: data)
+
+        #expect(result.songs.count == 2)
+        let explicit = result.songs.first { $0.videoId == "explicit-video" }
+        let clean = result.songs.first { $0.videoId == "clean-video" }
+        #expect(explicit?.isExplicit == true)
+        #expect(clean?.isExplicit == false)
+    }
+
     private static func makeRadioQueueResponse(
         songCount: Int,
         continuationToken: String? = nil
@@ -321,6 +373,10 @@ struct RadioQueueParserTests {
                                 ],
                             ],
                         ],
+                        ["text": " • "],
+                        ["text": "1.3M views"],
+                        ["text": " • "],
+                        ["text": "42K likes"],
                     ],
                 ],
                 "thumbnail": [

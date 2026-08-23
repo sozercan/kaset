@@ -12,12 +12,11 @@ import Sparkle
 /// ```swift
 /// @State private var updaterService = UpdaterService()
 ///
-/// Button("Check for Updates") {
+/// Button(String(localized: "Check for Updates")) {
 ///     updaterService.checkForUpdates()
 /// }
 /// .disabled(!updaterService.canCheckForUpdates)
 /// ```
-@available(macOS 26.0, *)
 @MainActor
 @Observable
 final class UpdaterService {

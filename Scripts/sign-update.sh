@@ -3,7 +3,7 @@
 # sign-update.sh - Signs a release DMG/ZIP for Sparkle distribution
 #
 # Usage:
-#   ./Tools/sign-update.sh path/to/Kaset.dmg
+#   ./Scripts/sign-update.sh path/to/Kaset.dmg
 #
 # Prerequisites:
 #   1. Sparkle must be added as a Swift Package dependency

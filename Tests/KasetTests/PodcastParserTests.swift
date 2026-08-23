@@ -79,6 +79,30 @@ struct PodcastParserTests {
         #expect(detail.episodes.count == 3)
     }
 
+    @Test("Parse show detail keeps detail header thumbnail when responsive header omits artwork")
+    func parseShowDetailKeepsDetailHeaderThumbnailFallback() {
+        var data = self.makeShowDetailData(title: "Tech Podcast", author: "Tech Company")
+
+        var header = data["header"] as? [String: Any] ?? [:]
+        var detailHeader = header["musicDetailHeaderRenderer"] as? [String: Any] ?? [:]
+        detailHeader["thumbnail"] = [
+            "musicThumbnailRenderer": [
+                "thumbnail": [
+                    "thumbnails": [["url": "https://example.com/detail-header.jpg"]],
+                ],
+            ],
+        ]
+        header["musicDetailHeaderRenderer"] = detailHeader
+        data["header"] = header
+
+        let responsiveHeaderData = self.makeShowDetailDataTwoColumn(title: "Tech Podcast")
+        data["contents"] = responsiveHeaderData["contents"]
+
+        let detail = PodcastParser.parseShowDetail(data, showId: "MPSPP123")
+
+        #expect(detail.show.thumbnailURL?.absoluteString == "https://example.com/detail-header.jpg")
+    }
+
     @Test("Parse show detail with subscription status")
     func parseShowDetailWithSubscriptionStatus() {
         let data = self.makeShowDetailDataTwoColumn(title: "Subscribed Show", isSubscribed: true)

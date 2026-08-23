@@ -26,6 +26,7 @@ enum HomeResponseParser {
             return HomeResponse(sections: [])
         }
 
+        sections.reserveCapacity(sectionContents.count)
         for sectionData in sectionContents {
             if let section = parseHomeSection(sectionData) {
                 sections.append(section)
@@ -152,6 +153,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -180,6 +182,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -215,6 +218,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -243,6 +247,7 @@ enum HomeResponseParser {
         }
 
         var items: [HomeSectionItem] = []
+        items.reserveCapacity(contents.count)
         for itemData in contents {
             if let item = parseHomeSectionItem(itemData) {
                 items.append(item)
@@ -278,6 +283,7 @@ enum HomeResponseParser {
         }
 
         var sectionItems: [HomeSectionItem] = []
+        sectionItems.reserveCapacity(items.count)
         for itemData in items {
             if let item = parseHomeSectionItem(itemData) {
                 sectionItems.append(item)
@@ -366,14 +372,16 @@ enum HomeResponseParser {
             description: colorHex, // Store color hex in description for mood cards
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: nil
+            author: nil,
+            moodCategoryEndpoint: MoodCategory.isMoodCategory(browseId)
+                ? MoodCategoryEndpoint(browseId: browseId, params: params)
+                : nil
         )
         return .playlist(playlist)
     }
 
     private static func parseTwoRowItem(_ data: [String: Any]) -> HomeSectionItem? {
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         guard let title = ParsingHelpers.extractTitle(from: data) else {
             return nil
@@ -394,7 +402,9 @@ enum HomeResponseParser {
                 album: nil,
                 duration: nil,
                 thumbnailURL: thumbnailURL,
-                videoId: videoId
+                videoId: videoId,
+                musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
+                isExplicit: ParsingHelpers.extractIsExplicit(from: data)
             )
             return .song(song)
         }
@@ -403,7 +413,7 @@ enum HomeResponseParser {
         if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String
         {
-            let pageType = self.extractPageType(from: browseEndpoint)
+            let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
             return self.createItemFromBrowseEndpoint(
                 browseId: browseId,
                 pageType: pageType,
@@ -419,16 +429,19 @@ enum HomeResponseParser {
     private static func parseResponsiveListItem(_ data: [String: Any]) -> HomeSectionItem? {
         guard let videoId = ParsingHelpers.extractVideoId(from: data) else {
             // Might be a non-song item
-            if let browseId = ParsingHelpers.extractBrowseId(from: data) {
-                return self.parseResponsiveListItemAsBrowse(data, browseId: browseId)
+            if let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
+               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
+               let browseId = browseEndpoint["browseId"] as? String
+            {
+                let pageType = ParsingHelpers.extractPageType(from: browseEndpoint)
+                return self.parseResponsiveListItemAsBrowse(data, browseId: browseId, pageType: pageType)
             }
             return nil
         }
 
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
         let artists = ParsingHelpers.extractArtistsFromFlexColumns(data)
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
         let album = ParsingHelpers.extractAlbumFromFlexColumns(data)
 
@@ -439,18 +452,27 @@ enum HomeResponseParser {
             album: album,
             duration: duration,
             thumbnailURL: thumbnailURL,
-            videoId: videoId
+            videoId: videoId,
+            musicVideoType: ParsingHelpers.extractMusicVideoType(from: data),
+            isExplicit: ParsingHelpers.extractIsExplicit(from: data)
         )
         return .song(song)
     }
 
-    private static func parseResponsiveListItemAsBrowse(_ data: [String: Any], browseId: String) -> HomeSectionItem? {
+    private static func parseResponsiveListItemAsBrowse(
+        _ data: [String: Any],
+        browseId: String,
+        pageType: String?
+    ) -> HomeSectionItem? {
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown"
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
-        // Determine type from browseId prefix
-        if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
+        guard let itemType = self.determineBrowseItemType(browseId: browseId, pageType: pageType) else {
+            return nil
+        }
+
+        switch itemType {
+        case .album:
             let album = Album(
                 id: browseId,
                 title: title,
@@ -460,26 +482,27 @@ enum HomeResponseParser {
                 trackCount: nil
             )
             return .album(album)
-        } else if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") {
+
+        case .playlist:
             let playlist = Playlist(
                 id: browseId,
                 title: title,
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitleFromFlexColumns(data)
+                author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") }
             )
             return .playlist(playlist)
-        } else if browseId.hasPrefix("UC") {
+
+        case .artist:
             let artist = Artist(
                 id: browseId,
                 name: title,
-                thumbnailURL: thumbnailURL
+                thumbnailURL: thumbnailURL,
+                profileKind: Artist.profileKind(forPageType: pageType)
             )
             return .artist(artist)
         }
-
-        return nil
     }
 
     // MARK: - Helpers
@@ -503,16 +526,6 @@ enum HomeResponseParser {
         return nil
     }
 
-    private static func extractPageType(from browseEndpoint: [String: Any]) -> String? {
-        if let contextConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
-           let musicConfig = contextConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
-           let type = musicConfig["pageType"] as? String
-        {
-            return type
-        }
-        return nil
-    }
-
     private enum BrowseItemType {
         case album
         case playlist
@@ -521,15 +534,14 @@ enum HomeResponseParser {
 
     private static func determineBrowseItemType(browseId: String, pageType: String?) -> BrowseItemType? {
         // Check pageType first (most reliable)
-        switch pageType {
-        case "MUSIC_PAGE_TYPE_ALBUM":
+        if pageType == "MUSIC_PAGE_TYPE_ALBUM" {
             return .album
-        case "MUSIC_PAGE_TYPE_PLAYLIST":
+        }
+        if pageType == "MUSIC_PAGE_TYPE_PLAYLIST" {
             return .playlist
-        case "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_USER_CHANNEL":
+        }
+        if ParsingHelpers.isArtistPageType(pageType) {
             return .artist
-        default:
-            break
         }
 
         // Fall back to browseId prefix
@@ -539,7 +551,7 @@ enum HomeResponseParser {
         if browseId.hasPrefix("VL") || browseId.hasPrefix("PL") || browseId.hasPrefix("RD") {
             return .playlist
         }
-        if browseId.hasPrefix("UC") {
+        if Artist.isNavigableId(browseId) {
             return .artist
         }
 
@@ -576,7 +588,7 @@ enum HomeResponseParser {
                 description: nil,
                 thumbnailURL: thumbnailURL,
                 trackCount: nil,
-                author: ParsingHelpers.extractSubtitle(from: data)
+                author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") }
             )
             return .playlist(playlist)
 
@@ -584,7 +596,8 @@ enum HomeResponseParser {
             let artist = Artist(
                 id: browseId,
                 name: title,
-                thumbnailURL: thumbnailURL
+                thumbnailURL: thumbnailURL,
+                profileKind: Artist.profileKind(forPageType: pageType)
             )
             return .artist(artist)
         }

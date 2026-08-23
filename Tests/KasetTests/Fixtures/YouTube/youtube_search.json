@@ -1,0 +1,2808 @@
+{
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "hideBottomSeparator": true,
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "videoRenderer": {
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hq720.jpg?sqp=-oaymwEnCOgCEMoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDFIM8K6PfKmRN-NL2HZzbfsa0RHA",
+                            "width": 360,
+                            "height": 202
+                          },
+                          {
+                            "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hq720.jpg?sqp=-oaymwEbCNAFEJQDSFryq4qpAw0IARUAAIhCGAG4AvMY&rs=AOn4CLAJkT0zbHqKLBbAxvWFVOOi3UheAQ",
+                            "width": 720,
+                            "height": 404
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "28 minutes, 1 second"
+                          }
+                        },
+                        "simpleText": "28:01"
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=u2rYp8AMuSg&pp=ygURc3dpZnQgY29uY3VycmVuY3k%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "videoId": "u2rYp8AMuSg",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AyQSIlBMd3ZEbTRWZmtkcGhyMkRsNHNZNHJTOVBMelBkeWk4UE26AwsIy9Ke-Kz89eG-AboDCwjAlMeO3MLFkMsBugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "ygURc3dpZnQgY29uY3VycmVuY3k%3D"
+                        }
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "WWDC25: Embracing Swift concurrency | Apple"
+                          }
+                        ],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "WWDC25: Embracing Swift concurrency | Apple 28 minutes"
+                          }
+                        }
+                      },
+                      "inlinePlaybackEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=u2rYp8AMuSg&pp=YAHIAQGiBhUB15olEzc-Wn946dbPChggwGIk5Y4%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "playerExtraUrlParams": [
+                            {
+                              "key": "inline",
+                              "value": "1"
+                            }
+                          ],
+                          "videoId": "u2rYp8AMuSg",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AyQSIlBMd3ZEbTRWZmtkcGhyMkRsNHNZNHJTOVBMelBkeWk4UE26AwsIy9Ke-Kz89eG-AboDCwjAlMeO3MLFkMsBugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "YAHIAQGiBhUB15olEzc-Wn946dbPChggwGIk5Y4%3D"
+                        }
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "28 minutes, 1 second"
+                                }
+                              },
+                              "simpleText": "28:01"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "u2rYp8AMuSg"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "isToggled": false,
+                            "untoggledTooltip": "Watch later",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "addedVideoId": "u2rYp8AMuSg",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledTooltip": "Add to queue",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": [
+                                            "u2rYp8AMuSg"
+                                          ],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "videoId": "u2rYp8AMuSg",
+                                      "videoIds": [
+                                        "u2rYp8AMuSg"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "searchVideoResultEntityKey": "Egt1MnJZcDhBTXVTZyDnAigB",
+                      "viewCountText": {
+                        "simpleText": "29,754 views"
+                      },
+                      "badges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "style": "BADGE_STYLE_TYPE_SIMPLE",
+                            "label": "4K"
+                          }
+                        },
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Closed captions"
+                            },
+                            "label": "CC",
+                            "style": "BADGE_STYLE_TYPE_SIMPLE"
+                          }
+                        }
+                      ],
+                      "ownerBadges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Verified"
+                            },
+                            "tooltip": "Verified",
+                            "icon": {
+                              "iconType": "CHECK_CIRCLE_THICK"
+                            },
+                            "style": "BADGE_STYLE_TYPE_VERIFIED"
+                          }
+                        }
+                      ],
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "29 thousand views"
+                          }
+                        },
+                        "simpleText": "29K views"
+                      },
+                      "menu": {
+                        "menuRenderer": {
+                          "items": [
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "ADD_TO_QUEUE_TAIL"
+                                },
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "signalServiceEndpoint": {
+                                    "actions": [
+                                      {
+                                        "addToPlaylistCommand": {
+                                          "onCreateListCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "apiUrl": "/youtubei/v1/playlist/create",
+                                                "sendPost": true
+                                              }
+                                            },
+                                            "createPlaylistServiceEndpoint": {
+                                              "videoIds": [
+                                                "u2rYp8AMuSg"
+                                              ],
+                                              "params": "CAQ%3D"
+                                            }
+                                          },
+                                          "openMiniplayer": true,
+                                          "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                          "videoId": "u2rYp8AMuSg",
+                                          "videoCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "url": "/watch?v=u2rYp8AMuSg",
+                                                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                "rootVe": 3832
+                                              }
+                                            },
+                                            "watchEndpoint": {
+                                              "videoId": "u2rYp8AMuSg"
+                                            }
+                                          },
+                                          "videoIds": [
+                                            "u2rYp8AMuSg"
+                                          ]
+                                        }
+                                      }
+                                    ],
+                                    "signal": "CLIENT_SIGNAL"
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Add to queue"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "SHARE"
+                                },
+                                "hasSeparator": true,
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "apiUrl": "/youtubei/v1/share/get_share_panel",
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "shareEntityServiceEndpoint": {
+                                    "commands": [
+                                      {
+                                        "openPopupAction": {
+                                          "popup": {},
+                                          "beReused": true,
+                                          "popupType": "DIALOG"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Share"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Action menu"
+                            }
+                          }
+                        }
+                      },
+                      "channelThumbnailSupportedRenderers": {
+                        "channelThumbnailWithLinkRenderer": {
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "rootVe": 3611,
+                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                "apiUrl": "/youtubei/v1/browse",
+                                "url": "/@AppleDeveloper"
+                              }
+                            },
+                            "browseEndpoint": {
+                              "browseId": "UCwrVwiJllwhJUKXKmjLcckQ",
+                              "canonicalBaseUrl": "/@AppleDeveloper"
+                            }
+                          },
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Go to channel Apple Developer"
+                            }
+                          },
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.ggpht.com/QM10AqUfNyZxhp92xKOfs5PBnS5vCngEKlbiC--ZHTraiZRubULznnjh9lDWFiGYLkLTRf3g=s68-c-k-c0x00ffffff-no-rj",
+                                "width": 68,
+                                "height": 68
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@AppleDeveloper"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCwrVwiJllwhJUKXKmjLcckQ",
+                                "canonicalBaseUrl": "/@AppleDeveloper"
+                              }
+                            },
+                            "text": "Apple Developer"
+                          }
+                        ]
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "1 year ago"
+                      },
+                      "videoId": "u2rYp8AMuSg",
+                      "avatar": {
+                        "decoratedAvatarViewModel": {
+                          "avatar": {
+                            "avatarViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://yt3.ggpht.com/QM10AqUfNyZxhp92xKOfs5PBnS5vCngEKlbiC--ZHTraiZRubULznnjh9lDWFiGYLkLTRf3g=s68-c-k-c0x00ffffff-no-rj",
+                                    "width": 68,
+                                    "height": 68
+                                  }
+                                ]
+                              },
+                              "avatarImageSize": "AVATAR_SIZE_M"
+                            }
+                          },
+                          "a11yLabel": "Go to channel Apple Developer",
+                          "rendererContext": {
+                            "commandContext": {
+                              "onTap": {
+                                "innertubeCommand": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "rootVe": 3611,
+                                      "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                      "apiUrl": "/youtubei/v1/browse",
+                                      "url": "/@AppleDeveloper"
+                                    }
+                                  },
+                                  "browseEndpoint": {
+                                    "browseId": "UCwrVwiJllwhJUKXKmjLcckQ",
+                                    "canonicalBaseUrl": "/@AppleDeveloper"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@AppleDeveloper"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCwrVwiJllwhJUKXKmjLcckQ",
+                                "canonicalBaseUrl": "/@AppleDeveloper"
+                              }
+                            },
+                            "text": "Apple Developer"
+                          }
+                        ]
+                      },
+                      "expandableMetadata": {
+                        "expandableMetadataRenderer": {
+                          "header": {
+                            "collapsedThumbnail": {
+                              "thumbnails": [
+                                {
+                                  "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hqdefault_18966.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDYhlPKcpBjlbTyvE0c6wGVqHUkbA",
+                                  "width": 336,
+                                  "height": 188
+                                }
+                              ]
+                            },
+                            "collapsedLabel": {
+                              "runs": [
+                                {
+                                  "text": "14"
+                                },
+                                {
+                                  "text": " chapters"
+                                }
+                              ]
+                            },
+                            "collapsedTitle": {
+                              "runs": [
+                                {
+                                  "text": "Introduction | Single-threaded code | Asynchronous tasks | Interleaving | Introducing concurrency | Concurrent functions | Nonisolated code | Concurrent thread pool | Sharing data | Value types | Actor-isolated types | Classes | Actors | Wrap-up"
+                                }
+                              ]
+                            },
+                            "expandedTitle": {
+                              "runs": [
+                                {
+                                  "text": "14"
+                                },
+                                {
+                                  "text": " chapters in this video"
+                                }
+                              ]
+                            },
+                            "showLeadingCollapsedLabel": true
+                          },
+                          "expandedContent": {
+                            "horizontalCardListRenderer": {
+                              "cards": [
+                                {
+                                  "macroMarkersListItemRenderer": {
+                                    "thumbnail": {
+                                      "thumbnails": [
+                                        {
+                                          "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hqdefault_18966.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDYhlPKcpBjlbTyvE0c6wGVqHUkbA",
+                                          "width": 336,
+                                          "height": 188
+                                        }
+                                      ]
+                                    },
+                                    "layout": "MACRO_MARKERS_LIST_ITEM_RENDERER_LAYOUT_VERTICAL",
+                                    "onTap": {
+                                      "commandMetadata": {
+                                        "webCommandMetadata": {
+                                          "url": "/watch?v=u2rYp8AMuSg",
+                                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                          "rootVe": 3832
+                                        }
+                                      },
+                                      "watchEndpoint": {
+                                        "videoId": "u2rYp8AMuSg"
+                                      }
+                                    },
+                                    "title": {
+                                      "runs": [
+                                        {
+                                          "text": "Introduction"
+                                        }
+                                      ]
+                                    },
+                                    "timeDescription": {
+                                      "runs": [
+                                        {
+                                          "text": "0:00"
+                                        }
+                                      ]
+                                    },
+                                    "isHighlighted": false
+                                  }
+                                },
+                                {
+                                  "macroMarkersListItemRenderer": {
+                                    "thumbnail": {
+                                      "thumbnails": [
+                                        {
+                                          "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hqdefault_220200.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDEwZ8RNsFxRcI5aaNtqqgXseBlfw",
+                                          "width": 336,
+                                          "height": 188
+                                        }
+                                      ]
+                                    },
+                                    "layout": "MACRO_MARKERS_LIST_ITEM_RENDERER_LAYOUT_VERTICAL",
+                                    "onTap": {
+                                      "commandMetadata": {
+                                        "webCommandMetadata": {
+                                          "url": "/watch?v=u2rYp8AMuSg&t=197s",
+                                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                          "rootVe": 3832
+                                        }
+                                      },
+                                      "watchEndpoint": {
+                                        "videoId": "u2rYp8AMuSg",
+                                        "startTimeSeconds": 197
+                                      }
+                                    },
+                                    "title": {
+                                      "runs": [
+                                        {
+                                          "text": "Single-threaded code"
+                                        }
+                                      ]
+                                    },
+                                    "timeDescription": {
+                                      "runs": [
+                                        {
+                                          "text": "3:17"
+                                        }
+                                      ]
+                                    },
+                                    "isHighlighted": false
+                                  }
+                                },
+                                {
+                                  "macroMarkersListItemRenderer": {
+                                    "thumbnail": {
+                                      "thumbnails": [
+                                        {
+                                          "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hqdefault_366233.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLBOW2oVcQ1effHVtHKUzd2OVCyb-w",
+                                          "width": 336,
+                                          "height": 188
+                                        }
+                                      ]
+                                    },
+                                    "layout": "MACRO_MARKERS_LIST_ITEM_RENDERER_LAYOUT_VERTICAL",
+                                    "onTap": {
+                                      "commandMetadata": {
+                                        "webCommandMetadata": {
+                                          "url": "/watch?v=u2rYp8AMuSg&t=360s",
+                                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                          "rootVe": 3832
+                                        }
+                                      },
+                                      "watchEndpoint": {
+                                        "videoId": "u2rYp8AMuSg",
+                                        "startTimeSeconds": 360
+                                      }
+                                    },
+                                    "title": {
+                                      "runs": [
+                                        {
+                                          "text": "Asynchronous tasks"
+                                        }
+                                      ]
+                                    },
+                                    "timeDescription": {
+                                      "runs": [
+                                        {
+                                          "text": "6:00"
+                                        }
+                                      ]
+                                    },
+                                    "isHighlighted": false
+                                  }
+                                },
+                                {
+                                  "macroMarkersListItemRenderer": {
+                                    "thumbnail": {
+                                      "thumbnails": [
+                                        {
+                                          "url": "https://i.ytimg.com/vi/u2rYp8AMuSg/hqdefault_472766.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDAOqE5wEQ0Ysuq5twzEKjV8EBv6w",
+                                          "width": 336,
+                                          "height": 188
+                                        }
+                                      ]
+                                    },
+                                    "layout": "MACRO_MARKERS_LIST_ITEM_RENDERER_LAYOUT_VERTICAL",
+                                    "onTap": {
+                                      "commandMetadata": {
+                                        "webCommandMetadata": {
+                                          "url": "/watch?v=u2rYp8AMuSg&t=444s",
+                                          "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                          "rootVe": 3832
+                                        }
+                                      },
+                                      "watchEndpoint": {
+                                        "videoId": "u2rYp8AMuSg",
+                                        "startTimeSeconds": 444
+                                      }
+                                    },
+                                    "title": {
+                                      "runs": [
+                                        {
+                                          "text": "Interleaving"
+                                        }
+                                      ]
+                                    },
+                                    "timeDescription": {
+                                      "runs": [
+                                        {
+                                          "text": "7:24"
+                                        }
+                                      ]
+                                    },
+                                    "isHighlighted": false
+                                  }
+                                }
+                              ],
+                              "style": {
+                                "type": "HORIZONTAL_CARD_LIST_STYLE_TYPE_ENGAGEMENT_PANEL_SECTION"
+                              },
+                              "nextButton": {
+                                "buttonRenderer": {
+                                  "size": "SIZE_DEFAULT",
+                                  "isDisabled": false,
+                                  "style": "STYLE_DEFAULT",
+                                  "icon": {
+                                    "iconType": "CHEVRON_RIGHT"
+                                  }
+                                }
+                              },
+                              "previousButton": {
+                                "buttonRenderer": {
+                                  "size": "SIZE_DEFAULT",
+                                  "isDisabled": false,
+                                  "style": "STYLE_DEFAULT",
+                                  "icon": {
+                                    "iconType": "CHEVRON_LEFT"
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "collapseButton": {
+                            "buttonRenderer": {
+                              "size": "SIZE_DEFAULT",
+                              "isDisabled": false,
+                              "style": "STYLE_DEFAULT",
+                              "icon": {
+                                "iconType": "EXPAND_LESS"
+                              },
+                              "accessibilityData": {
+                                "accessibilityData": {
+                                  "label": "Less"
+                                }
+                              }
+                            }
+                          },
+                          "expandButton": {
+                            "buttonRenderer": {
+                              "size": "SIZE_DEFAULT",
+                              "isDisabled": false,
+                              "style": "STYLE_DEFAULT",
+                              "icon": {
+                                "iconType": "EXPAND_MORE"
+                              },
+                              "accessibilityData": {
+                                "accessibilityData": {
+                                  "label": "More"
+                                }
+                              }
+                            }
+                          },
+                          "useCustomColors": true,
+                          "colorData": {
+                            "lightColorPalette": {
+                              "secondaryTitleColor": 4285881164,
+                              "section4Color": 4293649117,
+                              "iconInactiveColor": 4289040516,
+                              "iconActivatedColor": 4284038187,
+                              "section1Color": 4294966523,
+                              "iconDisabledColor": 4074294211,
+                              "section2Color": 4294505457,
+                              "primaryTitleColor": 4279833360,
+                              "section3Color": 4294110183
+                            },
+                            "darkColorPalette": {
+                              "secondaryTitleColor": 4291605155,
+                              "section4Color": 4279832844,
+                              "iconInactiveColor": 4287857014,
+                              "iconActivatedColor": 4294963173,
+                              "section1Color": 4282329887,
+                              "iconDisabledColor": 4066398793,
+                              "section2Color": 4281541145,
+                              "primaryTitleColor": 4294963173,
+                              "section3Color": 4280687122
+                            },
+                            "vibrantColorPalette": {
+                              "secondaryTitleColor": 4293578171,
+                              "section4Color": 4283184165,
+                              "iconInactiveColor": 4288248939,
+                              "iconActivatedColor": 4294963173,
+                              "section1Color": 4285681208,
+                              "iconDisabledColor": 4065082933,
+                              "section2Color": 4284826930,
+                              "primaryTitleColor": 4294963173,
+                              "section3Color": 4284038187
+                            },
+                            "saturatedColorPalettes": {
+                              "darkThemePalette": {
+                                "outlineInverse": 860629269,
+                                "invertedBackground": 4293108349,
+                                "overlayTextPrimary": 4294964720,
+                                "raisedBackground": 4281735690,
+                                "textPrimary": 4294634208,
+                                "textSecondary": 4292787883,
+                                "solidBackground": 4291010185,
+                                "outline": 1072880073,
+                                "keyLight": 4284365606,
+                                "dropShadow": 432633669,
+                                "overlayBackground": 3426097674,
+                                "tonalWash": 654308848,
+                                "tonalRim": 653978336,
+                                "additiveBackground": 734623557,
+                                "collectionStack": 4285615415,
+                                "outlineRim": 654308848,
+                                "solidRimInverse": 871553481,
+                                "solidWashInverse": 4285615415,
+                                "solidBackgroundInverse": 4283181333,
+                                "tonalBackground": 435345865,
+                                "cardOutline": 180975429,
+                                "solidWash": 4294105545,
+                                "textPrimaryInverse": 4280028162,
+                                "textDisabled": 2146621897,
+                                "outlineRimInverse": 1291843056,
+                                "baseBackground": 4280028162,
+                                "tonalWashInverse": 872412656,
+                                "tonalRimInverse": 870235819,
+                                "solidRim": 2147150560,
+                                "tonalBackgroundInverse": 868458121
+                              },
+                              "lightThemePalette": {
+                                "outlineInverse": 872082144,
+                                "invertedBackground": 4287579673,
+                                "overlayTextPrimary": 4294964720,
+                                "raisedBackground": 4294964720,
+                                "textPrimary": 4281735690,
+                                "textSecondary": 4285615415,
+                                "solidBackground": 4283181333,
+                                "outline": 860629269,
+                                "keyLight": 4292787883,
+                                "dropShadow": 432633669,
+                                "overlayBackground": 3426097674,
+                                "tonalWash": 872412656,
+                                "tonalRim": 870235819,
+                                "additiveBackground": 566851397,
+                                "collectionStack": 4291010185,
+                                "outlineRim": 1291843056,
+                                "solidRimInverse": 2147150560,
+                                "solidWashInverse": 4294105545,
+                                "solidBackgroundInverse": 4291010185,
+                                "tonalBackground": 868458121,
+                                "cardOutline": 180975429,
+                                "solidWash": 4285615415,
+                                "textPrimaryInverse": 4294964720,
+                                "textDisabled": 2135697685,
+                                "outlineRimInverse": 654308848,
+                                "baseBackground": 4294964720,
+                                "tonalWashInverse": 654308848,
+                                "tonalRimInverse": 653978336,
+                                "solidRim": 871553481,
+                                "tonalBackgroundInverse": 435345865
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@AppleDeveloper"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCwrVwiJllwhJUKXKmjLcckQ",
+                                "canonicalBaseUrl": "/@AppleDeveloper"
+                              }
+                            },
+                            "text": "Apple Developer"
+                          }
+                        ]
+                      },
+                      "detailedMetadataSnippets": [
+                        {
+                          "snippetHoverText": {
+                            "runs": [
+                              {
+                                "text": "From the video description"
+                              }
+                            ]
+                          },
+                          "snippetText": {
+                            "runs": [
+                              {
+                                "text": "Join us to learn the core "
+                              },
+                              {
+                                "text": "Swift concurrency",
+                                "bold": true
+                              },
+                              {
+                                "text": " concepts. Concurrency helps you improve app responsiveness and performance, and ..."
+                              }
+                            ]
+                          },
+                          "maxOneLine": true
+                        }
+                      ],
+                      "showActionMenu": false
+                    }
+                  },
+                  {
+                    "lockupViewModel": {
+                      "metadata": {
+                        "lockupMetadataViewModel": {
+                          "title": {
+                            "content": "Swift Concurrency (Intermediate Level)"
+                          },
+                          "metadata": {
+                            "contentMetadataViewModel": {
+                              "metadataRows": [
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Swiftful Thinking",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@SwiftfulThinking"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCp25X4LzOLaksp5qY0YMUzg",
+                                                  "canonicalBaseUrl": "/@SwiftfulThinking"
+                                                }
+                                              }
+                                            },
+                                            "length": 17
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 17
+                                          }
+                                        ]
+                                      }
+                                    },
+                                    {
+                                      "text": {
+                                        "content": "Course",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "rootVe": 3611,
+                                                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                    "apiUrl": "/youtubei/v1/browse",
+                                                    "url": "/@SwiftfulThinking"
+                                                  }
+                                                },
+                                                "browseEndpoint": {
+                                                  "browseId": "UCp25X4LzOLaksp5qY0YMUzg",
+                                                  "canonicalBaseUrl": "/@SwiftfulThinking"
+                                                }
+                                              }
+                                            },
+                                            "length": 6
+                                          }
+                                        ],
+                                        "styleRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "weightLabel": "FONT_WEIGHT_NORMAL",
+                                            "length": 6
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "isSpacerRow": true
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "Learn Swift Concurrency (Async, Await, Actors) online for FREE | Swift Concurrency #0 · 4:56",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=p6q1RmYUsNU&list=PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                                  "videoId": "p6q1RmYUsNU"
+                                                }
+                                              }
+                                            },
+                                            "length": 93
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                },
+                                {
+                                  "metadataParts": [
+                                    {
+                                      "text": {
+                                        "content": "How to use Do, Try, Catch, and Throws in Swift | Swift Concurrency #1 · 26:34",
+                                        "commandRuns": [
+                                          {
+                                            "startIndex": 0,
+                                            "onTap": {
+                                              "innertubeCommand": {
+                                                "commandMetadata": {
+                                                  "webCommandMetadata": {
+                                                    "url": "/watch?v=ss50RX7F7nE&list=PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                                    "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                    "rootVe": 3832
+                                                  }
+                                                },
+                                                "watchEndpoint": {
+                                                  "playlistId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                                  "videoId": "ss50RX7F7nE"
+                                                }
+                                              }
+                                            },
+                                            "length": 78
+                                          }
+                                        ]
+                                      }
+                                    }
+                                  ]
+                                }
+                              ],
+                              "delimiter": " • "
+                            }
+                          }
+                        }
+                      },
+                      "contentImage": {
+                        "collectionThumbnailViewModel": {
+                          "stackColor": {
+                            "lightTheme": 10057579,
+                            "darkTheme": 9666166
+                          },
+                          "primaryThumbnail": {
+                            "thumbnailViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://i.ytimg.com/vi/p6q1RmYUsNU/hq720.jpg?sqp=-oaymwEXCOgCEMoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLDST1l8q_-NkYa2X7MdZwh5CKD2-w",
+                                    "width": 360,
+                                    "height": 202
+                                  },
+                                  {
+                                    "url": "https://i.ytimg.com/vi/p6q1RmYUsNU/hq720.jpg?sqp=-oaymwEXCNAFEJQDSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLA39e3wGtZwrALze4uIiZBNS-g52A",
+                                    "width": 720,
+                                    "height": 404
+                                  }
+                                ]
+                              },
+                              "overlays": [
+                                {
+                                  "thumbnailOverlayBadgeViewModel": {
+                                    "thumbnailBadges": [
+                                      {
+                                        "thumbnailBadgeViewModel": {
+                                          "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                          "icon": {
+                                            "sources": [
+                                              {
+                                                "clientResource": {
+                                                  "imageName": "COURSE"
+                                                }
+                                              }
+                                            ]
+                                          },
+                                          "backgroundColor": {
+                                            "lightTheme": 3351325,
+                                            "darkTheme": 3351325
+                                          },
+                                          "text": "20 lessons"
+                                        }
+                                      }
+                                    ],
+                                    "position": "THUMBNAIL_OVERLAY_BADGE_POSITION_BOTTOM_END"
+                                  }
+                                },
+                                {
+                                  "thumbnailHoverOverlayViewModel": {
+                                    "style": "THUMBNAIL_HOVER_OVERLAY_STYLE_COVER",
+                                    "icon": {
+                                      "sources": [
+                                        {
+                                          "clientResource": {
+                                            "imageName": "PLAY_ALL"
+                                          }
+                                        }
+                                      ]
+                                    },
+                                    "text": {
+                                      "content": "Play all",
+                                      "styleRuns": [
+                                        {
+                                          "startIndex": 0,
+                                          "length": 8
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              ],
+                              "backgroundColor": {
+                                "lightTheme": 4994092,
+                                "darkTheme": 4994092
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                      "rendererContext": {
+                        "commandContext": {
+                          "onTap": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=p6q1RmYUsNU&list=PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                "videoId": "p6q1RmYUsNU",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "contentType": "LOCKUP_CONTENT_TYPE_PLAYLIST",
+                      "itemPlayback": {
+                        "inlinePlayerData": {
+                          "onSelect": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=p6q1RmYUsNU&list=PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                "videoId": "p6q1RmYUsNU",
+                                "params": "OAI%3D"
+                              }
+                            }
+                          },
+                          "onVisible": {
+                            "innertubeCommand": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "/watch?v=p6q1RmYUsNU&list=PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM&pp=YAHIAQHwBAD4BACiBhUB15olE1oDwq4DwRAXWcdIno1yUCM%3D",
+                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                  "rootVe": 3832
+                                }
+                              },
+                              "watchEndpoint": {
+                                "playlistId": "PLwvDm4Vfkdphr2Dl4sY4rS9PLzPdyi8PM",
+                                "videoId": "p6q1RmYUsNU",
+                                "playerParams": "YAHIAQHwBAD4BACiBhUB15olE1oDwq4DwRAXWcdIno1yUCM%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://i.ytimg.com/vi/vsPX4s8HqUs/hq720.jpg?sqp=-oaymwEnCOgCEMoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDY9XK1e40_oABCy5Gu0ZuLoOizsA",
+                            "width": 360,
+                            "height": 202
+                          },
+                          {
+                            "url": "https://i.ytimg.com/vi/vsPX4s8HqUs/hq720.jpg?sqp=-oaymwEbCNAFEJQDSFryq4qpAw0IARUAAIhCGAG4AvMY&rs=AOn4CLA8kfjHkRNAL3dVLtOWaPGvBP_DoQ",
+                            "width": 720,
+                            "height": 404
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "31 minutes, 4 seconds"
+                          }
+                        },
+                        "simpleText": "31:04"
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=vsPX4s8HqUs&pp=ygURc3dpZnQgY29uY3VycmVuY3nSBwkJOgsBhyohjO8%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "videoId": "vsPX4s8HqUs",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AwsIqPKygPyUtrW7AboDJBIiUEx3dkRtNFZma2RwaHIyRGw0c1k0clM5UEx6UGR5aThQTboDCwjAlMeO3MLFkMsBugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "ygURc3dpZnQgY29uY3VycmVuY3nSBwkJOgsBhyohjO8%3D"
+                        }
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "Isolation, actors, sendable… a concurrency deep dive"
+                          }
+                        ],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "Isolation, actors, sendable… a concurrency deep dive 31 minutes"
+                          }
+                        }
+                      },
+                      "inlinePlaybackEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=vsPX4s8HqUs&pp=YAHIAQGiBhUB15olE0wbRWLEI15oXlvmxD81kE8%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "playerExtraUrlParams": [
+                            {
+                              "key": "inline",
+                              "value": "1"
+                            }
+                          ],
+                          "videoId": "vsPX4s8HqUs",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AwsIqPKygPyUtrW7AboDJBIiUEx3dkRtNFZma2RwaHIyRGw0c1k0clM5UEx6UGR5aThQTboDCwjAlMeO3MLFkMsBugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "YAHIAQGiBhUB15olE0wbRWLEI15oXlvmxD81kE8%3D"
+                        }
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "31 minutes, 4 seconds"
+                                }
+                              },
+                              "simpleText": "31:04"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "vsPX4s8HqUs"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "isToggled": false,
+                            "untoggledTooltip": "Watch later",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "addedVideoId": "vsPX4s8HqUs",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledTooltip": "Add to queue",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": [
+                                            "vsPX4s8HqUs"
+                                          ],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "videoId": "vsPX4s8HqUs",
+                                      "videoIds": [
+                                        "vsPX4s8HqUs"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "searchVideoResultEntityKey": "Egt2c1BYNHM4SHFVcyDnAigB",
+                      "viewCountText": {
+                        "simpleText": "13,078 views"
+                      },
+                      "badges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "style": "BADGE_STYLE_TYPE_SIMPLE",
+                            "label": "4K"
+                          }
+                        }
+                      ],
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "13 thousand views"
+                          }
+                        },
+                        "simpleText": "13K views"
+                      },
+                      "menu": {
+                        "menuRenderer": {
+                          "items": [
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "ADD_TO_QUEUE_TAIL"
+                                },
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "signalServiceEndpoint": {
+                                    "actions": [
+                                      {
+                                        "addToPlaylistCommand": {
+                                          "onCreateListCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "apiUrl": "/youtubei/v1/playlist/create",
+                                                "sendPost": true
+                                              }
+                                            },
+                                            "createPlaylistServiceEndpoint": {
+                                              "videoIds": [
+                                                "vsPX4s8HqUs"
+                                              ],
+                                              "params": "CAQ%3D"
+                                            }
+                                          },
+                                          "openMiniplayer": true,
+                                          "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                          "videoId": "vsPX4s8HqUs",
+                                          "videoCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "url": "/watch?v=vsPX4s8HqUs",
+                                                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                "rootVe": 3832
+                                              }
+                                            },
+                                            "watchEndpoint": {
+                                              "videoId": "vsPX4s8HqUs"
+                                            }
+                                          },
+                                          "videoIds": [
+                                            "vsPX4s8HqUs"
+                                          ]
+                                        }
+                                      }
+                                    ],
+                                    "signal": "CLIENT_SIGNAL"
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Add to queue"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "SHARE"
+                                },
+                                "hasSeparator": true,
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "apiUrl": "/youtubei/v1/share/get_share_panel",
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "shareEntityServiceEndpoint": {
+                                    "commands": [
+                                      {
+                                        "openPopupAction": {
+                                          "popup": {},
+                                          "beReused": true,
+                                          "popupType": "DIALOG"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Share"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Action menu"
+                            }
+                          }
+                        }
+                      },
+                      "channelThumbnailSupportedRenderers": {
+                        "channelThumbnailWithLinkRenderer": {
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "rootVe": 3611,
+                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                "apiUrl": "/youtubei/v1/browse",
+                                "url": "/@iOSConfSG"
+                              }
+                            },
+                            "browseEndpoint": {
+                              "browseId": "UCUwelGOCK00mp8j241tFbeg",
+                              "canonicalBaseUrl": "/@iOSConfSG"
+                            }
+                          },
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Go to channel iOS Conf SG"
+                            }
+                          },
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.ggpht.com/ytc/AIdro_kJ9uwijMdEf3Gy2a0xEn0xbrABdn39w20B2uCmGTM6xX8=s68-c-k-c0x00ffffff-no-rj",
+                                "width": 68,
+                                "height": 68
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@iOSConfSG"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCUwelGOCK00mp8j241tFbeg",
+                                "canonicalBaseUrl": "/@iOSConfSG"
+                              }
+                            },
+                            "text": "iOS Conf SG"
+                          }
+                        ]
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "1 year ago"
+                      },
+                      "videoId": "vsPX4s8HqUs",
+                      "avatar": {
+                        "decoratedAvatarViewModel": {
+                          "avatar": {
+                            "avatarViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://yt3.ggpht.com/ytc/AIdro_kJ9uwijMdEf3Gy2a0xEn0xbrABdn39w20B2uCmGTM6xX8=s68-c-k-c0x00ffffff-no-rj",
+                                    "width": 68,
+                                    "height": 68
+                                  }
+                                ]
+                              },
+                              "avatarImageSize": "AVATAR_SIZE_M"
+                            }
+                          },
+                          "a11yLabel": "Go to channel iOS Conf SG",
+                          "rendererContext": {
+                            "commandContext": {
+                              "onTap": {
+                                "innertubeCommand": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "rootVe": 3611,
+                                      "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                      "apiUrl": "/youtubei/v1/browse",
+                                      "url": "/@iOSConfSG"
+                                    }
+                                  },
+                                  "browseEndpoint": {
+                                    "browseId": "UCUwelGOCK00mp8j241tFbeg",
+                                    "canonicalBaseUrl": "/@iOSConfSG"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@iOSConfSG"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCUwelGOCK00mp8j241tFbeg",
+                                "canonicalBaseUrl": "/@iOSConfSG"
+                              }
+                            },
+                            "text": "iOS Conf SG"
+                          }
+                        ]
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@iOSConfSG"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCUwelGOCK00mp8j241tFbeg",
+                                "canonicalBaseUrl": "/@iOSConfSG"
+                              }
+                            },
+                            "text": "iOS Conf SG"
+                          }
+                        ]
+                      },
+                      "detailedMetadataSnippets": [
+                        {
+                          "snippetHoverText": {
+                            "runs": [
+                              {
+                                "text": "From the video description"
+                              }
+                            ]
+                          },
+                          "snippetText": {
+                            "runs": [
+                              {
+                                "text": "Speaker: Donny Wals With "
+                              },
+                              {
+                                "text": "Swift",
+                                "bold": true
+                              },
+                              {
+                                "text": " 6 being available in Xcode right now, more and more people are taking the plunge and trying out ..."
+                              }
+                            ]
+                          },
+                          "maxOneLine": true
+                        },
+                        {
+                          "snippetTimestamp": {
+                            "accessibility": {
+                              "accessibilityData": {
+                                "label": "9 seconds ... at um iOS conference SG here in Singapore and two years ago I spoke about <b>Swift concurrency</b> and it was pretty new back then&nbsp;..."
+                              }
+                            },
+                            "simpleText": "0:09"
+                          },
+                          "timestampEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "url": "/watch?v=vsPX4s8HqUs&t=9s",
+                                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                "rootVe": 3832
+                              }
+                            },
+                            "watchEndpoint": {
+                              "videoId": "vsPX4s8HqUs",
+                              "startTimeSeconds": 9
+                            }
+                          },
+                          "maxOneLine": true,
+                          "snippetText": {
+                            "runs": [
+                              {
+                                "text": "... at um iOS conference SG here in Singapore and two years ago I spoke about "
+                              },
+                              {
+                                "text": "Swift concurrency",
+                                "bold": true
+                              },
+                              {
+                                "text": " and it was pretty new back then ..."
+                              }
+                            ]
+                          },
+                          "snippetHoverText": {
+                            "runs": [
+                              {
+                                "text": "Automatic captions"
+                              }
+                            ]
+                          }
+                        }
+                      ],
+                      "showActionMenu": false
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "https://i.ytimg.com/vi/yyEWFcHRykA/hq720.jpg?sqp=-oaymwEnCOgCEMoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLCOtaGj1hyJFSeU8mnL_z3NT2I-eQ",
+                            "width": 360,
+                            "height": 202
+                          },
+                          {
+                            "url": "https://i.ytimg.com/vi/yyEWFcHRykA/hq720.jpg?sqp=-oaymwEbCNAFEJQDSFryq4qpAw0IARUAAIhCGAG4AvMY&rs=AOn4CLA12ft0oTFNFwEC9MtU_7rxAkq3Yg",
+                            "width": 720,
+                            "height": 404
+                          }
+                        ]
+                      },
+                      "lengthText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "25 minutes, 14 seconds"
+                          }
+                        },
+                        "simpleText": "25:14"
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=yyEWFcHRykA&pp=ygURc3dpZnQgY29uY3VycmVuY3k%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "videoId": "yyEWFcHRykA",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AwsIqPKygPyUtrW7AboDJBIiUEx3dkRtNFZma2RwaHIyRGw0c1k0clM5UEx6UGR5aThQTboDCwjL0p74rPz14b4BugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "ygURc3dpZnQgY29uY3VycmVuY3k%3D"
+                        }
+                      },
+                      "title": {
+                        "runs": [
+                          {
+                            "text": "Swift Connection 2025 - Matt Massicotte - How to Build Approach Approachable Concurrency"
+                          }
+                        ],
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "Swift Connection 2025 - Matt Massicotte - How to Build Approach Approachable Concurrency 25 minutes"
+                          }
+                        }
+                      },
+                      "inlinePlaybackEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "/watch?v=yyEWFcHRykA&pp=YAHIAQGiBhUB15olExeyJySKPGqpSxFHbol2O-4%3D",
+                            "webPageType": "WEB_PAGE_TYPE_WATCH",
+                            "rootVe": 3832
+                          }
+                        },
+                        "watchEndpoint": {
+                          "playerExtraUrlParams": [
+                            {
+                              "key": "inline",
+                              "value": "1"
+                            }
+                          ],
+                          "videoId": "yyEWFcHRykA",
+                          "params": "qgMRc3dpZnQgY29uY3VycmVuY3m6AwsIqPKygPyUtrW7AboDJBIiUEx3dkRtNFZma2RwaHIyRGw0c1k0clM5UEx6UGR5aThQTboDCwjL0p74rPz14b4BugMLCILvspva-aKk0AG6AwoI9uT0se7d0sBSugMkEiJQTEhXdllvREh2c09Vc0dhelpWV19aZGVodXNBMGRpSXhzugMKCPPJwr25hu2lcboDJBIiUExCbjAxbTVWYnM0Qkt4dnQ3ZDRreUlyMVpVTmxPZFlUZboDCgiU99SjlLLpjV26AwsIxr7mhqmS14W2AboDCgi1jvX1t4SF8Uy6AwoIrdOBn63Qlu8TugMKCJqb49KW2rf1f7oDCgj_2Keq7-qA1266AwsI_7D7uere6pWfAboDCgix0NGOu-K5tSa6AyQSIlBMY0NlLXltV3E3N3AxUF9ObmZ2Q01ySnFvcWExUjhDY2u6AwsI-Pf4p5yeh_rLAboDCwjyrJDgwrr2rcQB8gMFDXKGDD4%3D",
+                          "playerParams": "YAHIAQGiBhUB15olExeyJySKPGqpSxFHbol2O-4%3D"
+                        }
+                      },
+                      "thumbnailOverlays": [
+                        {
+                          "thumbnailOverlayTimeStatusRenderer": {
+                            "style": "DEFAULT",
+                            "text": {
+                              "accessibility": {
+                                "accessibilityData": {
+                                  "label": "25 minutes, 14 seconds"
+                                }
+                              },
+                              "simpleText": "25:14"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                    "removedVideoId": "yyEWFcHRykA"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "isToggled": false,
+                            "untoggledTooltip": "Watch later",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Watch later"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                  "sendPost": true
+                                }
+                              },
+                              "playlistEditEndpoint": {
+                                "actions": [
+                                  {
+                                    "addedVideoId": "yyEWFcHRykA",
+                                    "action": "ACTION_ADD_VIDEO"
+                                  }
+                                ],
+                                "playlistId": "WL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "WATCH_LATER"
+                            },
+                            "toggledIcon": {
+                              "iconType": "CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayToggleButtonRenderer": {
+                            "toggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Added"
+                              }
+                            },
+                            "toggledTooltip": "Added",
+                            "untoggledTooltip": "Add to queue",
+                            "untoggledAccessibility": {
+                              "accessibilityData": {
+                                "label": "Add to queue"
+                              }
+                            },
+                            "untoggledServiceEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "sendPost": true
+                                }
+                              },
+                              "signalServiceEndpoint": {
+                                "actions": [
+                                  {
+                                    "addToPlaylistCommand": {
+                                      "onCreateListCommand": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "apiUrl": "/youtubei/v1/playlist/create",
+                                            "sendPost": true
+                                          }
+                                        },
+                                        "createPlaylistServiceEndpoint": {
+                                          "videoIds": [
+                                            "yyEWFcHRykA"
+                                          ],
+                                          "params": "CAQ%3D"
+                                        }
+                                      },
+                                      "openMiniplayer": true,
+                                      "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                      "videoId": "yyEWFcHRykA",
+                                      "videoIds": [
+                                        "yyEWFcHRykA"
+                                      ]
+                                    }
+                                  }
+                                ],
+                                "signal": "CLIENT_SIGNAL"
+                              }
+                            },
+                            "untoggledIcon": {
+                              "iconType": "ADD_TO_QUEUE_TAIL"
+                            },
+                            "toggledIcon": {
+                              "iconType": "PLAYLIST_ADD_CHECK"
+                            }
+                          }
+                        },
+                        {
+                          "thumbnailOverlayNowPlayingRenderer": {
+                            "text": {
+                              "runs": [
+                                {
+                                  "text": "Now playing"
+                                }
+                              ]
+                            }
+                          }
+                        }
+                      ],
+                      "searchVideoResultEntityKey": "Egt5eUVXRmNIUnlrQSDnAigB",
+                      "viewCountText": {
+                        "simpleText": "1,066 views"
+                      },
+                      "shortViewCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "1 thousand views"
+                          }
+                        },
+                        "simpleText": "1K views"
+                      },
+                      "menu": {
+                        "menuRenderer": {
+                          "items": [
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "ADD_TO_QUEUE_TAIL"
+                                },
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "signalServiceEndpoint": {
+                                    "actions": [
+                                      {
+                                        "addToPlaylistCommand": {
+                                          "onCreateListCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "apiUrl": "/youtubei/v1/playlist/create",
+                                                "sendPost": true
+                                              }
+                                            },
+                                            "createPlaylistServiceEndpoint": {
+                                              "videoIds": [
+                                                "yyEWFcHRykA"
+                                              ],
+                                              "params": "CAQ%3D"
+                                            }
+                                          },
+                                          "openMiniplayer": true,
+                                          "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                          "videoId": "yyEWFcHRykA",
+                                          "videoCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "url": "/watch?v=yyEWFcHRykA",
+                                                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                "rootVe": 3832
+                                              }
+                                            },
+                                            "watchEndpoint": {
+                                              "videoId": "yyEWFcHRykA"
+                                            }
+                                          },
+                                          "videoIds": [
+                                            "yyEWFcHRykA"
+                                          ]
+                                        }
+                                      }
+                                    ],
+                                    "signal": "CLIENT_SIGNAL"
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Add to queue"
+                                    }
+                                  ]
+                                }
+                              }
+                            },
+                            {
+                              "menuServiceItemRenderer": {
+                                "icon": {
+                                  "iconType": "SHARE"
+                                },
+                                "hasSeparator": true,
+                                "serviceEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "apiUrl": "/youtubei/v1/share/get_share_panel",
+                                      "sendPost": true
+                                    }
+                                  },
+                                  "shareEntityServiceEndpoint": {
+                                    "commands": [
+                                      {
+                                        "openPopupAction": {
+                                          "popup": {},
+                                          "beReused": true,
+                                          "popupType": "DIALOG"
+                                        }
+                                      }
+                                    ]
+                                  }
+                                },
+                                "text": {
+                                  "runs": [
+                                    {
+                                      "text": "Share"
+                                    }
+                                  ]
+                                }
+                              }
+                            }
+                          ],
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Action menu"
+                            }
+                          }
+                        }
+                      },
+                      "channelThumbnailSupportedRenderers": {
+                        "channelThumbnailWithLinkRenderer": {
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "rootVe": 3611,
+                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                "apiUrl": "/youtubei/v1/browse",
+                                "url": "/@ZTechConnection"
+                              }
+                            },
+                            "browseEndpoint": {
+                              "browseId": "UCIQT08xGUrpO70rq7-ps-ew",
+                              "canonicalBaseUrl": "/@ZTechConnection"
+                            }
+                          },
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "Go to channel Tech Connection"
+                            }
+                          },
+                          "thumbnail": {
+                            "thumbnails": [
+                              {
+                                "url": "https://yt3.ggpht.com/J0VliqiXvZLVoNf9qX0ifIlGxc6sEMzZcBYtEQSN9AX9_mSwr8-Qv4PFNMm56Rm7SI1Wbp9M8Sc=s68-c-k-c0x00ffffff-no-rj",
+                                "width": 68,
+                                "height": 68
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@ZTechConnection"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCIQT08xGUrpO70rq7-ps-ew",
+                                "canonicalBaseUrl": "/@ZTechConnection"
+                              }
+                            },
+                            "text": "Tech Connection"
+                          }
+                        ]
+                      },
+                      "publishedTimeText": {
+                        "simpleText": "7 months ago"
+                      },
+                      "videoId": "yyEWFcHRykA",
+                      "avatar": {
+                        "decoratedAvatarViewModel": {
+                          "avatar": {
+                            "avatarViewModel": {
+                              "image": {
+                                "sources": [
+                                  {
+                                    "url": "https://yt3.ggpht.com/J0VliqiXvZLVoNf9qX0ifIlGxc6sEMzZcBYtEQSN9AX9_mSwr8-Qv4PFNMm56Rm7SI1Wbp9M8Sc=s68-c-k-c0x00ffffff-no-rj",
+                                    "width": 68,
+                                    "height": 68
+                                  }
+                                ]
+                              },
+                              "avatarImageSize": "AVATAR_SIZE_M"
+                            }
+                          },
+                          "a11yLabel": "Go to channel Tech Connection",
+                          "rendererContext": {
+                            "commandContext": {
+                              "onTap": {
+                                "innertubeCommand": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "rootVe": 3611,
+                                      "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                      "apiUrl": "/youtubei/v1/browse",
+                                      "url": "/@ZTechConnection"
+                                    }
+                                  },
+                                  "browseEndpoint": {
+                                    "browseId": "UCIQT08xGUrpO70rq7-ps-ew",
+                                    "canonicalBaseUrl": "/@ZTechConnection"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@ZTechConnection"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCIQT08xGUrpO70rq7-ps-ew",
+                                "canonicalBaseUrl": "/@ZTechConnection"
+                              }
+                            },
+                            "text": "Tech Connection"
+                          }
+                        ]
+                      },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@ZTechConnection"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCIQT08xGUrpO70rq7-ps-ew",
+                                "canonicalBaseUrl": "/@ZTechConnection"
+                              }
+                            },
+                            "text": "Tech Connection"
+                          }
+                        ]
+                      },
+                      "detailedMetadataSnippets": [
+                        {
+                          "snippetHoverText": {
+                            "runs": [
+                              {
+                                "text": "From the video description"
+                              }
+                            ]
+                          },
+                          "snippetText": {
+                            "runs": [
+                              {
+                                "text": "Find more talks of our conferences and meetups on https://async.techconnection.io/ . The "
+                              },
+                              {
+                                "text": "Swift",
+                                "bold": true
+                              },
+                              {
+                                "text": " language has gone through ..."
+                              }
+                            ]
+                          },
+                          "maxOneLine": false
+                        }
+                      ],
+                      "showActionMenu": false
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                "continuationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "Ep4EEhFzd2lmdCBjb25jdXJyZW5jeRqIBFNCU0NBUXQxTW5KWmNEaEJUWFZUWjRJQklsQk1kM1pFYlRSV1ptdGtjR2h5TWtSc05ITlpOSEpUT1ZCTWVsQmtlV2s0VUUyQ0FRdDJjMUJZTkhNNFNIRlZjNElCQzNsNVJWZEdZMGhTZVd0QmdnRUxNRVZwVEhwaFRuTjBORW1DQVF0VmIwWkxOM1ZaT1UxdVdZSUJJbEJNU0ZkMldXOUVTSFp6VDFWelIyRjZXbFpYWDFwa1pXaDFjMEV3WkdsSmVIT0NBUXRqVlhVd1RUVmxkM0JRVFlJQklsQk1RbTR3TVcwMVZtSnpORUpMZUhaME4yUTBhM2xKY2pGYVZVNXNUMlJaVkdXQ0FRdFlVblZzYTFWU01VODFVWUlCQzNSbmRHTnJjRVJhYmpCWmdnRUxWRTlKVlVrek5qbFNlbFdDQVF0Rk9UVmhaM1JRWjJGaE1JSUJDMll0Y21Vd1YzQlplbHB2Z2dFTFluRTBSRloyVmtvM1NEaUNBUXR1ZVhWeE9YRmpMVEpJT0lJQkMwcHRjbTVGTjBoVllVUkZnZ0VpVUV4alEyVXRlVzFYY1RjM2NERlFYMDV1Wm5aRFRYSktjVzl4WVRGU09FTmphNElCQzNsZlVXTTRZMVF0VDE5bmdnRUxlRVoyV2pGRGQwVkdia215QVFZS0JBZ1dFQUxxQVFRSUFoQVoYgeDoGCILc2VhcmNoLWZlZWQ%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH"
+                  }
+                }
+              }
+            }
+          ],
+          "subMenu": {
+            "searchSubMenuRenderer": {}
+          },
+          "targetId": "search-feed"
+        }
+      }
+    }
+  },
+  "estimatedResults": "21798",
+  "targetId": "search-page",
+  "header": {
+    "searchHeaderRenderer": {
+      "chipBar": {
+        "chipCloudRenderer": {
+          "chips": [
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": true,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "All"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "Eo0GEhFzd2lmdCBjb25jdXJyZW5jeRr0BUVxMEVrZ0dwQkRxWEFSS1FBU2hoSUhsdmRYUjFZbVZmYzJodmNuUnpYMlJsWm1sdWFYUnBiMjRnT25SNWNHVTZjaUFvYmlCNWIzVjBkV0psWDJac1lXZGZhR0Z6WDNCeVpXMXBaWEpsWDNacFpHVnZYMjFsZEdGa1lYUmhQVEVnT25SNWNHVTZjaWtnS0c0Z2VXOTFkSFZpWlY5bWJHRm5YMmhoYzE5c2FYWmxYM04wY21WaGJWOXRaWFJoWkdGMFlUMHhJRHAwZVhCbE9uSXBLVGdCWUJwS2pBTUtJUW9SYzNkcFpuUWdZMjl1WTNWeWNtVnVZM255QVFVS0EwRnNiTmdDQWJnRFlRcWxBZklCQ0FvR1UyaHZjblJ6d2dLUUFTaGhJSGx2ZFhSMVltVmZjMmh2Y25SelgyUmxabWx1YVhScGIyNGdPblI1Y0dVNmNpQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYM0J5WlcxcFpYSmxYM1pwWkdWdlgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa2dLRzRnZVc5MWRIVmlaVjltYkdGblgyaGhjMTlzYVhabFgzTjBjbVZoYlY5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcEtmZ0NBYmdER2dvVzhnRUxDZ2xWYm5kaGRHTm9aV1RLQWdJWUFiZ0RIQW9VOGdFSkNnZFhZWFJqYUdWa3lnSUNHQUs0QTBvS092SUJDQW9HVm1sa1pXOXp3Z0lhZVc5MWRIVmlaVjkyYVdSbGIxOXdZV2RsSURwMGVYQmxPbkxvQWdHb0F3RzRBMGpBQXdISUF3SFFBd0VLRzJBSDhnRVRDaEZTWldObGJuUnNlU0IxY0d4dllXUmxaTGdEQndvMjhnRUdDZ1JNYVhabHdnSW5lVzkxZEhWaVpWOXNhWFpsWDJKeWIyRmtZMkZ6ZEY5emRHRjBkWE05TUNBNmRIbHdaVHB5dUFNRUdBdDRBQSUzRCUzRJABARiB4OgYIgtzZWFyY2gtcGFnZQ%3D%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Shorts"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EscEEhFzd2lmdCBjb25jdXJyZW5jeRquBEVwc0RrZ0dYQXpvR0dnSVlBV0FjU293RENpRUtFWE4zYVdaMElHTnZibU4xY25KbGJtTjU4Z0VGQ2dOQmJHellBZ0c0QTJFS3BRSHlBUWdLQmxOb2IzSjBjOElDa0FFb1lTQjViM1YwZFdKbFgzTm9iM0owYzE5a1pXWnBibWwwYVc5dUlEcDBlWEJsT25JZ0tHNGdlVzkxZEhWaVpWOW1iR0ZuWDJoaGMxOXdjbVZ0YVdWeVpWOTJhV1JsYjE5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcElDaHVJSGx2ZFhSMVltVmZabXhoWjE5b1lYTmZiR2wyWlY5emRISmxZVzFmYldWMFlXUmhkR0U5TVNBNmRIbHdaVHB5S1NuNEFnRzRBeG9LRnZJQkN3b0pWVzUzWVhSamFHVmt5Z0lDR0FHNEF4d0tGUElCQ1FvSFYyRjBZMmhsWk1vQ0FoZ0N1QU5LQ2pyeUFRZ0tCbFpwWkdWdmM4SUNHbmx2ZFhSMVltVmZkbWxrWlc5ZmNHRm5aU0E2ZEhsd1pUcHk2QUlCcUFNQnVBTkl3QU1CeUFNQjBBTUJDaHRnQl9JQkV3b1JVbVZqWlc1MGJIa2dkWEJzYjJGa1pXUzRBd2NLTnZJQkJnb0VUR2wyWmNJQ0ozbHZkWFIxWW1WZmJHbDJaVjlpY205aFpHTmhjM1JmYzNSaGRIVnpQVEFnT25SNWNHVTZjcmdEQkJnTGVBQSUzRJABARiB4OgYIgtzZWFyY2gtcGFnZQ%3D%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Unwatched"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EscEEhFzd2lmdCBjb25jdXJyZW5jeRquBEVwc0RrZ0dYQXpvR0dnSVlBbUJLU293RENpRUtFWE4zYVdaMElHTnZibU4xY25KbGJtTjU4Z0VGQ2dOQmJHellBZ0c0QTJFS3BRSHlBUWdLQmxOb2IzSjBjOElDa0FFb1lTQjViM1YwZFdKbFgzTm9iM0owYzE5a1pXWnBibWwwYVc5dUlEcDBlWEJsT25JZ0tHNGdlVzkxZEhWaVpWOW1iR0ZuWDJoaGMxOXdjbVZ0YVdWeVpWOTJhV1JsYjE5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcElDaHVJSGx2ZFhSMVltVmZabXhoWjE5b1lYTmZiR2wyWlY5emRISmxZVzFmYldWMFlXUmhkR0U5TVNBNmRIbHdaVHB5S1NuNEFnRzRBeG9LRnZJQkN3b0pWVzUzWVhSamFHVmt5Z0lDR0FHNEF4d0tGUElCQ1FvSFYyRjBZMmhsWk1vQ0FoZ0N1QU5LQ2pyeUFRZ0tCbFpwWkdWdmM4SUNHbmx2ZFhSMVltVmZkbWxrWlc5ZmNHRm5aU0E2ZEhsd1pUcHk2QUlCcUFNQnVBTkl3QU1CeUFNQjBBTUJDaHRnQl9JQkV3b1JVbVZqWlc1MGJIa2dkWEJzYjJGa1pXUzRBd2NLTnZJQkJnb0VUR2wyWmNJQ0ozbHZkWFIxWW1WZmJHbDJaVjlpY205aFpHTmhjM1JmYzNSaGRIVnpQVEFnT25SNWNHVTZjcmdEQkJnTGVBQSUzRJABARiB4OgYIgtzZWFyY2gtcGFnZQ%3D%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Watched"
+                }
+              }
+            }
+          ],
+          "nextButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_RIGHT"
+              },
+              "accessibility": {
+                "label": "Next"
+              }
+            }
+          },
+          "previousButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_LEFT"
+              },
+              "accessibility": {
+                "label": "Previous"
+              }
+            }
+          }
+        }
+      },
+      "searchFilterButton": {
+        "buttonRenderer": {
+          "command": {
+            "openPopupAction": {
+              "popup": {
+                "searchFilterOptionsDialogRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Search filters"
+                      }
+                    ]
+                  },
+                  "groups": [
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Type"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Videos"
+                              },
+                              "tooltip": "Search for Videos",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIQAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIQAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Shorts"
+                              },
+                              "tooltip": "Search for Shorts",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIQCQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIQCQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Channels"
+                              },
+                              "tooltip": "Search for Channels",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Playlists"
+                              },
+                              "tooltip": "Search for Playlists",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIQAw%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIQAw%3D%3D"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Duration"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Under 3 minutes"
+                              },
+                              "tooltip": "Search for Under 3 minutes",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIYBA%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIYBA%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "3 - 20 minutes"
+                              },
+                              "tooltip": "Search for 3 - 20 minutes",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIYBQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIYBQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Over 20 minutes"
+                              },
+                              "tooltip": "Search for Over 20 minutes",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIYAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIYAg%3D%3D"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Upload date"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Today"
+                              },
+                              "tooltip": "Search for Today",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIIAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIIAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "This week"
+                              },
+                              "tooltip": "Search for This week",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIIAw%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIIAw%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "This month"
+                              },
+                              "tooltip": "Search for This month",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIIBA%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIIBA%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "This year"
+                              },
+                              "tooltip": "Search for This year",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIIBQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIIBQ%3D%3D"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Features"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Live"
+                              },
+                              "tooltip": "Search for Live",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgJAAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgJAAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "4K"
+                              },
+                              "tooltip": "Search for 4K",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgJwAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgJwAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "HD"
+                              },
+                              "tooltip": "Search for HD",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIgAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIgAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Subtitles/CC"
+                              },
+                              "tooltip": "Search for Subtitles/CC",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=swift+concurrency&sp=EgIoAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "swift concurrency",
+                                  "params": "EgIoAQ%3D%3D"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "popupType": "DIALOG"
+            }
+          },
+          "style": "STYLE_TEXT",
+          "iconPosition": "BUTTON_ICON_POSITION_TYPE_RIGHT_OF_TEXT",
+          "size": "SIZE_DEFAULT",
+          "text": {
+            "runs": [
+              {
+                "text": "Filters"
+              }
+            ]
+          },
+          "isDisabled": false,
+          "tooltip": "Search filters",
+          "icon": {
+            "iconType": "TUNE"
+          },
+          "accessibilityData": {
+            "accessibilityData": {
+              "label": "Search filters"
+            }
+          }
+        }
+      }
+    }
+  }
+}

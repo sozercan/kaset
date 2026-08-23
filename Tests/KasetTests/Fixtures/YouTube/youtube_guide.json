@@ -1,0 +1,336 @@
+{
+  "items": [
+    {
+      "guideSectionRenderer": {
+        "items": [
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Home"
+                }
+              },
+              "icon": {
+                "iconType": "TAB_HOME_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 3854,
+                    "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "FEwhat_to_watch"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Home"
+              },
+              "isPrimary": true
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Shorts"
+                }
+              },
+              "icon": {
+                "iconType": "TAB_SHORTS_CAIRO"
+              },
+              "isPrimary": true,
+              "formattedTitle": {
+                "simpleText": "Shorts"
+              },
+              "serviceEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "url": "/shorts/",
+                    "webPageType": "WEB_PAGE_TYPE_SHORTS",
+                    "rootVe": 37414
+                  }
+                },
+                "reelWatchEndpoint": {
+                  "params": "CA8%3D",
+                  "playerParams": "8AEBuAQPkAcC",
+                  "sequenceProvider": "REEL_WATCH_SEQUENCE_PROVIDER_RPC",
+                  "updateKey": "EhhTSE9SVFNfU0VFRExFU1NfRU5EUE9JTlQg5gEoAQ%3D%3D",
+                  "inputType": "REEL_WATCH_INPUT_TYPE_SEEDLESS",
+                  "ustreamerConfig": "CAw=",
+                  "overlay": {
+                    "reelPlayerOverlayRenderer": {
+                      "style": "REEL_PLAYER_OVERLAY_STYLE_SHORTS",
+                      "reelPlayerNavigationModel": "REEL_PLAYER_NAVIGATION_MODEL_UNSPECIFIED"
+                    }
+                  },
+                  "accessibilityRenderer": {
+                    "reelWatchAccessibilityRenderer": {
+                      "enablePlayPauseA11yButton": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 96368,
+                    "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/feed/subscriptions"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "FEsubscriptions"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Subscriptions"
+              },
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Subscriptions"
+                }
+              },
+              "presentationStyle": "GUIDE_ENTRY_PRESENTATION_STYLE_NONE",
+              "targetId": "subscriptions-guide-item",
+              "isPrimary": true,
+              "icon": {
+                "iconType": "TAB_SUBSCRIPTIONS_CAIRO"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "guideSectionRenderer": {
+        "items": [
+          {
+            "guideEntryRenderer": {
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 6827,
+                    "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/feed/you"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "FElibrary",
+                  "params": "KgN5b3U%3D"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "You"
+              },
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "You"
+                }
+              },
+              "targetId": "library-guide-item",
+              "isPrimary": true,
+              "icon": {
+                "iconType": "ACCOUNT_CIRCLE_CAIRO"
+              }
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "History"
+                }
+              },
+              "icon": {
+                "iconType": "WATCH_HISTORY_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 6827,
+                    "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/feed/history"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "FEhistory"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "History"
+              },
+              "isPrimary": true
+            }
+          }
+        ]
+      }
+    },
+    {
+      "guideSigninPromoRenderer": {
+        "signInButton": {
+          "buttonRenderer": {
+            "navigationEndpoint": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3Dhttps%253A%252F%252Fwww.youtube.com%252Fyoutubei%252Fv1%252Fguide%253Fkey%253DAIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8%2526prettyPrint%253Dfalse&hl=en",
+                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                  "rootVe": 83769
+                }
+              },
+              "signInEndpoint": {
+                "hack": true
+              }
+            },
+            "style": "STYLE_SUGGESTIVE",
+            "size": "SIZE_DEFAULT",
+            "text": {
+              "simpleText": "Sign in"
+            },
+            "isDisabled": false,
+            "icon": {
+              "iconType": "AVATAR_LOGGED_OUT"
+            }
+          }
+        },
+        "descriptiveText": {
+          "simpleText": "Sign in to like videos, comment, and subscribe."
+        },
+        "actionText": {
+          "simpleText": "Sign in"
+        }
+      }
+    },
+    {
+      "guideSectionRenderer": {
+        "items": [
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Shopping"
+                }
+              },
+              "icon": {
+                "iconType": "SHOPPING_BAG_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 3611,
+                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/channel/UCkYQyvc_i9hXEo4xic9Hh2g"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "UCkYQyvc_i9hXEo4xic9Hh2g"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Shopping"
+              }
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Music"
+                }
+              },
+              "icon": {
+                "iconType": "MUSIC_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 3611,
+                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/channel/UC-9-kyTW8ZkZNDHQJ6FgpwQ"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "UC-9-kyTW8ZkZNDHQJ6FgpwQ"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Music"
+              }
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Movies & TV"
+                }
+              },
+              "icon": {
+                "iconType": "CLAPPERBOARD_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 6827,
+                    "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/feed/storefront"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "FEstorefront"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Movies & TV"
+              }
+            }
+          },
+          {
+            "guideEntryRenderer": {
+              "accessibility": {
+                "accessibilityData": {
+                  "label": "Live"
+                }
+              },
+              "icon": {
+                "iconType": "LIVE_CAIRO"
+              },
+              "navigationEndpoint": {
+                "commandMetadata": {
+                  "webCommandMetadata": {
+                    "rootVe": 3611,
+                    "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                    "apiUrl": "/youtubei/v1/browse",
+                    "url": "/channel/UC4R8DWoMoI7CAwX8_LjQHig"
+                  }
+                },
+                "browseEndpoint": {
+                  "browseId": "UC4R8DWoMoI7CAwX8_LjQHig"
+                }
+              },
+              "formattedTitle": {
+                "simpleText": "Live"
+              }
+            }
+          }
+        ],
+        "formattedTitle": {
+          "simpleText": "Explore"
+        }
+      }
+    }
+  ]
+}

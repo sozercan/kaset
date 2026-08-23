@@ -8,5 +8,19 @@
 	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.files.bookmarks.app-scope</key>
+	<true/>
+	<!-- Required for Core Audio process tap (Equalizer feature). -->
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+
+	<!-- Required by Sparkle's sandboxed installer launcher/status services. -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>com.sertacozercan.Kaset-spks</string>
+		<string>com.sertacozercan.Kaset-spki</string>
+	</array>
 </dict>
 </plist>

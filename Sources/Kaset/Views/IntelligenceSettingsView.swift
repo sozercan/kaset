@@ -23,8 +23,23 @@ struct IntelligenceSettingsView: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
+
+                // The only OS-level enable path — surfaced right under the
+                // availability status so a "Not Enabled" user can act on it.
+                Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
+                    HStack {
+                        Text(String(localized: "Apple Intelligence & Siri Settings"))
+                        Spacer()
+                        Image(systemName: "arrow.up.forward.square")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
-                Text("Apple Intelligence")
+                Text(String(localized: "Apple Intelligence"))
+            } footer: {
+                Text(String(localized: "AI responses follow your system language settings."))
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
             }
 
             Section {
@@ -34,19 +49,19 @@ struct IntelligenceSettingsView: View {
                 ))
                 .disabled(!self.isSystemAvailable)
 
-                Text("When enabled, you can use natural language commands, AI-powered playlist refinement, and lyrics explanations.")
+                Text(String(localized: "When enabled, Kaset can add richer queue analysis, AI-powered playlist refinement, and lyrics explanations."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
-            // AI Features section with keyboard shortcut info
+            // Command-bar keyboard shortcut reference.
             Section {
                 HStack {
                     Image(systemName: "command")
                         .foregroundStyle(.secondary)
-                    Text("Command Bar")
+                    Text(String(localized: "Command Bar"))
                     Spacer()
-                    Text("⌘K")
+                    Text(String(localized: "⌘K"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 8)
@@ -55,42 +70,30 @@ struct IntelligenceSettingsView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 4))
                 }
 
-                Text("Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\".")
+                Text(String(localized: "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } header: {
-                Text("Quick Access")
-            }
 
-            Section {
-                Button("Clear AI Context") {
-                    self.aiService.clearContext()
-                }
-                .disabled(!self.aiService.isAvailable)
-
-                Text("Clears the AI session state. Use this if responses seem off or stuck.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section {
-                Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
-                    HStack {
-                        Text("Apple Intelligence & Siri Settings")
-                        Spacer()
-                        Image(systemName: "arrow.up.forward.square")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } footer: {
-                Text("AI responses follow your system language settings.")
+                Text(String(localized: "The command bar stays available even if Apple Intelligence is off, with AI enhancing only the richer interpretations and summaries."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+            } header: {
+                Text(String(localized: "Command Bar"))
+            }
+
+            Section {
+                Button(String(localized: "Refresh AI Status")) {
+                    self.aiService.refreshAvailability()
+                }
+
+                Text(String(localized: "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
-        .navigationTitle("Intelligence")
+        .localizedNavigationTitle("Intelligence")
     }
 
     // MARK: - Computed Properties
@@ -120,22 +123,22 @@ struct IntelligenceSettingsView: View {
     private var availabilityTitle: String {
         switch self.aiService.availability {
         case .available:
-            "Available"
+            String(localized: "Available")
         case let .unavailable(reason):
             self.titleForUnavailableReason(reason)
         @unknown default:
-            "Unknown"
+            String(localized: "Unknown")
         }
     }
 
     private var availabilityDescription: String {
         switch self.aiService.availability {
         case .available:
-            "Apple Intelligence is ready to use"
+            String(localized: "Apple Intelligence is ready to use")
         case let .unavailable(reason):
             self.descriptionForUnavailableReason(reason)
         @unknown default:
-            "Unable to determine availability"
+            String(localized: "Unable to determine availability")
         }
     }
 
@@ -161,15 +164,15 @@ struct IntelligenceSettingsView: View {
     private func titleForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
-            return "Not Supported"
+            return String(localized: "Not Supported")
         } else if reasonString.contains("modelNotReady") {
-            return "Downloading"
+            return String(localized: "Downloading")
         } else if reasonString.contains("appleIntelligenceNotEnabled") {
-            return "Not Enabled"
+            return String(localized: "Not Enabled")
         } else if reasonString.contains("languageNotSupported") {
-            return "Language Not Supported"
+            return String(localized: "Language Not Supported")
         } else {
-            return "Unavailable"
+            return String(localized: "Unavailable")
         }
     }
 
@@ -177,15 +180,15 @@ struct IntelligenceSettingsView: View {
     private func descriptionForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
-            return "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required."
+            return String(localized: "This Mac doesn't support Apple Intelligence. An Apple Silicon Mac is required.")
         } else if reasonString.contains("modelNotReady") {
-            return "Apple Intelligence is downloading. This may take a few minutes."
+            return String(localized: "Apple Intelligence is downloading. This may take a few minutes.")
         } else if reasonString.contains("appleIntelligenceNotEnabled") {
-            return "Enable Apple Intelligence in System Settings to use AI features."
+            return String(localized: "Enable Apple Intelligence in System Settings to use AI features.")
         } else if reasonString.contains("languageNotSupported") {
-            return "Change your system language to English or another supported language."
+            return String(localized: "Change your system language to English or another supported language.")
         } else {
-            return "Apple Intelligence is currently unavailable."
+            return String(localized: "Apple Intelligence is currently unavailable.")
         }
     }
 }

@@ -1,6 +1,9 @@
 import Foundation
+import SwiftUI
 import Testing
 @testable import Kaset
+
+// MARK: - LibraryViewModelTests
 
 /// Tests for LibraryViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
@@ -11,44 +14,216 @@ struct LibraryViewModelTests {
 
     init() {
         self.mockClient = MockYTMusicClient()
-        self.viewModel = LibraryViewModel(client: self.mockClient)
+        self.viewModel = LibraryViewModel(
+            client: self.mockClient,
+            registerForLibraryMutations: false
+        )
     }
 
-    @Test("Initial state is idle with empty playlists")
+    @Test("Initial state is idle with empty library content")
     func initialState() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.playlists.isEmpty)
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(self.viewModel.artists.isEmpty)
+        #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.uploadedSongsPlaylist == nil)
+        #expect(self.viewModel.libraryPlaylistIds.isEmpty)
+        #expect(self.viewModel.libraryArtistIds.isEmpty)
+        #expect(self.viewModel.libraryPodcastIds.isEmpty)
         #expect(self.viewModel.selectedPlaylistDetail == nil)
     }
 
-    @Test("Load success sets playlists")
+    @Test("Activating the first account scope preserves pending optimistic state")
+    func firstAccountScopePreservesPendingMutations() async {
+        let primaryAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "primary-owner",
+            accountID: "primary"
+        )
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-pending",
+            title: "Pending Album",
+            libraryTargetId: "OLAK-pending"
+        )
+        self.viewModel.addToLibrary(album: album)
+        self.viewModel.activateAccountScope(primaryAccountScope, isPrimary: true)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .dedicated,
+                accountScope: primaryAccountScope
+            ),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.albums == [album])
+    }
+
+    @Test("Activating a brand scope clears unscoped optimistic state")
+    func firstBrandScopeClearsPendingMutations() {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-unscoped",
+            title: "Unscoped Album",
+            libraryTargetId: "OLAK-unscoped"
+        )
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope("brand-account")
+
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Changing known account scopes clears prior library state")
+    func accountScopeChangeClearsLibraryState() {
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-account-a",
+            title: "Account A Album",
+            libraryTargetId: "OLAK-account-a"
+        )
+        self.viewModel.activateAccountScope("account-a")
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope("account-b")
+
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Switching between primary account identities clears prior library state")
+    func primaryAccountIdentityChangeClearsLibraryState() {
+        let firstAccount = UserAccount.from(
+            name: "First User",
+            handle: "@first",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let secondAccount = UserAccount.from(
+            name: "Second User",
+            handle: "@second",
+            brandId: nil,
+            thumbnailURL: nil,
+            isSelected: true
+        )
+        let firstAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "first-owner",
+            accountID: firstAccount.id
+        )
+        let secondAccountScope = FavoritesManager.accountScopeID(
+            ownerID: "second-owner",
+            accountID: secondAccount.id
+        )
+        let album = TestFixtures.makeAlbum(
+            id: "MPRE-first-primary",
+            title: "First Primary Album",
+            libraryTargetId: "OLAK-first-primary"
+        )
+        self.viewModel.activateAccountScope(firstAccountScope, isPrimary: true)
+        self.viewModel.addToLibrary(album: album)
+
+        self.viewModel.activateAccountScope(secondAccountScope, isPrimary: true)
+
+        #expect(firstAccount.id == secondAccount.id)
+        #expect(firstAccountScope != secondAccountScope)
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(!self.viewModel.isInLibrary(albumId: album.id))
+    }
+
+    @Test("Load success sets library content and ID sets")
     func loadSuccess() async {
         self.mockClient.libraryPlaylists = [
             TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1"),
             TestFixtures.makePlaylist(id: "VL2", title: "Playlist 2"),
         ]
+        self.mockClient.libraryAlbums = [
+            Album(
+                id: "MPRE1",
+                title: "Album 1",
+                artists: nil,
+                thumbnailURL: nil,
+                year: "2024",
+                trackCount: 10,
+                libraryTargetId: "OLAK1"
+            ),
+            TestFixtures.makeAlbum(id: "MPRE2", title: "Album 2"),
+        ]
+        self.mockClient.libraryArtists = [
+            TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1"),
+        ]
+        self.mockClient.libraryPodcastShows = [
+            TestFixtures.makePodcastShow(id: "MPSPPL1", title: "Podcast 1"),
+        ]
+        self.mockClient.uploadedSongsPlaylist = Playlist(
+            id: Playlist.uploadedSongsBrowseID,
+            title: "Uploaded Songs",
+            description: nil,
+            thumbnailURL: nil,
+            trackCount: 7000
+        )
 
         await self.viewModel.load()
 
-        #expect(self.mockClient.getLibraryPlaylistsCalled == true)
+        #expect(self.mockClient.getLibraryContentCalled == true)
+        #expect(self.mockClient.getLibraryPlaylistsCalled == false)
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.playlists.count == 2)
         #expect(self.viewModel.playlists[0].title == "Playlist 1")
+        #expect(self.viewModel.albums.map(\.title) == ["Album 1", "Album 2"])
+        #expect(self.viewModel.isInLibrary(albumId: "MPRE1"))
+        #expect(self.viewModel.isInLibrary(albumId: "different-browse-id", targetPlaylistId: "OLAK1"))
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.artists[0].name == "Artist 1")
+        #expect(self.viewModel.podcastShows.count == 1)
+        #expect(self.viewModel.podcastShows[0].title == "Podcast 1")
+        #expect(self.viewModel.uploadedSongsPlaylist?.id == Playlist.uploadedSongsBrowseID)
+        #expect(self.viewModel.uploadedSongsPlaylist?.trackCount == 7000)
+        #expect(self.viewModel.libraryPlaylistIds == Set(["VL1", "VL2"]))
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.libraryPodcastIds == Set(["MPSPPL1"]))
     }
 
     @Test("Load error sets error state")
     func loadError() async {
+        self.viewModel.activateAccountScope("primary")
         self.mockClient.shouldThrowError = YTMusicError.authExpired
 
         await self.viewModel.load()
 
-        #expect(self.mockClient.getLibraryPlaylistsCalled == true)
+        #expect(self.mockClient.getLibraryContentCalled == true)
+        #expect(self.mockClient.getLibraryPlaylistsCalled == false)
         if case .error = self.viewModel.loadingState {
             // Expected
         } else {
             Issue.record("Expected error state")
         }
         #expect(self.viewModel.playlists.isEmpty)
+        #expect(self.viewModel.albums.isEmpty)
+        #expect(self.viewModel.artists.isEmpty)
+        #expect(self.viewModel.podcastShows.isEmpty)
+        #expect(self.viewModel.libraryPlaylistIds.isEmpty)
+        #expect(self.viewModel.libraryArtistIds.isEmpty)
+        #expect(self.viewModel.libraryPodcastIds.isEmpty)
+    }
+
+    @Test("Adding album deduplicates equivalent OLAK target")
+    func addAlbumDeduplicatesLibraryTarget() {
+        self.viewModel.addToLibrary(album: TestFixtures.makeAlbum(
+            id: "MPRE-old",
+            title: "Old Album",
+            libraryTargetId: "OLAK-shared"
+        ))
+        self.viewModel.addToLibrary(album: TestFixtures.makeAlbum(
+            id: "MPRE-new",
+            title: "New Album",
+            libraryTargetId: "OLAK-shared"
+        ))
+
+        #expect(self.viewModel.albums.map(\.id) == ["MPRE-new"])
     }
 
     @Test("Load playlist success")
@@ -82,16 +257,451 @@ struct LibraryViewModelTests {
     @Test("Refresh clears and reloads")
     func refreshClearsAndReloads() async {
         self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1")]
+        self.mockClient.libraryArtists = [TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")]
+        self.mockClient.libraryPodcastShows = [TestFixtures.makePodcastShow(id: "MPSPPL1")]
         await self.viewModel.load()
         #expect(self.viewModel.playlists.count == 1)
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.podcastShows.count == 1)
+        #expect(self.viewModel.libraryPlaylistIds == Set(["VL1"]))
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.libraryPodcastIds == Set(["MPSPPL1"]))
 
         self.mockClient.libraryPlaylists = [
             TestFixtures.makePlaylist(id: "VL2"),
             TestFixtures.makePlaylist(id: "VL3"),
         ]
+        self.mockClient.libraryArtists = [
+            TestFixtures.makeArtist(id: "MPLAUC-channel-2", name: "Artist 2"),
+            TestFixtures.makeArtist(id: "MPLAUC-channel-3", name: "Artist 3"),
+        ]
+        self.mockClient.libraryPodcastShows = [
+            TestFixtures.makePodcastShow(id: "MPSPPL2"),
+            TestFixtures.makePodcastShow(id: "MPSPPL3"),
+        ]
         await self.viewModel.refresh()
 
         #expect(self.viewModel.playlists.count == 2)
+        #expect(self.viewModel.artists.count == 2)
+        #expect(self.viewModel.podcastShows.count == 2)
+        #expect(self.viewModel.libraryPlaylistIds == Set(["VL2", "VL3"]))
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-2", "UC-channel-3"]))
+        #expect(self.viewModel.libraryPodcastIds == Set(["MPSPPL2", "MPSPPL3"]))
+    }
+
+    @Test("Refresh keeps existing library content visible while background load runs")
+    func refreshKeepsExistingContentVisibleWhileLoading() async {
+        self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1")]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [TestFixtures.makePlaylist(id: "VL2", title: "Playlist 2")],
+                artists: [],
+                podcastShows: []
+            ),
+        ]
+        self.mockClient.shouldWaitForLibraryContentResponse = true
+
+        var refreshTask: Task<Void, Never>!
+        await withCheckedContinuation { continuation in
+            self.mockClient.onGetLibraryContent = {
+                self.mockClient.onGetLibraryContent = nil
+                continuation.resume()
+            }
+            refreshTask = Task {
+                await self.viewModel.refresh()
+            }
+        }
+
+        #expect(self.viewModel.loadingState == .loadingMore)
+        #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
+
+        self.mockClient.resumeNextLibraryContentResponse()
+        await refreshTask.value
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.playlists.map(\.id) == ["VL2"])
+    }
+
+    @Test("Refresh failure keeps existing library content visible")
+    func refreshFailureKeepsExistingContentVisible() async {
+        self.mockClient.libraryPlaylists = [TestFixtures.makePlaylist(id: "VL1", title: "Playlist 1")]
+        await self.viewModel.load()
+
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.playlists.map(\.id) == ["VL1"])
+    }
+
+    // MARK: - Artist Library Tests
+
+    @Test("isInLibrary normalizes MPLAUC artist IDs to channel IDs")
+    func isInLibraryNormalizesArtistIds() async {
+        self.mockClient.libraryArtists = [TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+        #expect(self.viewModel.isInLibrary(artistId: "MPLAUC-channel-1") == true)
+    }
+
+    @Test("addToLibrary inserts artist at beginning and stores normalized ID")
+    func addToLibraryInsertsArtist() {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")
+
+        self.viewModel.addToLibrary(artist: artist)
+
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+        #expect(self.viewModel.artists.first?.name == "Artist 1")
+    }
+
+    @Test("addToLibrary does not duplicate equivalent artist IDs")
+    func addToLibraryDoesNotDuplicateEquivalentArtistIds() {
+        self.viewModel.addToLibrary(artist: TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1"))
+        self.viewModel.addToLibrary(artist: TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1"))
+
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.artists.count == 1)
+    }
+
+    @Test("removeFromLibrary removes normalized artist ID from set and array")
+    func removeFromLibraryRemovesArtist() {
+        self.viewModel.addToLibrary(artist: TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1"))
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+
+        self.viewModel.removeFromLibrary(artistId: "UC-channel-1")
+
+        #expect(self.viewModel.libraryArtistIds.isEmpty)
+        #expect(self.viewModel.artists.isEmpty)
+    }
+
+    @Test("refresh keeps locally removed artist suppressed until backend catches up")
+    func refreshKeepsRemovedArtistSuppressed() async {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")
+        self.mockClient.libraryArtists = [artist]
+
+        await self.viewModel.load()
+        self.viewModel.removeFromLibrary(artistId: "UC-channel-1")
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [artist], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == false)
+        #expect(self.viewModel.artists.isEmpty)
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == false)
+        #expect(self.viewModel.artists.isEmpty)
+    }
+
+    @Test("refresh keeps locally removed artist suppressed through oscillating backend responses")
+    func refreshKeepsRemovedArtistSuppressedThroughOscillation() async {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")
+        self.mockClient.libraryArtists = [artist]
+
+        await self.viewModel.load()
+        self.viewModel.removeFromLibrary(artistId: "UC-channel-1")
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [artist], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == false)
+        #expect(self.viewModel.artists.isEmpty)
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == false)
+        #expect(self.viewModel.artists.isEmpty)
+    }
+
+    @Test("refresh keeps locally added artist visible until backend catches up")
+    func refreshKeepsAddedArtistVisible() async {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")
+
+        self.viewModel.addToLibrary(artist: artist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1")],
+                podcastShows: []
+            ),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+        #expect(self.viewModel.artists.first?.name == "Artist 1")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+    }
+
+    @Test("refresh keeps locally added artist visible through oscillating backend responses")
+    func refreshKeepsAddedArtistVisibleThroughOscillation() async {
+        let artist = TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1")
+
+        self.viewModel.addToLibrary(artist: artist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1")],
+                podcastShows: []
+            ),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(artistId: "UC-channel-1") == true)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+    }
+
+    @Test("refresh preserves existing albums when refresh falls back to landing preview")
+    func refreshPreservesAlbumsDuringLandingFallback() async {
+        let authoritativeAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-authoritative",
+            title: "Authoritative Album",
+            libraryTargetId: "OLAK-authoritative"
+        )
+        let fallbackPreviewAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-preview",
+            title: "Preview Album",
+            libraryTargetId: "OLAK-preview"
+        )
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [authoritativeAlbum],
+                artists: [],
+                podcastShows: []
+            ),
+        ]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [fallbackPreviewAlbum],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .landingFallback
+            ),
+        ]
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.albums == [authoritativeAlbum])
+    }
+
+    @Test("refresh preserves an authoritative empty album snapshot during fallback")
+    func refreshPreservesAuthoritativeEmptyAlbumsDuringFallback() async {
+        let stalePreviewAlbum = TestFixtures.makeAlbum(
+            id: "MPRE-stale-preview",
+            title: "Stale Preview",
+            libraryTargetId: "OLAK-stale-preview"
+        )
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .dedicated,
+                accountScope: "primary"
+            ),
+        ]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                albums: [stalePreviewAlbum],
+                artists: [],
+                podcastShows: [],
+                albumsSource: .landingFallback,
+                accountScope: "primary"
+            ),
+        ]
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.loadingState == .loaded)
+        #expect(self.viewModel.albums.isEmpty)
+    }
+
+    @Test("refresh preserves existing artists when refresh falls back to landing preview")
+    func refreshPreservesArtistsDuringLandingFallback() async {
+        let authoritativeArtist = TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1")
+        let fallbackPreviewArtist = TestFixtures.makeArtist(id: "UC-channel-2", name: "Artist 2")
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [authoritativeArtist],
+                podcastShows: []
+            ),
+        ]
+        await self.viewModel.load()
+
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [fallbackPreviewArtist],
+                podcastShows: [],
+                artistsSource: .landingFallback
+            ),
+        ]
+
+        await self.viewModel.refresh()
+
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+    }
+
+    @Test("load deduplicates equivalent library artist IDs")
+    func loadDeduplicatesEquivalentArtistIds() async {
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [
+                    TestFixtures.makeArtist(id: "MPLAUC-channel-1", name: "Artist 1"),
+                    TestFixtures.makeArtist(id: "UC-channel-1", name: "Artist 1"),
+                ],
+                podcastShows: []
+            ),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.libraryArtistIds == Set(["UC-channel-1"]))
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+    }
+
+    @Test("load preserves profile kind when normalizing equivalent artist IDs")
+    func loadPreservesProfileKindWhenNormalizingArtistIds() async {
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(
+                playlists: [],
+                artists: [
+                    TestFixtures.makeArtist(
+                        id: "MPLAUC-channel-1",
+                        name: "Profile Artist",
+                        profileKind: .profile
+                    ),
+                ],
+                podcastShows: []
+            ),
+        ]
+
+        await self.viewModel.load()
+
+        #expect(self.viewModel.artists.count == 1)
+        #expect(self.viewModel.artists.first?.id == "UC-channel-1")
+        #expect(self.viewModel.artists.first?.profileKind == .profile)
+    }
+
+    // MARK: - Playlist Library Tests
+
+    @Test("addToLibrary inserts playlist at beginning and updates ID set")
+    func addToLibraryInsertsPlaylist() {
+        let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Playlist 1")
+
+        self.viewModel.addToLibrary(playlist: playlist)
+
+        #expect(self.viewModel.libraryPlaylistIds == Set(["VL-test-playlist"]))
+        #expect(self.viewModel.playlists.first?.id == "VL-test-playlist")
+        #expect(self.viewModel.playlists.first?.title == "Playlist 1")
+    }
+
+    @Test("removeFromLibrary removes playlist from both set and array")
+    func removeFromLibraryRemovesPlaylist() {
+        let playlist = TestFixtures.makePlaylist(id: "VL-test-playlist", title: "Playlist 1")
+        self.viewModel.addToLibrary(playlist: playlist)
+        #expect(self.viewModel.isInLibrary(playlistId: "VL-test-playlist") == true)
+
+        self.viewModel.removeFromLibrary(playlistId: "VL-test-playlist")
+
+        #expect(self.viewModel.libraryPlaylistIds.isEmpty)
+        #expect(self.viewModel.playlists.isEmpty)
+    }
+
+    @Test("refresh keeps locally added playlist visible until backend catches up")
+    func refreshKeepsAddedPlaylistVisible() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLcreated-playlist", title: "Created Playlist")
+
+        self.viewModel.addToLibrary(playlist: playlist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLcreated-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+        #expect(self.viewModel.playlists.first?.title == "Created Playlist")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLcreated-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+    }
+
+    @Test("refresh keeps locally added playlist visible through oscillating backend responses")
+    func refreshKeepsAddedPlaylistVisibleThroughOscillation() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLcreated-playlist", title: "Created Playlist")
+
+        self.viewModel.addToLibrary(playlist: playlist)
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "created-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "created-playlist") == true)
+        #expect(self.viewModel.playlists.first?.id == "VLcreated-playlist")
+    }
+
+    @Test("refresh keeps locally removed playlist suppressed until backend catches up")
+    func refreshKeepsRemovedPlaylistSuppressed() async {
+        let playlist = TestFixtures.makePlaylist(id: "VLold-playlist", title: "Old Playlist")
+        self.mockClient.libraryPlaylists = [playlist]
+
+        await self.viewModel.load()
+        self.viewModel.removeFromLibrary(playlistId: "old-playlist")
+        self.mockClient.libraryContentResponses = [
+            PlaylistParser.LibraryContent(playlists: [playlist], artists: [], podcastShows: []),
+            PlaylistParser.LibraryContent(playlists: [], artists: [], podcastShows: []),
+        ]
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLold-playlist") == false)
+        #expect(self.viewModel.playlists.isEmpty)
+
+        await self.viewModel.refresh()
+        #expect(self.viewModel.isInLibrary(playlistId: "VLold-playlist") == false)
+        #expect(self.viewModel.playlists.isEmpty)
     }
 
     // MARK: - Podcast Library Tests
@@ -164,5 +774,25 @@ struct LibraryViewModelTests {
     @Test("isInLibrary returns false for non-added podcast")
     func isInLibraryForNonAddedPodcast() {
         #expect(self.viewModel.isInLibrary(podcastId: "MPSPPLXz2p9test123") == false)
+    }
+}
+
+// MARK: - LibraryViewModelEnvironmentTests
+
+@Suite(.tags(.viewModel))
+@MainActor
+struct LibraryViewModelEnvironmentTests {
+    @Test("Library view model environment stores the active model")
+    func environmentStoresActiveModel() {
+        var environment = EnvironmentValues()
+        #expect(environment.libraryViewModel == nil)
+
+        let viewModel = LibraryViewModel(
+            client: MockYTMusicClient(),
+            registerForLibraryMutations: false
+        )
+        environment.libraryViewModel = viewModel
+
+        #expect(environment.libraryViewModel === viewModel)
     }
 }

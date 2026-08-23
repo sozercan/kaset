@@ -8,7 +8,7 @@ enum SongMetadataParser {
     struct MenuParseResult {
         var feedbackTokens: FeedbackTokens?
         var isInLibrary: Bool
-        var likeStatus: LikeStatus
+        var likeStatus: LikeStatus?
     }
 
     /// Parses song metadata from the "next" endpoint response.
@@ -38,7 +38,8 @@ enum SongMetadataParser {
             musicVideoType: musicVideoType,
             likeStatus: menuData.likeStatus,
             isInLibrary: menuData.isInLibrary,
-            feedbackTokens: menuData.feedbackTokens
+            feedbackTokens: menuData.feedbackTokens,
+            isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
         )
     }
 
@@ -97,9 +98,11 @@ enum SongMetadataParser {
         else { return artists }
 
         for run in runs {
-            guard let text = run["text"] as? String,
-                  text != " • ", text != " & ", text != ", ", text != " · "
-            else { continue }
+            guard let text = run["text"] as? String else { continue }
+            if text == " • " || text == " · " {
+                break
+            }
+            guard text != " & ", text != ", " else { continue }
 
             let artistId: String = if let navEndpoint = run["navigationEndpoint"] as? [String: Any],
                                       let browseEndpoint = navEndpoint["browseEndpoint"] as? [String: Any],
@@ -153,7 +156,7 @@ enum SongMetadataParser {
 
     /// Parses menu data (feedbackTokens, library status, like status) from the panel video renderer.
     static func parseMenuData(from renderer: [String: Any]) -> MenuParseResult {
-        var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: .indifferent)
+        var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: nil)
 
         guard let menu = renderer["menu"] as? [String: Any],
               let menuRenderer = menu["menuRenderer"] as? [String: Any],
@@ -180,10 +183,14 @@ enum SongMetadataParser {
 
         switch iconType {
         case "LIBRARY_ADD", "BOOKMARK_BORDER":
-            if let token { result.feedbackTokens = FeedbackTokens(add: token, remove: nil) }
+            if let token {
+                result.feedbackTokens = FeedbackTokens(add: token, remove: nil)
+            }
         case "LIBRARY_REMOVE", "BOOKMARK":
             result.isInLibrary = true
-            if let token { result.feedbackTokens = FeedbackTokens(add: nil, remove: token) }
+            if let token {
+                result.feedbackTokens = FeedbackTokens(add: nil, remove: token)
+            }
         default:
             break
         }

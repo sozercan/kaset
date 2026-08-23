@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import Foundation
 import Observation
 import os
@@ -8,6 +10,45 @@ import os
 @MainActor
 @Observable
 final class PlayerService: NSObject, PlayerServiceProtocol {
+    @ObservationIgnored var currentWebPlaybackVideoId: @MainActor () -> String? = {
+        SingletonPlayerWebView.shared.currentVideoId
+    }
+
+    @ObservationIgnored var currentMusicPlaybackSnapshot: @MainActor () async -> SingletonPlayerWebView.PlaybackSnapshot? = {
+        await SingletonPlayerWebView.shared.currentPlaybackSnapshot()
+    }
+
+    @ObservationIgnored var smartShuffleFeatureEnabled: @MainActor () -> Bool = {
+        SettingsManager.shared.smartShuffleEnabled
+    }
+
+    /// Numeric Smart Shuffle tuning consumed by the fill loop (`performSmartShuffleFill`).
+    /// Injectable like ``smartShuffleFeatureEnabled`` so tests configure a single instance instead
+    /// of mutating the shared `SettingsManager` singleton; mutating that singleton races across the
+    /// test suites that run in parallel. Defaults to the live user settings.
+    @ObservationIgnored var smartShuffleConfigProvider: @MainActor () -> SmartShuffleConfig = {
+        SmartShuffleConfig(
+            suggestEveryN: SettingsManager.shared.smartShuffleSuggestEveryN,
+            burst: SettingsManager.shared.smartShuffleBurst,
+            suggestionsAhead: SettingsManager.shared.smartShuffleSuggestionsAhead
+        )
+    }
+
+    @ObservationIgnored var queuePersistenceDefaults: UserDefaults = .standard
+
+    @ObservationIgnored var onMusicPlaybackNavigationRequested: ((String, Bool) -> Void)?
+
+    /// Latest media occurrence observed or initiated for Music playback.
+    @ObservationIgnored private(set) var currentMusicPlaybackOccurrence: MusicPlaybackOccurrence?
+
+    @ObservationIgnored private var nativeMusicPlaybackGeneration: UInt64 = 0
+    @ObservationIgnored private var lastClaimedNativeMusicPlaybackGeneration: UInt64 = 0
+    @ObservationIgnored private var lastClaimedWebMusicPlaybackOccurrence: MusicPlaybackOccurrence?
+
+    var currentNativeMusicPlaybackGeneration: UInt64 {
+        self.currentMusicPlaybackOccurrence?.nativeGeneration ?? self.nativeMusicPlaybackGeneration
+    }
+
     /// Shared instance for AppleScript access.
     ///
     /// **Safety Invariant:** This property is set exactly once during app initialization
@@ -40,13 +81,53 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         case one
     }
 
+    /// Shuffle mode for playback. `smart` interleaves recommended tracks.
+    enum ShuffleMode: String, CaseIterable, Codable {
+        case off
+        case on
+        case smart
+    }
+
+    /// How the mini player was opened.
+    enum MiniPlayerMode: Equatable {
+        /// Mini player floats alongside the main app window.
+        case auxiliary
+        /// Mini player replaces the main app window until it closes.
+        case switchFromMainWindow
+    }
+
+    /// Visible mini player content size.
+    enum MiniPlayerPanel: Equatable {
+        case compact
+        case expanded
+        case lyrics
+    }
+
     // MARK: - Observable State
 
     /// Current playback state.
-    private(set) var state: PlaybackState = .idle
+    var state: PlaybackState = .idle
+
+    /// Native play/pause intent survives transient ad buffering/pauses where
+    /// observable transport state is not authoritative for recovery.
+    var shouldResumeAfterInterruption = false
+    var isStoppingPlayback = false
+
+    var isAwaitingPlaybackConfirmation = false
+    var isExplicitPauseIntentActive = false
 
     /// Currently playing track.
-    var currentTrack: Song?
+    var currentTrack: Song? {
+        didSet {
+            self.driveNowPlayingTracklistProvider()
+        }
+    }
+
+    @ObservationIgnored private var durationObservation: (videoId: String, duration: TimeInterval)?
+    @ObservationIgnored var isApplyingPlaybackStateObservation = false
+
+    /// Artist-page episode backing the current playback, when applicable.
+    var currentEpisode: ArtistEpisode?
 
     /// Whether playback is active.
     var isPlaying: Bool {
@@ -54,43 +135,214 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Current playback position in seconds.
-    private(set) var progress: TimeInterval = 0
+    var progress: TimeInterval = 0
+
+    /// Explicit native playback clock mirror used by restoration/history transitions.
+    /// Synced-lyrics rendering uses `currentLyricsDisplayTimeMs` instead.
+    var currentTimeMs = 0
+
+    /// Current synced-lyrics line index, updated only when the displayed lyric line changes.
+    var currentLyricsLineIndex: Int?
+
+    /// Representative playback timestamp for synced lyrics display state.
+    /// Updated with the line index, not at raw playback cadence.
+    var currentLyricsDisplayTimeMs: Int?
 
     /// Total duration of current track in seconds.
-    private(set) var duration: TimeInterval = 0
+    var duration: TimeInterval = 0 {
+        didSet {
+            guard !self.isApplyingPlaybackStateObservation else { return }
+            self.driveNowPlayingTracklistProvider()
+        }
+    }
+
+    /// Whether the music playback WebView currently reports an advertisement.
+    var isShowingAd = false
+
+    /// Last clock sample known to belong to the requested music content.
+    var lastNonAdContentProgress: TimeInterval = 0
+
+    /// Video identity owning `lastNonAdContentProgress`.
+    var lastNonAdContentVideoId: String?
+
+    /// Video ID carried by the latest playback-state bridge update. This gives consumers
+    /// provenance for `progress`/`duration`, which can otherwise remain stale across track changes.
+    private(set) var playbackStateVideoId: String?
+
+    /// Monotonic identity for playback-state bridge observations. Consumers use this to distinguish
+    /// a fresh same-video sample from progress/duration left behind by an earlier metadata identity.
+    private(set) var playbackStateObservationSequence = 0
+
+    /// Updates only playback identity; it must not infer duration provenance from existing state.
+    func setPlaybackStateVideoId(_ videoId: String?) {
+        self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)
+    }
+
+    /// Records duration provenance only when both values came from the same bridge sample.
+    func recordPlaybackStateObservation(videoId: String?, duration: TimeInterval) {
+        self.playbackStateObservationSequence &+= 1
+        self.playbackStateVideoId = self.normalizedPlaybackVideoId(videoId)
+        self.recordDurationObservation(videoId: self.playbackStateVideoId, duration: duration)
+    }
+
+    func normalizedPlaybackVideoId(_ videoId: String?) -> String? {
+        guard let normalized = videoId?.trimmingCharacters(in: .whitespacesAndNewlines), !normalized.isEmpty else {
+            return nil
+        }
+        return normalized
+    }
+
+    /// Returns the authoritative correlated playback duration when available, otherwise the track's
+    /// positive metadata duration. A bridge observation must replace rather than merge with metadata:
+    /// a persisted `Song` can carry either a stale shorter or stale longer duration.
+    func bestKnownDuration(for track: Song?) -> TimeInterval {
+        guard let track else { return 0 }
+        if let durationObservation, durationObservation.videoId == track.videoId {
+            return durationObservation.duration
+        }
+        return self.positiveMetadataDuration(for: track)
+    }
+
+    func positiveMetadataDuration(for track: Song?) -> TimeInterval {
+        track?.duration.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? 0
+    }
+
+    func observedDuration(for videoId: String) -> TimeInterval? {
+        guard let durationObservation, durationObservation.videoId == videoId else { return nil }
+        return durationObservation.duration
+    }
+
+    func recordDurationObservation(videoId: String?, duration: TimeInterval) {
+        if let videoId, duration.isFinite, duration > 0 {
+            self.durationObservation = (videoId, duration)
+        }
+        self.driveNowPlayingTracklistProvider()
+    }
+
+    private func driveNowPlayingTracklistProvider() {
+        // Mix detection is a one-way fetch latch, so only a duration observed with this physical
+        // video identity may cross its gate. Track metadata remains a safe fallback for persistence,
+        // where it can still be corrected before being acted upon.
+        let observedDuration = self.currentTrack.flatMap {
+            self.observedDuration(for: $0.videoId)
+        } ?? 0
+        self.nowPlayingTracklistProvider?.update(
+            track: self.currentTrack,
+            duration: observedDuration
+        )
+    }
 
     /// Current volume (0.0 - 1.0).
-    private(set) var volume: Double = 1.0
+    var volume: Double = 1.0
 
     /// Volume before muting, for unmute restoration.
-    private var volumeBeforeMute: Double = 1.0
+    private(set) var volumeBeforeMute: Double = 1.0
 
     /// Whether audio is currently muted.
     var isMuted: Bool {
         self.volume == 0
     }
 
-    /// Whether shuffle mode is enabled.
-    private(set) var shuffleEnabled: Bool = false
+    /// Current shuffle mode (off / on / smart).
+    var shuffleMode: ShuffleMode = .off
+
+    /// Whether any shuffle (plain or smart) is active. Computed shim so existing
+    /// readers (WebQueueSync, UI, scripting, protocol) keep working unchanged.
+    var shuffleEnabled: Bool {
+        self.shuffleMode != .off
+    }
+
+    /// True while the rest of a playlist is still loading into the queue after playback
+    /// started. Smart Shuffle defers suggestion generation until this clears, so candidates
+    /// dedup against the complete playlist instead of only the first loaded batch.
+    var isQueueLoading: Bool = false
+
+    /// Monotonic token identifying the current deferred-load stream. Bumped whenever a new
+    /// playback replaces the queue, so a stale deferred load (e.g. a playlist still paging when
+    /// the user starts a different one) can detect it has been superseded and stand down instead
+    /// of clobbering the new playback's loading state. Not observed by the UI.
+    @ObservationIgnored var queueLoadGeneration = 0
 
     /// Current repeat mode.
     private(set) var repeatMode: RepeatMode = .off
 
     /// Playback queue.
-    var queue: [Song] = []
+    private var queueStorage: [QueueEntry] = []
+
+    /// Set when guest-startup privacy cleanup empties visible queue state but
+    /// must not delete a saved guest queue/session on the next persistence pass.
+    var suppressNextEmptyQueuePersistence = false
+
+    /// Ownership scope restored from the persisted playback session payload.
+    /// `nil` means legacy/unknown and must not be trusted across guest privacy boundaries.
+    var restoredPlaybackSessionOwnerScope: String?
+
+    static let playbackSessionScopeGuest = "guest"
+    static let playbackSessionScopeAuthenticated = "authenticated"
+    var queue: [Song] {
+        self.queueStorage.map(\.song)
+    }
+
+    var queueEntryIDs: [UUID] {
+        self.queueStorage.map(\.id)
+    }
+
+    var queueEntries: [QueueEntry] {
+        self.queueStorage
+    }
 
     /// Index of current track in queue.
-    var currentIndex: Int = 0
+    var currentIndex: Int = 0 {
+        didSet {
+            self.synchronizeCurrentQueueEntryID()
+        }
+    }
+
+    private(set) var currentQueueEntryID: UUID?
+
+    /// Queue occurrence currently represented by active Web media.
+    var activePlaybackQueueEntryID: UUID?
 
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
 
+    /// Whether the native mini player window is visible.
+    var isMiniPlayerVisible: Bool = false
+
+    /// How the native mini player was opened.
+    var miniPlayerMode: MiniPlayerMode = .auxiliary
+
+    /// Which mini player layout is active.
+    var miniPlayerPanel: MiniPlayerPanel = .compact
+
+    /// Whether closing the mini player should restore the main window.
+    var shouldRestoreMainWindowWhenMiniPlayerCloses: Bool = false
+
+    /// A consumed-on-read restore request created when a switched mini player closes.
+    var miniPlayerMainWindowRestoreRequest: Bool = false
+
     /// The video ID that needs to be played in the mini player.
-    private(set) var pendingPlayVideoId: String?
+    var pendingPlayVideoId: String?
 
     /// Whether the user has successfully interacted at least once this session.
     /// After first successful playback, we can auto-play without showing the popup.
     private(set) var hasUserInteractedThisSession: Bool = false
+
+    /// Saved seek position to apply once a restored session finishes loading.
+    var pendingRestoredSeek: TimeInterval?
+
+    /// Whether a restored session is waiting for an explicit user-triggered load.
+    var isPendingRestoredLoadDeferred: Bool = false
+
+    /// Whether the deferred restored load must force a full page navigation even
+    /// when the same video ID is already present in the WebView.
+    var shouldForcePendingRestoredLoad: Bool = false
+
+    /// Whether launch-time session restoration is still reconciling with the player observer.
+    var isRestoringPlaybackSession: Bool = false
+
+    /// Whether a restored load should automatically resume after seeking to the saved position.
+    var shouldAutoResumeAfterRestoredLoad: Bool = false
 
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus = .indifferent
@@ -125,7 +377,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Whether the current track has video available.
-    private(set) var currentTrackHasVideo: Bool = false
+    var currentTrackHasVideo: Bool = false
 
     /// Whether video mode is active (user has opened video window).
     /// Note: We don't auto-close based on currentTrackHasVideo here because
@@ -133,7 +385,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var showVideo: Bool = false
 
     /// Whether AirPlay is currently connected (playing to a wireless target).
-    private(set) var isAirPlayConnected: Bool = false
+    var isAirPlayConnected: Bool = false
 
     /// Whether the user has requested AirPlay this session (for persistence across track changes).
     private(set) var airPlayWasRequested: Bool = false
@@ -142,20 +394,80 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
+    var authService: AuthService?
+    var songLikeStatusManager = SongLikeStatusManager.shared
+
+    /// Drives sub-track (mix) segmentation for the current item. Held only to notify it of
+    /// track/duration changes; readers observe it directly via the environment.
+    private(set) var nowPlayingTracklistProvider: NowPlayingTracklistProvider?
 
     /// Continuation token for loading more songs in infinite mix/radio.
     var mixContinuationToken: String?
+    var mixContinuationRequiresAuth = false
+    var musicPlaybackIntentGeneration: UInt64 = 0
+    var musicPlaybackReservationGeneration: UInt64 = 0
+    var musicPlaybackIntentIssuedAtMilliseconds: Double = 0
+    var musicPlaybackIntentAcceptsPriorTerminalEvent = false
+    var musicPlaybackMinimumAcceptedTerminalIntentGeneration: UInt64 = 0
+    var libraryMutationGeneration: UInt64 = 0
+    var libraryMutationRevisionCounter: UInt64 = 0
+    var libraryMutationRevisions: [String: UInt64] = [:]
+    var confirmedLibraryStateByKey: [String: MusicLibraryConfirmedState] = [:]
+    var pendingLibraryMutationCountsByKey: [String: Int] = [:]
+    var accountSessionGeneration: UInt64 = 0
+    @ObservationIgnored var libraryMutationTails: [String: Task<Result<Void, any Error>, Never>] = [:]
+    @ObservationIgnored var libraryMutationTailGenerations: [String: UInt64] = [:]
+    @ObservationIgnored var remoteMusicTransportCommands: [MusicRemoteTransportCommand] = []
+    @ObservationIgnored var remoteMusicTransportCommandReadIndex = 0
+    @ObservationIgnored var remoteMusicTransportTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicTransportBatchGeneration: UInt64 = 0
+    @ObservationIgnored var remoteMusicTransportIntent: MusicPlaybackIntent?
+    @ObservationIgnored var remoteMusicSkipTarget: TimeInterval?
+    @ObservationIgnored var remoteMusicSkipVideoID: String?
+    @ObservationIgnored var remoteMusicSkipQueueEntryID: UUID?
+    @ObservationIgnored var remoteMusicSkipAdmittedAt: ContinuousClock.Instant?
+    @ObservationIgnored var remoteMusicMetadataFollowUpTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicMetadataFollowUpGeneration: UInt64 = 0
+    @ObservationIgnored var remoteMusicQueueFollowUpTask: Task<Void, Never>?
+    @ObservationIgnored var remoteMusicQueueFollowUpGeneration: UInt64 = 0
 
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
+    var activeMixContinuationRequestID: UUID?
+    var mixContinuationWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Smart Shuffle: videoIds suggested this session, for dedup across fills.
+    var smartShuffleSeenSuggestionIds: Set<String> = []
+
+    /// Smart Shuffle: seed videoIds whose radio yielded nothing new, so the filler skips them.
+    var smartShuffleExhaustedSeeds: Set<String> = []
+
+    /// Whether the smart-shuffle window filler is running (also drives the player-bar progress hint).
+    var isApplyingSmartShuffle: Bool = false
+
+    /// The in-flight suggestion fill, if any. A single stored task coalesces concurrent callers
+    /// (mode cycling, rapid advances) onto one fill loop and lets a queue replacement cancel a
+    /// stale fill, replacing the old fire-and-forget `Task {}` + boolean re-entrancy guard.
+    @ObservationIgnored var smartShuffleFillTask: Task<Void, Never>?
+
+    /// Monotonic token for the current fill. `Task` is a value type (no identity), so the spawner
+    /// captures this epoch and only clears the shared task/hint if it still owns them — a cancel or
+    /// a newer fill bumps the epoch so a stale spawner cannot stomp the live one.
+    @ObservationIgnored var smartShuffleFillEpoch = 0
 
     /// UserDefaults key for persisting queue display mode.
     static let queueDisplayModeKey = "kaset.queue.displayMode"
 
     /// Undo/redo history for queue (up to 10 states). In-memory only.
-    private var queueUndoHistory: [([Song], Int)] = []
-    private var queueRedoHistory: [([Song], Int)] = []
-    private static let queueUndoMaxCount = 10
+    var queueUndoHistory: [QueueState] = []
+    var queueRedoHistory: [QueueState] = []
+    static let queueUndoMaxCount = 10
+
+    /// Queue index before each `next()`; `previous()` pops so Back returns to the track you skipped from (shuffle- and seek-safe).
+    private var forwardSkipIndexStack: [Int] = []
+
+    /// Queue order captured when shuffle is enabled, used to restore the visible queue when shuffle is disabled.
+    var queueOrderBeforeShuffle: [QueueEntry]?
 
     /// UserDefaults key for persisting volume.
     static let volumeKey = "playerVolume"
@@ -163,16 +475,54 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     static let volumeBeforeMuteKey = "playerVolumeBeforeMute"
     /// UserDefaults key for persisting shuffle state.
     static let shuffleEnabledKey = "playerShuffleEnabled"
+    /// UserDefaults key for persisting the tri-state shuffle mode.
+    static let shuffleModeKey = "playerShuffleMode"
     /// UserDefaults key for persisting repeat mode.
     static let repeatModeKey = "playerRepeatMode"
 
-    /// Task handle for the background queue metadata enrichment service.
-    var enrichmentTask: Task<Void, Never>?
+    /// Last playback-session signature written in this process, used to skip redundant UserDefaults writes.
+    @ObservationIgnored var lastSavedPlaybackSessionSignature: Data?
+
+    @ObservationIgnored var queuePersistenceWriteCountForTesting = 0
+
+    /// Optional suffix for test-only queue persistence isolation. Production uses the empty suffix.
+    @ObservationIgnored var queuePersistenceKeySuffix = ""
+
+    /// Task handle for the one-shot queue metadata enrichment pass, if one is scheduled or running.
+    @ObservationIgnored var enrichmentTask: Task<Void, Never>?
+
+    /// Delay used to coalesce queue mutations before the one-shot metadata enrichment pass runs.
+    @ObservationIgnored var queueEnrichmentInitialDelay: Duration = .seconds(2)
+
+    /// Delay used before retrying entries that remain incomplete after a scheduled enrichment pass.
+    @ObservationIgnored var queueEnrichmentRetryDelay: Duration = .seconds(30)
+
+    /// Maximum scheduled enrichment attempts per stable queue entry before waiting for another queue event.
+    static let maxQueueEnrichmentAttempts = 3
+
+    /// Scheduled enrichment attempts by stable queue entry identity.
+    @ObservationIgnored var queueEnrichmentAttemptsByEntryID: [UUID: Int] = [:]
+
+    /// Monotonic token used to prevent stale scheduled enrichment tasks from clearing a newer task.
+    @ObservationIgnored var queueEnrichmentGeneration = 0
+
+    /// True while the one-shot enrichment pass is actively fetching metadata.
+    @ObservationIgnored var isQueueEnrichmentRunning = false
+
+    /// Generation of the currently running enrichment pass, if any.
+    @ObservationIgnored var queueEnrichmentRunningGeneration: Int?
+
+    /// Set when an external queue mutation happens while enrichment is running.
+    @ObservationIgnored var queueEnrichmentNeedsReschedule = false
+
+    /// Suppresses scheduler churn for queue writes that are produced by the enrichment pass itself.
+    @ObservationIgnored var isApplyingQueueEnrichmentResult = false
 
     // MARK: - Initialization
 
     override init() {
         super.init()
+        self.observeNowPlayingLikeStatus()
         // Restore saved volume from UserDefaults
         if UserDefaults.standard.object(forKey: Self.volumeKey) != nil {
             let savedVolume = UserDefaults.standard.double(forKey: Self.volumeKey)
@@ -190,10 +540,23 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
         // Restore shuffle and repeat settings if enabled in settings
         if SettingsManager.shared.rememberPlaybackSettings {
-            if UserDefaults.standard.object(forKey: Self.shuffleEnabledKey) != nil {
-                self.shuffleEnabled = UserDefaults.standard.bool(forKey: Self.shuffleEnabledKey)
-                self.logger.info("Restored shuffle state: \(self.shuffleEnabled)")
+            if let savedMode = UserDefaults.standard.string(forKey: Self.shuffleModeKey),
+               let mode = ShuffleMode(rawValue: savedMode)
+            {
+                self.shuffleMode = mode
+                self.logger.info("Restored shuffle mode: \(self.shuffleMode.rawValue)")
+            } else if UserDefaults.standard.object(forKey: Self.shuffleEnabledKey) != nil {
+                // Legacy migration: map the old bool to the new tri-state.
+                self.shuffleMode = UserDefaults.standard.bool(forKey: Self.shuffleEnabledKey) ? .on : .off
+                self.logger.info("Migrated legacy shuffle state to mode: \(self.shuffleMode.rawValue)")
             }
+
+            // Don't resurrect smart mode if the feature has since been disabled in settings;
+            // fall back to plain shuffle (the user still wanted shuffle, just not suggestions).
+            self.shuffleMode = Self.resolvedShuffleMode(
+                self.shuffleMode,
+                smartShuffleEnabled: self.smartShuffleFeatureEnabled()
+            )
 
             if let savedRepeatMode = UserDefaults.standard.string(forKey: Self.repeatModeKey) {
                 switch savedRepeatMode {
@@ -222,69 +585,86 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // Load mock state for UI tests
         self.loadMockStateIfNeeded()
 
-        // Start queue metadata enrichment service
+        // Queue metadata enrichment is event/one-shot driven; this only schedules if restored
+        // state already needs enrichment and a client is available.
         self.startQueueEnrichmentService()
     }
 
-    /// Returns true if the given song is the current track.
-    func isCurrentTrack(_ song: Song) -> Bool {
-        self.currentTrack?.videoId == song.videoId
+    // MARK: - Controlled Mutators
+
+    /// Stores the pre-mute volume through a narrow API instead of exposing a writable property.
+    func rememberVolumeBeforeMute(_ value: Double) {
+        let normalizedValue = value > 0 ? value : 1.0
+        self.volumeBeforeMute = normalizedValue
+        UserDefaults.standard.set(normalizedValue, forKey: Self.volumeBeforeMuteKey)
     }
 
-    /// Toggles between popup and side panel queue display modes.
-    func toggleQueueDisplayMode() {
-        if self.queueDisplayMode == .popup {
-            self.queueDisplayMode = .sidepanel
-        } else {
-            self.queueDisplayMode = .popup
+    /// Advances the repeat mode and persists it when playback settings are remembered.
+    func advanceRepeatMode() {
+        self.repeatMode = switch self.repeatMode {
+        case .off:
+            .all
+        case .all:
+            .one
+        case .one:
+            .off
         }
-        UserDefaults.standard.set(self.queueDisplayMode.rawValue, forKey: Self.queueDisplayModeKey)
-        self.logger.info("Queue display mode: \(self.queueDisplayMode.displayName)")
-    }
 
-    // MARK: - Queue Undo / Redo
+        guard SettingsManager.shared.rememberPlaybackSettings else { return }
 
-    /// Whether queue undo is available.
-    var canUndoQueue: Bool {
-        !self.queueUndoHistory.isEmpty
-    }
-
-    /// Whether queue redo is available.
-    var canRedoQueue: Bool {
-        !self.queueRedoHistory.isEmpty
-    }
-
-    /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 3 states.
-    func recordQueueStateForUndo() {
-        let state = (self.queue, self.currentIndex)
-        self.queueUndoHistory.append(state)
-        if self.queueUndoHistory.count > Self.queueUndoMaxCount {
-            self.queueUndoHistory.removeFirst()
+        let modeString = switch self.repeatMode {
+        case .off: "off"
+        case .all: "all"
+        case .one: "one"
         }
-        self.queueRedoHistory.removeAll()
-        self.logger.debug("Recorded queue state for undo, undo count: \(self.queueUndoHistory.count)")
+        UserDefaults.standard.set(modeString, forKey: Self.repeatModeKey)
     }
 
-    /// Restores the previous queue state. Does nothing if undo history is empty.
-    func undoQueue() {
-        guard let state = self.queueUndoHistory.popLast() else { return }
-        let (previousQueue, previousIndex) = state
-        self.queueRedoHistory.append((self.queue, self.currentIndex))
-        self.queue = previousQueue
-        self.currentIndex = min(previousIndex, max(0, previousQueue.count - 1))
-        self.saveQueueForPersistence()
-        self.logger.info("Undid queue to \(previousQueue.count) songs at index \(self.currentIndex)")
+    /// Records that playback has succeeded after a user gesture in this app session.
+    func markUserInteractedThisSession() {
+        self.hasUserInteractedThisSession = true
     }
 
-    /// Restores the next queue state after an undo. Does nothing if redo history is empty.
-    func redoQueue() {
-        guard let state = self.queueRedoHistory.popLast() else { return }
-        let (nextQueue, nextIndex) = state
-        self.queueUndoHistory.append((self.queue, self.currentIndex))
-        self.queue = nextQueue
-        self.currentIndex = min(nextIndex, max(0, nextQueue.count - 1))
-        self.saveQueueForPersistence()
-        self.logger.info("Redid queue to \(nextQueue.count) songs at index \(self.currentIndex)")
+    /// Records that the user explicitly requested AirPlay in this app session.
+    func markAirPlayRequested() {
+        self.airPlayWasRequested = true
+    }
+
+    /// Clears forward-skip undo when the queue is replaced or reordered so indices are not stale.
+    func clearForwardSkipNavigationStack() {
+        self.forwardSkipIndexStack.removeAll()
+    }
+
+    func setQueue(_ songs: [Song], entryIDs: [UUID]? = nil) {
+        let entries = zip(entryIDs ?? songs.map { _ in UUID() }, songs).map { QueueEntry(id: $0.0, song: $0.1) }
+        self.setQueue(entries: entries.count == songs.count ? entries : songs.map { QueueEntry(id: UUID(), song: $0) })
+    }
+
+    func setQueue(entries: [QueueEntry]) {
+        self.queueStorage = entries
+        if let activePlaybackQueueEntryID,
+           !entries.contains(where: { $0.id == activePlaybackQueueEntryID })
+        {
+            self.activePlaybackQueueEntryID = nil
+        }
+        self.synchronizeCurrentQueueEntryID()
+        self.queueDidChangeForEnrichment()
+    }
+
+    func synchronizeCurrentQueueEntryID() {
+        self.currentQueueEntryID = self.queueStorage[safe: self.currentIndex]?.id
+    }
+
+    /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).
+    func pushForwardSkipStackIfLeavingIndex(for newIndex: Int) {
+        let from = self.currentIndex
+        guard from != newIndex else { return }
+        self.forwardSkipIndexStack.append(from)
+    }
+
+    /// Returns and removes the most recent index saved before a forward skip.
+    func popForwardSkipIndex() -> Int? {
+        self.forwardSkipIndexStack.popLast()
     }
 
     /// Loads mock player state from environment variables for UI testing.
@@ -301,6 +681,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         {
             let artist = dict["artist"] as? String ?? "Unknown Artist"
             let duration: TimeInterval? = (dict["duration"] as? Int).map { TimeInterval($0) }
+            let hasVideo = dict["hasVideo"] as? Bool
             self.currentTrack = Song(
                 id: id,
                 title: title,
@@ -308,8 +689,12 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
                 album: nil,
                 duration: duration,
                 thumbnailURL: nil,
-                videoId: videoId
+                videoId: videoId,
+                hasVideo: hasVideo
             )
+            if let hasVideo {
+                self.currentTrackHasVideo = hasVideo
+            }
             self.logger.debug("Loaded mock current track: \(title)")
         }
 
@@ -328,509 +713,306 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Sets the like-status cache used by playback metadata and rating actions.
+    func setSongLikeStatusManager(_ manager: SongLikeStatusManager) {
+        self.songLikeStatusManager = manager
+    }
+
     /// Sets the YTMusicClient for API calls (dependency injection).
     func setYTMusicClient(_ client: any YTMusicClientProtocol) {
         self.ytMusicClient = client
+        self.resetQueueEnrichmentAttemptState()
+        self.scheduleQueueEnrichmentIfNeeded()
     }
 
-    // MARK: - Public Methods
-
-    /// Plays a track by video ID.
-    func play(videoId: String) async {
-        self.logger.debug("play() called with videoId: \(videoId)")
-        self.logger.info("Playing video: \(videoId)")
-        self.state = .loading
-
-        // Create a minimal Song object for now
-        self.currentTrack = Song(
-            id: videoId,
-            title: "Loading...",
-            artists: [],
-            album: nil,
-            duration: nil,
-            thumbnailURL: nil,
-            videoId: videoId
-        )
-
-        self.pendingPlayVideoId = videoId
-
-        // If user has already interacted this session, auto-play without popup
-        if self.hasUserInteractedThisSession {
-            self.logger.info("User has interacted before, auto-playing without popup")
-            self.showMiniPlayer = false
-            // Load the video directly - WebView session should allow autoplay
-            SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
-        } else {
-            // First time: show the mini player for user interaction
-            self.showMiniPlayer = true
-            self.logger.info("Showing mini player for first-time user interaction")
-        }
-
-        // Fetch full song metadata in the background to get feedbackTokens
-        await self.fetchSongMetadata(videoId: videoId)
+    /// Sets the AuthService used to guard account-scoped mutations.
+    func setAuthService(_ authService: AuthService) {
+        self.authService = authService
     }
 
-    /// Plays a song.
-    func play(song: Song) async {
-        self.logger.info("Playing song: \(song.title)")
-        self.state = .loading
-        self.currentTrack = song
-
-        // Mark that we initiated this playback (to detect and correct YouTube's autoplay override)
-        self.isKasetInitiatedPlayback = true
-
-        // Use existing feedbackTokens if the song already has them
-        if let tokens = song.feedbackTokens {
-            self.currentTrackFeedbackTokens = tokens
-            self.currentTrackInLibrary = song.isInLibrary ?? false
-            if let likeStatus = song.likeStatus {
-                self.currentTrackLikeStatus = likeStatus
-            }
-        }
-
-        self.pendingPlayVideoId = song.videoId
-
-        // If user has already interacted this session, auto-play without popup
-        if self.hasUserInteractedThisSession {
-            self.logger.info("User has interacted before, auto-playing without popup")
-            self.showMiniPlayer = false
-            SingletonPlayerWebView.shared.loadVideo(videoId: song.videoId)
-        } else {
-            // First time: show the mini player for user interaction
-            self.showMiniPlayer = true
-            self.logger.info("Showing mini player for first-time user interaction")
-        }
-
-        // Fetch full song metadata if we don't have feedbackTokens
-        if song.feedbackTokens == nil {
-            await self.fetchSongMetadata(videoId: song.videoId)
-        }
+    /// Injects the provider that tracks sub-track segmentation for the current item, and primes it
+    /// with the current track so segments resolve even if playback started before wiring.
+    func setNowPlayingTracklistProvider(_ provider: NowPlayingTracklistProvider) {
+        self.nowPlayingTracklistProvider = provider
+        self.driveNowPlayingTracklistProvider()
     }
 
-    /// Called when the mini player confirms playback has started.
-    func confirmPlaybackStarted() {
-        self.showMiniPlayer = false
-        self.state = .playing
-        self.hasUserInteractedThisSession = true
-        self.logger.info("Playback confirmed started, user interaction recorded")
-    }
-
-    /// Called when the mini player is dismissed.
-    func miniPlayerDismissed() {
-        self.showMiniPlayer = false
-        if self.state == .loading {
-            self.state = .idle
-        }
-    }
-
-    /// Updates playback state from the persistent WebView observer.
-    func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
-        let previousProgress = self.progress
-        self.progress = progress
-        self.duration = duration
-        if isPlaying {
-            self.state = .playing
-        } else if self.state == .playing {
-            self.state = .paused
-        }
-
-        // Detect when song is about to end (within last 2 seconds)
-        // This helps us prepare to play the next track from our queue
-        if duration > 0, progress >= duration - 2, previousProgress < duration - 2 {
-            self.songNearingEnd = true
-        }
+    /// Account-backed library/rating mutations should be no-ops in guest mode.
+    var canPerformAccountMutation: Bool {
+        self.authService?.hasPersonalAccount ?? false
     }
 
     /// Flag to track when a song is nearing its end.
-    private var songNearingEnd: Bool = false
+    var songNearingEnd: Bool = false
 
     /// Flag to track when we initiated a track change (to correct YouTube's autoplay interference).
     /// This is set when we call play() and cleared after the track loads.
-    private var isKasetInitiatedPlayback: Bool = false
+    var isKasetInitiatedPlayback: Bool = false
 
-    /// Updates track metadata when track changes (e.g., via next/previous).
-    /// Also handles enforcing our queue when YouTube autoplay kicks in.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String) {
-        self.logger.debug("Track metadata updated: \(title) - \(artist)")
-
-        let thumbnailURL = URL(string: thumbnailUrl)
-        let artistObj = Artist(id: "unknown", name: artist)
-
-        // Preserve videoId if we have it
-        let videoId = self.currentTrack?.videoId ?? self.pendingPlayVideoId ?? "unknown"
-
-        // Check if track actually changed
-        let trackChanged = self.currentTrack?.title != title || self.currentTrack?.artistsDisplay != artist
-
-        // If we initiated playback (e.g., via next() with shuffle), check if YouTube loaded a different track
-        // This happens when the WebView's media session intercepts media keys and triggers YouTube's own next
-        if trackChanged, self.isKasetInitiatedPlayback, !self.queue.isEmpty {
-            // Get the song we intended to play and compare using videoId to detect mismatched tracks
-            if let intendedSong = queue[safe: currentIndex], intendedSong.videoId != videoId {
-                self.logger.info("YouTube loaded different track '\(title)' (\(videoId)), re-playing intended track '\(intendedSong.title)'")
-                // Clear the flag to prevent infinite loop
-                self.isKasetInitiatedPlayback = false
-                Task {
-                    await self.play(song: intendedSong)
-                }
-                return
-            }
-            // Track matches what we wanted, clear the flag
-            self.isKasetInitiatedPlayback = false
-        }
-
-        // If track changed and we have a queue, check if YouTube autoplay kicked in (song ending naturally)
-        if trackChanged, !self.queue.isEmpty, self.songNearingEnd {
-            self.songNearingEnd = false
-
-            // Check if the new track matches our expected next track in queue
-            let expectedNextIndex = self.currentIndex + 1
-            if expectedNextIndex < self.queue.count {
-                let expectedNextTrack = self.queue[expectedNextIndex]
-                // If title doesn't match expected next track, YouTube autoplay overrode our queue
-                if title != expectedNextTrack.title {
-                    self.logger.info("YouTube autoplay detected, overriding with queue track")
-                    // Play our queue's next track instead
-                    Task {
-                        await self.next()
-                    }
-                    return
-                } else {
-                    // Track matches our queue, update the index
-                    self.currentIndex = expectedNextIndex
-                    self.logger.info("Track advanced to queue index \(expectedNextIndex)")
-                    self.saveQueueForPersistence()
-                }
-            }
-        }
-
-        self.currentTrack = Song(
-            id: videoId,
-            title: title,
-            artists: [artistObj],
-            album: nil,
-            duration: self.duration > 0 ? self.duration : nil,
-            thumbnailURL: thumbnailURL,
-            videoId: videoId
-        )
-
-        // Reset like/library status when track changes
-        if trackChanged {
-            self.resetTrackStatus()
-        }
-    }
+    /// Flag to suppress YouTube autoplay after the native queue has finished.
+    var shouldSuppressAutoplayAfterQueueEnd: Bool = false
 
     /// Grace period instant - don't auto-close video window shortly after opening (uses monotonic clock)
-    private var videoWindowOpenedAt: ContinuousClock.Instant?
+    var videoWindowOpenedAt: ContinuousClock.Instant?
 
-    /// Updates whether the current track has video available.
-    /// Note: This only affects the UI (enabling/disabling the video button).
-    /// It does NOT auto-close an open video window, since hasVideo detection
-    /// can be unreliable when the video element has been extracted by video mode CSS.
-    func updateVideoAvailability(hasVideo: Bool) {
-        let previousValue = self.currentTrackHasVideo
-        self.currentTrackHasVideo = hasVideo
+    /// Debounces repeat-one recovery `play()` when YouTube sends bursty metadata (safety net in `PlayerService+WebQueueSync`).
+    /// Internal so the WebQueueSync extension can throttle; not part of the public API.
+    var lastRepeatOneRecoveryInstant: ContinuousClock.Instant?
 
-        // Don't auto-close the video window based on hasVideo detection.
-        // The detection is unreliable when video mode is active because:
-        // 1. The video element has been extracted from its original DOM location
-        // 2. The Song/Video toggle buttons may be hidden by our CSS
-        // 3. Resize or other layout changes can temporarily break detection
-        //
-        // Instead, we rely on trackChanged detection in the Coordinator to close
-        // the video window when a new track starts.
-
-        if previousValue != hasVideo {
-            self.logger.debug("Video availability updated: \(hasVideo)")
+    /// Starts a native fallback occurrence until the Web observer binds the
+    /// corresponding document/media occurrence.
+    @discardableResult
+    func beginNativeMusicPlaybackOccurrence(
+        videoId: String? = nil,
+        synchronizeCurrentDocument: Bool = false
+    ) -> MusicPlaybackOccurrence {
+        self.nativeMusicPlaybackGeneration = max(
+            self.nativeMusicPlaybackGeneration,
+            self.currentMusicPlaybackOccurrence?.nativeGeneration ?? 0
+        )
+        self.nativeMusicPlaybackGeneration &+= 1
+        let occurrence = MusicPlaybackOccurrence.native(
+            generation: self.nativeMusicPlaybackGeneration,
+            videoId: videoId
+        )
+        self.currentMusicPlaybackOccurrence = occurrence
+        if synchronizeCurrentDocument {
+            SingletonPlayerWebView.shared.setNativePlaybackGeneration(
+                occurrence.nativeGeneration
+            )
         }
+        return occurrence
     }
 
-    /// Called when video window opens to start grace period
-    func videoWindowDidOpen() {
-        self.videoWindowOpenedAt = ContinuousClock.now
-        self.logger.debug("videoWindowDidOpen: grace period started")
-    }
-
-    /// Called when video window closes to clear grace period
-    func videoWindowDidClose() {
-        self.videoWindowOpenedAt = nil
-        self.logger.debug("videoWindowDidClose: grace period cleared")
-    }
-
-    /// Returns true if video window was recently opened (within grace period)
-    /// This is used to ignore spurious trackChanged events during video mode setup
-    var isVideoGracePeriodActive: Bool {
-        guard let openedAt = self.videoWindowOpenedAt else { return false }
-        // 3 second grace period to allow video mode setup to complete
-        return ContinuousClock.now - openedAt < .seconds(3)
-    }
-
-    /// Toggles play/pause.
-    func playPause() async {
-        self.logger.debug("Toggle play/pause")
-
-        // Use singleton WebView if we have a pending video
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.playPause()
-        } else if self.isPlaying {
-            await self.pause()
+    /// A terminal transition can be claimed before the Web observer binds its
+    /// document/media occurrence. Resuming that media is a new playback, so it
+    /// needs a fresh native generation and the active document must publish it.
+    @discardableResult
+    func beginNativeMusicPlaybackReplayIfNeeded() -> MusicPlaybackOccurrence? {
+        guard let currentMusicPlaybackOccurrence else { return nil }
+        let wasConsumed = if currentMusicPlaybackOccurrence.documentGeneration == nil {
+            currentMusicPlaybackOccurrence.mediaGeneration
+                <= self.lastClaimedNativeMusicPlaybackGeneration
+        } else if let lastClaimedWebMusicPlaybackOccurrence {
+            !Self.isWebMusicPlaybackOccurrence(
+                currentMusicPlaybackOccurrence,
+                newerThan: lastClaimedWebMusicPlaybackOccurrence
+            )
         } else {
-            await self.resume()
+            false
         }
+        guard wasConsumed else { return nil }
+
+        return self.beginNativeMusicPlaybackOccurrence(
+            videoId: self.currentTrack?.videoId
+                ?? self.pendingPlayVideoId
+                ?? currentMusicPlaybackOccurrence.videoId,
+            synchronizeCurrentDocument: true
+        )
     }
 
-    /// Pauses playback.
-    func pause() async {
-        self.logger.debug("Pausing playback")
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.pause()
+    func resetMusicPlaybackOccurrenceState() {
+        self.currentMusicPlaybackOccurrence = nil
+        self.lastClaimedWebMusicPlaybackOccurrence = nil
+    }
+
+    /// Binds the active native playback state to an observer-issued occurrence.
+    /// Older or already-terminal Web occurrences cannot replace a newer replay.
+    @discardableResult
+    func bindWebMusicPlaybackOccurrence(
+        documentGeneration: UInt64,
+        mediaGeneration: UInt64,
+        nativeGeneration: UInt64 = 0,
+        videoId: String? = nil
+    ) -> MusicPlaybackOccurrence? {
+        guard mediaGeneration > 0 else { return self.currentMusicPlaybackOccurrence }
+        let occurrence = MusicPlaybackOccurrence.web(
+            documentGeneration: documentGeneration,
+            mediaGeneration: mediaGeneration,
+            nativeGeneration: nativeGeneration,
+            videoId: videoId
+        )
+        let nativeOccurrence = self.currentMusicPlaybackOccurrence.flatMap {
+            $0.documentGeneration == nil ? $0 : nil
+        }
+        if self.songNearingEnd,
+           let currentMusicPlaybackOccurrence,
+           currentMusicPlaybackOccurrence.documentGeneration != nil,
+           Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: currentMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+        if let nativeOccurrence,
+           occurrence.nativeGeneration < nativeOccurrence.nativeGeneration
+        {
+            return nil
+        }
+        let hasConfirmedVideoMismatch = if let nativeVideoId = nativeOccurrence?.videoId,
+                                           let videoId
+        {
+            nativeVideoId != videoId
         } else {
-            await self.evaluatePlayerCommand("pause")
+            false
         }
-    }
-
-    /// Resumes playback.
-    func resume() async {
-        self.logger.debug("Resuming playback")
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.play()
+        let inheritsConsumedNativeOccurrence = if let nativeOccurrence {
+            occurrence.nativeGeneration == nativeOccurrence.nativeGeneration
+                && !hasConfirmedVideoMismatch
+                && nativeOccurrence.mediaGeneration
+                <= self.lastClaimedNativeMusicPlaybackGeneration
         } else {
-            await self.evaluatePlayerCommand("play")
+            false
         }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+
+        if let currentMusicPlaybackOccurrence,
+           currentMusicPlaybackOccurrence.documentGeneration != nil,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThanOrEqualTo: currentMusicPlaybackOccurrence
+           )
+        {
+            return nil
+        }
+
+        self.currentMusicPlaybackOccurrence = occurrence
+        if inheritsConsumedNativeOccurrence {
+            self.lastClaimedWebMusicPlaybackOccurrence = occurrence
+        }
+        return occurrence
     }
 
-    /// Skips to next track.
-    func next() async {
-        self.logger.debug("Skipping to next track")
-
-        // Prioritize local queue if we have one
-        if !self.queue.isEmpty {
-            // Handle repeat one mode - replay current track
-            if self.repeatMode == .one {
-                await self.seek(to: 0)
-                await self.resume()
-                return
-            }
-
-            // Handle shuffle mode - pick random track
-            if self.shuffleEnabled {
-                let randomIndex = Int.random(in: 0 ..< self.queue.count)
-                self.currentIndex = randomIndex
-                if let nextSong = queue[safe: currentIndex] {
-                    await self.play(song: nextSong)
+    func acceptsWebMusicPlaybackOccurrence(_ occurrence: MusicPlaybackOccurrence) -> Bool {
+        if let currentMusicPlaybackOccurrence {
+            if currentMusicPlaybackOccurrence.documentGeneration == nil {
+                guard occurrence.nativeGeneration >= currentMusicPlaybackOccurrence.nativeGeneration else {
+                    return false
                 }
-                await self.fetchMoreMixSongsIfNeeded()
-                self.saveQueueForPersistence()
-                return
-            }
-
-            // Normal next behavior
-            if self.currentIndex < self.queue.count - 1 {
-                self.currentIndex += 1
-                if let nextSong = queue[safe: currentIndex] {
-                    await self.play(song: nextSong)
-                }
-                // Check if we should fetch more songs
-                await self.fetchMoreMixSongsIfNeeded()
-                self.saveQueueForPersistence()
-            } else if self.repeatMode == .all {
-                // Loop back to start if repeat all is enabled
-                self.currentIndex = 0
-                if let firstSong = queue.first {
-                    await self.play(song: firstSong)
-                }
-                self.saveQueueForPersistence()
-            } else if self.mixContinuationToken != nil {
-                // At end of queue but have continuation - fetch more and continue
-                let previousCount = self.queue.count
-                await self.fetchMoreMixSongsIfNeeded()
-                // Only advance if new songs were actually added
-                if self.queue.count > previousCount {
-                    self.currentIndex += 1
-                    if let nextSong = queue[safe: currentIndex] {
-                        await self.play(song: nextSong)
-                    }
-                    self.saveQueueForPersistence()
-                }
-            }
-            // At end of queue with repeat off and no continuation, don't do anything
-            return
-        }
-
-        // Fall back to YouTube's next if no local queue
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.next()
-        }
-    }
-
-    /// Goes to previous track.
-    func previous() async {
-        self.logger.debug("Going to previous track")
-
-        // Prioritize local queue if we have one
-        if !self.queue.isEmpty {
-            if self.progress > 3 {
-                // Restart current track
-                if self.pendingPlayVideoId != nil {
-                    SingletonPlayerWebView.shared.seek(to: 0)
+                let hasConfirmedVideoMismatch = if let nativeVideoId = currentMusicPlaybackOccurrence.videoId,
+                                                   let webVideoId = occurrence.videoId
+                {
+                    nativeVideoId != webVideoId
                 } else {
-                    await self.seek(to: 0)
+                    false
                 }
-            } else if self.currentIndex > 0 {
-                self.currentIndex -= 1
-                if let prevSong = queue[safe: currentIndex] {
-                    await self.play(song: prevSong)
+                if occurrence.nativeGeneration == currentMusicPlaybackOccurrence.nativeGeneration,
+                   !hasConfirmedVideoMismatch,
+                   currentMusicPlaybackOccurrence.mediaGeneration
+                   <= self.lastClaimedNativeMusicPlaybackGeneration
+                {
+                    return false
                 }
-                self.saveQueueForPersistence()
-            } else {
-                // At start of queue, just restart current track
-                if self.pendingPlayVideoId != nil {
-                    SingletonPlayerWebView.shared.seek(to: 0)
-                } else {
-                    await self.seek(to: 0)
-                }
-            }
-            return
-        }
-
-        // Fall back to YouTube's previous if no local queue
-        if self.pendingPlayVideoId != nil {
-            if self.progress > 3 {
-                SingletonPlayerWebView.shared.seek(to: 0)
-            } else {
-                SingletonPlayerWebView.shared.previous()
-            }
-        } else if self.progress > 3 {
-            await self.seek(to: 0)
-        }
-    }
-
-    /// Seeks to a specific time.
-    func seek(to time: TimeInterval) async {
-        self.logger.debug("Seeking to \(time)")
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.seek(to: time)
-            self.progress = time
-        } else {
-            await self.evaluatePlayerCommand("seekTo(\(time), true)")
-        }
-    }
-
-    /// Sets the volume.
-    func setVolume(_ value: Double) async {
-        let clampedValue = max(0, min(1, value))
-        self.volume = clampedValue
-
-        // Persist volume to UserDefaults (including mute state of 0)
-        UserDefaults.standard.set(clampedValue, forKey: Self.volumeKey)
-
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.setVolume(clampedValue)
-        } else {
-            await self.evaluatePlayerCommand("setVolume(\(Int(clampedValue * 100)))")
-        }
-    }
-
-    /// Toggles mute state. Remembers previous volume for unmuting.
-    func toggleMute() async {
-        if self.isMuted {
-            // Unmute - restore previous volume
-            let restoredVolume = self.volumeBeforeMute > 0 ? self.volumeBeforeMute : 1.0
-            await self.setVolume(restoredVolume)
-            self.logger.info("Unmuted, volume restored to \(restoredVolume)")
-        } else {
-            // Mute - save current volume and set to 0
-            self.volumeBeforeMute = self.volume
-            // Persist volumeBeforeMute so we can restore after app restart
-            UserDefaults.standard.set(self.volumeBeforeMute, forKey: Self.volumeBeforeMuteKey)
-            await self.setVolume(0)
-            self.logger.info("Muted")
-        }
-    }
-
-    /// Toggles shuffle mode.
-    func toggleShuffle() {
-        self.shuffleEnabled.toggle()
-        // Persist shuffle state to UserDefaults if setting is enabled
-        if SettingsManager.shared.rememberPlaybackSettings {
-            UserDefaults.standard.set(self.shuffleEnabled, forKey: Self.shuffleEnabledKey)
-        }
-        let status = self.shuffleEnabled ? "enabled" : "disabled"
-        self.logger.info("Shuffle mode: \(status)")
-    }
-
-    /// Cycles through repeat modes: off -> all -> one -> off.
-    func cycleRepeatMode() {
-        switch self.repeatMode {
-        case .off:
-            self.repeatMode = .all
-        case .all:
-            self.repeatMode = .one
-        case .one:
-            self.repeatMode = .off
-        }
-        // Persist repeat mode to UserDefaults if setting is enabled
-        if SettingsManager.shared.rememberPlaybackSettings {
-            let modeString = switch self.repeatMode {
-            case .off:
-                "off"
-            case .all:
-                "all"
-            case .one:
-                "one"
-            }
-            UserDefaults.standard.set(modeString, forKey: Self.repeatModeKey)
-        }
-        let mode = self.repeatMode
-        self.logger.info("Repeat mode: \(String(describing: mode))")
-    }
-
-    /// Stops playback and clears state.
-    func stop() async {
-        self.logger.debug("Stopping playback")
-        await self.evaluatePlayerCommand("pauseVideo()")
-        self.state = .idle
-        self.currentTrack = nil
-        self.progress = 0
-        self.duration = 0
-    }
-
-    /// Show the AirPlay picker for selecting audio output devices.
-    func showAirPlayPicker() {
-        self.airPlayWasRequested = true
-        SingletonPlayerWebView.shared.showAirPlayPicker()
-    }
-
-    /// Updates the AirPlay connection status from the WebView.
-    func updateAirPlayStatus(isConnected: Bool, wasRequested: Bool = false) {
-        self.isAirPlayConnected = isConnected
-        if wasRequested {
-            self.airPlayWasRequested = true
-        }
-    }
-
-    // MARK: - Private Methods
-
-    /// Legacy method for evaluating player commands - now delegates to SingletonPlayerWebView.
-    private func evaluatePlayerCommand(_ command: String) async {
-        // Commands are now routed through SingletonPlayerWebView
-        switch command {
-        case "pause", "pauseVideo()":
-            SingletonPlayerWebView.shared.pause()
-        case "play", "playVideo()":
-            SingletonPlayerWebView.shared.play()
-        default:
-            if command.hasPrefix("seekTo(") {
-                let timeStr = command.dropFirst(7).prefix(while: { $0 != "," && $0 != ")" })
-                if let time = Double(timeStr) {
-                    SingletonPlayerWebView.shared.seek(to: time)
-                }
-            } else if command.hasPrefix("setVolume(") {
-                let volStr = command.dropFirst(10).dropLast()
-                if let vol = Int(volStr) {
-                    SingletonPlayerWebView.shared.setVolume(Double(vol) / 100.0)
-                }
+            } else if !Self.isWebMusicPlaybackOccurrence(
+                occurrence,
+                newerThanOrEqualTo: currentMusicPlaybackOccurrence
+            ) {
+                return false
             }
         }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               occurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return false
+        }
+        return true
+    }
+
+    /// Atomically consumes one terminal transition for one playback occurrence.
+    /// Main-actor isolation makes the check-and-record indivisible with respect
+    /// to near-end, natural-ended, and manual-ended callers.
+    func claimTerminalMusicPlaybackOccurrence(_ occurrence: MusicPlaybackOccurrence?) -> Bool {
+        let resolvedOccurrence = occurrence
+            ?? self.currentMusicPlaybackOccurrence
+            ?? self.beginNativeMusicPlaybackOccurrence(
+                videoId: self.currentTrack?.videoId ?? self.pendingPlayVideoId
+            )
+
+        if resolvedOccurrence.documentGeneration == nil {
+            if let currentMusicPlaybackOccurrence {
+                guard currentMusicPlaybackOccurrence.documentGeneration == nil,
+                      resolvedOccurrence.nativeGeneration >= currentMusicPlaybackOccurrence.nativeGeneration
+                else {
+                    return false
+                }
+            }
+            guard resolvedOccurrence.mediaGeneration > self.lastClaimedNativeMusicPlaybackGeneration else {
+                return false
+            }
+            self.lastClaimedNativeMusicPlaybackGeneration = resolvedOccurrence.mediaGeneration
+            return true
+        }
+
+        if let currentNativeOccurrence = self.currentMusicPlaybackOccurrence,
+           currentNativeOccurrence.documentGeneration == nil
+        {
+            guard resolvedOccurrence.nativeGeneration >= currentNativeOccurrence.nativeGeneration else {
+                return false
+            }
+            if resolvedOccurrence.nativeGeneration == currentNativeOccurrence.nativeGeneration,
+               currentNativeOccurrence.mediaGeneration <= self.lastClaimedNativeMusicPlaybackGeneration
+            {
+                return false
+            }
+        }
+
+        if let currentWebOccurrence = self.currentMusicPlaybackOccurrence,
+           currentWebOccurrence.documentGeneration != nil,
+           !Self.isWebMusicPlaybackOccurrence(
+               resolvedOccurrence,
+               newerThanOrEqualTo: currentWebOccurrence
+           )
+        {
+            return false
+        }
+
+        if let lastClaimedWebMusicPlaybackOccurrence,
+           !Self.isWebMusicPlaybackOccurrence(
+               resolvedOccurrence,
+               newerThan: lastClaimedWebMusicPlaybackOccurrence
+           )
+        {
+            return false
+        }
+        self.lastClaimedWebMusicPlaybackOccurrence = resolvedOccurrence
+        return true
+    }
+
+    private static func isWebMusicPlaybackOccurrence(
+        _ occurrence: MusicPlaybackOccurrence,
+        newerThan other: MusicPlaybackOccurrence
+    ) -> Bool {
+        guard let documentGeneration = occurrence.documentGeneration,
+              let otherDocumentGeneration = other.documentGeneration
+        else {
+            return false
+        }
+        if documentGeneration != otherDocumentGeneration {
+            return documentGeneration > otherDocumentGeneration
+        }
+        if occurrence.mediaGeneration != other.mediaGeneration {
+            return occurrence.mediaGeneration > other.mediaGeneration
+        }
+        return occurrence.nativeGeneration > other.nativeGeneration
+    }
+
+    private static func isWebMusicPlaybackOccurrence(
+        _ occurrence: MusicPlaybackOccurrence,
+        newerThanOrEqualTo other: MusicPlaybackOccurrence
+    ) -> Bool {
+        occurrence == other || self.isWebMusicPlaybackOccurrence(occurrence, newerThan: other)
     }
 }

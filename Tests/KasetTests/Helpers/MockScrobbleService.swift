@@ -24,6 +24,7 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
     var shouldThrowOnAuthenticate: Error?
     var shouldThrowOnNowPlaying: Error?
     var shouldThrowOnScrobble: Error?
+    var beforeNowPlayingReturn: (@Sendable (ScrobbleTrack) async -> Void)?
     var scrobbleResults: [ScrobbleResult]?
     var validateSessionResult: Bool = true
 
@@ -47,6 +48,10 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
     }
 
     func updateNowPlaying(_ track: ScrobbleTrack) async throws {
+        if let beforeNowPlayingReturn {
+            await beforeNowPlayingReturn(track)
+        }
+        try Task.checkCancellation()
         self.nowPlayingTracks.append(track)
         if let error = self.shouldThrowOnNowPlaying {
             throw error
@@ -81,6 +86,7 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
         self.shouldThrowOnAuthenticate = nil
         self.shouldThrowOnNowPlaying = nil
         self.shouldThrowOnScrobble = nil
+        self.beforeNowPlayingReturn = nil
         self.scrobbleResults = nil
         self.validateSessionResult = true
         self.authState = .disconnected

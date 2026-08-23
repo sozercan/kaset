@@ -34,6 +34,62 @@ enum LyricsParser {
         return nil
     }
 
+    /// Extracts timed lyrics from the browse endpoint or next endpoint response.
+    /// - Parameter data: The data containing timed lyrics.
+    /// - Returns: Parsed SyncedLyrics, or nil if unavailable.
+    static func extractTimedLyrics(from data: [String: Any]) -> SyncedLyrics? {
+        guard let timedLyricsModel = self.findTimedLyricsModel(in: data),
+              let lyricsData = timedLyricsModel["lyricsData"] as? [[String: Any]]
+        else {
+            return nil
+        }
+
+        var lines: [SyncedLyricLine] = []
+        for lineData in lyricsData {
+            if let lyricLine = lineData["lyricLine"] as? String,
+               let startTimeStr = lineData["startTimeMs"] as? String,
+               let startTimeMs = Int(startTimeStr)
+            {
+                let durationMs = (lineData["durationMs"] as? String).flatMap(Int.init) ?? 0
+                lines.append(SyncedLyricLine(
+                    timeInMs: startTimeMs,
+                    duration: durationMs,
+                    text: lyricLine,
+                    words: nil
+                ))
+            }
+        }
+
+        if lines.isEmpty {
+            return nil
+        }
+
+        return SyncedLyrics(lines: lines, source: "YTMusic")
+    }
+
+    /// Recursively searches nested dictionaries/arrays for a timedLyricsModel payload.
+    private static func findTimedLyricsModel(in node: Any) -> [String: Any]? {
+        if let dictionary = node as? [String: Any] {
+            if let timedLyricsModel = dictionary["timedLyricsModel"] as? [String: Any] {
+                return timedLyricsModel
+            }
+
+            for value in dictionary.values {
+                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
+                    return timedLyricsModel
+                }
+            }
+        } else if let array = node as? [Any] {
+            for value in array {
+                if let timedLyricsModel = self.findTimedLyricsModel(in: value) {
+                    return timedLyricsModel
+                }
+            }
+        }
+
+        return nil
+    }
+
     /// Parses lyrics from the browse endpoint response.
     /// - Parameter data: The response from the browse endpoint
     /// - Returns: Parsed lyrics, or `.unavailable` if not found
@@ -62,7 +118,7 @@ enum LyricsParser {
         if let description = shelf["description"] as? [String: Any],
            let runs = description["runs"] as? [[String: Any]]
         {
-            lyricsText = runs.compactMap { $0["text"] as? String }.joined()
+            lyricsText = ParsingHelpers.joinedRunText(runs)
         }
 
         // Extract the footer (source attribution)
@@ -70,7 +126,7 @@ enum LyricsParser {
         if let footer = shelf["footer"] as? [String: Any],
            let runs = footer["runs"] as? [[String: Any]]
         {
-            source = runs.compactMap { $0["text"] as? String }.joined()
+            source = ParsingHelpers.joinedRunText(runs)
         }
 
         if lyricsText.isEmpty {

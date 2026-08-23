@@ -5,7 +5,6 @@ import UniformTypeIdentifiers
 
 /// A horizontal scrolling section displaying pinned Favorites items.
 /// Supports drag-and-drop reordering and context menu actions.
-@available(macOS 26.0, *)
 struct FavoritesSection: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(FavoritesManager.self) private var favoritesManager
@@ -15,36 +14,50 @@ struct FavoritesSection: View {
     /// Binding to navigation path for navigation within the section.
     var onNavigate: ((any Hashable) -> Void)?
 
+    /// Resting horizontal inset for the shelf content, so items rest clear of
+    /// the floating glass sidebar while still scrolling underneath it.
+    /// Defaults to `0` (edge-to-edge) to preserve existing call sites.
+    var contentInset: CGFloat = 0
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Favorites")
+        CarouselShelfSection(
+            accessibilityLabel: String(localized: "Favorites"),
+            items: self.favoritesManager.items,
+            showsControls: self.draggedItem == nil,
+            contentInset: self.contentInset
+        ) {
+            Text(String(localized: "Favorites"))
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(self.favoritesManager.items) { item in
-                        FavoriteItemCard(
-                            item: item,
-                            onTap: { self.handleTap(item) }
-                        )
-                        .draggable(item) {
-                            // Drag preview
-                            FavoriteItemCard(item: item, onTap: {})
-                                .opacity(0.8)
-                        }
-                        .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
-                            self.handleDrop(droppedItems, on: item)
-                        }
-                        .contextMenu {
-                            self.contextMenu(for: item)
-                        }
-                    }
-                }
+        } itemContent: { item in
+            FavoriteItemCard(
+                item: item,
+                onTap: { self.handleTap(item) }
+            )
+            .draggable(item) {
+                self.dragPreview(for: item)
+            }
+            .dropDestination(for: FavoriteItem.self) { droppedItems, _ in
+                defer { self.draggedItem = nil }
+                return self.handleDrop(droppedItems, on: item)
+            }
+            .contextMenu {
+                self.contextMenu(for: item)
             }
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Favorites")
+    }
+
+    private func dragPreview(for item: FavoriteItem) -> some View {
+        FavoriteItemCard(item: item, onTap: {})
+            .opacity(0.8)
+            .onAppear {
+                self.draggedItem = item
+            }
+            .onDisappear {
+                if self.draggedItem == item {
+                    self.draggedItem = nil
+                }
+            }
     }
 
     // MARK: - Actions
@@ -62,7 +75,7 @@ struct FavoritesSection: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.onNavigate?(playlist)
         case let .playlist(playlist):
@@ -75,7 +88,8 @@ struct FavoritesSection: View {
     }
 
     private func handleDrop(_ droppedItems: [FavoriteItem], on target: FavoriteItem) -> Bool {
-        guard let droppedItem = droppedItems.first,
+        guard self.favoritesManager.canMutate,
+              let droppedItem = droppedItems.first,
               let sourceIndex = favoritesManager.items.firstIndex(of: droppedItem),
               let targetIndex = favoritesManager.items.firstIndex(of: target),
               sourceIndex != targetIndex
@@ -98,7 +112,7 @@ struct FavoritesSection: View {
             Button {
                 Task { await self.playerService.play(song: song) }
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             Divider()
@@ -110,7 +124,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Album", systemImage: "square.stack")
+                Label(String(localized: "View Album"), systemImage: "square.stack")
             }
 
             Divider()
@@ -118,7 +132,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Playlist", systemImage: "music.note.list")
+                Label(String(localized: "View Playlist"), systemImage: "music.note.list")
             }
 
             Divider()
@@ -126,7 +140,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Artist", systemImage: "person")
+                Label(String(localized: "View Artist"), systemImage: "person")
             }
 
             Divider()
@@ -134,7 +148,7 @@ struct FavoritesSection: View {
             Button {
                 self.handleTap(item)
             } label: {
-                Label("View Podcast", systemImage: "mic.fill")
+                Label(String(localized: "View Podcast"), systemImage: "mic.fill")
             }
 
             Divider()
@@ -143,29 +157,31 @@ struct FavoritesSection: View {
             EmptyView()
         }
 
-        // Reorder actions
-        Button {
-            self.favoritesManager.moveToTop(contentId: item.contentId)
-        } label: {
-            Label("Move to Top", systemImage: "arrow.up.to.line")
+        if self.favoritesManager.canMutate {
+            // Reorder actions
+            Button {
+                self.favoritesManager.moveToTop(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Move to Top"), systemImage: "arrow.up.to.line")
+            }
+
+            Button {
+                self.favoritesManager.moveToEnd(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Move to End"), systemImage: "arrow.down.to.line")
+            }
+
+            Divider()
+
+            // Remove action
+            Button(role: .destructive) {
+                self.favoritesManager.remove(contentId: item.contentId)
+            } label: {
+                Label(String(localized: "Remove from Favorites"), systemImage: "heart.slash")
+            }
+
+            Divider()
         }
-
-        Button {
-            self.favoritesManager.moveToEnd(contentId: item.contentId)
-        } label: {
-            Label("Move to End", systemImage: "arrow.down.to.line")
-        }
-
-        Divider()
-
-        // Remove action
-        Button(role: .destructive) {
-            self.favoritesManager.remove(contentId: item.contentId)
-        } label: {
-            Label("Remove from Favorites", systemImage: "heart.slash")
-        }
-
-        Divider()
 
         ShareContextMenu.menuItem(for: item)
 
@@ -173,6 +189,11 @@ struct FavoritesSection: View {
         if case let .song(song) = item.itemType {
             Divider()
             AddToQueueContextMenu(song: song, playerService: self.playerService)
+
+            if let client = self.playerService.ytMusicClient {
+                Divider()
+                AddToPlaylistContextMenu(song: song, client: client)
+            }
         }
 
         Divider()
@@ -184,7 +205,7 @@ struct FavoritesSection: View {
                 Button {
                     self.onNavigate?(artist)
                 } label: {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -195,12 +216,12 @@ struct FavoritesSection: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 Button {
                     self.onNavigate?(playlist)
                 } label: {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         default:
@@ -212,13 +233,13 @@ struct FavoritesSection: View {
 // MARK: - FavoriteItemCard
 
 /// A card view for a single Favorites item.
-@available(macOS 26.0, *)
 private struct FavoriteItemCard: View {
     let item: FavoriteItem
     let onTap: () -> Void
 
     private static let cardWidth: CGFloat = 160
     private static let cardHeight: CGFloat = 160
+    private static let thumbnailTargetSize = CGSize(width: cardWidth, height: cardHeight)
 
     @State private var isHovering = false
 
@@ -236,13 +257,13 @@ private struct FavoriteItemCard: View {
             }
         }
         .accessibilityLabel("\(self.item.title), \(self.item.typeLabel), \(self.item.subtitle ?? "")")
-        .accessibilityHint("Drag to reorder")
+        .accessibilityHint(String(localized: "Drag to reorder"))
     }
 
     private var thumbnail: some View {
         ZStack {
             if let url = item.thumbnailURL?.highQualityThumbnailURL {
-                CachedAsyncImage(url: url) { image in
+                CachedAsyncImage(url: url, targetSize: Self.thumbnailTargetSize) { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fill)
@@ -328,9 +349,9 @@ private struct FavoriteItemCard: View {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview {
     let manager = FavoritesManager(skipLoad: true)
+    manager.setActiveAccountScopeID("preview")
     // Add some sample items for preview
     let song = Song(
         id: "test",

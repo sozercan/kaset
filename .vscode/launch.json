@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:kaset}",
+            "name": "Debug Kaset",
+            "target": "Kaset",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug Kaset"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:kaset}",
+            "name": "Release Kaset",
+            "target": "Kaset",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release Kaset"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:kaset}",
+            "name": "Debug api-explorer",
+            "target": "api-explorer",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug api-explorer"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:kaset}",
+            "name": "Release api-explorer",
+            "target": "api-explorer",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release api-explorer"
+        }
+    ]
+}

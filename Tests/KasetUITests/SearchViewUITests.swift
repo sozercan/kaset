@@ -11,7 +11,7 @@ final class SearchViewUITests: KasetUITestCase {
         navigateToSearch()
 
         // Search field should be present
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForElement(searchField), "Search field should exist")
     }
 
@@ -20,7 +20,7 @@ final class SearchViewUITests: KasetUITestCase {
 
         navigateToSearch()
 
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForHittable(searchField))
 
         // Type in the search field
@@ -36,7 +36,7 @@ final class SearchViewUITests: KasetUITestCase {
 
         navigateToSearch()
 
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForHittable(searchField))
 
         // Initially no clear button
@@ -44,9 +44,7 @@ final class SearchViewUITests: KasetUITestCase {
         searchField.typeText("test")
 
         // Clear button should appear (X icon)
-        let clearButton = app.buttons.matching(
-            NSPredicate(format: "label CONTAINS 'Clear' OR label CONTAINS 'xmark'")
-        ).firstMatch
+        let clearButton = app.buttons[TestAccessibilityID.Search.clearButton]
         XCTAssertTrue(clearButton.waitForExistence(timeout: 3), "Clear button should appear")
     }
 
@@ -69,7 +67,7 @@ final class SearchViewUITests: KasetUITestCase {
 
         navigateToSearch()
 
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForHittable(searchField))
 
         searchField.click()
@@ -87,7 +85,7 @@ final class SearchViewUITests: KasetUITestCase {
 
         navigateToSearch()
 
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForHittable(searchField))
 
         searchField.click()
@@ -110,7 +108,7 @@ final class SearchViewUITests: KasetUITestCase {
         navigateToSearch()
 
         // The search field should be ready for input
-        let searchField = app.textFields.firstMatch
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
         XCTAssertTrue(waitForElement(searchField))
 
         // Type directly - if focused, it should work
@@ -129,5 +127,35 @@ final class SearchViewUITests: KasetUITestCase {
 
         let title = app.staticTexts["Search"]
         XCTAssertTrue(waitForElement(title), "Search title should be visible")
+    }
+
+    func testReselectingSearchPopsNestedNavigationToRoot() {
+        launchWithMockSearch(songCount: 1)
+        navigateToSearch()
+
+        let searchField = app.textFields[TestAccessibilityID.Search.searchField]
+        XCTAssertTrue(waitForHittable(searchField))
+        searchField.click()
+        searchField.typeText("test\n")
+
+        let firstResult = app.buttons[TestAccessibilityID.Search.resultRow(index: 0)]
+        XCTAssertTrue(waitForHittable(firstResult), "A mock search result should appear")
+        firstResult.rightClick()
+
+        let goToAlbum = app.menuItems["Go to Album"]
+        XCTAssertTrue(waitForHittable(goToAlbum), "The result context menu should offer album navigation")
+        goToAlbum.click()
+
+        XCTAssertTrue(
+            waitForElementToDisappear(searchField),
+            "Navigating to the album should hide the Search root"
+        )
+
+        navigateToSearch()
+
+        XCTAssertTrue(
+            waitForHittable(searchField),
+            "Re-selecting Search should pop its nested navigation and restore the search field"
+        )
     }
 }

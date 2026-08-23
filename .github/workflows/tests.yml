@@ -10,7 +10,10 @@ on:
     paths:
       - "**.swift"
       - "Package.swift"
+      - "Info.plist"
+      - "Kaset.entitlements"
       - "Sources/**"
+      - "Scripts/**"
       - "Tests/**"
       - ".github/workflows/tests.yml"
   pull_request:
@@ -18,53 +21,141 @@ on:
     paths:
       - "**.swift"
       - "Package.swift"
+      - "Info.plist"
+      - "Kaset.entitlements"
       - "Sources/**"
+      - "Scripts/**"
       - "Tests/**"
       - ".github/workflows/tests.yml"
   workflow_dispatch:
 
 jobs:
   macos_unit_tests:
-    name: macOS Unit Tests
+    name: macOS Unit Tests (${{ matrix.os }})
     timeout-minutes: 20
-    runs-on: macos-26
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15 covers the Sequoia fallback paths (LegacyFallbackViews,
+        # `else` branches of LiquidGlassCompat). macos-26 covers the Tahoe
+        # Liquid Glass paths.
+        os: [macos-26, macos-15]
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          # Swift 6.2 requires Xcode 26.x. Both runner images carry one or
+          # more Xcode 26.x installs; prefer the newest available.
+          for candidate in \
+            /Applications/Xcode_26.2.app \
+            /Applications/Xcode_26.1.app \
+            /Applications/Xcode_26.0.app \
+            /Applications/Xcode_26.app
+          do
+            if [ -d "$candidate" ]; then
+              sudo xcode-select -s "$candidate/Contents/Developer"
+              echo "Selected $candidate"
+              xcodebuild -version
+              exit 0
+            fi
+          done
+          echo "::error::No Xcode 26.x install found on $RUNNER_NAME" >&2
+          ls /Applications | grep -i xcode || true
+          exit 1
 
       - name: Show Swift version
         run: swift --version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+          key: ${{ runner.os }}-${{ matrix.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.os }}-spm-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: swift test -q --skip KasetUITests
+        # --disable-xctest avoids a swiftpm-xctest-helper segfault on macOS 15
+        # (Xcode 26 + Sequoia) during XCTest discovery. The unit suite is
+        # entirely Swift Testing; the only XCTest target is the manual
+        # ParserPerformanceTests, which is invoked separately via xcodebuild.
+        # Swift Testing's cross-suite parallelism is also unstable on the
+        # macOS 15 runner because suites share process-wide app singletons.
+        # Keep Tahoe parallel, but serialize Sequoia to avoid unrelated flakes.
+        run: |
+          if [[ "${{ matrix.os }}" == "macos-15" ]]; then
+            swift test -q --skip KasetUITests --disable-xctest --no-parallel
+          else
+            swift test -q --skip KasetUITests --disable-xctest
+          fi
 
   macos_ui_tests:
-    name: macOS UI Tests
+    name: macOS UI Tests (${{ matrix.os }})
     timeout-minutes: 30
-    runs-on: macos-26
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # macos-15 exercises Sequoia fallback UI paths; macos-26 exercises
+        # the full Tahoe Liquid Glass / Apple Intelligence UI paths.
+        os: [macos-26, macos-15]
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
       - name: Select Xcode version
-        run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
+        run: |
+          set -euo pipefail
+          for candidate in \
+            /Applications/Xcode_26.2.app \
+            /Applications/Xcode_26.1.app \
+            /Applications/Xcode_26.0.app \
+            /Applications/Xcode_26.app
+          do
+            if [ -d "$candidate" ]; then
+              sudo xcode-select -s "$candidate/Contents/Developer"
+              echo "Selected $candidate"
+              xcodebuild -version
+              exit 0
+            fi
+          done
+          echo "::error::No Xcode 26.x install found on $RUNNER_NAME" >&2
+          ls /Applications | grep -i xcode || true
+          exit 1
 
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+          key: ${{ runner.os }}-${{ matrix.os }}-spm-ui-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.os }}-spm-ui-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Build app bundle for UI tests
         env:
           KASET_SIGNING: adhoc
+          # Xcode 26 actool cannot distill Icon Composer assets on macos-15
+          # runners, but UI tests only need a launchable bundle.
+          KASET_SKIP_MAIN_ASSETS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
         run: Scripts/build-app.sh debug
+
+      - name: Verify packaged app
+        run: Scripts/verify-release-app.sh .build/app/Kaset.app
 
       - name: Install app for UI tests
         run: |
@@ -87,8 +178,8 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
-          name: macOS-UITestResults
+          name: macOS-UITestResults-${{ matrix.os }}
           path: ./build/*.xcresult
           retention-days: 7

@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - VideoSupportTests
+
 /// Tests for Video Support functionality.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -132,5 +134,113 @@ struct VideoSupportTests {
         #expect(hidden == .hidden)
         #expect(miniPlayer == .miniPlayer)
         #expect(video == .video)
+    }
+}
+
+// MARK: - YouTubeVideoWindowFullscreenIntentStateTests
+
+@Suite(.tags(.service))
+struct YouTubeVideoWindowFullscreenIntentStateTests {
+    @Test("Failed fullscreen entry clears return-inline intent")
+    func failureClearsReturnInlineIntent() {
+        var state = YouTubeVideoWindowFullscreenIntentState()
+        state.requestReturnInlineOnExit()
+
+        state.cancelReturnInlineOnExit()
+
+        let shouldReturn = state.consumeReturnInlineOnExit()
+        #expect(!shouldReturn)
+    }
+
+    @Test("Return-inline intent is consumed once on fullscreen exit")
+    func returnInlineIntentIsOneShot() {
+        var state = YouTubeVideoWindowFullscreenIntentState()
+        state.requestReturnInlineOnExit()
+
+        let firstExit = state.consumeReturnInlineOnExit()
+        let secondExit = state.consumeReturnInlineOnExit()
+        #expect(firstExit)
+        #expect(!secondExit)
+    }
+}
+
+// MARK: - YouTubeVideoWindowFrameAutosaveStateTests
+
+@Suite(.tags(.service))
+struct YouTubeVideoWindowFrameAutosaveStateTests {
+    private let autosaveName = "KasetYouTubeVideoWindow"
+
+    @Test("Failed fullscreen entry restores frame autosaving")
+    func failedEntryRestoresFrameAutosaving() {
+        var state = YouTubeVideoWindowFrameAutosaveState(restorableName: self.autosaveName)
+
+        state.handle(.willEnterFullScreen)
+        #expect(state.currentName.isEmpty)
+
+        state.handle(.didFailToEnterFullScreen)
+        #expect(state.currentName == self.autosaveName)
+    }
+
+    @Test("Fullscreen exit restores frame autosaving")
+    func exitRestoresFrameAutosaving() {
+        var state = YouTubeVideoWindowFrameAutosaveState(restorableName: self.autosaveName)
+
+        state.handle(.willEnterFullScreen)
+        state.handle(.didExitFullScreen)
+
+        #expect(state.currentName == self.autosaveName)
+    }
+}
+
+// MARK: - YouTubeVideoWindowResizeGuardTests
+
+@Suite(.tags(.service))
+@MainActor
+struct YouTubeVideoWindowResizeGuardTests {
+    private let floor = NSSize(width: 512, height: 288)
+
+    @Test("Width-driven resize snaps height to 16:9 (default)")
+    func widthDrivenSnapsHeight() {
+        let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: NSSize(width: 800, height: 999),
+            minContentSize: self.floor
+        )
+        #expect(result == NSSize(width: 800, height: 450)) // 800 * 9/16
+    }
+
+    @Test("Floor is enforced on both axes")
+    func floorEnforced() {
+        let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: NSSize(width: 100, height: 100),
+            minContentSize: self.floor
+        )
+        #expect(result == self.floor)
+    }
+
+    @Test("Vertical-edge drag follows the proposed height")
+    func heightDrivenFollowsHeight() {
+        // Current 800x450; user drags the bottom edge to make it taller. Width is
+        // unchanged, height grew — the clamp must follow the height, not snap it
+        // back to the old width-derived value. width = round(700 * 16/9) = 1244.
+        let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: NSSize(width: 800, height: 700),
+            minContentSize: self.floor,
+            current: NSSize(width: 800, height: 450)
+        )
+        #expect(result.height == 700)
+        #expect(result.width == 1244) // followed the height, not snapped to 800
+    }
+
+    @Test("Horizontal-edge drag still follows the proposed width")
+    func widthDrivenWithCurrent() {
+        // width unchanged-axis is the bigger delta, so drive off width:
+        // height = round(1000 * 9/16) = round(562.5) = 563.
+        let result = YouTubeVideoWindowResizeGuard.normalizedContentSize(
+            for: NSSize(width: 1000, height: 450),
+            minContentSize: self.floor,
+            current: NSSize(width: 800, height: 450)
+        )
+        #expect(result.width == 1000)
+        #expect(result.height == 563)
     }
 }

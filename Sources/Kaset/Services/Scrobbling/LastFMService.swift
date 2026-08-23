@@ -25,7 +25,7 @@ final class LastFMService: ScrobbleServiceProtocol {
 
     // swiftformat:disable modifierOrder
     /// Task for polling auth session, cancelled on deinit or disconnect.
-    nonisolated(unsafe) private var authPollingTask: Task<Void, Never>?
+    @ObservationIgnored private var authPollingTask: Task<Void, Never>?
     // swiftformat:enable modifierOrder
 
     /// Creates a LastFMService with the given credential store and worker URL.
@@ -287,7 +287,9 @@ final class LastFMService: ScrobbleServiceProtocol {
                     return
                 }
             } catch {
-                if Task.isCancelled { return }
+                if Task.isCancelled {
+                    return
+                }
                 self.logger.debug("Auth polling attempt \(attempts) failed: \(error.localizedDescription)")
                 // Continue polling on transient errors
             }

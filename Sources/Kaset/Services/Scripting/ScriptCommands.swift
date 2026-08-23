@@ -42,6 +42,39 @@ final class PlayCommand: NSScriptCommand {
     }
 }
 
+// MARK: - PlayVideoCommand
+
+/// PlayVideo command: play a specific video by its YouTube video ID.
+@objc(KasetPlayVideoCommand)
+final class PlayVideoCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let videoId = self.directParameter as? String, !videoId.isEmpty else {
+            logger.error("PlayVideo command failed: invalid or empty video ID")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = "Video ID must be a non-empty string."
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("PlayVideo command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+        logger.info("Executing play video command with ID: \(videoId)")
+        Task { @MainActor in
+            let song = Song(
+                id: videoId,
+                title: "Loading...",
+                artists: [],
+                videoId: videoId
+            )
+            await playerService.playWithRadio(song: song)
+        }
+        return nil
+    }
+}
+
 // MARK: - PauseCommand
 
 /// Pause command: pause playback.
@@ -276,89 +309,7 @@ final class GetPlayerInfoCommand: NSScriptCommand {
         }
 
         // Set error if player wasn't available (check by looking at result)
-        if result.contains("\"error\"") {
-            scriptErrorNumber = errPlayerNotAvailable
-            scriptErrorString = playerNotAvailableMessage
-        }
-
-        return result
-    }
-}
-
-// MARK: - GetLyricsCommand
-
-/// GetLyrics command: returns lyrics for the current track as JSON.
-///
-/// Response shape:
-/// ```json
-/// {
-///   "plainText": "...",
-///   "hasTimedLyrics": true,
-///   "currentLineIndex": 4,
-///   "lines": [
-///     { "text": "...", "startMs": 0, "endMs": 3200 },
-///     ...
-///   ]
-/// }
-/// ```
-/// Returns `{}` when no track is playing or lyrics have not yet been loaded.
-@objc(KasetGetLyricsCommand)
-final class GetLyricsCommand: NSScriptCommand {
-    override func performDefaultImplementation() -> Any? {
-        let result = MainActor.assumeIsolated { () -> String in
-            guard let playerService = getPlayerService() else {
-                logger.error("GetLyrics command failed: PlayerService.shared is nil")
-                return "{\"error\": \"Player not available\"}"
-            }
-
-            logger.info("Executing getLyrics command")
-
-            guard let lyrics = playerService.currentLyrics, lyrics.isAvailable else {
-                return "{}"
-            }
-
-            let progressMs = Int(playerService.progress * 1000)
-
-            var info: [String: Any] = [
-                "plainText": lyrics.text,
-                "hasTimedLyrics": lyrics.hasTimedLyrics,
-            ]
-
-            if let timedLines = lyrics.timedLines, !timedLines.isEmpty {
-                // Compute the active line index (last line whose startMs ≤ progressMs)
-                var activeIndex = 0
-                for (index, line) in timedLines.enumerated() {
-                    if line.startMs <= progressMs {
-                        activeIndex = index
-                    } else {
-                        break
-                    }
-                }
-
-                info["currentLineIndex"] = activeIndex
-                info["lines"] = timedLines.map { line -> [String: Any] in
-                    var entry: [String: Any] = [
-                        "text": line.text,
-                        "startMs": line.startMs,
-                    ]
-                    if let endMs = line.endMs {
-                        entry["endMs"] = endMs
-                    }
-                    return entry
-                }
-            }
-
-            if let data = try? JSONSerialization.data(withJSONObject: info, options: [.sortedKeys]),
-               let json = String(data: data, encoding: .utf8)
-            {
-                return json
-            }
-
-            logger.error("GetLyrics command failed: JSON serialization error")
-            return "{}"
-        }
-
-        if result.contains("\"error\"") {
+        if result.hasPrefix("{\"error\"") {
             scriptErrorNumber = errPlayerNotAvailable
             scriptErrorString = playerNotAvailableMessage
         }
@@ -436,7 +387,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
             }
 
             let info: [String: Any] = [
-                "currentIndex": playerService.currentIndex,
+                "currentIndex": playerService.activePlaybackQueueIndex.map { $0 + 1 } ?? 0,
                 "tracks": tracks,
             ]
 
@@ -450,7 +401,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
             return "{}"
         }
 
-        if result.contains("\"error\"") {
+        if result.hasPrefix("{\"error\"") {
             self.scriptErrorNumber = errPlayerNotAvailable
             self.scriptErrorString = playerNotAvailableMessage
         }
@@ -479,7 +430,7 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
             return nil
         }
 
-        let queueCount = MainActor.assumeIsolated { playerService.queue.count }
+        let queueCount = MainActor.assumeIsolated { playerService.queueEntries.count }
 
         // Convert 1-based AppleScript index to 0-based Swift index
         let zeroBasedIndex = indexValue - 1
@@ -491,11 +442,19 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
             return nil
         }
 
+        let selection = MainActor.assumeIsolated { () -> (UUID, MusicPlaybackReservation)? in
+            guard let entryID = playerService.queueEntries[safe: zeroBasedIndex]?.id else { return nil }
+            return (entryID, playerService.reserveMusicPlaybackIntent())
+        }
+        guard let (entryID, reservation) = selection else { return nil }
         logger.info("Executing playTrackAtIndex command with index: \(indexValue)")
         Task { @MainActor in
-            await playerService.playFromQueue(at: zeroBasedIndex)
+            guard let intent = playerService.claimMusicPlaybackIntent(
+                reservation,
+                queueEntryID: entryID
+            ) else { return }
+            await playerService.playFromQueue(entryID: entryID, intent: intent)
         }
         return nil
     }
 }
-

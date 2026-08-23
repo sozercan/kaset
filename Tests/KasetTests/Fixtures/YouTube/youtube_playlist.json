@@ -1,0 +1,2786 @@
+{
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "tabIdentifier": "PL",
+            "content": {
+              "sectionListRenderer": {
+                "webComponentHint": {
+                  "componentVersion": "WEB_COMPONENT_VERSION_SHARED"
+                },
+                "contents": [
+                  {
+                    "itemSectionRenderer": {
+                      "targetId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                      "contents": [
+                        {
+                          "lockupViewModel": {
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "9.4M views"
+                                            }
+                                          },
+                                          {
+                                            "accessibilityLabel": "7 years ago",
+                                            "text": {
+                                              "content": "7 years ago"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                },
+                                "menuButton": {
+                                  "buttonViewModel": {
+                                    "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                                    "accessibilityText": "More actions",
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "showSheetCommand": {
+                                          "panelLoadingStrategy": {
+                                            "inlineContent": {}
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "iconName": "MORE_VERT",
+                                    "buttonSize": "BUTTON_VIEW_MODEL_SIZE_DEFAULT",
+                                    "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                                    "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                  }
+                                },
+                                "title": {
+                                  "content": "#0 Python for Beginners | Programming Tutorial"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s68-c-k-c0x00ffffff-no-rj",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        },
+                                        "avatarImageSize": "AVATAR_SIZE_M"
+                                      }
+                                    },
+                                    "a11yLabel": "Go to channel Telusko",
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "rootVe": 3611,
+                                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                "apiUrl": "/youtubei/v1/browse",
+                                                "url": "/@Telusko"
+                                              }
+                                            },
+                                            "browseEndpoint": {
+                                              "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                              "canonicalBaseUrl": "/@Telusko"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEmCKgBEF5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLAJ9iJNivROfoXleLkt4SZs_Z5KFQ",
+                                      "width": 168,
+                                      "height": 94
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEmCMQBEG5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLCbPNdGXGg91Pt7toKvA3olATiXwg",
+                                      "width": 196,
+                                      "height": 110
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEnCPYBEIoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLC1w-9io71sgiDv-0hQc8-8fspYmA",
+                                      "width": 246,
+                                      "height": 138
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLAkUuJUMzz3hwCzh_FPbz-TWZ0o5Q",
+                                      "width": 336,
+                                      "height": 188
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                                            "lottieData": {
+                                              "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                                              "settings": {
+                                                "autoplay": true,
+                                                "loop": true
+                                              }
+                                            },
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                            "animatedText": "Now playing",
+                                            "rendererContext": {
+                                              "accessibilityContext": {
+                                                "label": "1 minute, 6 seconds"
+                                              }
+                                            },
+                                            "text": "1:06",
+                                            "animationActivationTargetId": "QXeEoD0pB3E"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "thumbnailHoverOverlayToggleActionsViewModel": {
+                                      "buttons": [
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Watch later",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addedVideoId": "QXeEoD0pB3E",
+                                                          "action": "ACTION_ADD_VIDEO"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "WATCH_LATER",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                                          "removedVideoId": "QXeEoD0pB3E"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "CHECK",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        },
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Add to queue",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "signalServiceEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addToPlaylistCommand": {
+                                                            "onCreateListCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "apiUrl": "/youtubei/v1/playlist/create",
+                                                                  "sendPost": true
+                                                                }
+                                                              },
+                                                              "createPlaylistServiceEndpoint": {
+                                                                "videoIds": [
+                                                                  "QXeEoD0pB3E"
+                                                                ],
+                                                                "params": "CAQ%3D"
+                                                              }
+                                                            },
+                                                            "openMiniplayer": true,
+                                                            "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                                            "videoId": "QXeEoD0pB3E",
+                                                            "videoCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "url": "/watch?v=QXeEoD0pB3E",
+                                                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                                  "rootVe": 3832
+                                                                }
+                                                              },
+                                                              "watchEndpoint": {
+                                                                "videoId": "QXeEoD0pB3E"
+                                                              }
+                                                            },
+                                                            "videoIds": [
+                                                              "QXeEoD0pB3E"
+                                                            ]
+                                                          }
+                                                        }
+                                                      ],
+                                                      "signal": "CLIENT_SIGNAL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "ADD_TO_QUEUE_TAIL",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "iconName": "CHECK",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "contentId": "QXeEoD0pB3E",
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=QXeEoD0pB3E&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&index=1&pp=iAQB",
+                                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                        "rootVe": 3832
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "params": "OAI%3D",
+                                      "playerParams": "iAQB",
+                                      "videoId": "QXeEoD0pB3E",
+                                      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                                      "index": 0
+                                    }
+                                  }
+                                }
+                              },
+                              "accessibilityContext": {
+                                "label": "#0 Python for Beginners | Programming Tutorial 1 minute, 6 seconds"
+                              }
+                            },
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+                          }
+                        },
+                        {
+                          "lockupViewModel": {
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "6M views"
+                                            }
+                                          },
+                                          {
+                                            "accessibilityLabel": "7 years ago",
+                                            "text": {
+                                              "content": "7 years ago"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                },
+                                "menuButton": {
+                                  "buttonViewModel": {
+                                    "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                                    "accessibilityText": "More actions",
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "showSheetCommand": {
+                                          "panelLoadingStrategy": {
+                                            "inlineContent": {}
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "iconName": "MORE_VERT",
+                                    "buttonSize": "BUTTON_VIEW_MODEL_SIZE_DEFAULT",
+                                    "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                                    "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                  }
+                                },
+                                "title": {
+                                  "content": "#1 Python Tutorial for Beginners | Introduction to Python"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s68-c-k-c0x00ffffff-no-rj",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        },
+                                        "avatarImageSize": "AVATAR_SIZE_M"
+                                      }
+                                    },
+                                    "a11yLabel": "Go to channel Telusko",
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "rootVe": 3611,
+                                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                "apiUrl": "/youtubei/v1/browse",
+                                                "url": "/@Telusko"
+                                              }
+                                            },
+                                            "browseEndpoint": {
+                                              "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                              "canonicalBaseUrl": "/@Telusko"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/hEgO047GxaQ/hqdefault.jpg?sqp=-oaymwEmCKgBEF5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLCMXRGq6GxjGr3WbnUZ3gBm5_E_Xw",
+                                      "width": 168,
+                                      "height": 94
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/hEgO047GxaQ/hqdefault.jpg?sqp=-oaymwEmCMQBEG5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLBK0D6DXFb9btDfczVi4JLqawy1CA",
+                                      "width": 196,
+                                      "height": 110
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/hEgO047GxaQ/hqdefault.jpg?sqp=-oaymwEnCPYBEIoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLC-OfUWUWoRwghCO_r9dRaWQyD7AA",
+                                      "width": 246,
+                                      "height": 138
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/hEgO047GxaQ/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLBiy0E9CLcHrxU3dq_r-ZSRQVLPnw",
+                                      "width": 336,
+                                      "height": 188
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                                            "lottieData": {
+                                              "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                                              "settings": {
+                                                "autoplay": true,
+                                                "loop": true
+                                              }
+                                            },
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                            "animatedText": "Now playing",
+                                            "rendererContext": {
+                                              "accessibilityContext": {
+                                                "label": "4 minutes, 13 seconds"
+                                              }
+                                            },
+                                            "text": "4:13",
+                                            "animationActivationTargetId": "hEgO047GxaQ"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "thumbnailHoverOverlayToggleActionsViewModel": {
+                                      "buttons": [
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Watch later",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addedVideoId": "hEgO047GxaQ",
+                                                          "action": "ACTION_ADD_VIDEO"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "WATCH_LATER",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                                          "removedVideoId": "hEgO047GxaQ"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "CHECK",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        },
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Add to queue",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "signalServiceEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addToPlaylistCommand": {
+                                                            "onCreateListCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "apiUrl": "/youtubei/v1/playlist/create",
+                                                                  "sendPost": true
+                                                                }
+                                                              },
+                                                              "createPlaylistServiceEndpoint": {
+                                                                "videoIds": [
+                                                                  "hEgO047GxaQ"
+                                                                ],
+                                                                "params": "CAQ%3D"
+                                                              }
+                                                            },
+                                                            "openMiniplayer": true,
+                                                            "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                                            "videoId": "hEgO047GxaQ",
+                                                            "videoCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "url": "/watch?v=hEgO047GxaQ",
+                                                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                                  "rootVe": 3832
+                                                                }
+                                                              },
+                                                              "watchEndpoint": {
+                                                                "videoId": "hEgO047GxaQ"
+                                                              }
+                                                            },
+                                                            "videoIds": [
+                                                              "hEgO047GxaQ"
+                                                            ]
+                                                          }
+                                                        }
+                                                      ],
+                                                      "signal": "CLIENT_SIGNAL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "ADD_TO_QUEUE_TAIL",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "iconName": "CHECK",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "contentId": "hEgO047GxaQ",
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=hEgO047GxaQ&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&index=2&pp=iAQB",
+                                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                        "rootVe": 3832
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "params": "OAI%3D",
+                                      "playerParams": "iAQB",
+                                      "videoId": "hEgO047GxaQ",
+                                      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                                      "index": 1
+                                    }
+                                  }
+                                }
+                              },
+                              "accessibilityContext": {
+                                "label": "#1 Python Tutorial for Beginners | Introduction to Python 4 minutes, 13 seconds"
+                              }
+                            },
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+                          }
+                        },
+                        {
+                          "lockupViewModel": {
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "1M views"
+                                            }
+                                          },
+                                          {
+                                            "accessibilityLabel": "2 years ago",
+                                            "text": {
+                                              "content": "2 years ago"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                },
+                                "menuButton": {
+                                  "buttonViewModel": {
+                                    "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                                    "accessibilityText": "More actions",
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "showSheetCommand": {
+                                          "panelLoadingStrategy": {
+                                            "inlineContent": {}
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "iconName": "MORE_VERT",
+                                    "buttonSize": "BUTTON_VIEW_MODEL_SIZE_DEFAULT",
+                                    "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                                    "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                  }
+                                },
+                                "title": {
+                                  "content": "#2 Python Tutorial for Beginners | Python Installation | PyCharm"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s68-c-k-c0x00ffffff-no-rj",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        },
+                                        "avatarImageSize": "AVATAR_SIZE_M"
+                                      }
+                                    },
+                                    "a11yLabel": "Go to channel Telusko",
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "rootVe": 3611,
+                                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                "apiUrl": "/youtubei/v1/browse",
+                                                "url": "/@Telusko"
+                                              }
+                                            },
+                                            "browseEndpoint": {
+                                              "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                              "canonicalBaseUrl": "/@Telusko"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/CScxy0294SE/hqdefault.jpg?sqp=-oaymwEmCKgBEF5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLCZXI_C-ezZeauNAi7-lD70EPNj4A",
+                                      "width": 168,
+                                      "height": 94
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/CScxy0294SE/hqdefault.jpg?sqp=-oaymwEmCMQBEG5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLCALDM1bW0RMFRXm9MEfMHp5uuLLw",
+                                      "width": 196,
+                                      "height": 110
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/CScxy0294SE/hqdefault.jpg?sqp=-oaymwEnCPYBEIoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLDmGAKtXQ9Dn48xaIqoYjTaY_lRUg",
+                                      "width": 246,
+                                      "height": 138
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/CScxy0294SE/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLBRRaQ9u8hOIo74XreTZkxxxGtqjw",
+                                      "width": 336,
+                                      "height": 188
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                                            "lottieData": {
+                                              "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                                              "settings": {
+                                                "autoplay": true,
+                                                "loop": true
+                                              }
+                                            },
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                            "animatedText": "Now playing",
+                                            "rendererContext": {
+                                              "accessibilityContext": {
+                                                "label": "9 minutes, 33 seconds"
+                                              }
+                                            },
+                                            "text": "9:33",
+                                            "animationActivationTargetId": "CScxy0294SE"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "thumbnailHoverOverlayToggleActionsViewModel": {
+                                      "buttons": [
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Watch later",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addedVideoId": "CScxy0294SE",
+                                                          "action": "ACTION_ADD_VIDEO"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "WATCH_LATER",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                                          "removedVideoId": "CScxy0294SE"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "CHECK",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        },
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Add to queue",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "signalServiceEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addToPlaylistCommand": {
+                                                            "onCreateListCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "apiUrl": "/youtubei/v1/playlist/create",
+                                                                  "sendPost": true
+                                                                }
+                                                              },
+                                                              "createPlaylistServiceEndpoint": {
+                                                                "videoIds": [
+                                                                  "CScxy0294SE"
+                                                                ],
+                                                                "params": "CAQ%3D"
+                                                              }
+                                                            },
+                                                            "openMiniplayer": true,
+                                                            "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                                            "videoId": "CScxy0294SE",
+                                                            "videoCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "url": "/watch?v=CScxy0294SE",
+                                                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                                  "rootVe": 3832
+                                                                }
+                                                              },
+                                                              "watchEndpoint": {
+                                                                "videoId": "CScxy0294SE"
+                                                              }
+                                                            },
+                                                            "videoIds": [
+                                                              "CScxy0294SE"
+                                                            ]
+                                                          }
+                                                        }
+                                                      ],
+                                                      "signal": "CLIENT_SIGNAL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "ADD_TO_QUEUE_TAIL",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "iconName": "CHECK",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "contentId": "CScxy0294SE",
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=CScxy0294SE&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&index=3&pp=iAQB",
+                                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                        "rootVe": 3832
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "params": "OAI%3D",
+                                      "playerParams": "iAQB",
+                                      "videoId": "CScxy0294SE",
+                                      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                                      "index": 2
+                                    }
+                                  }
+                                }
+                              },
+                              "accessibilityContext": {
+                                "label": "#2 Python Tutorial for Beginners | Python Installation | PyCharm 9 minutes, 33 seconds"
+                              }
+                            },
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+                          }
+                        },
+                        {
+                          "lockupViewModel": {
+                            "metadata": {
+                              "lockupMetadataViewModel": {
+                                "metadata": {
+                                  "contentMetadataViewModel": {
+                                    "metadataRows": [
+                                      {
+                                        "metadataParts": [
+                                          {
+                                            "text": {
+                                              "content": "4.6M views"
+                                            }
+                                          },
+                                          {
+                                            "accessibilityLabel": "7 years ago",
+                                            "text": {
+                                              "content": "7 years ago"
+                                            }
+                                          }
+                                        ]
+                                      }
+                                    ],
+                                    "delimiter": " • "
+                                  }
+                                },
+                                "menuButton": {
+                                  "buttonViewModel": {
+                                    "style": "BUTTON_VIEW_MODEL_STYLE_MONO",
+                                    "accessibilityText": "More actions",
+                                    "onTap": {
+                                      "innertubeCommand": {
+                                        "showSheetCommand": {
+                                          "panelLoadingStrategy": {
+                                            "inlineContent": {}
+                                          }
+                                        }
+                                      }
+                                    },
+                                    "iconName": "MORE_VERT",
+                                    "buttonSize": "BUTTON_VIEW_MODEL_SIZE_DEFAULT",
+                                    "type": "BUTTON_VIEW_MODEL_TYPE_TEXT",
+                                    "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                  }
+                                },
+                                "title": {
+                                  "content": "#3 Python Tutorial for Beginners | Getting Started with Python"
+                                },
+                                "image": {
+                                  "decoratedAvatarViewModel": {
+                                    "avatar": {
+                                      "avatarViewModel": {
+                                        "image": {
+                                          "sources": [
+                                            {
+                                              "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s68-c-k-c0x00ffffff-no-rj",
+                                              "width": 68,
+                                              "height": 68
+                                            }
+                                          ]
+                                        },
+                                        "avatarImageSize": "AVATAR_SIZE_M"
+                                      }
+                                    },
+                                    "a11yLabel": "Go to channel Telusko",
+                                    "rendererContext": {
+                                      "commandContext": {
+                                        "onTap": {
+                                          "innertubeCommand": {
+                                            "commandMetadata": {
+                                              "webCommandMetadata": {
+                                                "rootVe": 3611,
+                                                "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                                "apiUrl": "/youtubei/v1/browse",
+                                                "url": "/@Telusko"
+                                              }
+                                            },
+                                            "browseEndpoint": {
+                                              "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                              "canonicalBaseUrl": "/@Telusko"
+                                            }
+                                          }
+                                        }
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            },
+                            "contentImage": {
+                              "thumbnailViewModel": {
+                                "image": {
+                                  "sources": [
+                                    {
+                                      "url": "https://i.ytimg.com/vi/DWgzHbglNIo/hqdefault.jpg?sqp=-oaymwEmCKgBEF5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLDcPgF491t0deE10bgN_cCAZNbhkg",
+                                      "width": 168,
+                                      "height": 94
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/DWgzHbglNIo/hqdefault.jpg?sqp=-oaymwEmCMQBEG5IWvKriqkDGQgBFQAAAAAYASUAAMhCPQCAokN4AbgC8xg=&rs=AOn4CLB2COrvTPlBMCpNseFp77oEZC4jxg",
+                                      "width": 196,
+                                      "height": 110
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/DWgzHbglNIo/hqdefault.jpg?sqp=-oaymwEnCPYBEIoBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLCKZLG-029J9s4pn7Nygudt7Xugfg",
+                                      "width": 246,
+                                      "height": 138
+                                    },
+                                    {
+                                      "url": "https://i.ytimg.com/vi/DWgzHbglNIo/hqdefault.jpg?sqp=-oaymwEnCNACELwBSFryq4qpAxkIARUAAAAAGAElAADIQj0AgKJDeAG4AvMY&rs=AOn4CLCV8Mon0t4HGwnPItqK7frKF-qq0g",
+                                      "width": 336,
+                                      "height": 188
+                                    }
+                                  ]
+                                },
+                                "overlays": [
+                                  {
+                                    "thumbnailBottomOverlayViewModel": {
+                                      "badges": [
+                                        {
+                                          "thumbnailBadgeViewModel": {
+                                            "animationActivationEntitySelectorType": "THUMBNAIL_BADGE_ANIMATION_ENTITY_SELECTOR_TYPE_PLAYER_STATE",
+                                            "lottieData": {
+                                              "url": "https://www.gstatic.com/youtube/img/lottie/audio_indicator/audio_indicator_v2.json",
+                                              "settings": {
+                                                "autoplay": true,
+                                                "loop": true
+                                              }
+                                            },
+                                            "badgeStyle": "THUMBNAIL_OVERLAY_BADGE_STYLE_DEFAULT",
+                                            "animatedText": "Now playing",
+                                            "rendererContext": {
+                                              "accessibilityContext": {
+                                                "label": "14 minutes, 49 seconds"
+                                              }
+                                            },
+                                            "text": "14:49",
+                                            "animationActivationTargetId": "DWgzHbglNIo"
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "thumbnailHoverOverlayToggleActionsViewModel": {
+                                      "buttons": [
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Watch later",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addedVideoId": "DWgzHbglNIo",
+                                                          "action": "ACTION_ADD_VIDEO"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "WATCH_LATER",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "apiUrl": "/youtubei/v1/browse/edit_playlist",
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "playlistEditEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "action": "ACTION_REMOVE_VIDEO_BY_VIDEO_ID",
+                                                          "removedVideoId": "DWgzHbglNIo"
+                                                        }
+                                                      ],
+                                                      "playlistId": "WL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "CHECK",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        },
+                                        {
+                                          "toggleButtonViewModel": {
+                                            "defaultButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Add to queue",
+                                                "onTap": {
+                                                  "innertubeCommand": {
+                                                    "commandMetadata": {
+                                                      "webCommandMetadata": {
+                                                        "sendPost": true
+                                                      }
+                                                    },
+                                                    "signalServiceEndpoint": {
+                                                      "actions": [
+                                                        {
+                                                          "addToPlaylistCommand": {
+                                                            "onCreateListCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "apiUrl": "/youtubei/v1/playlist/create",
+                                                                  "sendPost": true
+                                                                }
+                                                              },
+                                                              "createPlaylistServiceEndpoint": {
+                                                                "videoIds": [
+                                                                  "DWgzHbglNIo"
+                                                                ],
+                                                                "params": "CAQ%3D"
+                                                              }
+                                                            },
+                                                            "openMiniplayer": true,
+                                                            "listType": "PLAYLIST_EDIT_LIST_TYPE_QUEUE",
+                                                            "videoId": "DWgzHbglNIo",
+                                                            "videoCommand": {
+                                                              "commandMetadata": {
+                                                                "webCommandMetadata": {
+                                                                  "url": "/watch?v=DWgzHbglNIo&pp=0gcJCZ0AKgI3ePta",
+                                                                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                                                  "rootVe": 3832
+                                                                }
+                                                              },
+                                                              "watchEndpoint": {
+                                                                "videoId": "DWgzHbglNIo",
+                                                                "playerParams": "0gcJCZ0AKgI3ePta"
+                                                              }
+                                                            },
+                                                            "videoIds": [
+                                                              "DWgzHbglNIo"
+                                                            ]
+                                                          }
+                                                        }
+                                                      ],
+                                                      "signal": "CLIENT_SIGNAL"
+                                                    }
+                                                  }
+                                                },
+                                                "iconName": "ADD_TO_QUEUE_TAIL",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "toggledButtonViewModel": {
+                                              "buttonViewModel": {
+                                                "style": "BUTTON_VIEW_MODEL_STYLE_OVERLAY_DARK",
+                                                "accessibilityText": "Added",
+                                                "buttonSize": "BUTTON_VIEW_MODEL_SIZE_COMPACT",
+                                                "iconName": "CHECK",
+                                                "type": "BUTTON_VIEW_MODEL_TYPE_TONAL",
+                                                "state": "BUTTON_VIEW_MODEL_STATE_ACTIVE"
+                                              }
+                                            },
+                                            "isToggled": false
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                ]
+                              }
+                            },
+                            "contentId": "DWgzHbglNIo",
+                            "rendererContext": {
+                              "commandContext": {
+                                "onTap": {
+                                  "innertubeCommand": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "/watch?v=DWgzHbglNIo&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&index=4&pp=iAQB",
+                                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                                        "rootVe": 3832
+                                      }
+                                    },
+                                    "watchEndpoint": {
+                                      "params": "OAI%3D",
+                                      "playerParams": "iAQB",
+                                      "videoId": "DWgzHbglNIo",
+                                      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                                      "index": 3
+                                    }
+                                  }
+                                }
+                              },
+                              "accessibilityContext": {
+                                "label": "#3 Python Tutorial for Beginners | Getting Started with Python 14 minutes, 49 seconds"
+                              }
+                            },
+                            "contentType": "LOCKUP_CONTENT_TYPE_VIDEO"
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "continuationItemViewModel": {
+                      "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                      "continuationCommand": {
+                        "innertubeCommand": {
+                          "commandMetadata": {
+                            "webCommandMetadata": {
+                              "apiUrl": "/youtubei/v1/browse",
+                              "sendPost": true
+                            }
+                          },
+                          "continuationCommand": {
+                            "token": "4qmFsgJbEiRWTFBMc3llb2J6V3hsN3BvTDlKVFZ5bmRLZTYyaWVvTi1NWjMaDGtnRURDTGNMNEFzQpoCJFZMUExzeWVvYnpXeGw3cG9MOUpUVnluZEtlNjJpZW9OLU1aMw%3D%3D",
+                            "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                          }
+                        }
+                      }
+                    }
+                  }
+                ],
+                "targetId": "VLPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                "sectionListLayoutConfiguration": {
+                  "layoutConfiguration": {
+                    "responsiveContainerConfiguration": {
+                      "responsiveSize": "RESPONSIVE_SIZE_COMPACT",
+                      "responsiveMap": [
+                        {
+                          "maxColumnCount": 1,
+                          "columnMultiplier": 1,
+                          "columnAdder": 0,
+                          "minColumnCount": 1,
+                          "containerType": "CONTAINER_TYPE_VERTICAL_LIST",
+                          "containerSize": "CONTAINER_SIZE_NARROW",
+                          "minColumnSize": 310,
+                          "maxWidth": 599,
+                          "spacingConfiguration": {
+                            "columnGap": 12,
+                            "rowGap": 12
+                          }
+                        },
+                        {
+                          "maxColumnCount": 1,
+                          "columnMultiplier": 1,
+                          "columnAdder": 0,
+                          "minColumnCount": 1,
+                          "containerType": "CONTAINER_TYPE_VERTICAL_LIST",
+                          "containerSize": "CONTAINER_SIZE_MEDIUM",
+                          "minColumnSize": 310,
+                          "maxWidth": 1023,
+                          "spacingConfiguration": {
+                            "columnGap": 12,
+                            "rowGap": 12
+                          }
+                        },
+                        {
+                          "maxColumnCount": 1,
+                          "columnMultiplier": 1,
+                          "columnAdder": 0,
+                          "minColumnCount": 1,
+                          "containerType": "CONTAINER_TYPE_VERTICAL_LIST",
+                          "containerSize": "CONTAINER_SIZE_WIDE",
+                          "minColumnSize": 310,
+                          "maxWidth": 2047,
+                          "spacingConfiguration": {
+                            "columnGap": 12,
+                            "rowGap": 12
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            "selected": true
+          }
+        }
+      ]
+    }
+  },
+  "alerts": [
+    {
+      "alertWithButtonRenderer": {
+        "type": "INFO",
+        "text": {
+          "simpleText": "Unavailable videos are hidden"
+        },
+        "dismissButton": {
+          "buttonRenderer": {
+            "size": "SIZE_DEFAULT",
+            "isDisabled": false,
+            "style": "STYLE_DEFAULT",
+            "icon": {
+              "iconType": "CLOSE"
+            },
+            "accessibilityData": {
+              "accessibilityData": {
+                "label": "Dismiss"
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "panels": [
+    {
+      "engagementPanelSectionListRenderer": {
+        "identifier": {
+          "surface": "ENGAGEMENT_PANEL_SURFACE_BROWSE",
+          "tag": "engagement-panel-course-metadata"
+        },
+        "content": {
+          "sectionListRenderer": {
+            "hideBottomSeparator": true,
+            "contents": [
+              {
+                "itemSectionRenderer": {
+                  "hideBottomSeparator": true,
+                  "contents": [
+                    {
+                      "videoDescriptionHeaderRenderer": {
+                        "factoid": [
+                          {
+                            "factoidRenderer": {
+                              "value": {
+                                "simpleText": "125"
+                              },
+                              "label": {
+                                "simpleText": "Lessons"
+                              },
+                              "accessibilityText": "125 lessons"
+                            }
+                          },
+                          {
+                            "factoidRenderer": {
+                              "value": {
+                                "simpleText": "14"
+                              },
+                              "label": {
+                                "simpleText": "Hours"
+                              },
+                              "accessibilityText": "14 hours"
+                            }
+                          },
+                          {
+                            "factoidRenderer": {
+                              "value": {
+                                "simpleText": "2018"
+                              },
+                              "label": {
+                                "simpleText": "Jun 30"
+                              },
+                              "accessibilityText": "Jun 30, 2018"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "expandableVideoDescriptionBodyRenderer": {
+                        "collapsedLineCount": 6,
+                        "showLessText": {
+                          "simpleText": "Show less"
+                        },
+                        "truncationText": "...more",
+                        "descriptionBodyText": {
+                          "simpleText": "Python Tutorial, Easy Python tutorial for beginner, learn Python Programming, learn python programming with example and syntax. Download python, install python, using python IDE, IDLE, Pycharm IDE, notepad,  getting started with python, variables, functions, object, list in python, set in python, help in python, data types, operators, math function, run, debug python code, conditional statement, array, matrix in python, python by navin reddy"
+                        },
+                        "showMoreText": {
+                          "simpleText": "Show more"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "itemSectionRenderer": {
+                  "contents": [
+                    {
+                      "courseProgressViewModel": {
+                        "progressPercentage": 0,
+                        "title": {
+                          "content": "Course progress",
+                          "styleRuns": [
+                            {
+                              "startIndex": 0,
+                              "length": 15
+                            }
+                          ]
+                        },
+                        "rendererContext": {},
+                        "progressSummary": {
+                          "content": "0 of 125 lessons complete",
+                          "styleRuns": [
+                            {
+                              "startIndex": 0,
+                              "length": 25
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "itemSectionRenderer": {
+                  "contents": [
+                    {
+                      "coursePerksViewModel": {
+                        "title": {
+                          "content": "What's included",
+                          "styleRuns": [
+                            {
+                              "startIndex": 0,
+                              "length": 15
+                            }
+                          ]
+                        },
+                        "perks": [
+                          {
+                            "listItemViewModel": {
+                              "title": {
+                                "content": "Engage in discussions within a course",
+                                "styleRuns": [
+                                  {
+                                    "startIndex": 0,
+                                    "length": 37
+                                  }
+                                ]
+                              },
+                              "leadingImage": {
+                                "sources": [
+                                  {
+                                    "clientResource": {
+                                      "imageName": "COMMENT"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "listItemViewModel": {
+                              "title": {
+                                "content": "Earn a badge when you finish",
+                                "styleRuns": [
+                                  {
+                                    "startIndex": 0,
+                                    "length": 28
+                                  }
+                                ]
+                              },
+                              "leadingImage": {
+                                "sources": [
+                                  {
+                                    "clientResource": {
+                                      "imageName": "TROPHY_CELEBRATIONS"
+                                    }
+                                  }
+                                ]
+                              }
+                            }
+                          }
+                        ],
+                        "rendererContext": {}
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "itemSectionRenderer": {
+                  "contents": [
+                    {
+                      "videoDescriptionInfocardsSectionRenderer": {
+                        "sectionSubtitle": {
+                          "accessibility": {
+                            "accessibilityData": {
+                              "label": "2.86 million subscribers"
+                            }
+                          },
+                          "simpleText": "2.86M subscribers"
+                        },
+                        "channelEndpoint": {
+                          "commandMetadata": {
+                            "webCommandMetadata": {
+                              "rootVe": 3611,
+                              "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                              "apiUrl": "/youtubei/v1/browse",
+                              "url": "/@Telusko"
+                            }
+                          },
+                          "browseEndpoint": {
+                            "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                            "canonicalBaseUrl": "/@Telusko"
+                          }
+                        },
+                        "sectionTitle": {
+                          "simpleText": "Telusko"
+                        },
+                        "creatorAboutButton": {
+                          "buttonRenderer": {
+                            "style": "STYLE_INACTIVE_OUTLINE",
+                            "size": "SIZE_DEFAULT",
+                            "text": {
+                              "simpleText": "About"
+                            },
+                            "isDisabled": false,
+                            "icon": {
+                              "iconType": "ACCOUNT_BOX"
+                            },
+                            "command": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@Telusko/about"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                "canonicalBaseUrl": "/@Telusko",
+                                "params": "EgVhYm91dPIGBgoCMgBKAA%3D%3D"
+                              }
+                            }
+                          }
+                        },
+                        "channelAvatar": {
+                          "thumbnails": [
+                            {
+                              "url": "//yt3.googleusercontent.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s88-c-k-c0x00ffffff-no-rj-mo",
+                              "width": 88,
+                              "height": 88
+                            },
+                            {
+                              "url": "//yt3.googleusercontent.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s176-c-k-c0x00ffffff-no-rj-mo",
+                              "width": 176,
+                              "height": 176
+                            }
+                          ]
+                        },
+                        "creatorVideosButton": {
+                          "buttonRenderer": {
+                            "style": "STYLE_INACTIVE_OUTLINE",
+                            "size": "SIZE_DEFAULT",
+                            "text": {
+                              "simpleText": "Videos"
+                            },
+                            "isDisabled": false,
+                            "icon": {
+                              "iconType": "MY_VIDEOS"
+                            },
+                            "command": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@Telusko/videos"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                                "canonicalBaseUrl": "/@Telusko",
+                                "params": "EgZ2aWRlb3PyBgkKBzoAogECCAE%3D"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "veType": 204249,
+        "header": {
+          "engagementPanelTitleHeaderRenderer": {
+            "title": {
+              "simpleText": "About this course"
+            },
+            "visibilityButton": {
+              "buttonRenderer": {
+                "accessibilityData": {
+                  "accessibilityData": {
+                    "label": "Close"
+                  }
+                },
+                "icon": {
+                  "iconType": "CLOSE"
+                },
+                "command": {
+                  "changeEngagementPanelVisibilityAction": {
+                    "visibility": "ENGAGEMENT_PANEL_VISIBILITY_HIDDEN",
+                    "targetId": "engagement-panel-course-metadata"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "targetId": "engagement-panel-course-metadata",
+        "footer": {}
+      }
+    },
+    {
+      "engagementPanelSectionListRenderer": {
+        "header": {
+          "engagementPanelTitleHeaderRenderer": {
+            "title": {
+              "runs": [
+                {
+                  "text": "Comments"
+                }
+              ]
+            },
+            "visibilityButton": {
+              "buttonRenderer": {
+                "size": "SIZE_DEFAULT",
+                "accessibilityData": {
+                  "accessibilityData": {
+                    "label": "Close"
+                  }
+                },
+                "style": "STYLE_DEFAULT",
+                "icon": {
+                  "iconType": "CLOSE"
+                },
+                "command": {
+                  "hideEngagementPanelEndpoint": {
+                    "identifier": {
+                      "surface": "ENGAGEMENT_PANEL_SURFACE_BROWSE",
+                      "tag": "engagement-panel-comments-section"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "content": {
+          "sectionListRenderer": {
+            "contents": [
+              {
+                "itemSectionRenderer": {
+                  "sectionIdentifier": "comment-item-section",
+                  "contents": [
+                    {
+                      "continuationItemRenderer": {
+                        "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                        "continuationEndpoint": {
+                          "commandMetadata": {
+                            "webCommandMetadata": {
+                              "apiUrl": "/youtubei/v1/browse",
+                              "sendPost": true
+                            }
+                          },
+                          "continuationCommand": {
+                            "token": "4qmFsgLNARIgRkVjb21tZW50X3BsYXlsaXN0X3dlYl90b3BfbGV2ZWwaqAFxZ043SWxRd0FYZ0N5QUVCMGdJbENBSWFJV1Z1WjJGblpXMWxiblF0Y0dGdVpXd3RZMjl0YldWdWRITXRjMlZqZEdsdmJwSURJbEJNYzNsbGIySjZWM2hzTjNCdlREbEtWRlo1Ym1STFpUWXlhV1Z2VGkxTldqTXdBVUloWlc1bllXZGxiV1Z1ZEMxd1lXNWxiQzFqYjIxdFpXNTBjeTF6WldOMGFXOXU%3D",
+                            "request": "CONTINUATION_REQUEST_TYPE_BROWSE"
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "targetId": "engagement-panel-comments-section"
+                }
+              }
+            ]
+          }
+        },
+        "veType": 222900,
+        "targetId": "engagement-panel-comments-section",
+        "continuationService": "ENGAGEMENT_PANEL_CONTINUATION_SERVICE_BROWSE",
+        "identifier": {
+          "surface": "ENGAGEMENT_PANEL_SURFACE_BROWSE",
+          "tag": "engagement-panel-comments-section"
+        },
+        "disablePullRefresh": true,
+        "visibility": "ENGAGEMENT_PANEL_VISIBILITY_HIDDEN"
+      }
+    }
+  ],
+  "header": {
+    "playlistHeaderRenderer": {
+      "byline": [
+        {
+          "playlistBylineRenderer": {
+            "text": {
+              "runs": [
+                {
+                  "text": "125"
+                },
+                {
+                  "text": " videos"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "playlistBylineRenderer": {
+            "text": {
+              "runs": [
+                {
+                  "text": "Last updated on "
+                },
+                {
+                  "text": "Jan 28, 2026"
+                }
+              ]
+            }
+          }
+        }
+      ],
+      "title": {
+        "simpleText": "Python for Beginners (Full Course) | Programming Tutorial"
+      },
+      "descriptionText": {
+        "simpleText": "Python Tutorial, Easy Python tutorial for beginner, learn Python Programming, learn python programming with example and syntax. Download python, install python, using python IDE, IDLE, Pycharm IDE, notepad,  getting started with python, variables, functions, object, list in python, set in python, help in python, data types, operators, math function, run, debug python code, conditional statement, array, matrix in python, python by navin reddy"
+      },
+      "shufflePlayButton": {
+        "buttonRenderer": {
+          "navigationEndpoint": {
+            "commandExecutorCommand": {
+              "commands": [
+                {
+                  "showEngagementPanelEndpoint": {
+                    "engagementPanelPresentationConfigs": {
+                      "engagementPanelPopupPresentationConfig": {
+                        "popupType": "PANEL_POPUP_TYPE_DIALOG"
+                      }
+                    },
+                    "identifier": {
+                      "surface": "ENGAGEMENT_PANEL_SURFACE_BROWSE",
+                      "tag": "engagement-panel-comments-section"
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "style": "STYLE_MONO_TONAL_OVERLAY",
+          "size": "SIZE_DEFAULT",
+          "text": {
+            "simpleText": "Comments"
+          },
+          "isDisabled": false,
+          "icon": {
+            "iconType": "COMMENT"
+          }
+        }
+      },
+      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+      "viewCountText": {
+        "simpleText": "56,250,234 views"
+      },
+      "playlistHeaderBanner": {
+        "heroPlaylistThumbnailRenderer": {
+          "onTap": {
+            "commandMetadata": {
+              "webCommandMetadata": {
+                "url": "/watch?v=QXeEoD0pB3E&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&pp=iAQB",
+                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                "rootVe": 3832
+              }
+            },
+            "watchEndpoint": {
+              "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+              "videoId": "QXeEoD0pB3E",
+              "playerParams": "iAQB"
+            }
+          },
+          "thumbnailOverlays": {
+            "thumbnailOverlayHoverTextRenderer": {
+              "text": {
+                "simpleText": "Play all"
+              },
+              "icon": {
+                "iconType": "PLAY_ALL"
+              }
+            }
+          },
+          "thumbnail": {
+            "thumbnails": [
+              {
+                "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCKgBEF5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLADTlU-Zp91LJN1n_JYo4EWYaBZHg",
+                "width": 168,
+                "height": 94
+              },
+              {
+                "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCMQBEG5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLDi0NZYUUqmiPH_lcIc-aLedxVjMA",
+                "width": 196,
+                "height": 110
+              },
+              {
+                "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCPYBEIoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBBpA479qTBzEaAOn3crVRy7y36Rw",
+                "width": 246,
+                "height": 138
+              },
+              {
+                "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCNACELwBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLDFfxTTv31qjpdalu6WVYgDswHgcg",
+                "width": 336,
+                "height": 188
+              }
+            ]
+          },
+          "maxRatio": 0.5625
+        }
+      },
+      "playButton": {
+        "buttonRenderer": {
+          "navigationEndpoint": {
+            "commandMetadata": {
+              "webCommandMetadata": {
+                "url": "/watch?v=QXeEoD0pB3E&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&pp=iAQB0gcJCbECa94AFGB0",
+                "webPageType": "WEB_PAGE_TYPE_WATCH",
+                "rootVe": 3832
+              }
+            },
+            "watchEndpoint": {
+              "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+              "videoId": "QXeEoD0pB3E",
+              "playerParams": "iAQB0gcJCbECa94AFGB0"
+            }
+          },
+          "style": "STYLE_MONO_FILLED_OVERLAY",
+          "size": "SIZE_DEFAULT",
+          "text": {
+            "simpleText": "Play"
+          },
+          "isDisabled": false,
+          "icon": {
+            "iconType": "PLAY_ARROW"
+          }
+        }
+      },
+      "numVideosText": {
+        "runs": [
+          {
+            "text": "125"
+          },
+          {
+            "text": " videos"
+          }
+        ]
+      },
+      "playlistBadges": [
+        {
+          "metadataBadgeRenderer": {
+            "label": "Course",
+            "style": "BADGE_STYLE_TYPE_WHITE_TEXT",
+            "tooltip": "Course"
+          }
+        }
+      ],
+      "shareButton": {
+        "buttonRenderer": {
+          "navigationEndpoint": {
+            "commandMetadata": {
+              "webCommandMetadata": {
+                "apiUrl": "/youtubei/v1/share/get_share_panel",
+                "sendPost": true
+              }
+            },
+            "shareEntityServiceEndpoint": {
+              "commands": [
+                {
+                  "openPopupAction": {
+                    "popup": {},
+                    "beReused": true,
+                    "popupType": "DIALOG"
+                  }
+                }
+              ]
+            }
+          },
+          "style": "STYLE_MONO_TONAL_OVERLAY",
+          "accessibility": {
+            "label": "Share"
+          },
+          "size": "SIZE_DEFAULT",
+          "isDisabled": false,
+          "tooltip": "Share",
+          "icon": {
+            "iconType": "SHARE"
+          },
+          "accessibilityData": {
+            "accessibilityData": {
+              "label": "Share"
+            }
+          }
+        }
+      },
+      "ownerEndpoint": {
+        "commandMetadata": {
+          "webCommandMetadata": {
+            "rootVe": 3611,
+            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+            "apiUrl": "/youtubei/v1/browse",
+            "url": "/@Telusko"
+          }
+        },
+        "browseEndpoint": {
+          "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+          "canonicalBaseUrl": "/@Telusko"
+        }
+      },
+      "descriptionTapText": {
+        "runs": [
+          {
+            "text": "...More"
+          }
+        ]
+      },
+      "isEditable": false,
+      "shareData": {
+        "canShare": true
+      },
+      "serviceEndpoints": [
+        {
+          "commandMetadata": {
+            "webCommandMetadata": {
+              "apiUrl": "/youtubei/v1/browse/edit_playlist",
+              "sendPost": true
+            }
+          },
+          "playlistEditEndpoint": {
+            "actions": [
+              {
+                "action": "ACTION_COPY_FROM_PLAYLIST",
+                "sourcePlaylistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+              }
+            ]
+          }
+        }
+      ],
+      "stats": [
+        {
+          "runs": [
+            {
+              "text": "125"
+            },
+            {
+              "text": " videos"
+            }
+          ]
+        },
+        {
+          "simpleText": "56,250,234 views"
+        }
+      ],
+      "briefStats": [
+        {
+          "runs": [
+            {
+              "text": "125"
+            },
+            {
+              "text": " videos"
+            }
+          ]
+        }
+      ],
+      "saveButton": {
+        "toggleButtonRenderer": {
+          "isDisabled": false,
+          "style": {
+            "styleType": "STYLE_MONO_TONAL_OVERLAY"
+          },
+          "defaultTooltip": "Save course",
+          "isToggled": false,
+          "toggledTooltip": "Remove from Your courses",
+          "defaultNavigationEndpoint": {
+            "commandMetadata": {
+              "webCommandMetadata": {
+                "ignoreNavigation": true
+              }
+            },
+            "modalEndpoint": {
+              "modal": {
+                "modalWithTitleAndButtonRenderer": {
+                  "title": {
+                    "simpleText": "Want to save this playlist?"
+                  },
+                  "content": {
+                    "simpleText": "Sign in to save this playlist."
+                  },
+                  "button": {
+                    "buttonRenderer": {
+                      "size": "SIZE_DEFAULT",
+                      "isDisabled": false,
+                      "style": "STYLE_MONO_FILLED",
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fplaylist%253Flist%253DPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&hl=en&ec=66428",
+                            "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                            "rootVe": 83769
+                          }
+                        },
+                        "signInEndpoint": {
+                          "idamTag": "66428",
+                          "nextEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "rootVe": 5754,
+                                "webPageType": "WEB_PAGE_TYPE_PLAYLIST",
+                                "apiUrl": "/youtubei/v1/browse",
+                                "url": "/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                              }
+                            },
+                            "browseEndpoint": {
+                              "browseId": "VLPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                            }
+                          }
+                        }
+                      },
+                      "text": {
+                        "simpleText": "Sign in"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "toggledStyle": {
+            "styleType": "STYLE_MONO_TONAL_OVERLAY"
+          },
+          "size": {
+            "sizeType": "SIZE_DEFAULT"
+          },
+          "toggledIcon": {
+            "iconType": "PLAYLIST_ADD_CHECK"
+          },
+          "toggledAccessibilityData": {
+            "accessibilityData": {
+              "label": "Remove from Your courses"
+            }
+          },
+          "defaultIcon": {
+            "iconType": "PLAYLIST_ADD"
+          },
+          "accessibilityData": {
+            "accessibilityData": {
+              "label": "Save course"
+            }
+          }
+        }
+      },
+      "cinematicContainer": {
+        "cinematicContainerRenderer": {
+          "backgroundImageConfig": {
+            "thumbnail": {
+              "thumbnails": [
+                {
+                  "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCKgBEF5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLADTlU-Zp91LJN1n_JYo4EWYaBZHg",
+                  "width": 168,
+                  "height": 94
+                },
+                {
+                  "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCMQBEG5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLDi0NZYUUqmiPH_lcIc-aLedxVjMA",
+                  "width": 196,
+                  "height": 110
+                },
+                {
+                  "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCPYBEIoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBBpA479qTBzEaAOn3crVRy7y36Rw",
+                  "width": 246,
+                  "height": 138
+                },
+                {
+                  "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCNACELwBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLDFfxTTv31qjpdalu6WVYgDswHgcg",
+                  "width": 336,
+                  "height": 188
+                }
+              ]
+            }
+          },
+          "config": {
+            "darkThemeBackgroundColor": 4280504178,
+            "applyClientImageBlur": true,
+            "colorSourceSizeMultiplier": 2,
+            "lightThemeBackgroundColor": 4280504178
+          },
+          "gradientColorConfig": [
+            {
+              "lightThemeColor": 3424866162,
+              "darkThemeColor": 3424866162,
+              "startLocation": 0
+            },
+            {
+              "lightThemeColor": 1277382514,
+              "darkThemeColor": 1277382514,
+              "startLocation": 0.33000000000000002
+            },
+            {
+              "lightThemeColor": 3424866162,
+              "darkThemeColor": 4279176975,
+              "startLocation": 1
+            }
+          ]
+        }
+      },
+      "ownerText": {
+        "runs": [
+          {
+            "navigationEndpoint": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "rootVe": 3611,
+                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                  "apiUrl": "/youtubei/v1/browse",
+                  "url": "/@Telusko"
+                }
+              },
+              "browseEndpoint": {
+                "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                "canonicalBaseUrl": "/@Telusko"
+              }
+            },
+            "text": "Telusko"
+          }
+        ]
+      },
+      "onDescriptionTap": {
+        "commandExecutorCommand": {
+          "commands": [
+            {
+              "showEngagementPanelEndpoint": {
+                "engagementPanelPresentationConfigs": {
+                  "engagementPanelPopupPresentationConfig": {
+                    "popupType": "PANEL_POPUP_TYPE_DIALOG"
+                  }
+                },
+                "identifier": {
+                  "surface": "ENGAGEMENT_PANEL_SURFACE_BROWSE",
+                  "tag": "engagement-panel-course-metadata"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "editableDetails": {
+        "canDelete": false
+      }
+    }
+  },
+  "metadata": {
+    "playlistMetadataRenderer": {
+      "title": "Python for Beginners (Full Course) | Programming Tutorial",
+      "iosAppindexingLink": "ios-app://544007664/vnd.youtube/www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+      "description": "Python Tutorial, Easy Python tutorial for beginner, learn Python Programming, learn python programming with example and syntax. Download python, install python, using python IDE, IDLE, Pycharm IDE, notepad,  getting started with python, variables, functions, object, list in python, set in python, help in python, data types, operators, math function, run, debug python code, conditional statement, array, matrix in python, python by navin reddy",
+      "androidAppindexingLink": "android-app://com.google.android.youtube/http/www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+    }
+  },
+  "microformat": {
+    "microformatDataRenderer": {
+      "thumbnail": {
+        "darkColorPalette": {
+          "iconInactiveColor": 7767699,
+          "iconDisabledColor": 4806240,
+          "section2Color": 992051
+        },
+        "vibrantColorPalette": {
+          "iconInactiveColor": 7046297
+        },
+        "sampledThumbnailColor": {
+          "red": 35,
+          "green": 79,
+          "blue": 114
+        },
+        "thumbnails": [
+          {
+            "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCOADEI4CSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLC4j_ura3JchKyCLIDjkAscIx3grA&days_since_epoch=20615",
+            "width": 480,
+            "height": 270
+          }
+        ]
+      },
+      "iosAppStoreId": "544007664",
+      "urlApplinksWeb": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&feature=applinks",
+      "title": "Python for Beginners (Full Course) | Programming Tutorial",
+      "androidPackage": "com.google.android.youtube",
+      "twitterCardType": "summary",
+      "schemaDotOrgType": "http://schema.org/WebPage",
+      "urlCanonical": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+      "urlApplinksIos": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&feature=applinks",
+      "siteName": "YouTube",
+      "linkAlternates": [
+        {
+          "hrefUrl": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+        },
+        {
+          "hrefUrl": "android-app://com.google.android.youtube/http/youtube.comhttp://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+        },
+        {
+          "hrefUrl": "ios-app://544007664/http/youtube.comhttp://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+        }
+      ],
+      "urlTwitterAndroid": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&feature=twitter-deep-link",
+      "appName": "YouTube",
+      "courseDetails": {
+        "pricing": {
+          "category": "Free"
+        },
+        "providerYoutubeUrl": "http://www.youtube.com/channel/UC59K-uG2A5ogwIrHw4bmlEg",
+        "courseLengthSeconds": "51043",
+        "providerName": "Telusko"
+      },
+      "iosAppArguments": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+      "urlTwitterIos": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&feature=twitter-deep-link",
+      "ogType": "website",
+      "unlisted": false,
+      "noindex": false,
+      "twitterSiteHandle": "@YouTube",
+      "urlApplinksAndroid": "http://www.youtube.com/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&feature=applinks",
+      "description": "Python Tutorial, Easy Python tutorial for beginner, learn Python Programming, learn python programming with example and syntax. Download python, install pyth..."
+    }
+  },
+  "sidebar": {
+    "playlistSidebarRenderer": {
+      "items": [
+        {
+          "playlistSidebarPrimaryInfoRenderer": {
+            "navigationEndpoint": {
+              "commandMetadata": {
+                "webCommandMetadata": {
+                  "url": "/watch?v=QXeEoD0pB3E&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&pp=iAQB",
+                  "webPageType": "WEB_PAGE_TYPE_WATCH",
+                  "rootVe": 3832
+                }
+              },
+              "watchEndpoint": {
+                "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                "videoId": "QXeEoD0pB3E",
+                "playerParams": "iAQB"
+              }
+            },
+            "menu": {
+              "menuRenderer": {
+                "topLevelButtons": [
+                  {
+                    "toggleButtonRenderer": {
+                      "isDisabled": false,
+                      "style": {
+                        "styleType": "STYLE_TEXT"
+                      },
+                      "defaultTooltip": "Save course",
+                      "isToggled": false,
+                      "toggledTooltip": "Remove from Your courses",
+                      "defaultNavigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "ignoreNavigation": true
+                          }
+                        },
+                        "modalEndpoint": {
+                          "modal": {
+                            "modalWithTitleAndButtonRenderer": {
+                              "title": {
+                                "simpleText": "Want to save this playlist?"
+                              },
+                              "content": {
+                                "simpleText": "Sign in to save this playlist."
+                              },
+                              "button": {
+                                "buttonRenderer": {
+                                  "size": "SIZE_DEFAULT",
+                                  "isDisabled": false,
+                                  "style": "STYLE_MONO_FILLED",
+                                  "navigationEndpoint": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fplaylist%253Flist%253DPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&hl=en&ec=66428",
+                                        "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                        "rootVe": 83769
+                                      }
+                                    },
+                                    "signInEndpoint": {
+                                      "idamTag": "66428",
+                                      "nextEndpoint": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "rootVe": 5754,
+                                            "webPageType": "WEB_PAGE_TYPE_PLAYLIST",
+                                            "apiUrl": "/youtubei/v1/browse",
+                                            "url": "/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                          }
+                                        },
+                                        "browseEndpoint": {
+                                          "browseId": "VLPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": {
+                                    "simpleText": "Sign in"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "toggledAccessibilityData": {
+                        "accessibilityData": {
+                          "label": "Remove from Your courses"
+                        }
+                      },
+                      "size": {
+                        "sizeType": "SIZE_DEFAULT"
+                      },
+                      "toggledIcon": {
+                        "iconType": "PLAYLIST_ADD_CHECK"
+                      },
+                      "defaultIcon": {
+                        "iconType": "PLAYLIST_ADD"
+                      },
+                      "accessibilityData": {
+                        "accessibilityData": {
+                          "label": "Save course"
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "buttonRenderer": {
+                      "style": "STYLE_DEFAULT",
+                      "accessibility": {
+                        "label": "Share"
+                      },
+                      "serviceEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "apiUrl": "/youtubei/v1/share/get_share_panel",
+                            "sendPost": true
+                          }
+                        },
+                        "shareEntityServiceEndpoint": {
+                          "commands": [
+                            {
+                              "openPopupAction": {
+                                "popup": {},
+                                "beReused": true,
+                                "popupType": "DIALOG"
+                              }
+                            }
+                          ]
+                        }
+                      },
+                      "size": "SIZE_DEFAULT",
+                      "isDisabled": false,
+                      "tooltip": "Share",
+                      "icon": {
+                        "iconType": "SHARE"
+                      }
+                    }
+                  }
+                ],
+                "accessibility": {
+                  "accessibilityData": {
+                    "label": "Action menu"
+                  }
+                },
+                "items": [
+                  {
+                    "menuNavigationItemRenderer": {
+                      "icon": {
+                        "iconType": "FLAG"
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "ignoreNavigation": true
+                          }
+                        },
+                        "modalEndpoint": {
+                          "modal": {
+                            "modalWithTitleAndButtonRenderer": {
+                              "title": {
+                                "simpleText": "Need to report the playlist?"
+                              },
+                              "content": {
+                                "simpleText": "Sign in to report inappropriate content."
+                              },
+                              "button": {
+                                "buttonRenderer": {
+                                  "size": "SIZE_DEFAULT",
+                                  "isDisabled": false,
+                                  "style": "STYLE_BRAND",
+                                  "navigationEndpoint": {
+                                    "commandMetadata": {
+                                      "webCommandMetadata": {
+                                        "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fchannel%252FPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&hl=en",
+                                        "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                        "rootVe": 83769
+                                      }
+                                    },
+                                    "signInEndpoint": {
+                                      "nextEndpoint": {
+                                        "commandMetadata": {
+                                          "webCommandMetadata": {
+                                            "rootVe": 6827,
+                                            "webPageType": "WEB_PAGE_TYPE_BROWSE",
+                                            "apiUrl": "/youtubei/v1/browse",
+                                            "url": "/channel/PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                          }
+                                        },
+                                        "browseEndpoint": {
+                                          "browseId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                        }
+                                      }
+                                    }
+                                  },
+                                  "text": {
+                                    "runs": [
+                                      {
+                                        "text": "Sign in"
+                                      }
+                                    ]
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "text": {
+                        "simpleText": "Report playlist"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            "showMoreText": {
+              "runs": [
+                {
+                  "text": "Show more"
+                }
+              ]
+            },
+            "title": {
+              "runs": [
+                {
+                  "navigationEndpoint": {
+                    "commandMetadata": {
+                      "webCommandMetadata": {
+                        "url": "/watch?v=QXeEoD0pB3E&list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3&pp=iAQB",
+                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                        "rootVe": 3832
+                      }
+                    },
+                    "watchEndpoint": {
+                      "playlistId": "PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3",
+                      "videoId": "QXeEoD0pB3E",
+                      "playerParams": "iAQB"
+                    }
+                  },
+                  "text": "Python for Beginners (Full Course) | Programming Tutorial"
+                }
+              ]
+            },
+            "stats": [
+              {
+                "runs": [
+                  {
+                    "text": "125"
+                  },
+                  {
+                    "text": " videos"
+                  }
+                ]
+              },
+              {
+                "simpleText": "56,250,234 views"
+              },
+              {
+                "runs": [
+                  {
+                    "text": "Last updated on "
+                  },
+                  {
+                    "text": "Jan 28, 2026"
+                  }
+                ]
+              }
+            ],
+            "playButtons": [
+              {
+                "buttonRenderer": {
+                  "size": "SIZE_DEFAULT",
+                  "isDisabled": false,
+                  "style": "STYLE_PRIMARY",
+                  "navigationEndpoint": {
+                    "commandMetadata": {
+                      "webCommandMetadata": {
+                        "url": "/watch?v=QXeEoD0pB3E&pp=0gcJCUEDrvzYGM7x",
+                        "webPageType": "WEB_PAGE_TYPE_WATCH",
+                        "rootVe": 3832
+                      }
+                    },
+                    "watchEndpoint": {
+                      "videoId": "QXeEoD0pB3E",
+                      "playerParams": "0gcJCUEDrvzYGM7x"
+                    }
+                  },
+                  "text": {
+                    "simpleText": "Preview"
+                  }
+                }
+              }
+            ],
+            "description": {
+              "simpleText": "Python Tutorial, Easy Python tutorial for beginner, learn Python Programming, learn python programming with example and syntax. Download python, install python, using python IDE, IDLE, Pycharm IDE, notepad,  getting started with python, variables, functions, object, list in python, set in python, help in python, data types, operators, math function, run, debug python code, conditional statement, array, matrix in python, python by navin reddy"
+            },
+            "thumbnailRenderer": {
+              "playlistVideoThumbnailRenderer": {
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCKgBEF5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLADTlU-Zp91LJN1n_JYo4EWYaBZHg",
+                      "width": 168,
+                      "height": 94
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEWCMQBEG5IWvKriqkDCQgBFQAAiEIYAQ==&rs=AOn4CLDi0NZYUUqmiPH_lcIc-aLedxVjMA",
+                      "width": 196,
+                      "height": 110
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCPYBEIoBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLBBpA479qTBzEaAOn3crVRy7y36Rw",
+                      "width": 246,
+                      "height": 138
+                    },
+                    {
+                      "url": "https://i.ytimg.com/vi/QXeEoD0pB3E/hqdefault.jpg?sqp=-oaymwEXCNACELwBSFryq4qpAwkIARUAAIhCGAE=&rs=AOn4CLDFfxTTv31qjpdalu6WVYgDswHgcg",
+                      "width": 336,
+                      "height": 188
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "playlistSidebarSecondaryInfoRenderer": {
+            "button": {
+              "buttonRenderer": {
+                "size": "SIZE_DEFAULT",
+                "isDisabled": false,
+                "style": "STYLE_DESTRUCTIVE",
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "ignoreNavigation": true
+                    }
+                  },
+                  "modalEndpoint": {
+                    "modal": {
+                      "modalWithTitleAndButtonRenderer": {
+                        "title": {
+                          "simpleText": "Want to subscribe to this channel?"
+                        },
+                        "content": {
+                          "simpleText": "Sign in to subscribe to this channel."
+                        },
+                        "button": {
+                          "buttonRenderer": {
+                            "size": "SIZE_DEFAULT",
+                            "isDisabled": false,
+                            "style": "STYLE_MONO_FILLED",
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fplaylist%253Flist%253DPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3%26continue_action%3DQUFFLUhqbEZkdlhIV0hfMmF3STVXLW10Qk1xQk9CemdBQXxBQ3Jtc0tsbmxFell3WHVvdkstamhSazJyeGZiS294d21TWDB1ZTVWWkplc2FISFZxekxOWXoxSW9lS2UxczBvUk9GaDliSVdZVU9HWExRb3JtN2xEZVRMaS0zTUJGSDhYZE01eFhSYS1GaXlVVHR3OFNYb1ZabS1fTkIzUjFyNFVEczAzcmYzOUd2eG5OUU5zc1FpUEZka2g1Uk5BWFRMQVFoWWQxVkxFYW1zaHhxQnJ6d2RVeVhHTzhVeXlkbzdYTjdGZXhCYnVNWUE&hl=en&ec=66429",
+                                  "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                  "rootVe": 83769
+                                }
+                              },
+                              "signInEndpoint": {
+                                "continueAction": "QUFFLUhqbEZkdlhIV0hfMmF3STVXLW10Qk1xQk9CemdBQXxBQ3Jtc0tsbmxFell3WHVvdkstamhSazJyeGZiS294d21TWDB1ZTVWWkplc2FISFZxekxOWXoxSW9lS2UxczBvUk9GaDliSVdZVU9HWExRb3JtN2xEZVRMaS0zTUJGSDhYZE01eFhSYS1GaXlVVHR3OFNYb1ZabS1fTkIzUjFyNFVEczAzcmYzOUd2eG5OUU5zc1FpUEZka2g1Uk5BWFRMQVFoWWQxVkxFYW1zaHhxQnJ6d2RVeVhHTzhVeXlkbzdYTjdGZXhCYnVNWUE",
+                                "nextEndpoint": {
+                                  "commandMetadata": {
+                                    "webCommandMetadata": {
+                                      "rootVe": 5754,
+                                      "webPageType": "WEB_PAGE_TYPE_PLAYLIST",
+                                      "apiUrl": "/youtubei/v1/browse",
+                                      "url": "/playlist?list=PLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                    }
+                                  },
+                                  "browseEndpoint": {
+                                    "browseId": "VLPLsyeobzWxl7poL9JTVyndKe62ieoN-MZ3"
+                                  }
+                                },
+                                "idamTag": "66429"
+                              }
+                            },
+                            "text": {
+                              "simpleText": "Sign in"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
+                "text": {
+                  "runs": [
+                    {
+                      "text": "Subscribe"
+                    }
+                  ]
+                }
+              }
+            },
+            "videoOwner": {
+              "videoOwnerRenderer": {
+                "title": {
+                  "runs": [
+                    {
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "rootVe": 3611,
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "apiUrl": "/youtubei/v1/browse",
+                            "url": "/@Telusko"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                          "canonicalBaseUrl": "/@Telusko"
+                        }
+                      },
+                      "text": "Telusko"
+                    }
+                  ]
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "rootVe": 3611,
+                      "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                      "apiUrl": "/youtubei/v1/browse",
+                      "url": "/@Telusko"
+                    }
+                  },
+                  "browseEndpoint": {
+                    "browseId": "UC59K-uG2A5ogwIrHw4bmlEg",
+                    "canonicalBaseUrl": "/@Telusko"
+                  }
+                },
+                "thumbnail": {
+                  "thumbnails": [
+                    {
+                      "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s48-c-k-c0x00ffffff-no-rj",
+                      "width": 48,
+                      "height": 48
+                    },
+                    {
+                      "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s88-c-k-c0x00ffffff-no-rj",
+                      "width": 88,
+                      "height": 88
+                    },
+                    {
+                      "url": "https://yt3.ggpht.com/0nsZM3NF0C9bFr2IFXicMJ1w82ldRaZvGKFnezBe2lpW7F9gI92FaLubcTghnNNt4Ld8DfRvEMo=s176-c-k-c0x00ffffff-no-rj",
+                      "width": 176,
+                      "height": 176
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

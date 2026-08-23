@@ -54,7 +54,7 @@ struct LoadingView: View {
     let skeletonSectionCount: Int
 
     init(
-        _ message: String = "Loading...",
+        _ message: String = String(localized: "Loading..."),
         showSkeleton: Bool = false,
         skeletonSectionCount: Int = 3
     ) {
@@ -96,7 +96,6 @@ struct LoadingView: View {
 // MARK: - HomeLoadingView
 
 /// A specialized loading view for the home screen with skeleton sections.
-@available(macOS 26.0, *)
 struct HomeLoadingView: View {
     var body: some View {
         ScrollView {

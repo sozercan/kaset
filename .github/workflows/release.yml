@@ -14,6 +14,11 @@ on:
         description: "Optional tag/label used for naming the release asset"
         required: false
         default: ""
+      require_developer_id:
+        description: "Fail unless a Developer ID Application certificate and notarization secrets are configured"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
@@ -26,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           fetch-depth: 0  # Full history for changelog generation
 
@@ -41,7 +46,16 @@ jobs:
       - name: Show Swift version
         run: swift --version
 
-      - name: Clear SPM artifacts cache
+      - name: Cache SPM dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm/spm-repositories
+          key: ${{ runner.os }}-spm-release-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-release-
+
+      - name: Clear SPM binary artifacts cache
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
@@ -61,15 +75,136 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Using version: $VERSION"
 
+      - name: Configure release signing
+        id: import_cert
+        env:
+          MACOS_CERTIFICATE: ${{ secrets.MACOS_CERTIFICATE }}
+          MACOS_CERTIFICATE_PWD: ${{ secrets.MACOS_CERTIFICATE_PWD }}
+          MACOS_KEYCHAIN_PWD: ${{ secrets.MACOS_KEYCHAIN_PWD }}
+          REQUIRE_DEVELOPER_ID: ${{ inputs.require_developer_id || 'false' }}
+        run: |
+          set -euo pipefail
+
+          require_developer_id() {
+            [[ "$REQUIRE_DEVELOPER_ID" == "true" ]]
+          }
+
+          use_adhoc_signing() {
+            local reason="$1"
+            if require_developer_id; then
+              echo "ERROR: $reason" >&2
+              echo "Developer ID signing was required by workflow input." >&2
+              exit 1
+            fi
+
+            echo "WARN: $reason" >&2
+            echo "WARN: Falling back to ad-hoc signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "identity=" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
+          }
+
+          use_development_signing() {
+            local identity_hash="$1"
+            local reason="$2"
+            if require_developer_id; then
+              echo "ERROR: $reason" >&2
+              echo "Developer ID signing was required by workflow input." >&2
+              exit 1
+            fi
+
+            echo "WARN: $reason" >&2
+            echo "WARN: Using Apple Development signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "::add-mask::$identity_hash"
+            echo "Using Apple Development signing identity."
+            echo "identity=$identity_hash" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=dev" >> "$GITHUB_OUTPUT"
+          }
+
+          # Developer ID Application signing + notarization is the preferred
+          # distribution path, but it requires a paid Apple Developer Program
+          # membership. Maintainer builds without that account intentionally use
+          # Apple Development signing when the existing non-paid-account .p12 is
+          # available, then ad-hoc signing as a last resort.
+          if [ -z "$MACOS_CERTIFICATE" ] || [ -z "$MACOS_CERTIFICATE_PWD" ] || [ -z "$MACOS_KEYCHAIN_PWD" ]; then
+            use_adhoc_signing "MACOS_CERTIFICATE, MACOS_CERTIFICATE_PWD, or MACOS_KEYCHAIN_PWD is not configured."
+            exit 0
+          fi
+
+          KEYCHAIN_PATH="$RUNNER_TEMP/kaset-signing.keychain-db"
+          CERT_PATH="$RUNNER_TEMP/cert.p12"
+
+          if ! printf '%s' "$MACOS_CERTIFICATE" | base64 --decode > "$CERT_PATH"; then
+            use_adhoc_signing "MACOS_CERTIFICATE is not valid base64."
+            exit 0
+          fi
+
+          security create-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH"
+          # Restrict private-key access to codesign rather than -A (all apps).
+          if ! security import "$CERT_PATH" -P "$MACOS_CERTIFICATE_PWD" \
+            -t cert -f pkcs12 -k "$KEYCHAIN_PATH" \
+            -T /usr/bin/codesign -T /usr/bin/security; then
+            rm -f "$CERT_PATH"
+            use_adhoc_signing "MACOS_CERTIFICATE could not be imported."
+            exit 0
+          fi
+
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$MACOS_KEYCHAIN_PWD" "$KEYCHAIN_PATH" >/dev/null
+
+          # Prepend our keychain to the search list so codesign can find the cert.
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | tr -d '"')
+
+          rm -f "$CERT_PATH"
+
+          IDENTITY_HASH=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null \
+            | awk '/Developer ID Application/ { print $2; exit }' || true)
+          if [ -n "$IDENTITY_HASH" ]; then
+            echo "::add-mask::$IDENTITY_HASH"
+            echo "Using Developer ID Application signing identity."
+            echo "identity=$IDENTITY_HASH" >> "$GITHUB_OUTPUT"
+            echo "signing_mode=developer-id" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          DEVELOPMENT_IDENTITY_HASH=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" 2>/dev/null \
+            | awk '/Apple Development/ { print $2; exit }' || true)
+          if [ -n "$DEVELOPMENT_IDENTITY_HASH" ]; then
+            use_development_signing "$DEVELOPMENT_IDENTITY_HASH" "Imported keychain has no Developer ID Application identity."
+            exit 0
+          fi
+
+          use_adhoc_signing "Imported keychain has no Developer ID Application or Apple Development identity."
+
       - name: Build release app
         env:
-          KASET_SIGNING: adhoc
+          KASET_SIGNING: ${{ steps.import_cert.outputs.signing_mode }}
+          APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
           ARCHES: "arm64 x86_64"
         run: |
           # Set version from tag
           echo "MARKETING_VERSION=${{ steps.version.outputs.version }}" > version.env
           echo "BUILD_NUMBER=${{ github.run_number }}" >> version.env
           Scripts/build-app.sh release
+
+      - name: Verify release app
+        run: |
+          VERIFY_ARGS=()
+          if [ "${{ steps.import_cert.outputs.signing_mode }}" = "developer-id" ]; then
+            VERIFY_ARGS+=(--require-developer-id)
+          fi
+          Scripts/verify-release-app.sh "${VERIFY_ARGS[@]}" .build/app/Kaset.app
+
+      - name: Cache Homebrew
+        id: cache-homebrew
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            /usr/local/Homebrew
+            ~/Library/Caches/Homebrew
+          key: ${{ runner.os }}-homebrew-create-dmg
 
       - name: Install create-dmg
         run: brew install create-dmg
@@ -142,8 +277,44 @@ jobs:
       - name: Rename DMG
         run: mv kaset.dmg "${{ steps.artifact.outputs.filename }}"
 
+      - name: Sign and notarize DMG
+        env:
+          APP_IDENTITY: ${{ steps.import_cert.outputs.identity }}
+          SIGNING_MODE: ${{ steps.import_cert.outputs.signing_mode }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          FILE="${{ steps.artifact.outputs.filename }}"
+
+          if [ "$SIGNING_MODE" != "developer-id" ]; then
+            echo "Skipping DMG Developer ID signing and notarization because SIGNING_MODE=$SIGNING_MODE."
+            echo "This release will rely on checksum verification, GitHub/Homebrew transport, and Sparkle EdDSA update signatures."
+            echo "macOS Gatekeeper may warn users because Developer ID notarization requires a paid Apple Developer Program membership."
+            exit 0
+          fi
+
+          codesign --force --timestamp --sign "$APP_IDENTITY" "$FILE"
+          codesign --verify --verbose=2 "$FILE"
+
+          if [ -z "$APPLE_ID" ] || [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] || [ -z "$APPLE_TEAM_ID" ]; then
+            echo "ERROR: APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, and APPLE_TEAM_ID secrets are required for notarized Developer ID releases." >&2
+            echo "A Developer ID certificate was imported, so publishing an unnotarized DMG would be a release misconfiguration." >&2
+            exit 1
+          fi
+
+          xcrun notarytool submit "$FILE" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+          xcrun stapler staple "$FILE"
+          xcrun stapler validate "$FILE"
+          spctl --assess --type open --verbose=4 "$FILE"
+
       - name: Upload artifact
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ${{ steps.artifact.outputs.filename }}
@@ -176,13 +347,14 @@ jobs:
             exit 0
           fi
 
-          # Write private key to temp file
-          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          chmod 600 /tmp/sparkle_key
+          # Write private key to a runner-temp file and always remove it before the step exits.
+          SPARKLE_KEY_FILE=$(mktemp "$RUNNER_TEMP/kaset-sparkle-key.XXXXXX")
+          trap 'rm -f "$SPARKLE_KEY_FILE"' EXIT
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$SPARKLE_KEY_FILE"
+          chmod 600 "$SPARKLE_KEY_FILE"
 
-          # Sign the DMG and capture output
-          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file /tmp/sparkle_key "${{ steps.artifact.outputs.filename }}")
-          rm -f /tmp/sparkle_key
+          # Sign the DMG and capture output. Do not echo SIGN_OUTPUT: it contains the public update signature.
+          SIGN_OUTPUT=$("$SIGN_UPDATE" --ed-key-file "$SPARKLE_KEY_FILE" "${{ steps.artifact.outputs.filename }}")
 
           # Parse signature and length from output
           # Output format: sparkle:edSignature="..." length="..."
@@ -221,27 +393,6 @@ jobs:
           ## What's New
 
           ${CHANGELOG}
-
-          ## Installation
-
-          ### Homebrew (recommended)
-          \`\`\`bash
-          brew install sozercan/repo/kaset
-          \`\`\`
-
-          ### Manual Download
-          1. Download \`${{ steps.artifact.outputs.filename }}\`
-          2. Open the DMG and drag Kaset to Applications
-          3. Remove the quarantine attribute (required for unsigned apps):
-             \`\`\`bash
-             xattr -d com.apple.quarantine /Applications/Kaset.app
-             \`\`\`
-
-          ## Verification
-
-          **SHA256:** \`${SHA256}\`
-
-          Verify with: \`shasum -a 256 ${{ steps.artifact.outputs.filename }}\`
           EOF
           )
 
@@ -284,7 +435,7 @@ jobs:
           fi
 
       - name: Checkout Homebrew tap repo
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
         with:
           repository: sozercan/homebrew-repo
           token: ${{ secrets.HOMEBREW_REPO_TOKEN }}
@@ -311,7 +462,10 @@ jobs:
             homepage "https://github.com/sozercan/kaset"
 
             auto_updates true
-            depends_on macos: ">= :tahoe"
+            # Homebrew casks can gate on macOS release symbols, but not this
+            # app's exact 15.4 patch minimum; LSMinimumSystemVersion and
+            # Sparkle's appcast enforce 15.4 at launch/update time.
+            depends_on macos: :sequoia
 
             app "Kaset.app"
 
@@ -334,10 +488,14 @@ jobs:
           git push origin main
 
       - name: Update Appcast
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Fetch and checkout the default branch (we're in detached HEAD from tag checkout)
-          git fetch origin ${{ github.event.repository.default_branch }}
-          git checkout ${{ github.event.repository.default_branch }}
+          # The default branch requires changes to land via pull request, so we
+          # open a short-lived appcast branch and auto-merge it instead of
+          # pushing straight to the default branch.
+          DEFAULT_BRANCH="${{ github.event.repository.default_branch }}"
+          git fetch origin "$DEFAULT_BRANCH"
 
           TAG="${{ steps.artifact.outputs.tag }}"
           VERSION="${TAG#v}"
@@ -346,13 +504,20 @@ jobs:
           SIGNATURE="${{ steps.sparkle_sign.outputs.signature }}"
           LENGTH="${{ steps.sparkle_sign.outputs.length }}"
 
-          if [ -n "$SIGNATURE" ]; then
-            PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
-            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
-            RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+          if [ -z "$SIGNATURE" ]; then
+            echo "No Sparkle signature available; skipping appcast update"
+            exit 0
+          fi
 
-            # Create updated appcast.xml with the new item at the top
-            cat > appcast.xml << APPCAST_EOF
+          BRANCH="appcast-${VERSION}-${{ github.run_id }}-${{ github.run_attempt }}"
+          git checkout -b "$BRANCH" "origin/${DEFAULT_BRANCH}"
+
+          PUB_DATE=$(date -u "+%a, %d %b %Y %H:%M:%S %z")
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${{ steps.artifact.outputs.filename }}"
+          RELEASE_NOTES_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+
+          # Create updated appcast.xml with the new item at the top
+          cat > appcast.xml << APPCAST_EOF
           <?xml version="1.0" encoding="utf-8"?>
           <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
               <channel>
@@ -372,14 +537,38 @@ jobs:
                           length="${LENGTH}"
                           type="application/octet-stream"
                           sparkle:edSignature="${SIGNATURE}"/>
-                      <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+                      <sparkle:minimumSystemVersion>15.4</sparkle:minimumSystemVersion>
                   </item>
 
               </channel>
           </rss>
           APPCAST_EOF
 
-            git add appcast.xml
-            git diff --cached --quiet || git commit -m "Update appcast to ${{ steps.artifact.outputs.tag }}"
-            git push origin ${{ github.event.repository.default_branch }}
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "Appcast already up to date; nothing to do"
+            exit 0
           fi
+
+          git commit -m "Update appcast to ${TAG}"
+          git push origin "$BRANCH"
+
+          PR_URL=$(gh pr create \
+            --base "$DEFAULT_BRANCH" \
+            --head "$BRANCH" \
+            --title "Update appcast to ${TAG}" \
+            --body "Automated Sparkle appcast update for ${TAG} (release run ${{ github.run_id }}).")
+          echo "Opened appcast PR: $PR_URL"
+
+          # The default branch requires 0 approving reviews, so the PR is
+          # immediately mergeable. Retry while GitHub computes mergeability.
+          for attempt in 1 2 3 4 5 6; do
+            if gh pr merge "$BRANCH" --squash --delete-branch; then
+              echo "Merged appcast PR"
+              exit 0
+            fi
+            echo "Merge attempt ${attempt} failed; retrying in 10s..."
+            sleep 10
+          done
+
+          echo "::warning::Appcast PR ${PR_URL} was opened but could not be auto-merged. Merge it manually to publish the Sparkle update."

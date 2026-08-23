@@ -7,10 +7,13 @@ import Testing
 @Suite(.tags(.service))
 @MainActor
 struct NetworkMonitorTests {
-    @Test("Shared instance exists")
-    func sharedInstanceExists() {
-        let monitor = NetworkMonitor.shared
-        #expect(monitor !== nil)
+    @Test("Shared instance is stable")
+    func sharedInstanceIsStable() {
+        let first = NetworkMonitor.shared
+        let second = NetworkMonitor.shared
+
+        #expect(first === second)
+        #expect(!first.statusDescription.isEmpty)
     }
 
     @Test("Initial state defaults to connected")

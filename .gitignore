@@ -1,6 +1,8 @@
 # Build artifacts
 .build/
 DerivedData/
+__pycache__/
+*.py[cod]
 *.xcuserstate
 *.xccheckout
 *.moved-aside
@@ -56,6 +58,11 @@ Thumbs.db
 .env
 .env.local
 *.pem
+*.p12
+*.key
 
 TEMP_*
+.tmp/
 build/
+.codex/environments/environment.toml
+Build

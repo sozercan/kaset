@@ -5,6 +5,8 @@ import Testing
 // MARK: - FoundationModelsServiceTests
 
 /// Tests for FoundationModelsService availability and session creation.
+@available(macOS 26.0, *)
+
 @Suite(.tags(.api), .serialized)
 @MainActor
 struct FoundationModelsServiceTests {
@@ -115,13 +117,13 @@ struct FoundationModelsServiceTests {
         service.isDisabledByUser = originalDisabled
     }
 
-    // MARK: - Clear Context Test
+    // MARK: - Availability Refresh Test
 
-    @Test("clearContext does not throw")
-    func clearContextDoesNotThrow() {
+    @Test("refreshAvailability does not throw")
+    func refreshAvailabilityDoesNotThrow() {
         let service = FoundationModelsService.shared
 
         // Should complete without error
-        service.clearContext()
+        service.refreshAvailability()
     }
 }

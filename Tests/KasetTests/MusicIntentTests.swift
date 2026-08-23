@@ -5,6 +5,8 @@ import Testing
 // MARK: - MusicIntentTests
 
 /// Tests for MusicIntent query building and parsing logic.
+@available(macOS 26.0, *)
+
 @Suite(.tags(.api))
 struct MusicIntentTests {
     // MARK: - buildSearchQuery Tests
@@ -414,6 +416,8 @@ struct MusicIntentTests {
 
 // MARK: - MusicActionTests
 
+@available(macOS 26.0, *)
+
 @Suite(.tags(.api))
 struct MusicActionTests {
     @Test("All action cases have raw values")
@@ -430,6 +434,8 @@ struct MusicActionTests {
 }
 
 // MARK: - ContentSourceTests
+
+@available(macOS 26.0, *)
 
 @Suite(.tags(.api))
 struct ContentSourceTests {

@@ -71,6 +71,42 @@ struct HomeResponseParserTests {
         }
     }
 
+    @Test("Parse twoRow song renderer propagates explicit subtitle badge")
+    func parseTwoRowSongPropagatesExplicitBadge() throws {
+        let songData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Explicit Song"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": ["videoId": "explicit-video"],
+                ],
+                "subtitleBadges": [[
+                    "musicInlineBadgeRenderer": [
+                        "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                    ],
+                ]],
+            ],
+        ]
+        let sectionData: [String: Any] = [
+            "musicCarouselShelfRenderer": [
+                "header": [
+                    "musicCarouselShelfBasicHeaderRenderer": [
+                        "title": ["runs": [["text": "Songs"]]],
+                    ],
+                ],
+                "contents": [songData],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+        #expect(section.items.count == 1)
+        if case let .song(song) = section.items.first {
+            #expect(song.videoId == "explicit-video")
+            #expect(song.isExplicit == true)
+        } else {
+            Issue.record("Expected song item")
+        }
+    }
+
     @Test("Parse carousel section with playlist")
     func parseCarouselSectionWithPlaylist() throws {
         let playlistData: [String: Any] = [
@@ -108,6 +144,36 @@ struct HomeResponseParserTests {
             #expect(playlist.id == "VL12345")
         } else {
             Issue.record("Expected playlist item")
+        }
+    }
+
+    @Test("Parse carousel section with video preserves video type")
+    func parseCarouselSectionWithVideoPreservesVideoType() throws {
+        let videoData: [String: Any] = [
+            "musicTwoRowItemRenderer": [
+                "title": ["runs": [["text": "Test Video"]]],
+                "navigationEndpoint": [
+                    "watchEndpoint": [
+                        "videoId": "video123",
+                        "watchEndpointMusicSupportedConfigs": [
+                            "watchEndpointMusicConfig": [
+                                "musicVideoType": "MUSIC_VIDEO_TYPE_OMV",
+                            ],
+                        ],
+                    ],
+                ],
+                "subtitle": ["runs": [["text": "Artist Name"], ["text": " • "], ["text": "10M views"]]],
+            ],
+        ]
+
+        let item = try #require(HomeResponseParser.parseHomeSectionItem(videoData))
+
+        if case let .song(song) = item {
+            #expect(song.videoId == "video123")
+            #expect(song.musicVideoType == .omv)
+            #expect(song.artists.map(\.name) == ["Artist Name"])
+        } else {
+            Issue.record("Expected video item to parse as a song")
         }
     }
 
@@ -195,6 +261,9 @@ struct HomeResponseParserTests {
         if case let .playlist(playlist) = item {
             #expect(playlist.title == "Chill")
             #expect(playlist.id == "FEmusic_moods_and_genres_category_chill_someEncodedParams")
+            #expect(playlist.moodCategoryEndpoint?.browseId == "FEmusic_moods_and_genres_category_chill")
+            #expect(playlist.moodCategoryEndpoint?.params == "someEncodedParams")
+            #expect(playlist.resolvedMoodCategoryEndpoint == playlist.moodCategoryEndpoint)
         } else {
             Issue.record("Expected playlist item from navigation button")
         }
@@ -274,6 +343,53 @@ struct HomeResponseParserTests {
             #expect(firstPlaylist.title == "Chill")
         } else {
             Issue.record("Expected playlist item from navigation button")
+        }
+    }
+
+    @Test("Parse responsive browse item with library artist page type")
+    func parseResponsiveBrowseLibraryArtist() throws {
+        let artistItem: [String: Any] = [
+            "musicResponsiveListItemRenderer": [
+                "navigationEndpoint": [
+                    "browseEndpoint": [
+                        "browseId": "MPLAUC1234567890",
+                        "browseEndpointContextSupportedConfigs": [
+                            "browseEndpointContextMusicConfig": [
+                                "pageType": "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+                            ],
+                        ],
+                    ],
+                ],
+                "flexColumns": [
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Library Artist"]]],
+                        ],
+                    ],
+                    [
+                        "musicResponsiveListItemFlexColumnRenderer": [
+                            "text": ["runs": [["text": "Artist"]]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let sectionData: [String: Any] = [
+            "musicShelfRenderer": [
+                "title": ["runs": [["text": "Artists"]]],
+                "contents": [artistItem],
+            ],
+        ]
+
+        let section = try #require(HomeResponseParser.parseHomeSection(sectionData))
+
+        #expect(section.items.count == 1)
+        if case let .artist(artist) = section.items.first {
+            #expect(artist.id == "MPLAUC1234567890")
+            #expect(artist.name == "Library Artist")
+        } else {
+            Issue.record("Expected artist item")
         }
     }
 

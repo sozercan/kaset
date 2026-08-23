@@ -19,7 +19,7 @@ final class ExploreViewUITests: KasetUITestCase {
 
         navigateToExplore()
 
-        let scrollView = app.scrollViews.firstMatch
+        let scrollView = app.scrollViews["exploreView.scrollView"].firstMatch
         XCTAssertTrue(waitForElement(scrollView, timeout: 10))
     }
 
@@ -28,7 +28,7 @@ final class ExploreViewUITests: KasetUITestCase {
 
         navigateToExplore()
 
-        let scrollView = app.scrollViews.firstMatch
+        let scrollView = app.scrollViews["exploreView.scrollView"].firstMatch
         XCTAssertTrue(waitForElement(scrollView))
 
         scrollView.swipeUp()

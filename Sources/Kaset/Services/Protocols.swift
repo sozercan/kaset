@@ -21,14 +21,77 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool
 
+    /// Synchronously persists sign-out intent before asynchronous draining begins.
+    @discardableResult
+    func invalidateAuthCookieRestoration() -> Bool
+
+    /// Clears only authentication cookies from WebKit and persisted storage.
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAuthCookies() async -> Bool
+
     /// Clears all website data (cookies, cache, etc.).
-    func clearAllData() async
+    /// Returns whether the persisted backup was durably invalidated.
+    @discardableResult
+    func clearAllData() async -> Bool
 
     /// Forces an immediate backup of all YouTube/Google cookies.
-    func forceBackupCookies() async
+    /// Returns whether the latest snapshot is durably available.
+    func forceBackupCookies() async -> Bool
+
+    /// Whether the latest transaction setup failed to restore its prior durable state.
+    var loginCookieBackupSetupRequiresCleanup: Bool { get }
+
+    /// Starts a login-cookie transaction before the login WebView can mutate
+    /// authentication cookies, preserving the previous restorable archive.
+    func beginLoginCookieBackup() async -> CookieBackupTransaction?
+
+    /// Persists a fresh stable snapshot for the active login transaction while
+    /// keeping startup restoration disabled.
+    func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether this manager and its archive queue still own the transaction.
+    func isLoginCookieBackupActive(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Whether the current stable login-cookie snapshot differs from the
+    /// transaction's pre-login baseline.
+    func hasLoginCookieSnapshotChanged(_ transaction: CookieBackupTransaction) async -> Bool
+
+    /// Makes a prepared login-cookie backup eligible for startup restoration.
+    @discardableResult
+    func commitLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Finishes a committed login transaction after AuthService publishes the
+    /// matching authenticated identity.
+    @discardableResult
+    func finalizeLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> String?
+
+    /// Disables restoration for a transaction before account work drains.
+    func prepareLoginCookieBackupRollback(
+        _ transaction: CookieBackupTransaction
+    ) async -> Bool
+
+    /// Restores the prior archive and restoration policy after a cancelled or
+    /// superseded login attempt.
+    func rollbackLoginCookieBackup(
+        _ transaction: CookieBackupTransaction
+    ) async -> CookieBackupRollbackResult
+
+    /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
+    /// Returns whether authentication cookies are safe to evaluate afterward.
+    func waitForInitialCookieRestore() async -> Bool
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
+
+    /// Switches the shared session's active delegated identity to the account
+    /// reached by `signinURL`, verifying via `ytcfg.DATASYNC_ID`. Throws if the
+    /// switch cannot be verified.
+    func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws
 }
 
 // MARK: - YTMusicClientProtocol
@@ -38,13 +101,23 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
 @MainActor
 protocol YTMusicClientProtocol: Sendable {
     /// Fetches the home page content (initial sections only for fast display).
-    func getHome() async throws -> HomeResponse
+    /// A forced refresh bypasses and replaces the scoped Home cache.
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse
 
     /// Fetches the next batch of home sections via continuation.
     func getHomeContinuation() async throws -> [HomeSection]?
 
     /// Whether more home sections are available to load.
     var hasMoreHomeSections: Bool { get }
+
+    /// Fetches signed-in, account-backed recommendations from the YouTube Music home feed.
+    func getPersonalizedRecommendations() async throws -> HomeResponse
+
+    /// Fetches the next batch of signed-in recommendation sections.
+    func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]?
+
+    /// Whether more signed-in recommendation sections are available to load.
+    var hasMorePersonalizedRecommendationSections: Bool { get }
 
     /// Fetches the explore page content (initial sections only for fast display).
     func getExplore() async throws -> HomeResponse
@@ -82,6 +155,15 @@ protocol YTMusicClientProtocol: Sendable {
     /// Whether more new releases sections are available to load.
     var hasMoreNewReleasesSections: Bool { get }
 
+    /// Fetches the history page content (initial sections only for fast display).
+    func getHistory() async throws -> HomeResponse
+
+    /// Fetches the next batch of history sections via continuation.
+    func getHistoryContinuation() async throws -> [HomeSection]?
+
+    /// Whether more history sections are available to load.
+    var hasMoreHistorySections: Bool { get }
+
     /// Fetches the podcasts page content (initial sections only for fast display).
     func getPodcasts() async throws -> [PodcastSection]
 
@@ -106,11 +188,17 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for songs only with pagination support.
     func searchSongsWithPagination(query: String) async throws -> SearchResponse
 
+    /// Searches for videos only (filtered search with pagination).
+    func searchVideos(query: String) async throws -> SearchResponse
+
     /// Searches for albums only (filtered search with pagination).
     func searchAlbums(query: String) async throws -> SearchResponse
 
     /// Searches for artists only (filtered search with pagination).
     func searchArtists(query: String) async throws -> SearchResponse
+
+    /// Searches for profiles only (filtered search with pagination).
+    func searchProfiles(query: String) async throws -> SearchResponse
 
     /// Searches for playlists only (filtered search with pagination).
     func searchPlaylists(query: String) async throws -> SearchResponse
@@ -124,15 +212,11 @@ protocol YTMusicClientProtocol: Sendable {
     /// Searches for podcasts only (podcast shows).
     func searchPodcasts(query: String) async throws -> SearchResponse
 
-    /// Fetches the next batch of search results via continuation.
-    /// Returns nil if no more results are available.
-    func getSearchContinuation() async throws -> SearchResponse?
+    /// Searches for podcast episodes only (filtered search with pagination).
+    func searchEpisodes(query: String) async throws -> SearchResponse
 
-    /// Whether more search results are available to load.
-    var hasMoreSearchResults: Bool { get }
-
-    /// Clears the search continuation token.
-    func clearSearchContinuation()
+    /// Fetches the next batch of search results for an explicit continuation value.
+    func getSearchContinuation(token: String) async throws -> SearchResponse
 
     /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch()
@@ -163,18 +247,25 @@ protocol YTMusicClientProtocol: Sendable {
     /// This returns all tracks in a single request, which is more reliable for radio playlists.
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song]
 
-    /// Fetches the next batch of playlist tracks via continuation.
-    /// Returns nil if no more tracks are available.
-    func getPlaylistContinuation() async throws -> PlaylistContinuationResponse?
-
-    /// Whether more playlist tracks are available to load.
-    var hasMorePlaylistTracks: Bool { get }
+    /// Fetches a batch of playlist tracks using the provided continuation token.
+    func getPlaylistContinuation(token: String, requiresAuth: Bool) async throws -> PlaylistContinuationResponse
 
     /// Fetches artist details including their songs and albums.
     func getArtist(id: String) async throws -> ArtistDetail
 
     /// Fetches all songs for an artist using the songs browse endpoint.
     func getArtistSongs(browseId: String, params: String?) async throws -> [Song]
+
+    /// Fetches an artist's full discography (`MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`).
+    /// Returns every album / single / EP behind an Albums-shelf "See all".
+    func getArtistDiscography(browseId: String, params: String?) async throws -> [Album]
+
+    /// Fetches a filtered artist-page subset (`MUSIC_PAGE_TYPE_ARTIST`) — the
+    /// full Latest-episodes listing behind the shelf's "See all". The
+    /// authenticated response is a single `gridRenderer` of
+    /// `musicMultiRowListItemRenderer` items (including live streams), so the
+    /// return type is a flat list.
+    func getArtistEpisodesList(browseId: String, params: String?) async throws -> [ArtistEpisode]
 
     /// Rates a song (like/dislike/indifferent).
     func rateSong(videoId: String, rating: LikeStatus) async throws
@@ -184,6 +275,28 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Adds a playlist to the user's library.
     func subscribeToPlaylist(playlistId: String) async throws
+
+    /// Permanently deletes one of the user's own playlists.
+    func deletePlaylist(playlistId: String) async throws
+
+    /// Fetches the user's playlists that can receive the provided song.
+    func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu
+
+    /// Adds a song to an existing playlist.
+    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate: Bool) async throws
+
+    /// Removes a song from a playlist.
+    /// - Parameter setVideoId: The playlist-item-specific identifier (from `Song.playlistSetVideoId`)
+    ///   identifying which occurrence of the song to remove.
+    func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws
+
+    /// Creates a playlist and optionally seeds it with songs.
+    func createPlaylist(
+        title: String,
+        description: String?,
+        privacyStatus: PlaylistPrivacyStatus,
+        videoIds: [String]
+    ) async throws -> String
 
     /// Removes a playlist from the user's library.
     func unsubscribeFromPlaylist(playlistId: String) async throws
@@ -202,6 +315,10 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches lyrics for a song.
     func getLyrics(videoId: String) async throws -> Lyrics
+
+    /// Fetches timed (synced) lyrics for a song from YouTube Music.
+    /// Returns synced lyrics if available, falls back to plain lyrics, or returns unavailable.
+    func getTimedLyrics(videoId: String) async throws -> LyricResult
 
     /// Fetches song metadata by video ID.
     func getSong(videoId: String) async throws -> Song
@@ -228,7 +345,25 @@ protocol YTMusicClientProtocol: Sendable {
 
     /// Fetches the list of available accounts (primary + brand accounts).
     /// Used for account switching functionality.
-    func fetchAccountsList() async throws -> AccountsListResponse
+    func fetchAccountsList(allowGuestMode: Bool) async throws -> AccountsListResponse
+}
+
+extension YTMusicClientProtocol {
+    /// Fetches accounts using normal personal-mode authentication.
+    func fetchAccountsList() async throws -> AccountsListResponse {
+        try await self.fetchAccountsList(allowGuestMode: false)
+    }
+
+    /// Fetches a public playlist continuation by default.
+    func getPlaylistContinuation(token: String) async throws -> PlaylistContinuationResponse {
+        try await self.getPlaylistContinuation(token: token, requiresAuth: false)
+    }
+}
+
+// MARK: - LoginAttemptID
+
+struct LoginAttemptID: Equatable, Sendable {
+    let rawValue: UInt64
 }
 
 // MARK: - AuthServiceProtocol
@@ -243,6 +378,21 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     /// Flag indicating whether re-authentication is needed.
     var needsReauth: Bool { get set }
 
+    /// Local identity of the currently presented login attempt.
+    var activeLoginAttemptID: LoginAttemptID? { get }
+
+    /// Whether a failed login cleanup must be retried before another sign-in.
+    var loginCleanupRequired: Bool { get }
+
+    /// Whether failed-login cleanup still owns the account boundary.
+    var isLoginCleanupInProgress: Bool { get }
+
+    /// Changes synchronously whenever an explicit sign-out begins.
+    var signOutSequence: UInt64 { get }
+
+    /// Records whether the failed-login cleanup still needs a retry.
+    func setLoginCleanupRequired(_ required: Bool)
+
     /// Starts the login flow by presenting the login sheet.
     func startLogin()
 
@@ -253,10 +403,32 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     func sessionExpired()
 
     /// Signs out the user by clearing all cookies and data.
-    func signOut() async
+    @discardableResult
+    func signOut() async -> Bool
 
-    /// Called when login completes successfully.
-    func completeLogin(sapisid: String)
+    /// Commits a login after account-scoped work has drained.
+    /// Returns false when cancellation, sign-out, or a newer login attempt supersedes it.
+    func completeLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        persistBeforeCommit: @escaping @MainActor @Sendable () async -> String?,
+        persistFinalSession: @escaping @MainActor @Sendable () async -> String?,
+        willPublishLogin: @escaping @MainActor @Sendable () -> Void
+    ) async -> Bool
+
+    /// Resolves a login-cookie rollback while the account mutation boundary is held.
+    func resolveLoginRollbackAfterDraining(
+        expectedAttemptID: LoginAttemptID?,
+        prepareRollback: @escaping @MainActor @Sendable () async -> Bool,
+        rollback: @escaping @MainActor @Sendable (_ forceCleanup: Bool) async -> CookieBackupRollbackResult
+    ) async -> CookieBackupRollbackResult
+
+    /// Fences and drains a published or pending login before cookie cleanup,
+    /// then applies the cleanup result only while that boundary remains current.
+    func clearFailedLoginAfterDraining(
+        expectedAttemptID: LoginAttemptID,
+        expectedSignOutSequence: UInt64,
+        clearCookies: @escaping @MainActor @Sendable () async -> Bool
+    ) async -> Bool?
 }
 
 // MARK: - PlayerServiceProtocol
@@ -295,11 +467,26 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Playback queue.
     var queue: [Song] { get }
 
-    /// Index of current track in queue.
+    /// Queue cursor used for next/previous navigation.
     var currentIndex: Int { get }
+
+    /// Index of the queue entry that actually owns playback, or nil for detached playback.
+    var activePlaybackQueueIndex: Int? { get }
 
     /// Whether the mini player should be shown.
     var showMiniPlayer: Bool { get set }
+
+    /// Whether the native mini player window is visible.
+    var isMiniPlayerVisible: Bool { get set }
+
+    /// How the native mini player was opened.
+    var miniPlayerMode: PlayerService.MiniPlayerMode { get set }
+
+    /// Active native mini player layout.
+    var miniPlayerPanel: PlayerService.MiniPlayerPanel { get set }
+
+    /// Whether closing the mini player should restore the main window.
+    var shouldRestoreMainWindowWhenMiniPlayerCloses: Bool { get set }
 
     /// Like status of the current track.
     var currentTrackLikeStatus: LikeStatus { get }
@@ -345,11 +532,55 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Cycles through repeat modes.
     func cycleRepeatMode()
 
+    /// Opens the native mini player.
+    func openMiniPlayer(mode: PlayerService.MiniPlayerMode)
+
+    /// Toggles the native mini player.
+    @discardableResult
+    func toggleMiniPlayer(mode: PlayerService.MiniPlayerMode) -> Bool
+
+    /// Closes the native mini player.
+    @discardableResult
+    func closeMiniPlayer() -> Bool
+
+    /// Consumes a pending request to restore the main app window.
+    func consumeMiniPlayerMainWindowRestoreRequest() -> Bool
+
+    /// Toggles compact/expanded native mini player layout.
+    func toggleMiniPlayerPanel()
+
     /// Stops playback and clears state.
     func stop() async
 
+    /// Reserves native playback ownership without changing the current intent.
+    func reserveMusicPlaybackIntent() -> MusicPlaybackReservation
+
+    /// Claims a reservation only if no newer playback intent has superseded it.
+    func claimMusicPlaybackIntent(_ reservation: MusicPlaybackReservation) -> MusicPlaybackIntent?
+
+    /// Whether an unclaimed reservation still names the current playback context.
+    func acceptsMusicPlaybackReservation(_ reservation: MusicPlaybackReservation) -> Bool
+
+    /// Captures the queue context for queue-only deferred mutations.
+    func reserveQueueMutation() -> Int
+
+    /// Whether a queue-only mutation still targets the same queue context.
+    func acceptsQueueMutation(_ generation: Int) -> Bool
+
+    /// Whether the supplied native playback intent still owns mutations.
+    func acceptsMusicPlaybackIntent(_ intent: MusicPlaybackIntent) -> Bool
+
     /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int) async
+
+    /// Conditionally plays a queue under a previously claimed native intent.
+    @discardableResult
+    func playQueue(
+        _ songs: [Song],
+        startingAt index: Int,
+        deferringSmartShuffleFill: Bool,
+        intent: MusicPlaybackIntent
+    ) async -> Int?
 
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
@@ -360,7 +591,20 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// - Parameters:
     ///   - playlistId: The mix playlist ID (e.g., "RDEM...")
     ///   - startVideoId: Optional starting video ID
-    func playWithMix(playlistId: String, startVideoId: String?) async
+    func playWithMix(
+        playlistId: String,
+        startVideoId: String?,
+        intent: MusicPlaybackIntent?
+    ) async
+
+    /// Clears the queue while preserving the current track when possible.
+    func clearQueue()
+
+    /// Shuffles the current queue order.
+    func shuffleQueue()
+
+    /// Appends songs to the end of the queue.
+    func appendToQueue(_ songs: [Song])
 
     // MARK: - Like/Library Actions
 
@@ -375,7 +619,7 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     // MARK: - State Updates
 
-    /// Called when the mini player confirms playback has started.
+    /// Records that the WebView observer has confirmed playback has started.
     func confirmPlaybackStarted()
 
     /// Called when the mini player is dismissed.
@@ -385,8 +629,18 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double)
 
     /// Updates track metadata when track changes.
-    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String)
+    func updateTrackMetadata(title: String, artist: String, thumbnailUrl: String, videoId: String?)
 
     /// Updates the like status from WebView observation.
     func updateLikeStatus(_ status: LikeStatus)
+}
+
+extension PlayerServiceProtocol {
+    func playWithMix(playlistId: String, startVideoId: String?) async {
+        await self.playWithMix(
+            playlistId: playlistId,
+            startVideoId: startVideoId,
+            intent: nil
+        )
+    }
 }

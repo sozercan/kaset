@@ -1,0 +1,74 @@
+{
+  "header": {
+    "feedTabbedHeaderRenderer": {
+      "title": {
+        "runs": [
+          {
+            "text": "Home"
+          }
+        ]
+      }
+    }
+  },
+  "contents": {
+    "twoColumnBrowseResultsRenderer": {
+      "tabs": [
+        {
+          "tabRenderer": {
+            "tabIdentifier": "FEwhat_to_watch",
+            "content": {
+              "richGridRenderer": {
+                "reflowOptions": {
+                  "minimumRowsOfVideosBetweenSections": 1,
+                  "minimumRowsOfVideosAtStart": 2
+                },
+                "contents": [
+                  {
+                    "richSectionRenderer": {
+                      "content": {
+                        "feedNudgeRenderer": {
+                          "applyModernizedStyle": true,
+                          "subtitle": {
+                            "runs": [
+                              {
+                                "text": "Start watching videos to help us build a feed of videos you'll love."
+                              }
+                            ],
+                            "accessibility": {
+                              "accessibilityData": {
+                                "label": "Start watching videos to help us build a feed of videos you'll love."
+                              }
+                            }
+                          },
+                          "contentsLocation": "FEED_NUDGE_CONTENTS_LOCATION_UNKNOWN",
+                          "title": {
+                            "runs": [
+                              {
+                                "text": "Try searching to get started"
+                              }
+                            ],
+                            "accessibility": {
+                              "accessibilityData": {
+                                "label": "Try searching to get started"
+                              }
+                            }
+                          },
+                          "disableDropShadow": false,
+                          "trimStyle": "FEED_NUDGE_TRIM_STYLE_NO_TRIM",
+                          "backgroundStyle": "FEED_NUDGE_BACKGROUND_STYLE_UNKNOWN"
+                        }
+                      }
+                    }
+                  }
+                ],
+                "targetId": "browse-feedFEwhat_to_watch",
+                "layoutSizing": "RICH_GRID_LAYOUT_SIZING_STANDARD"
+              }
+            },
+            "selected": true
+          }
+        }
+      ]
+    }
+  }
+}

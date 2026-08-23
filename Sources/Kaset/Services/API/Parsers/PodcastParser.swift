@@ -176,8 +176,7 @@ enum PodcastParser {
 
     /// Parses a two-row item (typically a podcast show thumbnail card).
     private static func parseTwoRowItem(_ data: [String: Any]) -> PodcastSectionItem? {
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         guard let title = ParsingHelpers.extractTitle(from: data) else {
             return nil
@@ -241,8 +240,7 @@ enum PodcastParser {
         let title = Self.extractMultiRowTitle(from: data) ?? "Unknown Episode"
 
         // Extract thumbnail
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
         // Extract subtitle (show name)
         let showTitle = Self.extractMultiRowSubtitle(from: data)
@@ -297,7 +295,7 @@ enum PodcastParser {
         if let descriptionData = data["description"] as? [String: Any],
            let runs = descriptionData["runs"] as? [[String: Any]]
         {
-            description = runs.compactMap { $0["text"] as? String }.joined()
+            description = ParsingHelpers.joinedRunText(runs)
         }
 
         let episode = PodcastEpisode(
@@ -325,8 +323,7 @@ enum PodcastParser {
                browseId.hasPrefix("MPSPP")
             {
                 let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown Show"
-                let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-                let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+                let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
                 let author = ParsingHelpers.extractSubtitleFromFlexColumns(data)
 
                 let show = PodcastShow(
@@ -343,8 +340,7 @@ enum PodcastParser {
         }
 
         let title = ParsingHelpers.extractTitleFromFlexColumns(data) ?? "Unknown Episode"
-        let thumbnails = ParsingHelpers.extractThumbnails(from: data)
-        let thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+        let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
         let showTitle = ParsingHelpers.extractSubtitleFromFlexColumns(data)
 
         let episode = PodcastEpisode(
@@ -387,8 +383,7 @@ enum PodcastParser {
             author = ParsingHelpers.extractSubtitle(from: musicDetailHeaderRenderer)
             description = Self.extractDescription(from: musicDetailHeaderRenderer)
 
-            let thumbnails = ParsingHelpers.extractThumbnails(from: musicDetailHeaderRenderer)
-            thumbnailURL = thumbnails.last.flatMap { URL(string: $0) }
+            thumbnailURL = ParsingHelpers.extractThumbnailURL(from: musicDetailHeaderRenderer)
         }
 
         // Parse from twoColumnBrowseResultsRenderer (current format)
@@ -409,9 +404,8 @@ enum PodcastParser {
                         author = ParsingHelpers.extractSubtitle(from: headerRenderer) ?? author
                         description = Self.extractDescription(from: headerRenderer) ?? description
 
-                        let thumbnails = ParsingHelpers.extractThumbnails(from: headerRenderer)
-                        if let thumb = thumbnails.last {
-                            thumbnailURL = URL(string: thumb)
+                        if let headerThumbnailURL = ParsingHelpers.extractThumbnailURL(from: headerRenderer) {
+                            thumbnailURL = headerThumbnailURL
                         }
 
                         // Extract subscription status from buttons
@@ -605,7 +599,7 @@ enum PodcastParser {
         if let description = data["description"] as? [String: Any],
            let runs = description["runs"] as? [[String: Any]]
         {
-            return runs.compactMap { $0["text"] as? String }.joined()
+            return ParsingHelpers.joinedRunText(runs)
         }
         return nil
     }

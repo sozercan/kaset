@@ -49,6 +49,22 @@ struct PodcastEpisode: Identifiable, Hashable {
         }
         return self.duration
     }
+
+    /// Queue-compatible representation used by search and podcast playback.
+    var playbackSong: Song {
+        Song(
+            id: self.id,
+            title: self.title,
+            artists: self.showTitle.map {
+                [Artist.inline(name: $0, namespace: "podcast-show")]
+            } ?? [],
+            album: nil,
+            duration: self.durationSeconds.map(TimeInterval.init),
+            thumbnailURL: self.thumbnailURL,
+            videoId: self.id,
+            musicVideoType: .podcastEpisode
+        )
+    }
 }
 
 // MARK: - PodcastSection

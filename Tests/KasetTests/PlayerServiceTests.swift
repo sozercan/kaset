@@ -12,6 +12,7 @@ struct PlayerServiceTests {
         // Reset UserDefaults to ensure clean initial state for tests
         UserDefaults.standard.removeObject(forKey: "playerVolume")
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
+        UserDefaults.standard.removeObject(forKey: SettingsManager.Keys.keepMiniPlayerOnTop)
         self.playerService = PlayerService()
     }
 
@@ -100,7 +101,8 @@ struct PlayerServiceTests {
         self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
-            thumbnailUrl: "https://example.com/thumb.jpg"
+            thumbnailUrl: "https://example.com/thumb.jpg",
+            videoId: nil
         )
 
         #expect(self.playerService.currentTrack != nil)
@@ -114,7 +116,8 @@ struct PlayerServiceTests {
         self.playerService.updateTrackMetadata(
             title: "Test Song",
             artist: "Test Artist",
-            thumbnailUrl: ""
+            thumbnailUrl: "",
+            videoId: nil
         )
 
         #expect(self.playerService.currentTrack != nil)
@@ -207,6 +210,44 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentIndex == 2)
     }
 
+    @Test("Play queue with shuffle enabled materializes selected track first")
+    func playQueueWithShuffleEnabledMaterializesSelectedTrackFirst() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
+        ]
+
+        self.playerService.toggleShuffle()
+        await self.playerService.playQueue(songs, startingAt: 2)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.queue.first?.videoId == "v3")
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+        #expect(Set(self.playerService.queue.map(\.videoId)) == Set(songs.map(\.videoId)))
+    }
+
+    @Test("Play queue with shuffle enabled restores original order when disabled")
+    func playQueueWithShuffleEnabledRestoresOriginalOrderWhenDisabled() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
+            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
+        ]
+
+        self.playerService.toggleShuffle()
+        await self.playerService.playQueue(songs, startingAt: 2)
+
+        self.playerService.toggleShuffle()
+
+        #expect(self.playerService.shuffleEnabled == false)
+        #expect(self.playerService.queue.map(\.videoId) == songs.map(\.videoId))
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.currentTrack?.videoId == "v3")
+    }
+
     @Test("Play queue with invalid index clamps to valid range")
     func playQueueWithInvalidIndex() async {
         let songs = [
@@ -220,8 +261,17 @@ struct PlayerServiceTests {
 
     @Test("Play empty queue does nothing")
     func playQueueEmptyDoesNothing() async {
+        let song = TestFixtures.makeSong(id: "empty-noop-current")
+        await self.playerService.playQueue([song], startingAt: 0)
+        let intent = self.playerService.currentMusicPlaybackIntent
+        let occurrence = self.playerService.currentMusicPlaybackOccurrence
+
         await self.playerService.playQueue([], startingAt: 0)
-        #expect(self.playerService.queue.isEmpty)
+
+        #expect(self.playerService.queue == [song])
+        #expect(self.playerService.currentTrack == song)
+        #expect(self.playerService.currentMusicPlaybackIntent == intent)
+        #expect(self.playerService.currentMusicPlaybackOccurrence == occurrence)
     }
 
     // MARK: - User Interaction Tests
@@ -238,6 +288,18 @@ struct PlayerServiceTests {
         #expect(self.playerService.hasUserInteractedThisSession == true)
     }
 
+    @Test("Observed playback confirms session while mini player is hidden")
+    func observedPlaybackConfirmsHiddenSession() {
+        #expect(self.playerService.hasUserInteractedThisSession == false)
+        #expect(self.playerService.showMiniPlayer == false)
+
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 3, duration: 180)
+
+        #expect(self.playerService.hasUserInteractedThisSession == true)
+        #expect(self.playerService.showMiniPlayer == false)
+        #expect(self.playerService.state == .playing)
+    }
+
     // MARK: - Pending Play Video Tests
 
     @Test("pendingPlayVideoId initially nil")
@@ -250,6 +312,108 @@ struct PlayerServiceTests {
     @Test("Mini player initially hidden")
     func miniPlayerInitiallyHidden() {
         #expect(self.playerService.showMiniPlayer == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.miniPlayerPanel == .compact)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Open auxiliary mini player keeps main window visible")
+    func openAuxiliaryMiniPlayerKeepsMainWindowVisible() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        #expect(self.playerService.isMiniPlayerVisible == true)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Switch to mini player records main window restore intent")
+    func switchToMiniPlayerRecordsRestoreIntent() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+
+        #expect(self.playerService.isMiniPlayerVisible == true)
+        #expect(self.playerService.miniPlayerMode == .switchFromMainWindow)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == true)
+    }
+
+    @Test("Closing switched mini player consumes restore intent")
+    func closingSwitchedMiniPlayerConsumesRestoreIntent() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+
+        let shouldRestore = self.playerService.closeMiniPlayer()
+
+        #expect(shouldRestore == true)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+    }
+
+    @Test("Closing switched mini player creates one-shot restore request")
+    func closingSwitchedMiniPlayerCreatesOneShotRestoreRequest() {
+        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+        _ = self.playerService.closeMiniPlayer()
+
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == true)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == false)
+    }
+
+    @Test("Closing auxiliary mini player does not request main window restore")
+    func closingAuxiliaryMiniPlayerDoesNotRequestMainWindowRestore() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        let shouldRestore = self.playerService.closeMiniPlayer()
+
+        #expect(shouldRestore == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+    }
+
+    @Test("Closing auxiliary mini player can request main window restore")
+    func closingAuxiliaryMiniPlayerCanRequestMainWindowRestore() {
+        self.playerService.openMiniPlayer(mode: .auxiliary)
+
+        let shouldRestore = self.playerService.closeMiniPlayer(restoringMainWindow: true)
+
+        #expect(shouldRestore == true)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+        #expect(self.playerService.miniPlayerMode == .auxiliary)
+        #expect(self.playerService.shouldRestoreMainWindowWhenMiniPlayerCloses == false)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == true)
+        #expect(self.playerService.consumeMiniPlayerMainWindowRestoreRequest() == false)
+    }
+
+    @Test("Mini player panel toggles between compact and expanded")
+    func miniPlayerPanelTogglesBetweenCompactAndExpanded() {
+        #expect(self.playerService.miniPlayerPanel == .compact)
+
+        self.playerService.toggleMiniPlayerPanel()
+        #expect(self.playerService.miniPlayerPanel == .expanded)
+
+        self.playerService.toggleMiniPlayerPanel()
+        #expect(self.playerService.miniPlayerPanel == .compact)
+    }
+
+    @Test("Mini player panel toggle returns lyrics panel to expanded artwork")
+    func miniPlayerPanelToggleReturnsLyricsToExpandedArtwork() {
+        self.playerService.miniPlayerPanel = .lyrics
+
+        self.playerService.toggleMiniPlayerPanel()
+
+        #expect(self.playerService.miniPlayerPanel == .expanded)
+    }
+
+    @Test("Keep mini player on top setting persists")
+    func keepMiniPlayerOnTopSettingPersists() {
+        let settings = SettingsManager.shared
+        let originalValue = settings.keepMiniPlayerOnTop
+        defer {
+            settings.keepMiniPlayerOnTop = originalValue
+        }
+
+        settings.keepMiniPlayerOnTop = true
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == true)
+
+        settings.keepMiniPlayerOnTop = false
+        #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == false)
     }
 
     // MARK: - Queue/Lyrics Mutual Exclusivity Tests
@@ -321,253 +485,5 @@ struct PlayerServiceTests {
         #expect(self.playerService.queue.count == 1)
         #expect(self.playerService.queue.first?.videoId == "v2")
         #expect(self.playerService.currentIndex == 0)
-    }
-
-    // MARK: - Next with Shuffle Tests
-
-    @Test("Next with shuffle picks random song from queue")
-    func nextWithShufflePicksFromQueue() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
-            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
-            Song(id: "4", title: "Song 4", artists: [], album: nil, duration: 240, thumbnailURL: nil, videoId: "v4"),
-            Song(id: "5", title: "Song 5", artists: [], album: nil, duration: 260, thumbnailURL: nil, videoId: "v5"),
-        ]
-
-        await playerService.playQueue(songs, startingAt: 0)
-        self.playerService.toggleShuffle()
-        #expect(self.playerService.shuffleEnabled == true)
-
-        // Call next multiple times and verify we always pick from the queue
-        let validVideoIds = Set(songs.map(\.videoId))
-        for _ in 0 ..< 10 {
-            await self.playerService.next()
-            // Verify the current track is from our queue
-            #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Shuffle should only pick songs from the queue")
-        }
-    }
-
-    @Test("UpdateTrackMetadata corrects YouTube autoplay with Kaset-initiated playback")
-    func updateTrackMetadataCorrectsYouTubeAutoplay() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
-            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
-        ]
-
-        await playerService.playQueue(songs, startingAt: 0)
-        self.playerService.toggleShuffle()
-
-        // Simulate calling next which sets isKasetInitiatedPlayback
-        await self.playerService.next()
-
-        // Get the song that Kaset intended to play
-        let intendedSong = self.playerService.queue[self.playerService.currentIndex]
-
-        // Simulate YouTube loading a DIFFERENT track (not from our queue)
-        // This should trigger a re-play of the intended track
-        self.playerService.updateTrackMetadata(
-            title: "YouTube Autoplay Song",
-            artist: "Random Artist",
-            thumbnailUrl: ""
-        )
-
-        // Give async correction task time to run
-        try? await Task.sleep(for: .milliseconds(100))
-
-        // The current track should still be the intended song from our queue
-        // (or a re-played version of it)
-        let validVideoIds = Set(songs.map(\.videoId))
-        #expect(validVideoIds.contains(self.playerService.currentTrack?.videoId ?? ""), "Track should be from our queue, not YouTube autoplay")
-    }
-
-    // MARK: - Play From Queue Tests
-
-    @Test("Play from queue valid index")
-    func playFromQueueValidIndex() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
-            Song(id: "3", title: "Song 3", artists: [], album: nil, duration: 220, thumbnailURL: nil, videoId: "v3"),
-        ]
-
-        await playerService.playQueue(songs, startingAt: 0)
-        await self.playerService.playFromQueue(at: 2)
-
-        #expect(self.playerService.currentIndex == 2)
-        #expect(self.playerService.currentTrack?.videoId == "v3")
-    }
-
-    @Test("Play from queue invalid index does nothing")
-    func playFromQueueInvalidIndexDoesNothing() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-        ]
-
-        await playerService.playQueue(songs, startingAt: 0)
-        await self.playerService.playFromQueue(at: 5)
-
-        #expect(self.playerService.currentIndex == 0)
-    }
-
-    @Test("Play from queue negative index does nothing")
-    func playFromQueueNegativeIndexDoesNothing() async {
-        let songs = [
-            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
-        ]
-
-        await playerService.playQueue(songs, startingAt: 0)
-        await self.playerService.playFromQueue(at: -1)
-
-        #expect(self.playerService.currentIndex == 0)
-    }
-
-    // MARK: - Play With Radio Tests
-
-    @Test("Play with radio starts playback immediately")
-    func playWithRadioStartsPlaybackImmediately() async {
-        let song = Song(
-            id: "radio-seed",
-            title: "Seed Song",
-            artists: [Artist(id: "artist-1", name: "Artist 1")],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "radio-seed-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(self.playerService.currentTrack?.videoId == "radio-seed-video")
-        #expect(self.playerService.currentTrack?.title == "Seed Song")
-        #expect(self.playerService.queue.isEmpty == false)
-    }
-
-    @Test("Play with radio sets queue with seed song")
-    func playWithRadioSetsQueueWithSeedSong() async {
-        let song = Song(
-            id: "seed",
-            title: "Seed Song",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "seed-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(self.playerService.queue.count == 1)
-        #expect(self.playerService.queue.first?.videoId == "seed-video")
-        #expect(self.playerService.currentIndex == 0)
-    }
-
-    @Test("Play with radio fetches radio queue")
-    func playWithRadioFetchesRadioQueue() async {
-        let mockClient = MockYTMusicClient()
-        let radioSongs = [
-            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
-            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
-            Song(id: "radio-3", title: "Radio Song 3", artists: [], videoId: "radio-video-3"),
-        ]
-        mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
-
-        let song = Song(
-            id: "seed",
-            title: "Seed Song",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "seed-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(mockClient.getRadioQueueCalled == true)
-        #expect(mockClient.getRadioQueueVideoIds.first == "seed-video")
-        #expect(self.playerService.queue.count == 4)
-        #expect(self.playerService.queue.first?.videoId == "seed-video", "Seed song should be at front of queue")
-        #expect(self.playerService.currentIndex == 0)
-    }
-
-    @Test("Play with radio keeps seed song at front when not in radio")
-    func playWithRadioKeepsSeedSongAtFrontWhenNotInRadio() async {
-        let mockClient = MockYTMusicClient()
-        let radioSongs = [
-            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
-            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
-        ]
-        mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
-
-        let song = Song(
-            id: "seed",
-            title: "Seed Song",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "seed-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(self.playerService.queue.count == 3)
-        #expect(self.playerService.queue[0].videoId == "seed-video", "Seed song should be first")
-        #expect(self.playerService.queue[1].videoId == "radio-video-1")
-        #expect(self.playerService.queue[2].videoId == "radio-video-2")
-    }
-
-    @Test("Play with radio reorders seed song to front")
-    func playWithRadioReordersSeedSongToFront() async {
-        let mockClient = MockYTMusicClient()
-        let radioSongs = [
-            Song(id: "radio-1", title: "Radio Song 1", artists: [], videoId: "radio-video-1"),
-            Song(id: "seed", title: "Seed Song", artists: [], videoId: "seed-video"),
-            Song(id: "radio-2", title: "Radio Song 2", artists: [], videoId: "radio-video-2"),
-        ]
-        mockClient.radioQueueSongs["seed-video"] = radioSongs
-        self.playerService.setYTMusicClient(mockClient)
-
-        let song = Song(
-            id: "seed",
-            title: "Seed Song",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "seed-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(self.playerService.queue.count == 3)
-        #expect(self.playerService.queue[0].videoId == "seed-video", "Seed song should be first")
-        #expect(self.playerService.queue[1].videoId == "radio-video-1")
-        #expect(self.playerService.queue[2].videoId == "radio-video-2")
-    }
-
-    @Test("Play with radio handles empty radio queue")
-    func playWithRadioHandlesEmptyRadioQueue() async {
-        let mockClient = MockYTMusicClient()
-        self.playerService.setYTMusicClient(mockClient)
-
-        let song = Song(
-            id: "lonely",
-            title: "Lonely Song",
-            artists: [],
-            album: nil,
-            duration: 180,
-            thumbnailURL: nil,
-            videoId: "lonely-video"
-        )
-
-        await playerService.playWithRadio(song: song)
-
-        #expect(self.playerService.queue.count == 1)
-        #expect(self.playerService.queue.first?.videoId == "lonely-video")
     }
 }

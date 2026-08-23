@@ -1,10 +1,10 @@
 import SwiftUI
 
 /// View displaying all top songs for an artist.
-@available(macOS 26.0, *)
 struct TopSongsView: View {
     @State var viewModel: TopSongsViewModel
     @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
@@ -13,7 +13,7 @@ struct TopSongsView: View {
             switch self.viewModel.loadingState {
             case .idle, .loading:
                 if self.viewModel.songs.isEmpty {
-                    LoadingView("Loading songs...")
+                    LoadingView(String(localized: "Loading songs..."))
                 } else {
                     // Show existing songs while loading more
                     self.songsListView
@@ -36,8 +36,9 @@ struct TopSongsView: View {
                 }
             }
         }
-        .navigationTitle("Top songs")
+        .navigationTitle(self.viewModel.title)
         .toolbarBackgroundVisibility(.hidden, for: .automatic)
+        .topFade()
         .safeAreaInset(edge: .bottom, spacing: 0) {
             if case .error = self.viewModel.loadingState {} else {
                 PlayerBar()
@@ -55,7 +56,7 @@ struct TopSongsView: View {
     private var songsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
-                ForEach(Array(self.viewModel.songs.enumerated()), id: \.element.id) { index, song in
+                ForEach(Array(self.viewModel.songs.enumerated()), id: \.offset) { index, song in
                     self.songRow(song, index: index)
 
                     if index < self.viewModel.songs.count - 1 {
@@ -64,92 +65,99 @@ struct TopSongsView: View {
                     }
                 }
             }
-            .padding(.horizontal, 24)
             .padding(.vertical, 16)
         }
+        // Edge-to-edge with a resting inset so the list extends under the
+        // floating glass sidebar; the accent backdrop refracts through it.
+        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     // MARK: - Song Row
 
     private func songRow(_ song: Song, index: Int) -> some View {
-        Button {
-            self.playSongInQueue(startingAt: index)
-        } label: {
-            HStack(spacing: 12) {
-                // Thumbnail
-                CachedAsyncImage(url: song.thumbnailURL?.highQualityThumbnailURL) { image in
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Rectangle()
-                        .fill(.quaternary)
-                }
-                .frame(width: 44, height: 44)
-                .clipShape(.rect(cornerRadius: 4))
+        HoverObservingRow { isHovered in
+            Button {
+                self.playSongInQueue(startingAt: index)
+            } label: {
+                HStack(spacing: 12) {
+                    // Thumbnail
+                    SongThumbnailView(song: song, size: 44, cornerRadius: 4)
 
-                // Title
-                Text(song.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
+                    // Title (with optional explicit badge)
+                    HStack(spacing: 6) {
+                        Text(song.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                            .lineLimit(1)
+                        if song.isExplicit == true {
+                            ExplicitBadge()
+                        }
+                    }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Artist column
-                Text(song.artistsDisplay)
-                    .font(.system(size: 14))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .frame(width: 150, alignment: .leading)
-
-                // Album column (if available)
-                if let album = song.album {
-                    Text(album.title)
+                    // Artist column
+                    Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .frame(width: 180, alignment: .leading)
-                } else {
-                    Spacer()
-                        .frame(width: 180)
-                }
+                        .frame(width: 150, alignment: .leading)
 
-                // Duration
-                Text(song.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 50, alignment: .trailing)
+                    // Album column (if available)
+                    if let album = song.album {
+                        Text(album.title)
+                            .font(.system(size: 14))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .frame(width: 180, alignment: .leading)
+                    } else {
+                        Spacer()
+                            .frame(width: 180)
+                    }
+
+                    // Favorite toggle
+                    LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
+
+                    // Duration
+                    Text(song.durationDisplay)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 50, alignment: .trailing)
+                }
+                .padding(.vertical, 10)
+                .padding(.horizontal, 4)
+                .contentShape(Rectangle())
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
         }
-        .buttonStyle(.plain)
         .contextMenu {
             Button {
                 self.playSongInQueue(startingAt: index)
             } label: {
-                Label("Play", systemImage: "play.fill")
+                Label(String(localized: "Play"), systemImage: "play.fill")
             }
 
             Divider()
 
             FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+                LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
+            }
 
             Divider()
 
             StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
 
-            Divider()
+            if self.authService.hasPersonalAccount {
+                Divider()
 
-            Button {
-                SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-            } label: {
-                Label("Add to Library", systemImage: "plus.circle")
+                Button {
+                    SongActionsHelper.addToLibrary(song, playerService: self.playerService)
+                } label: {
+                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
+                }
             }
 
             Divider()
@@ -162,10 +170,16 @@ struct TopSongsView: View {
 
             Divider()
 
+            if self.authService.hasPersonalAccount {
+                AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
+            }
+
+            Divider()
+
             // Go to Artist - show first artist with valid ID
             if let artist = song.artists.first(where: { $0.hasNavigableId }) {
                 NavigationLink(value: artist) {
-                    Label("Go to Artist", systemImage: "person")
+                    Label(String(localized: "Go to Artist"), systemImage: "person")
                 }
             }
 
@@ -177,10 +191,10 @@ struct TopSongsView: View {
                     description: nil,
                     thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
                     trackCount: album.trackCount,
-                    author: album.artistsDisplay
+                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
                 )
                 NavigationLink(value: playlist) {
-                    Label("Go to Album", systemImage: "square.stack")
+                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
                 }
             }
         }
@@ -218,5 +232,6 @@ struct TopSongsView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     TopSongsView(viewModel: TopSongsViewModel(destination: destination, client: client))
         .environment(PlayerService())
+        .environment(authService)
         .environment(FavoritesManager.shared)
 }

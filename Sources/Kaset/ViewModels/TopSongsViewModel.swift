@@ -16,6 +16,10 @@ final class TopSongsViewModel {
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
+    var title: String {
+        self.destination.title
+    }
+
     init(destination: TopSongsDestination, client: any YTMusicClientProtocol) {
         self.destination = destination
         self.client = client

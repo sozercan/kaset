@@ -42,7 +42,7 @@ struct QueueTool: Tool {
     nonisolated func call(arguments: Arguments) async throws -> String {
         await MainActor.run {
             let queue = self.playerService.queue
-            let currentIndex = self.playerService.currentIndex
+            let currentIndex = self.playerService.activePlaybackQueueIndex
             let limit = arguments.limit > 0 ? arguments.limit : 20
 
             guard !queue.isEmpty else {

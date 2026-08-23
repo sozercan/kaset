@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Charts view displaying top songs, albums, and trending charts.
-@available(macOS 26.0, *)
 struct ChartsView: View {
     @State var viewModel: ChartsViewModel
     @Environment(PlayerService.self) private var playerService
@@ -13,15 +12,15 @@ struct ChartsView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading charts...")
+                        LoadingView(String(localized: "Loading charts..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -32,11 +31,17 @@ struct ChartsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Charts")
-            .navigationDestinations(client: self.viewModel.client)
+            .localizedNavigationTitle("Charts")
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -48,6 +53,14 @@ struct ChartsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .charts)
+    }
+
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
     }
 
     // MARK: - Views
@@ -58,39 +71,64 @@ struct ChartsView: View {
                 ForEach(self.viewModel.sections) { section in
                     self.sectionView(section)
                 }
+
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.loadingState == .loadingMore,
+                        title: "Load More",
+                        loadingTitle: "Loading more...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMore()
+                    }
+                }
             }
-            .padding(.horizontal, 24)
+            // Edge-to-edge so shelves slide under the glass sidebar; resting
+            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: Array(section.items.enumerated()),
+            id: \.element.id,
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    if section.isChart {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                            HomeSectionItemCard(item: item, rank: index + 1) {
-                                self.playItem(item, in: section, at: index)
-                            }
-                        }
-                    } else {
-                        ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                            HomeSectionItemCard(item: item) {
-                                self.playItem(item, in: section, at: index)
-                            }
-                        }
-                    }
-                }
+        } itemContent: { index, item in
+            HomeSectionItemCard(
+                item: item,
+                rank: section.isChart ? index + 1 : nil,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
+                self.playItem(item, in: section, at: index)
             }
         }
     }
 
     // MARK: - Actions
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {
@@ -107,7 +145,7 @@ struct ChartsView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.navigationPath.append(playlist)
         case let .artist(artist):
@@ -121,4 +159,5 @@ struct ChartsView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     ChartsView(viewModel: ChartsViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
 }

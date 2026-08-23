@@ -5,6 +5,51 @@ import Testing
 /// Tests for SongMetadataParser.
 @Suite(.tags(.parser))
 struct SongMetadataParserTests {
+    // MARK: - Parse Top-Level Tests
+
+    @Test("parse propagates explicit badge to Song")
+    func parsePropagatesExplicitBadge() throws {
+        let panelRenderer: [String: Any] = [
+            "videoId": "explicit-video",
+            "title": ["runs": [["text": "Explicit Track"]]],
+            "badges": [[
+                "musicInlineBadgeRenderer": [
+                    "icon": ["iconType": "MUSIC_EXPLICIT_BADGE"],
+                ],
+            ]],
+        ]
+        let data: [String: Any] = [
+            "contents": [
+                "singleColumnMusicWatchNextResultsRenderer": [
+                    "tabbedRenderer": [
+                        "watchNextTabbedResultsRenderer": [
+                            "tabs": [[
+                                "tabRenderer": [
+                                    "content": [
+                                        "musicQueueRenderer": [
+                                            "content": [
+                                                "playlistPanelRenderer": [
+                                                    "contents": [[
+                                                        "playlistPanelVideoRenderer": panelRenderer,
+                                                    ]],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ]],
+                        ],
+                    ],
+                ],
+            ],
+        ]
+
+        let song = try SongMetadataParser.parse(data, videoId: "explicit-video")
+
+        #expect(song.videoId == "explicit-video")
+        #expect(song.isExplicit == true)
+    }
+
     // MARK: - Parse Title Tests
 
     @Test("parseTitle extracts title from renderer")
@@ -79,9 +124,9 @@ struct SongMetadataParserTests {
             "longBylineText": [
                 "runs": [
                     ["text": "Artist One"],
-                    ["text": " • "],
-                    ["text": "Artist Two"],
                     ["text": " & "],
+                    ["text": "Artist Two"],
+                    ["text": ", "],
                     ["text": "Artist Three"],
                 ],
             ],
@@ -91,6 +136,36 @@ struct SongMetadataParserTests {
 
         #expect(artists.count == 3)
         #expect(artists.map(\.name) == ["Artist One", "Artist Two", "Artist Three"])
+    }
+
+    @Test("parseArtists stops before metadata runs while preserving co-artists")
+    func parseArtistsStopsBeforeMetadata() {
+        let renderer: [String: Any] = [
+            "longBylineText": [
+                "runs": [
+                    [
+                        "text": "Primary Artist",
+                        "navigationEndpoint": [
+                            "browseEndpoint": [
+                                "browseId": "UC-primary",
+                            ],
+                        ],
+                    ],
+                    ["text": " & "],
+                    ["text": "Guest Artist"],
+                    ["text": " • "],
+                    ["text": "1.3M views"],
+                    ["text": " • "],
+                    ["text": "42K likes"],
+                ],
+            ],
+        ]
+
+        let artists = SongMetadataParser.parseArtists(from: renderer)
+
+        #expect(artists.map(\.name) == ["Primary Artist", "Guest Artist"])
+        #expect(artists[0].hasNavigableId)
+        #expect(!artists[1].hasNavigableId)
     }
 
     @Test("parseArtists generates UUID for artist without ID")
@@ -248,8 +323,8 @@ struct SongMetadataParserTests {
         #expect(result.likeStatus == .dislike)
     }
 
-    @Test("parseMenuData defaults to indifferent")
-    func parseMenuDataDefaultsToIndifferent() {
+    @Test("parseMenuData preserves explicit indifferent status")
+    func parseMenuDataPreservesExplicitIndifferentStatus() {
         let renderer: [String: Any] = [
             "menu": [
                 "menuRenderer": [
@@ -268,6 +343,21 @@ struct SongMetadataParserTests {
         let result = SongMetadataParser.parseMenuData(from: renderer)
 
         #expect(result.likeStatus == .indifferent)
+    }
+
+    @Test("parseMenuData leaves like status unknown when like button is missing")
+    func parseMenuDataLeavesLikeStatusUnknownWhenLikeButtonIsMissing() {
+        let renderer: [String: Any] = [
+            "menu": [
+                "menuRenderer": [
+                    "items": [] as [[String: Any]],
+                ],
+            ],
+        ]
+
+        let result = SongMetadataParser.parseMenuData(from: renderer)
+
+        #expect(result.likeStatus == nil)
     }
 
     @Test("parseMenuData extracts library add token")
@@ -302,7 +392,7 @@ struct SongMetadataParserTests {
 
         let result = SongMetadataParser.parseMenuData(from: renderer)
 
-        #expect(result.likeStatus == .indifferent)
+        #expect(result.likeStatus == nil)
         #expect(result.isInLibrary == false)
         #expect(result.feedbackTokens == nil)
     }

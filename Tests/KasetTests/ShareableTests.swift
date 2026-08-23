@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Kaset
 
@@ -56,7 +57,7 @@ struct ShareableTests {
             description: nil,
             thumbnailURL: nil,
             trackCount: 10,
-            author: "John"
+            author: Artist.inline(name: "John", namespace: "playlist-author")
         )
 
         #expect(playlist.shareText == "My Favorites by John")
@@ -70,7 +71,7 @@ struct ShareableTests {
             description: nil,
             thumbnailURL: nil,
             trackCount: 5,
-            author: "Test Author"
+            author: Artist.inline(name: "Test Author", namespace: "playlist-author")
         )
 
         #expect(playlist.shareURL?.absoluteString == "https://music.youtube.com/playlist?list=PLtest123")
@@ -163,6 +164,18 @@ struct ShareableTests {
         #expect(artist.shareText == "Taylor Swift")
     }
 
+    @Test("Artist with MPLAUC prefix shares the public channel URL")
+    func artistShareURL_libraryArtist() {
+        let artist = Artist(
+            id: "MPLAUC1234567890",
+            name: "Library Taylor",
+            thumbnailURL: nil
+        )
+
+        #expect(artist.shareURL?.absoluteString == "https://music.youtube.com/channel/UC1234567890")
+        #expect(artist.shareText == "Library Taylor")
+    }
+
     @Test("Artist with UUID ID has nil shareURL")
     func artistShareURL_UUID() {
         let artist = Artist(
@@ -174,7 +187,7 @@ struct ShareableTests {
         #expect(artist.shareURL == nil)
     }
 
-    @Test("Artist without UC prefix has nil shareURL")
+    @Test("Artist without navigable artist prefix has nil shareURL")
     func artistShareURL_invalidPrefix() {
         let artist = Artist(
             id: "some-other-id",

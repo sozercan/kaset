@@ -1,8 +1,16 @@
 import Foundation
 
+// MARK: - AccessibilityID
+
 /// Centralized accessibility identifiers for UI testing.
 /// Using an enum namespace prevents typos and enables autocomplete.
 enum AccessibilityID {
+    static func isAuxiliaryPlayerWindowIdentifier(_ identifier: String?) -> Bool {
+        identifier == VideoWindow.container
+            || identifier == MiniPlayer.container
+            || identifier == YouTubeContent.videoWindow
+    }
+
     // MARK: - Sidebar
 
     enum Sidebar {
@@ -16,12 +24,12 @@ enum AccessibilityID {
         static let podcastsItem = "sidebar.podcasts"
         static let likedMusicItem = "sidebar.likedMusic"
         static let libraryItem = "sidebar.library"
+        static let historyItem = "sidebar.history"
     }
 
     // MARK: - PlayerBar
 
     enum PlayerBar {
-        static let container = "playerBar"
         static let playPauseButton = "playerBar.playPause"
         static let previousButton = "playerBar.previous"
         static let nextButton = "playerBar.next"
@@ -31,12 +39,39 @@ enum AccessibilityID {
         static let dislikeButton = "playerBar.dislike"
         static let lyricsButton = "playerBar.lyrics"
         static let queueButton = "playerBar.queue"
+        static let miniPlayerButton = "playerBar.miniPlayer"
         static let videoButton = "playerBar.video"
         static let airplayButton = "playerBar.airplayButton"
+        static let mixTracksButton = "playerBar.mixTracks"
         static let volumeSlider = "playerBar.volumeSlider"
         static let trackTitle = "playerBar.trackTitle"
         static let trackArtist = "playerBar.trackArtist"
         static let thumbnail = "playerBar.thumbnail"
+    }
+
+    // MARK: - Mini Player
+
+    enum MiniPlayer {
+        static let container = "miniPlayer"
+        static let playPauseButton = "miniPlayer.playPause"
+        static let previousButton = "miniPlayer.previous"
+        static let nextButton = "miniPlayer.next"
+        static let likeButton = "miniPlayer.like"
+        static let shuffleButton = "miniPlayer.shuffle"
+        static let repeatButton = "miniPlayer.repeat"
+        static let closeButton = "miniPlayer.close"
+        static let minimizeButton = "miniPlayer.minimize"
+        static let expandButton = "miniPlayer.expand"
+        static let panelToggleButton = "miniPlayer.panelToggle"
+        static let returnToKasetButton = "miniPlayer.returnToKaset"
+        static let lyricsButton = "miniPlayer.lyrics"
+        static let lyricsView = "miniPlayer.lyricsView"
+        static let queueButton = "miniPlayer.queue"
+        static let airplayButton = "miniPlayer.airplay"
+        static let volumeButton = "miniPlayer.volumeButton"
+        static let seekSlider = "miniPlayer.seekSlider"
+        static let trackTitle = "miniPlayer.trackTitle"
+        static let trackArtist = "miniPlayer.trackArtist"
     }
 
     // MARK: - Queue View
@@ -45,6 +80,8 @@ enum AccessibilityID {
         static let container = "queueView"
         static let scrollView = "queueView.scrollView"
         static let clearButton = "queueView.clearButton"
+        static let saveToPlaylistButton = "queueView.saveToPlaylistButton"
+        static let removeDuplicatesButton = "queueView.removeDuplicatesButton"
         static let emptyState = "queueView.emptyState"
         static let refineButton = "queueView.refineButton"
         static let suggestionButton = "queueView.suggestionButton"
@@ -52,6 +89,12 @@ enum AccessibilityID {
         static func row(index: Int) -> String {
             "queueView.row.\(index)"
         }
+    }
+
+    // MARK: - Lyrics
+
+    enum Lyrics {
+        static let fallbackPanel = "lyrics.fallbackPanel"
     }
 
     // MARK: - HomeView
@@ -128,19 +171,15 @@ enum AccessibilityID {
         }
     }
 
-    // MARK: - OnboardingView
-
-    enum Onboarding {
-        static let container = "onboardingView"
-        static let signInButton = "onboardingView.signInButton"
-    }
-
     // MARK: - Main Window
 
     enum MainWindow {
         static let container = "mainWindow"
         static let initializingView = "mainWindow.initializing"
         static let aiButton = "mainWindow.aiButton"
+        static let commandBar = "mainWindow.commandBar"
+        static let commandBarOverlay = "mainWindow.commandBarOverlay"
+        static let commandBarInput = "mainWindow.commandBarInput"
     }
 
     // MARK: - Explore View
@@ -164,10 +203,21 @@ enum AccessibilityID {
         }
     }
 
+    // MARK: - History View
+
+    enum History {
+        static let scrollView = "historyView.scrollView"
+    }
+
     // MARK: - Video Window
 
     enum VideoWindow {
         static let container = "videoWindow"
         static let videoContent = "videoWindow.content"
     }
+}
+
+extension AccessibilityID.YouTubeContent {
+    static let videoWindow = "youtubeContent.videoWindow"
+    static let videoWindowFloatOnTop = "youtubeContent.videoWindow.floatOnTop"
 }

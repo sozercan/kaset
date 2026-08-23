@@ -1,0 +1,24 @@
+{
+  "engagementPanels": [
+    {
+      "engagementPanelSectionListRenderer": {
+        "panelIdentifier": "PAai_companion",
+        "targetId": "engagement-panel-related",
+        "content": {
+          "youChatItemViewModel": {
+            "chipsData": {
+              "chipData": [
+                {
+                  "text": {
+                    "simpleText": "Decoy suggestion"
+                  },
+                  "continuation": "fixture-decoy-continuation"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

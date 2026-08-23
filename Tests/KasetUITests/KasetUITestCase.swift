@@ -16,14 +16,41 @@ enum TestAccessibilityID {
 
     enum Home {
         static let container = "homeView"
+        static let scrollView = "homeView.scrollView"
+    }
+
+    enum Search {
+        static let searchField = "searchView.searchField"
+        static let clearButton = "searchView.clearButton"
+        static let suggestionsContainer = "searchView.suggestions"
+
+        static func suggestion(index: Int) -> String {
+            "searchView.suggestion.\(index)"
+        }
+
+        static func resultRow(index: Int) -> String {
+            "searchView.result.\(index)"
+        }
+    }
+
+    enum MainWindow {
+        static let container = "mainWindow"
+        static let commandBar = "mainWindow.commandBar"
+        static let commandBarOverlay = "mainWindow.commandBarOverlay"
+        static let commandBarInput = "mainWindow.commandBarInput"
     }
 
     enum PlayerBar {
+        static let miniPlayerButton = "playerBar.miniPlayer"
         static let videoButton = "playerBar.video"
     }
 
     enum VideoWindow {
         static let container = "videoWindow"
+    }
+
+    enum Lyrics {
+        static let fallbackPanel = "lyrics.fallbackPanel"
     }
 
     // MARK: - Sidebar Profile
@@ -41,6 +68,8 @@ enum TestAccessibilityID {
         static let container = "accountSwitcher"
         static let header = "accountSwitcher.header"
         static let accountsList = "accountSwitcher.accountsList"
+        static let guestModeRow = "accountSwitcher.guestMode"
+        static let signOutButton = "accountSwitcher.signOut"
 
         static func accountRow(index: Int) -> String {
             "accountSwitcher.account.\(index)"
@@ -169,6 +198,8 @@ class KasetUITestCase: XCTestCase {
                 "title": "Search Result \(index)",
                 "artist": "Search Artist \(index)",
                 "videoId": "search-video-\(index)",
+                "albumId": "MPREbSearchAlbum\(index)",
+                "albumTitle": "Search Album \(index)",
             ]
         }
 
@@ -208,6 +239,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),
@@ -303,6 +335,7 @@ class KasetUITestCase: XCTestCase {
             "artist": "Current Artist",
             "videoId": "current-video",
             "duration": 180,
+            "hasVideo": hasVideo,
         ]
 
         if let jsonData = try? JSONSerialization.data(withJSONObject: track),
@@ -439,6 +472,25 @@ class KasetUITestCase: XCTestCase {
                 file: file,
                 line: line
             )
+            return false
+        }
+        return true
+    }
+
+    /// Waits for an element to disappear with a timeout.
+    @discardableResult
+    func waitForElementToDisappear(
+        _ element: XCUIElement,
+        timeout: TimeInterval = 5,
+        file: StaticString = #file,
+        line: UInt = #line
+    ) -> Bool {
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        let result = XCTWaiter().wait(for: [expectation], timeout: timeout)
+
+        if result != .completed {
+            XCTFail("Timed out waiting for element to disappear: \(element)", file: file, line: line)
             return false
         }
         return true

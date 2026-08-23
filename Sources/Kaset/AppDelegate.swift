@@ -1,6 +1,25 @@
 import AppKit
 import UserNotifications
 
+extension Notification.Name {
+    /// Posted by `AppDelegate` when the app receives deep-link URLs.
+    static let kasetOpenURLs = Notification.Name("kasetOpenURLs")
+}
+
+// MARK: - AppActivationWindowPolicy
+
+/// Decides whether a generic activation should reveal the main window. Explicit
+/// reopen actions such as the Dock icon and Window → Kaset bypass this policy.
+enum AppActivationWindowPolicy {
+    static func shouldRevealMainWindow(
+        keyWindowIdentifier: String?,
+        mainWindowIdentifier: String?
+    ) -> Bool {
+        !AccessibilityID.isAuxiliaryPlayerWindowIdentifier(keyWindowIdentifier)
+            && !AccessibilityID.isAuxiliaryPlayerWindowIdentifier(mainWindowIdentifier)
+    }
+}
+
 // MARK: - AppDelegate
 
 /// App delegate to control application lifecycle behavior.
@@ -10,14 +29,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Reference to the PlayerService for dock menu actions.
     /// Set by KasetApp after initialization.
     weak var playerService: PlayerService?
+    weak var scrobblingCoordinator: ScrobblingCoordinator?
+
+    /// URLs received before the SwiftUI scene is ready to observe deep links.
+    private var pendingOpenURLs: [URL] = []
+
+    /// True after `KasetApp` starts observing `.kasetOpenURLs`.
+    private var isOpenURLDeliveryReady = false
 
     /// Reference to the main window for reliable reopen behavior.
     /// Using strong reference to prevent deallocation when window is hidden.
     private var mainWindow: NSWindow?
 
+    /// Tracks when the app is quitting so we can allow window closures.
+    private var isTerminating = false
+    private var isPreparingTermination = false
+
     func applicationDidFinishLaunching(_: Notification) {
+        DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
         // Set up notification center delegate to show notifications in foreground
-        UNUserNotificationCenter.current().delegate = self
+        if !UITestConfig.isRunningUnitTests {
+            UNUserNotificationCenter.current().delegate = self
+        }
 
         // In UI test mode, activate the app to bring window to foreground
         if UITestConfig.isUITestMode {
@@ -41,6 +74,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Save queue for persistence on next launch
         self.playerService?.saveQueueForPersistence()
         DiagnosticsLogger.player.info("Application will terminate - saved queue for persistence")
+    }
+
+    func applicationShouldTerminate(_ application: NSApplication) -> NSApplication.TerminateReply {
+        self.isTerminating = true
+        guard let scrobblingCoordinator else { return .terminateNow }
+        guard !self.isPreparingTermination else { return .terminateLater }
+
+        self.isPreparingTermination = true
+        Task { @MainActor in
+            await scrobblingCoordinator.prepareForTermination()
+            self.playerService?.saveQueueForPersistence()
+            application.reply(toApplicationShouldTerminate: true)
+        }
+        return .terminateLater
     }
 
     /// Registers for system sleep and wake notifications to handle playback appropriately.
@@ -81,24 +128,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         DiagnosticsLogger.player.info("System woke from sleep, wasPlayingBeforeSleep: \(self.wasPlayingBeforeSleep)")
     }
 
+    func applicationDidResignActive(_: Notification) {
+        // WebKit freezes the page's requestAnimationFrame loop in the background, so the
+        // media-key override (nexttrack/previoustrack) is no longer re-applied and YouTube
+        // can reclaim it. Drive re-assertion from a native timer instead.
+        SingletonPlayerWebView.shared.beginBackgroundMediaControlReassertion()
+    }
+
     func applicationDidBecomeActive(_: Notification) {
-        // When app becomes active (e.g., dock icon clicked), ensure main window is visible.
-        // This handles the case where video window is visible but main window is hidden.
+        // Foreground: the page's requestAnimationFrame loop resumes ownership of the
+        // override. Stop the native timer and re-assert once immediately.
+        SingletonPlayerWebView.shared.endBackgroundMediaControlReassertion()
+        SingletonPlayerWebView.shared.reassertMediaControlOverride()
+        // Generic activation normally reveals the main window, but activation
+        // through an auxiliary player must leave a deliberately hidden main
+        // window alone. Dock-icon reopening is handled explicitly below.
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return
+        }
+
+        let application = NSApplication.shared
+        guard AppActivationWindowPolicy.shouldRevealMainWindow(
+            keyWindowIdentifier: application.keyWindow?.identifier?.rawValue,
+            mainWindowIdentifier: application.mainWindow?.identifier?.rawValue
+        ) else { return }
+
         self.showMainWindowIfNeeded()
     }
 
     private func setupWindowDelegate() {
+        DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            // Skip if this is the video window (has specific identifier)
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            // Skip auxiliary/player and non-primary scene windows; only the regular app window should be hidden-on-close.
+            if self.isAuxiliaryPlayerWindow(window) || !MainWindowLayout.isPrimaryWindow(window) {
                 continue
             }
             window.delegate = self
-            // Enable automatic window frame persistence using autosave name
-            // This ensures window size/position is restored across app launches
-            if window.frameAutosaveName.isEmpty {
-                window.setFrameAutosaveName("KasetMainWindow")
-            }
+            MainWindowLayout.configure(window)
             // Store reference to main window for reliable reopen
             self.mainWindow = window
         }
@@ -108,6 +177,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDockMenu(_: NSApplication) -> NSMenu? {
         let menu = NSMenu()
+        // Menu-wide: with auto-enable off, every item must set `isEnabled` itself —
+        // AppKit no longer enables an item just because its target responds to the
+        // action. Required so the Like item can grey out with no track; the transport
+        // items below rely on NSMenuItem's default (enabled). Any future item added
+        // here must set its own isEnabled.
+        menu.autoenablesItems = false
 
         let playPauseItem = NSMenuItem(
             title: "Play/Pause",
@@ -132,6 +207,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         previousItem.target = self
         menu.addItem(previousItem)
+
+        menu.addItem(.separator())
+
+        // Like/Unlike the current track. Title mirrors the player-bar thumbs-up
+        // toggle; disabled when nothing is playing. A disliked track also reads
+        // "Like" — clicking replaces the dislike with a like, matching the player
+        // bar (the dock has no dislike affordance).
+        let canMutateAccount = self.playerService?.canPerformAccountMutation == true
+        let isLiked = canMutateAccount && self.playerService?.currentTrackLikeStatus == .like
+        let likeItem = NSMenuItem(
+            title: isLiked ? String(localized: "Unlike") : String(localized: "Like"),
+            action: #selector(self.dockMenuToggleLike),
+            keyEquivalent: ""
+        )
+        likeItem.target = self
+        likeItem.isEnabled = self.playerService?.currentTrack != nil && canMutateAccount
+        menu.addItem(likeItem)
 
         return menu
     }
@@ -169,6 +261,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func dockMenuToggleLike() {
+        // Like requires the API-backed SongLikeStatusManager, so there is no
+        // WebView-only fallback like the transport actions have.
+        self.playerService?.likeCurrentTrack()
+    }
+
     /// Keep app running when the window is closed (for background audio).
     /// Use Cmd+Q to fully quit.
     /// In UI test mode, terminate normally to avoid process conflicts.
@@ -178,15 +276,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Handle reopen (clicking dock icon) when all windows are closed.
     func applicationShouldHandleReopen(_: NSApplication, hasVisibleWindows _: Bool) -> Bool {
+        if self.isSwitchedToMiniPlayer {
+            if #available(macOS 26.0, *) {
+                MiniPlayerWindowController.shared.orderFrontIfVisible()
+            }
+            return false
+        }
+
         // Show main window when dock icon is clicked
         self.showMainWindowIfNeeded()
         return true
     }
 
+    /// Deep-link entry point for custom URL schemes.
+    func application(_: NSApplication, open urls: [URL]) {
+        DiagnosticsLogger.app.info("AppDelegate: open \(urls.count) URL(s)")
+        self.deliverOpenURLs(urls)
+    }
+
+    /// Call once the main scene is observing `.kasetOpenURLs`.
+    func beginOpenURLDelivery() {
+        self.isOpenURLDeliveryReady = true
+        let pending = self.pendingOpenURLs
+        self.pendingOpenURLs.removeAll()
+        self.deliverOpenURLs(pending)
+    }
+
+    private func deliverOpenURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        if self.isOpenURLDeliveryReady {
+            NotificationCenter.default.post(name: .kasetOpenURLs, object: urls)
+        } else {
+            self.pendingOpenURLs.append(contentsOf: urls)
+        }
+    }
+
+    private var isSwitchedToMiniPlayer: Bool {
+        guard let playerService else { return false }
+        return playerService.isMiniPlayerVisible && playerService.miniPlayerMode == .switchFromMainWindow
+    }
+
     /// Shows the main window if it's not visible.
     private func showMainWindowIfNeeded() {
+        DiagnosticsLogger.app.info("AppDelegate: showMainWindowIfNeeded")
         // Try stored reference first
-        if let mainWindow {
+        if let mainWindow, MainWindowLayout.isPrimaryWindow(mainWindow) {
+            MainWindowLayout.configure(mainWindow)
             if !mainWindow.isVisible {
                 mainWindow.makeKeyAndOrderFront(nil)
             }
@@ -194,7 +329,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         // Fallback: find main window by frameAutosaveName
-        for window in NSApplication.shared.windows where window.frameAutosaveName == "KasetMainWindow" {
+        for window in NSApplication.shared.windows where window.frameAutosaveName == MainWindowLayout.autosaveName {
+            MainWindowLayout.configure(window)
             self.mainWindow = window
             if !window.isVisible {
                 window.makeKeyAndOrderFront(nil)
@@ -202,17 +338,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // Last resort: find any main-capable window that's not the video window
+        // Last resort: find any main-capable window that's not an auxiliary player window.
+        // Do not apply the primary-window sizing contract here: a generic fallback
+        // may match Settings or another regular scene window.
         for window in NSApplication.shared.windows where window.canBecomeMain {
-            if window.identifier?.rawValue == AccessibilityID.VideoWindow.container {
+            if self.isAuxiliaryPlayerWindow(window) {
                 continue
             }
-            self.mainWindow = window
             if !window.isVisible {
                 window.makeKeyAndOrderFront(nil)
             }
             return
         }
+    }
+
+    private func isAuxiliaryPlayerWindow(_ window: NSWindow) -> Bool {
+        AccessibilityID.isAuxiliaryPlayerWindowIdentifier(window.identifier?.rawValue)
     }
 }
 
@@ -223,7 +364,7 @@ extension AppDelegate: NSWindowDelegate {
     /// In UI test mode, close normally to avoid process conflicts.
     func windowShouldClose(_ sender: NSWindow) -> Bool {
         // In UI test mode, allow normal close behavior
-        if UITestConfig.isUITestMode {
+        if UITestConfig.isUITestMode || self.isTerminating {
             return true
         }
 

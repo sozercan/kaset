@@ -189,6 +189,109 @@ have no hyphens and pass naive `!contains("-")` checks, but fail when used as
 API parameters. Always use `hasNavigableId` which validates the `UC` prefix for
 artists (or `MPRE`/`OLAK` for albums, `MPSPP` for podcasts).
 
+## ❌ Guessing at Runtime Behavior Instead of Measuring
+
+When a bug is about *timing, lifecycle, or "why didn't this run/load/update"*
+(SwiftUI `.task`/state churn, cold-launch ordering, perceived latency),
+**instrument and observe before changing code.** Reasoning about SwiftUI
+lifecycle or async ordering from the source alone repeatedly produces wrong
+fixes; a timestamped trace settles it in one launch.
+
+**The app is sandboxed**, so most ad-hoc logging fails silently:
+
+- `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably appear in
+  `log stream` / `log show`.
+- A hardcoded `/tmp/...` file write is **blocked by the sandbox** and throws
+  nothing — the file just never appears in the real `/tmp`.
+- Window-screenshot automation (`screencapture` + AX bounds) is unreliable
+  here too — prefer file traces over visual capture.
+
+Use a throwaway file tracer in the app's **container** tmp
+(`NSTemporaryDirectory()`), `synchronize()` after each line, and read it from
+`~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/`:
+
+```swift
+// TEMPORARY DIAGNOSTIC — remove before commit.
+enum LoadTrace {
+    nonisolated(unsafe) private static let path =
+        NSTemporaryDirectory() + "kaset_trace.log"        // container tmp, NOT /tmp
+    nonisolated(unsafe) private static let handle: FileHandle? = {
+        FileManager.default.createFile(atPath: path, contents: nil)
+        return FileHandle(forWritingAtPath: path)
+    }()
+    nonisolated(unsafe) private static let start = ProcessInfo.processInfo.systemUptime
+
+    static func log(_ message: String) {
+        let ms = (ProcessInfo.processInfo.systemUptime - start) * 1000
+        if let d = String(format: "%8.1fms %@\n", ms, message).data(using: .utf8) {
+            handle?.write(d)
+            try? handle?.synchronize()   // flush so a crash/hang still leaves the line
+        }
+    }
+}
+```
+
+Workflow: add traces at each phase boundary → rebuild (`Scripts/build-app.sh`)
+→ launch fresh, bring frontmost so the view mounts → read the trace → fix what
+the data points at → **re-measure to confirm** → delete the tracer. This is how
+the ~840ms Home "rows-lag" was localized to 8 uncached topic-rail browses
+publishing atomically after the slowest one (not to parsing or the grid fetch,
+which were the intuitive-but-wrong guesses).
+
+## ❌ Idle-Guarded Load That Deadlocks on `.task` Restart
+
+SwiftUI restarts a view's `.task` during launch/layout churn — observed firing
+**twice ~18 ms apart** on first paint. A load guarded by `loadingState == .idle`
+plus a cancellation-resets-to-`.idle` catch creates a lost-update deadlock:
+
+```swift
+// ❌ BAD: restart cancels load #1; load #2 bails on the guard; #1's
+// cancellation resets to .idle → stuck on the skeleton, nothing running.
+func load() async {
+    guard loadingState == .idle else { return }     // load #2 bails here
+    loadingState = .loading
+    do {
+        let data = try await client.fetch()          // load #1 cancelled by restart
+        // ...publish...
+    } catch {
+        if error is CancellationError { loadingState = .idle; return }  // → stuck
+    }
+}
+```
+
+Fix with a **single-flight** load: run the work in a stored *unstructured* `Task`
+so it survives `.task` cancellation; concurrent callers coalesce onto it.
+
+```swift
+// ✅ GOOD: the work is decoupled from .task cancellation; restarts coalesce.
+private var loadTask: Task<Void, Never>?
+
+func load() async {
+    if case .loaded = loadingState { return }   // a repeat after load is a no-op
+    if let existing = loadTask { await existing.value; return }   // coalesce
+    let task = Task { await performLoad() }
+    loadTask = task
+    await task.value
+}
+
+private func performLoad() async {
+    defer { loadTask = nil }
+    // ...do the load; set .loaded on success...
+}
+
+func refresh() async {            // explicit reload must cancel + restart
+    loadTask?.cancel(); loadTask = nil
+    loadingState = .idle
+    await load()
+}
+```
+
+Test the race directly: two concurrent `load()` calls with the first cancelled
+must still end `.loaded` (not stuck `.idle`). And remember a cancelled *outer*
+`.task` must NOT abort a persistent view-model load (the VM outlives the view in
+the store) — only `refresh()` aborts. When a test encodes the old
+"cancellation aborts the load" behavior, it was protecting the bug; rewrite it.
+
 ## Pre-Submit Checklists
 
 ### Performance
@@ -213,3 +316,5 @@ artists (or `MPRE`/`OLAK` for albums, `MPSPP` for podcasts).
 - [ ] No `static var shared` pattern with mutable assignment in `init`
 - [ ] WebView message handlers removed in `dismantleNSView`
 - [ ] `WKNavigationDelegate` implements `webViewWebContentProcessDidTerminate`
+- [ ] View-model loads are single-flight (survive `.task` restart) — not idle-guarded in a way that deadlocks on cancellation
+- [ ] Timing/lifecycle bugs were **measured** with a trace, not guessed; all diagnostic instrumentation removed before commit

@@ -25,7 +25,6 @@ import SwiftUI
 ///     }
 /// }
 /// ```
-@available(macOS 26.0, *)
 struct ToastView: View {
     // MARK: - Properties
 
@@ -41,42 +40,41 @@ struct ToastView: View {
     // MARK: - Body
 
     var body: some View {
-        HStack(spacing: 10) {
-            // Icon
-            Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(self.isError ? .red : .blue)
+        CompatGlassContainer(spacing: 0) {
+            HStack(spacing: 10) {
+                // Icon
+                Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(self.isError ? .red : .blue)
 
-            // Message
-            Text(self.message)
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(.primary)
-                .lineLimit(2)
+                // Message
+                Text(self.message)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+                    .lineLimit(2)
 
-            Spacer(minLength: 0)
+                Spacer(minLength: 0)
 
-            // Dismiss button
-            if let dismiss = self.onDismiss {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 11, weight: .bold))
-                        .foregroundStyle(.secondary)
+                // Dismiss button
+                if let dismiss = self.onDismiss {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(String(localized: "Dismiss"))
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Dismiss")
             }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(minWidth: 250, maxWidth: 400)
+            .compatGlass(in: .rect(cornerRadius: 10))
+            .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(minWidth: 250, maxWidth: 400)
-        .background {
-            RoundedRectangle(cornerRadius: 10)
-                .fill(.regularMaterial)
-                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
-        }
-        .glassEffectTransition(.materialize)
+        .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Toast.container)
     }
 }
@@ -86,7 +84,6 @@ struct ToastView: View {
 /// A toast that observes AccountService errors and auto-dismisses.
 ///
 /// Add this to MainWindow as an overlay to show account switching errors.
-@available(macOS 26.0, *)
 struct AccountErrorToast: View {
     @Environment(AccountService.self) private var accountService
 
@@ -123,9 +120,9 @@ struct AccountErrorToast: View {
         }
         // Use appropriate message based on error context
         if self.accountService.lastErrorWasFetch {
-            return "Failed to load accounts. Please try again."
+            return String(localized: "Failed to load accounts. Please try again.")
         }
-        return "Failed to switch account. Please try again."
+        return String(localized: "Failed to switch account. Please try again.")
     }
 
     private func show() {
@@ -163,7 +160,6 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("Error Toast") {
     ToastView(message: "Failed to switch account. Please try again.", isError: true) {
         DiagnosticsLogger.ui.debug("Toast dismissed")
@@ -171,7 +167,6 @@ extension AccessibilityID {
     .padding()
 }
 
-@available(macOS 26.0, *)
 #Preview("Info Toast") {
     ToastView(message: "Account switched successfully", isError: false)
         .padding()

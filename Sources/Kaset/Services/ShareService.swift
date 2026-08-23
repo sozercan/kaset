@@ -51,7 +51,7 @@ extension Playlist: Shareable {
     }
 
     var shareSubtitle: String? {
-        self.author
+        self.author?.name
     }
 
     var shareURL: URL? {
@@ -95,11 +95,12 @@ extension Artist: Shareable {
     }
 
     var shareURL: URL? {
-        // Valid artist IDs are YouTube channel IDs starting with "UC"
-        guard self.id.hasPrefix("UC") else { return nil }
-        guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard let publicChannelId = self.publicChannelId,
+              let encodedId = publicChannelId.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)
+        else {
             return nil
         }
+
         return URL(string: "https://music.youtube.com/channel/\(encodedId)")
     }
 }

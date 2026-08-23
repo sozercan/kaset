@@ -1,6 +1,6 @@
-# Video Mode
+# YouTube Music Video Mode
 
-This document details the floating video window feature.
+This document details the floating video window for YouTube Music videos. Regular YouTube playback uses the YouTube source's separate watch WebView and floating window; see [YouTube Mode](youtube.md).
 
 ## Overview
 
@@ -46,7 +46,7 @@ enum DisplayMode {
 The video window remembers its position across sessions:
 - Position is saved to `UserDefaults` when window closes
 - Window repositions to nearest corner (top-left, top-right, bottom-left, bottom-right)
-- Default corner: bottom-right
+- Default corner: top-right
 
 ## Video Extraction
 

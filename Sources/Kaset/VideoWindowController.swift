@@ -4,7 +4,6 @@ import SwiftUI
 // MARK: - VideoWindowController
 
 /// Manages the floating video window.
-@available(macOS 26.0, *)
 @MainActor
 final class VideoWindowController {
     static let shared = VideoWindowController()
@@ -18,16 +17,10 @@ final class VideoWindowController {
     /// Flag to prevent re-entrant close handling
     private var isClosing = false
 
-    /// Corner snapping
-    enum Corner: Int {
-        case topLeft, topRight, bottomLeft, bottomRight
-    }
+    /// Frame persistence key
+    private let frameAutosaveKey = "KasetVideoWindow"
 
-    private var currentCorner: Corner = .bottomRight
-
-    private init() {
-        self.loadCorner()
-    }
+    private init() {}
 
     /// Shows the video window.
     func show(
@@ -41,9 +34,9 @@ final class VideoWindowController {
         playerService.videoWindowDidOpen()
 
         if let existingWindow = self.window {
-            // Window exists - just bring it to front
+            // Window exists - just bring it to front without stealing focus
             self.isClosing = false // Reset in case of interrupted close
-            existingWindow.makeKeyAndOrderFront(nil)
+            existingWindow.orderFront(nil)
             // Ensure video mode is active
             SingletonPlayerWebView.shared.updateDisplayMode(.video)
             return
@@ -56,8 +49,10 @@ final class VideoWindowController {
         let hostingView = NSHostingView(rootView: AnyView(contentView))
         self.hostingView = hostingView
 
+        // Load saved frame or use default
+        let defaultRect = NSRect(x: 0, y: 0, width: 480, height: 270)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 480, height: 270),
+            contentRect: defaultRect,
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -73,16 +68,23 @@ final class VideoWindowController {
         window.level = .normal
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         window.aspectRatio = NSSize(width: 16, height: 9)
-        window.minSize = NSSize(width: 320, height: 180)
+        window.minSize = NSSize(width: 160, height: 90)
         window.backgroundColor = .black
+
+        // Use Sparkle/macOS style frame persistence
+        window.setFrameAutosaveName(self.frameAutosaveKey)
 
         // Set accessibility identifier for UI testing
         window.identifier = NSUserInterfaceItemIdentifier(AccessibilityID.VideoWindow.container)
 
-        // Position at saved corner
-        self.positionAtCorner(window: window, corner: self.currentCorner)
+        // If no autosaved frame exists yet, position it in a sane default location (bottom right)
+        if !window.setFrameUsingName(self.frameAutosaveKey) {
+            self.positionAtDefaultLocation(window: window)
+        }
 
-        window.makeKeyAndOrderFront(nil)
+        // Show the floating video window without taking key focus away from the main window,
+        // so the player bar toggle remains a true one-click toggle while video is open.
+        window.orderFront(nil)
         self.window = window
         self.isClosing = false
 
@@ -109,9 +111,8 @@ final class VideoWindowController {
         // Remove observer before closing to prevent windowWillClose from firing
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
 
-        // Save corner position
-        self.currentCorner = self.nearestCorner(for: window)
-        self.saveCorner()
+        // Ensure frame is saved
+        window.saveFrame(usingName: self.frameAutosaveKey)
 
         // Clean up
         self.performCleanup()
@@ -126,10 +127,9 @@ final class VideoWindowController {
         guard !self.isClosing else { return }
         self.isClosing = true
 
-        // Update corner based on final position
+        // Save final position
         if let window = notification.object as? NSWindow {
-            self.currentCorner = self.nearestCorner(for: window)
-            self.saveCorner()
+            window.saveFrame(usingName: self.frameAutosaveKey)
         }
 
         // Clean up
@@ -158,68 +158,19 @@ final class VideoWindowController {
         self.isClosing = false
     }
 
-    private func positionAtCorner(window: NSWindow, corner: Corner) {
+    private func positionAtDefaultLocation(window: NSWindow) {
         guard let screen = NSScreen.main else { return }
         let screenFrame = screen.visibleFrame
         let windowSize = window.frame.size
-        let padding: CGFloat = 20
+        let padding: CGFloat = 40
 
-        let origin =
-            switch corner {
-            case .topLeft:
-                NSPoint(
-                    x: screenFrame.minX + padding,
-                    y: screenFrame.maxY - windowSize.height - padding
-                )
-            case .topRight:
-                NSPoint(
-                    x: screenFrame.maxX - windowSize.width - padding,
-                    y: screenFrame.maxY - windowSize.height - padding
-                )
-            case .bottomLeft:
-                NSPoint(
-                    x: screenFrame.minX + padding,
-                    y: screenFrame.minY + padding
-                )
-            case .bottomRight:
-                NSPoint(
-                    x: screenFrame.maxX - windowSize.width - padding,
-                    y: screenFrame.minY + padding
-                )
-            }
+        // Default to top right so the floating window does not cover player-bar controls
+        // on first launch, keeping the video toggle reachable for a true second-click close.
+        let origin = NSPoint(
+            x: screenFrame.maxX - windowSize.width - padding,
+            y: screenFrame.maxY - windowSize.height - padding
+        )
 
         window.setFrameOrigin(origin)
-    }
-
-    private func nearestCorner(for window: NSWindow) -> Corner {
-        guard let screen = NSScreen.main else { return .bottomRight }
-        let screenFrame = screen.visibleFrame
-        let windowCenter = NSPoint(
-            x: window.frame.midX,
-            y: window.frame.midY
-        )
-        let screenCenter = NSPoint(
-            x: screenFrame.midX,
-            y: screenFrame.midY
-        )
-
-        let isLeft = windowCenter.x < screenCenter.x
-        let isTop = windowCenter.y > screenCenter.y
-
-        switch (isLeft, isTop) {
-        case (true, true): return .topLeft
-        case (false, true): return .topRight
-        case (true, false): return .bottomLeft
-        case (false, false): return .bottomRight
-        }
-    }
-
-    private func saveCorner() {
-        UserDefaults.standard.set(self.currentCorner.rawValue, forKey: "videoWindowCorner")
-    }
-
-    private func loadCorner() {
-        let raw = UserDefaults.standard.integer(forKey: "videoWindowCorner")
-        self.currentCorner = Corner(rawValue: raw) ?? .bottomRight
     }
 }

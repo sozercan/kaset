@@ -6,7 +6,6 @@ import SwiftUI
 /// Displays sections of songs and playlists for the selected mood/genre.
 /// Note: This view is pushed onto an existing NavigationStack, so it uses NavigationLink
 /// to leverage the parent's navigation context.
-@available(macOS 26.0, *)
 struct MoodCategoryDetailView: View {
     @State var viewModel: MoodCategoryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -44,41 +43,40 @@ struct MoodCategoryDetailView: View {
 
     // MARK: - Views
 
+    @ViewBuilder
     private var contentView: some View {
-        Group {
-            if self.viewModel.sections.isEmpty {
-                ContentUnavailableView(
-                    "No Content Available",
-                    systemImage: "music.note",
-                    description: Text("No songs or playlists found in this category.")
-                )
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 32) {
-                        ForEach(self.viewModel.sections) { section in
-                            self.sectionView(section)
-                        }
+        if self.viewModel.sections.isEmpty {
+            ContentUnavailableView(
+                "No Content Available",
+                systemImage: "music.note",
+                description: Text(String(localized: "No songs or playlists found in this category."))
+            )
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 32) {
+                    ForEach(self.viewModel.sections) { section in
+                        self.sectionView(section)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 20)
                 }
+                // Edge-to-edge so shelves slide under the glass sidebar;
+                // resting inset is restored per-shelf via contentInset.
+                .padding(.vertical, 20)
             }
         }
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: section.items,
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { _, item in
-                        self.itemView(item)
-                    }
-                }
-            }
+        } itemContent: { item in
+            self.itemView(item)
         }
     }
 
@@ -96,9 +94,7 @@ struct MoodCategoryDetailView: View {
             }
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
-            if MoodCategory.isMoodCategory(playlist.id),
-               let parsed = MoodCategory.parseId(playlist.id)
-            {
+            if let parsed = playlist.resolvedMoodCategoryEndpoint {
                 let category = MoodCategory(
                     browseId: parsed.browseId,
                     params: parsed.params,
@@ -121,7 +117,7 @@ struct MoodCategoryDetailView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             NavigationLink(value: playlist) {
                 ItemCardContent(item: item)
@@ -139,7 +135,6 @@ struct MoodCategoryDetailView: View {
 // MARK: - ItemCardContent
 
 /// A non-button card view for use inside NavigationLink.
-@available(macOS 26.0, *)
 private struct ItemCardContent: View {
     let item: HomeSectionItem
 

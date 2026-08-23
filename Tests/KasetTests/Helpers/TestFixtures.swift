@@ -40,7 +40,8 @@ enum TestFixtures {
         id: String = "MPRE-test-album",
         title: String = "Test Album",
         artistName: String = "Test Artist",
-        year: String? = "2024"
+        year: String? = "2024",
+        libraryTargetId: String? = nil
     ) -> Album {
         Album(
             id: id,
@@ -48,7 +49,8 @@ enum TestFixtures {
             artists: artistName.isEmpty ? nil : [Artist(id: "UC123", name: artistName)],
             thumbnailURL: URL(string: "https://example.com/album.jpg"),
             year: year,
-            trackCount: 12
+            trackCount: 12,
+            libraryTargetId: libraryTargetId
         )
     }
 
@@ -56,12 +58,14 @@ enum TestFixtures {
 
     static func makeArtist(
         id: String = "UC123",
-        name: String = "Test Artist"
+        name: String = "Test Artist",
+        profileKind: ArtistProfileKind = .unknown
     ) -> Artist {
         Artist(
             id: id,
             name: name,
-            thumbnailURL: URL(string: "https://example.com/artist.jpg")
+            thumbnailURL: URL(string: "https://example.com/artist.jpg"),
+            profileKind: profileKind
         )
     }
 
@@ -70,7 +74,8 @@ enum TestFixtures {
     static func makePlaylist(
         id: String = "VL-test-playlist",
         title: String = "Test Playlist",
-        author: String? = "Test User"
+        author: Artist? = Artist.inline(name: "Test User", namespace: "playlist-author"),
+        canDelete: Bool = false
     ) -> Playlist {
         Playlist(
             id: id,
@@ -78,19 +83,22 @@ enum TestFixtures {
             description: "A test playlist",
             thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
             trackCount: 25,
-            author: author
+            author: author,
+            canDelete: canDelete
         )
     }
 
     static func makePlaylistDetail(
         playlist: Playlist? = nil,
-        trackCount: Int = 10
+        trackCount: Int = 10,
+        libraryTargetId: String? = nil
     ) -> PlaylistDetail {
         let pl = playlist ?? self.makePlaylist()
         return PlaylistDetail(
             playlist: pl,
             tracks: self.makeSongs(count: trackCount),
-            duration: "\(trackCount * 3) minutes"
+            duration: "\(trackCount * 3) minutes",
+            libraryTargetId: libraryTargetId
         )
     }
 
@@ -99,17 +107,50 @@ enum TestFixtures {
     static func makeArtistDetail(
         artist: Artist? = nil,
         songCount: Int = 5,
-        albumCount: Int = 3
+        albumCount: Int = 3,
+        playlistCount: Int = 0,
+        featuredOnPlaylistCount: Int = 0,
+        similarArtistCount: Int = 0,
+        monthlyAudience: String? = nil
     ) -> ArtistDetail {
         let a = artist ?? self.makeArtist()
+        let playlists = (0 ..< playlistCount).map { index in
+            self.makePlaylist(id: "VL-artist-\(index)", title: "Artist Playlist \(index)", author: Artist.inline(name: a.name, namespace: "playlist-author"))
+        }
+        let featuredOnSectionPlaylists = (0 ..< featuredOnPlaylistCount).map { index in
+            self.makePlaylist(id: "VL-featured-\(index)", title: "Featured Playlist \(index)", author: Artist.inline(name: "Various Artists", namespace: "playlist-author"))
+        }
+        let albums = (0 ..< albumCount).map { index in
+            self.makeAlbum(id: "MPRE-\(index)", title: "Album \(index)")
+        }
         return ArtistDetail(
             artist: a,
             description: "A test artist description",
             songs: self.makeSongs(count: songCount),
-            albums: (0 ..< albumCount).map { index in
-                self.makeAlbum(id: "MPRE-\(index)", title: "Album \(index)")
-            },
-            thumbnailURL: a.thumbnailURL
+            orderedSections: [
+                albums.isEmpty ? nil : ArtistDetailSection(
+                    title: "Albums",
+                    content: .albums(albums)
+                ),
+                featuredOnSectionPlaylists.isEmpty ? nil : ArtistDetailSection(
+                    title: "Featured on",
+                    content: .playlists(featuredOnSectionPlaylists)
+                ),
+                playlists.isEmpty ? nil : ArtistDetailSection(
+                    title: "Playlists",
+                    content: .playlists(playlists)
+                ),
+                similarArtistCount > 0
+                    ? ArtistDetailSection(
+                        title: "Similar artists",
+                        content: .artists((0 ..< similarArtistCount).map { index in
+                            self.makeArtist(id: "UC-similar-\(index)", name: "Similar Artist \(index)")
+                        })
+                    )
+                    : nil,
+            ].compactMap(\.self),
+            thumbnailURL: a.thumbnailURL,
+            monthlyAudience: monthlyAudience
         )
     }
 

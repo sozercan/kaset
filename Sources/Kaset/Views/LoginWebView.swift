@@ -13,10 +13,13 @@ struct LoginWebView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
-        let configuration = self.webKitManager.createWebViewConfiguration()
+        let configuration = self.webKitManager.createSessionSwitchWebViewConfiguration()
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.customUserAgent = WebKitManager.userAgent
+        #if DEBUG
+            webView.isInspectable = true
+        #endif
 
         // Load YouTube Music login page
         if let url = URL(string: "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3Dhttps%253A%252F%252Fmusic.youtube.com%252F") {

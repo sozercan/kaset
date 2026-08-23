@@ -119,38 +119,78 @@ enum AccountsListParser {
         // Extract isSelected (defaults to false)
         let isSelected = accountItem["isSelected"] as? Bool ?? false
 
-        // Extract brandId from pageIdToken (nil for primary accounts)
-        let brandId = Self.extractBrandId(from: accountItem)
+        // Extract identity tokens (brandId + server-issued switch URL) in one pass.
+        let identity = Self.extractIdentityTokens(from: accountItem)
 
         return UserAccount.from(
             name: name,
             handle: handle,
-            brandId: brandId,
+            brandId: identity.brandId,
             thumbnailURL: thumbnailURL,
-            isSelected: isSelected
+            isSelected: isSelected,
+            signinURL: identity.signinURL
         )
     }
 
-    /// Extracts the brand ID from the service endpoint's supported tokens.
+    /// Extracts identity material from `selectActiveIdentityEndpoint.supportedTokens`.
     ///
-    /// Primary accounts don't have a pageIdToken, so this returns nil for them.
-    private static func extractBrandId(from accountItem: [String: Any]) -> String? {
+    /// - `brandId`: from `pageIdToken.pageId` (nil for the primary account, which
+    ///   has no `pageIdToken`).
+    /// - `signinURL`: from `accountSigninToken.signinUrl` — the server-issued
+    ///   account-switch endpoint. Navigating a shared-cookie WebView to it
+    ///   re-points the session's active delegated identity. Present for both
+    ///   primary and brand accounts (the brand variant encodes a `pageid`).
+    private static func extractIdentityTokens(
+        from accountItem: [String: Any]
+    ) -> (brandId: String?, signinURL: URL?) {
         guard let serviceEndpoint = accountItem["serviceEndpoint"] as? [String: Any],
-              let selectActiveIdentityEndpoint = serviceEndpoint["selectActiveIdentityEndpoint"] as? [String: Any],
-              let supportedTokens = selectActiveIdentityEndpoint["supportedTokens"] as? [[String: Any]]
+              let activeIdentity = serviceEndpoint["selectActiveIdentityEndpoint"] as? [String: Any],
+              let entries = activeIdentity["supportedTokens"] as? [[String: Any]]
         else {
-            return nil
+            return (nil, nil)
         }
 
-        // Look for pageIdToken in supported tokens
-        for token in supportedTokens {
-            if let pageIdToken = token["pageIdToken"] as? [String: Any],
+        var brandId: String?
+        var signinURL: URL?
+        for entry in entries {
+            if brandId == nil,
+               let pageIdToken = entry["pageIdToken"] as? [String: Any],
                let pageId = pageIdToken["pageId"] as? String
             {
-                return pageId
+                brandId = pageId
+            }
+            if signinURL == nil,
+               let signinToken = entry["accountSigninToken"] as? [String: Any],
+               let urlString = signinToken["signinUrl"] as? String
+            {
+                signinURL = Self.resolveSigninURL(urlString)
             }
         }
+        return (brandId, signinURL)
+    }
 
-        return nil
+    /// Resolves an `accountSigninToken.signinUrl` into an absolute URL.
+    ///
+    /// The API returns this as a root-relative path (`/signin?...`); it must be
+    /// resolved against the YouTube origin. Also handles protocol-relative and
+    /// already-absolute forms defensively.
+    static func resolveSigninURL(_ urlString: String, origin: String = "https://www.youtube.com") -> URL? {
+        let resolvedURL: URL? = if urlString.hasPrefix("http://") || urlString.hasPrefix("https://") {
+            URL(string: urlString)
+        } else if urlString.hasPrefix("//") {
+            URL(string: "https:" + urlString)
+        } else if urlString.hasPrefix("/") {
+            URL(string: urlString, relativeTo: URL(string: origin))?.absoluteURL
+        } else {
+            URL(string: urlString)
+        }
+        guard let resolvedURL, Self.isAllowedSigninURL(resolvedURL) else { return nil }
+        return resolvedURL
+    }
+
+    static func isAllowedSigninURL(_ url: URL) -> Bool {
+        url.scheme?.lowercased() == "https" &&
+            url.host?.lowercased() == "www.youtube.com" &&
+            url.path == "/signin"
     }
 }

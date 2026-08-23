@@ -2,13 +2,25 @@
 
 This document covers testing strategies, commands, and best practices for Kaset.
 
-## Test Commands
+> 🔁 **Default local loop lives in `AGENTS.md`** — Stay CLI-first for everyday verification: `swift build`, `swift test --skip KasetUITests`, then `swiftlint --strict && swiftformat .`. Use Xcode/`xcodebuild` only for UI/runtime debugging, scheme-specific investigation, or CI parity.
+
+## Common Tasks
 
 ### Unit Tests
 
 ```bash
-swift test
+swift test --skip KasetUITests
 ```
+
+### Focused YouTube Ask and Localization Tests
+
+```bash
+swift test --skip KasetUITests --filter YouTubeAsk
+swift test --skip KasetUITests --filter LocalizationCatalogParityTests
+```
+
+These are synthetic, non-UI tests. They do not contact YouTube or submit an Ask
+suggestion.
 
 ### Build Only
 
@@ -37,19 +49,27 @@ swiftlint --strict && swiftformat .
 ## Test Structure
 
 ```
-Tests/KasetTests/
-├── Helpers/
-│   ├── MockURLProtocol.swift    # Network mocking
-│   ├── MockYTMusicClient.swift  # API client mock
-│   └── TestFixtures.swift       # Fixture loading utilities
-├── SwiftTestingHelpers/
-│   └── Tags.swift               # Custom test tags (.api, .parser, etc.)
-├── Fixtures/
-│   ├── home_response.json       # Sample API responses
-│   ├── search_response.json
-│   └── playlist_detail.json
-├── *Tests.swift                 # Unit test files (Swift Testing)
-└── MusicIntentIntegrationTests.swift  # AI integration tests
+Tests/
+├── KasetTests/
+│   ├── Helpers/
+│   │   ├── MockURLProtocol.swift    # Network mocking
+│   │   ├── MockYTMusicClient.swift  # YouTube Music API client mock
+│   │   ├── MockYouTubeClient.swift  # Regular YouTube API client mock
+│   │   └── TestFixtures.swift       # Fixture loading utilities
+│   ├── SwiftTestingHelpers/
+│   │   └── Tags.swift               # Custom test tags (.api, .parser, etc.)
+│   ├── Fixtures/
+│   │   ├── home_response.json       # Sample API responses
+│   │   ├── search_response.json
+│   │   ├── playlist_detail.json
+│   │   └── YouTube/                 # Sanitized regular YouTube fixtures
+│   ├── YouTubeAskClientTests.swift
+│   ├── YouTubeAskViewModelTests.swift
+│   ├── *Tests.swift                 # Other app unit tests (Swift Testing)
+│   └── MusicIntentIntegrationTests.swift  # Apple Intelligence integration tests
+└── YouTubeAskCoreTests/
+    ├── Fixtures/                     # Small placeholder-only Ask fixtures
+    └── YouTubeAsk*Tests.swift        # Decoder, parser, sanitizer, builder, and fixture safety
 ```
 
 ## Unit Test Requirements
@@ -60,6 +80,7 @@ New code in `Sources/Kaset/` (Services, Models, ViewModels, Utilities) must incl
 
 1. Create test file in `Tests/KasetTests/` matching the source file name
    - Example: `YTMusicClient.swift` → `YTMusicClientTests.swift`
+   - Example: `YouTubeClient.swift` / YouTube parsers → `YouTube...Tests.swift`
 2. Add the test file to the Xcode project
 3. Run tests to verify
 
@@ -142,11 +163,17 @@ Apply tags to categorize tests for filtering:
 
 Available tags: `.api`, `.parser`, `.viewModel`, `.service`, `.model`, `.slow`, `.integration`
 
-**Run by tag:**
+Tags are most useful for suite organization and Xcode/CI filtering. For quick local iteration, prefer a name-based filter:
+
 ```bash
-# Run only parser tests
-xcodebuild test -scheme Kaset -only-testing:KasetTests -skip-testing:KasetUITests \
-  2>&1 | grep -E "parser"
+# Run tests matching a name or suite pattern
+swift test --skip KasetUITests --filter Parser
+```
+
+If you need Xcode's logs or scheme-specific filtering, escalate to:
+
+```bash
+xcodebuild test -scheme Kaset -only-testing:KasetTests -skip-testing:KasetUITests
 ```
 
 ### Time Limits
@@ -255,6 +282,43 @@ func parseHomeResponse() {
 }
 ```
 
+### YouTube Ask Tests
+
+YouTube Ask has two test layers:
+
+1. `YouTubeAskCoreTests` proves the Foundation-only boundary: bounded JSON,
+   XSSI, NDJSON, and length-prefixed decoding; strict YouChat ancestry and chip
+   extraction; decoy and unsupported-decorator rejection; exact
+   `onClick.listMutationCommand` user-turn/loading callback acceptance without
+   execution and unknown-command rejection; direct-chip preservation when panel
+   commands are ambiguous; legacy append-action and current singular
+   list-mutation response parsing; server-order preservation; visible-text
+   sanitization; native Markdown block parsing with non-interactive links; exact
+   direct-chip request bodies;
+   and redacted opaque-command behavior.
+2. `KasetTests` covers `YouTubeClient` and view-model integration: one shared
+   watch `next` request, signed-in primary-account gating, exact `get_panel`
+   URL/body, forbidden-field absence, monotonic message IDs, no cache or retry,
+   same-origin redirects, HTTP/error mapping, identity-generation fences, a
+   single read-only watch retry after internal identity cancellation, no retry
+   after outer task cancellation, lazy preparation, single-flight submission,
+   transactional New Chat, cancellation, and prevention of command reuse.
+
+Fixtures must be small, hand-authored, and visibly synthetic. Use placeholder
+values such as `fixture-video-a` and `fixture-continuation-a`; never copy cookies,
+authorization proofs, API keys, account identifiers, personalized payloads, or
+real opaque values into source or test output. Fixture safety tests report only
+file, JSON path, rule, and value length—never the rejected value.
+
+Run the complete non-UI Ask slice with:
+
+```bash
+swift test --skip KasetUITests --filter YouTubeAsk
+```
+
+The UI-test fixture may model eligible, ineligible, and error states, but UI tests
+launch the app and require explicit human approval before execution.
+
 ### Parameterized Tests
 
 Test multiple inputs efficiently:
@@ -275,7 +339,7 @@ func durationFormatting(seconds: Double, expected: String) {
 
 ### MockYTMusicClient
 
-The project includes a ready-to-use mock client:
+The project includes ready-to-use API client mocks for both sources. Use `MockYTMusicClient` for YouTube Music view models and services:
 
 ```swift
 // Tests/KasetTests/Helpers/MockYTMusicClient.swift
@@ -291,6 +355,25 @@ final class MockYTMusicClient: YTMusicClientProtocol, @unchecked Sendable {
     // ... other methods
 }
 ```
+
+Use `MockYouTubeClient` for the regular YouTube source:
+
+```swift
+// Tests/KasetTests/Helpers/MockYouTubeClient.swift
+final class MockYouTubeClient: YouTubeClientProtocol, @unchecked Sendable {
+    var homeFeed = YouTubeFeed(videos: [], continuation: nil)
+    var searchResponse = YouTubeSearchResponse(videos: [], channels: [], playlists: [], continuation: nil)
+    var error: Error?
+
+    func getHomeFeed() async throws -> YouTubeFeed {
+        if let error { throw error }
+        return homeFeed
+    }
+    // ... other methods
+}
+```
+
+Regular YouTube parser tests should use sanitized fixtures in `Tests/KasetTests/Fixtures/YouTube/`; re-capture with `swift run api-explorer --youtube ... -o` when YouTube renderer shapes change. Ask fixtures are different: keep them hand-authored and placeholder-only instead of capturing personalized YouChat responses.
 
 **Usage in tests**:
 ```swift
@@ -328,6 +411,20 @@ let data = TestFixtures.loadJSON("home_response")  // Loads home_response.json
 let dict = TestFixtures.loadJSONDict("search_response")
 ```
 
+### Localization Catalog and Mirrors
+
+`Sources/Kaset/Resources/Localizable.xcstrings` is the source of truth and every
+shipped `.lproj/Localizable.strings` mirror must be updated in the same change.
+Run:
+
+```bash
+swift test --skip KasetUITests --filter LocalizationCatalogParityTests
+```
+
+For Ask Gemini, localize only UI-owned chrome, disclosure, progress, error, and
+accessibility strings. Server-issued suggestion labels and generated answers are
+shown as sanitized verbatim text and must not become localization keys.
+
 ## Accessibility Testing
 
 ### VoiceOver
@@ -353,6 +450,25 @@ Button {
 
 ## Integration Testing
 
+### YouTube Ask Compatibility Validation
+
+YouTube Ask unit tests are deterministic and offline. The API Explorer parity
+workflow is a separate, read-only manual compatibility check: it sends `next`
+and prepares the prompt-free initial panel, but it must never submit a suggestion
+or free-form prompt. Its redacted report records whether strict parsing found a
+free-text capability in `next` and in the initial `get_panel` without printing
+opaque values. Guarded chip or free-text generation requires separate explicit
+approval and is not part of routine tests or CI. Free-text tests cover direct
+`next` capability loading, fallback materialization from the same immutable
+request snapshot, exact validated `get_panel` bodies, string playback offset,
+click-tracking context, per-revision consumption, repeated free-text turns with monotonic message IDs, stale-revision rejection, and no automatic retry.
+
+The production app explicitly selects the fixed WEB request profile. The July 28,
+2026 parity run was inconclusive because the exported session appeared signed out;
+keep recording all request/response evidence in
+[api-discovery.md](api-discovery.md#youtube-ask-gemini--youchat-investigation-2026-07-27)
+and keep the activation rule in [ADR-0032](adr/0032-youtube-ask-gemini.md).
+
 ### AI Integration Tests (Apple Intelligence)
 
 The `MusicIntentIntegrationTests` suite validates LLM parsing of natural language commands into `MusicIntent` structs.
@@ -374,7 +490,7 @@ LLM outputs are inherently non-deterministic. These tests mitigate flakiness by:
 
 #### Recommended CI Configuration
 
-For stable CI pipelines, **exclude integration tests** and run them separately in a scheduled job:
+For stable CI pipelines, **exclude integration tests** and run them separately in a scheduled job. These are CI/Xcode-specific commands; keep day-to-day local verification on the default CLI loop above:
 
 ```bash
 # CI: Run unit tests only (stable)
@@ -403,13 +519,12 @@ xcodebuild test -scheme Kaset -destination 'platform=macOS' \
 #### Run Commands
 
 ```bash
-# Run ONLY integration tests (requires Apple Intelligence)
+# Special-case: run ONLY integration tests (requires Apple Intelligence)
 xcodebuild test -scheme Kaset -destination 'platform=macOS' \
   -only-testing:KasetTests/MusicIntentIntegrationTests
 
-# Run all unit tests (integration tests auto-skip if AI unavailable)
-xcodebuild test -scheme Kaset -destination 'platform=macOS' \
-  -only-testing:KasetTests
+# Default local run for the non-UI test suite
+swift test --skip KasetUITests
 ```
 
 #### Test Characteristics
@@ -433,8 +548,13 @@ Before releasing:
 - [ ] Media keys work
 - [ ] Re-opening window doesn't duplicate audio
 - [ ] Sign out and re-login works
+- [ ] Ask Gemini remains absent while no request profile has passed parity
+- [ ] Eligible YouTube watch pages show a toolbar sparkles action, not an inline card
+- [ ] The Ask panel opens lazily and dismisses by outside click and Escape without losing the chat
 
-### Simulating Auth Expiry
+### Simulating Auth Expiry (Runtime Debugging)
+
+Use this runtime debugging workflow when auth state looks stale or you need to inspect 401/403 recovery behavior:
 
 To test auth recovery:
 
@@ -446,14 +566,16 @@ To test auth recovery:
 
 ### Console Logging
 
-Use Xcode's Console to filter logs:
+Use Xcode's Console when the CLI loop is not enough and you need runtime inspection:
 
 ```
 subsystem:Kaset category:player
 subsystem:Kaset category:auth
 ```
 
-### WebView Debugging
+### WebView Debugging (Runtime Escalation)
+
+Enable Web Inspector for debug builds when playback or auth issues need DOM or JavaScript inspection:
 
 Enable Web Inspector for debug builds:
 
@@ -468,6 +590,8 @@ Right-click WebView → Inspect Element
 ## Continuous Integration
 
 ### GitHub Actions Workflow
+
+CI can use Xcode-specific commands for macOS runner parity. Keep this separate from the default local CLI loop above.
 
 ```yaml
 name: Build & Test

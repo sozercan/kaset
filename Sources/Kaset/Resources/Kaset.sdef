@@ -9,6 +9,13 @@
             <cocoa class="NSQuitCommand"/>
         </command>
 
+        <class name="application" code="capp" description="Kaset's top-level scripting object.">
+            <cocoa class="NSApplication"/>
+            <responds-to command="quit">
+                <cocoa method="terminate:"/>
+            </responds-to>
+        </class>
+
     </suite>
 
     <!-- Kaset Suite -->
@@ -17,6 +24,11 @@
         <!-- Playback Commands -->
         <command name="play" code="Kastplay" description="Start or resume playback.">
             <cocoa class="KasetPlayCommand"/>
+        </command>
+
+        <command name="play video" code="Kastpvid" description="Play a video by its YouTube video ID.">
+            <cocoa class="KasetPlayVideoCommand"/>
+            <direct-parameter type="text" description="The YouTube video ID to play."/>
         </command>
 
         <command name="pause" code="Kastpaus" description="Pause playback.">
@@ -40,7 +52,7 @@
             <direct-parameter type="integer" description="Volume level (0-100)."/>
         </command>
 
-        <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle mode.">
+        <command name="toggle shuffle" code="Kastshuf" description="Toggle shuffle on or off (binary; does not enable Smart Shuffle).">
             <cocoa class="KasetToggleShuffleCommand"/>
         </command>
 

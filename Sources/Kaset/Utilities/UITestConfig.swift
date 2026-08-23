@@ -8,7 +8,7 @@ enum UITestConfig {
     /// When present, app runs in UI test mode with mock services.
     static let uiTestModeArgument = "-UITestMode"
 
-    /// When present, skip onboarding and assume logged in.
+    /// When present, skip auth and assume logged in.
     static let skipAuthArgument = "-SkipAuth"
 
     // MARK: - Environment Keys
@@ -46,6 +46,14 @@ enum UITestConfig {
     /// When true, force logged-out state in UI tests.
     static let mockLoggedOutKey = "MOCK_LOGGED_OUT"
 
+    /// When true, expose synthetic Ask Gemini eligibility on watch pages.
+    static let mockAskGeminiEnabledKey = "MOCK_ASK_GEMINI_ENABLED"
+
+    /// When true, the mock client returns HTTP 404 from `getPodcasts()`
+    /// to simulate a region where YouTube Music does not offer the
+    /// Podcasts discovery surface. Used to UI-test sidebar visibility.
+    static let mockPodcastsRegionUnavailableKey = "MOCK_PODCASTS_REGION_UNAVAILABLE"
+
     // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.
@@ -54,10 +62,16 @@ enum UITestConfig {
             || ProcessInfo.processInfo.environment["UI_TEST_MODE"] == "1"
     }
 
-    /// Returns true if running inside XCTest (unit tests).
-    /// Checks for XCTestCase class presence at runtime.
+    /// Returns true if running inside XCTest or Swift Testing.
+    /// Checks for test runner classes presence at runtime.
     static var isRunningUnitTests: Bool {
-        NSClassFromString("XCTestCase") != nil
+        NSClassFromString("XCTestCase") != nil // XCTest
+            || NSClassFromString("Testing.Test") != nil // Swift Testing (potential name)
+            || NSClassFromString("_Testing.Case") != nil // Swift Testing (internal Case)
+            || ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || Bundle.main.bundleURL.path.contains("Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Xcode/Agents")
+            || Bundle.main.bundleURL.path.hasSuffix(".xctest")
+            || ProcessInfo.processInfo.environment["SWIFT_TESTING_ENABLED"] == "1"
     }
 
     /// Returns true if auth should be skipped (simulate logged in).

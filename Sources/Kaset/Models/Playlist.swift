@@ -4,17 +4,90 @@ import Foundation
 
 /// Represents a playlist from YouTube Music.
 struct Playlist: Identifiable, Codable, Hashable {
+    static let uploadedSongsBrowseID = "FEmusic_library_privately_owned_tracks"
+
     let id: String
     let title: String
     let description: String?
     let thumbnailURL: URL?
     let trackCount: Int?
-    let author: String?
+    let author: Artist?
+    let canDelete: Bool
+    let moodCategoryEndpoint: MoodCategoryEndpoint?
+    let libraryTargetId: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case description
+        case thumbnailURL
+        case trackCount
+        case author
+        case canDelete
+        case moodCategoryEndpoint
+        case libraryTargetId
+    }
+
+    init(
+        id: String,
+        title: String,
+        description: String?,
+        thumbnailURL: URL?,
+        trackCount: Int?,
+        author: Artist? = nil,
+        canDelete: Bool = false,
+        moodCategoryEndpoint: MoodCategoryEndpoint? = nil,
+        libraryTargetId: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.thumbnailURL = thumbnailURL
+        self.trackCount = trackCount
+        self.author = author
+        self.canDelete = canDelete
+        self.moodCategoryEndpoint = moodCategoryEndpoint
+        self.libraryTargetId = libraryTargetId
+    }
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.title = try container.decode(String.self, forKey: .title)
+        self.description = try container.decodeIfPresent(String.self, forKey: .description)
+        self.thumbnailURL = try container.decodeIfPresent(URL.self, forKey: .thumbnailURL)
+        self.trackCount = try container.decodeIfPresent(Int.self, forKey: .trackCount)
+
+        if let legacyAuthor = try? container.decode(String.self, forKey: .author) {
+            self.author = Artist.inline(name: legacyAuthor, namespace: "playlist-author")
+        } else if let author = try? container.decode(Artist.self, forKey: .author) {
+            self.author = author
+        } else {
+            self.author = nil
+        }
+
+        self.canDelete = (try? container.decode(Bool.self, forKey: .canDelete)) ?? false
+        self.moodCategoryEndpoint = try container.decodeIfPresent(
+            MoodCategoryEndpoint.self,
+            forKey: .moodCategoryEndpoint
+        )
+        self.libraryTargetId = try container.decodeIfPresent(String.self, forKey: .libraryTargetId)
+    }
 
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
     var isAlbum: Bool {
         self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
+    }
+
+    /// Whether this playlist value represents the user's uploaded songs browse surface.
+    var isUploadedSongs: Bool {
+        self.id == Self.uploadedSongsBrowseID
+    }
+
+    /// Whether continuations for this playlist require the user's account.
+    var requiresPersonalAccountForContinuations: Bool {
+        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
     }
 
     /// Display string for track count.
@@ -60,11 +133,57 @@ extension Playlist {
         if let authors = data["authors"] as? [[String: Any]],
            let firstAuthor = authors.first
         {
-            self.author = firstAuthor["name"] as? String
+            if let artist = Artist(from: firstAuthor) {
+                self.author = artist
+            } else if let name = firstAuthor["name"] as? String {
+                self.author = Artist.inline(name: name, namespace: "playlist-author")
+            } else {
+                self.author = nil
+            }
+        } else if let authorName = data["author"] as? String {
+            self.author = Artist.inline(name: authorName, namespace: "playlist-author")
         } else {
-            self.author = data["author"] as? String
+            self.author = nil
         }
+
+        self.canDelete = data["canDelete"] as? Bool ?? false
+        self.moodCategoryEndpoint = nil
+        self.libraryTargetId = data["libraryTargetId"] as? String
     }
+}
+
+// MARK: - AddToPlaylistMenu
+
+/// Menu data returned by YouTube Music for adding a song to playlists.
+struct AddToPlaylistMenu: Codable, Hashable {
+    let title: String?
+    let options: [AddToPlaylistOption]
+    let canCreatePlaylist: Bool
+}
+
+// MARK: - AddToPlaylistOption
+
+/// A playlist option in the add-to-playlist menu.
+struct AddToPlaylistOption: Identifiable, Codable, Hashable {
+    let playlistId: String
+    let title: String
+    let subtitle: String?
+    let thumbnailURL: URL?
+    let isSelected: Bool
+    let privacyStatus: PlaylistPrivacyStatus?
+
+    var id: String {
+        self.playlistId
+    }
+}
+
+// MARK: - PlaylistPrivacyStatus
+
+/// YouTube playlist privacy values used when creating/editing playlists.
+enum PlaylistPrivacyStatus: String, Codable, Hashable, CaseIterable {
+    case `public` = "PUBLIC"
+    case unlisted = "UNLISTED"
+    case `private` = "PRIVATE"
 }
 
 // MARK: - PlaylistDetail
@@ -75,9 +194,12 @@ struct PlaylistDetail: Identifiable {
     let title: String
     let description: String?
     let thumbnailURL: URL?
-    let author: String?
+    let author: Artist?
+    let trackCount: Int?
+    let canDelete: Bool
     let tracks: [Song]
     let duration: String?
+    let libraryTargetId: String?
 
     /// Whether this is an album (vs a playlist).
     /// Albums have IDs starting with "OLAK" or "MPRE".
@@ -85,14 +207,43 @@ struct PlaylistDetail: Identifiable {
         self.id.hasPrefix("OLAK") || self.id.hasPrefix("MPRE")
     }
 
-    init(playlist: Playlist, tracks: [Song], duration: String? = nil) {
+    /// Whether this detail represents the user's uploaded songs browse surface.
+    var isUploadedSongs: Bool {
+        self.id == Playlist.uploadedSongsBrowseID
+    }
+
+    /// Whether continuations for this detail require the user's account.
+    var requiresPersonalAccountForContinuations: Bool {
+        LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
+    }
+
+    init(
+        playlist: Playlist,
+        tracks: [Song],
+        duration: String? = nil,
+        libraryTargetId: String? = nil
+    ) {
         self.id = playlist.id
         self.title = playlist.title
         self.description = playlist.description
         self.thumbnailURL = playlist.thumbnailURL
         self.author = playlist.author
+        self.trackCount = playlist.trackCount
+        self.canDelete = playlist.canDelete
         self.tracks = tracks
         self.duration = duration
+        self.libraryTargetId = libraryTargetId ?? playlist.libraryTargetId
+    }
+
+    /// Track count to show in the UI, preferring the API-reported total over the loaded row count.
+    var resolvedTrackCount: Int {
+        self.trackCount ?? self.tracks.count
+    }
+
+    /// Display string for the resolved track count.
+    var trackCountDisplay: String {
+        let count = self.resolvedTrackCount
+        return count == 1 ? "1 song" : "\(count.formatted()) songs"
     }
 }
 

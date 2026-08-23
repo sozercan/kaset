@@ -21,6 +21,10 @@ struct RetryPolicy {
         for attempt in 0 ..< self.maxAttempts {
             do {
                 return try await operation()
+            } catch let error as CancellationError {
+                throw error
+            } catch let error as URLError where error.code == .cancelled {
+                throw CancellationError()
             } catch {
                 lastError = error
 

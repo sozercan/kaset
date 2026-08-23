@@ -1,0 +1,1053 @@
+{
+  "targetId": "search-page",
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "hideBottomSeparator": true,
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "channelRenderer": {
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@veritasium"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCHnyfMqiRRG1u-2MsSQLbXA",
+                                "canonicalBaseUrl": "/@veritasium"
+                              }
+                            },
+                            "text": "Veritasium"
+                          }
+                        ]
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "rootVe": 3611,
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "apiUrl": "/youtubei/v1/browse",
+                            "url": "/@veritasium"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCHnyfMqiRRG1u-2MsSQLbXA",
+                          "canonicalBaseUrl": "/@veritasium"
+                        }
+                      },
+                      "channelId": "UCHnyfMqiRRG1u-2MsSQLbXA",
+                      "subscriptionButton": {
+                        "subscribed": false
+                      },
+                      "subscribeButton": {
+                        "buttonRenderer": {
+                          "size": "SIZE_DEFAULT",
+                          "isDisabled": false,
+                          "style": "STYLE_DESTRUCTIVE",
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fresults%253Fsearch_query%253Dveritasium%2526sp%253DEgIQAg%2525253D%2525253D%26continue_action%3DQUFFLUhqbEhoOS1Nc1J4alA0S1hCbmtsYzlXNkItX19OUXxBQ3Jtc0tuRHJMSWtlaUM5NHJFdENqZUxoVXhMbDJtNVlOZlVnS2ROVDI2TTl4ckgwSHgtQnlMUzN1b3AxTGFDUGlIb2xqVTJkX1Q2aWIzWC1weDVZNTVxZjhHSUNnM2kzbDhEU3YzT2l1bEtrY2xXcVBicjBWeHV2R09HV3ZmcDQwLTE3ai1TRE5HNEdKNUEzNWJXZEQ3aDhIa2ktMmItUGVXYWE5VHltZFBjSlFpQXJwRmxldnJ6c1pUazZlam9GeS1WRVJ3Tnkwcjg&hl=en",
+                                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                "rootVe": 83769
+                              }
+                            },
+                            "signInEndpoint": {
+                              "continueAction": "QUFFLUhqbEhoOS1Nc1J4alA0S1hCbmtsYzlXNkItX19OUXxBQ3Jtc0tuRHJMSWtlaUM5NHJFdENqZUxoVXhMbDJtNVlOZlVnS2ROVDI2TTl4ckgwSHgtQnlMUzN1b3AxTGFDUGlIb2xqVTJkX1Q2aWIzWC1weDVZNTVxZjhHSUNnM2kzbDhEU3YzT2l1bEtrY2xXcVBicjBWeHV2R09HV3ZmcDQwLTE3ai1TRE5HNEdKNUEzNWJXZEQ3aDhIa2ktMmItUGVXYWE5VHltZFBjSlFpQXJwRmxldnJ6c1pUazZlam9GeS1WRVJ3Tnkwcjg",
+                              "nextEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          "text": {
+                            "runs": [
+                              {
+                                "text": "Subscribe"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "descriptionSnippet": {
+                        "runs": [
+                          {
+                            "text": "An element of truth - videos about science, education, and anything else we find interesting."
+                          }
+                        ]
+                      },
+                      "ownerBadges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Verified"
+                            },
+                            "tooltip": "Verified",
+                            "icon": {
+                              "iconType": "CHECK_CIRCLE_THICK"
+                            },
+                            "style": "BADGE_STYLE_TYPE_VERIFIED"
+                          }
+                        }
+                      ],
+                      "title": {
+                        "simpleText": "Veritasium"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@veritasium"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCHnyfMqiRRG1u-2MsSQLbXA",
+                                "canonicalBaseUrl": "/@veritasium"
+                              }
+                            },
+                            "text": "Veritasium"
+                          }
+                        ]
+                      },
+                      "videoCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "20.8 million subscribers"
+                          }
+                        },
+                        "simpleText": "20.8M subscribers"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "//yt3.ggpht.com/7vCbvtCqtjQ3YLgsJt7Y952MQV1sBvhllSCSxHP8_sVZdcPCBrITfhkN2RdyCuwPnsByq-1GoA=s88-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 88,
+                            "height": 88
+                          },
+                          {
+                            "url": "//yt3.ggpht.com/7vCbvtCqtjQ3YLgsJt7Y952MQV1sBvhllSCSxHP8_sVZdcPCBrITfhkN2RdyCuwPnsByq-1GoA=s176-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 176,
+                            "height": 176
+                          }
+                        ]
+                      },
+                      "subscriberCountText": {
+                        "simpleText": "@veritasium"
+                      }
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@derek"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UC2LZO6swZ9SLUEOks3WnsfA",
+                                "canonicalBaseUrl": "/@derek"
+                              }
+                            },
+                            "text": "2veritasium"
+                          }
+                        ]
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "rootVe": 3611,
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "apiUrl": "/youtubei/v1/browse",
+                            "url": "/@derek"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UC2LZO6swZ9SLUEOks3WnsfA",
+                          "canonicalBaseUrl": "/@derek"
+                        }
+                      },
+                      "channelId": "UC2LZO6swZ9SLUEOks3WnsfA",
+                      "subscriptionButton": {
+                        "subscribed": false
+                      },
+                      "subscribeButton": {
+                        "buttonRenderer": {
+                          "size": "SIZE_DEFAULT",
+                          "isDisabled": false,
+                          "style": "STYLE_DESTRUCTIVE",
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fresults%253Fsearch_query%253Dveritasium%2526sp%253DEgIQAg%2525253D%2525253D%26continue_action%3DQUFFLUhqazN3dFZPd2g2RFltTWVrYVpWTUpLd2dpckZyQXxBQ3Jtc0trWl9UODcyQkltTjRTVWxlNUNTVHJxUGNhVXhicmtaMnZ1X0ViaGJkdU15SWJJbE1WUTlMTjB1ZVRGWE41LXMxQlo1NGpoYVdOeUtSNGtHTW9PYVBLWjMzMVJuTkhPZFhHcUJyX3Jib0Jrd0JCbFNJMTdLWC0taGtQazBVbmtGWER3Wkt5NW1kQl9jakpPeUdMZ2g2djZBaGZkajFHbHlWc2lUTG9nZDRyRlBCaV9lNjBRRFRUNE45dWZ5SVZPTDlsb1JsMWQ&hl=en",
+                                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                "rootVe": 83769
+                              }
+                            },
+                            "signInEndpoint": {
+                              "continueAction": "QUFFLUhqazN3dFZPd2g2RFltTWVrYVpWTUpLd2dpckZyQXxBQ3Jtc0trWl9UODcyQkltTjRTVWxlNUNTVHJxUGNhVXhicmtaMnZ1X0ViaGJkdU15SWJJbE1WUTlMTjB1ZVRGWE41LXMxQlo1NGpoYVdOeUtSNGtHTW9PYVBLWjMzMVJuTkhPZFhHcUJyX3Jib0Jrd0JCbFNJMTdLWC0taGtQazBVbmtGWER3Wkt5NW1kQl9jakpPeUdMZ2g2djZBaGZkajFHbHlWc2lUTG9nZDRyRlBCaV9lNjBRRFRUNE45dWZ5SVZPTDlsb1JsMWQ",
+                              "nextEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          "text": {
+                            "runs": [
+                              {
+                                "text": "Subscribe"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "descriptionSnippet": {
+                        "runs": [
+                          {
+                            "text": "Derek Muller's YouTube channel."
+                          }
+                        ]
+                      },
+                      "ownerBadges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Verified"
+                            },
+                            "tooltip": "Verified",
+                            "icon": {
+                              "iconType": "CHECK_CIRCLE_THICK"
+                            },
+                            "style": "BADGE_STYLE_TYPE_VERIFIED"
+                          }
+                        }
+                      ],
+                      "title": {
+                        "simpleText": "2veritasium"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@derek"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UC2LZO6swZ9SLUEOks3WnsfA",
+                                "canonicalBaseUrl": "/@derek"
+                              }
+                            },
+                            "text": "2veritasium"
+                          }
+                        ]
+                      },
+                      "videoCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "565 thousand subscribers"
+                          }
+                        },
+                        "simpleText": "565K subscribers"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "//yt3.ggpht.com/e7ENWdyffTfOl7CNadvF7UAwkFy3q-ZeN-jZdSozfvwIB-GzKxARcaZKvlldNRj6r48mQDS0=s88-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 88,
+                            "height": 88
+                          },
+                          {
+                            "url": "//yt3.ggpht.com/e7ENWdyffTfOl7CNadvF7UAwkFy3q-ZeN-jZdSozfvwIB-GzKxARcaZKvlldNRj6r48mQDS0=s176-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 176,
+                            "height": 176
+                          }
+                        ]
+                      },
+                      "subscriberCountText": {
+                        "simpleText": "@derek"
+                      }
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@VeritasiumES"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCXtxgWwk55kVJo9lCCZRdmg",
+                                "canonicalBaseUrl": "/@VeritasiumES"
+                              }
+                            },
+                            "text": "Veritasium en español"
+                          }
+                        ]
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "rootVe": 3611,
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "apiUrl": "/youtubei/v1/browse",
+                            "url": "/@VeritasiumES"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCXtxgWwk55kVJo9lCCZRdmg",
+                          "canonicalBaseUrl": "/@VeritasiumES"
+                        }
+                      },
+                      "channelId": "UCXtxgWwk55kVJo9lCCZRdmg",
+                      "subscriptionButton": {
+                        "subscribed": false
+                      },
+                      "subscribeButton": {
+                        "buttonRenderer": {
+                          "size": "SIZE_DEFAULT",
+                          "isDisabled": false,
+                          "style": "STYLE_DESTRUCTIVE",
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fresults%253Fsearch_query%253Dveritasium%2526sp%253DEgIQAg%2525253D%2525253D%26continue_action%3DQUFFLUhqbmxWTFNLLUZQMGdFUnVQclhyMlNIczVIeFhiQXxBQ3Jtc0trbGl1eXk2LUFsOHg3YXhLNnNpaXFQZTBFR3dTN0hZTjBNWDZ2Um5PTklrTTF1OW94a0FZUGE5TmdkSVpFbGI0Wl9MaFJRZmtBelRFc29ONHJhc0Y4blR6RDFjdGY1UjZvcDJKZjBzc0JKSVpxWnNQNmRKcXBvaGZkOXFzSW5Sc0RxcVBSenNTOGlGSS1wUjlCRUtnRzh3ai1QSWJxd0V2RENsQUIyaEwwUUR1aWI3TVdqZGtzWUU2Yk9qSWFCRDhpcTJ3ZEM&hl=en",
+                                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                "rootVe": 83769
+                              }
+                            },
+                            "signInEndpoint": {
+                              "continueAction": "QUFFLUhqbmxWTFNLLUZQMGdFUnVQclhyMlNIczVIeFhiQXxBQ3Jtc0trbGl1eXk2LUFsOHg3YXhLNnNpaXFQZTBFR3dTN0hZTjBNWDZ2Um5PTklrTTF1OW94a0FZUGE5TmdkSVpFbGI0Wl9MaFJRZmtBelRFc29ONHJhc0Y4blR6RDFjdGY1UjZvcDJKZjBzc0JKSVpxWnNQNmRKcXBvaGZkOXFzSW5Sc0RxcVBSenNTOGlGSS1wUjlCRUtnRzh3ai1QSWJxd0V2RENsQUIyaEwwUUR1aWI3TVdqZGtzWUU2Yk9qSWFCRDhpcTJ3ZEM",
+                              "nextEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          "text": {
+                            "runs": [
+                              {
+                                "text": "Subscribe"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "descriptionSnippet": {
+                        "runs": [
+                          {
+                            "text": "Un elemento de la verdad. Videos de Ciencia y Tecnología doblados al español Somos la traducción oficial al español del canal ..."
+                          }
+                        ]
+                      },
+                      "ownerBadges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Verified"
+                            },
+                            "tooltip": "Verified",
+                            "icon": {
+                              "iconType": "CHECK_CIRCLE_THICK"
+                            },
+                            "style": "BADGE_STYLE_TYPE_VERIFIED"
+                          }
+                        }
+                      ],
+                      "title": {
+                        "simpleText": "Veritasium en español"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@VeritasiumES"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCXtxgWwk55kVJo9lCCZRdmg",
+                                "canonicalBaseUrl": "/@VeritasiumES"
+                              }
+                            },
+                            "text": "Veritasium en español"
+                          }
+                        ]
+                      },
+                      "videoCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "2.9 million subscribers"
+                          }
+                        },
+                        "simpleText": "2.9M subscribers"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "//yt3.ggpht.com/eEzOCQszM2PCifAaJlJhjRsewotTEIqDdqt9YN4qS2Y-JldCdUMHW19ULcIqd-3WvQi70qvENqU=s88-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 88,
+                            "height": 88
+                          },
+                          {
+                            "url": "//yt3.ggpht.com/eEzOCQszM2PCifAaJlJhjRsewotTEIqDdqt9YN4qS2Y-JldCdUMHW19ULcIqd-3WvQi70qvENqU=s176-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 176,
+                            "height": 176
+                          }
+                        ]
+                      },
+                      "subscriberCountText": {
+                        "simpleText": "@VeritasiumES"
+                      }
+                    }
+                  },
+                  {
+                    "channelRenderer": {
+                      "shortBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@veritasium_kor"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCOgK3J7WTOl5f5Fd51kcoSg",
+                                "canonicalBaseUrl": "/@veritasium_kor"
+                              }
+                            },
+                            "text": "Veritasium 한국어 - 베리타시움"
+                          }
+                        ]
+                      },
+                      "navigationEndpoint": {
+                        "commandMetadata": {
+                          "webCommandMetadata": {
+                            "rootVe": 3611,
+                            "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                            "apiUrl": "/youtubei/v1/browse",
+                            "url": "/@veritasium_kor"
+                          }
+                        },
+                        "browseEndpoint": {
+                          "browseId": "UCOgK3J7WTOl5f5Fd51kcoSg",
+                          "canonicalBaseUrl": "/@veritasium_kor"
+                        }
+                      },
+                      "channelId": "UCOgK3J7WTOl5f5Fd51kcoSg",
+                      "subscriptionButton": {
+                        "subscribed": false
+                      },
+                      "subscribeButton": {
+                        "buttonRenderer": {
+                          "size": "SIZE_DEFAULT",
+                          "isDisabled": false,
+                          "style": "STYLE_DESTRUCTIVE",
+                          "navigationEndpoint": {
+                            "commandMetadata": {
+                              "webCommandMetadata": {
+                                "url": "https://accounts.google.com/ServiceLogin?service=youtube&uilel=3&passive=true&continue=https%3A%2F%2Fwww.youtube.com%2Fsignin%3Faction_handle_signin%3Dtrue%26app%3Ddesktop%26hl%3Den%26next%3D%252Fresults%253Fsearch_query%253Dveritasium%2526sp%253DEgIQAg%2525253D%2525253D%26continue_action%3DQUFFLUhqbG50U2M5cU5PeklKMlJsZld2U3VScmJ2S2ZKQXxBQ3Jtc0tuVFhmd2ZDRS1WRDdPOHZDM29mTmpicnhSYnU0ejNXenhvWFNPYW45Ylp4amlwWS1Odk5mTUxyaWtpWDNobC1keFlJRVpTbTZIaWpyUERyTENVMXBlM2lNaWlHQVRpSjdqOFRLRFA4U25kZ0Z5ZGE4cXFxQ2ZQM2kyV1hEYjJaSGRXYkZpRU1Eb1JDZnBpUDAta3BXenlrMjBScHRIZXlLQ29pRVBERWR0dFFfajNlTldyS2dacmp6QW9nMWRZLW1ELVFxYno&hl=en",
+                                "webPageType": "WEB_PAGE_TYPE_UNKNOWN",
+                                "rootVe": 83769
+                              }
+                            },
+                            "signInEndpoint": {
+                              "continueAction": "QUFFLUhqbG50U2M5cU5PeklKMlJsZld2U3VScmJ2S2ZKQXxBQ3Jtc0tuVFhmd2ZDRS1WRDdPOHZDM29mTmpicnhSYnU0ejNXenhvWFNPYW45Ylp4amlwWS1Odk5mTUxyaWtpWDNobC1keFlJRVpTbTZIaWpyUERyTENVMXBlM2lNaWlHQVRpSjdqOFRLRFA4U25kZ0Z5ZGE4cXFxQ2ZQM2kyV1hEYjJaSGRXYkZpRU1Eb1JDZnBpUDAta3BXenlrMjBScHRIZXlLQ29pRVBERWR0dFFfajNlTldyS2dacmp6QW9nMWRZLW1ELVFxYno",
+                              "nextEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAg%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAg%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          "text": {
+                            "runs": [
+                              {
+                                "text": "Subscribe"
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "descriptionSnippet": {
+                        "runs": [
+                          {
+                            "text": "수학과 과학 그리고 여러 실험들을 다루는 "
+                          },
+                          {
+                            "text": "Veritasium",
+                            "bold": true
+                          },
+                          {
+                            "text": " 공식 한국 채널입니다."
+                          }
+                        ]
+                      },
+                      "ownerBadges": [
+                        {
+                          "metadataBadgeRenderer": {
+                            "accessibilityData": {
+                              "label": "Verified"
+                            },
+                            "tooltip": "Verified",
+                            "icon": {
+                              "iconType": "CHECK_CIRCLE_THICK"
+                            },
+                            "style": "BADGE_STYLE_TYPE_VERIFIED"
+                          }
+                        }
+                      ],
+                      "title": {
+                        "simpleText": "Veritasium 한국어 - 베리타시움"
+                      },
+                      "longBylineText": {
+                        "runs": [
+                          {
+                            "navigationEndpoint": {
+                              "commandMetadata": {
+                                "webCommandMetadata": {
+                                  "rootVe": 3611,
+                                  "webPageType": "WEB_PAGE_TYPE_CHANNEL",
+                                  "apiUrl": "/youtubei/v1/browse",
+                                  "url": "/@veritasium_kor"
+                                }
+                              },
+                              "browseEndpoint": {
+                                "browseId": "UCOgK3J7WTOl5f5Fd51kcoSg",
+                                "canonicalBaseUrl": "/@veritasium_kor"
+                              }
+                            },
+                            "text": "Veritasium 한국어 - 베리타시움"
+                          }
+                        ]
+                      },
+                      "videoCountText": {
+                        "accessibility": {
+                          "accessibilityData": {
+                            "label": "311 thousand subscribers"
+                          }
+                        },
+                        "simpleText": "311K subscribers"
+                      },
+                      "thumbnail": {
+                        "thumbnails": [
+                          {
+                            "url": "//yt3.ggpht.com/Ng7StsJ1fSq83GTUARsSofeOAfqDQuzSQZNwm8vaTnUbDFt5gGZj1ECfK8uWyIBFkoBxrxKZ9w=s88-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 88,
+                            "height": 88
+                          },
+                          {
+                            "url": "//yt3.ggpht.com/Ng7StsJ1fSq83GTUARsSofeOAfqDQuzSQZNwm8vaTnUbDFt5gGZj1ECfK8uWyIBFkoBxrxKZ9w=s176-c-k-c0x00ffffff-no-rj-mo",
+                            "width": 176,
+                            "height": 176
+                          }
+                        ]
+                      },
+                      "subscriberCountText": {
+                        "simpleText": "@veritasium_kor"
+                      }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "trigger": "CONTINUATION_TRIGGER_ON_ITEM_SHOWN",
+                "continuationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EvMFEgp2ZXJpdGFzaXVtGuQFRWdJUUFrZ1VnZ0VZVlVOSWJubG1UWEZwVWxKSE1YVXRNazF6VTFGTVlsaEJnZ0VZVlVNeVRGcFBObk4zV2psVFRGVkZUMnR6TTFkdWMyWkJnZ0VZVlVOWWRIaG5WM2RyTlRWclZrcHZPV3hEUTFwU1pHMW5nZ0VZVlVOUFowc3pTamRYVkU5c05XWTFSbVExTVd0amIxTm5nZ0VZVlVOWk5ucFdVbUV6UzIwMU1tSnpRbTF3ZVZGdWF6WkJnZ0VZVlVOdWIzQkthV3haYTBodGRVc3RjMlJzTURkMmExWm5nZ0VZVlVNdFNXMU1SbGhIU1dVeVJrTTBWMjgxYUU5dlpHNTNnZ0VZVlVOUlZsOXNkMEp1UW5OWFpVZzNlSFJXVjB4NlkwOTNnZ0VZVlVNdFNVcDJhVXRIYW5aelNEZEZiVmxaWm1reGFXaFJnZ0VZVlVOVlV6aFVRbEV0Y0RJNVFVTnNaVmQ0TFVZNVNGbFJnZ0VZVlVNME1rOVdSRUZwVWs1RFdERm9lVzR3VFZobFZrNW5nZ0VZVlVOcGJqQnRNVE54VjNZekxUQTFNWGhzVjJ4SVlXMUJnZ0VZVlVOdFlXWndSV3BaU1RsWFdrZ3pNa1JVTUdWaVFqRm5nZ0VZVlVOd09XWmhPRUpNYTNOME1tZFBYM1Z0YWpsQ2FsbG5nZ0VZVlVOdkxWVmhZbUZIYkdWNVdUZGhPWE5oUjFOTlRtdG5nZ0VZVlVONFNHVlBTVEJ3WnpCSk1IZzBRMFpQZVZWdWFUbFJnZ0VZVlVOeFJVTnBNbXczT0ZORFdUWjFUR3BDUzJKRVRXeDNnZ0VZVlVOVlVVaHpRVmxIYUZkb1MxVndlVGhOWmtVeFpHUm5nZ0VZVlVOc2IxcEpiVTlDTFRrM1UxVmZWVE5pZVdKVU0waG5nZ0VZVlVONVltaFZaMk55VERWZmIwUnRTR0ZLZUhaR1RtRjNzZ0VHQ2dRSUZCQUMYgeDoGCILc2VhcmNoLWZlZWQ%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH"
+                  }
+                }
+              }
+            }
+          ],
+          "subMenu": {
+            "searchSubMenuRenderer": {}
+          },
+          "targetId": "search-feed"
+        }
+      }
+    }
+  },
+  "header": {
+    "searchHeaderRenderer": {
+      "chipBar": {
+        "chipCloudRenderer": {
+          "chips": [
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": true,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "All"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EvYFEgp2ZXJpdGFzaXVtGuQFRXFZRWtnR2lCRHFYQVJLUUFTaGhJSGx2ZFhSMVltVmZjMmh2Y25SelgyUmxabWx1YVhScGIyNGdPblI1Y0dVNmNpQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYM0J5WlcxcFpYSmxYM1pwWkdWdlgyMWxkR0ZrWVhSaFBURWdPblI1Y0dVNmNpa2dLRzRnZVc5MWRIVmlaVjltYkdGblgyaGhjMTlzYVhabFgzTjBjbVZoYlY5dFpYUmhaR0YwWVQweElEcDBlWEJsT25JcEtUZ0JZQnBLaFFNS0dnb0tkbVZ5YVhSaGMybDFiZklCQlFvRFFXeHMyQUlCdUFOaENxVUI4Z0VJQ2daVGFHOXlkSFBDQXBBQktHRWdlVzkxZEhWaVpWOXphRzl5ZEhOZlpHVm1hVzVwZEdsdmJpQTZkSGx3WlRweUlDaHVJSGx2ZFhSMVltVmZabXhoWjE5b1lYTmZjSEpsYldsbGNtVmZkbWxrWlc5ZmJXVjBZV1JoZEdFOU1TQTZkSGx3WlRweUtTQW9iaUI1YjNWMGRXSmxYMlpzWVdkZmFHRnpYMnhwZG1WZmMzUnlaV0Z0WDIxbGRHRmtZWFJoUFRFZ09uUjVjR1U2Y2lrcC1BSUJ1QU1hQ2hieUFRc0tDVlZ1ZDJGMFkyaGxaTW9DQWhnQnVBTWNDaFR5QVFrS0IxZGhkR05vWldUS0FnSVlBcmdEU2dvNjhnRUlDZ1pXYVdSbGIzUENBaHA1YjNWMGRXSmxYM1pwWkdWdlgzQmhaMlVnT25SNWNHVTZjdWdDQWFnREFiZ0RTTUFEQWNnREFkQURBUW9iWUFmeUFSTUtFVkpsWTJWdWRHeDVJSFZ3Ykc5aFpHVmt1QU1IQ2pieUFRWUtCRXhwZG1YQ0FpZDViM1YwZFdKbFgyeHBkbVZmWW5KdllXUmpZWE4wWDNOMFlYUjFjejB3SURwMGVYQmxPbks0QXdRWUMzZ0GQAQEYgeDoGCILc2VhcmNoLXBhZ2U%3D",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Shorts"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EroEEgp2ZXJpdGFzaXVtGqgERXBRRGtnR1FBem9HR2dJWUFXQWNTb1VEQ2hvS0NuWmxjbWwwWVhOcGRXM3lBUVVLQTBGc2JOZ0NBYmdEWVFxbEFmSUJDQW9HVTJodmNuUnp3Z0tRQVNoaElIbHZkWFIxWW1WZmMyaHZjblJ6WDJSbFptbHVhWFJwYjI0Z09uUjVjR1U2Y2lBb2JpQjViM1YwZFdKbFgyWnNZV2RmYUdGelgzQnlaVzFwWlhKbFgzWnBaR1Z2WDIxbGRHRmtZWFJoUFRFZ09uUjVjR1U2Y2lrZ0tHNGdlVzkxZEhWaVpWOW1iR0ZuWDJoaGMxOXNhWFpsWDNOMGNtVmhiVjl0WlhSaFpHRjBZVDB4SURwMGVYQmxPbklwS2ZnQ0FiZ0RHZ29XOGdFTENnbFZibmRoZEdOb1pXVEtBZ0lZQWJnREhBb1U4Z0VKQ2dkWFlYUmphR1ZreWdJQ0dBSzRBMG9LT3ZJQkNBb0dWbWxrWlc5endnSWFlVzkxZEhWaVpWOTJhV1JsYjE5d1lXZGxJRHAwZVhCbE9uTG9BZ0dvQXdHNEEwakFBd0hJQXdIUUF3RUtHMkFIOGdFVENoRlNaV05sYm5Sc2VTQjFjR3h2WVdSbFpMZ0RCd28yOGdFR0NnUk1hWFpsd2dJbmVXOTFkSFZpWlY5c2FYWmxYMkp5YjJGa1kyRnpkRjl6ZEdGMGRYTTlNQ0E2ZEhsd1pUcHl1QU1FR0F0NEFBJTNEJTNEkAEBGIHg6BgiC3NlYXJjaC1wYWdl",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Unwatched"
+                }
+              }
+            },
+            {
+              "chipCloudChipRenderer": {
+                "isSelected": false,
+                "style": {
+                  "styleType": "STYLE_HOME_FILTER"
+                },
+                "navigationEndpoint": {
+                  "commandMetadata": {
+                    "webCommandMetadata": {
+                      "apiUrl": "/youtubei/v1/search",
+                      "sendPost": true
+                    }
+                  },
+                  "continuationCommand": {
+                    "token": "EroEEgp2ZXJpdGFzaXVtGqgERXBRRGtnR1FBem9HR2dJWUFtQktTb1VEQ2hvS0NuWmxjbWwwWVhOcGRXM3lBUVVLQTBGc2JOZ0NBYmdEWVFxbEFmSUJDQW9HVTJodmNuUnp3Z0tRQVNoaElIbHZkWFIxWW1WZmMyaHZjblJ6WDJSbFptbHVhWFJwYjI0Z09uUjVjR1U2Y2lBb2JpQjViM1YwZFdKbFgyWnNZV2RmYUdGelgzQnlaVzFwWlhKbFgzWnBaR1Z2WDIxbGRHRmtZWFJoUFRFZ09uUjVjR1U2Y2lrZ0tHNGdlVzkxZEhWaVpWOW1iR0ZuWDJoaGMxOXNhWFpsWDNOMGNtVmhiVjl0WlhSaFpHRjBZVDB4SURwMGVYQmxPbklwS2ZnQ0FiZ0RHZ29XOGdFTENnbFZibmRoZEdOb1pXVEtBZ0lZQWJnREhBb1U4Z0VKQ2dkWFlYUmphR1ZreWdJQ0dBSzRBMG9LT3ZJQkNBb0dWbWxrWlc5endnSWFlVzkxZEhWaVpWOTJhV1JsYjE5d1lXZGxJRHAwZVhCbE9uTG9BZ0dvQXdHNEEwakFBd0hJQXdIUUF3RUtHMkFIOGdFVENoRlNaV05sYm5Sc2VTQjFjR3h2WVdSbFpMZ0RCd28yOGdFR0NnUk1hWFpsd2dJbmVXOTFkSFZpWlY5c2FYWmxYMkp5YjJGa1kyRnpkRjl6ZEdGMGRYTTlNQ0E2ZEhsd1pUcHl1QU1FR0F0NEFBJTNEJTNEkAEBGIHg6BgiC3NlYXJjaC1wYWdl",
+                    "request": "CONTINUATION_REQUEST_TYPE_SEARCH",
+                    "command": {
+                      "showReloadUiCommand": {
+                        "targetId": "search-page"
+                      }
+                    }
+                  }
+                },
+                "location": "CHIP_LOCATION_SEARCH_RESULTS",
+                "text": {
+                  "simpleText": "Watched"
+                }
+              }
+            }
+          ],
+          "nextButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_RIGHT"
+              },
+              "accessibility": {
+                "label": "Next"
+              }
+            }
+          },
+          "previousButton": {
+            "buttonRenderer": {
+              "size": "SIZE_DEFAULT",
+              "isDisabled": false,
+              "style": "STYLE_DEFAULT",
+              "icon": {
+                "iconType": "CHEVRON_LEFT"
+              },
+              "accessibility": {
+                "label": "Previous"
+              }
+            }
+          }
+        }
+      },
+      "searchFilterButton": {
+        "buttonRenderer": {
+          "command": {
+            "openPopupAction": {
+              "popup": {
+                "searchFilterOptionsDialogRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Search filters"
+                      }
+                    ]
+                  },
+                  "groups": [
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Type"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Videos"
+                              },
+                              "tooltip": "Search for Videos",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Shorts"
+                              },
+                              "tooltip": "Search for Shorts",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQCQ%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQCQ%3D%3D"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_SELECTED",
+                              "label": {
+                                "simpleText": "Channels"
+                              },
+                              "tooltip": "Remove Channels filter",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium"
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "label": {
+                                "simpleText": "Playlists"
+                              },
+                              "tooltip": "Search for Playlists",
+                              "navigationEndpoint": {
+                                "commandMetadata": {
+                                  "webCommandMetadata": {
+                                    "url": "/results?search_query=veritasium&sp=EgIQAw%253D%253D",
+                                    "webPageType": "WEB_PAGE_TYPE_SEARCH",
+                                    "rootVe": 4724
+                                  }
+                                },
+                                "searchEndpoint": {
+                                  "query": "veritasium",
+                                  "params": "EgIQAw%3D%3D"
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Duration"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Under 3 minutes"
+                              },
+                              "tooltip": "Search for Under 3 minutes"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "3 - 20 minutes"
+                              },
+                              "tooltip": "Search for 3 - 20 minutes"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Over 20 minutes"
+                              },
+                              "tooltip": "Search for Over 20 minutes"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Upload date"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Today"
+                              },
+                              "tooltip": "Search for Today"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This week"
+                              },
+                              "tooltip": "Search for This week"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This month"
+                              },
+                              "tooltip": "Search for This month"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "This year"
+                              },
+                              "tooltip": "Search for This year"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "searchFilterGroupRenderer": {
+                        "title": {
+                          "simpleText": "Features"
+                        },
+                        "filters": [
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Live"
+                              },
+                              "tooltip": "Search for Live"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "4K"
+                              },
+                              "tooltip": "Search for 4K"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "HD"
+                              },
+                              "tooltip": "Search for HD"
+                            }
+                          },
+                          {
+                            "searchFilterRenderer": {
+                              "status": "FILTER_STATUS_DISABLED",
+                              "label": {
+                                "simpleText": "Subtitles/CC"
+                              },
+                              "tooltip": "Search for Subtitles/CC"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              },
+              "popupType": "DIALOG"
+            }
+          },
+          "style": "STYLE_TEXT",
+          "iconPosition": "BUTTON_ICON_POSITION_TYPE_RIGHT_OF_TEXT",
+          "size": "SIZE_DEFAULT",
+          "text": {
+            "runs": [
+              {
+                "text": "Filters"
+              }
+            ]
+          },
+          "isDisabled": false,
+          "tooltip": "Search filters",
+          "icon": {
+            "iconType": "TUNE"
+          },
+          "accessibilityData": {
+            "accessibilityData": {
+              "label": "Search filters"
+            }
+          }
+        }
+      }
+    }
+  },
+  "estimatedResults": "9731"
+}

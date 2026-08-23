@@ -5,43 +5,87 @@
 
 import SwiftUI
 
+// MARK: - AccountSwitcherSignOutDisposition
+
+enum AccountSwitcherSignOutDisposition: Equatable {
+    case dismiss
+    case presentFailure
+}
+
+// MARK: - AccountSwitcherSignOutFlow
+
+@MainActor
+enum AccountSwitcherSignOutFlow {
+    /// AuthService owns durable preflight and its registered account preparation.
+    /// Callers must not prepare AccountService independently before this operation.
+    static func perform(
+        signOut: () async -> Bool
+    ) async -> AccountSwitcherSignOutDisposition {
+        await signOut() ? .dismiss : .presentFailure
+    }
+}
+
 // MARK: - AccountSwitcherPopover
 
 /// A Liquid Glass styled popover for switching between accounts.
 ///
 /// Displays all available accounts (primary and brand accounts) and allows
 /// the user to switch between them.
-@available(macOS 26.0, *)
 struct AccountSwitcherPopover: View {
     @Environment(AccountService.self) private var accountService
+    @Environment(AuthService.self) private var authService
     @Environment(\.dismiss) private var dismiss
+
+    @State private var isGuestModeHovering = false
+    @State private var isSignOutHovering = false
+    @State private var isSigningOut = false
+    @State private var signOutFailurePresented = false
 
     /// Namespace for glass effect morphing.
     @Namespace private var popoverNamespace
 
     var body: some View {
-        GlassEffectContainer(spacing: 8) {
-            VStack(spacing: 8) {
-                // Header
+        CompatGlassContainer(spacing: 8) {
+            VStack(spacing: 4) {
                 self.headerView
-
-                // Accounts list
                 self.accountsListView
+                self.guestModeRow
+
+                Divider()
+                    .opacity(0.18)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 2)
+
+                self.signOutButton
             }
-            .padding(10)
-            .frame(minWidth: 280)
-            .glassEffect(.regular.interactive(), in: .rect(cornerRadius: 14))
-            .glassEffectID("accountSwitcherPopover", in: self.popoverNamespace)
+            .padding(8)
+            .frame(minWidth: 288)
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 14))
+            .compatGlassID("accountSwitcherPopover", in: self.popoverNamespace)
         }
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.container)
+        .alert(
+            String(localized: "Sign Out Incomplete"),
+            isPresented: self.$signOutFailurePresented
+        ) {
+            Button(String(localized: "Retry")) {
+                self.startSignOut()
+            }
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(
+                "Kaset could not remove saved sign-in data. Try signing out again before quitting.",
+                comment: "Sign-out durable storage failure message"
+            )
+        }
     }
 
     // MARK: - Header
 
     private var headerView: some View {
         HStack {
-            Text("Switch Account")
-                .font(.headline)
+            Text(String(localized: "Switch Account"))
+                .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
 
             Spacer()
@@ -51,9 +95,79 @@ struct AccountSwitcherPopover: View {
                     .controlSize(.small)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.header)
+    }
+
+    private var guestModeRow: some View {
+        Button {
+            Task { @MainActor in
+                await self.authService.enterGuestMode()
+                self.dismiss()
+            }
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(.quaternary)
+                    .frame(width: 40, height: 40)
+                    .overlay {
+                        Image(systemName: "person.crop.circle")
+                            .font(.system(size: 19))
+                            .foregroundStyle(.tertiary)
+                    }
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(String(localized: "Guest Mode"))
+                        .font(.body)
+                        .fontWeight(self.authService.isGuestModeEnabled ? .semibold : .regular)
+                        .foregroundStyle(.primary)
+
+                    Text(String(localized: "Browse without personalization"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                if self.authService.isGuestModeEnabled {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.accentColor)
+                        .accessibilityLabel(String(localized: "Selected"))
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .background(self.guestRowBackground)
+            .contentShape(.rect(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .animation(.easeInOut(duration: 0.14), value: self.isGuestModeHovering)
+        .onHover { hovering in
+            self.isGuestModeHovering = hovering
+        }
+        .accessibilityIdentifier(AccessibilityID.AccountSwitcher.guestModeRow)
+        .accessibilityLabel(String(localized: "Guest Mode, browse without personalization"))
+        .accessibilityAddTraits(self.authService.isGuestModeEnabled ? [.isButton, .isSelected] : .isButton)
+    }
+
+    @ViewBuilder
+    private var guestRowBackground: some View {
+        if self.authService.isGuestModeEnabled {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.accentColor.opacity(self.isGuestModeHovering ? 0.12 : 0.08))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Color.accentColor.opacity(0.18), lineWidth: 0.5)
+                }
+        } else if self.isGuestModeHovering {
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color.primary.opacity(0.05))
+        } else {
+            Color.clear
+        }
     }
 
     // MARK: - Accounts List
@@ -65,7 +179,8 @@ struct AccountSwitcherPopover: View {
                     VStack(spacing: 0) {
                         AccountRowView(
                             account: account,
-                            isSelected: account == self.accountService.currentAccount,
+                            isSelected: !self.authService.isGuestModeEnabled
+                                && account == self.accountService.currentAccount,
                             onSelect: {
                                 Task {
                                     do {
@@ -77,6 +192,7 @@ struct AccountSwitcherPopover: View {
                                 }
                             }
                         )
+                        .disabled(self.accountService.isLoading)
                         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountRow(index: index))
 
                         // Divider between accounts (not after last one)
@@ -88,10 +204,66 @@ struct AccountSwitcherPopover: View {
                     }
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 2)
         }
         .frame(maxHeight: 300)
         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountsList)
+    }
+
+    private var signOutButton: some View {
+        Button(role: .destructive) {
+            self.startSignOut()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 18)
+                Text(String(localized: "Sign Out"))
+                    .font(.callout)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .contentShape(.rect(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(self.isSignOutHovering ? Color.red : Color.secondary)
+        .background(self.signOutBackground)
+        .animation(.easeInOut(duration: 0.14), value: self.isSignOutHovering)
+        .onHover { hovering in
+            self.isSignOutHovering = hovering
+        }
+        .disabled(self.isSigningOut)
+        .accessibilityIdentifier(AccessibilityID.AccountSwitcher.signOutButton)
+    }
+
+    private func startSignOut() {
+        Task { @MainActor in
+            guard !self.isSigningOut else { return }
+            self.isSigningOut = true
+            defer { self.isSigningOut = false }
+
+            let disposition = await AccountSwitcherSignOutFlow.perform {
+                await self.authService.signOut()
+            }
+
+            switch disposition {
+            case .dismiss:
+                self.dismiss()
+            case .presentFailure:
+                self.signOutFailurePresented = true
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var signOutBackground: some View {
+        if self.isSignOutHovering {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.red.opacity(0.10))
+        } else {
+            Color.clear
+        }
     }
 }
 
@@ -102,6 +274,8 @@ extension AccessibilityID {
         static let container = "accountSwitcher"
         static let header = "accountSwitcher.header"
         static let accountsList = "accountSwitcher.accountsList"
+        static let guestModeRow = "accountSwitcher.guestMode"
+        static let signOutButton = "accountSwitcher.signOut"
 
         static func accountRow(index: Int) -> String {
             "accountSwitcher.account.\(index)"
@@ -111,13 +285,13 @@ extension AccessibilityID {
 
 // MARK: - Preview
 
-@available(macOS 26.0, *)
 #Preview("Account Switcher") {
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
 
     AccountSwitcherPopover()
+        .environment(authService)
         .environment(accountService)
         .frame(width: 300, height: 400)
         .padding()

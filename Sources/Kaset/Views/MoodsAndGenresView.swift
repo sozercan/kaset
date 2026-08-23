@@ -1,7 +1,6 @@
 import SwiftUI
 
 /// Moods & Genres view for browsing music by mood or genre.
-@available(macOS 26.0, *)
 struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
     @Environment(PlayerService.self) private var playerService
@@ -13,15 +12,15 @@ struct MoodsAndGenresView: View {
             Group {
                 if !self.networkMonitor.isConnected {
                     ErrorView(
-                        title: "No Connection",
-                        message: "Please check your internet connection and try again."
+                        title: String(localized: "No Connection"),
+                        message: String(localized: "Please check your internet connection and try again.")
                     ) {
                         Task { await self.viewModel.refresh() }
                     }
                 } else {
                     switch self.viewModel.loadingState {
                     case .idle, .loading:
-                        LoadingView("Loading moods & genres...")
+                        LoadingView(String(localized: "Loading moods & genres..."))
                     case .loaded, .loadingMore:
                         self.contentView
                     case let .error(error):
@@ -32,11 +31,17 @@ struct MoodsAndGenresView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .navigationTitle("Moods & Genres")
-            .navigationDestinations(client: self.viewModel.client)
+            .localizedNavigationTitle("Moods & Genres")
+            .navigationDestinations(
+                client: self.viewModel.client,
+                playerBarNavigationAction: self.playerBarNavigationAction
+            )
+            .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
+                .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
             if self.viewModel.loadingState == .idle {
@@ -48,51 +53,103 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
+        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
+    }
+
+    private var playerBarNavigationAction: PlayerBarNavigationAction {
+        PlayerBarNavigationAction(
+            openArtist: { self.navigationPath.append($0) },
+            openAlbum: { self.navigationPath.append($0) }
+        )
     }
 
     // MARK: - Views
 
+    @ViewBuilder
     private var contentView: some View {
-        Group {
-            if self.viewModel.sections.isEmpty {
+        if self.viewModel.sections.isEmpty {
+            VStack(spacing: 16) {
                 ContentUnavailableView(
                     "No Moods & Genres Available",
                     systemImage: "guitars",
-                    description: Text("Content may not be available in your region.")
+                    description: Text(String(localized: "Content may not be available in your region."))
                 )
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 32) {
-                        ForEach(self.viewModel.sections) { section in
-                            self.sectionView(section)
+                if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                    LoadMoreFooter(
+                        isLoading: self.viewModel.loadingState == .loadingMore,
+                        title: "Load More",
+                        loadingTitle: "Loading more...",
+                        autoLoad: true,
+                        autoLoadTrigger: self.viewModel.sections.count
+                    ) {
+                        await self.viewModel.loadMore()
+                    }
+                }
+            }
+        } else {
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 32) {
+                    ForEach(self.viewModel.sections) { section in
+                        self.sectionView(section)
+                    }
+
+                    if self.viewModel.hasMoreSections || self.viewModel.loadingState == .loadingMore {
+                        LoadMoreFooter(
+                            isLoading: self.viewModel.loadingState == .loadingMore,
+                            title: "Load More",
+                            loadingTitle: "Loading more...",
+                            autoLoad: true,
+                            autoLoadTrigger: self.viewModel.sections.count
+                        ) {
+                            await self.viewModel.loadMore()
                         }
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 20)
                 }
+                // Edge-to-edge so shelves slide under the glass sidebar;
+                // resting inset is restored per-shelf via contentInset.
+                .padding(.vertical, 20)
             }
         }
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        CarouselShelfSection(
+            accessibilityLabel: section.title,
+            items: Array(section.items.enumerated()),
+            id: \.element.id,
+            itemAlignment: .top,
+            contentInset: DetailContentLayout.horizontalInset
+        ) {
             Text(section.title)
                 .font(.title2)
                 .fontWeight(.semibold)
-
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: 16) {
-                    ForEach(Array(section.items.enumerated()), id: \.element.id) { index, item in
-                        HomeSectionItemCard(item: item) {
-                            self.playItem(item, in: section, at: index)
-                        }
-                    }
-                }
+        } itemContent: { index, item in
+            HomeSectionItemCard(
+                item: item,
+                playAction: self.playlistPlayAction(for: item)
+            ) {
+                self.playItem(item, in: section, at: index)
             }
         }
     }
 
     // MARK: - Actions
+
+    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        guard case let .playlist(playlist) = item,
+              SongActionsHelper.canQuickPlayPlaylist(playlist)
+        else {
+            return nil
+        }
+
+        return {
+            SongActionsHelper.playPlaylist(
+                playlist,
+                client: self.viewModel.client,
+                playerService: self.playerService
+            )
+        }
+    }
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {
@@ -109,7 +166,7 @@ struct MoodsAndGenresView: View {
                 description: nil,
                 thumbnailURL: album.thumbnailURL,
                 trackCount: album.trackCount,
-                author: album.artistsDisplay
+                author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             self.navigationPath.append(playlist)
         case let .artist(artist):
@@ -123,4 +180,5 @@ struct MoodsAndGenresView: View {
     let client = YTMusicClient(authService: authService, webKitManager: .shared)
     MoodsAndGenresView(viewModel: MoodsAndGenresViewModel(client: client))
         .environment(PlayerService())
+        .environment(authService)
 }

@@ -52,6 +52,25 @@ struct LyricsParserTests {
         #expect(result == "MPLYtSong456")
     }
 
+    @Test("extractTimedLyrics finds nested timed lyrics models")
+    func extractTimedLyricsFindsNestedModel() throws {
+        let data = Self.makeNestedTimedLyricsResponse(lines: [
+            [
+                "lyricLine": "Nested synced line",
+                "startTimeMs": "1234",
+                "durationMs": "567",
+            ],
+        ])
+
+        let result = try #require(LyricsParser.extractTimedLyrics(from: data))
+
+        #expect(result.source == "YTMusic")
+        #expect(result.lines.count == 1)
+        #expect(result.lines[0].text == "Nested synced line")
+        #expect(result.lines[0].timeInMs == 1234)
+        #expect(result.lines[0].duration == 567)
+    }
+
     // MARK: - Parse Lyrics Tests
 
     @Test("parse returns unavailable for empty data")
@@ -193,6 +212,36 @@ struct LyricsParserTests {
                     "contents": [
                         [
                             "musicDescriptionShelfRenderer": shelfRenderer,
+                        ],
+                    ],
+                ],
+            ],
+        ]
+    }
+
+    /// Creates a mock next response with timed lyrics nested below the top level.
+    private static func makeNestedTimedLyricsResponse(lines: [[String: Any]]) -> [String: Any] {
+        [
+            "contents": [
+                "singleColumnMusicWatchNextResultsRenderer": [
+                    "tabbedRenderer": [
+                        "watchNextTabbedResultsRenderer": [
+                            "tabs": [
+                                [
+                                    "tabRenderer": [
+                                        "title": "Lyrics",
+                                        "content": [
+                                            "musicQueueRenderer": [
+                                                "content": [
+                                                    "timedLyricsModel": [
+                                                        "lyricsData": lines,
+                                                    ],
+                                                ],
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],

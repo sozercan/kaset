@@ -44,4 +44,26 @@ What becomes easier or more difficult because of this change?
 | [0007](0007-sparkle-auto-updates.md) | Sparkle Auto-Updates | Accepted |
 | [0008](0008-nonisolated-network-helpers.md) | Nonisolated Network Helpers for MainActor Classes | Accepted |
 | [0009](0009-prompt-request-workflow.md) | Prompt Request Workflow | Accepted |
+| [0010](0010-airplay-fix.md) | Fix AirPlay for WebView-Based Playback | Implemented (with known limitations) |
 | [0011](0011-scrobbling-support.md) | Scrobbling Support (Last.fm) | Accepted |
+| [0012](0012-synced-lyrics-architecture.md) | Synced Lyrics Provider Architecture | Accepted |
+| [0013](0013-localization-strategy.md) | Localization Strategy (String Catalogs) | Proposed |
+| [0014](0014-extensions.md) | Extensions — User-Managed Web Extensions | Accepted |
+| [0015](0015-command-bar-local-first-routing.md) | Command Bar Local-First Routing | Accepted |
+| [0016](0016-staged-command-parsing-and-queue-analysis.md) | Staged Command Parsing And Queue Analysis | Accepted |
+| [0017](0017-equalizer.md) | 6-Band Equalizer via Core Audio Process Tap | Implemented |
+| [0018](0018-artist-page-episodes.md) | Artist Page — Episodes, Singles, Playlists, Podcasts, Related Artists | Accepted |
+| [0019](0019-podcasts-availability.md) | Region-Aware Podcasts Tab Visibility | Implemented |
+| [0020](0020-youtube-source-toggle.md) | Native YouTube Client Behind a Source Toggle | Accepted |
+| [0021](0021-liquid-glass-sidebar-slide-under.md) | Liquid Glass Sidebar Slide-Under | Accepted |
+| [0022](0022-youtube-home-sections.md) | YouTube Home Sections — Continue Watching + Personalized Topic Rails | Accepted |
+| [0023](0023-brand-account-history-session-switch.md) | Brand-Account History via WebView Session-Identity Switch | Accepted |
+| [0024](0024-logged-in-guest-mode.md) | Logged-In Guest Mode | Accepted |
+| [0025](0025-smart-shuffle.md) | Smart Shuffle (tri-state shuffle with interleaved recommendations) | Accepted |
+| [0026](0026-generation-scoped-web-playback-bridge.md) | Generation-Scoped Web Playback Bridge Events | Accepted |
+| [0027](0027-native-music-playback-intents-and-queue-entry-identity.md) | Native Music Playback Intents and Queue-Entry Identity | Accepted |
+| [0028](0028-ordered-semantic-music-search-results.md) | Ordered Semantic YouTube Music Search Results | Accepted |
+| [0029](0029-now-playing-tracklist-provider.md) | Shared Now-Playing Mix Tracklist Provider | Accepted |
+| [0030](0030-account-scoped-favorites.md) | Account-Scoped Favorites Persistence | Accepted |
+| [0031](0031-saved-album-library-reconciliation.md) | Saved-Album Library Identity and Reconciliation | Accepted |
+| [0032](0032-youtube-ask-gemini.md) | Watch-Scoped YouTube Ask Gemini | Accepted; fixed WEB profile enabled in production |

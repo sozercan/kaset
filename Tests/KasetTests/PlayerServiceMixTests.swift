@@ -51,6 +51,61 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.count == 5)
     }
 
+    @Test("fetchMoreMixSongsIfNeeded blocks account mix continuation while signed out")
+    func fetchMoreMixSongsBlocksAccountContinuationWhileSignedOut() async {
+        let authService = AuthService(webKitManager: MockWebKitManager())
+        authService.completeLogin(sapisid: "placeholder")
+        self.playerService.setAuthService(authService)
+        self.playerService.mixContinuationToken = "account-mix-continuation"
+        self.playerService.mixContinuationRequiresAuth = true
+        let songs = TestFixtures.makeSongs(count: 5)
+        await self.playerService.playQueue(songs, startingAt: 4)
+        self.playerService.mixContinuationToken = "account-mix-continuation"
+        self.playerService.mixContinuationRequiresAuth = true
+        authService.sessionExpired()
+
+        await self.playerService.fetchMoreMixSongsIfNeeded()
+
+        #expect(self.mockClient.getMixQueueContinuationCallCount == 0)
+        #expect(self.playerService.queue.count == 5)
+    }
+
+    @Test("pending radio queue is discarded after guest privacy boundary")
+    func pendingRadioQueueDiscardedAfterGuestPrivacyBoundary() async {
+        let seed = TestFixtures.makeSong(id: "radio-seed", title: "Radio Seed")
+        self.mockClient.getRadioQueueDelay = .milliseconds(150)
+        self.mockClient.radioQueueSongs[seed.videoId] = [
+            seed,
+            TestFixtures.makeSong(id: "radio-personalized", title: "Personalized Radio"),
+        ]
+        await self.playerService.play(song: seed)
+
+        async let radio: Void = self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
+        try? await Task.sleep(for: .milliseconds(30))
+        self.playerService.clearPlaybackForGuestStartup()
+        await radio
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack == nil)
+    }
+
+    @Test("pending mix playback is discarded after guest privacy boundary")
+    func pendingMixPlaybackDiscardedAfterGuestPrivacyBoundary() async {
+        self.mockClient.mixQueueDelay = .milliseconds(150)
+        self.mockClient.mixQueueResult = RadioQueueResult(
+            songs: TestFixtures.makeSongs(count: 3),
+            continuationToken: "guest-mix-continuation"
+        )
+
+        async let play: Void = self.playerService.playWithMix(playlistId: "RDEM123", startVideoId: nil)
+        try? await Task.sleep(for: .milliseconds(30))
+        self.playerService.clearPlaybackForGuestStartup()
+        await play
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack == nil)
+    }
+
     @Test("fetchMoreMixSongsIfNeeded does nothing when not near end")
     func fetchMoreMixSongsNotNearEnd() async {
         self.playerService.mixContinuationToken = "some-token"

@@ -5,7 +5,6 @@ import SwiftUI
 /// A background view that displays a gradient based on colors extracted from an image.
 /// Creates an effect similar to Apple Music/YouTube Music album backgrounds.
 /// In light mode, uses a subtle tint; in dark mode, uses a rich gradient.
-@available(macOS 26.0, *)
 struct AccentBackground: View {
     let imageURL: URL?
     @Environment(\.colorScheme) private var colorScheme
@@ -76,27 +75,16 @@ struct AccentBackground: View {
             return
         }
 
-        // Fetch image data
-        do {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let extracted = await ColorExtractor.extractPalette(from: data)
-            self.palette = extracted
-            self.isLoaded = true
-        } catch is CancellationError {
-            // Task was cancelled (e.g., imageURL changed) - expected behavior, no logging needed
-            return
-        } catch {
-            DiagnosticsLogger.ui.debug("Failed to extract accent colors: \(error.localizedDescription)")
-            self.palette = .default
-            self.isLoaded = true
-        }
+        let extracted = await ColorExtractor.cachedPalette(for: url)
+        guard !Task.isCancelled else { return }
+        self.palette = extracted
+        self.isLoaded = true
     }
 }
 
 // MARK: - AccentBackgroundModifier
 
 /// View modifier to apply accent background based on album art.
-@available(macOS 26.0, *)
 struct AccentBackgroundModifier: ViewModifier {
     let imageURL: URL?
 
@@ -109,7 +97,6 @@ struct AccentBackgroundModifier: ViewModifier {
     }
 }
 
-@available(macOS 26.0, *)
 extension View {
     /// Applies an accent color background gradient extracted from the given image URL.
     /// - Parameter imageURL: The URL of the image to extract colors from.

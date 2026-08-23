@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Build script to create Kaset.app bundle
-# Based on Kuyruk/CodexBar packaging approach
 
 set -euo pipefail
 
@@ -13,8 +12,10 @@ source "$ROOT/version.env"
 # Configuration
 CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
+SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
 APP_NAME="Kaset"
 BUNDLE_ID="com.sertacozercan.Kaset"
+DEVELOPMENT_LOCALIZATION="en"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
 
@@ -29,35 +30,127 @@ if [[ ${#ARCH_LIST[@]} -eq 0 ]]; then
   esac
 fi
 
-echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
+# ── Helpers ──────────────────────────────────────────────────────────────────
 
-# Clean previous build
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
+build_config_dir_names() {
+  local conf_lower
+  local conf_title
+  conf_lower=$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')
+  conf_title="$(tr '[:lower:]' '[:upper:]' <<< "${conf_lower:0:1}")${conf_lower:1}"
+  printf '%s\n' "$conf_title" "$conf_lower" "$CONF" | awk 'NF && !seen[$0]++'
+}
 
-# Build for each architecture
-for ARCH in "${ARCH_LIST[@]}"; do
-  echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH"
-done
+build_product_dir() {
+  local arch="$1"
+  local show_bin
 
-# Create app bundle structure
-echo "📦 Creating app bundle..."
-mkdir -p "$APP_BUNDLE/Contents/MacOS"
-mkdir -p "$APP_BUNDLE/Contents/Resources"
-mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+  # Xcode 27 / Swift 6.4 can emit SwiftPM products into an Xcode-style
+  # products directory (.build/out/Products/Release). Ask SwiftPM first so
+  # the packaging script follows the active toolchain instead of assuming one
+  # filesystem layout. Xcode 26/classic SwiftPM layouts are kept as fallbacks.
+  show_bin=$(swift build -c "$CONF" --arch "$arch" --show-bin-path 2>/dev/null || true)
+  if [[ -n "$show_bin" && -d "$show_bin" ]]; then
+    echo "$show_bin"
+    return 0
+  fi
 
-# Build path helper
-build_product_path() {
-  local name="$1"
-  local arch="$2"
+  local dir_name
+  while IFS= read -r dir_name; do
+    if [[ -d ".build/out/Products/$dir_name" ]]; then
+      echo ".build/out/Products/$dir_name"
+      return 0
+    fi
+  done < <(build_config_dir_names)
+
   case "$arch" in
-    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF/$name" ;;
-    *) echo ".build/$CONF/$name" ;;
+    arm64|x86_64)
+      if [[ -d ".build/${arch}-apple-macosx/$CONF" ]]; then
+        echo ".build/${arch}-apple-macosx/$CONF"
+        return 0
+      fi
+      ;;
+  esac
+
+  if [[ -d ".build/$CONF" ]]; then
+    echo ".build/$CONF"
+    return 0
+  fi
+
+  case "$arch" in
+    arm64|x86_64) echo ".build/${arch}-apple-macosx/$CONF" ;;
+    *) echo ".build/$CONF" ;;
   esac
 }
 
-# Verify binary architectures
+arch_staging_dir() {
+  local arch="$1"
+  echo "$BUILD_DIR/arch-products/$arch"
+}
+
+stage_arch_product() {
+  local name="$1"
+  local arch="$2"
+  local source_dir
+  local source_path
+  local dest_dir
+
+  source_dir=$(build_product_dir "$arch")
+  source_path="$source_dir/$name"
+  if [[ ! -f "$source_path" ]]; then
+    echo "ERROR: Missing ${name} build for ${arch} at ${source_path}" >&2
+    exit 1
+  fi
+
+  # Some SwiftPM/Xcode layouts report the same --show-bin-path for each
+  # --arch build. Preserve each thin executable immediately after it is built so
+  # a later architecture build cannot overwrite the input that lipo needs.
+  dest_dir=$(arch_staging_dir "$arch")
+  mkdir -p "$dest_dir"
+  cp "$source_path" "$dest_dir/$name"
+  chmod +x "$dest_dir/$name"
+}
+
+build_product_path() {
+  local name="$1"
+  local arch="$2"
+  local dir
+  local staged
+
+  if [[ -n "$name" ]]; then
+    staged="$(arch_staging_dir "$arch")/$name"
+    if [[ -f "$staged" ]]; then
+      echo "$staged"
+      return 0
+    fi
+  fi
+
+  dir=$(build_product_dir "$arch")
+  if [[ -n "$name" ]]; then
+    echo "$dir/$name"
+  else
+    echo "$dir"
+  fi
+}
+
+find_framework_in_product_dir() {
+  local product_dir="$1"
+  local framework_name="$2"
+  local candidate
+
+  for candidate in \
+    "$product_dir/$framework_name" \
+    "$product_dir/PackageFrameworks/$framework_name" \
+    "$product_dir/ExecutableModules/$framework_name"
+  do
+    if [[ -d "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 verify_binary_arches() {
   local binary="$1"; shift
   local expected=("$@")
@@ -71,7 +164,43 @@ verify_binary_arches() {
   done
 }
 
-# Install binary (handles universal builds)
+# Compile an asset catalog into a given output directory.
+# Errors are intentionally NOT suppressed — a failed actool should stop the build.
+compile_asset_catalog() {
+  local source_catalog="$1"
+  local output_dir="$2"
+  if [[ ! -d "$source_catalog" ]]; then
+    echo "ERROR: asset catalog not found: $source_catalog" >&2
+    return 1
+  fi
+  xcrun actool \
+    --compile "$output_dir" \
+    --platform macosx \
+    --minimum-deployment-target 15.4 \
+    "$source_catalog"
+}
+
+emit_bundle_localizations_plist() {
+  local resources_dir="$1"
+  local development_localization="$2"
+  local localization
+  local localization_dir
+  {
+    if [[ -n "$development_localization" ]]; then
+      printf '%s\n' "$development_localization"
+    fi
+    find "$resources_dir" -type d -name '*.lproj' -print | while IFS= read -r localization_dir; do
+      localization=$(basename "$localization_dir" .lproj)
+      [[ "$localization" == "Base" ]] && continue
+      printf '%s\n' "$localization"
+    done
+  } | LC_ALL=C sort -u | while IFS= read -r localization; do
+    [[ -z "$localization" ]] && continue
+    printf '        <string>%s</string>\n' "$localization"
+  done
+}
+
+# Install binary (handles universal builds via lipo)
 install_binary() {
   local name="$1"
   local dest="$2"
@@ -94,12 +223,178 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
-# Copy executable
+echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
+
+# Clean previous build
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# Build for each architecture. Stage the executable after each build because
+# some SwiftPM layouts reuse one products directory for every --arch build.
+for ARCH in "${ARCH_LIST[@]}"; do
+  echo "  → Building for $ARCH..."
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
+  stage_arch_product "$APP_NAME" "$ARCH"
+done
+
+# Create app bundle structure
+echo "📦 Creating app bundle..."
+mkdir -p "$APP_BUNDLE/Contents/MacOS"
+mkdir -p "$APP_BUNDLE/Contents/Resources"
+mkdir -p "$APP_BUNDLE/Contents/Frameworks"
+
+# ── Executable ───────────────────────────────────────────────────────────────
+
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
-# Generate Info.plist with build metadata
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+
+# Create PkgInfo
+echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
+
+# ── AppleScript definition ───────────────────────────────────────────────────
+
+SDEF_PATH="$ROOT/Sources/Kaset/Resources/Kaset.sdef"
+if [[ -f "$SDEF_PATH" ]]; then
+  echo "📜 Copying AppleScript definition..."
+  cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
+fi
+
+# ── App icon and main asset catalog ──────────────────────────────────────────
+# AppIcon.icon is an Icon Composer package (macOS 26+). actool consumes it
+# directly and produces Assets.car with full dark/light appearance layers.
+# The top-level Assets.car also needs AccentColor because Info.plist references
+# NSAccentColorName from the main bundle.
+
+ICON_SOURCE="$ROOT/Sources/Kaset/Resources/AppIcon.icon"
+APP_ASSET_CATALOG="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
+
+# Copy the .icon bundle into the app for Liquid Glass dark/light switching
+if [[ -d "$ICON_SOURCE" ]]; then
+  echo "🎨 Copying AppIcon.icon bundle..."
+  cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/AppIcon.icon"
+fi
+
+# Compile AppIcon.icon and AccentColor into Contents/Resources/Assets.car.
+# Xcode 26's actool currently fails on macOS 15 runners while processing
+# Icon Composer assets because it loads newer AVFCore/CoreMedia symbols.
+# UI-test CI can opt out via KASET_SKIP_MAIN_ASSETS=1; release builds should
+# keep compiling these assets so AppIcon/AccentColor remain complete.
+if [[ "$SKIP_MAIN_ASSETS" == "1" ]]; then
+  echo "⚠️  Skipping main asset catalog compilation (KASET_SKIP_MAIN_ASSETS=1)."
+elif [[ -d "$ICON_SOURCE" ]] && [[ -d "$APP_ASSET_CATALOG" ]] && command -v xcrun &>/dev/null; then
+  echo "🎨 Compiling main asset catalog..."
+  ICON_PARTIAL_PLIST="$BUILD_DIR/AppIconPartialInfo.plist"
+  xcrun actool "$ICON_SOURCE" "$APP_ASSET_CATALOG" \
+    --compile "$APP_BUNDLE/Contents/Resources" \
+    --notices --warnings --errors \
+    --output-partial-info-plist "$ICON_PARTIAL_PLIST" \
+    --app-icon AppIcon \
+    --enable-on-demand-resources NO \
+    --development-region "$DEVELOPMENT_LOCALIZATION" \
+    --target-device mac \
+    --minimum-deployment-target 15.4 \
+    --platform macosx
+  if [[ ! -f "$APP_BUNDLE/Contents/Resources/Assets.car" ]]; then
+    echo "ERROR: actool did not produce Assets.car from $ICON_SOURCE and $APP_ASSET_CATALOG" >&2
+    exit 1
+  fi
+  echo "   ✓ App icon and accent color compiled to Contents/Resources/Assets.car"
+else
+  echo "⚠️  Warning: $ICON_SOURCE or $APP_ASSET_CATALOG not found. App will have incomplete assets."
+fi
+
+# ── Sparkle.framework ────────────────────────────────────────────────────────
+
+SPARKLE_FRAMEWORK=""
+for arch in "${ARCH_LIST[@]}"; do
+  CANDIDATE_DIR=$(build_product_dir "$arch")
+  if SPARKLE_FRAMEWORK=$(find_framework_in_product_dir "$CANDIDATE_DIR" "Sparkle.framework"); then
+    break
+  fi
+  SPARKLE_FRAMEWORK=""
+done
+if [[ -z "$SPARKLE_FRAMEWORK" ]]; then
+  for CANDIDATE_DIR in ".build/$CONF" ".build/$CONF/PackageFrameworks" ".build/$CONF/ExecutableModules"; do
+    if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
+      SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
+      break
+    fi
+  done
+fi
+
+if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
+  echo "✨ Embedding Sparkle.framework..."
+  cp -R "$SPARKLE_FRAMEWORK" "$APP_BUNDLE/Contents/Frameworks/"
+  chmod -R a+rX "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BUNDLE/Contents/MacOS/$APP_NAME" 2>/dev/null || true
+else
+  echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
+fi
+
+# ── SwiftPM resource bundles ──────────────────────────────────────────────────
+# Kaset_Kaset.bundle contains Assets.xcassets compiled for Bundle.module.
+# It is kept separate from the top-level Assets.car produced above.
+
+FIRST_ARCH="${ARCH_LIST[0]}"
+PREFERRED_BUILD_DIR=$(build_product_dir "$FIRST_ARCH")
+SWIFTPM_BUNDLES=()
+shopt -s nullglob
+for bundle in "${PREFERRED_BUILD_DIR}/"*.bundle; do
+  bundle_name=$(basename "$bundle")
+  [[ "$bundle_name" == *Tests.bundle ]] && continue
+  SWIFTPM_BUNDLES+=("$bundle")
+done
+shopt -u nullglob
+
+if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
+  for bundle in "${SWIFTPM_BUNDLES[@]}"; do
+    bundle_name=$(basename "$bundle")
+    bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
+    echo "  → Copying resource bundle: $bundle_name"
+    cp -R "$bundle" "$APP_BUNDLE/Contents/Resources/"
+    # Compile into the bundle's own dir only — NOT into Contents/Resources,
+    # which would overwrite the AppIcon Assets.car compiled above.
+    if [[ -d "$bundle_dest/Assets.xcassets" ]] && command -v actool &>/dev/null; then
+      echo "    ↳ Compiling bundle asset catalog"
+      compile_asset_catalog "$bundle_dest/Assets.xcassets" "$bundle_dest"
+    fi
+  done
+
+  SOURCE_LOCALIZATION_CATALOG="$ROOT/Sources/Kaset/Resources/Localizable.xcstrings"
+  if [[ -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+    echo "  → Compiling app localization catalog: $(basename "$SOURCE_LOCALIZATION_CATALOG")"
+    xcrun xcstringstool compile "$SOURCE_LOCALIZATION_CATALOG" \
+      --output-directory "$APP_BUNDLE/Contents/Resources"
+  fi
+
+  for bundle in "${SWIFTPM_BUNDLES[@]}"; do
+    bundle_name=$(basename "$bundle")
+    bundle_dest="$APP_BUNDLE/Contents/Resources/$bundle_name"
+    LOCALIZATION_CATALOGS=()
+    if [[ "$bundle_name" == "${APP_NAME}_${APP_NAME}.bundle" && -f "$SOURCE_LOCALIZATION_CATALOG" ]]; then
+      LOCALIZATION_CATALOGS+=("$SOURCE_LOCALIZATION_CATALOG")
+    fi
+    shopt -s nullglob
+    LOCALIZATION_CATALOGS+=("$bundle"/*.xcstrings)
+    shopt -u nullglob
+
+    if [[ ${#LOCALIZATION_CATALOGS[@]} -eq 0 ]]; then
+      continue
+    fi
+
+    for xcstrings in "${LOCALIZATION_CATALOGS[@]}"; do
+      echo "  → Compiling bundle localization catalog: $(basename "$xcstrings")"
+      xcrun xcstringstool compile "$xcstrings" \
+        --output-directory "$bundle_dest"
+    done
+  done
+fi
+
+# ── Info.plist ────────────────────────────────────────────────────────────────
+
+APP_LOCALIZATIONS_PLIST=$(emit_bundle_localizations_plist "$APP_BUNDLE/Contents/Resources" "$DEVELOPMENT_LOCALIZATION")
 
 cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -107,13 +402,25 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key>
-    <string>en</string>
+    <string>${DEVELOPMENT_LOCALIZATION}</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+${APP_LOCALIZATIONS_PLIST}
+    </array>
     <key>CFBundleExecutable</key>
     <string>${APP_NAME}</string>
-    <key>CFBundleIconFile</key>
-    <string>kaset</string>
     <key>CFBundleIconName</key>
-    <string>kaset</string>
+    <string>AppIcon</string>
+    <key>CFBundleIcons</key>
+    <dict>
+        <key>CFBundlePrimaryIcon</key>
+        <dict>
+            <key>CFBundleIconName</key>
+            <string>AppIcon</string>
+        </dict>
+    </dict>
+    <key>NSAccentColorName</key>
+    <string>AccentColor</string>
     <key>CFBundleIdentifier</key>
     <string>${BUNDLE_ID}</string>
     <key>CFBundleInfoDictionaryVersion</key>
@@ -131,7 +438,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.music</string>
     <key>LSMinimumSystemVersion</key>
-    <string>26.0</string>
+    <string>15.4</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2025 Sertac Ozercan. All rights reserved.</string>
     <key>NSPrincipalClass</key>
@@ -165,12 +472,20 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
     <integer>86400</integer>
     <key>SUAllowsAutomaticUpdates</key>
     <true/>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
 
     <!-- AppleScript Support -->
     <key>NSAppleScriptEnabled</key>
     <true/>
     <key>OSAScriptingDefinition</key>
     <string>Kaset.sdef</string>
+
+    <!-- Core Audio process tap (Equalizer) - macOS 14.2+ TCC requires these -->
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Kaset taps its own audio output (not the screen) so the built-in equalizer can apply effects to your music. No screen content is recorded.</string>
 
     <!-- Build Metadata -->
     <key>KasetBuildTimestamp</key>
@@ -181,106 +496,71 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Create PkgInfo
-echo -n "APPL????" > "$APP_BUNDLE/Contents/PkgInfo"
+# ── Strip extended attributes ─────────────────────────────────────────────────
 
-# Copy AppleScript definition
-SDEF_PATH="$ROOT/Sources/Kaset/Resources/Kaset.sdef"
-if [[ -f "$SDEF_PATH" ]]; then
-  echo "📜 Copying AppleScript definition..."
-  cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
-fi
-
-# Copy app icon (.icon bundle for macOS 26+ Liquid Glass, .icns as fallback)
-ICON_SOURCE="$ROOT/Sources/Kaset/Resources/kaset.icon"
-if [[ -d "$ICON_SOURCE" ]]; then
-  echo "🎨 Copying app icon..."
-  cp -R "$ICON_SOURCE" "$APP_BUNDLE/Contents/Resources/kaset.icon"
-fi
-ICNS_PATH="$ROOT/Sources/Kaset/Resources/kaset.icns"
-if [[ -f "$ICNS_PATH" ]]; then
-  cp "$ICNS_PATH" "$APP_BUNDLE/Contents/Resources/kaset.icns"
-fi
-
-# Compile asset catalog if actool is available
-XCASSETS_PATH="$ROOT/Sources/Kaset/Resources/Assets.xcassets"
-if [[ -d "$XCASSETS_PATH" ]] && command -v actool &>/dev/null; then
-  echo "🎨 Compiling asset catalog..."
-  actool --compile "$APP_BUNDLE/Contents/Resources" \
-    --platform macosx \
-    --minimum-deployment-target 26.0 \
-    "$XCASSETS_PATH" 2>/dev/null || true
-fi
-
-# Embed Sparkle.framework
-SPARKLE_FRAMEWORK=""
-for arch in "${ARCH_LIST[@]}"; do
-  CANDIDATE=$(build_product_path "" "$arch")
-  CANDIDATE_DIR=$(dirname "$CANDIDATE")
-  if [[ -d "$CANDIDATE_DIR/Sparkle.framework" ]]; then
-    SPARKLE_FRAMEWORK="$CANDIDATE_DIR/Sparkle.framework"
-    break
-  fi
-done
-
-# Also check the default build path
-if [[ -z "$SPARKLE_FRAMEWORK" ]] && [[ -d ".build/$CONF/Sparkle.framework" ]]; then
-  SPARKLE_FRAMEWORK=".build/$CONF/Sparkle.framework"
-fi
-
-if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
-  echo "✨ Embedding Sparkle.framework..."
-  cp -R "$SPARKLE_FRAMEWORK" "$APP_BUNDLE/Contents/Frameworks/"
-  chmod -R a+rX "$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
-  install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP_BUNDLE/Contents/MacOS/$APP_NAME" 2>/dev/null || true
-else
-  echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
-fi
-
-# SwiftPM resource bundles are emitted next to the built binary
-FIRST_ARCH="${ARCH_LIST[0]}"
-BINARY_PATH=$(build_product_path "$APP_NAME" "$FIRST_ARCH")
-PREFERRED_BUILD_DIR=$(dirname "$BINARY_PATH")
-shopt -s nullglob
-SWIFTPM_BUNDLES=("${PREFERRED_BUILD_DIR}/"*.bundle)
-shopt -u nullglob
-if [[ ${#SWIFTPM_BUNDLES[@]} -gt 0 ]]; then
-  for bundle in "${SWIFTPM_BUNDLES[@]}"; do
-    bundle_name=$(basename "$bundle")
-    echo "  → Copying resource bundle: $bundle_name"
-    cp -R "$bundle" "$APP_BUNDLE/Contents/Resources/"
-  done
-fi
-
-# Strip extended attributes to prevent AppleDouble (._*) files that break code sealing
 xattr -cr "$APP_BUNDLE" 2>/dev/null || true
 find "$APP_BUNDLE" -name '._*' -delete 2>/dev/null || true
 
-# Sign the app
-echo "🔏 Signing app..."
-if [[ "$SIGNING_MODE" == "adhoc" ]]; then
-  CODESIGN_ARGS=(--force --sign -)
-elif [[ "$SIGNING_MODE" == "dev" ]]; then
-  # Use Apple Development certificate
-  CODESIGN_HASH=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}')
-  if [[ -z "$CODESIGN_HASH" ]]; then
-    echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
-    CODESIGN_ARGS=(--force --sign -)
-  else
-    CODESIGN_ARGS=(--force --sign "$CODESIGN_HASH")
-  fi
-else
-  CODESIGN_ID="${APP_IDENTITY:-Developer ID Application}"
-  CODESIGN_ARGS=(--force --timestamp --options runtime --sign "$CODESIGN_ID")
+# ── Code signing ──────────────────────────────────────────────────────────────
+
+if [[ "$SIGNING_MODE" == "unsigned" || "$SIGNING_MODE" == "none" ]]; then
+  echo "🔓 Skipping code signing."
+  echo ""
+  echo "✅ Build complete!"
+  echo "📍 App location: $APP_BUNDLE"
+  echo "   Version: ${MARKETING_VERSION} (${BUILD_NUMBER})"
+  echo "   Commit:  ${GIT_COMMIT}"
+  echo "   Arches:  ${ARCH_LIST[*]}"
+  echo "   Signing: unsigned"
+  echo ""
+  echo "To run: open $APP_BUNDLE"
+  echo "To install: cp -r $APP_BUNDLE /Applications/"
+  exit 0
 fi
+
+echo "🔏 Signing app..."
+case "$SIGNING_MODE" in
+  adhoc)
+    CODESIGN_ARGS=(--force --sign -)
+    ;;
+  dev|development)
+    if [[ -n "${APP_IDENTITY:-}" ]]; then
+      CODESIGN_ID="$APP_IDENTITY"
+    else
+      CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Apple Development" | head -1 | awk '{print $2}' || true)
+    fi
+    if [[ -z "$CODESIGN_ID" ]]; then
+      echo "WARN: No Apple Development certificate found. Falling back to ad-hoc signing."
+      CODESIGN_ARGS=(--force --sign -)
+    else
+      CODESIGN_ARGS=(--force --options runtime --sign "$CODESIGN_ID")
+    fi
+    ;;
+  developer-id|distribution|release)
+    if [[ -n "${APP_IDENTITY:-}" ]]; then
+      CODESIGN_ID="$APP_IDENTITY"
+    else
+      CODESIGN_ID=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | sed -E 's/.*"(.+)".*/\1/' || true)
+    fi
+    if [[ -z "$CODESIGN_ID" ]]; then
+      echo "ERROR: No Developer ID Application certificate found for release signing." >&2
+      exit 1
+    fi
+    CODESIGN_ARGS=(--force --timestamp --options runtime --sign "$CODESIGN_ID")
+    ;;
+  *)
+    echo "ERROR: Unknown KASET_SIGNING mode: $SIGNING_MODE" >&2
+    echo "Expected one of: adhoc, dev, developer-id, unsigned" >&2
+    exit 1
+    ;;
+esac
 
 resign() { codesign "${CODESIGN_ARGS[@]}" "$1"; }
 
-# Sign Sparkle components (innermost first)
+# Sign Sparkle components innermost-first
 SPARKLE="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
 if [[ -d "$SPARKLE" ]]; then
   echo "  → Signing Sparkle.framework..."
-  # Sign nested binaries first
   [[ -f "$SPARKLE/Versions/B/Sparkle" ]] && resign "$SPARKLE/Versions/B/Sparkle"
   [[ -f "$SPARKLE/Versions/B/Autoupdate" ]] && resign "$SPARKLE/Versions/B/Autoupdate"
   [[ -d "$SPARKLE/Versions/B/Updater.app" ]] && {
@@ -299,7 +579,6 @@ if [[ -d "$SPARKLE" ]]; then
   resign "$SPARKLE"
 fi
 
-# Sign the app bundle with entitlements
 if [[ -f "$ROOT/Kaset.entitlements" ]]; then
   codesign "${CODESIGN_ARGS[@]}" --entitlements "$ROOT/Kaset.entitlements" "$APP_BUNDLE"
 else

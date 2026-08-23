@@ -175,6 +175,57 @@ struct AccountsListParserTests {
         #expect(result.accounts.count == 1)
         #expect(result.accounts[0].isSelected == false)
     }
+
+    // MARK: - signinURL Resolution Tests
+
+    @Test func resolvesRootRelativeSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("/signin?action_handle_signin=true&pageid=123&authuser=0")
+        #expect(url?.scheme == "https")
+        #expect(url?.host == "www.youtube.com")
+        #expect(url?.path == "/signin")
+        #expect(url?.query?.contains("pageid=123") == true)
+    }
+
+    @Test func resolvesProtocolRelativeSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("//www.youtube.com/signin?pageid=123")
+        #expect(url?.scheme == "https")
+        #expect(url?.host == "www.youtube.com")
+    }
+
+    @Test func passesThroughAbsoluteSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("https://www.youtube.com/signin?pageid=123")
+        #expect(url?.absoluteString == "https://www.youtube.com/signin?pageid=123")
+    }
+
+    @Test func rejectsInsecureSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("http://www.youtube.com/signin?pageid=123")
+        #expect(url == nil)
+    }
+
+    @Test func rejectsNonYouTubeSigninURL() {
+        let url = AccountsListParser.resolveSigninURL("https://example.com/signin?pageid=123")
+        #expect(url == nil)
+    }
+
+    @Test func rejectsNonSigninYouTubeURL() {
+        let url = AccountsListParser.resolveSigninURL("https://www.youtube.com/watch?v=abc")
+        #expect(url == nil)
+    }
+
+    @Test func parsesBrandAccountSigninURLFromResponse() {
+        let json = MockAccountsListData.brandWithSigninURL
+        let result = AccountsListParser.parse(json)
+        let brand = result.accounts.first { $0.brandId == "111111111111111111111" }
+        #expect(brand?.signinURL != nil)
+        #expect(brand?.signinURL?.host == "www.youtube.com")
+        #expect(brand?.signinURL?.query?.contains("pageid=111111111111111111111") == true)
+    }
+
+    @Test func brandWithoutSigninTokenHasNilSigninURL() {
+        let json = MockAccountsListData.singleBrandAccountResponse
+        let result = AccountsListParser.parse(json)
+        #expect(result.accounts.first?.signinURL == nil)
+    }
 }
 
 // MARK: - MockAccountsListData
@@ -206,6 +257,24 @@ enum MockAccountsListData {
     }
 
     // MARK: - Multiple Accounts Response
+
+    static var brandWithSigninURL: [String: Any] {
+        wrapInResponse(
+            sections: [accountSection(
+                email: "test@example.com",
+                accounts: [
+                    primaryAccountItem(isSelected: true),
+                    brandAccountItem(
+                        name: "Brand Account",
+                        handle: "@brandaccount",
+                        brandId: "111111111111111111111",
+                        isSelected: false,
+                        signinURL: "/signin?action_handle_signin=true&authuser=0&pageid=111111111111111111111&next=%2F"
+                    ),
+                ]
+            )]
+        )
+    }
 
     static var multipleAccountsResponse: [String: Any] {
         wrapInResponse(
@@ -353,14 +422,16 @@ enum MockAccountsListData {
         name: String,
         handle: String,
         brandId: String,
-        isSelected: Bool
+        isSelected: Bool,
+        signinURL: String? = nil
     ) -> [String: Any] {
         self.accountItem(
             name: name,
             handle: handle,
             brandId: brandId,
             thumbnailURL: "https://example.com/brand-avatar.jpg",
-            isSelected: isSelected
+            isSelected: isSelected,
+            signinURL: signinURL
         )
     }
 
@@ -369,7 +440,8 @@ enum MockAccountsListData {
         handle: String?,
         brandId: String?,
         thumbnailURL: String?,
-        isSelected: Bool
+        isSelected: Bool,
+        signinURL: String? = nil
     ) -> [String: Any] {
         var item: [String: Any] = [
             "accountName": Self.runsText(name),
@@ -388,16 +460,17 @@ enum MockAccountsListData {
             ]
         }
 
-        if let brandId {
+        if brandId != nil || signinURL != nil {
+            var supportedTokens: [[String: Any]] = []
+            if let brandId {
+                supportedTokens.append(["pageIdToken": ["pageId": brandId]])
+            }
+            if let signinURL {
+                supportedTokens.append(["accountSigninToken": ["signinUrl": signinURL]])
+            }
             item["serviceEndpoint"] = [
                 "selectActiveIdentityEndpoint": [
-                    "supportedTokens": [
-                        [
-                            "pageIdToken": [
-                                "pageId": brandId,
-                            ],
-                        ],
-                    ],
+                    "supportedTokens": supportedTokens,
                 ],
             ]
         }

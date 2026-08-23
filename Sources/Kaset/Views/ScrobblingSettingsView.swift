@@ -4,26 +4,34 @@ import SwiftUI
 
 /// Settings view for scrobbling services.
 /// Iterates all registered services from the coordinator, rendering a reusable row for each.
-@available(macOS 26.0, *)
 struct ScrobblingSettingsView: View {
     @Environment(ScrobblingCoordinator.self) private var coordinator
 
     var body: some View {
         Form {
-            ForEach(self.coordinator.services, id: \.serviceName) { service in
-                ScrobbleServiceRow(service: service)
+            if self.coordinator.services.isEmpty {
+                Section {
+                    ContentUnavailableView(
+                        "No Scrobbling Services",
+                        systemImage: "music.note.list",
+                        description: Text(String(localized: "No scrobbling services are available to configure."))
+                    )
+                }
+            } else {
+                ForEach(self.coordinator.services, id: \.serviceName) { service in
+                    ScrobbleServiceRow(service: service)
+                }
             }
         }
         .formStyle(.grouped)
         .frame(minWidth: 400, minHeight: 300)
-        .navigationTitle("Scrobbling")
+        .localizedNavigationTitle("Scrobbling")
     }
 }
 
 // MARK: - ScrobbleServiceRow
 
 /// A reusable settings row for any scrobbling service backend.
-@available(macOS 26.0, *)
 struct ScrobbleServiceRow: View {
     let service: any ScrobbleServiceProtocol
     @State private var settings = SettingsManager.shared
@@ -31,15 +39,14 @@ struct ScrobbleServiceRow: View {
 
     var body: some View {
         Section {
-            Toggle(
-                "Enable \(self.service.serviceName) Scrobbling",
-                isOn: self.enabledBinding
-            )
+            Toggle(isOn: self.enabledBinding) {
+                Text(self.enableScrobblingToggleLabel)
+            }
 
             // Connection status
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Account")
+                    Text(String(localized: "Account"))
                         .font(.headline)
                     Text(self.connectionStatusText)
                         .font(.caption)
@@ -57,6 +64,19 @@ struct ScrobbleServiceRow: View {
 
     // MARK: - Bindings
 
+    /// Localized “Enable (service) Scrobbling” using `%@` so translators can reorder the service name.
+    private var enableScrobblingToggleLabel: String {
+        let format = String(
+            localized: String.LocalizationValue("Enable %@ Scrobbling"),
+            bundle: AppLocalization.bundle
+        )
+        return String(
+            format: format,
+            locale: self.settings.contentLanguage.locale,
+            self.service.serviceName as CVarArg
+        )
+    }
+
     private var enabledBinding: Binding<Bool> {
         Binding(
             get: { self.settings.isServiceEnabled(self.service.serviceName) },
@@ -69,13 +89,13 @@ struct ScrobbleServiceRow: View {
     private var connectionStatusText: String {
         switch self.service.authState {
         case .disconnected:
-            "Not connected"
+            String(localized: "Not connected")
         case .authenticating:
-            "Waiting for authorization…"
+            String(localized: "Waiting for authorization…")
         case let .connected(username):
-            "Connected as \(username)"
+            String(localized: "Connected as \(username)")
         case let .error(message):
-            "Error: \(message)"
+            String(localized: "Error: \(message)")
         }
     }
 
@@ -83,7 +103,7 @@ struct ScrobbleServiceRow: View {
     private var connectionButton: some View {
         switch self.service.authState {
         case .disconnected, .error:
-            Button("Connect") {
+            Button(String(localized: "Connect")) {
                 Task {
                     self.isAuthenticating = true
                     defer { self.isAuthenticating = false }
@@ -100,7 +120,7 @@ struct ScrobbleServiceRow: View {
             HStack(spacing: 8) {
                 ProgressView()
                     .controlSize(.small)
-                Button("Cancel") {
+                Button(String(localized: "Cancel")) {
                     Task {
                         await self.service.disconnect()
                     }
@@ -108,7 +128,7 @@ struct ScrobbleServiceRow: View {
             }
 
         case .connected:
-            Button("Disconnect") {
+            Button(String(localized: "Disconnect")) {
                 Task {
                     await self.service.disconnect()
                 }

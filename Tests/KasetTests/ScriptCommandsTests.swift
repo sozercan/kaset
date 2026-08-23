@@ -14,6 +14,22 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
+    private func waitUntil(
+        timeout: Duration = .seconds(1),
+        pollInterval: Duration = .milliseconds(10),
+        _ condition: () -> Bool
+    ) async -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: timeout)
+
+        while !condition() {
+            guard clock.now < deadline else { return condition() }
+            try? await Task.sleep(for: pollInterval)
+        }
+
+        return true
+    }
+
     // MARK: - GetPlayerInfoCommand Tests
 
     @Test("GetPlayerInfo returns error JSON when PlayerService is nil")
@@ -231,6 +247,87 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
 
+    // MARK: - PlayVideoCommand Tests
+
+    @Test("PlayVideo stays hidden while keeping the first-session gate closed until playback is confirmed")
+    func playVideoKeepsFirstSessionGateClosedUntilPlaybackIsConfirmed() async {
+        let playerService = PlayerService()
+        let mockClient = MockYTMusicClient()
+        playerService.setYTMusicClient(mockClient)
+        PlayerService.shared = playerService
+
+        let firstCommand = PlayVideoCommand()
+        firstCommand.directParameter = "first-video-id" as NSString
+
+        _ = firstCommand.performDefaultImplementation()
+        let firstPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "first-video-id" &&
+                playerService.currentTrack?.videoId == "first-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "first-video-id" &&
+                playerService.showMiniPlayer == false &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id"]
+        }
+
+        #expect(firstPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "first-video-id")
+        #expect(playerService.currentTrack?.videoId == "first-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "first-video-id")
+        #expect(playerService.showMiniPlayer == false)
+
+        playerService.miniPlayerDismissed()
+        #expect(playerService.showMiniPlayer == false)
+
+        let secondCommand = PlayVideoCommand()
+        secondCommand.directParameter = "second-video-id" as NSString
+
+        _ = secondCommand.performDefaultImplementation()
+        let secondPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "second-video-id" &&
+                playerService.currentTrack?.videoId == "second-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "second-video-id" &&
+                playerService.showMiniPlayer == false &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id"]
+        }
+
+        #expect(secondPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "second-video-id")
+        #expect(playerService.currentTrack?.videoId == "second-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "second-video-id")
+        #expect(playerService.showMiniPlayer == false)
+
+        playerService.confirmPlaybackStarted()
+        #expect(playerService.showMiniPlayer == false)
+
+        let thirdCommand = PlayVideoCommand()
+        thirdCommand.directParameter = "third-video-id" as NSString
+
+        _ = thirdCommand.performDefaultImplementation()
+        let thirdPlayLoaded = await self.waitUntil {
+            playerService.pendingPlayVideoId == "third-video-id" &&
+                playerService.currentTrack?.videoId == "third-video-id" &&
+                playerService.queue.count == 1 &&
+                playerService.queue.first?.videoId == "third-video-id" &&
+                playerService.showMiniPlayer == false &&
+                mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id", "third-video-id"]
+        }
+
+        #expect(thirdPlayLoaded)
+        #expect(playerService.pendingPlayVideoId == "third-video-id")
+        #expect(playerService.currentTrack?.videoId == "third-video-id")
+        #expect(playerService.queue.count == 1)
+        #expect(playerService.queue.first?.videoId == "third-video-id")
+        #expect(playerService.showMiniPlayer == false)
+        #expect(mockClient.getRadioQueueCalled == true)
+        #expect(mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id", "third-video-id"])
+
+        // Cleanup
+        PlayerService.shared = nil
+    }
+
     // MARK: - PauseCommand Tests
 
     @Test("Pause sets error when PlayerService is nil")
@@ -351,9 +448,9 @@ struct ScriptCommandsTests {
     }
 
     @Test("GetPlayQueue returns valid JSON with tracks in queue")
-    func getPlayQueueReturnsTracksInQueue() {
+    func getPlayQueueReturnsTracksInQueue() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(
                 id: "song-1",
                 title: "Song 1",
@@ -372,8 +469,7 @@ struct ScriptCommandsTests {
                 thumbnailURL: nil,
                 videoId: "vid-2"
             ),
-        ]
-        playerService.currentIndex = 1
+        ], startingAt: 1)
         PlayerService.shared = playerService
 
         let command = GetPlayQueueCommand()
@@ -384,7 +480,7 @@ struct ScriptCommandsTests {
         if let jsonData = result?.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
         {
-            #expect(json["currentIndex"] as? Int == 1)
+            #expect(json["currentIndex"] as? Int == 2)
             guard let tracks = json["tracks"] as? [[String: Any]] else {
                 Issue.record("Missing tracks array")
                 return
@@ -400,15 +496,35 @@ struct ScriptCommandsTests {
 
             #expect(tracks[1]["name"] as? String == "Song 2")
             #expect(tracks[1]["artist"] as? String == "Artist 2")
-            #expect(tracks[1]["album"] as? String == "")
+            #expect((tracks[1]["album"] as? String)?.isEmpty == true)
             #expect(tracks[1]["duration"] as? Double == 180)
             #expect(tracks[1]["videoId"] as? String == "vid-2")
-            #expect(tracks[1]["artworkURL"] as? String == "")
+            #expect((tracks[1]["artworkURL"] as? String)?.isEmpty == true)
         } else {
             Issue.record("Failed to parse JSON response")
         }
 
         PlayerService.shared = nil
+    }
+
+    @Test("GetPlayQueue reports no active queue row for detached playback")
+    func getPlayQueueReportsDetachedPlayback() async {
+        let playerService = PlayerService()
+        await playerService.playQueue([
+            TestFixtures.makeSong(id: "queued-a"),
+            TestFixtures.makeSong(id: "queued-b"),
+        ], startingAt: 1)
+        await playerService.play(song: TestFixtures.makeSong(id: "detached"))
+        PlayerService.shared = playerService
+        defer { PlayerService.shared = nil }
+
+        let result = GetPlayQueueCommand().performDefaultImplementation() as? String
+        let json = result?.data(using: .utf8).flatMap {
+            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+        }
+
+        #expect(json?["currentIndex"] as? Int == 0)
+        #expect((json?["tracks"] as? [[String: Any]])?.count == 2)
     }
 
     // MARK: - PlayTrackAtIndexCommand Tests
@@ -441,11 +557,11 @@ struct ScriptCommandsTests {
     }
 
     @Test("PlayTrackAtIndex sets error for out of bounds index")
-    func playTrackAtIndexSetsErrorForOutOfBounds() {
+    func playTrackAtIndexSetsErrorForOutOfBounds() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
-        ]
+        ], startingAt: 0)
         PlayerService.shared = playerService
 
         let invalidIndices = [0, -1, 2, 5]
@@ -462,12 +578,12 @@ struct ScriptCommandsTests {
     }
 
     @Test("PlayTrackAtIndex executes successfully when within bounds")
-    func playTrackAtIndexSucceedsWithinBounds() {
+    func playTrackAtIndexSucceedsWithinBounds() async {
         let playerService = PlayerService()
-        playerService.queue = [
+        await playerService.playQueue([
             Song(id: "s1", title: "Song 1", artists: [], videoId: "v1"),
             Song(id: "s2", title: "Song 2", artists: [], videoId: "v2"),
-        ]
+        ], startingAt: 0)
         PlayerService.shared = playerService
 
         let command = PlayTrackAtIndexCommand()
@@ -479,5 +595,3 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 }
-
-
