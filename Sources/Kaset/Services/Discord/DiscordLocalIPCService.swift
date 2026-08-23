@@ -124,7 +124,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         }
     }
 
-    private func handleConnectionFailure(reason: String) async {
+    private func handleConnectionFailure(reason _: String) async {
         self.closeConnection()
 
         if self.retryCount < Self.maxRetries {
@@ -192,7 +192,9 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                     var totalRead = 0
                     while totalRead < Int(length) {
                         let n = read(fd, &body[totalRead], Int(length) - totalRead)
-                        if n <= 0 { break }
+                        if n <= 0 {
+                            break
+                        }
                         totalRead += n
                     }
                 }
@@ -226,22 +228,38 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
             var activity: [String: Any] = [
                 "type": payload.type,
             ]
-            if let details = payload.details { activity["details"] = details }
-            if let state = payload.state { activity["state"] = state }
+            if let details = payload.details {
+                activity["details"] = details
+            }
+            if let state = payload.state {
+                activity["state"] = state
+            }
 
             if let timestamps = payload.timestamps {
                 var ts: [String: Any] = [:]
-                if let start = timestamps.start { ts["start"] = start }
-                if let end = timestamps.end { ts["end"] = end }
+                if let start = timestamps.start {
+                    ts["start"] = start
+                }
+                if let end = timestamps.end {
+                    ts["end"] = end
+                }
                 activity["timestamps"] = ts
             }
 
             if let assets = payload.assets {
                 var ast: [String: Any] = [:]
-                if let largeImage = assets.large_image { ast["large_image"] = largeImage }
-                if let largeText = assets.large_text { ast["large_text"] = largeText }
-                if let smallImage = assets.small_image { ast["small_image"] = smallImage }
-                if let smallText = assets.small_text { ast["small_text"] = smallText }
+                if let largeImage = assets.large_image {
+                    ast["large_image"] = largeImage
+                }
+                if let largeText = assets.large_text {
+                    ast["large_text"] = largeText
+                }
+                if let smallImage = assets.small_image {
+                    ast["small_image"] = smallImage
+                }
+                if let smallText = assets.small_text {
+                    ast["small_text"] = smallText
+                }
                 activity["assets"] = ast
             }
 
@@ -289,8 +307,13 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
         let len = confstr(_CS_DARWIN_USER_TEMP_DIR, &buffer, buffer.count)
         if len > 0 {
-            let darwinTmp = String(decoding: buffer.prefix(while: { $0 != 0 }).map { UInt8(bitPattern: $0) }, as: UTF8.self)
-            searchDirs.append(darwinTmp)
+            let darwinTmp = buffer.withUnsafeBufferPointer { ptr -> String in
+                guard let base = ptr.baseAddress else { return "" }
+                return String(cString: base)
+            }
+            if !darwinTmp.isEmpty {
+                searchDirs.append(darwinTmp)
+            }
         }
 
         for dir in searchDirs {

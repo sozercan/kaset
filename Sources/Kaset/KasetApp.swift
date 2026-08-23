@@ -3,33 +3,12 @@ import SwiftUI
 
 extension EnvironmentValues {
     @Entry var searchFocusTrigger: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
     @Entry var sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:])
-}
-
-extension EnvironmentValues {
     @Entry var navigationSelection: Binding<NavigationItem?> = .constant(nil)
-}
-
-extension EnvironmentValues {
     @Entry var showCommandBar: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
     @Entry var showWhatsNew: Binding<Bool> = .constant(false)
-}
-
-extension EnvironmentValues {
     @Entry var usesLegacyMacOS15UI = false
-}
-
-extension EnvironmentValues {
     @Entry var libraryViewModel: LibraryViewModel?
-}
-
-extension EnvironmentValues {
     @Entry var onPlaylistDeleted: (() -> Void)?
 }
 
@@ -92,14 +71,17 @@ struct KasetApp: App {
 
     @State private var didCompleteStartupPlaybackCleanup = false
 
-    init() {
-        Bundle.enableAppLocalizationOverride()
+    private struct AppClients {
+        let account: AccountService
+        let musicClient: any YTMusicClientProtocol
+        let youtubeClient: any YouTubeClientProtocol
+    }
 
-        let auth = AuthService()
-        let webkit = WebKitManager.shared
-        let player = PlayerService()
-
-        // Use mock client in UI test mode, real client otherwise
+    @MainActor
+    private static func makeClientsAndAccount(
+        auth: AuthService,
+        webkit: WebKitManager
+    ) -> AppClients {
         let realClient = YTMusicClient(authService: auth, webKitManager: webkit)
         let client: YTMusicClientProtocol = if UITestConfig.isUITestMode {
             MockUITestYTMusicClient()
@@ -107,15 +89,6 @@ struct KasetApp: App {
             realClient
         }
 
-        // Wire up dependencies
-        player.setYTMusicClient(client)
-        player.setAuthService(auth)
-        SongLikeStatusManager.shared.setClient(client)
-
-        // Set shared instance for AppleScript access
-        PlayerService.shared = player
-
-        // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth, webKitManager: webkit)
         let beginAccountBoundary: @MainActor @Sendable () -> Void = {
             LibraryMutationActions.beginAccountBoundary()
@@ -137,7 +110,6 @@ struct KasetApp: App {
             drain: drainAccountBoundary
         )
 
-        // Wire up brand account provider so API requests use the correct account
         realClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
         }
@@ -145,7 +117,6 @@ struct KasetApp: App {
             account?.currentAccountScopeID
         }
 
-        // YouTube (video) client — same login, www.youtube.com origin
         let realYouTubeClient = YouTubeClient(authService: auth, webKitManager: webkit, askFeatureEnabled: true)
         realYouTubeClient.brandIdProvider = { [weak account] in
             account?.currentBrandId
@@ -169,6 +140,29 @@ struct KasetApp: App {
         } else {
             realYouTubeClient
         }
+
+        return AppClients(account: account, musicClient: client, youtubeClient: youtubeClient)
+    }
+
+    init() {
+        Bundle.enableAppLocalizationOverride()
+
+        let auth = AuthService()
+        let webkit = WebKitManager.shared
+        let player = PlayerService()
+
+        let clients = Self.makeClientsAndAccount(auth: auth, webkit: webkit)
+        let account = clients.account
+        let client = clients.musicClient
+        let youtubeClient = clients.youtubeClient
+
+        // Wire up dependencies
+        player.setYTMusicClient(client)
+        player.setAuthService(auth)
+        SongLikeStatusManager.shared.setClient(client)
+
+        // Set shared instance for AppleScript access
+        PlayerService.shared = player
 
         // YouTube video playback service + the one-audio-source arbiter
         let youtubePlayer = YouTubePlayerService(webKitManager: webkit)

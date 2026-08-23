@@ -1,6 +1,6 @@
 import Foundation
-@testable import Kaset
 import Testing
+@testable import Kaset
 
 // MARK: - DiscordPresenceTests
 
@@ -9,7 +9,7 @@ import Testing
 struct DiscordPresenceTests {
     @Test("DiscordPresencePayload encodes and decodes JSON correctly")
     func payloadSerialization() throws {
-        let timestamps = DiscordPresencePayload.Timestamps(start: 1700000000000, end: 1700000200000)
+        let timestamps = DiscordPresencePayload.Timestamps(start: 1_700_000_000_000, end: 1_700_000_200_000)
         let assets = DiscordPresencePayload.Assets(
             large_image: "https://example.com/art.jpg",
             large_text: "Album Name",
@@ -31,7 +31,7 @@ struct DiscordPresenceTests {
 
         let encoder = JSONEncoder()
         let data = try encoder.encode(payload)
-        #expect(data.count > 0)
+        #expect(!data.isEmpty)
 
         let decoder = JSONDecoder()
         let decoded = try decoder.decode(DiscordPresencePayload.self, from: data)
@@ -39,7 +39,7 @@ struct DiscordPresenceTests {
         #expect(decoded.type == 2)
         #expect(decoded.details == "Song Title")
         #expect(decoded.state == "Artist Name • Album Name")
-        #expect(decoded.timestamps?.start == 1700000000000)
+        #expect(decoded.timestamps?.start == 1_700_000_000_000)
         #expect(decoded.assets?.large_image == "https://example.com/art.jpg")
         #expect(decoded.buttons?.first?.label == "Listen on YouTube Music")
     }
