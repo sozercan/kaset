@@ -16,6 +16,35 @@ Abrupt stops and starts during audio playback can feel jarring. This branch adds
 
 ---
 
+## Audio Comparison: Fade vs. No Fade
+
+Listen to the difference in playback transitions:
+
+<table>
+  <tr>
+    <th width="50%">With In-Engine Audio Fade</th>
+    <th width="50%">Without Audio Fade (Abrupt Cut)</th>
+  </tr>
+  <tr>
+    <td valign="top">
+      <audio controls src="docs/audio/fade.wav"></audio>
+      <br><br>
+      <a href="docs/audio/fade.wav">Listen / Download <code>fade.wav</code></a>
+    </td>
+    <td valign="top">
+      <audio controls src="docs/audio/no-fade.wav"></audio>
+      <br><br>
+      <a href="docs/audio/no-fade.wav">Listen / Download <code>no-fade.wav</code></a>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">Volume smoothly eases down when pausing and fades back in naturally on play.</td>
+    <td valign="top">Audio immediately cuts out with an abrupt stop.</td>
+  </tr>
+</table>
+
+---
+
 ## Fading Curves & Mathematics
 
 Human hearing perceives volume changes on a curve rather than in a straight line. If you change volume linearly, the music feels like it drops too quickly at the start and hangs around too long at the end. To make transitions feel natural, Kaset uses smooth curve formulas for fading.
