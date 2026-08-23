@@ -130,6 +130,7 @@
 "Disconnected" = "Отключено";
 "Discord" = "Discord";
 "Discord Integration" = "Интеграция с Discord";
+"Discord not detected. Please make sure Discord is running." = "Discord не обнаружен. Убедитесь, что Discord запущен.";
 "Discover" = "Обзор";
 "Dislike" = "Не нравится";
 "Dislike comment" = "Не нравится комментарий";

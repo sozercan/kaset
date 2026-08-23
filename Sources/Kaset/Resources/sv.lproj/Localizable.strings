@@ -130,6 +130,7 @@
 "Disconnected" = "Frånkopplad";
 "Discord" = "Discord";
 "Discord Integration" = "Discord-integrering";
+"Discord not detected. Please make sure Discord is running." = "Discord upptäcktes inte. Kontrollera att Discord körs.";
 "Discover" = "Upptäck";
 "Dislike" = "Ogilla";
 "Dislike comment" = "Ogilla kommentar";

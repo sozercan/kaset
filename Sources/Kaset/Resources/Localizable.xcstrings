@@ -58466,6 +58466,106 @@
           }
         }
       }
+    },
+    "Discord not detected. Please make sure Discord is running.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "لم يتم العثور على ديسكورد. يرجى التأكد من تشغيل ديسكورد."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord wurde nicht erkannt. Bitte stelle sicher, dass Discord läuft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No se detectó Discord. Asegúrate de que Discord esté en ejecución."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord non détecté. Veuillez vous assurer que Discord est lancé."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord tidak terdeteksi. Harap pastikan Discord berjalan."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord non rilevato. Assicurati che Discord sia in esecuzione."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord가 감지되지 않았습니다. Discord가 실행 중인지 확인하세요."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord niet gedetecteerd. Zorg ervoor dat Discord actief is."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nie wykryto Discorda. Upewnij się, że Discord jest uruchomiony."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord não detectado. Certifique-se de que o Discord esteja em execução."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord не обнаружен. Убедитесь, что Discord запущен."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord upptäcktes inte. Kontrollera att Discord körs."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord algılanamadı. Lütfen Discord'un çalıştığından emin olun."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord не виявлено. Переконайтеся, що Discord запущено."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未检测到 Discord。请确保 Discord 正在运行。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未偵測到 Discord。請確保 Discord 正在執行。"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

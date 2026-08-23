@@ -130,6 +130,7 @@
 "Disconnected" = "Déconnecté";
 "Discord" = "Discord";
 "Discord Integration" = "Intégration Discord";
+"Discord not detected. Please make sure Discord is running." = "Discord non détecté. Veuillez vous assurer que Discord est lancé.";
 "Discover" = "Découvrir";
 "Dislike" = "Je n'aime pas";
 "Dislike comment" = "Ne pas aimer le commentaire";

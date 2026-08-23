@@ -54,14 +54,7 @@ struct DiscordSettingsView: View {
 
                 Section {
                     Toggle(String(localized: "Show YouTube Music Listening Status"), isOn: self.$settings.discordShowMusic)
-                        .onChange(of: self.settings.discordShowMusic) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show YouTube Video Watching Status"), isOn: self.$settings.discordShowVideo)
-                        .onChange(of: self.settings.discordShowVideo) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
                 } header: {
                     Text(String(localized: "Activity Sources"))
                 }
@@ -70,34 +63,11 @@ struct DiscordSettingsView: View {
 
                 Section {
                     Toggle(String(localized: "Show Song / Video Title"), isOn: self.$settings.discordShowTitle)
-                        .onChange(of: self.settings.discordShowTitle) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show Artist / Channel Name"), isOn: self.$settings.discordShowArtist)
-                        .onChange(of: self.settings.discordShowArtist) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show Album Name"), isOn: self.$settings.discordShowAlbum)
-                        .onChange(of: self.settings.discordShowAlbum) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show Elapsed / Duration Timestamps"), isOn: self.$settings.discordShowTimestamps)
-                        .onChange(of: self.settings.discordShowTimestamps) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show Artwork Image"), isOn: self.$settings.discordShowArtwork)
-                        .onChange(of: self.settings.discordShowArtwork) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
-
                     Toggle(String(localized: "Show 'Listen on YouTube Music' Button"), isOn: self.$settings.discordShowListenButton)
-                        .onChange(of: self.settings.discordShowListenButton) { _, _ in
-                            Task { await self.coordinator.syncPresence() }
-                        }
                 } header: {
                     Text(String(localized: "Presence Details & Privacy"))
                 }
@@ -119,7 +89,7 @@ struct DiscordSettingsView: View {
         case .connected:
             String(localized: "Connected & Active")
         case let .error(message):
-            message
+            String(localized: String.LocalizationValue(message))
         }
     }
 

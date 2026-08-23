@@ -130,6 +130,7 @@
 "Disconnected" = "Niet verbonden";
 "Discord" = "Discord";
 "Discord Integration" = "Discord-integratie";
+"Discord not detected. Please make sure Discord is running." = "Discord niet gedetecteerd. Zorg ervoor dat Discord actief is.";
 "Discover" = "Ontdekken";
 "Dislike" = "Niet leuk vinden";
 "Dislike comment" = "Reactie niet leuk vinden";

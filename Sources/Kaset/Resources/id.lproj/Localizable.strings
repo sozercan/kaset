@@ -130,6 +130,7 @@
 "Disconnected" = "Terputus";
 "Discord" = "Discord";
 "Discord Integration" = "Integrasi Discord";
+"Discord not detected. Please make sure Discord is running." = "Discord tidak terdeteksi. Harap pastikan Discord berjalan.";
 "Discover" = "Jelajahi";
 "Dislike" = "Tidak suka";
 "Dislike comment" = "Tidak suka komentar";

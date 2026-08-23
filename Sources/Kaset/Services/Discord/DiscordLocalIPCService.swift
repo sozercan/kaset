@@ -253,23 +253,41 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                 do {
                     let (opcode, data) = try DiscordLocalIPCService.readPacket(fd: fd)
                     if opcode == 2 { // Close
-                        await self?.handleDisconnect()
+                        await self?.handleDisconnect(for: fd)
                         break
                     } else if opcode == 3 { // Ping -> respond with Pong (opcode 4)
-                        try? DiscordLocalIPCService.writePacket(fd: fd, opcode: 4, data: data)
+                        await self?.sendPong(fd: fd, data: data)
+                    } else if opcode == 1 { // Frame responses
+                        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                           let evt = json["evt"] as? String, evt == "ERROR"
+                        {
+                            let errorData = json["data"] as? [String: Any]
+                            let errorMsg = errorData?["message"] as? String ?? "Unknown Discord error"
+                            await self?.handleDiscordError(errorMsg)
+                        }
                     }
                 } catch {
-                    await self?.handleDisconnect()
+                    await self?.handleDisconnect(for: fd)
                     break
                 }
             }
         }
     }
 
-    private func handleDisconnect() async {
+    private func sendPong(fd: Int32, data: Data) {
+        guard self.socketFD == fd, self.isConnected else { return }
+        try? Self.writePacket(fd: fd, opcode: 4, data: data)
+    }
+
+    private func handleDiscordError(_ message: String) {
+        self.logger.error("Discord IPC error frame: \(message, privacy: .public)")
+    }
+
+    private func handleDisconnect(for fd: Int32) async {
+        guard self.socketFD == fd else { return }
         self.closeConnection()
         self.state = .disconnected
-        if self.pendingPayload != nil {
+        if !self.isExplicitlyDisconnected, self.pendingPayload != nil {
             await self.attemptConnection()
         }
     }
@@ -421,6 +439,13 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                 }
 
                 if connectResult == 0 {
+                    var peerUID: uid_t = 0
+                    var peerGID: gid_t = 0
+                    if getpeereid(fd, &peerUID, &peerGID) != 0 || peerUID != getuid() {
+                        self.logger.warning("Rejected Discord socket at \(path): peer UID does not match current user UID")
+                        close(fd)
+                        continue
+                    }
                     self.logger.info("Connected to Discord socket at \(path)")
                     return (fd, path)
                 } else {

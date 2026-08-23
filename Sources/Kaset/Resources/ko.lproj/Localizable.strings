@@ -130,6 +130,7 @@
 "Disconnected" = "연결 끊김";
 "Discord" = "Discord";
 "Discord Integration" = "Discord 연동";
+"Discord not detected. Please make sure Discord is running." = "Discord가 감지되지 않았습니다. Discord가 실행 중인지 확인하세요.";
 "Discover" = "둘러보기";
 "Dislike" = "싫어요";
 "Dislike comment" = "댓글 싫어요";

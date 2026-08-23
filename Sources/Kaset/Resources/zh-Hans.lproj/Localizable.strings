@@ -130,6 +130,7 @@
 "Disconnected" = "未连接";
 "Discord" = "Discord";
 "Discord Integration" = "Discord 集成";
+"Discord not detected. Please make sure Discord is running." = "未检测到 Discord。请确保 Discord 正在运行。";
 "Discover" = "发现";
 "Dislike" = "不喜欢";
 "Dislike comment" = "不喜欢此评论";

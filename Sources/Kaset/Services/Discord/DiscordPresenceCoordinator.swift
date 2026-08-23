@@ -19,6 +19,9 @@ final class DiscordPresenceCoordinator {
 
     private var updateTask: Task<Void, Never>?
 
+    private var lastProgress: TimeInterval = 0
+    private var lastSyncTime: Date = .distantPast
+
     init(
         playerService: PlayerService,
         youtubePlayerService: YouTubePlayerService,
@@ -58,18 +61,37 @@ final class DiscordPresenceCoordinator {
             _ = self.playerService.currentTrack?.videoId
             _ = self.playerService.currentTrack?.title
             _ = self.playerService.isPlaying
+            _ = self.playerService.progress
             _ = self.playerService.duration
 
             _ = self.youtubePlayerService.currentVideo?.videoId
             _ = self.youtubePlayerService.currentVideo?.title
             _ = self.youtubePlayerService.isPlaying
+            _ = self.youtubePlayerService.progress
             _ = self.youtubePlayerService.duration
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.observePlayback()
-                await self.syncPresence()
+                await self.handlePlaybackChange()
             }
+        }
+    }
+
+    private func handlePlaybackChange() async {
+        let currentPos = self.playerService.isPlaying
+            ? self.playerService.progress
+            : (self.youtubePlayerService.isPlaying ? self.youtubePlayerService.progress : 0)
+        let now = Date()
+        let elapsedRealTime = now.timeIntervalSince(self.lastSyncTime)
+        let expectedPos = self.lastProgress + elapsedRealTime
+        let delta = abs(currentPos - expectedPos)
+
+        // Only resync if there was a discrete change (seek > 2.5s, track/state change, or coarse 60s refresh)
+        if delta > 2.5 || elapsedRealTime > 60 || !self.playerService.isPlaying && !self.youtubePlayerService.isPlaying {
+            self.lastProgress = currentPos
+            self.lastSyncTime = now
+            await self.syncPresence()
         }
     }
 

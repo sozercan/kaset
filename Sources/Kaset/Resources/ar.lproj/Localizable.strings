@@ -130,6 +130,7 @@
 "Disconnected" = "غير متصل";
 "Discord" = "ديسكورد";
 "Discord Integration" = "تكامل ديسكورد";
+"Discord not detected. Please make sure Discord is running." = "لم يتم العثور على ديسكورد. يرجى التأكد من تشغيل ديسكورد.";
 "Discover" = "اكتشاف";
 "Dislike" = "لم يعجبني";
 "Dislike comment" = "عدم الإعجاب بالتعليق";

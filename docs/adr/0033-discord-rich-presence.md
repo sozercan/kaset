@@ -46,7 +46,7 @@ When music or video plays, `DiscordPresenceCoordinator` constructs an activity p
 ### 4. Exponential Backoff & Connection Lifecycle
 
 - **Automatic Reconnect**: When connection is lost or Discord starts after Kaset, the coordinator retries with exponential backoff (1s, 2s, 4s, 8s, 16s) up to 5 attempts.
-- **Manual Fallback**: After 5 failed attempts, state transitions to `.disconnected(error)` or `.idle` and reveals a manual "Connect" button in Settings.
+- **Manual Fallback**: After 5 failed attempts, state transitions to `.error(String)` and displays a manual "Connect" button in Settings. When explicitly disconnected by the user, state transitions to `.disconnected`.
 - **Reset**: Any track play or manual settings toggle resets the attempt counter and re-triggers connection.
 
 ### 5. Settings & UI Integration

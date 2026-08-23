@@ -130,6 +130,7 @@
 "Disconnected" = "Bağlantı Kesildi";
 "Discord" = "Discord";
 "Discord Integration" = "Discord Entegrasyonu";
+"Discord not detected. Please make sure Discord is running." = "Discord algılanamadı. Lütfen Discord'un çalıştığından emin olun.";
 "Discover" = "Keşif";
 "Dislike" = "Olumsuz Oy";
 "Dislike comment" = "Yorumu beğenme";
