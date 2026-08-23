@@ -148,6 +148,17 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .padding(.leading, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            guard self.playerService.currentTrack != nil else {
+                return
+            }
+
+            HapticService.navigation()
+            withAnimation(AppAnimation.standard) {
+                self.playerService.showNowPlayingLyrics = true
+            }
+        }
         .contextMenu {
             if let track = self.playerService.currentTrack {
                 self.currentSongContextMenu(for: track)
