@@ -63,6 +63,26 @@ struct DiscordPresenceTests {
         #expect(!error.isConnecting)
     }
 
+    @Test("Discord IPC wire packet framing and parsing")
+    func wirePacketFraming() throws {
+        var sockets: [Int32] = [0, 0]
+        guard socketpair(AF_UNIX, SOCK_STREAM, 0, &sockets) == 0 else {
+            Issue.record("Failed to create socketpair")
+            return
+        }
+        defer {
+            close(sockets[0])
+            close(sockets[1])
+        }
+
+        let testData = Data("{\"cmd\":\"DISPATCH\",\"evt\":\"READY\"}".utf8)
+        try DiscordLocalIPCService.writePacket(fd: sockets[0], opcode: 1, data: testData)
+
+        let (opcode, receivedData) = try DiscordLocalIPCService.readPacket(fd: sockets[1])
+        #expect(opcode == 1)
+        #expect(receivedData == testData)
+    }
+
     private struct SettingsSnapshot {
         let presenceEnabled: Bool
         let showMusic: Bool

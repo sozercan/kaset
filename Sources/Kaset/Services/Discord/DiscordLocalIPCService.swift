@@ -122,6 +122,26 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         ]
         let jsonData = try JSONSerialization.data(withJSONObject: handshakeJSON)
         try Self.writePacket(fd: fd, opcode: 0, data: jsonData)
+
+        // Read handshake response frame (Opcode 1 / DISPATCH READY)
+        let (opcode, data) = try Self.readPacket(fd: fd)
+        guard opcode == 1 else {
+            throw NSError(
+                domain: "DiscordIPC",
+                code: Int(opcode),
+                userInfo: [NSLocalizedDescriptionKey: "Unexpected handshake response opcode \(opcode)"]
+            )
+        }
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let evt = json["evt"] as? String,
+              evt == "READY"
+        else {
+            throw NSError(
+                domain: "DiscordIPC",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid handshake response from Discord"]
+            )
+        }
     }
 
     nonisolated static func writePacket(fd: Int32, opcode: UInt32, data: Data) throws {
@@ -159,73 +179,84 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         }
     }
 
+    nonisolated static func readPacket(fd: Int32) throws -> (opcode: UInt32, data: Data) {
+        var header = [UInt8](repeating: 0, count: 8)
+        var headerRead = 0
+        while headerRead < 8 {
+            let n = read(fd, &header[headerRead], 8 - headerRead)
+            if n < 0 {
+                if errno == EINTR {
+                    continue
+                }
+                throw NSError(
+                    domain: "DiscordIPC",
+                    code: Int(errno),
+                    userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]
+                )
+            }
+            if n == 0 {
+                throw NSError(
+                    domain: "DiscordIPC",
+                    code: Int(ECONNRESET),
+                    userInfo: [NSLocalizedDescriptionKey: "Socket closed before header read"]
+                )
+            }
+            headerRead += n
+        }
+
+        let opcode = header.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self) }
+        let length = header.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt32.self) }
+
+        guard length <= self.maxFrameSize else {
+            throw NSError(
+                domain: "DiscordIPC",
+                code: Int(EMSGSIZE),
+                userInfo: [NSLocalizedDescriptionKey: "Frame length \(length) exceeds maximum allowed size"]
+            )
+        }
+
+        var body = [UInt8](repeating: 0, count: Int(length))
+        var totalRead = 0
+        while totalRead < Int(length) {
+            let n = read(fd, &body[totalRead], Int(length) - totalRead)
+            if n < 0 {
+                if errno == EINTR {
+                    continue
+                }
+                throw NSError(
+                    domain: "DiscordIPC",
+                    code: Int(errno),
+                    userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]
+                )
+            }
+            if n == 0 {
+                throw NSError(
+                    domain: "DiscordIPC",
+                    code: Int(ECONNRESET),
+                    userInfo: [NSLocalizedDescriptionKey: "Socket closed before frame body read complete"]
+                )
+            }
+            totalRead += n
+        }
+
+        return (opcode, Data(body))
+    }
+
     private func startReadLoop(fd: Int32) {
         self.readTask?.cancel()
         self.readTask = Task.detached { [weak self] in
             while !Task.isCancelled {
-                var header = [UInt8](repeating: 0, count: 8)
-                var headerRead = 0
-                var readError = false
-                while headerRead < 8 {
-                    let n = read(fd, &header[headerRead], 8 - headerRead)
-                    if n < 0 {
-                        if errno == EINTR {
-                            continue
-                        }
-                        readError = true
-                        break
-                    }
-                    if n == 0 {
-                        readError = true
-                        break
-                    }
-                    headerRead += n
-                }
-
-                guard !readError, headerRead == 8 else {
-                    await self?.handleDisconnect()
-                    break
-                }
-
-                let opcode = header.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self) }
-                let length = header.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt32.self) }
-
-                // Bound max frame length to prevent memory exhaustion
-                guard length <= DiscordLocalIPCService.maxFrameSize else {
-                    await self?.handleDisconnect()
-                    break
-                }
-
-                var body = [UInt8](repeating: 0, count: Int(length))
-                if length > 0 {
-                    var totalRead = 0
-                    while totalRead < Int(length) {
-                        let n = read(fd, &body[totalRead], Int(length) - totalRead)
-                        if n < 0 {
-                            if errno == EINTR {
-                                continue
-                            }
-                            readError = true
-                            break
-                        }
-                        if n == 0 {
-                            readError = true
-                            break
-                        }
-                        totalRead += n
-                    }
-                    if readError {
+                do {
+                    let (opcode, data) = try DiscordLocalIPCService.readPacket(fd: fd)
+                    if opcode == 2 { // Close
                         await self?.handleDisconnect()
                         break
+                    } else if opcode == 3 { // Ping -> respond with Pong (opcode 4)
+                        try? DiscordLocalIPCService.writePacket(fd: fd, opcode: 4, data: data)
                     }
-                }
-
-                // Opcode handling
-                if opcode == 2 { // Close
+                } catch {
                     await self?.handleDisconnect()
                     break
-                } else if opcode == 3 { // Ping -> respond with Pong (opcode 4)
-                    try? DiscordLocalIPCService.writePacket(fd: fd, opcode: 4, data: Data(body))
                 }
             }
         }
