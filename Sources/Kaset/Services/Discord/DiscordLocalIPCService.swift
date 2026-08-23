@@ -18,6 +18,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     private var socketFD: Int32?
     private var isConnected = false
     private var retryCount = 0
+    private var pendingPayload: DiscordPresencePayload?
 
     // swiftformat:disable modifierOrder
     @ObservationIgnored private var retryTask: Task<Void, Never>?
@@ -65,43 +66,9 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         self.state = .connecting(attempt: self.retryCount)
         self.logger.info("Attempting local Discord IPC connection (attempt \(self.retryCount)/\(Self.maxRetries))")
 
-        guard let socketPath = self.discoverDiscordSocket() else {
-            self.logger.warning("No Discord IPC socket found")
+        guard let (fd, socketPath) = self.discoverAndConnectSocket() else {
+            self.logger.warning("No working Discord IPC socket found")
             await self.handleConnectionFailure(reason: "Discord desktop app not running")
-            return
-        }
-
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else {
-            self.logger.error("Failed to create Unix socket: \(errno)")
-            await self.handleConnectionFailure(reason: "Could not create socket")
-            return
-        }
-
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let pathBytes = socketPath.utf8CString
-        let maxLen = MemoryLayout.size(ofValue: addr.sun_path)
-        withUnsafeMutablePointer(to: &addr.sun_path.0) { ptr in
-            for (i, byte) in pathBytes.enumerated() where i < maxLen {
-                ptr[i] = byte
-            }
-        }
-
-        let connectResult = withUnsafePointer(to: &addr) { ptr in
-            ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
-                Darwin.connect(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
-            }
-        }
-
-        guard connectResult == 0 else {
-            let errorMsg = String(cString: strerror(errno))
-            let logMsg = "Failed to connect to Discord socket \(socketPath) (errno \(errno): \(errorMsg))"
-            self.logger.error("\(logMsg, privacy: .public)")
-            let tmpPath = (NSTemporaryDirectory() as NSString).appendingPathComponent("kaset-discord.log")
-            try? logMsg.write(toFile: tmpPath, atomically: true, encoding: .utf8)
-            close(fd)
-            await self.handleConnectionFailure(reason: errorMsg)
             return
         }
 
@@ -112,11 +79,12 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
             self.isConnected = true
             self.state = .connected
             self.retryCount = 0
-            let connectedLog = "Connected to Discord IPC successfully on socket \(socketPath)"
-            self.logger.info("\(connectedLog, privacy: .public)")
-            let tmpPath = (NSTemporaryDirectory() as NSString).appendingPathComponent("kaset-discord.log")
-            try? connectedLog.write(toFile: tmpPath, atomically: true, encoding: .utf8)
+            self.logger.info("Connected to Discord IPC successfully on socket \(socketPath)")
             self.startReadLoop(fd: fd)
+
+            if let pending = self.pendingPayload {
+                try await self.updatePresence(pending)
+            }
         } catch {
             self.logger.error("Discord Handshake failed: \(error.localizedDescription)")
             self.closeConnection()
@@ -162,16 +130,30 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         withUnsafeBytes(of: &length) { header.append(contentsOf: $0) }
 
         let packet = header + data
-        let written = packet.withUnsafeBytes { ptr in
-            write(fd, ptr.baseAddress, packet.count)
-        }
-
-        if written < 0 {
-            throw NSError(
-                domain: "DiscordIPC",
-                code: Int(errno),
-                userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]
-            )
+        try packet.withUnsafeBytes { ptr in
+            guard let base = ptr.baseAddress else { return }
+            var totalWritten = 0
+            while totalWritten < packet.count {
+                let written = write(fd, base.advanced(by: totalWritten), packet.count - totalWritten)
+                if written < 0 {
+                    if errno == EINTR {
+                        continue
+                    }
+                    throw NSError(
+                        domain: "DiscordIPC",
+                        code: Int(errno),
+                        userInfo: [NSLocalizedDescriptionKey: String(cString: strerror(errno))]
+                    )
+                }
+                if written == 0 {
+                    throw NSError(
+                        domain: "DiscordIPC",
+                        code: Int(EPIPE),
+                        userInfo: [NSLocalizedDescriptionKey: "Socket closed unexpectedly"]
+                    )
+                }
+                totalWritten += written
+            }
         }
     }
 
@@ -180,8 +162,25 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         self.readTask = Task.detached { [weak self] in
             while !Task.isCancelled {
                 var header = [UInt8](repeating: 0, count: 8)
-                let headerBytes = read(fd, &header, 8)
-                guard headerBytes == 8 else {
+                var headerRead = 0
+                var readError = false
+                while headerRead < 8 {
+                    let n = read(fd, &header[headerRead], 8 - headerRead)
+                    if n < 0 {
+                        if errno == EINTR {
+                            continue
+                        }
+                        readError = true
+                        break
+                    }
+                    if n == 0 {
+                        readError = true
+                        break
+                    }
+                    headerRead += n
+                }
+
+                guard !readError, headerRead == 8 else {
                     await self?.handleDisconnect()
                     break
                 }
@@ -192,26 +191,43 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                     var totalRead = 0
                     while totalRead < Int(length) {
                         let n = read(fd, &body[totalRead], Int(length) - totalRead)
-                        if n <= 0 {
+                        if n < 0 {
+                            if errno == EINTR {
+                                continue
+                            }
+                            readError = true
+                            break
+                        }
+                        if n == 0 {
+                            readError = true
                             break
                         }
                         totalRead += n
+                    }
+                    if readError {
+                        await self?.handleDisconnect()
+                        break
                     }
                 }
             }
         }
     }
 
-    private func handleDisconnect() {
+    private func handleDisconnect() async {
         self.closeConnection()
         self.state = .disconnected
+        if self.pendingPayload != nil {
+            await self.attemptConnection()
+        }
     }
 
     // MARK: - Presence Updates
 
     func updatePresence(_ payload: DiscordPresencePayload?) async throws {
+        self.pendingPayload = payload
+
         guard let fd = self.socketFD, self.isConnected else {
-            // If disconnected, try to connect if user actively triggers
+            // If disconnected, initiate connect so pending payload will be dispatched
             if case .disconnected = self.state {
                 await self.connect()
             }
@@ -281,15 +297,16 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     }
 
     func clearPresence() async {
+        self.pendingPayload = nil
+        guard self.isConnected, self.socketFD != nil else { return }
         try? await self.updatePresence(nil)
     }
 
-    // MARK: - Socket Discovery
+    // MARK: - Socket Discovery & Connection
 
-    private func discoverDiscordSocket() -> String? {
+    private func discoverAndConnectSocket() -> (fd: Int32, path: String)? {
         let fileManager = FileManager.default
 
-        // Probe candidate base directories: /tmp, /private/tmp, $TMPDIR, Darwin user temp dir
         var searchDirs: [String] = [
             "/tmp",
             "/private/tmp",
@@ -303,7 +320,6 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
             searchDirs.append(xdg)
         }
 
-        // System Darwin user temporary directory
         var buffer = [CChar](repeating: 0, count: Int(PATH_MAX))
         let len = confstr(_CS_DARWIN_USER_TEMP_DIR, &buffer, buffer.count)
         if len > 0 {
@@ -316,12 +332,42 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
             }
         }
 
+        var visitedPaths = Set<String>()
         for dir in searchDirs {
             for i in 0 ..< 10 {
                 let path = (dir as NSString).appendingPathComponent("discord-ipc-\(i)")
-                if fileManager.fileExists(atPath: path) {
-                    self.logger.info("Discovered Discord socket at \(path)")
-                    return path
+                guard !visitedPaths.contains(path), fileManager.fileExists(atPath: path) else {
+                    continue
+                }
+                visitedPaths.insert(path)
+
+                let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+                guard fd >= 0 else { continue }
+
+                var nosigpipe: Int32 = 1
+                setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &nosigpipe, socklen_t(MemoryLayout<Int32>.size))
+
+                var addr = sockaddr_un()
+                addr.sun_family = sa_family_t(AF_UNIX)
+                let pathBytes = path.utf8CString
+                let maxLen = MemoryLayout.size(ofValue: addr.sun_path)
+                withUnsafeMutablePointer(to: &addr.sun_path.0) { ptr in
+                    for (idx, byte) in pathBytes.enumerated() where idx < maxLen {
+                        ptr[idx] = byte
+                    }
+                }
+
+                let connectResult = withUnsafePointer(to: &addr) { ptr in
+                    ptr.withMemoryRebound(to: sockaddr.self, capacity: 1) { sockPtr in
+                        Darwin.connect(fd, sockPtr, socklen_t(MemoryLayout<sockaddr_un>.size))
+                    }
+                }
+
+                if connectResult == 0 {
+                    self.logger.info("Connected to Discord socket at \(path)")
+                    return (fd, path)
+                } else {
+                    close(fd)
                 }
             }
         }

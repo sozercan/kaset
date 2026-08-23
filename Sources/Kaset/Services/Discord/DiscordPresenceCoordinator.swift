@@ -64,6 +64,8 @@ final class DiscordPresenceCoordinator {
             _ = self.youtubePlayerService.currentVideo?.videoId
             _ = self.youtubePlayerService.currentVideo?.title
             _ = self.youtubePlayerService.isPlaying
+            _ = self.youtubePlayerService.progress
+            _ = self.youtubePlayerService.duration
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -147,16 +149,19 @@ final class DiscordPresenceCoordinator {
             stateText = "\(artist) • \(album)"
         } else if let artist {
             stateText = artist
+        } else if let album, !album.isEmpty {
+            stateText = album
         }
 
         var timestamps: DiscordPresencePayload.Timestamps?
         if self.settings.discordShowTimestamps {
-            let start = Int(Date().timeIntervalSince1970 * 1000)
+            let now = Date().timeIntervalSince1970
+            let currentPos = self.playerService.progress
+            let start = Int((now - currentPos) * 1000)
             var end: Int?
             if let duration = track.duration, duration > 0 {
-                let currentPos = self.playerService.progress
                 let remaining = max(0, duration - currentPos)
-                end = Int((Date().timeIntervalSince1970 + remaining) * 1000)
+                end = Int((now + remaining) * 1000)
             }
             timestamps = DiscordPresencePayload.Timestamps(start: start, end: end)
         }
@@ -164,9 +169,10 @@ final class DiscordPresenceCoordinator {
         var assets: DiscordPresencePayload.Assets?
         if self.settings.discordShowArtwork {
             let thumbnailURL = track.thumbnailURL?.absoluteString
+            let tooltip = album ?? title
             assets = DiscordPresencePayload.Assets(
                 large_image: thumbnailURL ?? "kaset_logo",
-                large_text: album ?? track.title,
+                large_text: tooltip,
                 small_image: "kaset_icon",
                 small_text: "Kaset for macOS"
             )
@@ -197,8 +203,16 @@ final class DiscordPresenceCoordinator {
 
         var timestamps: DiscordPresencePayload.Timestamps?
         if self.settings.discordShowTimestamps {
-            let start = Int(Date().timeIntervalSince1970 * 1000)
-            timestamps = DiscordPresencePayload.Timestamps(start: start, end: nil)
+            let now = Date().timeIntervalSince1970
+            let currentPos = self.youtubePlayerService.progress
+            let start = Int((now - currentPos) * 1000)
+            var end: Int?
+            let duration = self.youtubePlayerService.duration
+            if duration > 0 {
+                let remaining = max(0, duration - currentPos)
+                end = Int((now + remaining) * 1000)
+            }
+            timestamps = DiscordPresencePayload.Timestamps(start: start, end: end)
         }
 
         var assets: DiscordPresencePayload.Assets?
@@ -206,7 +220,7 @@ final class DiscordPresenceCoordinator {
             let thumbnailURL = video.thumbnailURL?.absoluteString
             assets = DiscordPresencePayload.Assets(
                 large_image: thumbnailURL ?? "kaset_logo",
-                large_text: video.title,
+                large_text: title,
                 small_image: "kaset_icon",
                 small_text: "Kaset for macOS"
             )

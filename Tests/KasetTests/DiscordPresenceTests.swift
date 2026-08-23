@@ -224,4 +224,90 @@ struct DiscordPresenceTests {
         #expect(mockService.lastPayload?.assets == nil)
         #expect(mockService.lastPayload?.buttons == nil)
     }
+
+    @Test("DiscordPresenceCoordinator respects album toggle when artist is hidden")
+    @MainActor
+    func coordinatorAlbumWithoutArtist() async {
+        let player = PlayerService()
+        let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
+        let settings = SettingsManager.shared
+        let mockService = MockDiscordPresenceService()
+
+        settings.discordPresenceEnabled = true
+        settings.discordShowMusic = true
+        settings.discordShowTitle = true
+        settings.discordShowArtist = false
+        settings.discordShowAlbum = true
+        settings.discordShowArtwork = true
+
+        let coordinator = DiscordPresenceCoordinator(
+            playerService: player,
+            youtubePlayerService: youtubePlayer,
+            settings: settings,
+            service: mockService
+        )
+
+        let song = Song(
+            id: "song-1",
+            title: "Solo Song",
+            artists: [Artist(id: "a1", name: "Hidden Artist")],
+            album: Album(id: "alb-1", title: "Visible Album", artists: [], thumbnailURL: nil, year: "2024", trackCount: 1),
+            duration: 200,
+            videoId: "song-1"
+        )
+
+        player.currentTrack = song
+        player.state = .playing
+
+        await coordinator.syncPresence()
+
+        #expect(mockService.lastPayload?.details == "Solo Song")
+        #expect(mockService.lastPayload?.state == "Visible Album")
+        #expect(mockService.lastPayload?.assets?.large_text == "Visible Album")
+    }
+
+    @Test("DiscordPresenceCoordinator calculates timestamps relative to playback progress")
+    @MainActor
+    func coordinatorTimestampsProgress() async {
+        let player = PlayerService()
+        let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
+        let settings = SettingsManager.shared
+        let mockService = MockDiscordPresenceService()
+
+        settings.discordPresenceEnabled = true
+        settings.discordShowMusic = true
+        settings.discordShowTimestamps = true
+
+        let coordinator = DiscordPresenceCoordinator(
+            playerService: player,
+            youtubePlayerService: youtubePlayer,
+            settings: settings,
+            service: mockService
+        )
+
+        let song = Song(
+            id: "song-time",
+            title: "Time Track",
+            artists: [],
+            duration: 100,
+            videoId: "song-time"
+        )
+
+        player.currentTrack = song
+        player.state = .playing
+        player.progress = 30
+
+        await coordinator.syncPresence()
+
+        guard let timestamps = mockService.lastPayload?.timestamps,
+              let start = timestamps.start,
+              let end = timestamps.end
+        else {
+            Issue.record("Expected timestamps to be populated")
+            return
+        }
+
+        let diff = Double(end - start) / 1000.0
+        #expect(abs(diff - 100.0) < 1.0)
+    }
 }
