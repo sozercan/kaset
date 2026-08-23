@@ -63,9 +63,54 @@ struct DiscordPresenceTests {
         #expect(!error.isConnecting)
     }
 
+    private struct SettingsSnapshot {
+        let presenceEnabled: Bool
+        let showMusic: Bool
+        let showVideo: Bool
+        let showTitle: Bool
+        let showArtist: Bool
+        let showAlbum: Bool
+        let showTimestamps: Bool
+        let showArtwork: Bool
+        let showListenButton: Bool
+
+        @MainActor
+        static func capture() -> SettingsSnapshot {
+            let s = SettingsManager.shared
+            return SettingsSnapshot(
+                presenceEnabled: s.discordPresenceEnabled,
+                showMusic: s.discordShowMusic,
+                showVideo: s.discordShowVideo,
+                showTitle: s.discordShowTitle,
+                showArtist: s.discordShowArtist,
+                showAlbum: s.discordShowAlbum,
+                showTimestamps: s.discordShowTimestamps,
+                showArtwork: s.discordShowArtwork,
+                showListenButton: s.discordShowListenButton
+            )
+        }
+
+        @MainActor
+        func restore() {
+            let s = SettingsManager.shared
+            s.discordPresenceEnabled = self.presenceEnabled
+            s.discordShowMusic = self.showMusic
+            s.discordShowVideo = self.showVideo
+            s.discordShowTitle = self.showTitle
+            s.discordShowArtist = self.showArtist
+            s.discordShowAlbum = self.showAlbum
+            s.discordShowTimestamps = self.showTimestamps
+            s.discordShowArtwork = self.showArtwork
+            s.discordShowListenButton = self.showListenButton
+        }
+    }
+
     @Test("DiscordPresenceCoordinator builds music payload respecting privacy settings")
     @MainActor
     func coordinatorMusicPayload() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared
@@ -119,6 +164,9 @@ struct DiscordPresenceTests {
     @Test("DiscordPresenceCoordinator clears presence when paused or disabled")
     @MainActor
     func coordinatorClearsPresence() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared
@@ -140,6 +188,9 @@ struct DiscordPresenceTests {
     @Test("DiscordPresenceCoordinator builds video payload for YouTube playback")
     @MainActor
     func coordinatorVideoPayload() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared
@@ -184,6 +235,9 @@ struct DiscordPresenceTests {
     @Test("DiscordPresenceCoordinator privacy toggles hide artist and title")
     @MainActor
     func coordinatorPrivacyToggles() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared
@@ -228,6 +282,9 @@ struct DiscordPresenceTests {
     @Test("DiscordPresenceCoordinator respects album toggle when artist is hidden")
     @MainActor
     func coordinatorAlbumWithoutArtist() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared
@@ -269,6 +326,9 @@ struct DiscordPresenceTests {
     @Test("DiscordPresenceCoordinator calculates timestamps relative to playback progress")
     @MainActor
     func coordinatorTimestampsProgress() async {
+        let snapshot = SettingsSnapshot.capture()
+        defer { snapshot.restore() }
+
         let player = PlayerService()
         let youtubePlayer = YouTubePlayerService(webKitManager: WebKitManager.shared)
         let settings = SettingsManager.shared

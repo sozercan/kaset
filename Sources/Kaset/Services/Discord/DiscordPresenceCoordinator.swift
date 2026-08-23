@@ -58,13 +58,11 @@ final class DiscordPresenceCoordinator {
             _ = self.playerService.currentTrack?.videoId
             _ = self.playerService.currentTrack?.title
             _ = self.playerService.isPlaying
-            _ = self.playerService.progress
             _ = self.playerService.duration
 
             _ = self.youtubePlayerService.currentVideo?.videoId
             _ = self.youtubePlayerService.currentVideo?.title
             _ = self.youtubePlayerService.isPlaying
-            _ = self.youtubePlayerService.progress
             _ = self.youtubePlayerService.duration
         } onChange: { [weak self] in
             Task { @MainActor [weak self] in

@@ -1,4 +1,6 @@
+import Darwin
 import Foundation
+import Observation
 
 // MARK: - DiscordLocalIPCService
 
@@ -7,8 +9,9 @@ import Foundation
 @MainActor
 @Observable
 final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
-    static let defaultClientID = "1541148589269454989"
-    static let maxRetries = 5
+    nonisolated static let defaultClientID = "1541148589269454989"
+    nonisolated static let maxRetries = 5
+    nonisolated static let maxFrameSize: UInt32 = 64 * 1024
 
     private(set) var state: DiscordPresenceState = .disconnected
 
@@ -30,8 +33,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     }
 
     deinit {
-        retryTask?.cancel()
-        readTask?.cancel()
+        // Main-actor state cannot be safely finalized from deinit.
     }
 
     // MARK: - Connection
@@ -119,10 +121,10 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
             "client_id": self.clientID,
         ]
         let jsonData = try JSONSerialization.data(withJSONObject: handshakeJSON)
-        try self.writePacket(fd: fd, opcode: 0, data: jsonData)
+        try Self.writePacket(fd: fd, opcode: 0, data: jsonData)
     }
 
-    private func writePacket(fd: Int32, opcode: UInt32, data: Data) throws {
+    nonisolated static func writePacket(fd: Int32, opcode: UInt32, data: Data) throws {
         var header = Data(capacity: 8)
         var op = opcode.littleEndian
         var length = UInt32(data.count).littleEndian
@@ -185,9 +187,17 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                     break
                 }
 
+                let opcode = header.withUnsafeBytes { $0.load(fromByteOffset: 0, as: UInt32.self) }
                 let length = header.withUnsafeBytes { $0.load(fromByteOffset: 4, as: UInt32.self) }
+
+                // Bound max frame length to prevent memory exhaustion
+                guard length <= DiscordLocalIPCService.maxFrameSize else {
+                    await self?.handleDisconnect()
+                    break
+                }
+
+                var body = [UInt8](repeating: 0, count: Int(length))
                 if length > 0 {
-                    var body = [UInt8](repeating: 0, count: Int(length))
                     var totalRead = 0
                     while totalRead < Int(length) {
                         let n = read(fd, &body[totalRead], Int(length) - totalRead)
@@ -208,6 +218,14 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
                         await self?.handleDisconnect()
                         break
                     }
+                }
+
+                // Opcode handling
+                if opcode == 2 { // Close
+                    await self?.handleDisconnect()
+                    break
+                } else if opcode == 3 { // Ping -> respond with Pong (opcode 4)
+                    try? DiscordLocalIPCService.writePacket(fd: fd, opcode: 4, data: Data(body))
                 }
             }
         }
@@ -293,7 +311,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         ]
 
         let jsonData = try JSONSerialization.data(withJSONObject: frameJSON)
-        try self.writePacket(fd: fd, opcode: 1, data: jsonData)
+        try Self.writePacket(fd: fd, opcode: 1, data: jsonData)
     }
 
     func clearPresence() async {

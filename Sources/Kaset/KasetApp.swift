@@ -341,18 +341,6 @@ struct KasetApp: App {
                 .onChange(of: self.settings.keepYouTubeVideoOnTop) { _, _ in
                     YouTubeVideoWindowController.shared.syncWindowState()
                 }
-                .onChange(of: self.playerService.isPlaying) { _, _ in
-                    Task { await self.discordPresenceCoordinator.syncPresence() }
-                }
-                .onChange(of: self.playerService.currentTrack) { _, _ in
-                    Task { await self.discordPresenceCoordinator.syncPresence() }
-                }
-                .onChange(of: self.youtubePlayerService.isPlaying) { _, _ in
-                    Task { await self.discordPresenceCoordinator.syncPresence() }
-                }
-                .onChange(of: self.youtubePlayerService.currentVideo) { _, _ in
-                    Task { await self.discordPresenceCoordinator.syncPresence() }
-                }
             }
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
