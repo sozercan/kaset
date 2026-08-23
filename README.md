@@ -23,7 +23,7 @@ Human hearing perceives volume changes on a curve rather than in a straight line
 For elapsed time $t$ over a target fade duration $T$, progress $p$ from start to finish is:
 
 $$
-p = \min\left(1.0, \; \frac{t}{T}\right) \quad \text{where } p \in [0, 1]
+p = \min\left(1.0, \frac{t}{T}\right) \quad \text{where } p \in [0, 1]
 $$
 
 ### Volume Rise (Fade-In)
