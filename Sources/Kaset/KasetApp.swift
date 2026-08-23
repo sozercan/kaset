@@ -59,6 +59,7 @@ struct KasetApp: App {
     @State private var nowPlayingTracklistProvider: NowPlayingTracklistProvider
     @State private var syncedLyricsService: SyncedLyricsService
     @State private var equalizerService = EqualizerService.shared
+    @State private var discordPresenceCoordinator: DiscordPresenceCoordinator
     @State private var settings = SettingsManager.shared
     @State private var podcastsAvailabilityService = PodcastsAvailabilityService()
 
@@ -208,6 +209,14 @@ struct KasetApp: App {
         scrobblingCoordinator.startMonitoring()
         _scrobblingCoordinator = State(initialValue: scrobblingCoordinator)
 
+        // Create Discord presence coordinator
+        let discordCoordinator = DiscordPresenceCoordinator(
+            playerService: player,
+            youtubePlayerService: youtubePlayer
+        )
+        discordCoordinator.start()
+        _discordPresenceCoordinator = State(initialValue: discordCoordinator)
+
         // Wire up PlayerService to AppDelegate immediately (not in onAppear)
         // This ensures playerService is available for lifecycle events like queue restoration
         self.appDelegate.playerService = player
@@ -338,6 +347,18 @@ struct KasetApp: App {
                 .onChange(of: self.settings.keepYouTubeVideoOnTop) { _, _ in
                     YouTubeVideoWindowController.shared.syncWindowState()
                 }
+                .onChange(of: self.playerService.isPlaying) { _, _ in
+                    Task { await self.discordPresenceCoordinator.syncPresence() }
+                }
+                .onChange(of: self.playerService.currentTrack) { _, _ in
+                    Task { await self.discordPresenceCoordinator.syncPresence() }
+                }
+                .onChange(of: self.youtubePlayerService.isPlaying) { _, _ in
+                    Task { await self.discordPresenceCoordinator.syncPresence() }
+                }
+                .onChange(of: self.youtubePlayerService.currentVideo) { _, _ in
+                    Task { await self.discordPresenceCoordinator.syncPresence() }
+                }
             }
         }
         .defaultSize(width: MainWindowLayout.defaultWidth, height: MainWindowLayout.defaultHeight)
@@ -352,6 +373,7 @@ struct KasetApp: App {
                 .environment(self.accountService)
                 .environment(self.updaterService)
                 .environment(self.scrobblingCoordinator)
+                .environment(self.discordPresenceCoordinator)
                 .environment(self.equalizerService)
         }
         .commands {
@@ -844,6 +866,11 @@ struct SettingsView: View {
                 .environment(self.scrobblingCoordinator)
                 .tabItem {
                     Label(String(localized: "Scrobbling"), systemImage: "music.note.list")
+                }
+
+            DiscordSettingsView()
+                .tabItem {
+                    Label(String(localized: "Discord"), systemImage: "bubble.left.and.bubble.right.fill")
                 }
 
             // Conditionally rendered (Apple Intelligence is macOS 26+ and

@@ -579,9 +579,12 @@ if [[ -d "$SPARKLE" ]]; then
   resign "$SPARKLE"
 fi
 
+MAIN_BIN="$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 if [[ -f "$ROOT/Kaset.entitlements" ]]; then
+  codesign "${CODESIGN_ARGS[@]}" --entitlements "$ROOT/Kaset.entitlements" "$MAIN_BIN"
   codesign "${CODESIGN_ARGS[@]}" --entitlements "$ROOT/Kaset.entitlements" "$APP_BUNDLE"
 else
+  codesign "${CODESIGN_ARGS[@]}" "$MAIN_BIN"
   codesign "${CODESIGN_ARGS[@]}" "$APP_BUNDLE"
 fi
 

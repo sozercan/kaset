@@ -34,6 +34,15 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let discordPresenceEnabled = "settings.discordPresenceEnabled"
+        static let discordShowMusic = "settings.discordShowMusic"
+        static let discordShowVideo = "settings.discordShowVideo"
+        static let discordShowTitle = "settings.discordShowTitle"
+        static let discordShowArtist = "settings.discordShowArtist"
+        static let discordShowAlbum = "settings.discordShowAlbum"
+        static let discordShowTimestamps = "settings.discordShowTimestamps"
+        static let discordShowArtwork = "settings.discordShowArtwork"
+        static let discordShowListenButton = "settings.discordShowListenButton"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -448,6 +457,69 @@ final class SettingsManager {
         }
     }
 
+    /// Whether Discord Rich Presence is enabled.
+    var discordPresenceEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordPresenceEnabled, forKey: Keys.discordPresenceEnabled)
+        }
+    }
+
+    /// Whether to publish YouTube Music listening status to Discord.
+    var discordShowMusic: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowMusic, forKey: Keys.discordShowMusic)
+        }
+    }
+
+    /// Whether to publish regular YouTube video watching status to Discord.
+    var discordShowVideo: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowVideo, forKey: Keys.discordShowVideo)
+        }
+    }
+
+    /// Whether to include the song/video title in Discord Presence.
+    var discordShowTitle: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowTitle, forKey: Keys.discordShowTitle)
+        }
+    }
+
+    /// Whether to include artist metadata in Discord Presence.
+    var discordShowArtist: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowArtist, forKey: Keys.discordShowArtist)
+        }
+    }
+
+    /// Whether to include album metadata in Discord Presence.
+    var discordShowAlbum: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowAlbum, forKey: Keys.discordShowAlbum)
+        }
+    }
+
+    /// Whether to include elapsed / duration timestamps in Discord Presence.
+    var discordShowTimestamps: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowTimestamps, forKey: Keys.discordShowTimestamps)
+        }
+    }
+
+    /// Whether to include artwork in Discord Presence.
+    var discordShowArtwork: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowArtwork, forKey: Keys.discordShowArtwork)
+        }
+    }
+
+    /// Whether to include a "Listen on YouTube Music" / "Watch on YouTube" button.
+    var discordShowListenButton: Bool {
+        didSet {
+            UserDefaults.standard.set(self.discordShowListenButton, forKey: Keys.discordShowListenButton)
+        }
+    }
+
     /// The style the YouTube watch page should request: the chosen style when
     /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
     /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
@@ -531,6 +603,16 @@ final class SettingsManager {
         )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.discordPresenceEnabled = UserDefaults.standard.object(forKey: Keys.discordPresenceEnabled) as? Bool ?? false
+        self.discordShowMusic = UserDefaults.standard.object(forKey: Keys.discordShowMusic) as? Bool ?? true
+        self.discordShowVideo = UserDefaults.standard.object(forKey: Keys.discordShowVideo) as? Bool ?? true
+        self.discordShowTitle = UserDefaults.standard.object(forKey: Keys.discordShowTitle) as? Bool ?? true
+        self.discordShowArtist = UserDefaults.standard.object(forKey: Keys.discordShowArtist) as? Bool ?? true
+        self.discordShowAlbum = UserDefaults.standard.object(forKey: Keys.discordShowAlbum) as? Bool ?? true
+        self.discordShowTimestamps = UserDefaults.standard.object(forKey: Keys.discordShowTimestamps) as? Bool ?? true
+        self.discordShowArtwork = UserDefaults.standard.object(forKey: Keys.discordShowArtwork) as? Bool ?? true
+        self.discordShowListenButton = UserDefaults.standard.object(forKey: Keys.discordShowListenButton) as? Bool ?? true
+
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif
