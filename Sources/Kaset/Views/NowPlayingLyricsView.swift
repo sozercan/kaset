@@ -6,6 +6,8 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct NowPlayingLyricsView: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
+    private static let lyricsPaneVerticalPadding: CGFloat = 56
+    private static let closeButtonTopPadding: CGFloat = 12
 
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
@@ -73,10 +75,8 @@ struct NowPlayingLyricsView: View {
             .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
                 self.updateLyricsPolling(for: newLyrics)
             }
-            .onAppear {
-                self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
-            }
             .onDisappear {
+                guard !self.isAnotherLyricsViewVisible else { return }
                 SingletonPlayerWebView.shared.stopLyricsPoll()
             }
         }
@@ -143,7 +143,7 @@ struct NowPlayingLyricsView: View {
                     .padding(.horizontal, 14)
                     .frame(
                         maxWidth: metrics.lyricsPaneWidth,
-                        maxHeight: max(0, availableSize.height - 112),
+                        maxHeight: max(0, availableSize.height - Self.lyricsPaneVerticalPadding * 2),
                         alignment: .top
                     )
                     .mask {
@@ -158,7 +158,7 @@ struct NowPlayingLyricsView: View {
                             endPoint: .bottom
                         )
                     }
-                    .padding(.vertical, 56)
+                    .padding(.vertical, Self.lyricsPaneVerticalPadding)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.horizontal, metrics.horizontalPadding + 28)
@@ -175,7 +175,7 @@ struct NowPlayingLyricsView: View {
             .help(String(localized: "Close now playing"))
             .accessibilityLabel(String(localized: "Close now playing"))
             .keyboardShortcut(.escape, modifiers: [])
-            .padding(.top, max(12, metrics.topPadding))
+            .padding(.top, Self.closeButtonTopPadding)
             .padding(.trailing, metrics.horizontalPadding)
         }
         .frame(width: availableSize.width, height: availableSize.height, alignment: .top)
@@ -362,10 +362,6 @@ struct NowPlayingLyricsView: View {
             }
             .controlSize(.small)
             .tint(.white)
-            .onChange(of: self.volumeValue) { _, newValue in
-                guard self.isAdjustingVolume else { return }
-                Task { await self.playerService.setVolume(newValue) }
-            }
         }
         .foregroundStyle(.white.opacity(0.78))
     }
@@ -412,6 +408,7 @@ struct NowPlayingLyricsView: View {
                         .font(.system(size: 22, weight: .bold))
                 }
                 .foregroundStyle(.white.opacity(0.58))
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
@@ -483,7 +480,10 @@ struct NowPlayingLyricsView: View {
             self.lockedArtworkVideoId = track.videoId
         }
 
-        guard let artworkURL = track.thumbnailURL?.highQualityThumbnailURL ?? track.thumbnailURL else { return }
+        guard let artworkURL = track.thumbnailURL?.highQualityThumbnailURL ?? track.thumbnailURL else {
+            self.lockedArtworkURL = nil
+            return
+        }
 
         if self.lockedArtworkURL == nil {
             self.lockedArtworkURL = artworkURL
@@ -521,9 +521,7 @@ struct NowPlayingLyricsView: View {
 
     private func layoutMetrics(for size: CGSize) -> LayoutMetrics {
         LayoutMetrics(
-            topPadding: 0,
             horizontalPadding: max(28, min(size.width * 0.06, 76)),
-            bottomPadding: 0,
             columnSpacing: max(36, min(size.height * 0.08, 64)),
             artworkSize: max(240, min(size.height * 0.38, 360)),
             artworkColumnWidth: max(300, min(size.height * 0.40, 400)),
@@ -578,13 +576,16 @@ struct NowPlayingLyricsView: View {
     }
 
     private struct LayoutMetrics {
-        let topPadding: CGFloat
         let horizontalPadding: CGFloat
-        let bottomPadding: CGFloat
         let columnSpacing: CGFloat
         let artworkSize: CGFloat
         let artworkColumnWidth: CGFloat
         let lyricsPaneWidth: CGFloat
+    }
+
+    private var isAnotherLyricsViewVisible: Bool {
+        self.playerService.showLyrics
+            || (self.playerService.isMiniPlayerVisible && self.playerService.miniPlayerPanel == .lyrics)
     }
 
     private func displayArtworkURL(for track: Song) -> URL? {
