@@ -18266,102 +18266,102 @@
         }
       }
     },
-    "Note: If passkeys don't work, use \"Try another way\" to sign in with password.": {
+    "Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead.": {
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "ملاحظة: إذا لم تعمل مفاتيح المرور، فاستخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور."
+            "value": "تسجيل الدخول بمفتاح المرور غير متاح في هذه النافذة. سيطلب Google كلمة المرور أو طريقة تسجيل دخول أخرى بدلاً من ذلك."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Hinweis: Wenn Passkeys nicht funktionieren, verwende \"Auf andere Weise versuchen\", um dich mit einem Passwort anzumelden."
+            "value": "Die Anmeldung mit Passkey ist in diesem Fenster nicht verfügbar. Google fragt stattdessen nach deinem Passwort oder einer anderen Anmeldemethode."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nota: si las passkeys no funcionan, usa \"Try another way\" para iniciar sesión con contraseña."
+            "value": "El inicio de sesión con passkeys no está disponible en esta ventana. Google te pedirá la contraseña u otro método de inicio de sesión en su lugar."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Remarque : si les clés d'identification ne fonctionnent pas, utilisez \"Try another way\" pour vous connecter avec un mot de passe."
+            "value": "La connexion par clé d'identification n'est pas disponible dans cette fenêtre. Google vous demandera votre mot de passe ou une autre méthode de connexion à la place."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Catatan: Jika passkey tidak berfungsi, gunakan \"Try another way\" untuk masuk dengan kata sandi."
+            "value": "Masuk dengan passkey tidak tersedia di jendela ini. Google akan meminta kata sandi Anda atau metode masuk lain sebagai gantinya."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nota: se le passkey non funzionano, usa \"Try another way\" per accedere con la password."
+            "value": "L'accesso con passkey non è disponibile in questa finestra. Google chiederà invece la password o un altro metodo di accesso."
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "참고: 패스키가 작동하지 않으면 \"Try another way\"를 사용해 비밀번호로 로그인하세요."
+            "value": "이 창에서는 패스키 로그인을 사용할 수 없습니다. 대신 Google에서 비밀번호나 다른 로그인 방법을 요청합니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Opmerking: als passkeys niet werken, gebruik je \"Try another way\" om met een wachtwoord in te loggen."
+            "value": "Inloggen met een passkey is niet beschikbaar in dit venster. Google vraagt in plaats daarvan om je wachtwoord of een andere inlogmethode."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Uwaga: jeśli klucze dostępu nie działają, użyj opcji \"Try another way\", aby zalogować się hasłem."
+            "value": "Logowanie kluczem dostępu nie jest dostępne w tym oknie. Google poprosi zamiast tego o hasło lub inną metodę logowania."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Nota: se as chaves de acesso não funcionarem, use \"Try another way\" para iniciar sessão com a palavra-passe."
+            "value": "O início de sessão com chave de acesso não está disponível nesta janela. A Google irá pedir a sua palavra-passe ou outro método de início de sessão."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Примечание: если ключи доступа не работают, используйте \"Try another way\", чтобы войти с паролем."
+            "value": "Вход с ключом доступа недоступен в этом окне. Вместо этого Google запросит пароль или другой способ входа."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Obs! Om lösenkoder inte fungerar kan du använda \"Try another way\" för att logga in med lösenord."
+            "value": "Inloggning med lösenkod är inte tillgänglig i det här fönstret. Google ber i stället om ditt lösenord eller en annan inloggningsmetod."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Not: Geçiş anahtarları çalışmıyorsa parola ile oturum açmak için \"Try another way\" seçeneğini kullanın."
+            "value": "Bu pencerede geçiş anahtarıyla oturum açılamaz. Google bunun yerine parolanızı veya başka bir oturum açma yöntemini isteyecektir."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Примітка: якщо ключі доступу не працюють, скористайтеся \"Try another way\", щоб увійти за паролем."
+            "value": "Вхід із ключем доступу недоступний у цьому вікні. Натомість Google запитає пароль або інший спосіб входу."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "注意：如果通行密钥无法使用，请选择“尝试其他方式”以使用密码登录。"
+            "value": "此窗口不支持通行密钥登录，Google 会改为要求输入密码或使用其他登录方式。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "注意：如果密碼金鑰無法使用，請選擇「嘗試其他方式」以使用密碼登入。"
+            "value": "此視窗不支援密碼金鑰登入，Google 會改為要求輸入密碼或使用其他登入方式。"
           }
         }
       }
