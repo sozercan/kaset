@@ -1,3 +1,4 @@
+import AppKit
 import Darwin
 import Foundation
 import Observation
@@ -27,14 +28,18 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
     // swiftformat:disable modifierOrder
     @ObservationIgnored private var retryTask: Task<Void, Never>?
     @ObservationIgnored private var readTask: Task<Void, Never>?
+    @ObservationIgnored private var workspaceObserverTasks: [Task<Void, Never>] = []
     // swiftformat:enable modifierOrder
 
     init(clientID: String = defaultClientID) {
         self.clientID = clientID
+        self.setupWorkspaceObservers()
     }
 
     deinit {
-        // Main-actor state cannot be safely finalized from deinit.
+        for task in self.workspaceObserverTasks {
+            task.cancel()
+        }
     }
 
     // MARK: - Connection
@@ -292,6 +297,76 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
         }
     }
 
+    // MARK: - Workspace Observers
+
+    private func setupWorkspaceObservers() {
+        let launchTask = Task { @MainActor [weak self] in
+            let center = NSWorkspace.shared.notificationCenter
+            for await notification in center.notifications(named: NSWorkspace.didLaunchApplicationNotification) {
+                guard !Task.isCancelled else { break }
+                self?.handleApplicationLaunched(notification)
+            }
+        }
+        let terminateTask = Task { @MainActor [weak self] in
+            let center = NSWorkspace.shared.notificationCenter
+            for await notification in center.notifications(named: NSWorkspace.didTerminateApplicationNotification) {
+                guard !Task.isCancelled else { break }
+                self?.handleApplicationTerminated(notification)
+            }
+        }
+        self.workspaceObserverTasks = [launchTask, terminateTask]
+    }
+
+    nonisolated static func isDiscordApplication(bundleID: String?, localizedName: String?) -> Bool {
+        if let bundleID = bundleID?.lowercased() {
+            if bundleID == "com.hnc.discord" ||
+                bundleID == "com.hammerandchisel.discord" ||
+                bundleID == "com.hnc.discordptb" ||
+                bundleID == "com.hnc.discordcanary" ||
+                bundleID == "com.hnc.discorddevelopment" ||
+                bundleID.contains("discord")
+            {
+                return true
+            }
+        }
+        if let localizedName = localizedName?.lowercased(), localizedName.contains("discord") {
+            return true
+        }
+        return false
+    }
+
+    private func handleApplicationLaunched(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              Self.isDiscordApplication(bundleID: app.bundleIdentifier, localizedName: app.localizedName)
+        else { return }
+
+        self.logger.info("Detected Discord application launch (\(app.bundleIdentifier ?? app.localizedName ?? "Discord", privacy: .public)); initiating connection")
+        guard !self.isExplicitlyDisconnected else { return }
+        guard !self.state.isConnected, !self.state.isConnecting else { return }
+
+        Task { @MainActor [weak self] in
+            guard let self, !self.isExplicitlyDisconnected else { return }
+            self.retryCount = 0
+            self.retryTask?.cancel()
+            await self.attemptConnection()
+        }
+    }
+
+    private func handleApplicationTerminated(_ notification: Notification) {
+        guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+              Self.isDiscordApplication(bundleID: app.bundleIdentifier, localizedName: app.localizedName)
+        else { return }
+
+        self.logger.info("Detected Discord application termination (\(app.bundleIdentifier ?? app.localizedName ?? "Discord", privacy: .public)); disconnecting cleanly")
+        self.retryTask?.cancel()
+        self.retryTask = nil
+        self.readTask?.cancel()
+        self.readTask = nil
+        self.retryCount = 0
+        self.closeConnection()
+        self.state = .disconnected
+    }
+
     // MARK: - Presence Updates
 
     func updatePresence(_ payload: DiscordPresencePayload?) async throws {
@@ -299,7 +374,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
 
         guard let fd = self.socketFD, self.isConnected else {
             // Only auto-reconnect if not explicitly disconnected and payload is active
-            if !self.isExplicitlyDisconnected, payload != nil, case .disconnected = self.state {
+            if !self.isExplicitlyDisconnected, payload != nil, !self.state.isConnected, !self.state.isConnecting {
                 await self.connect()
             }
             return

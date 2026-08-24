@@ -397,4 +397,18 @@ struct DiscordPresenceTests {
         let diff = Double(end - start) / 1000.0
         #expect(abs(diff - 100.0) < 1.0)
     }
+
+    @Test("DiscordLocalIPCService identifies Discord app bundles and names")
+    func discordAppIdentification() {
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: "com.hnc.Discord", localizedName: "Discord"))
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: "com.hammerandchisel.discord", localizedName: "Discord"))
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: "com.hnc.DiscordPTB", localizedName: "Discord PTB"))
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: "com.hnc.DiscordCanary", localizedName: "Discord Canary"))
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: "com.hnc.DiscordDevelopment", localizedName: "Discord Development"))
+        #expect(DiscordLocalIPCService.isDiscordApplication(bundleID: nil, localizedName: "Discord"))
+
+        #expect(!DiscordLocalIPCService.isDiscordApplication(bundleID: "com.apple.Safari", localizedName: "Safari"))
+        #expect(!DiscordLocalIPCService.isDiscordApplication(bundleID: "com.spotify.client", localizedName: "Spotify"))
+        #expect(!DiscordLocalIPCService.isDiscordApplication(bundleID: nil, localizedName: nil))
+    }
 }
