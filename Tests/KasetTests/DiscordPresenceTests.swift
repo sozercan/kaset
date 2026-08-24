@@ -411,4 +411,15 @@ struct DiscordPresenceTests {
         #expect(!DiscordLocalIPCService.isDiscordApplication(bundleID: "com.spotify.client", localizedName: "Spotify"))
         #expect(!DiscordLocalIPCService.isDiscordApplication(bundleID: nil, localizedName: nil))
     }
+
+    @Test("DiscordLocalIPCService remains inactive until connect is called")
+    @MainActor
+    func initialInactiveState() async {
+        let service = DiscordLocalIPCService()
+        #expect(service.state == .disconnected)
+
+        // Attempting updatePresence when unactivated should not connect
+        try? await service.updatePresence(nil)
+        #expect(service.state == .disconnected)
+    }
 }

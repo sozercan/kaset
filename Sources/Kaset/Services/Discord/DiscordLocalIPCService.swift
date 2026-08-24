@@ -21,7 +21,7 @@ final class DiscordLocalIPCService: DiscordPresenceServiceProtocol {
 
     private var socketFD: Int32?
     private var isConnected = false
-    private var isExplicitlyDisconnected = false
+    private var isExplicitlyDisconnected = true
     private var retryCount = 0
     private var pendingPayload: DiscordPresencePayload?
 
