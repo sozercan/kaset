@@ -51,23 +51,23 @@ struct LoginPasskeySuppressionTests {
         #expect(credentialType == "undefined")
     }
 
-    @Test("Passkey credential requests are rejected with NotAllowedError", .timeLimit(.minutes(1)))
+    @Test("Passkey credential requests are rejected by the suppression shim", .timeLimit(.minutes(1)))
     func passkeyRequestsAreRejected() async throws {
         let webView = Self.makeSuppressedWebView()
         try await Self.loadBlankPage(in: webView)
 
-        let errorName = try await webView.callAsyncJavaScript(
+        let errorDescription = try await webView.callAsyncJavaScript(
             """
             try {
                 await navigator.credentials.get({ publicKey: { challenge: new Uint8Array(16) } });
                 return "resolved";
             } catch (error) {
-                return error.name;
+                return error.name + ": " + error.message;
             }
             """,
             contentWorld: .page
         ) as? String
-        #expect(errorName == "NotAllowedError")
+        #expect(errorDescription == "NotAllowedError: Passkeys are not available in this app.")
     }
 
     // MARK: - Helpers
