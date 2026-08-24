@@ -87,7 +87,7 @@ struct SyncedLyricsDisplayView: View {
                 guard newId != self.currentLineId else { return }
 
                 self.currentLineId = newId
-                withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+                withAnimation(.spring(response: 1.2, dampingFraction: 0.9)) {
                     proxy.scrollTo(newId, anchor: self.scrollAnchor)
                 }
             }
@@ -120,7 +120,7 @@ struct SyncedLyricsDisplayView: View {
         }
 
         if animated {
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
+            withAnimation(.spring(response: 1.2, dampingFraction: 0.9)) {
                 scroll()
             }
         } else {
