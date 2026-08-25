@@ -312,7 +312,6 @@
 "Not Playing" = "Çalmıyor";
 "Not signed in" = "Oturum açık değil";
 "Not Supported" = "Desteklenmiyor";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Not: Geçiş anahtarları çalışmıyorsa parola ile oturum açmak için \"Try another way\" seçeneğini kullanın.";
 "Nothing here right now" = "Şu anda burada hiçbir şey yok";
 "Nothing to show" = "Gösterilecek bir şey yok";
 "Now Playing" = "Şimdi Çalıyor";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Müziği doğal dille kontrol etmek için Komut Çubuğu'nu açın. \"play something chill\" veya \"add jazz to queue\" demeyi deneyin.";
 "Options…" = "Seçenekler…";
 "Output" = "Çıkış";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Bu pencerede geçiş anahtarıyla oturum açılamaz. Google bunun yerine parolanızı veya başka bir oturum açma yöntemini isteyecektir.";
 "Pause" = "Duraklat";
 "Permission needed" = "İzin gerekli";
 "Piano" = "Piyano";

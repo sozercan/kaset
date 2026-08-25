@@ -67,3 +67,4 @@ What becomes easier or more difficult because of this change?
 | [0030](0030-account-scoped-favorites.md) | Account-Scoped Favorites Persistence | Accepted |
 | [0031](0031-saved-album-library-reconciliation.md) | Saved-Album Library Identity and Reconciliation | Accepted |
 | [0032](0032-youtube-ask-gemini.md) | Watch-Scoped YouTube Ask Gemini | Accepted; fixed WEB profile enabled in production |
+| [0033](0033-login-passkey-suppression.md) | Suppress Passkey Detection in the Login WebView | Accepted |

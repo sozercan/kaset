@@ -5,11 +5,31 @@ import Testing
 @Suite("WebKit cookie restoration", .serialized, .tags(.service))
 @MainActor
 struct WebKitCookieRestoreTests {
+    @Test("Clearing one manager's data leaves another manager's cookie archive intact")
+    func clearingOneManagerPreservesAnotherManagersArchive() async {
+        let archiveOwner = WebKitManager.makeTestInstance()
+        let clearingManager = WebKitManager.makeTestInstance()
+        let archiveData = Data("archived-cookies".utf8)
+
+        let generation = await archiveOwner.cookieArchiveQueue.reserveGeneration()
+        let saveResult = await archiveOwner.cookieArchiveQueue.save(
+            archiveData: archiveData,
+            cookieCount: 1,
+            generation: generation
+        )
+        #expect(saveResult == .saved)
+
+        _ = await clearingManager.clearAllData()
+
+        #expect(await archiveOwner.cookieArchiveQueue.persistedArchiveData() == archiveData)
+        #expect(await clearingManager.cookieArchiveQueue.persistedArchiveData() == nil)
+    }
+
     @Test("Persisted archive replaces stale live authentication cookies")
     func persistedArchiveReplacesStaleLiveCookies() async throws {
         let expectedCookie = try #require(HTTPCookie(properties: [
             .name: "__Secure-3PAPISID",
-            .value: "expected-session",
+            .value: "isolated-restore-session",
             .domain: ".youtube.com",
             .path: "/",
         ]))
@@ -32,9 +52,15 @@ struct WebKitCookieRestoreTests {
             .path: "/",
         ]))
         let webKitManager = WebKitManager.makeTestInstance()
+        let archive = try #require(KeychainCookieStorage.makeArchiveData(from: [expectedCookie]))
 
         _ = await webKitManager.clearAllData()
-        KeychainCookieStorage.saveCookies([expectedCookie])
+        let generation = await webKitManager.cookieArchiveQueue.reserveGeneration()
+        #expect(await webKitManager.cookieArchiveQueue.save(
+            archiveData: archive.data,
+            cookieCount: archive.cookieCount,
+            generation: generation
+        ).isPersisted)
         await webKitManager.dataStore.httpCookieStore.setCookie(staleCookie)
         await webKitManager.dataStore.httpCookieStore.setCookie(staleGAIA)
         await webKitManager.dataStore.httpCookieStore.setCookie(publicPreference)
@@ -46,7 +72,7 @@ struct WebKitCookieRestoreTests {
         _ = await webKitManager.clearAllData()
 
         #expect(restored)
-        #expect(cookies.first { $0.name == "__Secure-3PAPISID" }?.value == "expected-session")
+        #expect(cookies.first { $0.name == "__Secure-3PAPISID" }?.value == "isolated-restore-session")
         #expect(cookies.contains { $0.name == "SAPISID" } == false)
         #expect(cookies.contains { $0.name == "LSID" } == false)
         #expect(cookies.first { $0.name == "PREF" }?.value == "preserve-public-state")

@@ -312,7 +312,6 @@
 "Not Playing" = "Spelar inte";
 "Not signed in" = "Inte inloggad";
 "Not Supported" = "Stöds inte";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Obs! Om lösenkoder inte fungerar kan du använda \"Try another way\" för att logga in med lösenord.";
 "Nothing here right now" = "Det finns inget här just nu";
 "Nothing to show" = "Inget att visa";
 "Now Playing" = "Spelas nu";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Öppna kommandofältet för att styra musik med naturligt språk. Prova att säga \"play something chill\" eller \"add jazz to queue\".";
 "Options…" = "Alternativ…";
 "Output" = "Utgång";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Inloggning med lösenkod är inte tillgänglig i det här fönstret. Google ber i stället om ditt lösenord eller en annan inloggningsmetod.";
 "Pause" = "Pausa";
 "Permission needed" = "Behörighet krävs";
 "Piano" = "Piano";
