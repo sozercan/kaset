@@ -15,6 +15,23 @@ extension EnvironmentValues {
     @Entry var playerBarCurrentArtistID: String?
 }
 
+// MARK: - PlayerBarAlbumRouteModifier
+
+private struct PlayerBarAlbumRouteModifier: ViewModifier {
+    let playlist: Playlist
+    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
+
+    func body(content: Content) -> some View {
+        content
+            .onAppear {
+                self.musicNavigation.showAlbumRoute(for: self.playlist)
+            }
+            .onDisappear {
+                self.musicNavigation.hideAlbumRoute(for: self.playlist)
+            }
+    }
+}
+
 // MARK: - SidebarReselectNavigationModifier
 
 private struct SidebarReselectNavigationModifier: ViewModifier {
@@ -31,6 +48,10 @@ private struct SidebarReselectNavigationModifier: ViewModifier {
 }
 
 extension View {
+    func playerBarAlbumRoute(for playlist: Playlist) -> some View {
+        self.modifier(PlayerBarAlbumRouteModifier(playlist: playlist))
+    }
+
     func popsNavigationStackOnSidebarReselect(
         path: Binding<NavigationPath>,
         for navigationItem: NavigationItem

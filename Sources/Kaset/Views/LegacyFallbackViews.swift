@@ -15,7 +15,6 @@ struct SimplePlaylistDetailView: View {
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
-    @Environment(MusicNavigationCoordinator.self) private var musicNavigation
 
     init(
         playlist: Playlist,
@@ -48,16 +47,7 @@ struct SimplePlaylistDetailView: View {
             }
         }
         .navigationTitle(self.playlist.title)
-        .onAppear {
-            if self.playlist.isAlbum {
-                self.musicNavigation.setRouteAlbumID(self.playlist.id)
-            }
-        }
-        .onDisappear {
-            if self.playlist.isAlbum, self.musicNavigation.routeAlbumID == self.playlist.id {
-                self.musicNavigation.setRouteAlbumID(nil)
-            }
-        }
+        .playerBarAlbumRoute(for: self.playlist)
         .task {
             if self.viewModel.loadingState == .idle {
                 await self.viewModel.load()

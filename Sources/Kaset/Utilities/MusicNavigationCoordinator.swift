@@ -102,6 +102,16 @@ final class MusicNavigationCoordinator {
         self.routeAlbumID = albumID
     }
 
+    func showAlbumRoute(for playlist: Playlist) {
+        guard playlist.isAlbum else { return }
+        self.routeAlbumID = playlist.id
+    }
+
+    func hideAlbumRoute(for playlist: Playlist) {
+        guard playlist.isAlbum, self.routeAlbumID == playlist.id else { return }
+        self.routeAlbumID = nil
+    }
+
     func setRouteArtistID(_ artistID: String?) {
         self.routeArtistID = artistID
     }

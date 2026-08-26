@@ -44,6 +44,25 @@ struct MusicNavigationCoordinatorTests {
         #expect(coordinator.homeNavigationPath.isEmpty)
     }
 
+    @Test("album route lifecycle ignores playlists and does not clear a newer album")
+    func albumRouteLifecycle() {
+        let coordinator = MusicNavigationCoordinator()
+        let playlist = TestFixtures.makePlaylist(id: "VL-playlist")
+        let firstAlbum = TestFixtures.makePlaylist(id: "MPRE-first-album")
+        let secondAlbum = TestFixtures.makePlaylist(id: "MPRE-second-album")
+
+        coordinator.showAlbumRoute(for: playlist)
+        #expect(coordinator.routeAlbumID == nil)
+
+        coordinator.showAlbumRoute(for: firstAlbum)
+        coordinator.showAlbumRoute(for: secondAlbum)
+        coordinator.hideAlbumRoute(for: firstAlbum)
+        #expect(coordinator.routeAlbumID == secondAlbum.id)
+
+        coordinator.hideAlbumRoute(for: secondAlbum)
+        #expect(coordinator.routeAlbumID == nil)
+    }
+
     @Test("resetAllNavigationPaths clears every stack and route context")
     func resetClearsStacksAndRouteContext() {
         let coordinator = MusicNavigationCoordinator()
