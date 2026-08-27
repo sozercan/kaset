@@ -7,8 +7,7 @@ import WebKit
 struct PlaybackWebViewTeardownTests {
     @Test("Music teardown releases its coordinator while the WebView remains retained")
     func musicTeardownReleasesCoordinator() {
-        let singleton = SingletonPlayerWebView.shared
-        singleton.tearDown()
+        let singleton = SingletonPlayerWebView.makeTestInstance()
 
         let webKitManager = WebKitManager.makeTestInstance()
         let playerService = PlayerService()
@@ -27,8 +26,7 @@ struct PlaybackWebViewTeardownTests {
 
     @Test("YouTube teardown releases its coordinator while the WebView remains retained")
     func youtubeTeardownReleasesCoordinator() {
-        let singleton = YouTubeWatchWebView.shared
-        singleton.tearDown()
+        let singleton = YouTubeWatchWebView.makeTestInstance()
 
         let webKitManager = WebKitManager.makeTestInstance()
         let playerService = YouTubePlayerService(webKitManager: webKitManager)

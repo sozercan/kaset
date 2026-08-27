@@ -224,6 +224,11 @@ struct MiniPlayerWebView: NSViewRepresentable {
 final class SingletonPlayerWebView {
     static let shared = SingletonPlayerWebView()
 
+    /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
+    static func makeTestInstance() -> SingletonPlayerWebView {
+        SingletonPlayerWebView()
+    }
+
     private(set) var webView: WKWebView?
     weak var webKitManager: WebKitManager?
     private weak var currentContainer: NSView?

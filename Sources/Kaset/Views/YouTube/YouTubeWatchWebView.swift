@@ -18,6 +18,11 @@ import WebKit
 final class YouTubeWatchWebView {
     static let shared = YouTubeWatchWebView()
 
+    /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
+    static func makeTestInstance() -> YouTubeWatchWebView {
+        YouTubeWatchWebView()
+    }
+
     private(set) var webView: WKWebView?
     weak var webKitManager: WebKitManager?
     private weak var currentContainer: NSView?
