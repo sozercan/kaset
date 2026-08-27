@@ -126,7 +126,8 @@ When user plays a different track:
 1. `pendingPlayVideoId` changes
 2. SwiftUI calls `updateNSView` (not `makeNSView`)
 3. `SingletonPlayerWebView.loadVideo(videoId:)` called
-4. Current audio paused, target volume prepared, new URL loaded
+4. Current audio is suppressed and the target volume is prepared
+5. The first watch URL uses `WKWebView.load`; later tracks navigate with `window.location.replace`
 
 ```swift
 func loadVideo(videoId: String) {
@@ -135,13 +136,25 @@ func loadVideo(videoId: String) {
     // Update ID immediately to prevent duplicate loads
     currentVideoId = videoId
 
-    // Pause current, set the target volume, then load new
-    webView.evaluateJavaScript("document.querySelector('video')?.pause()") { _, _ in
-        webView.evaluateJavaScript("window.__kasetTargetVolume = currentVolume")
-        self.webView?.load(URLRequest(url: watchURL))
+    // Suppress the outgoing document, then replace its history entry.
+    webView.evaluateJavaScript(WebPlaybackDocumentGeneration.mediaSuppressionScript)
+    if WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
+        webView.url,
+        host: "music.youtube.com"
+    ) {
+        webView.evaluateJavaScript(
+            WebPlaybackDocumentGeneration.locationReplacementScript(for: watchURL)
+        )
+    } else {
+        webView.load(URLRequest(url: watchURL))
     }
 }
 ```
+
+Replacement navigation prevents old YouTube watch pages from accumulating in
+WebKit's back-forward/page cache. See
+[ADR-0034](adr/0034-replace-playback-navigation.md) for the measurement and
+tradeoff record.
 
 When the WebView reports a new `videoId`, Kaset treats that as authoritative
 even if the DOM title/artist are still stale. This avoids a race where YouTube
