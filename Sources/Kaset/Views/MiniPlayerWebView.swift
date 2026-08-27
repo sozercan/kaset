@@ -411,8 +411,12 @@ final class SingletonPlayerWebView {
         if let blankURL {
             webView.load(URLRequest(url: blankURL))
         }
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: "singletonPlayer"
+        )
+        webView.navigationDelegate = nil
         webView.removeFromSuperview()
-        self.webKitManager?.extensionHostWebViewDidDeactivate(role: .musicPlayer)
+        self.webKitManager?.unregisterExtensionHostWebView(role: .musicPlayer)
         self.webView = nil
         self.coordinator = nil
         self.cancelledDocumentNavigations.removeAll()
@@ -950,6 +954,28 @@ extension SingletonPlayerWebView {
             return
         }
         guard self.documentGeneration.startNavigation(generation) else { return }
+        if WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
+            webView.url,
+            host: "music.youtube.com"
+        ), let url = request.url {
+            webView.evaluateJavaScript(
+                WebPlaybackDocumentGeneration.locationReplacementScript(for: url)
+            ) { [weak self, weak webView] _, error in
+                guard let self,
+                      let webView,
+                      webView === self.webView,
+                      self.documentGeneration.inFlightGeneration == generation,
+                      self.documentGeneration.pendingGeneration == nil
+                else { return }
+                guard error == nil
+                    || WebPlaybackDocumentGeneration.generation(from: webView.url) == generation
+                else {
+                    self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
+                    return
+                }
+            }
+            return
+        }
         guard let navigation = webView.load(request) else {
             self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
             return

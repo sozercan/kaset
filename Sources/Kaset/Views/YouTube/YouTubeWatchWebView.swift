@@ -311,8 +311,12 @@ final class YouTubeWatchWebView {
         if let blankURL {
             webView.load(URLRequest(url: blankURL))
         }
+        webView.configuration.userContentController.removeScriptMessageHandler(
+            forName: "youtubePlayer"
+        )
+        webView.navigationDelegate = nil
         webView.removeFromSuperview()
-        self.webKitManager?.extensionHostWebViewDidDeactivate(role: .youtubeWatch)
+        self.webKitManager?.unregisterExtensionHostWebView(role: .youtubeWatch)
         self.webView = nil
         self.coordinator = nil
         self.currentContainer = nil
@@ -383,6 +387,32 @@ extension YouTubeWatchWebView {
         }
         guard self.documentGeneration.startNavigation(generation) else {
             self.logger.debug("YouTube load superseded before navigation; skipping stale \(url.absoluteString)")
+            return
+        }
+        if WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
+            webView.url,
+            host: "www.youtube.com"
+        ) {
+            webView.evaluateJavaScript(
+                WebPlaybackDocumentGeneration.locationReplacementScript(for: url)
+            ) { [weak self, weak webView] _, error in
+                guard let self,
+                      let webView,
+                      webView === self.webView,
+                      self.documentGeneration.inFlightGeneration == generation,
+                      self.documentGeneration.pendingGeneration == nil
+                else { return }
+                guard error == nil
+                    || WebPlaybackDocumentGeneration.generation(from: webView.url) == generation
+                else {
+                    self.handleCurrentDocumentNavigationFailure(
+                        generation,
+                        webView: webView,
+                        resumeAtOverride: pendingSeek
+                    )
+                    return
+                }
+            }
             return
         }
         guard let navigation = webView.load(request) else {
