@@ -550,13 +550,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .overlay(alignment: .top) {
-                if self.showsVolumeOverlay {
-                    self.volumeOverlay
-                        .offset(y: -176)
-                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                        .zIndex(1)
-                }
+            .playerBarVolumeOverlay(isPresented: self.showsVolumeOverlay) {
+                self.volumeOverlay
             }
         }
     }
@@ -602,9 +597,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     onEditingChanged: { editing in
                         self.isAdjustingVolume = editing
                         if !editing {
-                            Task {
-                                await self.playerService.setVolume(self.volumeValue)
-                            }
+                            self.playerService.setVolumeImmediately(self.volumeValue)
                         }
                     },
                     onValueChanged: { oldValue, newValue in
@@ -612,9 +605,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                             if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
                                 HapticService.sliderBoundary()
                             }
-                            Task {
-                                await self.playerService.setVolume(newValue)
-                            }
+                            self.playerService.setVolumeImmediately(newValue)
                         }
                     }
                 )
@@ -1257,14 +1248,17 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private var volumeIcon: String {
-        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
-        if currentVolume == 0 {
-            return "speaker.slash.fill"
-        } else if currentVolume < 0.5 {
-            return "speaker.wave.1.fill"
+        if self.displayedVolume == 0 {
+            "speaker.slash.fill"
+        } else if self.displayedVolume < 0.5 {
+            "speaker.wave.1.fill"
         } else {
-            return "speaker.wave.2.fill"
+            "speaker.wave.2.fill"
         }
+    }
+
+    private var displayedVolume: Double {
+        self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
     }
 
     private var repeatIconName: String {
