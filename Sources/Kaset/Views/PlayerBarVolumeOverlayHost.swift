@@ -207,6 +207,22 @@ private final class PlayerBarVolumeOverlayHostingView: NSHostingView<PlayerBarVo
 private final class PlayerBarVolumeOverlayAnchorView: NSView {
     var onGeometryChange: ((PlayerBarVolumeOverlayAnchorView) -> Void)?
 
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        self.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.frameDidChange),
+            name: NSView.frameDidChangeNotification,
+            object: self
+        )
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
     override func layout() {
         super.layout()
         self.onGeometryChange?(self)
@@ -220,6 +236,14 @@ private final class PlayerBarVolumeOverlayAnchorView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         self.onGeometryChange?(self)
+    }
+
+    @objc private func frameDidChange(_: Notification) {
+        self.onGeometryChange?(self)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 }
 
