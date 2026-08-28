@@ -208,7 +208,7 @@ final class PlayerBarUITests: KasetUITestCase {
         ].firstMatch
         XCTAssertTrue(waitForHittable(volumeSlider))
 
-        let initialValue = try XCTUnwrap(volumeSlider.value as? String)
+        let initialValue = try XCTUnwrap(volumeButton.value as? String)
         let initialPercent = try XCTUnwrap(
             initialValue.split(whereSeparator: { !$0.isNumber }).first.flatMap { Int($0) },
             "Expected a numeric volume value, got \(initialValue)"
@@ -220,7 +220,7 @@ final class PlayerBarUITests: KasetUITestCase {
 
         let valueChanged = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value != %@", initialValue),
-            object: volumeSlider
+            object: volumeButton
         )
         XCTAssertEqual(XCTWaiter().wait(for: [valueChanged], timeout: 5), .completed)
     }

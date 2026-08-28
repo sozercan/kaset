@@ -542,7 +542,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
             PlayerBarIconButton(
                 action: self.toggleVolumePopover,
-                accessibilityLabel: String(localized: "Volume")
+                accessibilityLabel: String(localized: "Volume"),
+                accessibilityValue: "\(Int(self.displayedVolume * 100))%"
             ) {
                 Image(systemName: self.volumeIcon)
                     .font(.system(size: 15, weight: .regular))

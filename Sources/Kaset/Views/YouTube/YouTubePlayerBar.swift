@@ -383,6 +383,7 @@ struct YouTubePlayerBar: View {
             PlayerBarIconButton(
                 action: self.toggleYouTubeVolumeOverlay,
                 accessibilityLabel: String(localized: "Volume"),
+                accessibilityValue: "\(Int(self.displayedVolume * 100))%",
                 icon: {
                     Image(systemName: self.volumeIcon)
                         .font(.system(size: 15, weight: .regular))
