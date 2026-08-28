@@ -118,9 +118,7 @@ struct YouTubePlayerBar: View {
                 self.volumeValue = newValue
             }
         }
-        .onChange(of: self.showsVolumeOverlay) { _, isPresented in
-            self.onVolumeOverlayChange(isPresented)
-        }
+        .onChange(of: self.showsVolumeOverlay) { _, isPresented in self.onVolumeOverlayChange(isPresented) }
         .onAppear {
             self.volumeValue = self.youtubePlayer.volume
             if self.youtubePlayer.duration > 0 {

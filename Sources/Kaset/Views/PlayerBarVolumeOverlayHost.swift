@@ -88,6 +88,7 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
         private var hostingView: PlayerBarVolumeOverlayHostingView?
         private weak var anchorView: PlayerBarVolumeOverlayAnchorView?
         private var mouseDownMonitor: Any?
+        private var applicationDidResignActiveObserver: NSObjectProtocol?
         private var onDismiss: (() -> Void)?
 
         func update(
@@ -109,7 +110,7 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
             self.positionOverlay(relativeTo: anchorView)
             guard self.isPresented, panel.parent != nil else { return }
             panel.orderFront(nil)
-            self.startMonitoringMouseDown()
+            self.startMonitoringDismissal()
         }
 
         func positionOverlay(relativeTo anchorView: PlayerBarVolumeOverlayAnchorView) {
@@ -184,7 +185,7 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
         }
 
         private func hideOverlay() {
-            self.stopMonitoringMouseDown()
+            self.stopMonitoringDismissal()
             guard let panel = self.panel else { return }
             panel.parent?.removeChildWindow(panel)
             panel.orderOut(nil)
@@ -195,6 +196,27 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
             self.isPresented = false
             self.hideOverlay()
             self.onDismiss?()
+        }
+
+        private func startMonitoringDismissal() {
+            self.startMonitoringMouseDown()
+            guard self.applicationDidResignActiveObserver == nil else { return }
+            self.applicationDidResignActiveObserver = NotificationCenter.default.addObserver(
+                forName: NSApplication.didResignActiveNotification,
+                object: NSApp,
+                queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    self?.dismissOverlay()
+                }
+            }
+        }
+
+        private func stopMonitoringDismissal() {
+            self.stopMonitoringMouseDown()
+            guard let observer = self.applicationDidResignActiveObserver else { return }
+            NotificationCenter.default.removeObserver(observer)
+            self.applicationDidResignActiveObserver = nil
         }
 
         private func startMonitoringMouseDown() {
