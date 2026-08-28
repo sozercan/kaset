@@ -118,6 +118,9 @@ struct YouTubePlayerBar: View {
                 self.volumeValue = newValue
             }
         }
+        .onChange(of: self.showsVolumeOverlay) { _, isPresented in
+            self.onVolumeOverlayChange(isPresented)
+        }
         .onAppear {
             self.volumeValue = self.youtubePlayer.volume
             if self.youtubePlayer.duration > 0 {
@@ -392,7 +395,7 @@ struct YouTubePlayerBar: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
             )
-            .playerBarVolumeOverlay(isPresented: self.showsVolumeOverlay) {
+            .playerBarVolumeOverlay(isPresented: self.$showsVolumeOverlay) {
                 self.youtubeVolumeOverlay
             }
         }
@@ -763,7 +766,6 @@ struct YouTubePlayerBar: View {
         withAnimation(AppAnimation.quick) {
             self.showsVolumeOverlay = isPresented
         }
-        self.onVolumeOverlayChange(isPresented)
     }
 
     private func openYouTubeFullView() {

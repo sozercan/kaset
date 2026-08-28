@@ -551,7 +551,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .playerBarVolumeOverlay(isPresented: self.showsVolumeOverlay) {
+            .playerBarVolumeOverlay(isPresented: self.$showsVolumeOverlay) {
                 self.volumeOverlay
             }
         }

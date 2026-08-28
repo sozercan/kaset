@@ -7,7 +7,7 @@ extension View {
     /// Presents the volume capsule in a borderless child panel so it remains
     /// interactive outside the player bar's compact safe-area inset.
     func playerBarVolumeOverlay(
-        isPresented: Bool,
+        isPresented: Binding<Bool>,
         @ViewBuilder overlay: @escaping () -> some View
     ) -> some View {
         self.modifier(
@@ -25,13 +25,13 @@ private struct PlayerBarVolumeOverlayModifier<Overlay: View>: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
-    let isPresented: Bool
+    @Binding var isPresented: Bool
     @ViewBuilder let overlay: () -> Overlay
 
     func body(content: Content) -> some View {
         content.background {
             PlayerBarVolumeOverlayAnchor(
-                isPresented: self.isPresented,
+                isPresented: self.$isPresented,
                 overlay: AnyView(
                     self.overlay()
                         .environment(\.colorScheme, self.colorScheme)
@@ -46,7 +46,7 @@ private struct PlayerBarVolumeOverlayModifier<Overlay: View>: ViewModifier {
 // MARK: - PlayerBarVolumeOverlayAnchor
 
 private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
-    let isPresented: Bool
+    @Binding var isPresented: Bool
     let overlay: AnyView
 
     func makeCoordinator() -> Coordinator {
@@ -66,7 +66,10 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
         context.coordinator.update(
             anchorView: anchorView,
             isPresented: self.isPresented,
-            overlay: self.overlay
+            overlay: self.overlay,
+            onDismiss: {
+                self.isPresented = false
+            }
         )
     }
 
@@ -83,12 +86,18 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
         private var isPresented = false
         private var panel: NSPanel?
         private var hostingView: PlayerBarVolumeOverlayHostingView?
+        private weak var anchorView: PlayerBarVolumeOverlayAnchorView?
+        private var mouseDownMonitor: Any?
+        private var onDismiss: (() -> Void)?
 
         func update(
             anchorView: PlayerBarVolumeOverlayAnchorView,
             isPresented: Bool,
-            overlay: AnyView
+            overlay: AnyView,
+            onDismiss: @escaping () -> Void
         ) {
+            self.anchorView = anchorView
+            self.onDismiss = onDismiss
             self.isPresented = isPresented
             guard isPresented else {
                 self.hideOverlay()
@@ -98,14 +107,19 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
             let panel = self.overlayPanel(overlay: overlay)
             self.hostingView?.rootView = PlayerBarVolumeOverlayRoot(overlay: overlay)
             self.positionOverlay(relativeTo: anchorView)
+            guard self.isPresented, panel.parent != nil else { return }
             panel.orderFront(nil)
+            self.startMonitoringMouseDown()
         }
 
         func positionOverlay(relativeTo anchorView: PlayerBarVolumeOverlayAnchorView) {
             guard self.isPresented,
-                  let panel = self.panel,
-                  let parentWindow = anchorView.window
+                  let panel = self.panel
             else { return }
+            guard let parentWindow = anchorView.window else {
+                self.dismissOverlay()
+                return
+            }
 
             let anchorTop = NSPoint(
                 x: anchorView.bounds.midX,
@@ -132,6 +146,8 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
             self.panel?.close()
             self.panel = nil
             self.hostingView = nil
+            self.anchorView = nil
+            self.onDismiss = nil
         }
 
         private func overlayPanel(overlay: AnyView) -> NSPanel {
@@ -168,9 +184,55 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
         }
 
         private func hideOverlay() {
+            self.stopMonitoringMouseDown()
             guard let panel = self.panel else { return }
             panel.parent?.removeChildWindow(panel)
             panel.orderOut(nil)
+        }
+
+        private func dismissOverlay() {
+            guard self.isPresented else { return }
+            self.isPresented = false
+            self.hideOverlay()
+            self.onDismiss?()
+        }
+
+        private func startMonitoringMouseDown() {
+            guard self.mouseDownMonitor == nil else { return }
+            self.mouseDownMonitor = NSEvent.addLocalMonitorForEvents(
+                matching: [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+            ) { [weak self] event in
+                MainActor.assumeIsolated {
+                    self?.dismissOverlayIfNeeded(for: event)
+                }
+                return event
+            }
+        }
+
+        private func stopMonitoringMouseDown() {
+            guard let mouseDownMonitor = self.mouseDownMonitor else { return }
+            NSEvent.removeMonitor(mouseDownMonitor)
+            self.mouseDownMonitor = nil
+        }
+
+        private func dismissOverlayIfNeeded(for event: NSEvent) {
+            guard let panel = self.panel else { return }
+            let locationOnScreen = event.window?.convertPoint(
+                toScreen: event.locationInWindow
+            ) ?? NSEvent.mouseLocation
+            if panel.frame.contains(locationOnScreen) {
+                return
+            }
+            if let anchorView = self.anchorView,
+               let anchorWindow = anchorView.window
+            {
+                let locationInWindow = anchorWindow.convertPoint(fromScreen: locationOnScreen)
+                let locationInAnchor = anchorView.convert(locationInWindow, from: nil)
+                if anchorView.bounds.contains(locationInAnchor) {
+                    return
+                }
+            }
+            self.dismissOverlay()
         }
     }
 }
