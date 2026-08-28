@@ -795,7 +795,7 @@ extension PlayerService {
         let clampedValue = self.storeVolumeValue(value)
 
         if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.setVolume(clampedValue)
+            self.applyMusicPlaybackVolume(clampedValue)
         } else {
             await self.evaluatePlayerCommand("setVolume(\(Int(clampedValue * 100)))")
         }
@@ -809,7 +809,7 @@ extension PlayerService {
         let playbackVolume = self.pendingPlayVideoId == nil
             ? Double(Int(clampedValue * 100)) / 100
             : clampedValue
-        SingletonPlayerWebView.shared.setVolume(playbackVolume)
+        self.applyMusicPlaybackVolume(playbackVolume)
     }
 
     private func storeVolumeValue(_ value: Double) -> Double {

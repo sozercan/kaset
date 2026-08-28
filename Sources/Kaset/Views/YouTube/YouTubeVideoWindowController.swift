@@ -29,6 +29,13 @@ enum YouTubeVideoWindowLevelPolicy {
         isFloating && !isFullscreenOrTransitioning
     }
 
+    static func shouldShowChrome(
+        isWindowHovered: Bool,
+        isVolumeOverlayPresented: Bool
+    ) -> Bool {
+        isWindowHovered || isVolumeOverlayPresented
+    }
+
     static func collectionBehavior(
         preserving current: NSWindow.CollectionBehavior
     ) -> NSWindow.CollectionBehavior {
@@ -554,6 +561,7 @@ private struct YouTubeVideoWindowContent: View {
 
     @State private var settings = SettingsManager.shared
     @State private var isHovering = false
+    @State private var isVolumeOverlayPresented = false
 
     /// Height of the top strip that moves the window. Generous enough to be
     /// an easy grab target; the top of the video carries no YouTube controls
@@ -566,11 +574,16 @@ private struct YouTubeVideoWindowContent: View {
                 YouTubeWatchSurfaceView()
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-                if self.isHovering {
+                if self.showsWindowChrome {
                     // The full player bar — same items as the main window, plus
                     // detached-only window controls owned by YouTubePlayerBar.
-                    YouTubePlayerBar(isDetachedWindow: true)
-                        .transition(.opacity)
+                    YouTubePlayerBar(
+                        isDetachedWindow: true,
+                        onVolumeOverlayChange: { isPresented in
+                            self.isVolumeOverlayPresented = isPresented
+                        }
+                    )
+                    .transition(.opacity)
                 }
             }
 
@@ -580,7 +593,7 @@ private struct YouTubeVideoWindowContent: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: Self.dragStripHeight)
                 .overlay(alignment: .top) {
-                    if self.isHovering {
+                    if self.showsWindowChrome {
                         Capsule()
                             .fill(.white.opacity(0.35))
                             .frame(width: 36, height: 5)
@@ -597,8 +610,22 @@ private struct YouTubeVideoWindowContent: View {
             withAnimation(.easeInOut(duration: 0.18)) {
                 self.isHovering = hovering
             }
-            YouTubeVideoWindowController.shared.setWindowChromeVisible(hovering)
+            YouTubeVideoWindowController.shared.setWindowChromeVisible(
+                hovering || self.isVolumeOverlayPresented
+            )
         }
+        .onChange(of: self.isVolumeOverlayPresented) { _, isPresented in
+            YouTubeVideoWindowController.shared.setWindowChromeVisible(
+                self.isHovering || isPresented
+            )
+        }
+    }
+
+    private var showsWindowChrome: Bool {
+        YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: self.isHovering,
+            isVolumeOverlayPresented: self.isVolumeOverlayPresented
+        )
     }
 }
 

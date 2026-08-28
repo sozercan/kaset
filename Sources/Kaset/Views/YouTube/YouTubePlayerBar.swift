@@ -38,6 +38,7 @@ struct YouTubePlayerBar: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let isDetachedWindow: Bool
+    private let onVolumeOverlayChange: (Bool) -> Void
 
     /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
@@ -51,8 +52,9 @@ struct YouTubePlayerBar: View {
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
 
-    init(isDetachedWindow: Bool) {
+    init(isDetachedWindow: Bool, onVolumeOverlayChange: @escaping (Bool) -> Void = { _ in }) {
         self.isDetachedWindow = isDetachedWindow
+        self.onVolumeOverlayChange = onVolumeOverlayChange
     }
 
     var body: some View {
@@ -756,9 +758,11 @@ struct YouTubePlayerBar: View {
 
     private func toggleYouTubeVolumeOverlay() {
         HapticService.toggle()
+        let isPresented = !self.showsVolumeOverlay
         withAnimation(AppAnimation.quick) {
-            self.showsVolumeOverlay.toggle()
+            self.showsVolumeOverlay = isPresented
         }
+        self.onVolumeOverlayChange(isPresented)
     }
 
     private func openYouTubeFullView() {

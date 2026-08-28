@@ -194,6 +194,32 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertNotEqual(repeatButton.value as? String, "Off")
     }
 
+    func testFirstVolumeSliderInteractionChangesValue() throws {
+        launchWithMockPlayer(isPlaying: true)
+
+        navigateToHome()
+
+        let volumeButton = app.buttons["Volume"].firstMatch
+        XCTAssertTrue(waitForHittable(volumeButton))
+        volumeButton.click()
+
+        let volumeSlider = app.descendants(matching: .any)[
+            TestAccessibilityID.PlayerBar.volumeSlider
+        ].firstMatch
+        XCTAssertTrue(waitForHittable(volumeSlider))
+
+        let initialValue = try XCTUnwrap(volumeSlider.value as? String)
+        volumeSlider.coordinate(
+            withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)
+        ).click()
+
+        let valueChanged = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value != %@", initialValue),
+            object: volumeSlider
+        )
+        XCTAssertEqual(XCTWaiter().wait(for: [valueChanged], timeout: 5), .completed)
+    }
+
     // MARK: - Player Bar Persistence Across Views
 
     func testPlayerBarPersistsAcrossNavigation() {
