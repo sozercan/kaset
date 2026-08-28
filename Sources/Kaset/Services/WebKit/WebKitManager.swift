@@ -309,10 +309,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         #endif
     }
 
-    func extensionHostWebViewDidDeactivate(role: WebExtensionHostedWebViewRole) {
+    func unregisterExtensionHostWebView(role: WebExtensionHostedWebViewRole) {
         #if compiler(>=5.9)
             if #available(macOS 15.4, *) {
-                self.webExtensionHost.deactivate(role: role)
+                self.webExtensionHost.unregister(role: role)
             }
         #endif
     }
