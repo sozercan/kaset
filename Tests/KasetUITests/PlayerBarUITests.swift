@@ -209,7 +209,10 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForHittable(volumeSlider))
 
         let initialValue = try XCTUnwrap(volumeSlider.value as? String)
-        let initialPercent = try XCTUnwrap(Int(initialValue.dropLast()))
+        let initialPercent = try XCTUnwrap(
+            initialValue.split(whereSeparator: { !$0.isNumber }).first.flatMap { Int($0) },
+            "Expected a numeric volume value, got \(initialValue)"
+        )
         let targetY = initialPercent >= 50 ? 0.8 : 0.2
         volumeSlider.coordinate(
             withNormalizedOffset: CGVector(dx: 0.5, dy: targetY)
