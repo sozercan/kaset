@@ -137,16 +137,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 )
             }
             .task(id: self.authService.hasPersonalAccount) {
-                // Run the podcasts availability probe whenever the user
-                // becomes logged in (cold start with cached cookies, or
-                // after an explicit sign-in). The result gates `mainContent`
-                // via `didResolveFirstProbe`, so the sidebar paints with the
-                // correct state on first frame — no flicker.
+                // Probe podcasts availability in the background whenever the
+                // user becomes logged in. The sidebar starts with podcasts
+                // visible and removes the row if the endpoint returns 404.
                 guard self.authService.hasPersonalAccount else { return }
                 // Brief delay so post-login cookies have a chance to settle
                 // into the data store the API client reads from. On cold
-                // start cookies are already there; this 200 ms is a small
-                // safety margin and is invisible behind the spinner.
+                // start cookies are already there, and this delay does not
+                // block content rendering.
                 try? await Task.sleep(for: .milliseconds(200))
                 await self.podcastsAvailability.probeForFirstResolution(
                     for: self.accountService.currentAccount?.id,
@@ -179,20 +177,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
-                    // Skip the probe gate in UI test mode: existing test
-                    // fixtures (e.g. `navigateToSidebarItem`) check
-                    // sidebar element existence synchronously right after
-                    // launch and don't tolerate the ~300 ms gate delay.
-                    // The probe still fires in the background so the
-                    // `MOCK_PODCASTS_REGION_UNAVAILABLE` path works.
-                    if self.podcastsAvailability.didResolveFirstProbe || UITestConfig.isUITestMode {
-                        self.mainContent
-                    } else {
-                        // Hold the same loading view until the podcasts
-                        // probe resolves so the sidebar paints with the
-                        // correct state on first frame.
-                        self.initializingView
-                    }
+                    self.mainContent
                 } else if self.didCompleteStartupPlaybackCleanup {
                     // Guest mode: public browsing/search/playback remains available
                     // without login. Personal routes render sign-in prompts below.
@@ -207,10 +192,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
 
-            // Persistent WebView - always present once a video has been requested.
+            // Persistent WebView - present once a video is ready to load.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if let videoId = playerService.pendingPlayVideoId {
+            if let videoId = playerService.pendingPlayVideoId,
+               !self.playerService.isPendingRestoredLoadDeferred
+            {
                 PersistentPlayerView(videoId: videoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
@@ -802,8 +789,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     await self.presentCurrentWhatsNew()
                 }
             }
-            Task {
-                await self.accountService.fetchAccounts()
+            // KasetApp's root startup task owns the initializing -> logged-in
+            // account fetch. Later login and reauthentication transitions still
+            // need to refresh the account list here.
+            if oldState != .initializing {
+                Task {
+                    await self.accountService.fetchAccounts()
+                }
             }
             // If we just completed login/reauth, refresh content. This handles
             // the case where cookies were unavailable during initial load and

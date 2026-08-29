@@ -11,9 +11,8 @@ import Observation
 ///
 /// State is in-memory only — no persistence. Each app launch re-probes
 /// from scratch so a region change (e.g. enabling a VPN before
-/// relaunching) is reflected without sign-out/in. The owning view
-/// defers rendering main content until `didResolveFirstProbe` flips, so
-/// the user never sees the Podcasts row appear-then-disappear.
+/// relaunching) is reflected without sign-out/in. The sidebar renders
+/// the row while availability is unknown and removes it after a 404.
 @MainActor
 @Observable
 final class PodcastsAvailabilityService {
