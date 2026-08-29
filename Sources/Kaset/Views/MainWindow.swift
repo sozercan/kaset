@@ -293,7 +293,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private var canRenderAuthenticatedContent: Bool {
-        self.accountService.didCompleteAccountResolution
+        UITestConfig.isUITestMode
+            || self.accountService.didCompleteAccountResolution
             || self.accountResolutionFailOpenGeneration == self.authService.accountIdentityGeneration
     }
 
