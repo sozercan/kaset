@@ -842,13 +842,36 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // the case where cookies were unavailable during initial load and
             // preserved views that may currently hold auth-expired state.
             if shouldRefreshAuthenticatedContent {
+                let authGeneration = self.authService.accountIdentityGeneration
                 Task {
-                    // Brief delay to ensure cookies are fully propagated in WebKit
-                    try? await Task.sleep(for: .milliseconds(500))
+                    guard await self.waitForAuthenticatedRefreshReadiness(
+                        authGeneration: authGeneration
+                    ) else { return }
                     await self.refreshAuthenticatedContent()
                 }
             }
         }
+    }
+
+    private func waitForAuthenticatedRefreshReadiness(authGeneration: UInt64) async -> Bool {
+        let clock = ContinuousClock()
+        let accountResolutionDeadline = clock.now + Self.accountResolutionGateTimeout
+
+        do {
+            // Keep the existing post-login cookie propagation delay.
+            try await Task.sleep(for: .milliseconds(500))
+            while !self.accountService.didCompleteAccountResolution,
+                  clock.now < accountResolutionDeadline
+            {
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        } catch {
+            return false
+        }
+
+        return !Task.isCancelled
+            && self.authService.hasPersonalAccount
+            && self.authService.accountIdentityGeneration == authGeneration
     }
 
     private func handleGuestModeChange(isGuestModeEnabled: Bool) {

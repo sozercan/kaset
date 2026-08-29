@@ -121,8 +121,10 @@ was considered but rejected — see *Alternatives*.
 - **`MainWindow.swift`** renders authenticated content after account
   resolution, or after a 2-second fail-open deadline, without waiting for the
   podcasts probe. A late account result uses the existing account-switch refresh
-  path. The window redirects `navigationSelection = .home` if availability flips
-  to `.unavailable` while the user is on the Podcasts tab.
+  path. Post-login and reauthentication refreshes observe the same deadline so
+  they do not fetch primary-account content while brand restoration is pending.
+  The window redirects `navigationSelection = .home` if availability flips to
+  `.unavailable` while the user is on the Podcasts tab.
 - **`PodcastsViewModel.load()`** on `apiError(code: 404)` calls
   `service.markUnavailable(for:)` and lands on `.loaded` with empty
   sections instead of `.error`. The sidebar row disappears within a frame,
