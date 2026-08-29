@@ -757,6 +757,8 @@ final class AccountService { // swiftlint:disable:this type_body_length
             if self.verifiedAccountId != self.currentAccount?.id {
                 self.scheduleRestoredSessionPin()
             }
+        } catch is CancellationError {
+            self.logger.debug("AccountService: Account fetch cancelled")
         } catch {
             guard fetchGeneration == self.accountDataGeneration,
                   fetchAuthIdentityGeneration == self.authService.accountIdentityGeneration,

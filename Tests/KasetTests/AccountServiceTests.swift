@@ -1804,6 +1804,18 @@ struct AccountServiceTests {
 
     // MARK: - Error Handling Tests
 
+    @Test @MainActor func cancelledAccountFetchDoesNotResolveOrPublishError() async {
+        let services = Self.createService()
+
+        services.client.shouldThrowError = CancellationError()
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+
+        #expect(services.account.didCompleteAccountResolution == false)
+        #expect(services.account.lastError == nil)
+        #expect(services.account.isLoading == false)
+    }
+
     @Test @MainActor func clearErrorResetsLastError() async {
         let services = Self.createService()
 
