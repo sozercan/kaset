@@ -23,7 +23,20 @@ struct AccountServiceTests {
         #expect(services.account.hasBrandAccounts == false)
         #expect(services.account.currentBrandId == nil)
         #expect(services.account.isLoading == false)
+        #expect(services.account.didCompleteAccountResolution == false)
         #expect(services.account.lastError == nil)
+    }
+
+    @Test @MainActor func accountResolutionTracksCurrentAuthenticationIdentity() async {
+        let services = Self.createService()
+
+        await Self.populateAccounts(services, accounts: [MockUserAccountData.primaryAccount])
+        #expect(services.account.didCompleteAccountResolution == true)
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+
+        #expect(services.account.didCompleteAccountResolution == false)
     }
 
     @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() async {
@@ -1800,6 +1813,7 @@ struct AccountServiceTests {
         await services.account.fetchAccounts()
 
         #expect(services.account.lastError != nil)
+        #expect(services.account.didCompleteAccountResolution == true)
 
         // Clear the error
         services.account.clearError()
