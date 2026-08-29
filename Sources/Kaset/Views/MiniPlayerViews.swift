@@ -233,6 +233,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         VStack(spacing: 7) {
             HStack(spacing: 10) {
                 self.artwork(size: 42, cornerRadius: 6)
+                    .overlay { WindowDragHandle() }
 
                 VStack(alignment: .leading, spacing: 2) {
                     self.titleText
@@ -242,6 +243,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                         .opacity(0.8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay { WindowDragHandle() }
 
                 self.hoverOnly {
                     self.trackActionButtons
@@ -274,6 +276,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             .font(.system(size: 10, weight: .medium))
                             .opacity(0.76)
                     }
+                    .overlay { WindowDragHandle() }
                     Spacer()
                     self.hoverOnly {
                         self.trackActionButtons
@@ -296,6 +299,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             VStack(spacing: 7) {
                 HStack(spacing: 10) {
                     self.artwork(size: 42, cornerRadius: 6)
+                        .overlay { WindowDragHandle() }
 
                     VStack(alignment: .leading, spacing: 2) {
                         self.titleText
@@ -305,6 +309,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             .opacity(0.8)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay { WindowDragHandle() }
 
                     self.hoverOnly {
                         self.trackActionButtons
