@@ -40,6 +40,9 @@ Scripts/build-app.sh
 Scripts/compile_and_run.sh
 ```
 
+The dev loop packages a debug build by default. Pass `--release` when testing
+release-only behavior.
+
 ### Lint & Format
 
 ```bash
