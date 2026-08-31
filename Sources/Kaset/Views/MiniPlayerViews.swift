@@ -261,6 +261,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     private var squareArtworkBody: some View {
         ZStack(alignment: .bottom) {
             self.fullFrameArtwork
+                .overlay { WindowDragHandle() }
             self.squareArtworkTopBackdrop
 
             self.hoverOnly {
