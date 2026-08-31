@@ -6,6 +6,8 @@ import SwiftUI
 
 /// Main application window with sidebar navigation and player bar.
 struct MainWindow: View { // swiftlint:disable:this type_body_length
+    private static let accountResolutionGateTimeout: Duration = .seconds(2)
+
     private struct PresentedWhatsNew: Identifiable {
         let whatsNew: WhatsNew
         let requestedVersion: WhatsNew.Version
@@ -13,6 +15,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         var id: String {
             "\(self.requestedVersion.description)::\(self.whatsNew.version.description)"
         }
+    }
+
+    private struct PodcastsProbeTaskID: Hashable {
+        let authGeneration: UInt64
+        let accountID: String
     }
 
     @Environment(AuthService.self) private var authService
@@ -59,6 +66,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
     @State private var contentResetID = UUID()
     @State private var guestRefreshTask: Task<Void, Never>?
+    @State private var accountResolutionFailOpenGeneration: UInt64?
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -136,22 +144,31 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     accountId: accountId
                 )
             }
-            .task(id: self.authService.hasPersonalAccount) {
-                // Run the podcasts availability probe whenever the user
-                // becomes logged in (cold start with cached cookies, or
-                // after an explicit sign-in). The result gates `mainContent`
-                // via `didResolveFirstProbe`, so the sidebar paints with the
-                // correct state on first frame — no flicker.
-                guard self.authService.hasPersonalAccount else { return }
+            .task(id: self.podcastsProbeTaskID) {
+                // Probe podcasts availability in the background when the
+                // initial account resolves for an authenticated session.
+                guard self.podcastsProbeTaskID != nil else { return }
                 // Brief delay so post-login cookies have a chance to settle
-                // into the data store the API client reads from. On cold
-                // start cookies are already there; this 200 ms is a small
-                // safety margin and is invisible behind the spinner.
+                // into the data store the API client reads from. This does not
+                // block content rendering.
                 try? await Task.sleep(for: .milliseconds(200))
-                await self.podcastsAvailability.probeForFirstResolution(
+                guard !Task.isCancelled else { return }
+                await self.podcastsAvailability.probe(
                     for: self.accountService.currentAccount?.id,
                     using: self.client
                 )
+            }
+            .task(id: self.accountResolutionGateTaskID) {
+                self.accountResolutionFailOpenGeneration = nil
+                guard let authGeneration = self.accountResolutionGateTaskID else { return }
+
+                do {
+                    try await Task.sleep(for: Self.accountResolutionGateTimeout)
+                } catch {
+                    return
+                }
+                guard self.accountResolutionGateTaskID == authGeneration else { return }
+                self.accountResolutionFailOpenGeneration = authGeneration
             }
             .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
                 guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
@@ -179,18 +196,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
-                    // Skip the probe gate in UI test mode: existing test
-                    // fixtures (e.g. `navigateToSidebarItem`) check
-                    // sidebar element existence synchronously right after
-                    // launch and don't tolerate the ~300 ms gate delay.
-                    // The probe still fires in the background so the
-                    // `MOCK_PODCASTS_REGION_UNAVAILABLE` path works.
-                    if self.podcastsAvailability.didResolveFirstProbe || UITestConfig.isUITestMode {
+                    if self.canRenderAuthenticatedContent {
                         self.mainContent
                     } else {
-                        // Hold the same loading view until the podcasts
-                        // probe resolves so the sidebar paints with the
-                        // correct state on first frame.
+                        // Give the initial account fetch a bounded chance to restore
+                        // the selected primary or brand account before requests start.
                         self.initializingView
                     }
                 } else if self.didCompleteStartupPlaybackCleanup {
@@ -207,10 +217,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
 
-            // Persistent WebView - always present once a video has been requested.
+            // Persistent WebView - present once a video is ready to load.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if let videoId = playerService.pendingPlayVideoId {
+            if let videoId = playerService.pendingPlayVideoId,
+               !self.playerService.isPendingRestoredLoadDeferred,
+               !self.playerService.showVideo
+            {
                 PersistentPlayerView(videoId: videoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
@@ -260,6 +273,29 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 .padding(.top, 60)
         }
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
+    }
+
+    private var podcastsProbeTaskID: PodcastsProbeTaskID? {
+        guard self.authService.hasPersonalAccount,
+              self.accountService.didCompleteAccountResolution
+        else { return nil }
+        return PodcastsProbeTaskID(
+            authGeneration: self.authService.accountIdentityGeneration,
+            accountID: self.accountService.currentAccount?.id ?? "primary"
+        )
+    }
+
+    private var accountResolutionGateTaskID: UInt64? {
+        guard self.authService.hasPersonalAccount,
+              !self.accountService.didCompleteAccountResolution
+        else { return nil }
+        return self.authService.accountIdentityGeneration
+    }
+
+    private var canRenderAuthenticatedContent: Bool {
+        UITestConfig.isUITestMode
+            || self.accountService.didCompleteAccountResolution
+            || self.accountResolutionFailOpenGeneration == self.authService.accountIdentityGeneration
     }
 
     private var appLifecycleContent: some View {
@@ -315,7 +351,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 if showVideo {
                     VideoWindowController.shared.show(
                         playerService: self.playerService,
-                        webKitManager: self.webKitManager
+                        webKitManager: self.webKitManager,
+                        authService: self.authService
                     )
                 } else {
                     VideoWindowController.shared.close()
@@ -397,22 +434,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             self.youtubeStore.resetForAccountChange()
 
             // Brand accounts can have a different region than the
-            // primary; re-probe in the background so the sidebar
-            // reflects the new account. We deliberately do NOT
-            // reset the gate (`didResolveFirstProbe`) here — that
-            // would tear down `mainContent` and show the loading
-            // spinner full-screen during the switch. Sidebar may
-            // briefly show the prior account's tab state until the
-            // probe lands.
+            // primary. Re-probe in the background so the sidebar
+            // reflects the new account. The sidebar may briefly show
+            // the prior account's tab state until the probe lands.
             DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
             await withTaskGroup(of: Void.self) { group in
                 group.addTask {
                     await self.refreshAllContent()
-                }
-
-                group.addTask {
-                    await self.podcastsAvailability.probe(for: newAccountId, using: self.client)
                 }
 
                 if let currentVideoId = self.playerService.currentTrack?.videoId {
@@ -768,8 +797,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels()
                 self.youtubeStore.resetForAccountChange()
-                // Reset podcasts availability so the next sign-in re-gates
-                // the UI and re-probes the endpoint.
+                // Reset podcasts availability so the next sign-in re-probes
+                // the endpoint.
                 self.podcastsAvailability.reset()
             }
             if !isReauthTransition {
@@ -802,20 +831,48 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     await self.presentCurrentWhatsNew()
                 }
             }
-            Task {
-                await self.accountService.fetchAccounts()
+            // KasetApp's root startup task owns the initializing -> logged-in
+            // account fetch. Later login and reauthentication transitions still
+            // need to refresh the account list here.
+            if oldState != .initializing {
+                Task {
+                    await self.accountService.fetchAccounts()
+                }
             }
             // If we just completed login/reauth, refresh content. This handles
             // the case where cookies were unavailable during initial load and
             // preserved views that may currently hold auth-expired state.
             if shouldRefreshAuthenticatedContent {
+                let authGeneration = self.authService.accountIdentityGeneration
                 Task {
-                    // Brief delay to ensure cookies are fully propagated in WebKit
-                    try? await Task.sleep(for: .milliseconds(500))
+                    guard await self.waitForAuthenticatedRefreshReadiness(
+                        authGeneration: authGeneration
+                    ) else { return }
                     await self.refreshAuthenticatedContent()
                 }
             }
         }
+    }
+
+    private func waitForAuthenticatedRefreshReadiness(authGeneration: UInt64) async -> Bool {
+        let clock = ContinuousClock()
+        let accountResolutionDeadline = clock.now + Self.accountResolutionGateTimeout
+
+        do {
+            // Keep the existing post-login cookie propagation delay.
+            try await Task.sleep(for: .milliseconds(500))
+            while !self.accountService.didCompleteAccountResolution,
+                  clock.now < accountResolutionDeadline
+            {
+                try await Task.sleep(for: .milliseconds(50))
+            }
+        } catch {
+            return false
+        }
+
+        return !Task.isCancelled
+            && self.authService.hasPersonalAccount
+            && self.authService.accountIdentityGeneration == authGeneration
     }
 
     private func handleGuestModeChange(isGuestModeEnabled: Bool) {
@@ -896,7 +953,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     private func refreshAuthenticatedContent() async {
         // Parallel initial data fetch for ~40% faster app launch. The podcasts
-        // probe is driven separately by the `.task(id: hasPersonalAccount)` UI gate.
+        // probe is driven separately by the account-keyed task.
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
             group.addTask { await self.exploreViewModel?.refresh() }
@@ -953,8 +1010,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         // The podcasts refresh is gated on the latest availability
         // signal so a brand-account switch into a region without
         // podcasts doesn't fire the spurious 404 the bug is about. The
-        // probe scheduled alongside this group will re-evaluate
-        // availability separately.
+        // account-keyed task re-evaluates availability separately.
         let podcastsAvailable = self.podcastsAvailability.availability != .unavailable
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
