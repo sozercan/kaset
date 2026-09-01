@@ -70,6 +70,7 @@ struct PlayerBarVerticalSlider: View {
             }
         }
         .frame(width: 28, height: 122)
+        .accessibilityElement(children: .ignore)
         .playerBarVerticalSliderAccessibilityIdentifier(self.accessibilityIdentifier)
         .accessibilityLabel(self.accessibilityLabel)
         .accessibilityValue("\(Int(self.clampedValue * 100))%")

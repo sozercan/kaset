@@ -35,6 +35,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     // MARK: - Call Tracking
 
     private(set) var homeFeedCallCount = 0
+    private(set) var homeBundleForceRefreshes: [Bool] = []
     private(set) var searchCallCount = 0
     private(set) var lastSearchQuery: String?
     private(set) var lastSearchFilter: YouTubeSearchFilter?
@@ -80,7 +81,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeFeed
     }
 
-    func getHomeBundle() async throws -> YouTubeHomeBundle {
+    func getHomeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         if let error {
             throw error
         }
@@ -88,6 +89,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         // home-feed fetch so call-count assertions read naturally, and assemble
         // the bundle from the same fixtures the individual getters use.
         self.homeFeedCallCount += 1
+        self.homeBundleForceRefreshes.append(forceRefresh)
         return YouTubeHomeBundle(
             feed: self.homeFeed,
             chips: self.homeChips,
@@ -117,6 +119,7 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     private(set) var homeChipsCallCount = 0
     private(set) var requestedTopicContinuations: [String] = []
+    private(set) var requestedTopicForceRefreshes: [Bool] = []
 
     func getHomeChips() async throws -> [YouTubeHomeChip] {
         if let error {
@@ -138,11 +141,12 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     /// without waiting on the rail. Receives the chip continuation.
     var beforeTopicReturn: (@Sendable (String) async -> Void)?
 
-    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed {
+    func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed {
         if let error {
             throw error
         }
         self.requestedTopicContinuations.append(continuation)
+        self.requestedTopicForceRefreshes.append(forceRefresh)
         if let beforeTopicReturn {
             await beforeTopicReturn(continuation)
         }

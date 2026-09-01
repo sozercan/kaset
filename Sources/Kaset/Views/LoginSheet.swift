@@ -180,7 +180,7 @@ struct LoginSheet: View {
                 }
             }
 
-            Text(String(localized: "Note: If passkeys don't work, use \"Try another way\" to sign in with password."))
+            Text(String(localized: "Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -101,7 +101,8 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
 @MainActor
 protocol YTMusicClientProtocol: Sendable {
     /// Fetches the home page content (initial sections only for fast display).
-    func getHome() async throws -> HomeResponse
+    /// A forced refresh bypasses and replaces the scoped Home cache.
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse
 
     /// Fetches the next batch of home sections via continuation.
     func getHomeContinuation() async throws -> [HomeSection]?

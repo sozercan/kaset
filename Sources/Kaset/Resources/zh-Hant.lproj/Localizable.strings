@@ -321,7 +321,6 @@
 "Not disliked" = "未標記不喜歡";
 "Not liked" = "未標記喜歡";
 "Not signed in" = "未登入";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "注意：如果密碼金鑰無法使用，請選擇「嘗試其他方式」以使用密碼登入。";
 "Nothing here right now" = "這裡目前什麼都沒有";
 "Nothing to show" = "沒有內容可顯示";
 "Now Playing" = "正在播放";
@@ -338,6 +337,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "開啟命令列，用自然語言控制音樂。試試說「播放一些舒緩的音樂」或「把爵士加入待播清單」。";
 "Options…" = "選項…";
 "Output" = "輸出";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "此視窗不支援密碼金鑰登入，Google 會改為要求輸入密碼或使用其他登入方式。";
 "Pause" = "暫停";
 "Permission needed" = "需要權限";
 "Piano" = "鋼琴";

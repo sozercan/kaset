@@ -312,7 +312,6 @@
 "Not Playing" = "Tidak Memutar";
 "Not signed in" = "Belum masuk";
 "Not Supported" = "Tidak Didukung";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Catatan: Jika passkey tidak berfungsi, gunakan \"Try another way\" untuk masuk dengan kata sandi.";
 "Nothing here right now" = "Tidak ada apa-apa di sini saat ini";
 "Nothing to show" = "Tidak ada yang ditampilkan";
 "Now Playing" = "Sedang Diputar";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Buka Command Bar untuk mengontrol musik dengan bahasa alami. Coba ucapkan \"play something chill\" atau \"add jazz to queue\".";
 "Options…" = "Opsi…";
 "Output" = "Keluaran";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Masuk dengan passkey tidak tersedia di jendela ini. Google akan meminta kata sandi Anda atau metode masuk lain sebagai gantinya.";
 "Pause" = "Jeda";
 "Permission needed" = "Izin diperlukan";
 "Piano" = "Piano";

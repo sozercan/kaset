@@ -312,7 +312,6 @@
 "Not Playing" = "Не відтворюється";
 "Not signed in" = "Вхід не виконано";
 "Not Supported" = "Не підтримується";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Примітка: якщо ключі доступу не працюють, скористайтеся \"Try another way\", щоб увійти за паролем.";
 "Nothing here right now" = "Зараз тут нічого немає";
 "Nothing to show" = "Нічого показувати";
 "Now Playing" = "Зараз грає";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Відкрийте панель команд, щоб керувати музикою природною мовою. Спробуйте сказати \"play something chill\" або \"add jazz to queue\".";
 "Options…" = "Параметри…";
 "Output" = "Вихід";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Вхід із ключем доступу недоступний у цьому вікні. Натомість Google запитає пароль або інший спосіб входу.";
 "Pause" = "Пауза";
 "Permission needed" = "Потрібен дозвіл";
 "Piano" = "Фортепіано";
