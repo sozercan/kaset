@@ -679,7 +679,11 @@ extension SingletonPlayerWebView {
 
                     // Get the thumbnail URL from the image element
                     if (thumbEl) {
-                        thumbnailUrl = thumbEl.src || thumbEl.getAttribute('src') || '';
+                        // `img.src` resolves against the document base URL, so an empty or
+                        // missing attribute reports the YouTube Music page URL instead of ''.
+                        // Gate on the literal attribute before trusting the resolved value.
+                        const rawThumbSrc = (thumbEl.getAttribute('src') || '').trim();
+                        thumbnailUrl = rawThumbSrc ? (thumbEl.src || rawThumbSrc) : '';
                     }
 
                     // Extract like status from the like button renderer

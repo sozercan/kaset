@@ -166,6 +166,13 @@ extension PlayerService {
 
         // Use API call for reliable library management
         Task {
+            defer {
+                self.finishLibraryMutationTracking(
+                    key: mutationKey,
+                    pendingMutationKey: pendingMutationKey,
+                    mutationRevision: mutationRevision
+                )
+            }
             do {
                 try await request.value.get()
                 guard self.accountSessionGeneration == accountSessionGeneration else { return }
@@ -296,6 +303,22 @@ extension PlayerService {
         } else {
             self.pendingLibraryMutationCountsByKey[key] = count - 1
         }
+    }
+
+    private func finishLibraryMutationTracking(
+        key: String,
+        pendingMutationKey: String,
+        mutationRevision: UInt64
+    ) {
+        // Requests for one track are serialized through libraryMutationTails. Each
+        // request decrements the pending count before its awaiting wrapper resumes,
+        // so the latest wrapper is the only completion that can satisfy both checks.
+        guard self.libraryMutationRevisions[key] == mutationRevision,
+              self.pendingLibraryMutationCountsByKey[pendingMutationKey] == nil
+        else { return }
+
+        self.libraryMutationRevisions.removeValue(forKey: key)
+        self.confirmedLibraryStateByKey.removeValue(forKey: key)
     }
 
     private func isCurrentLibraryMutation(key: String, revision: UInt64) -> Bool {
@@ -493,10 +516,12 @@ extension PlayerService {
                     )
                     if updatesConfirmedLibraryState {
                         let key = activeAccountID + "\u{0}" + videoId
-                        self.confirmedLibraryStateByKey[key] = MusicLibraryConfirmedState(
-                            isInLibrary: self.currentTrackInLibrary,
-                            feedbackTokens: self.currentTrackFeedbackTokens
-                        )
+                        if self.confirmedLibraryStateByKey[key] != nil {
+                            self.confirmedLibraryStateByKey[key] = MusicLibraryConfirmedState(
+                                isInLibrary: self.currentTrackInLibrary,
+                                feedbackTokens: self.currentTrackFeedbackTokens
+                            )
+                        }
                     }
                 }
 

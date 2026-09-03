@@ -28,8 +28,10 @@ Playback shortcuts are source-aware where both sources implement an equivalent a
 | `⌘3`     | Go to Library    |
 | `⌘F`     | Go to Search     |
 | `⌘K`     | Open Command Bar |
+| `⇧⌘R`    | Refresh Home suggestions |
 | `⇧⌘Y`    | Switch source (YouTube Music ⟷ YouTube) |
 
 Navigation shortcuts route to the active source's equivalent destination:
 in YouTube mode, `⌘1`/`⌘2`/`⌘F` go to the YouTube Home/Explore/Search
 surfaces and `⌘3` goes to Playlists.
+`⇧⌘R` refreshes the active source's Home feed and bypasses its cached suggestions.

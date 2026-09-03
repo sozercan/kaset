@@ -584,6 +584,9 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         let didFinish = await self.waitUntil {
             self.mockClient.editSongLibraryStatusTokens.count == 2
                 && self.playerService.libraryMutationTails[mutationKey] == nil
+                && self.playerService.libraryMutationRevisions[mutationKey] == nil
+                && self.playerService.confirmedLibraryStateByKey[mutationKey] == nil
+                && self.playerService.pendingLibraryMutationCountsByKey.isEmpty
                 && !self.playerService.currentTrackInLibrary
         }
 
@@ -591,6 +594,9 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(!self.playerService.currentTrackInLibrary)
         #expect(self.playerService.currentTrack?.isInLibrary == false)
         #expect(self.mockClient.editSongLibraryStatusTokens.count == 2)
+        #expect(self.playerService.libraryMutationRevisions[mutationKey] == nil)
+        #expect(self.playerService.confirmedLibraryStateByKey[mutationKey] == nil)
+        #expect(self.playerService.pendingLibraryMutationCountsByKey.isEmpty)
     }
 
     @Test("Overlapping failed library toggles restore the confirmed baseline")
@@ -762,8 +768,8 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.queue[0].feedbackTokens == originalTokens)
     }
 
-    @Test("Successful library refresh preserves server tokens and rollback baseline")
-    func successfulLibraryRefreshPreservesServerTokensAndRollbackBaseline() async {
+    @Test("Successful library refresh preserves server tokens for later rollback")
+    func successfulLibraryRefreshPreservesServerTokensForLaterRollback() async {
         let song = Song(
             id: "rotated-library-token",
             title: "Rotated Library Token",
@@ -802,10 +808,11 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackFeedbackTokens == serverTokens)
         #expect(self.playerService.currentTrack?.feedbackTokens == serverTokens)
         #expect(self.playerService.queue[0].feedbackTokens == serverTokens)
-        #expect(self.playerService.confirmedLibraryStateByKey[mutationKey] == MusicLibraryConfirmedState(
-            isInLibrary: true,
-            feedbackTokens: serverTokens
-        ))
+        let didReleaseTracking = await self.waitUntil {
+            self.playerService.confirmedLibraryStateByKey[mutationKey] == nil
+                && self.playerService.libraryMutationRevisions[mutationKey] == nil
+        }
+        #expect(didReleaseTracking)
 
         self.mockClient.beforeGetSongReturn = nil
         self.mockClient.shouldThrowError = YTMusicError.networkError(
@@ -822,6 +829,171 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.currentTrackInLibrary)
         #expect(self.playerService.currentTrackFeedbackTokens == serverTokens)
         #expect(self.playerService.queue[0].feedbackTokens == serverTokens)
+        #expect(self.playerService.confirmedLibraryStateByKey[mutationKey] == nil)
+        #expect(self.playerService.libraryMutationRevisions[mutationKey] == nil)
+    }
+
+    @Test("Metadata fetches do not retain per-track library mutation state")
+    func metadataFetchesDoNotRetainLibraryMutationState() async {
+        for index in 0 ..< 20 {
+            let videoId = "metadata-only-\(index)"
+            let song = Song(
+                id: videoId,
+                title: "Metadata only \(index)",
+                artists: [Artist(id: "artist", name: "Artist")],
+                videoId: videoId,
+                isInLibrary: index.isMultiple(of: 2),
+                feedbackTokens: FeedbackTokens(
+                    add: "add-\(index)",
+                    remove: "remove-\(index)"
+                )
+            )
+            self.playerService.currentTrack = song
+            self.mockClient.songResponses[videoId] = song
+
+            await self.playerService.fetchSongMetadata(videoId: videoId)
+        }
+
+        #expect(self.playerService.confirmedLibraryStateByKey.isEmpty)
+        #expect(self.playerService.libraryMutationRevisions.isEmpty)
+        #expect(self.playerService.pendingLibraryMutationCountsByKey.isEmpty)
+    }
+
+    @Test("Metadata started before a completed library mutation stays stale after cleanup")
+    func metadataStartedBeforeLibraryMutationStaysStaleAfterCleanup() async {
+        let originalTokens = FeedbackTokens(add: "old-add", remove: "old-remove")
+        let staleTokens = FeedbackTokens(add: "stale-add", remove: "stale-remove")
+        let song = Song(
+            id: "pre-mutation-metadata",
+            title: "Pre-Mutation Metadata",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "pre-mutation-metadata",
+            isInLibrary: false,
+            feedbackTokens: originalTokens
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: song)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = originalTokens
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.id,
+            title: song.title,
+            artists: song.artists,
+            videoId: song.videoId,
+            isInLibrary: false,
+            feedbackTokens: staleTokens
+        )
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let metadataTask = Task { @MainActor in
+            await self.playerService.fetchSongMetadata(videoId: song.videoId)
+        }
+        await metadataStarted.wait()
+        self.mockClient.beforeGetSongReturn = nil
+
+        self.playerService.toggleLibraryStatus()
+        let mutationKey = self.playerService.songLikeStatusManager.activeAccountID
+            + "\u{0}" + song.videoId
+        let mutationFinished = await self.waitUntil {
+            self.mockClient.editSongLibraryStatusTokens.count == 1
+                && self.playerService.libraryMutationRevisions[mutationKey] == nil
+                && self.playerService.confirmedLibraryStateByKey[mutationKey] == nil
+                && self.playerService.pendingLibraryMutationCountsByKey.isEmpty
+                && self.playerService.currentTrackInLibrary
+        }
+        #expect(mutationFinished)
+
+        await releaseMetadata.open()
+        await metadataTask.value
+
+        #expect(self.playerService.currentTrackInLibrary)
+        #expect(self.playerService.currentTrack?.isInLibrary == true)
+        #expect(self.playerService.currentTrackFeedbackTokens == originalTokens)
+        #expect(self.playerService.queue[0].isInLibrary == true)
+        #expect(self.playerService.queue[0].feedbackTokens == originalTokens)
+        #expect(self.playerService.libraryMutationRevisions[mutationKey] == nil)
+        #expect(self.playerService.confirmedLibraryStateByKey[mutationKey] == nil)
+    }
+
+    @Test("Metadata started before rapid library toggles stays stale after cleanup")
+    func metadataStartedBeforeRapidLibraryTogglesStaysStaleAfterCleanup() async {
+        let oldPair = FeedbackTokens(add: "old-add", remove: "old-remove")
+        let badPair = FeedbackTokens(add: "stale-add", remove: "stale-remove")
+        let newPair = FeedbackTokens(add: "final-add", remove: "final-remove")
+        let song = Song(
+            id: "pre-rapid-mutation-metadata",
+            title: "Pre-Rapid-Mutation Metadata",
+            artists: [Artist(id: "artist", name: "Artist")],
+            videoId: "pre-rapid-mutation-metadata",
+            isInLibrary: false,
+            feedbackTokens: oldPair
+        )
+        let entryID = UUID()
+        self.playerService.setQueue(entries: [QueueEntry(id: entryID, song: song)])
+        self.playerService.activePlaybackQueueEntryID = entryID
+        self.playerService.currentTrack = song
+        self.playerService.currentTrackInLibrary = false
+        self.playerService.currentTrackFeedbackTokens = oldPair
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.id,
+            title: song.title,
+            artists: song.artists,
+            videoId: song.videoId,
+            isInLibrary: false,
+            feedbackTokens: newPair
+        )
+        let metadataStarted = AsyncGate()
+        let releaseMetadata = AsyncGate()
+        self.mockClient.beforeGetSongReturn = { _ in
+            await metadataStarted.open()
+            await releaseMetadata.wait()
+        }
+
+        let metadataTask = Task { @MainActor in
+            await self.playerService.fetchSongMetadata(videoId: song.videoId)
+        }
+        await metadataStarted.wait()
+        self.mockClient.beforeGetSongReturn = nil
+
+        self.playerService.toggleLibraryStatus()
+        self.playerService.toggleLibraryStatus()
+        let mutationKey = self.playerService.songLikeStatusManager.activeAccountID
+            + "\u{0}" + song.videoId
+        let mutationsFinished = await self.waitUntil {
+            self.mockClient.editSongLibraryStatusTokens.count == 2
+                && self.playerService.libraryMutationRevisions[mutationKey] == nil
+                && self.playerService.confirmedLibraryStateByKey[mutationKey] == nil
+                && self.playerService.pendingLibraryMutationCountsByKey.isEmpty
+                && !self.playerService.currentTrackInLibrary
+                && self.playerService.currentTrackFeedbackTokens == newPair
+        }
+        #expect(mutationsFinished)
+
+        self.mockClient.songResponses[song.videoId] = Song(
+            id: song.id,
+            title: song.title,
+            artists: song.artists,
+            videoId: song.videoId,
+            isInLibrary: false,
+            feedbackTokens: badPair
+        )
+        await releaseMetadata.open()
+        await metadataTask.value
+
+        #expect(!self.playerService.currentTrackInLibrary)
+        #expect(self.playerService.currentTrack?.isInLibrary == false)
+        #expect(self.playerService.currentTrackFeedbackTokens == newPair)
+        #expect(self.playerService.queue[0].isInLibrary == false)
+        #expect(self.playerService.queue[0].feedbackTokens == newPair)
+        #expect(self.playerService.libraryMutationRevisions[mutationKey] == nil)
+        #expect(self.playerService.confirmedLibraryStateByKey[mutationKey] == nil)
     }
 
     @Test("toggleLibraryStatus preserves optimistic add when metadata refresh is stale")
