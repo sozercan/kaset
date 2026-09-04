@@ -530,6 +530,7 @@ struct PlaylistDetailView: View {
         fallbackArtist: String?, fallbackAlbum: Album?
     ) {
         let intent = self.playerService.beginMusicPlaybackIntent()
+        self.playerService.sourcePlaylistId = self.viewModel.playlistDetail?.id
         Task { @MainActor in
             let willDeferLoad = self.viewModel.hasMore
             let loadGeneration = await self.playerService.playQueue(

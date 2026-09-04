@@ -92,6 +92,7 @@ extension PlayerService {
     func playWithRadio(song: Song, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.info("Playing with radio: \(song.title)")
+        self.sourcePlaylistId = nil
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         self.prepareForNewPlaybackContext()
@@ -137,6 +138,7 @@ extension PlayerService {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.info("Playing mix playlist: \(playlistId), startVideoId: \(startVideoId ?? "nil (random)")")
         let continuationRequiresAuth = self.authService?.hasPersonalAccount == true
+        self.sourcePlaylistId = nil
         self.clearForwardSkipNavigationStack()
 
         guard let client = self.ytMusicClient else {
