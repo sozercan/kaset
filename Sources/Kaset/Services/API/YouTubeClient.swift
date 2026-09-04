@@ -726,7 +726,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
                 "osVersion": "10_15_7",
                 "platform": "DESKTOP",
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
+                "utcOffsetMinutes": InnerTubeSupport.utcOffsetMinutes(for: .current),
             ],
             "user": userDict,
         ]
