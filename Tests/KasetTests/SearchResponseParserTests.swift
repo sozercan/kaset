@@ -550,5 +550,3 @@ struct SearchResponseParserTests {
         #expect(clean?.isExplicit == false)
     }
 }
-
-private extension SearchResponseParserTests {}

@@ -145,7 +145,7 @@ final class NowPlayingManager {
 
     // MARK: - Now Playing Claim
 
-    enum NativeClaimPlaybackState: Equatable, Sendable {
+    enum NativeClaimPlaybackState: Equatable {
         case playing
         case paused
     }
@@ -159,7 +159,7 @@ final class NowPlayingManager {
         case claim(title: String, artist: String, playbackState: NativeClaimPlaybackState)
     }
 
-    struct ActiveVideoClaim: Equatable, Sendable {
+    struct ActiveVideoClaim: Equatable {
         let title: String
         let artist: String
         let playbackState: NativeClaimPlaybackState

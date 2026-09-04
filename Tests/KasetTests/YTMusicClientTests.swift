@@ -457,7 +457,7 @@ struct YTMusicClientSearchRequestTests {
 
 // MARK: - SearchRequestRecord
 
-private struct SearchRequestRecord: Equatable, Sendable {
+private struct SearchRequestRecord: Equatable {
     let path: String
     let query: String?
     let params: String?

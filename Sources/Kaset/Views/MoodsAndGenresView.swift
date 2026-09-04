@@ -126,7 +126,7 @@ struct MoodsAndGenresView: View {
         } itemContent: { index, item in
             HomeSectionItemCard(
                 item: item,
-                playAction: self.playlistPlayAction(for: item)
+                playAction: self.quickPlayAction(for: item)
             ) {
                 self.playItem(item, in: section, at: index)
             }
@@ -135,19 +135,26 @@ struct MoodsAndGenresView: View {
 
     // MARK: - Actions
 
-    private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
-        guard case let .playlist(playlist) = item,
-              SongActionsHelper.canQuickPlayPlaylist(playlist)
-        else {
-            return nil
-        }
-
-        return {
-            SongActionsHelper.playPlaylist(
-                playlist,
-                client: self.viewModel.client,
-                playerService: self.playerService
-            )
+    private func quickPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        switch item {
+        case let .playlist(playlist) where SongActionsHelper.canQuickPlayPlaylist(playlist):
+            {
+                SongActionsHelper.playPlaylist(
+                    playlist,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            }
+        case let .album(album):
+            {
+                SongActionsHelper.playAlbum(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            }
+        default:
+            nil
         }
     }
 

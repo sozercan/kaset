@@ -32,7 +32,7 @@ struct HomeSectionItemCard: View {
     }
 
     var body: some View {
-        if self.supportsPlaylistPlayAction {
+        if self.supportsQuickPlayAction {
             self.cardContent
                 .accessibilityAction(named: Text("Play \(self.item.title)")) {
                     self.playAction?()
@@ -127,10 +127,11 @@ struct HomeSectionItemCard: View {
         .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
         .overlay {
-            // Play overlay on hover (for songs)
-            if case .song = self.item, self.isHovering {
-                SongCoverPlayOverlay(size: Self.playButtonSize)
-                    .transition(.opacity)
+            // Play overlay on hover: decorative for songs (the whole card plays),
+            // interactive for playlists/albums so the play button plays directly
+            // while the rest of the card keeps navigating into the content.
+            if self.isHovering {
+                self.playOverlay
             }
         }
         .overlay(alignment: .topTrailing) {
@@ -142,9 +143,34 @@ struct HomeSectionItemCard: View {
         }
     }
 
-    private var supportsPlaylistPlayAction: Bool {
-        guard case .playlist = self.item else { return false }
-        return self.playAction != nil
+    private var supportsQuickPlayAction: Bool {
+        guard self.playAction != nil else { return false }
+        switch self.item {
+        case .playlist, .album: return true
+        case .song, .artist: return false
+        }
+    }
+
+    /// Hover play affordance on the thumbnail. Decorative (non-interactive) for
+    /// songs, which play via the card's own tap; an interactive button for
+    /// playlists/albums so the thumbnail plays without opening the detail view.
+    @ViewBuilder
+    private var playOverlay: some View {
+        switch self.item {
+        case .song:
+            SongCoverPlayOverlay(size: Self.playButtonSize)
+                .transition(.opacity)
+        case .playlist, .album:
+            if let playAction = self.playAction {
+                Button(action: playAction) {
+                    LiquidGlassPlayIcon(size: Self.playButtonSize, interactive: true)
+                }
+                .buttonStyle(.borderless)
+                .transition(.opacity)
+            }
+        case .artist:
+            EmptyView()
+        }
     }
 
     @ViewBuilder
@@ -312,7 +338,7 @@ struct HomeSectionItemCard: View {
 
 // MARK: - LiquidGlassPlayIcon
 
-private struct LiquidGlassPlayIcon: View {
+struct LiquidGlassPlayIcon: View {
     let size: CGSize
     let interactive: Bool
 
