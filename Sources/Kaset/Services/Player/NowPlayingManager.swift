@@ -335,16 +335,24 @@ final class NowPlayingManager {
     }
 
     private func observeSettingsChanges() {
-        withObservationTracking {
+        withObservationTracking { [weak self] in
+            guard let self else { return }
             _ = self.settings.mediaControlStyle
             _ = self.settings.playbackAudioQuality
-        } onChange: {
-            Task { @MainActor [weak self] in
+            _ = self.settings.audioFadingEnabled
+        } onChange: { [weak self] in
+            Task { @MainActor in
                 self?.syncMediaControlSetting()
                 self?.syncPlaybackAudioQualitySetting()
+                self?.syncFadingEnabledSetting()
                 self?.observeSettingsChanges()
             }
         }
+    }
+
+    /// Syncs the audio-fading-enabled flag to the singleton WebView.
+    private func syncFadingEnabledSetting() {
+        SingletonPlayerWebView.shared.setFadingEnabled(self.settings.audioFadingEnabled)
     }
 
     /// Syncs the media control style setting to the singleton WebView and its bootstrap state.

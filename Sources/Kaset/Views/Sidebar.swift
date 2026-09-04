@@ -84,6 +84,7 @@ struct Sidebar: View {
             // Source toggle + profile section at bottom (shared with YouTubeSidebar)
             SidebarFooterView()
         }
+        .toolbar(removing: .sidebarToggle)
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
     }
 

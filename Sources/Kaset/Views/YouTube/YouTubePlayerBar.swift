@@ -128,19 +128,8 @@ struct YouTubePlayerBar: View {
     }
 
     private var playerAreaFade: some View {
-        LinearGradient(
-            colors: [
-                Color(nsColor: .windowBackgroundColor).opacity(0),
-                Color(nsColor: .windowBackgroundColor).opacity(0.22),
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .frame(height: 44)
-        .frame(maxWidth: .infinity)
-        .padding(.bottom, -8)
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        LiquidGlassFade(edge: .bottom, height: 135)
+            .padding(.bottom, -8)
     }
 
     // MARK: - Updated Player Layout

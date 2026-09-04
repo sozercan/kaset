@@ -40,6 +40,8 @@ struct IntelligenceSettingsView: View {
                 Text(String(localized: "AI responses follow your system language settings."))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
             }
 
             Section {

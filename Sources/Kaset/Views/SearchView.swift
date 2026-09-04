@@ -39,7 +39,7 @@ struct SearchView: View {
                 // Content
                 self.contentView
             }
-            .localizedNavigationTitle("Search")
+            .navigationTitle("")
             .navigationDestinations(
                 client: self.viewModel.client,
                 playerBarNavigationAction: self.playerBarNavigationAction

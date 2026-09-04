@@ -35,6 +35,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(\.showCommandBar) private var showCommandBar
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
@@ -89,6 +90,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+
+    /// Fullscreen presentation state.
+    @State private var isFullScreen = false
 
     init(
         navigationSelection: Binding<NavigationItem?>,
@@ -487,6 +491,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             self.pinnedNavigationPaths[item.contentId] = NavigationPath()
                         }
                     )
+                    .safeAreaPadding(.top, 12)
                 } else {
                     YouTubeSidebar(
                         selection: self.$youtubeNavigationSelection,
@@ -494,27 +499,67 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                             self.youtubeStore.navigationPath = NavigationPath()
                         }
                     )
+                    .safeAreaPadding(.top, 12)
                 }
             } detail: {
-                if self.settings.appSource == .music {
-                    self.detailView(
-                        for: self.navigationSelection,
-                        pinnedItem: self.selectedSidebarPinnedItem,
-                        client: self.client
-                    )
-                } else {
-                    YouTubeContentView(
-                        selection: self.youtubeNavigationSelection,
-                        store: self.youtubeStore
-                    )
+                ZStack(alignment: .top) {
+                    Group {
+                        if self.settings.appSource == .music {
+                            self.detailView(
+                                for: self.navigationSelection,
+                                pinnedItem: self.selectedSidebarPinnedItem,
+                                client: self.client
+                            )
+                        } else {
+                            YouTubeContentView(
+                                selection: self.youtubeNavigationSelection,
+                                store: self.youtubeStore
+                            )
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // Reserve space so scroll content starts below the floating topbar overlay
+                    // in fullscreen mode (when the custom bar is visible).
+                    .safeAreaInset(edge: .top) {
+                        Color.clear.frame(height: self.isFullScreen ? 44 : 0)
+                    }
+
+                    // Liquid Glass + ambient gradient background — ALWAYS rendered at the top
+                    // of the detail pane in both windowed and fullscreen modes.
+                    self.topBarBackground
+
+                    // Floating custom topbar — only visible in fullscreen mode.
+                    // In windowed mode, the native SwiftUI toolbar owns these controls.
+                    if self.isFullScreen {
+                        self.topBarView
+                    }
                 }
+                .navigationTitle("")
             }
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
-                if self.columnVisibility != .all {
+                // Restore sidebar when re-activated from Dock/app-switcher — but not while in fullscreen
+                // where the sidebar should remain collapsed.
+                if !self.isFullScreen, self.columnVisibility != .all {
                     self.columnVisibility = .all
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willEnterFullScreenNotification)) { _ in
+                self.isFullScreen = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didEnterFullScreenNotification)) { _ in
+                self.isFullScreen = true
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willExitFullScreenNotification)) { _ in
+                self.isFullScreen = false
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didExitFullScreenNotification)) { _ in
+                self.isFullScreen = false
+            }
+            .onAppear {
+                if let window = NSApplication.shared.windows.first(where: { MainWindowLayout.isPrimaryWindow($0) }) {
+                    self.isFullScreen = window.styleMask.contains(.fullScreen)
                 }
             }
 
@@ -524,21 +569,173 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
+        .toolbar(removing: .sidebarToggle)
+        // Native SwiftUI toolbar — these items render inside the macOS titlebar in windowed mode.
+        // In fullscreen, they auto-hide with the traffic lights; the floating topBarView takes over.
         .toolbar {
-            if self.supportsCommandBarUI {
-                ToolbarItem(placement: .primaryAction) {
+            ToolbarItemGroup(placement: .navigation) {
+                if !self.isFullScreen {
+                    // Sidebar Toggle
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            if self.columnVisibility == .all {
+                                self.columnVisibility = .detailOnly
+                            } else {
+                                self.columnVisibility = .all
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "sidebar.left")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 32, height: 32)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .compatGlass(interactive: true, in: .capsule)
+                    .padding(.top, 4)
+                    .help(String(localized: "Toggle Sidebar"))
+                    .accessibilityIdentifier(AccessibilityID.Sidebar.toggleButton)
+                }
+            }
+
+            ToolbarItem(placement: .principal) {
+                if !self.isFullScreen {
+                    // Centered Location Pill — replaces default navigation title text in titlebar
+                    HStack(spacing: 6) {
+                        Image(systemName: self.currentNavigationIcon)
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(PackageResourceLookup.brandAccent)
+                        Text(self.currentNavigationTitle)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundStyle(.primary)
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(height: 32)
+                    .compatGlass(interactive: false, in: .capsule)
+                    .padding(.top, 4)
+                }
+            }
+
+            ToolbarItemGroup(placement: .primaryAction) {
+                if !self.isFullScreen, self.supportsCommandBarUI {
                     Button {
                         self.presentCommandBarIfAvailable()
                     } label: {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 14))
+                            .font(.system(size: 12, weight: .semibold))
                             .foregroundStyle(.primary)
+                            .frame(width: 32, height: 32)
+                            .compatGlass(interactive: true, in: .circle)
                     }
+                    .buttonStyle(.plain)
+                    .padding(.top, 4)
                     .keyboardShortcut("k", modifiers: .command)
                     .help(String(localized: "Open Command Bar (⌘K)"))
                     .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 }
             }
+        }
+        .toolbarBackgroundVisibility(.hidden, for: .windowToolbar)
+    }
+
+    private var topBarBackground: some View {
+        ZStack(alignment: .top) {
+            // Window drag handle in empty regions for native window movement & double-click zoom
+            WindowDragHandle()
+                .allowsHitTesting(!self.isFullScreen)
+                .frame(height: 44)
+
+            LiquidGlassFade(edge: .top, height: 64)
+        }
+        .frame(height: 64)
+        .ignoresSafeArea(edges: .top)
+        .allowsHitTesting(!self.isFullScreen)
+    }
+
+    private var topBarView: some View {
+        ZStack {
+            // Centered Location Pill
+            HStack(spacing: 6) {
+                Image(systemName: self.currentNavigationIcon)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(PackageResourceLookup.brandAccent)
+                Text(self.currentNavigationTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.primary)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 32)
+            .compatGlass(interactive: false, in: .capsule)
+
+            // Leading and Trailing controls
+            HStack {
+                // Sidebar Toggle
+                Button {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                        if self.columnVisibility == .all {
+                            self.columnVisibility = .detailOnly
+                        } else {
+                            self.columnVisibility = .all
+                        }
+                    }
+                } label: {
+                    Image(systemName: "sidebar.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.primary)
+                        .frame(width: 32, height: 32)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .compatGlass(interactive: true, in: .capsule)
+                .help(String(localized: "Toggle Sidebar"))
+                .accessibilityIdentifier(AccessibilityID.Sidebar.toggleButton)
+
+                Spacer()
+
+                if self.supportsCommandBarUI {
+                    Button {
+                        self.presentCommandBarIfAvailable()
+                    } label: {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.primary)
+                            .frame(width: 32, height: 32)
+                            .compatGlass(interactive: true, in: .circle)
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("k", modifiers: .command)
+                    .help(String(localized: "Open Command Bar (⌘K)"))
+                    .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+                }
+            }
+        }
+        .padding(.top, 6)
+        .padding(.leading, self.isFullScreen ? 16 : (self.columnVisibility == .detailOnly ? 76 : 16))
+        .padding(.trailing, 16)
+        .frame(height: 48)
+        .ignoresSafeArea(edges: .top)
+    }
+
+    private var currentNavigationTitle: String {
+        if self.settings.appSource == .music {
+            if let selectedSidebarPinnedItem {
+                return selectedSidebarPinnedItem.title
+            }
+            return self.navigationSelection?.displayName ?? String(localized: "Home")
+        } else {
+            return self.youtubeNavigationSelection?.displayName ?? String(localized: "Home")
+        }
+    }
+
+    private var currentNavigationIcon: String {
+        if self.settings.appSource == .music {
+            if let selectedSidebarPinnedItem {
+                return selectedSidebarPinnedItem.systemImage
+            }
+            return self.navigationSelection?.icon ?? "house"
+        } else {
+            return self.youtubeNavigationSelection?.icon ?? "house"
         }
     }
 

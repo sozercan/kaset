@@ -51,7 +51,7 @@ struct YouTubeExploreView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle(Text("Explore", comment: "YouTube explore title"))
+        .navigationTitle("")
         .task(id: self.viewModel.selectedDestination) {
             await self.viewModel.load()
         }

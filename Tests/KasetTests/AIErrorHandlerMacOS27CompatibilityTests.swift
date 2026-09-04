@@ -59,7 +59,6 @@ import Testing
                 debugDescription: "test"
             ))) == .contentBlocked)
             #expect(mappedError(LanguageModelError.refusal(.init(
-                explanation: "test",
                 debugDescription: "test"
             ))) == .contentBlocked)
             #expect(mappedError(LanguageModelError.unsupportedLanguageOrLocale(.init(

@@ -31,7 +31,7 @@ struct ChartsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .localizedNavigationTitle("Charts")
+            .navigationTitle("")
             .navigationDestinations(
                 client: self.viewModel.client,
                 playerBarNavigationAction: self.playerBarNavigationAction
@@ -86,7 +86,8 @@ struct ChartsView: View {
             }
             // Edge-to-edge so shelves slide under the glass sidebar; resting
             // inset is restored per-shelf via contentInset.
-            .padding(.vertical, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
         }
     }
 

@@ -25,6 +25,7 @@ enum AccessibilityID {
         static let likedMusicItem = "sidebar.likedMusic"
         static let libraryItem = "sidebar.library"
         static let historyItem = "sidebar.history"
+        static let toggleButton = "sidebar.toggleButton"
     }
 
     // MARK: - PlayerBar
@@ -177,6 +178,7 @@ enum AccessibilityID {
         static let container = "mainWindow"
         static let initializingView = "mainWindow.initializing"
         static let aiButton = "mainWindow.aiButton"
+        static let fullscreenButton = "mainWindow.fullscreenButton"
         static let commandBar = "mainWindow.commandBar"
         static let commandBarOverlay = "mainWindow.commandBarOverlay"
         static let commandBarInput = "mainWindow.commandBarInput"

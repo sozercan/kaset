@@ -26,6 +26,8 @@ struct YouTubeSettingsView: View {
                 Text(String(localized: "A soft color glow drawn from the video plays behind the player. Applies to YouTube videos, not Music."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
             }
 
             Section {
@@ -40,6 +42,8 @@ struct YouTubeSettingsView: View {
                 Text(String(localized: "When off, navigating back from a playing video stops it instead of opening the floating player. The pop-out and full-view buttons still work."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .multilineTextAlignment(.leading)
             }
         }
         .formStyle(.grouped)

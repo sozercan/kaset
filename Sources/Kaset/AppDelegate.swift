@@ -372,6 +372,32 @@ extension AppDelegate: NSWindowDelegate {
         sender.orderOut(nil)
         return false // Don't actually close
     }
+
+    // MARK: - Fullscreen Transitions
+
+    func windowDidEnterFullScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              MainWindowLayout.isPrimaryWindow(window)
+        else { return }
+        // macOS handles the autohiding titlebar + traffic lights natively in fullscreen.
+        // Keep titlebar transparent so the native overlay blends cleanly.
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+    }
+
+    func windowDidExitFullScreen(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow,
+              MainWindowLayout.isPrimaryWindow(window)
+        else { return }
+        // macOS may reset titlebar properties during the fullscreen transition.
+        // Re-apply windowed appearance after exiting.
+        MainWindowLayout.restoreWindowedAppearance(window)
+    }
+
+    // MARK: - Resize
+
+    func windowDidResize(_: Notification) {}
 }
 
 // MARK: UNUserNotificationCenterDelegate

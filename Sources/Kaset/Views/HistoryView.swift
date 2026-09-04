@@ -34,7 +34,7 @@ struct HistoryView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .localizedNavigationTitle("Listening History")
+            .navigationTitle("")
             .toolbar {
                 ToolbarItem(placement: .automatic) {
                     Button {
@@ -175,7 +175,8 @@ struct HistoryView: View {
                     }
                 }
             }
-            .padding(.vertical, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
         }
         .accessibilityIdentifier(AccessibilityID.History.scrollView)
     }

@@ -36,4 +36,44 @@ struct MainWindowLayoutTests {
         #expect(MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: MainWindowLayout.autosaveName))
         #expect(!MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: ""))
     }
+
+    @Test("Configure primary window sets transparent titlebar properties")
+    @MainActor
+    func configurePrimaryWindow() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = MainWindowLayout.windowTitle
+
+        MainWindowLayout.configure(window)
+
+        #expect(window.titleVisibility == .hidden)
+        #expect(window.titlebarAppearsTransparent == true)
+        #expect(window.titlebarSeparatorStyle == .none)
+        #expect(window.styleMask.contains(.fullSizeContentView))
+        #expect(window.isMovableByWindowBackground == false)
+    }
+
+    @Test("Restore windowed appearance sets transparent titlebar properties")
+    @MainActor
+    func restoreWindowedAppearance() {
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.title = MainWindowLayout.windowTitle
+
+        MainWindowLayout.restoreWindowedAppearance(window)
+
+        #expect(window.titleVisibility == .hidden)
+        #expect(window.titlebarAppearsTransparent == true)
+        #expect(window.titlebarSeparatorStyle == .none)
+        #expect(window.styleMask.contains(.fullSizeContentView))
+        #expect(window.isMovableByWindowBackground == false)
+    }
 }

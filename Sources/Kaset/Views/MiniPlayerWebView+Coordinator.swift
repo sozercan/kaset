@@ -542,29 +542,16 @@ extension SingletonPlayerWebView {
                 (function() {
                     try {
                         const volume = \(savedVolume);
-                        window.__kasetTargetVolume = volume;
-                        window.__kasetIsSettingVolume = true;
-
-                        const video = document.querySelector('video');
-                        if (video) {
-                            video.volume = volume;
+                        if (window.__kasetAudio) {
+                            window.__kasetAudio.setTargetVolume(volume);
+                        } else {
+                            window.__kasetTargetVolume = volume;
+                            const video = document.querySelector('video');
+                            if (video) video.volume = volume;
                         }
-
-                        // Sync YouTube's internal player APIs if ready
-                        const ytVolume = Math.round(volume * 100);
-                        const player = document.querySelector('ytmusic-player');
-                        if (player && player.playerApi && typeof player.playerApi.setVolume === 'function') {
-                            player.playerApi.setVolume(ytVolume);
-                        }
-                        const moviePlayer = document.getElementById('movie_player');
-                        if (moviePlayer && typeof moviePlayer.setVolume === 'function') {
-                            moviePlayer.setVolume(ytVolume);
-                        }
-
-                        setTimeout(() => { window.__kasetIsSettingVolume = false; }, 100);
-                        return video ? 'applied' : 'no-video-yet';
+                        return 'applied';
                     } catch (e) {
-                         return 'error: ' + e;
+                        return 'error: ' + e;
                     }
                 })();
             """

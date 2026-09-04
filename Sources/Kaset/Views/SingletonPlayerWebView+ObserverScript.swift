@@ -148,24 +148,11 @@ extension SingletonPlayerWebView {
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
 
-            // Volume enforcement: track target volume set by Swift
-            // Don't set a default - only enforce when explicitly set by Swift
-            // window.__kasetTargetVolume is set by volume init script at document start
-            let isEnforcingVolume = false; // Prevent feedback loops
-
-            // Reusable 3-way volume enforcement (video element + YouTube APIs)
+            // Volume enforcement: delegate to central window.__kasetAudio engine
             function enforceVolumeNow() {
-                const targetVol = window.__kasetTargetVolume;
-                const v = document.querySelector('video');
-                if (!v || typeof targetVol !== 'number' || Math.abs(v.volume - targetVol) <= 0.01) return;
-                isEnforcingVolume = true;
-                v.volume = targetVol;
-                const ytVol = Math.round(targetVol * 100);
-                const p = document.querySelector('ytmusic-player');
-                if (p && p.playerApi) p.playerApi.setVolume(ytVol);
-                const mp = document.getElementById('movie_player');
-                if (mp && mp.setVolume) mp.setVolume(ytVol);
-                setTimeout(() => { isEnforcingVolume = false; }, 50);
+                if (window.__kasetAudio) {
+                    window.__kasetAudio.enforceVolume();
+                }
             }
 
             function waitForPlayerBar() {
@@ -264,7 +251,11 @@ extension SingletonPlayerWebView {
                         window.__kasetAutoplayAttempts = 0;
                         window.__kasetAutoplayRetryScheduled = false;
                         bindVideoIdentity(video, !mediaVideoId);
-                        enforceVolumeNow();
+                        if (window.__kasetAudio) {
+                            window.__kasetAudio.bloom(350);
+                        } else {
+                            enforceVolumeNow();
+                        }
                         restartLyricsPoll(false);
                     });
                     video.addEventListener('pause', stopPolling);
@@ -286,7 +277,11 @@ extension SingletonPlayerWebView {
                         setTimeout(() => retryTrackEnded(video, endedPayload), 100);
                         stopPolling();
                     });
-                    video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
+                    video.addEventListener('waiting', () => {
+                        sendUpdate(true); // Buffer state
+                        // No micro-fade on buffer stalls — the user's explicit fade setting
+                        // (pause/resume) already covers all intentional transitions.
+                    });
                     video.addEventListener('seeked', () => {
                         sendUpdate(true); // Seek completed
                         restartLyricsPoll(true);
@@ -334,24 +329,27 @@ extension SingletonPlayerWebView {
                     }
 
                     // Volume enforcement: immediately revert external volume changes
-                    // No debounce — the isEnforcingVolume flag prevents feedback loops.
-                    // A debounce allowed YouTube's rapid-fire init events to keep pushing
-                    // enforcement later, leaving wrong volume audible for 1-2 seconds.
+                    // Central KasetAudioEngine guards against feedback loops and active fades.
                     video.addEventListener('volumechange', () => {
-                        if (isEnforcingVolume) return;
-                        if (window.__kasetIsSettingVolume) return;
                         enforceVolumeNow();
                     });
 
                     // Enforce volume at media lifecycle events where YouTube resets volume.
-                    // YouTube's player often restores its stored volume at these points.
                     video.addEventListener('loadedmetadata', () => {
                         bindVideoIdentity(video, true);
-                        enforceVolumeNow();
+                        if (!window.__kasetAudio || !window.__kasetAudio.fadingEnabled) {
+                            enforceVolumeNow();
+                        }
                     });
-                    video.addEventListener('loadeddata', () => enforceVolumeNow());
+                    video.addEventListener('loadeddata', () => {
+                        if (!window.__kasetAudio || !window.__kasetAudio.fadingEnabled) {
+                            enforceVolumeNow();
+                        }
+                    });
                     function recoverAutoplayIfNeeded() {
-                        enforceVolumeNow();
+                        if (!window.__kasetAudio || !window.__kasetAudio.fadingEnabled) {
+                            enforceVolumeNow();
+                        }
                         // Autoplay recovery: YTM sometimes leaves the video paused
                         // after navigation even with the WebKit autoplay allowance.
                         const btn = document.querySelector('.play-pause-button.ytmusic-player-bar');
@@ -360,8 +358,10 @@ extension SingletonPlayerWebView {
 
                     video.addEventListener('canplay', recoverAutoplayIfNeeded);
 
-                    // Apply target volume immediately when video element is first detected
-                    enforceVolumeNow();
+                    // Apply target volume immediately only when fading is disabled
+                    if (!window.__kasetAudio || !window.__kasetAudio.fadingEnabled) {
+                        enforceVolumeNow();
+                    }
 
                     // If the media was already ready before this listener attached,
                     // there may not be another `canplay` event to drive recovery.

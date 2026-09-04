@@ -195,6 +195,23 @@ extension SingletonPlayerWebView {
         """
     }
 
+    // MARK: - Fading Enabled
+
+    /// Syncs the audio-fading-enabled flag to the live page and future bootstrap state.
+    func setFadingEnabled(_ enabled: Bool) {
+        self.refreshInstalledUserScripts()
+        guard let webView = self.webView else { return }
+        let jsBoolean = enabled ? "true" : "false"
+        let script = """
+            if (window.__kasetAudio) {
+                window.__kasetAudio.setFadingEnabled(\(jsBoolean));
+            } else {
+                window.__kasetFadingEnabled = \(jsBoolean);
+            }
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     // MARK: - Playback Audio Quality
 
     /// Updates the current page and the bootstrap state used by future page loads.

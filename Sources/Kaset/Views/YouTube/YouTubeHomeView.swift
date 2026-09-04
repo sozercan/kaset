@@ -46,7 +46,7 @@ struct YouTubeHomeView: View {
                 }
             }
         }
-        .navigationTitle(Text("Home", comment: "YouTube home feed title"))
+        .navigationTitle("")
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.homeGrid)
         // Key on the view-model identity, not a bare `.task`. On cold launch the
         // account resolves after first paint and `resetForAccountChange()` swaps

@@ -34,7 +34,7 @@ struct PodcastsView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .localizedNavigationTitle("Podcasts")
+            .navigationTitle("")
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }

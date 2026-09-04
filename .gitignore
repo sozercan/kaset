@@ -1,3 +1,12 @@
+# Meta / Tooling
+.gitignore
+.agents/
+.shreakter.json
+projectdata/
+test_ui/
+Assets/
+
+
 # Build artifacts
 .build/
 DerivedData/
@@ -66,3 +75,4 @@ TEMP_*
 build/
 .codex/environments/environment.toml
 Build
+.gitignore

@@ -41,7 +41,7 @@ struct YouTubeShortsView: View {
                 }
             }
         }
-        .navigationTitle(Text("Shorts", comment: "YouTube Shorts title"))
+        .navigationTitle("")
         // Keyed on the view-model identity so a cold-launch account swap (which
         // rebuilds the model) re-fires the load instead of leaving the fresh,
         // idle model stuck. See YouTubeHomeView for the full rationale.

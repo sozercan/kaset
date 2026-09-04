@@ -85,7 +85,7 @@ struct LibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .localizedNavigationTitle("Library")
+            .navigationTitle("")
             .navigationDestination(for: Playlist.self) { playlist in
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(

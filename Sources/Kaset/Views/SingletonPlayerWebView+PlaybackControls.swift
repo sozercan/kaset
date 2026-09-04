@@ -144,14 +144,42 @@ extension SingletonPlayerWebView {
         let generation = self.documentGeneration.currentGeneration
         guard self.documentGeneration.accepts(generation: generation) else { return }
 
-        let script = """
-            if (window.__kasetDocumentGeneration === \(generation)) {
-                \(Self.playPauseCommandScript)
+        let fadeEnabled = SettingsManager.shared.audioFadingEnabled
+
+        if fadeEnabled {
+            let script = """
+                (function() {
+                    const video = document.querySelector('video');
+                    if (!video) return 'no-video';
+                    if (video.paused) {
+                        return 'is-paused';
+                    } else {
+                        return 'is-playing';
+                    }
+                })();
+            """
+            webView.evaluateJavaScript(script) { [weak self] result, _ in
+                guard let self else { return }
+                if let status = result as? String {
+                    if status == "is-paused" {
+                        self.play()
+                    } else {
+                        self.pause()
+                    }
+                } else {
+                    self.play()
+                }
             }
-        """
-        webView.evaluateJavaScript(script) { [weak self] _, error in
-            if let error {
-                self?.logger.error("playPause error: \(error.localizedDescription)")
+        } else {
+            let script = """
+                if (window.__kasetDocumentGeneration === \(generation)) {
+                    \(Self.playPauseCommandScript)
+                }
+            """
+            webView.evaluateJavaScript(script) { [weak self] _, error in
+                if let error {
+                    self?.logger.error("playPause error: \(error.localizedDescription)")
+                }
             }
         }
     }
@@ -177,16 +205,17 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Play (resume).
+    /// Resume playback with smooth in-browser audio volume fade in.
     func play() {
         guard let webView else { return }
-        let generation = self.documentGeneration.currentGeneration
-        guard self.documentGeneration.accepts(generation: generation) else { return }
-        webView.evaluateJavaScript("""
-            if (window.__kasetDocumentGeneration === \(generation)) {
+        let script = """
+            if (window.__kasetAudio) {
+                window.__kasetAudio.resume(350);
+            } else {
                 \(Self.playCommandScript)
             }
-        """, completionHandler: nil)
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// During restored playback, a paused preroll ad must advance before the
@@ -217,67 +246,80 @@ extension SingletonPlayerWebView {
         """, completionHandler: nil)
     }
 
-    /// Pause.
+    /// Pause with smooth in-browser audio volume fade out.
     func pause() {
         guard let webView else { return }
+        let script = """
+            if (window.__kasetAudio) {
+                window.__kasetAudio.pause(350);
+            } else {
+                (function() {
+                    window.__kasetAutoplayPending = false;
+                    window.__kasetPlaybackSuppressed = true;
+                    const video = document.querySelector('video');
+                    if (video) video.pause();
+                })();
+            }
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
 
+    /// Skip to next track with smooth transition.
+    func next() {
+        guard let webView else { return }
         let script = """
             (function() {
-            window.__kasetAutoplayPending = false;
-            window.__kasetPlaybackSuppressed = true;
-                const video = document.querySelector('video');
-                if (video && !video.paused) { video.pause(); return 'paused'; }
-                return 'already-paused';
+                const action = () => {
+                    const nextBtn = document.querySelector('.next-button.ytmusic-player-bar');
+                    if (nextBtn) nextBtn.click();
+                };
+                if (window.__kasetAudio) {
+                    window.__kasetAudio.skipWithFade(150, action);
+                } else {
+                    action();
+                }
             })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Skip to next track.
-    func next() {
-        guard let webView else { return }
-
-        let script = """
-            (function() {
-                const nextBtn = document.querySelector('.next-button.ytmusic-player-bar');
-                if (nextBtn) { nextBtn.click(); return 'clicked'; }
-                return 'no-button';
-            })();
-        """
-        webView.evaluateJavaScript(script) { [weak self] _, error in
-            if let error {
-                self?.logger.error("next error: \(error.localizedDescription)")
-            }
-        }
-    }
-
-    /// Go to previous track.
+    /// Go to previous track with smooth transition.
     func previous() {
         guard let webView else { return }
-
         let script = """
             (function() {
-                const prevBtn = document.querySelector('.previous-button.ytmusic-player-bar');
-                if (prevBtn) { prevBtn.click(); return 'clicked'; }
-                return 'no-button';
+                const action = () => {
+                    const prevBtn = document.querySelector('.previous-button.ytmusic-player-bar');
+                    if (prevBtn) prevBtn.click();
+                };
+                if (window.__kasetAudio) {
+                    window.__kasetAudio.skipWithFade(150, action);
+                } else {
+                    action();
+                }
             })();
         """
-        webView.evaluateJavaScript(script) { [weak self] _, error in
-            if let error {
-                self?.logger.error("previous error: \(error.localizedDescription)")
-            }
-        }
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Seek to a specific time in seconds.
-    func seek(to time: Double) {
+    /// Seek to a specific time in seconds, optionally with a fast fade.
+    func seek(to time: Double, withFade: Bool = false) {
         guard let webView else { return }
 
         let script = """
             (function() {
-                const video = document.querySelector('video');
-                if (video) { video.currentTime = \(time); return 'seeked'; }
-                return 'no-video';
+                const action = () => {
+                    const video = document.querySelector('video');
+                    if (video) { video.currentTime = \(time); }
+                };
+                if (window.__kasetAudio && \(withFade ? "true" : "false")) {
+                    // Smooth 300ms fade down/up for seamless track restart
+                    window.__kasetAudio.seekWithFade(300, action);
+                    return 'fading-seek';
+                } else {
+                    action();
+                    return 'seeked';
+                }
             })();
         """
         webView.evaluateJavaScript(script, completionHandler: nil)
@@ -317,49 +359,14 @@ extension SingletonPlayerWebView {
     func setVolume(_ volume: Double) {
         guard let webView else { return }
         let clampedVolume = max(0, min(1, volume))
-
-        // Update target volume and set video volume directly
-        // Also try to set YouTube's internal player volume via their API
         let script = """
-            (function() {
+            if (window.__kasetAudio) {
+                window.__kasetAudio.setTargetVolume(\(clampedVolume));
+            } else {
                 window.__kasetTargetVolume = \(clampedVolume);
-                const video = document.querySelector('video');
-                let result = [];
-
-                if (video) {
-                    // Set flag to prevent volumechange listener from reverting
-                    window.__kasetIsSettingVolume = true;
-                    video.volume = \(clampedVolume);
-                    result.push('video.volume=' + video.volume);
-                    setTimeout(() => { window.__kasetIsSettingVolume = false; }, 50);
-                } else {
-                    result.push('no-video');
-                }
-
-                // Also try YouTube Music's internal player API
-                const player = document.querySelector('ytmusic-player');
-                if (player && player.playerApi) {
-                    const ytVolume = Math.round(\(clampedVolume) * 100);
-                    player.playerApi.setVolume(ytVolume);
-                    result.push('ytapi.setVolume=' + ytVolume);
-                }
-
-                // Try movie_player API as fallback
-                const moviePlayer = document.getElementById('movie_player');
-                if (moviePlayer && moviePlayer.setVolume) {
-                    const ytVolume = Math.round(\(clampedVolume) * 100);
-                    moviePlayer.setVolume(ytVolume);
-                    result.push('movie_player.setVolume=' + ytVolume);
-                }
-
-                return result.join(', ');
-            })();
-        """
-        webView.evaluateJavaScript(script) { _, error in
-            if let error {
-                self.logger.error("setVolume error: \(error.localizedDescription)")
             }
-        }
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Show the native AirPlay picker for the WebView's video element.

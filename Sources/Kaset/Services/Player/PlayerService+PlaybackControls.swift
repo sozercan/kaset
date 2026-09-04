@@ -598,6 +598,17 @@ extension PlayerService {
         if self.shouldUseNativeQueueForTrackNavigation,
            !self.queueEntries.isEmpty
         {
+            if SettingsManager.shared.audioFadingEnabled, self.isPlaying {
+                await withCheckedContinuation { continuation in
+                    AudioFaderService.shared.fadeOut(
+                        webView: SingletonPlayerWebView.shared.webView,
+                        duration: 0.15,
+                        curve: .logarithmic
+                    ) {
+                        continuation.resume()
+                    }
+                }
+            }
             await self.advanceNativeQueue(
                 intent: intent,
                 defersNetworkFollowUp: defersNetworkFollowUp
@@ -706,8 +717,20 @@ extension PlayerService {
         {
             let queueGeneration = self.queueLoadGeneration
             if self.progress > 3 {
-                await self.seek(to: 0, intent: intent)
+                await self.seek(to: 0, intent: intent, withFade: true)
                 return
+            }
+
+            if SettingsManager.shared.audioFadingEnabled, self.isPlaying {
+                await withCheckedContinuation { continuation in
+                    AudioFaderService.shared.fadeOut(
+                        webView: SingletonPlayerWebView.shared.webView,
+                        duration: 0.15,
+                        curve: .logarithmic
+                    ) {
+                        continuation.resume()
+                    }
+                }
             }
 
             if let priorIndex = self.popForwardSkipIndex(), self.queueEntries.indices.contains(priorIndex) {
@@ -740,7 +763,7 @@ extension PlayerService {
                 guard self.isCurrentQueueLoad(queueGeneration) else { return }
                 self.saveQueueForPersistence()
             } else {
-                await self.seek(to: 0, intent: intent)
+                await self.seek(to: 0, intent: intent, withFade: true)
             }
             return
         }
@@ -753,7 +776,7 @@ extension PlayerService {
         }
 
         if self.progress > 3 {
-            await self.seek(to: 0, intent: intent)
+            await self.seek(to: 0, intent: intent, withFade: true)
         } else {
             SingletonPlayerWebView.shared.previous()
         }
@@ -765,7 +788,7 @@ extension PlayerService {
         await self.seek(to: time, intent: intent)
     }
 
-    func seek(to time: TimeInterval, intent: MusicPlaybackIntent) async {
+    func seek(to time: TimeInterval, intent: MusicPlaybackIntent, withFade: Bool = false) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
         self.logger.debug("Seeking to \(clampedTime)")
@@ -782,12 +805,8 @@ extension PlayerService {
         }
 
         self.clearRestoredPlaybackSessionState()
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.seek(to: clampedTime)
-            self.progress = clampedTime
-        } else {
-            await self.evaluatePlayerCommand("seekTo(\(clampedTime), true)")
-        }
+        SingletonPlayerWebView.shared.seek(to: clampedTime, withFade: withFade)
+        self.progress = clampedTime
     }
 
     /// Sets the volume.

@@ -71,8 +71,19 @@ struct MusicSettingsView: View {
                     }
                 }
                 .help(String(localized: "Choose the preferred audio quality for YouTube Music playback"))
+
+                Toggle(String(localized: "Smooth Audio Fading"), isOn: self.$settings.audioFadingEnabled)
+                    .help(String(localized: "Gradually ramps audio volume on play, pause, track skipping, and buffering transitions"))
             } header: {
                 Text(String(localized: "Audio"))
+            } footer: {
+                if self.settings.audioFadingEnabled {
+                    Text(String(localized: "Acoustic volume ramps ensure smooth play, pause, and track skip transitions without pops or clicks."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .multilineTextAlignment(.leading)
+                }
             }
 
             // MARK: - Lyrics Section

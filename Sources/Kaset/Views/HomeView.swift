@@ -34,7 +34,7 @@ struct HomeView: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .localizedNavigationTitle("Home")
+            .navigationTitle("")
             .navigationDestinations(
                 client: self.viewModel.client,
                 playerBarNavigationAction: self.playerBarNavigationAction
@@ -101,7 +101,8 @@ struct HomeView: View {
             // scroll under the floating glass sidebar; each shelf restores a
             // resting inset via `contentInset`. Only the vertical inset stays
             // on the stack.
-            .padding(.vertical, 20)
+            .padding(.top, 4)
+            .padding(.bottom, 20)
         }
         .accessibilityIdentifier(AccessibilityID.Home.scrollView)
         .pullToRefresh {

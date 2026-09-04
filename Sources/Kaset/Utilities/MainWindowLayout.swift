@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 
 // MARK: - MainWindowLayout
 
@@ -19,7 +20,7 @@ enum MainWindowLayout {
     static let aiTaskSurfaceTopPadding: CGFloat = 72
 
     static var minimumContentSize: NSSize {
-        NSSize(width: minimumWidth, height: minimumHeight)
+        NSSize(width: self.minimumWidth, height: self.minimumHeight)
     }
 
     /// Returns true for windows that are known to be the primary app window.
@@ -33,6 +34,8 @@ enum MainWindowLayout {
     }
 
     /// Applies the primary-window sizing contract to an AppKit window.
+    /// Sets up transparent titlebar with fullSizeContentView for windowed mode.
+    /// In fullscreen, macOS handles the titlebar natively — we don't override.
     @MainActor
     static func configure(_ window: NSWindow) {
         guard self.isPrimaryWindow(window) else { return }
@@ -50,6 +53,27 @@ enum MainWindowLayout {
 
         window.contentMinSize = self.minimumContentSize
         self.expandIfNeeded(window)
+
+        // Only apply custom titlebar settings in windowed mode.
+        // In fullscreen, macOS manages its own auto-hiding titlebar.
+        guard !window.styleMask.contains(.fullScreen) else { return }
+
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.styleMask.insert(.fullSizeContentView)
+        window.isMovableByWindowBackground = false
+    }
+
+    /// Re-applies windowed-mode titlebar settings after exiting fullscreen.
+    /// macOS may reset window properties during the fullscreen transition.
+    @MainActor
+    static func restoreWindowedAppearance(_ window: NSWindow) {
+        window.titleVisibility = .hidden
+        window.titlebarAppearsTransparent = true
+        window.titlebarSeparatorStyle = .none
+        window.styleMask.insert(.fullSizeContentView)
+        window.isMovableByWindowBackground = false
     }
 
     /// Pure clamp used by both AppKit configuration and tests.
@@ -81,5 +105,44 @@ enum MainWindowLayout {
 
         let constrainedFrame = window.constrainFrameRect(clampedFrame, to: window.screen)
         window.setFrame(constrainedFrame, display: true)
+    }
+}
+
+// MARK: - WindowDragHandle
+
+/// Native view representable that supports dragging the window and handling double-clicks.
+struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context _: Context) -> WindowDragNSView {
+        WindowDragNSView()
+    }
+
+    func updateNSView(_: WindowDragNSView, context _: Context) {}
+}
+
+// MARK: - WindowDragNSView
+
+/// Backing NSView for WindowDragHandle.
+final class WindowDragNSView: NSView {
+    override var mouseDownCanMoveWindow: Bool {
+        false
+    }
+
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            switch UserDefaults.standard.string(forKey: "AppleActionOnDoubleClick") {
+            case "Minimize":
+                self.window?.miniaturize(nil)
+            case "None":
+                break
+            default: // "Maximize" (zoom) is the macOS default.
+                self.window?.performZoom(nil)
+            }
+        } else {
+            self.window?.performDrag(with: event)
+        }
     }
 }

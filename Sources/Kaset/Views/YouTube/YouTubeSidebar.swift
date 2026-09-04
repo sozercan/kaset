@@ -45,6 +45,7 @@ struct YouTubeSidebar: View {
         .safeAreaInset(edge: .bottom, spacing: 0) {
             SidebarFooterView()
         }
+        .toolbar(removing: .sidebarToggle)
         .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 300)
     }
 

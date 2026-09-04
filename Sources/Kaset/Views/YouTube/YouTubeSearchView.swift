@@ -37,7 +37,7 @@ struct YouTubeSearchView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .navigationTitle(Text("Search", comment: "YouTube search title"))
+        .navigationTitle("")
     }
 
     // MARK: - Header
