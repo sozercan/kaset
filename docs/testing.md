@@ -548,6 +548,8 @@ Before releasing:
 - [ ] Playback starts on click
 - [ ] Track changes work
 - [ ] Background audio works (close window)
+- [ ] Inline YouTube playback continues as audio after the red-button close without opening a floating window
+- [ ] Reopening the main window restores the same playing YouTube surface
 - [ ] Media keys work
 - [ ] Re-opening window doesn't duplicate audio
 - [ ] Sign out and re-login works
