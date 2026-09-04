@@ -24,6 +24,26 @@ extension SingletonPlayerWebView {
         return decoded
     }
 
+    /// Sanitizes the thumbnail URL reported by the playback bridge.
+    ///
+    /// `img.src` resolves relative to the document, so a player-bar image that has not
+    /// yet been assigned a source reports the YouTube Music page URL. That value fetches
+    /// successfully as HTML and then fails to decode, so it must never reach `currentTrack`.
+    nonisolated static func playbackBridgeThumbnailURLString(from value: Any?) -> String {
+        guard let raw = (value as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !raw.isEmpty,
+              let components = URLComponents(string: raw),
+              let scheme = components.scheme?.lowercased(),
+              scheme == "https" || scheme == "http",
+              let host = components.host,
+              !host.isEmpty,
+              !components.path.isEmpty,
+              components.path != "/"
+        else { return "" }
+
+        return raw
+    }
+
     // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
@@ -601,7 +621,7 @@ private extension SingletonPlayerWebView.Coordinator {
         let hasReadyMedia = body["hasReadyMedia"] as? Bool ?? false
         let title = body["title"] as? String ?? ""
         let artist = body["artist"] as? String ?? ""
-        let thumbnailUrl = body["thumbnailUrl"] as? String ?? ""
+        let thumbnailUrl = SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: body["thumbnailUrl"])
         let trackChanged = body["trackChanged"] as? Bool ?? false
         let likeStatus = Self.likeStatus(from: body["likeStatus"] as? String)
         let hasVideo = body["hasVideo"] as? Bool ?? false

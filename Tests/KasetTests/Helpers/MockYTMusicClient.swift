@@ -96,6 +96,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var editSongLibraryStatusErrors: [(any Error)?] = []
     var getSongDelay: Duration?
     var getHistoryDelay: Duration?
+    var shouldWaitForGetHistoryResponse = false
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
     var getPlaylistError: Error?
@@ -188,6 +189,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     private(set) var getHomeCalled = false
     private(set) var getHomeCallCount = 0
+    private(set) var getHomeForceRefreshes: [Bool] = []
     private(set) var getHomeContinuationCalled = false
     private(set) var getHomeContinuationCallCount = 0
     private(set) var getPersonalizedRecommendationsCalled = false
@@ -302,6 +304,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
     private(set) var removeSongFromPlaylistCalls: [RemoveSongFromPlaylistCall] = []
     private var removeSongFromPlaylistResponseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var getHistoryResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -329,9 +332,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     // MARK: - Protocol Implementation
 
-    func getHome() async throws -> HomeResponse {
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse {
         self.getHomeCalled = true
         self.getHomeCallCount += 1
+        self.getHomeForceRefreshes.append(forceRefresh)
         self._homeContinuationIndex = 0
         let response = self.homeResponse
         await self.beforeGetHomeReturn?()
@@ -472,6 +476,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getHistory() async throws -> HomeResponse {
         self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
+        if self.shouldWaitForGetHistoryResponse {
+            await withCheckedContinuation { continuation in
+                self.getHistoryResponseContinuations.append(continuation)
+            }
+        }
         if let getHistoryDelay {
             try? await Task.sleep(for: getHistoryDelay)
         }
@@ -1101,6 +1110,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
     }
 
+    func resumeNextGetHistoryResponse() {
+        guard !self.getHistoryResponseContinuations.isEmpty else { return }
+        self.getHistoryResponseContinuations.removeFirst().resume()
+    }
+
     func resumeNextRemoveSongFromPlaylistResponse() {
         guard !self.removeSongFromPlaylistResponseContinuations.isEmpty else { return }
         self.removeSongFromPlaylistResponseContinuations.removeFirst().resume()
@@ -1325,6 +1339,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func reset() { // swiftlint:disable:this function_body_length
         self.getHomeCalled = false
         self.getHomeCallCount = 0
+        self.getHomeForceRefreshes = []
         self.getHomeContinuationCalled = false
         self.getHomeContinuationCallCount = 0
         self._homeContinuationIndex = 0
@@ -1437,6 +1452,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.editSongLibraryStatusErrors = []
         self.getSongDelay = nil
         self.getHistoryDelay = nil
+        self.shouldWaitForGetHistoryResponse = false
+        while !self.getHistoryResponseContinuations.isEmpty {
+            self.getHistoryResponseContinuations.removeFirst().resume()
+        }
         self.mixQueueDelay = nil
         self.getRadioQueueDelay = nil
         self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)

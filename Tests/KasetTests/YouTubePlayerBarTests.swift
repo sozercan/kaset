@@ -51,6 +51,22 @@ struct YouTubePlayerBarTests {
         #expect(pinnedWindowBreakpoint - standardBreakpoint == 34)
     }
 
+    @Test("Detached controls stay visible while the volume overlay is presented")
+    func detachedControlsStayVisibleWhileVolumeOverlayIsPresented() {
+        #expect(!YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: false,
+            isVolumeOverlayPresented: false
+        ))
+        #expect(YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: true,
+            isVolumeOverlayPresented: false
+        ))
+        #expect(YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: false,
+            isVolumeOverlayPresented: true
+        ))
+    }
+
     @Test("Chapter segments resolve explicit, next-chapter, and duration end times")
     func chapterSegmentsResolveEndTimes() throws {
         let chapters = [
