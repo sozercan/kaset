@@ -1,18 +1,30 @@
 import AppKit
+import WebKit
+
+// MARK: - PlaybackSpaceKeyContext
+
+struct PlaybackSpaceKeyContext {
+    let keyCode: UInt16
+    let modifiers: NSEvent.ModifierFlags
+    let isRepeat: Bool
+    let isPrimaryWindow: Bool
+    let isTextInputFocused: Bool
+    let isWebContentFocused: Bool
+    let isNativeBrowsingContentFocused: Bool
+    let isPlaybackCommandEnabled: Bool
+}
 
 // MARK: - PlaybackSpaceKeyMonitor
 
 /// Routes the modifier-less Space key to the Playback play/pause command.
 ///
-/// AppKit never offers a modifier-less key equivalent to the main menu, so the
-/// `Space` shortcut declared on the Playback command menu is registered on the menu
-/// item but is never dispatched: the key window's view hierarchy declines the event
-/// and it dies before the menu is consulted (issue #405). A local key-down monitor
-/// is the standard way to reach a bare-Space shortcut.
+/// AppKit does not route bare Space through Kaset's main-menu key equivalent when
+/// native navigation content holds focus, so the registered Playback menu shortcut
+/// is never dispatched (issue #405). A local key-down monitor bridges that gap.
 ///
-/// Space is only claimed when the native UI holds focus. While a text field is being
-/// edited it must type a space, and while the player WebView holds focus the page's
-/// own handler already toggles playback — claiming it there would toggle twice.
+/// Only the initial bare-Space event in the primary window is claimed. Text editors,
+/// WebKit content, and controls with standard Space activation retain the event;
+/// auxiliary windows and key-repeat events are also left alone.
 @MainActor
 final class PlaybackSpaceKeyMonitor {
     nonisolated static let spaceKeyCode: UInt16 = 49
@@ -20,29 +32,44 @@ final class PlaybackSpaceKeyMonitor {
     private var monitor: Any?
 
     /// Whether Space should be claimed for play/pause instead of being delivered normally.
-    nonisolated static func handlesSpaceKey(
-        keyCode: UInt16,
-        modifiers: NSEvent.ModifierFlags,
-        isTextInputFocused: Bool,
-        isWebContentFocused: Bool,
-        isPlaybackCommandEnabled: Bool
-    ) -> Bool {
-        guard keyCode == self.spaceKeyCode else { return false }
-        let significantModifiers = modifiers
+    nonisolated static func handlesSpaceKey(_ context: PlaybackSpaceKeyContext) -> Bool {
+        guard context.keyCode == self.spaceKeyCode,
+              !context.isRepeat,
+              context.isPrimaryWindow
+        else { return false }
+
+        let significantModifiers = context.modifiers
             .intersection(.deviceIndependentFlagsMask)
-            .subtracting([.capsLock, .function, .numericPad])
+            .subtracting([.capsLock, .numericPad])
         guard significantModifiers.isEmpty else { return false }
-        return isPlaybackCommandEnabled && !isTextInputFocused && !isWebContentFocused
+        return context.isPlaybackCommandEnabled
+            && !context.isTextInputFocused
+            && !context.isWebContentFocused
+            && context.isNativeBrowsingContentFocused
     }
 
-    /// Whether the responder is inside the player WebView, whose page handles Space itself.
-    nonisolated static func isWebContent(_ responderTypeName: String) -> Bool {
-        responderTypeName.contains("WebView") || responderTypeName.contains("WKContent")
+    /// Whether the responder is inside a WebKit view whose page handles Space itself.
+    static func isWebContent(_ responder: NSResponder?) -> Bool {
+        var currentResponder = responder
+        while let current = currentResponder {
+            if current is WKWebView {
+                return true
+            }
+            currentResponder = current.nextResponder
+        }
+        return false
     }
 
     /// Whether the responder is a text editor that must receive Space as typed input.
     static func isTextInput(_ responder: NSResponder?) -> Bool {
         responder is NSTextView || responder is NSTextField
+    }
+
+    /// Whether the responder is the native browsing surface where Kaset assigns
+    /// Space to playback. Restricting interception to the table itself avoids
+    /// guessing about SwiftUI's private focus bridge types.
+    static func isNativeBrowsingContent(_ responder: NSResponder?) -> Bool {
+        responder is NSTableView
     }
 
     func start(
@@ -54,16 +81,24 @@ final class PlaybackSpaceKeyMonitor {
         self.monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             let keyCode = event.keyCode
             let modifiers = event.modifierFlags
-            let responder = NSApp.keyWindow?.firstResponder
-            let responderTypeName = responder.map { String(describing: type(of: $0)) } ?? ""
+            let window = event.window ?? NSApp.keyWindow
+            let responder = window?.firstResponder
 
-            guard Self.handlesSpaceKey(
+            let context = PlaybackSpaceKeyContext(
                 keyCode: keyCode,
                 modifiers: modifiers,
+                isRepeat: event.isARepeat,
+                isPrimaryWindow: MainActor.assumeIsolated {
+                    window.map(MainWindowLayout.isPrimaryWindow) ?? false
+                },
                 isTextInputFocused: MainActor.assumeIsolated { Self.isTextInput(responder) },
-                isWebContentFocused: Self.isWebContent(responderTypeName),
+                isWebContentFocused: MainActor.assumeIsolated { Self.isWebContent(responder) },
+                isNativeBrowsingContentFocused: MainActor.assumeIsolated {
+                    Self.isNativeBrowsingContent(responder)
+                },
                 isPlaybackCommandEnabled: MainActor.assumeIsolated { isPlaybackCommandEnabled() }
-            ) else { return event }
+            )
+            guard Self.handlesSpaceKey(context) else { return event }
 
             MainActor.assumeIsolated { onPlayPause() }
             return nil
