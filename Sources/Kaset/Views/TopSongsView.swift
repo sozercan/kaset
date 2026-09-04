@@ -75,7 +75,7 @@ struct TopSongsView: View {
     // MARK: - Song Row
 
     private func songRow(_ song: Song, index: Int) -> some View {
-        HoverObservingRow { isHovered in
+        HoverObservingRow(song: song) { isHovered in
             Button {
                 self.playSongInQueue(startingAt: index)
             } label: {
