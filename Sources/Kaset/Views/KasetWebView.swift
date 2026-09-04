@@ -3,24 +3,41 @@ import WebKit
 
 // MARK: - KasetWebView
 
-/// A WKWebView that suppresses key-equivalent interception when hidden.
+/// A WKWebView that leaves hidden-player navigation shortcuts to the app menu.
 ///
-/// The singleton player WebView lives in the main window's view hierarchy even
-/// during audio-only playback (hidden at 1×1, opacity 0). `NSWindow.performKeyEquivalent`
-/// recursively searches the contentView's subviews, and a stock `WKWebView` returns
-/// `true` for Space and ⌘←/⌘→ because the YouTube Music page has its own handlers.
-/// The event is consumed before the SwiftUI command-menu shortcut fires, leaving
-/// Space unable to toggle play/pause (issue #405).
-///
-/// When the WebView is visible with non-trivial bounds (video mode), key
-/// equivalents are forwarded to the page as normal. When hidden (audio-only),
-/// `performKeyEquivalent` returns `false` so the event falls through to the
-/// menu system. Deriving from live state avoids a manually-synced flag that can
-/// desync after WebView recreation or reparenting; it mirrors the pattern in
-/// `ScrollForwardingWebView`.
+/// The singleton player WebView stays in the main window at 1x1 during audio
+/// playback. WebKit handles Command-Left and Command-Right before SwiftUI's
+/// Playback menu sees them, so Previous and Next would stop working. Bare Space
+/// is handled separately by `PlaybackSpaceKeyMonitor`.
 final class KasetWebView: WKWebView {
+    nonisolated static let leftArrowKeyCode: UInt16 = 123
+    nonisolated static let rightArrowKeyCode: UInt16 = 124
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        guard self.bounds.width > 1, self.bounds.height > 1 else { return false }
+        let isHidden = self.bounds.width <= 1 || self.bounds.height <= 1
+        if Self.declinesHiddenPlaybackKeyEquivalent(
+            keyCode: event.keyCode,
+            modifiers: event.modifierFlags,
+            isHidden: isHidden
+        ) {
+            return false
+        }
+
         return super.performKeyEquivalent(with: event)
+    }
+
+    nonisolated static func declinesHiddenPlaybackKeyEquivalent(
+        keyCode: UInt16,
+        modifiers: NSEvent.ModifierFlags,
+        isHidden: Bool
+    ) -> Bool {
+        guard isHidden,
+              keyCode == self.leftArrowKeyCode || keyCode == self.rightArrowKeyCode
+        else { return false }
+
+        let significantModifiers = modifiers
+            .intersection(.deviceIndependentFlagsMask)
+            .subtracting([.capsLock, .numericPad])
+        return significantModifiers == .command
     }
 }

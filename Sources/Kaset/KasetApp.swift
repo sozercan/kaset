@@ -222,7 +222,7 @@ struct KasetApp: App {
     }
 
     var body: some Scene {
-        Window("Kaset", id: "main") {
+        Window("Kaset", id: MainWindowLayout.sceneIdentifier) {
             // Skip UI during unit tests to prevent window spam
             if UITestConfig.isRunningUnitTests, !UITestConfig.isUITestMode {
                 Color.clear
@@ -639,7 +639,7 @@ struct KasetApp: App {
     private func showMainWindow() {
         guard !self.focusExistingMainWindow() else { return }
 
-        self.openWindow(id: "main")
+        self.openWindow(id: MainWindowLayout.sceneIdentifier)
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         Task { @MainActor in
