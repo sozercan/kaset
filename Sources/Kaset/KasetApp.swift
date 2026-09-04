@@ -254,6 +254,16 @@ struct KasetApp: App {
                 .environment(\.showCommandBar, self.$showCommandBar)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
+                .background {
+                    MainWindowRegistrationView(
+                        register: { [weak appDelegate = self.appDelegate] window in
+                            appDelegate?.registerMainWindow(window)
+                        },
+                        unregister: { [weak appDelegate = self.appDelegate] window in
+                            appDelegate?.unregisterMainWindow(window)
+                        }
+                    )
+                }
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
                     self.textInputFocusState.startMonitoring()

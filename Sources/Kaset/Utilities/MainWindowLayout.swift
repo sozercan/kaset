@@ -37,6 +37,13 @@ enum MainWindowLayout {
     static func configure(_ window: NSWindow) {
         guard self.isPrimaryWindow(window) else { return }
 
+        self.configureKnownPrimaryWindow(window)
+    }
+
+    /// Applies the primary-window contract when the caller already owns the
+    /// main SwiftUI scene and does not need title-based discovery.
+    @MainActor
+    static func configureKnownPrimaryWindow(_ window: NSWindow) {
         if window.frameAutosaveName.isEmpty {
             window.setFrameAutosaveName(self.autosaveName)
         }
