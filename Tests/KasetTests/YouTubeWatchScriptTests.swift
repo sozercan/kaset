@@ -575,8 +575,7 @@ struct YouTubeWatchScriptTests {
                 title: 'Title - YouTube',
                 getElementById: function(id) { return id === 'movie_player' ? player : null; },
                 querySelector: function(selector) {
-                    if (selector === '.ytp-autonav-toggle-button') { return null; }
-                    return video;
+                    return selector === '#movie_player video' || selector === 'video' ? video : null;
                 }
             };
             window.webkit = {

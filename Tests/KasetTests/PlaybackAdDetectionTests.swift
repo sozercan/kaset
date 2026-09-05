@@ -209,6 +209,27 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("lastState().isAd").toBool())
     }
 
+    @Test("Music ad listeners attach when the API object appears without DOM changes")
+    func lateMusicAPIObject() throws {
+        let context = try self.makeContext(isMusic: true)
+        try self.evaluate("delete musicPlayer.playerApi;", in: context)
+        try self.installObserver(isMusic: true, in: context)
+
+        try self.evaluate(
+            """
+            musicPlayer.playerApi = musicApi;
+            timers.splice(0).forEach(function(callback) { callback(); });
+            postedMessages = [];
+            musicApi.presentingType = 2;
+            musicApi.fire('onAdStart');
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("stateCount()").toInt32() == 1)
+        #expect(context.evaluateScript("lastState().isAd").toBool())
+    }
+
     @Test("API hookup retries stop after readiness or the retry limit", arguments: [false, true])
     func apiAttachmentRetriesStop(apiBecomesReady: Bool) throws {
         let context = try self.makeContext(isMusic: false)

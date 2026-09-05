@@ -133,7 +133,9 @@ enum PlaybackAdDetectionScript {
                     }
                 }
                 observedAPIs = apis;
-                if (apis.length === candidates.length) {
+                const musicPlayer = document.querySelector('ytmusic-player');
+                const hasPendingMusicAPI = musicPlayer && !musicPlayer.playerApi;
+                if (apis.length === candidates.length && !hasPendingMusicAPI) {
                     apiRetryCount = 0;
                     if (apiRetryTimeoutId !== null) clearTimeout(apiRetryTimeoutId);
                     apiRetryTimeoutId = null;
