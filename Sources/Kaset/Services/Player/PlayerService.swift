@@ -184,8 +184,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var lastAdPlaybackProgress: TimeInterval?
     var lastAdPlaybackProgressAt: ContinuousClock.Instant?
 
-    /// Monotonic identity for advertisement/content boundary changes.
-    private(set) var adPlaybackStateGeneration = 0
+    /// Invalidates asynchronous snapshots that span an ad transition.
+    @ObservationIgnored private(set) var adPlaybackStateGeneration = 0
 
     /// Last clock sample known to belong to the requested music content.
     var lastNonAdContentProgress: TimeInterval = 0

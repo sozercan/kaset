@@ -170,6 +170,12 @@ extension PlayerService {
         issuedAtMilliseconds: Double
     ) {
         guard issuedAtMilliseconds.isFinite else { return }
+        switch command {
+        case .relativeSeek, .absoluteSeek:
+            guard !self.isShowingAd else { return }
+        default:
+            break
+        }
 
         if let intent = self.remoteMusicTransportIntent,
            self.acceptsMusicRemoteCommand(
@@ -355,6 +361,10 @@ extension PlayerService {
               self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
+        guard !self.isShowingAd else {
+            self.clearRemoteMusicSkipCoalescingTarget()
+            return
+        }
 
         let currentVideoID = self.currentTrack?.videoId ?? self.pendingPlayVideoId
         let currentQueueEntryID = self.queueEntryIDOwningCurrentPlayback
@@ -399,14 +409,15 @@ extension PlayerService {
             await self.seek(to: target, intent: intent)
             return
         }
-        let wasShowingAd = self.isShowingAd
         let adPlaybackStateGeneration = self.adPlaybackStateGeneration
         let playbackStateObservationSequence = self.playbackStateObservationSequence
         let playbackSnapshot = await self.currentMusicPlaybackSnapshot()
         guard self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
-        guard self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
+        guard !self.isShowingAd,
+              self.adPlaybackStateGeneration == adPlaybackStateGeneration,
+              self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
               (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID
         else {
             self.clearRemoteMusicSkipCoalescingTarget()
@@ -416,8 +427,6 @@ extension PlayerService {
         guard let authoritativeClock = self.authoritativeRemoteMusicClock(
             playbackSnapshot: playbackSnapshot,
             currentVideoID: currentVideoID,
-            wasShowingAd: wasShowingAd,
-            adPlaybackStateGeneration: adPlaybackStateGeneration,
             playbackStateObservationSequence: playbackStateObservationSequence
         ) else {
             self.clearRemoteMusicSkipCoalescingTarget()
@@ -452,13 +461,9 @@ extension PlayerService {
     private func authoritativeRemoteMusicClock(
         playbackSnapshot: SingletonPlayerWebView.PlaybackSnapshot?,
         currentVideoID: String?,
-        wasShowingAd: Bool,
-        adPlaybackStateGeneration: Int,
         playbackStateObservationSequence: Int
     ) -> (progress: TimeInterval, duration: TimeInterval)? {
-        let playbackClockChangedWhileAwaitingSnapshot = self.adPlaybackStateGeneration != adPlaybackStateGeneration
-            || self.playbackStateObservationSequence != playbackStateObservationSequence
-        if wasShowingAd || self.isShowingAd || playbackClockChangedWhileAwaitingSnapshot {
+        if self.playbackStateObservationSequence != playbackStateObservationSequence {
             return (self.progress, self.duration)
         }
         guard let playbackSnapshot,

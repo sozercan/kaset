@@ -1,3 +1,6 @@
+"Ad" = "Ad";
+"Advertisement" = "Advertisement";
+
 "%@ %@" = "%1$@ %2$@";
 "%@, %@, %@" = "%1$@, %2$@, %3$@";
 "Profiles" = "Profiles";

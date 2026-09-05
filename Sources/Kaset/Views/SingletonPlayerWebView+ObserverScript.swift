@@ -248,6 +248,9 @@ extension SingletonPlayerWebView {
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
             const TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100;
             const TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS = 5000;
+            \(PlaybackAdDetectionScript.detection)
+            \(PlaybackAdDetectionScript.observation)
+            const refreshAdObserver = observeAdStateChanges(() => sendUpdate(true));
 
             // Volume enforcement: track target volume set by Swift
             // Don't set a default - only enforce when explicitly set by Swift
@@ -282,6 +285,7 @@ extension SingletonPlayerWebView {
             function setupVideoListeners() {
                 // Watch for video element to attach play/pause listeners
                 function attachVideoListeners() {
+                    refreshAdObserver();
                     const video = document.querySelector('video');
                     if (!video) {
                         setTimeout(attachVideoListeners, 500);
@@ -465,6 +469,7 @@ extension SingletonPlayerWebView {
 
                 // Also watch for video element replacement (YouTube may recreate it)
                 const videoObserver = new MutationObserver(() => {
+                    refreshAdObserver();
                     const video = document.querySelector('video');
                     if (video && !video.__kasetListenersAttached) {
                         attachVideoListeners();
@@ -775,12 +780,6 @@ extension SingletonPlayerWebView {
                 sendUpdate(true);
             }
 
-            function isAdShowing() {
-                const moviePlayer = document.getElementById('movie_player');
-                return !!(moviePlayer && moviePlayer.classList
-                    && moviePlayer.classList.contains('ad-showing'));
-            }
-
             function trackEndedPayload(video) {
                 if (!video || video !== document.querySelector('video') || !video.ended) return null;
                 commitExpiredMediaIdentityCorrection();
@@ -986,7 +985,8 @@ extension SingletonPlayerWebView {
                     // Check if track changed
                     const metadataChanged = title !== '' && (title !== lastTitle || artist !== lastArtist);
                     const videoIdChanged = videoId !== '' && videoId !== lastVideoId;
-                    const trackChanged = metadataChanged || videoIdChanged;
+                    // Keep content metadata pending while ad media remains exposed.
+                    const trackChanged = !isAd && (metadataChanged || videoIdChanged);
                     if (trackChanged) {
                         if (title !== '') {
                             lastTitle = title;

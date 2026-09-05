@@ -74,20 +74,6 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 }
 
-// MARK: - MiniPlayerToast
-
-/// A small toast-style view that appears when mini player is shown.
-/// Uses Liquid Glass materialize transition for smooth appearance.
-struct MiniPlayerToast: View {
-    let videoId: String
-
-    var body: some View {
-        PersistentPlayerView(videoId: self.videoId, isExpanded: true)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .compatGlassTransition(.materialize)
-    }
-}
-
 // MARK: - MiniPlayerWindow
 
 struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
@@ -119,7 +105,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
 
     var body: some View {
         ZStack(alignment: .top) {
-            self.surface
+            self.surface.overlay { WindowDragHandle() }
 
             self.panelBody
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -147,6 +133,11 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.currentTrackIdentity) { _, _ in
             self.clearSeekHold()
+        }
+        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.clearSeekHold()
+            }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -235,6 +226,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         VStack(spacing: 7) {
             HStack(spacing: 10) {
                 self.artwork(size: 42, cornerRadius: 6)
+                    .overlay { WindowDragHandle() }
 
                 VStack(alignment: .leading, spacing: 2) {
                     self.titleText
@@ -244,6 +236,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                         .opacity(0.8)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .overlay { WindowDragHandle() }
 
                 self.hoverOnly {
                     self.trackActionButtons
@@ -261,6 +254,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     private var squareArtworkBody: some View {
         ZStack(alignment: .bottom) {
             self.fullFrameArtwork
+                .overlay { WindowDragHandle() }
             self.squareArtworkTopBackdrop
 
             self.hoverOnly {
@@ -276,6 +270,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             .font(.system(size: 10, weight: .medium))
                             .opacity(0.76)
                     }
+                    .overlay { WindowDragHandle() }
                     Spacer()
                     self.hoverOnly {
                         self.trackActionButtons
@@ -298,6 +293,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             VStack(spacing: 7) {
                 HStack(spacing: 10) {
                     self.artwork(size: 42, cornerRadius: 6)
+                        .overlay { WindowDragHandle() }
 
                     VStack(alignment: .leading, spacing: 2) {
                         self.titleText
@@ -307,6 +303,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                             .opacity(0.8)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .overlay { WindowDragHandle() }
 
                     self.hoverOnly {
                         self.trackActionButtons
@@ -672,9 +669,8 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             }
             .controlSize(.small)
             .tint(PackageResourceLookup.brandAccent)
-            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive)
+            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
-
             HStack {
                 Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
                 Spacer()
@@ -684,6 +680,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.76))
             .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
+            .overlay { WindowDragHandle() }
         }
     }
 
@@ -864,7 +861,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func performSeek() {
-        guard self.playerService.duration > 0 else { return }
+        guard self.playerService.duration > 0, !self.playerService.isShowingAd else { return }
         let target = self.seekValue * self.playerService.duration
         let holdID = self.seekHold.begin(target: target)
         Task { await self.playerService.seek(to: target) }

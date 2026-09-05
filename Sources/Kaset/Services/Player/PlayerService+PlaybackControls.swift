@@ -1009,12 +1009,13 @@ extension PlayerService {
 
     /// Seeks to a specific time.
     func seek(to time: TimeInterval) async {
+        guard !self.isShowingAd else { return }
         let intent = self.beginMusicPlaybackIntent()
         await self.seek(to: time, intent: intent)
     }
 
     func seek(to time: TimeInterval, intent: MusicPlaybackIntent) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard !self.isShowingAd, self.acceptsMusicPlaybackIntent(intent) else { return }
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
         if self.pendingNativeQueueAdvance != nil,
            self.duration > 0,
@@ -1052,24 +1053,7 @@ extension PlayerService {
             return
         }
 
-        if self.isShowingAd {
-            if self.duration > 0,
-               clampedTime >= self.duration - Self.seekToEndThreshold
-            {
-                await self.handleManualSeekToEnd(intent: intent)
-                return
-            }
-            self.beginPlaybackClockRestoration(
-                MusicPlaybackRestoreClock(
-                    progress: clampedTime,
-                    duration: self.duration,
-                    isExplicitTransportSeek: true
-                ),
-                songDuration: self.currentTrack?.duration,
-                startsPaused: self.isExplicitPauseIntentActive
-            )
-            return
-        }
+        guard !self.isShowingAd else { return }
 
         if self.duration > 0, clampedTime >= self.duration - Self.seekToEndThreshold {
             await self.handleManualSeekToEnd(intent: intent)

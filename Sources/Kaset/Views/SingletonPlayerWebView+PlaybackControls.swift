@@ -249,8 +249,8 @@ extension SingletonPlayerWebView {
                     clearInterval(window.__kasetAutoplayBlockTimer);
                     window.__kasetAutoplayBlockTimer = null;
                 }
-                const player = document.getElementById('movie_player');
-                const isAd = !!(player && player.classList.contains('ad-showing'));
+                \(PlaybackAdDetectionScript.detection)
+                const isAd = isAdShowing();
                 const video = document.querySelector('video');
                 if (!isAd || !video || !video.currentSrc || video.readyState < 1) return 'not-ready-ad';
                 window.__kasetPlaybackSuppressed = false;
