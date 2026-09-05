@@ -33,7 +33,7 @@ struct PlaybackAdDetectionTests {
         let context = try self.makeContext(isMusic: isMusic)
         try self.evaluate(
             """
-            moviePlayer.getPresentingPlayerType = function(includeStitchedAds) {
+            \(isMusic ? "musicApi" : "moviePlayer").getPresentingPlayerType = function(includeStitchedAds) {
                 return includeStitchedAds === true ? 2 : 1;
             };
             """,
@@ -145,12 +145,14 @@ struct PlaybackAdDetectionTests {
     @Test("Player replacement reconnects ad observation without stale listeners", arguments: [false, true])
     func replacementPlayer(isMusic: Bool) throws {
         let context = try self.makeContext(isMusic: isMusic)
+        let playerAPI = isMusic ? "musicPlayer.playerApi" : "moviePlayer"
         try self.installObserver(isMusic: isMusic, in: context)
         try self.evaluate(
             """
-            var oldPlayer = moviePlayer;
-            moviePlayer = makePlayer();
-            moviePlayer.classes['ad-showing'] = true;
+            var oldPlayer = \(playerAPI);
+            var replacementPlayer = makePlayer();
+            \(playerAPI) = replacementPlayer;
+            replacementPlayer.presentingType = 2;
             notifyChildrenChanged();
             timers.splice(0).forEach(function(callback) { callback(); });
             notifyChildrenChanged();
@@ -159,13 +161,21 @@ struct PlaybackAdDetectionTests {
             in: context
         )
         #expect(context.evaluateScript("lastState().isAd").toBool())
-        #expect(context.evaluateScript("moviePlayer.listeners.onAdStart.length").toInt32() == 1)
+        #expect(context.evaluateScript("replacementPlayer.listeners.onAdStart.length").toInt32() == 1)
 
         try self.evaluate("postedMessages = []; oldPlayer.fire('onAdStart');", in: context)
         #expect(context.evaluateScript("stateCount()").toInt32() == 0)
-        try self.evaluate("delete moviePlayer.classes['ad-showing']; notifyClassChange(moviePlayer);", in: context)
+        try self.evaluate("replacementPlayer.presentingType = 1; replacementPlayer.fire('onAdEnd');", in: context)
         #expect(context.evaluateScript("stateCount()").toInt32() == 1)
         #expect(!context.evaluateScript("lastState().isAd").toBool())
+
+        // Class observation must still follow the current movie-player element.
+        try self.evaluate(
+            "postedMessages = []; moviePlayer.classes['ad-showing'] = true; notifyClassChange(moviePlayer);",
+            in: context
+        )
+        #expect(context.evaluateScript("stateCount()").toInt32() == 1)
+        #expect(context.evaluateScript("lastState().isAd").toBool())
     }
 
     @Test("Ad listeners wait for the player API on an existing element", arguments: [false, true])
