@@ -23,70 +23,97 @@ struct PlaylistTrackRow<Menu: View>: View {
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
+        self.rowContent
+            .background { self.playbackButton }
+            .onHover { hovering in self.isHovered = hovering }
+            .contextMenu { self.menu() }
+    }
+
+    private var rowContent: some View {
         let isCurrent = self.playerService.currentTrack?.videoId == self.track.videoId
 
-        Button(action: self.onPlay) {
-            HStack(spacing: 12) {
-                Group {
-                    if isCurrent {
-                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
-                    } else {
-                        Text("\(self.index + 1)")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
+        return HStack(spacing: 12) {
+            Group {
+                if isCurrent {
+                    NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
+                } else {
+                    Text("\(self.index + 1)")
+                        .font(.system(size: 14))
+                        .foregroundStyle(.secondary)
                 }
-                .frame(width: 28, alignment: .trailing)
-
-                if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(.quaternary)
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(.rect(cornerRadius: 4))
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(self.track.title)
-                            .font(.system(size: 14))
-                            .foregroundStyle(isCurrent ? .red : .primary)
-                            .lineLimit(1)
-                        if self.track.isExplicit == true {
-                            ExplicitBadge()
-                        }
-                    }
-                    if let subtitle = self.subtitle {
-                        if self.hasNavigableArtists {
-                            self.artistLinksView
-                        } else {
-                            Text(subtitle)
-                                .font(.system(size: 12))
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
-
-                Text(self.track.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 45, alignment: .trailing)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-            .opacity(self.track.isPlayable ? 1 : 0.5)
+            .frame(width: 28, alignment: .trailing)
+            .allowsHitTesting(false)
+
+            if !self.isAlbum {
+                CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
+                    image.resizable().scaledToFill()
+                } placeholder: {
+                    Rectangle().fill(.quaternary)
+                }
+                .frame(width: 40, height: 40)
+                .clipShape(.rect(cornerRadius: 4))
+                .allowsHitTesting(false)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(self.track.title)
+                        .font(.system(size: 14))
+                        .foregroundStyle(isCurrent ? .red : .primary)
+                        .lineLimit(1)
+                        .accessibilityHidden(true)
+                    if self.track.isExplicit == true {
+                        ExplicitBadge()
+                    }
+                }
+                .allowsHitTesting(false)
+                if let subtitle = self.subtitle {
+                    if self.hasNavigableArtists {
+                        self.artistLinksView
+                    } else {
+                        Text(subtitle)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
+                .disabled(!self.track.isPlayable)
+                .allowsHitTesting(self.allowsLikeActions && self.track.isPlayable)
+
+            Text(self.track.durationDisplay)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .frame(width: 45, alignment: .trailing)
+                .allowsHitTesting(false)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .opacity(self.track.isPlayable ? 1 : 0.5)
+    }
+
+    private var playbackButton: some View {
+        Button(action: self.onPlay) {
+            Color.clear
+                .contentShape(Rectangle())
         }
         .buttonStyle(.interactiveRow(cornerRadius: 6))
         .disabled(!self.track.isPlayable)
-        .onHover { hovering in self.isHovered = hovering }
-        .contextMenu { self.menu() }
+        .accessibilityLabel(Text(verbatim: self.playbackAccessibilityLabel))
+        .accessibilityHint(Text(String(localized: "Play")))
+    }
+
+    private var playbackAccessibilityLabel: String {
+        guard let subtitle = self.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !subtitle.isEmpty
+        else { return self.track.title }
+
+        return "\(self.track.title), \(subtitle)"
     }
 
     private var hasNavigableArtists: Bool {
@@ -111,6 +138,7 @@ struct PlaylistTrackRow<Menu: View>: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .allowsHitTesting(false)
                 }
 
                 if index < artists.count - 1 {
@@ -118,6 +146,7 @@ struct PlaylistTrackRow<Menu: View>: View {
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
+                        .allowsHitTesting(false)
                 }
             }
 
