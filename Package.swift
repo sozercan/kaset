@@ -73,6 +73,11 @@ let package = Package(
                 .swiftLanguageMode(.v6),
             ]
         ),
+        .testTarget(
+            name: "APIExplorerTests",
+            dependencies: ["APIExplorer"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
         // Shared Foundation-only YouTube Ask parsing and safety core
         .target(
             name: "YouTubeAskCore",
