@@ -315,18 +315,22 @@ These browse paths have no dedicated integration in Kaset. The notes distinguish
 
 | Browse ID | Name | Auth | Notes |
 |-----------|------|------|-------|
-| `FEmusic_library_non_music_audio_list` | Subscribed Podcasts | 🔐 | Dedicated filtered endpoint; the app already displays podcasts from Library landing |
+| `FEmusic_library_non_music_audio_list` | Podcast library | 🔐 | Signed-in request returned nine grid items; the app uses the Library landing preview instead |
+| `FEmusic_library_non_music_audio_channels_list` | Podcast Channels filter | 🔐 | Issued params returned 25 channel rows, then 21 more through continuation |
+| `FEmusic_library_user_profile_channels_list` | Library Profiles filter | 🔐 | Issued params returned one user-channel row and a message; no dedicated app integration |
 | `FEmusic_library_corpus_track_artists` | Library Artists | 🔐 | Returns `MPLAUC...` library artist pages; followed artists use the implemented `FEmusic_library_corpus_artists` endpoint |
 | `FEmusic_library_artists` | Library Artists, legacy route | 🔐 | Returned HTTP 400 even with full authentication; no working request established |
-| `FEmusic_library_songs` | Library Songs | 🔐 | Historical probe returned HTTP 400; required request context remains unverified |
+| `FEmusic_library_songs` | Library Songs, legacy route | 🔐 | Historical probe returned HTTP 400; the current Library Songs chip issues `FEmusic_liked_videos` |
 | `FEmusic_recently_played` | Recently Played | 🔐 | Historical probe returned HTTP 400; History is implemented through `FEmusic_history` |
 | `FEmusic_library_privately_owned_landing` | Uploads landing | 🔐 | No dedicated landing page; Uploaded Songs is implemented separately |
-| `FEmusic_library_privately_owned_albums` | Uploaded Albums | 🔐 | Guest request returned HTTP 400 on 2026-09-04; authenticated behavior was not checked |
+| `FEmusic_library_privately_owned_releases` | Uploaded Albums | 🔐 | Server-issued Albums chip returned a signed-in empty-state response; populated album rows remain unverified |
+| `FEmusic_library_privately_owned_artists` | Uploaded Artists | 🔐 | Server-issued Artists chip returned a signed-in empty-state response; populated artist rows remain unverified |
+| `FEmusic_library_privately_owned_albums` | Uploaded Albums, legacy probe | 🔐 | Guest and signed-in requests returned HTTP 400; the issued Albums route uses `privately_owned_releases` |
 | Server-issued `MPTC...` | Song credits | 🌐 | Four populated credit sections returned on 2026-09-04 |
 | Server-issued `MPTR...` | Related Music content | 🌐 | Recommendations, playlists, and artists returned on 2026-09-04 |
 | `FEmusic_radio_builder` | Radio builder | 🌐 | Form schema returned; station creation and saving were not tested |
-| `FEmusic_tastebuilder` | Taste profile | 🔐 | Guest response contained a sign-in prompt, with no artist choices |
-| `FEmusic_listening_review` | Recap | Unverified | Guest response contained context/tracking only; usable content remains unverified |
+| `FEmusic_tastebuilder` | Taste profile | 🔐 | Signed-in response contained 1,700 item renderers across 120 lists; acceptance and selection submission were not sent |
+| `FEmusic_listening_review` | Recap | 🔐 | Signed-in request returned a message, without usable Recap content |
 
 > `FEmusic_library_corpus_track_artists` is the browseId behind the Library landing Artists chip. With authentication it returns `musicResponsiveListItemRenderer` rows whose `browseId` values look like `MPLAUC...` and use `pageType = MUSIC_PAGE_TYPE_LIBRARY_ARTIST`. Without authentication it still returns HTTP 200, but only with a sign-in prompt.
 >
@@ -357,10 +361,10 @@ let body = ["browseId": "FEmusic_library_landing"]
 ```
 
 **Response structure**:
-- Returns all library content in a single `gridRenderer`
+- Returns mixed library items in a paginated `gridRenderer`
 - Includes: Playlists (`VL*`), Podcasts (`MPSPP*`), artist/profile tiles (`UC*`), Profiles, Auto playlists
 - Contains filter chips for: Playlists, Podcasts, Songs, Albums, Artists, Profiles
-- Each chip's `browseEndpoint.browseId` provides the filtered endpoint
+- Each chip's `browseEndpoint.browseId` provides the filtered endpoint; signed-in selections can wrap it in `commandExecutorCommand.commands`
 - The landing grid may expose artist tiles as `UC*`, but the filtered Artists chip returns library-artist browse IDs instead
 
 **Filter chip endpoints discovered**:
@@ -1073,7 +1077,7 @@ These endpoints exist but are primarily for YouTube's internal use:
 | `reel/reel_item_watch` | Action | 🌐 | `{}` | Returns status tracking params (YouTube Shorts related) |
 | `log_event` | Action | 🌐 | `{}` | Analytics/telemetry logging endpoint |
 | `att/get` | Action | 🌐 | `{}` | Anti-bot/botguard challenge data |
-| `FEmusic_listening_review` | Browse | 🌐 | - | Returns only responseContext (Year in Review?) |
+| `FEmusic_listening_review` | Browse | 🔐 | - | Signed-in sample returned a message; usable Recap content remains unverified |
 
 ### Endpoints Requiring Parameters
 
@@ -1303,11 +1307,13 @@ are listed separately in the same row.
 | Home, Explore, Moods & Genres, New Releases | Implemented | Browse pages and section parsing exist; Home activity chips are listed separately below |
 | Listening history | Implemented | Recently played tracks grouped by time |
 | Saved albums | Implemented | Album collection with grid pagination |
-| Library content-type filtering | Implemented | Filters for the existing library content |
+| Library content-type filtering | Partial | Local filters cover the existing collections; the server's Songs, Profiles, and podcast Channels filters are not integrated |
 | Library playlists and followed artists | Partial | Dedicated loads display the initial page; complete collection pagination and sorting are not implemented |
+| Library sorting | Not implemented | Signed-in Library and playlist sort reloads are verified; no native sorting controls or sort-specific continuation state |
+| Library Profiles | Not implemented | The server-issued Profiles route works; no dedicated profile collection or Library filter |
 | Uploaded Songs | Implemented | Library tile, playlist-style track rows, and track pagination |
 | Playlist creation, track editing, and deletion | Implemented | Add/remove tracks, create playlists, and delete playlists with ownership checks |
-| Podcasts | Partial | Discovery, show pages, episode progress, and played-state display exist; explicit Resume and Start Over controls are not implemented |
+| Podcasts | Partial | Discovery, show pages, episode progress, and played-state display exist; dedicated Library/Channels requests and explicit Resume and Start Over controls are not implemented |
 | Captions | Implemented | Playback captions exist; a native transcript panel is separate |
 | Music video type parsing | Implemented | Includes `MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC` |
 | Video quality selection | Partial | Regular YouTube has a WebView-backed quality picker; a Music video resolution picker is not implemented |
@@ -1321,15 +1327,85 @@ are listed separately in the same row.
 | Native YouTube transcript | Not implemented | No working transcript request or native panel |
 | Recommendation dismissal | Not implemented | Dislike and library add/remove feedback exist; Not interested for recommendations does not |
 | Taste profile onboarding | Not implemented | No artist-selection onboarding |
-| Uploaded albums/artists and library sorting | Not implemented | Uploaded Songs and content-type filtering do not cover these features |
+| Uploaded albums/artists | Not implemented | Their issued browse routes return signed-in empty states; Uploaded Songs is implemented separately |
 | Recap | Not implemented | No Recap page or parser |
 | Audio/video counterpart switch | Not implemented | The existing video button changes presentation, not the recording |
 
 The initial probes ran on 2026-09-04 in guest mode before an authentication
-export was available. The later Speed dial investigation also tested the new
-web login; each result below identifies its authentication mode. Counts describe
-individual responses, not fixed limits. No account mutations or playback
-behavior were tested.
+export was available. Later Speed dial and account discovery used the saved web
+login. Each result below identifies its authentication mode. Counts describe
+renderers in individual responses, not unique records or fixed limits. No account
+mutations or playback behavior were tested.
+
+### Authenticated Library and account discovery
+
+Verified on 2026-09-04 with saved Kaset cookies and the `WEB_REMIX` client.
+Home, Library, and the successful account-specific requests explicitly reported
+a signed-in server session. Credentials and personalized response values stayed
+out of reports. These probes used the web session; they do not establish mobile
+OAuth authentication.
+
+| Read | Verified response |
+|------|-------------------|
+| Library landing | HTTP 200, 25 grid items, six content chips, and three sort choices. Its next-page request returned eight more items. |
+| Library sorting | Following the issued Recently saved reload returned HTTP 200, 25 grid items, and a sort-menu title of Recently saved. |
+| Playlist sorting | The dedicated playlist page offered Recently saved, A to Z, and Z to A. Following A to Z returned HTTP 200, 20 grid items, and a matching sort-menu title. |
+| Playlist pagination | Following the default playlist page's next continuation returned HTTP 200 with no additional item renderers or next-page navigation. |
+| Podcast library | Following Podcasts returned HTTP 200 and nine grid items through `FEmusic_library_non_music_audio_list`. |
+| Podcast Channels | The Channels chip issued `FEmusic_library_non_music_audio_channels_list` with params. It returned 25 user-channel rows and selected both Podcasts and Channels. The next continuation returned 21 more channel rows. |
+| Profiles | The Profiles chip issued `FEmusic_library_user_profile_channels_list` with params. It returned HTTP 200, one user-channel row, a message, and three sort choices. |
+| Upload Albums and Artists | Their issued routes returned HTTP 200 with selected filter chips and a message, without album or artist rows. The Albums route is `FEmusic_library_privately_owned_releases`; the older `privately_owned_albums` probe still returned HTTP 400 while signed in. |
+| Listening history | HTTP 200 with 199 track rows across four shelves. Removal commands were observed but not sent. |
+| Taste profile | HTTP 200 with `tastebuilderRenderer`, 120 item lists, and 1,700 item renderers containing selection and impression form fields. No acceptance or selection submission was sent. |
+| Recap | HTTP 200 with a signed-in session and a `messageRenderer`, without Recap data. |
+| YouTube transcript | Signed-in WEB `next` issued `getTranscriptEndpoint` for `jNQXAC9IVRw`; replaying its exact params returned HTTP 400 `FAILED_PRECONDITION`. Authentication alone did not make this request work. |
+
+The six Library chips target Playlists, Podcasts, Songs, Albums, Artists, and
+Profiles. Songs currently issues `FEmusic_liked_videos`. The issued Profiles and
+podcast Channels requests include params; this investigation did not establish
+an equivalent params-free request.
+
+Library selection commands differ from the direct browse navigation seen in
+guest Home. A chip's read is under
+`chipCloudChipRenderer.navigationEndpoint.commandExecutorCommand.commands[].browseEndpoint`.
+The batch also contains `musicLibraryPersistLaunchNavigationCommand`.
+Sort options use
+`musicMultiSelectMenuItemRenderer.selectedCommand.commandExecutorCommand.commands[]`
+with a `browseSectionListReloadEndpoint.continuation.reloadContinuationData`
+read and checkbox-update siblings. Explorer extracts the browse read, retains
+the current filter context for reloads, and does not execute the other commands.
+Returned sort-menu titles confirm the selected sort. Sorting across every page
+and native UI ordering remain untested.
+
+The taste builder's `acceptButton` is inspected as schema only. Its browse-like
+shape does not make acceptance an ordinary discovery route. Selection values
+remain private, and discovery does not expose an acceptance navigation entry.
+
+Kaset's [Library view](../Sources/Kaset/Views/LibraryView.swift) filters already
+loaded collections locally. Its
+[Library loader](../Sources/Kaset/Services/API/YTMusicClient.swift) reads podcast
+shows from the landing preview and has no dedicated podcast Channels or Profiles
+load. Library sorting, full collection pagination, and those dedicated reads
+are concrete additions supported by these responses. Uploaded album/artist
+parsers still need a populated account fixture before implementation.
+
+**Explorer status: Implemented.** Bundled chip reads, sort reloads, redacted
+sort-menu titles, and non-replayable taste acceptance are covered by tests.
+**App status:** The missing integrations remain as listed in the table above.
+
+```bash
+swift run api-explorer auth
+swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}' --limit 20
+
+# Inspect current indices before following these sampled selections.
+swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}' --follow 7
+swift run api-explorer discover browse '{"browseId":"FEmusic_liked_playlists"}' --follow 3
+swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}' --follow 1 --follow 2 --follow 6
+swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}' --follow 5
+swift run api-explorer discover browse '{"browseId":"FEmusic_library_privately_owned_landing"}' --follow 2
+swift run api-explorer discover browse '{"browseId":"FEmusic_tastebuilder"}'
+swift run api-explorer discover browse '{"browseId":"FEmusic_listening_review"}'
+```
 
 ### Song credits
 
@@ -1527,11 +1603,11 @@ request contexts does not establish a parser defect.
 | Area | API evidence and remaining limits |
 |------|-----------------------------------|
 | Full radio builder | `FEmusic_radio_builder` returned HTTP 200, a dialog, two chip groups, five choices, `musicWatchFormBinderCommand`, and form entities. Familiar, Popular, and Discover controls were present. Multiple artist seeds and station creation/saving were not verified. |
-| Native YouTube transcript | WEB `next` exposed `getTranscriptEndpoint` for `aircAruvnKk` and `jNQXAC9IVRw`. Both exact server-params replays to `get_transcript` returned HTTP 400. Request context and authenticated behavior remain unverified. Existing captions do not establish transcript support. |
-| Recommendation dismissal | Guest Home cards exposed Not interested and `feedbackEndpoint`. No mutation was sent. Signed-in action semantics and responses remain unverified; live validation requires an authorized disposable target. Library add/remove feedback is a separate implemented use of the same endpoint. |
-| Taste profile | `FEmusic_tastebuilder` returned HTTP 200 with a sign-in prompt and no artist choices. Authenticated content was not checked. Selection submission changes recommendation preferences. |
-| Uploaded albums/artists and library sorting | `FEmusic_library_privately_owned_albums` returned HTTP 400 as a guest. This does not establish that the endpoint is invalid. Authenticated upload menus, sorting commands, and collection continuations remain unchecked. Sorting an initial page alone would not sort the full library. |
-| Recap | `FEmusic_listening_review` returned HTTP 200 with only response context and tracking fields. No usable guest Recap response or current account entry point was established. |
+| Native YouTube transcript | WEB `next` exposed `getTranscriptEndpoint` for `aircAruvnKk` and `jNQXAC9IVRw`. Guest exact-params replays returned HTTP 400. The signed-in replay for `jNQXAC9IVRw` also returned HTTP 400 `FAILED_PRECONDITION`. A working request remains unverified; existing captions do not establish transcript support. |
+| Recommendation dismissal | Guest and signed-in Home cards exposed Not interested and `feedbackEndpoint`; signed-in Home also exposed Don't recommend channel. No mutation was sent, so action semantics and responses remain unverified. Library add/remove feedback is a separate implemented use of the same endpoint. |
+| Taste profile | Signed-in content is verified in [account discovery](#authenticated-library-and-account-discovery). Artist choices exist; acceptance and submission remain untested. |
+| Uploaded albums/artists and library sorting | [Account discovery](#authenticated-library-and-account-discovery) verified the issued upload routes with empty states, populated sort reloads, and collection continuations. Populated upload records and sorting across all pages remain unverified. |
+| Recap | Guest `FEmusic_listening_review` returned context/tracking only; the signed-in request returned a message. Neither response established usable Recap data. |
 | Podcast resume | Source inspection only: episode models and UI carry progress, but conversion to `Song` drops it. WebView may already restore progress, so runtime instrumentation is needed before calling this a playback bug. `PodcastParser` currently accepts integer percentages, marks progress of at least 95% as played, and recognizes the literal English word `played`. |
 
 The [probe commands](#repeat-the-discovery-probes) reproduce the read requests.
@@ -1628,8 +1704,10 @@ saves a redacted report even for failed HTTP responses.
 The allowlist includes `browse`, `search`, `next`, `player`, `music/get_queue`,
 `music/get_search_suggestions`, and `get_transcript`. Discovery refuses mutation
 endpoints and request fields. The only form exception is a single two-letter
-country selection for `FEmusic_charts`. Service command batches are inspected,
-with only the explicit transcript retrieval extracted for replay.
+country selection for `FEmusic_charts`. It extracts direct browse reads from
+Library chip and sort-selection batches, without executing persistence or
+checkbox-update siblings. Other service commands remain schema-only, except
+explicit transcript reads. Taste-profile acceptance is not replayable.
 
 Authentication stays consistent across hops. Cookies are used when available;
 `--guest` suppresses them. The report distinguishes the requested auth mode from
@@ -2040,6 +2118,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-09-04 | Verified signed-in Library filters, sort reloads, pagination, podcast Channels, Profiles, upload empty states, and taste-builder data. Added safe selection-read extraction and blocked taste acceptance in Explorer; recorded Recap and authenticated transcript limits |
 | 2026-09-04 | Located the mobile Speed dial Home model in an existing client; verified guest `IOS_MUSIC` Home requests, added a read-only mobile profile and model/item counts to Explorer, and recorded the missing signed-in validation |
 | 2026-09-04 | Confirmed the new web login works while tested mobile clients reject SAPISIDHASH; cookie-only iOS responses explicitly report guest. Added Android comparison, server login/error diagnostics, and private OAuth input to Explorer. Actual Speed dial remains blocked on mobile authentication; Favorites was not replaced with Listen again |
 | 2026-09-04 | Added redacted `discover` traversal, chart form selection, transcript-command inspection, and behavioral tests; verified credits, Home chips, country charts, Related content, and radio filter reads; consolidated findings, guest-only limits, and [implementation status](#implementation-status) in this reference |

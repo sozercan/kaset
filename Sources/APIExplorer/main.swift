@@ -1718,11 +1718,16 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_corpus_track_artists",
     "FEmusic_library_songs",
     "FEmusic_library_non_music_audio_list",
+    "FEmusic_library_non_music_audio_channels_list",
+    "FEmusic_library_user_profile_channels_list",
+    "FEmusic_tastebuilder",
+    "FEmusic_listening_review",
     "FEmusic_recently_played",
     "FEmusic_offline",
     "FEmusic_library_privately_owned_landing",
     "FEmusic_library_privately_owned_tracks",
     "FEmusic_library_privately_owned_albums",
+    "FEmusic_library_privately_owned_releases",
     "FEmusic_library_privately_owned_artists",
 ])
 
@@ -3379,7 +3384,6 @@ func listEndpoints() {
         FEmusic_new_releases          Recently released albums, singles, videos
         FEmusic_podcasts              Podcast discovery
         FEmusic_radio_builder         Radio controls and form entities (creation unverified)
-        FEmusic_listening_review      Recap probe (guest response has no content)
 
         🔐 AUTHENTICATED (Requires Sign-in)
         ───────────────────────────────────────────────────────────────────────────────
@@ -3388,11 +3392,15 @@ func listEndpoints() {
         FEmusic_liked_videos          Liked songs (returns playlist format)
         FEmusic_history               Listening history (organized by time)
         FEmusic_library_landing       Library overview page
-        FEmusic_tastebuilder          Recommendation onboarding (guest gets sign-in prompt)
+        FEmusic_tastebuilder          Artist-selection data; acceptance is not replayable in discover
+        FEmusic_listening_review      Recap probe (signed-in sample returned a message only)
         FEmusic_library_artists       Rejected with HTTP 400 in current sessions
         FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
         FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
-        FEmusic_library_songs         All songs in library (requires params*)
+        FEmusic_library_songs         Unverified legacy ID; the Songs chip issues FEmusic_liked_videos
+        FEmusic_library_non_music_audio_list       Dedicated podcast library
+        FEmusic_library_non_music_audio_channels_list Podcast library channel filter (preserve params)
+        FEmusic_library_user_profile_channels_list Profiles filter (preserve issued params)
         FEmusic_recently_played       Recently played content
         FEmusic_offline               Downloaded content (may not work on desktop)
 
@@ -3400,7 +3408,8 @@ func listEndpoints() {
         ───────────────────────────────────────────────────────────────────────────────
         FEmusic_library_privately_owned_landing   Uploads landing page
         FEmusic_library_privately_owned_tracks    User-uploaded songs
-        FEmusic_library_privately_owned_albums    User-uploaded albums
+        FEmusic_library_privately_owned_releases  Upload Albums chip (empty signed-in sample verified)
+        FEmusic_library_privately_owned_albums    Rejected legacy probe; use the issued releases route
         FEmusic_library_privately_owned_artists   Artists from user uploads
 
         🌐 DYNAMIC BROWSE IDs (Pattern-based)
@@ -3543,6 +3552,7 @@ func listEndpoints() {
         Compare Ask request profiles: swift run api-explorer ask-video-parity <VIDEO_ID>
         Inspect wire format:          swift run api-explorer --youtube wire-action <ep> '{}'
         Discover read-only routes:    swift run api-explorer discover help
+        Signed-in Library filters:   swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}'
         Transcript navigation:       next may issue getTranscriptEndpoint; guest replay returned 400
 
         ═══════════════════════════════════════════════════════════════════════════════

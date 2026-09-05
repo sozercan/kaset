@@ -23,6 +23,8 @@ func discoveryHelp() -> String {
         "Web-cookie mobile probes were rejected; cookie-only probes returned a guest session.",
         "A content envelope or HTTP 200 alone does not prove a feature works or auth succeeded.",
         "Only FEmusic_charts accepts formData, with one two-letter country in selectedValues.",
+        "Library chips and sort menus expose only their browse reads; bundled state changes stay hidden.",
+        "Taste-profile acceptance buttons are inspected without exposing a replayable action.",
         "Examples:",
         "  swift run api-explorer discover browse '{\"browseId\":\"FEmusic_charts\"}' --guest",
         "  swift run api-explorer discover next '{\"videoId\":\"dQw4w9WgXcQ\"}' --guest",
@@ -158,7 +160,7 @@ struct DiscoveryNavigation {
         if self.source.contains("chip") || self.source.contains("Chip") {
             return 3
         }
-        if self.source.contains("dropdown") || self.source.contains("Dropdown") {
+        if self.source == "musicMultiSelectMenuItemRenderer" || self.source.contains("dropdown") || self.source.contains("Dropdown") {
             return 4
         }
         if self.request.body["continuation"] != nil {
@@ -186,6 +188,7 @@ struct DiscoveryAudit {
     private(set) var chartCountryCount = 0
     private(set) var selectedChartCountries: [String] = []
     private(set) var selectedChips: Set<String> = []
+    private(set) var sortMenuTitles: Set<String> = []
     private(set) var speedDialItemCount = 0
     private(set) var speedDialShortcutCount = 0
     private(set) var homeShelves: [String] = []
@@ -199,9 +202,9 @@ struct DiscoveryAudit {
     private var visitedNodes = 0
 
     private static let safeLabels: Set<String> = [
-        "All", "Albums", "Artists", "Songs", "Videos", "Playlists", "Podcasts", "Episodes", "Profiles",
+        "All", "Albums", "Artists", "Songs", "Videos", "Playlists", "Podcasts", "Episodes", "Profiles", "Channels",
         "Featured playlists", "Community playlists", "Uploads", "Your library", "Downloads",
-        "Recently added", "Recently played", "A to Z", "Z to A", "Popular", "Newest first",
+        "Recently added", "Recently saved", "Recently played", "A to Z", "Z to A", "Popular", "Newest first",
         "Speed dial", "Speed Dial", "Listen again", "Quick picks",
         "Workout", "Focus", "Relax", "Commute", "Energize", "Sleep", "Party", "Romance", "Feel good", "Sad",
         "Discover", "Familiar", "New releases", "Deep cuts", "Upbeat", "Downbeat", "Chill",
@@ -320,6 +323,7 @@ struct DiscoveryAudit {
         _ dictionary: [String: Any], source: String, label: String?, request: DiscoveryRequest
     ) {
         self.collectTranscript(dictionary)
+        self.collectBrowseSelection(dictionary, source: source, label: label, request: request)
         // Never execute service endpoints, form submissions, or command batches.
         // Only these navigation payloads are projected onto known read-only fields.
         for key in ["browseEndpoint", "browseSectionListReloadEndpoint", "searchEndpoint", "watchEndpoint", "watchPlaylistEndpoint"] {
@@ -342,6 +346,44 @@ struct DiscoveryAudit {
             var body = request.body
             body["continuation"] = continuation
             self.append(endpoint: request.endpoint, body: body, source: key, label: label)
+        }
+    }
+
+    /// Signed-in Library selections bundle a browse read with persistence or
+    /// checkbox commands. Extract only the direct read from these UI wrappers.
+    private mutating func collectBrowseSelection(
+        _ dictionary: [String: Any], source: String, label: String?, request: DiscoveryRequest
+    ) {
+        guard request.endpoint == "browse" else { return }
+        let selection: [String: Any]?
+        switch source {
+        case "chipCloudChipRenderer":
+            selection = dictionary["navigationEndpoint"] as? [String: Any]
+        case "musicMultiSelectMenuItemRenderer":
+            selection = dictionary["selectedCommand"] as? [String: Any]
+        default:
+            return
+        }
+        guard let batch = selection?["commandExecutorCommand"] as? [String: Any],
+              let commands = batch["commands"] as? [[String: Any]]
+        else { return }
+        for command in commands.prefix(2000) {
+            if let browse = command["browseEndpoint"] as? [String: Any], browse["formData"] == nil {
+                let fields = DiscoveryRequest.allowedFields["browse"] ?? []
+                self.append(endpoint: "browse", body: browse.filter { fields.contains($0.key) }, source: source, label: label)
+            }
+            if let reload = command["browseSectionListReloadEndpoint"] as? [String: Any], reload["formData"] == nil,
+               let continuation = reload["continuation"] as? [String: Any],
+               let data = continuation["reloadContinuationData"] as? [String: Any],
+               let value = data["continuation"] as? String
+            {
+                var body = request.body
+                body["continuation"] = value
+                self.append(endpoint: "browse", body: body, source: source, label: label)
+            }
+        }
+        if commands.count > 2000 {
+            self.truncated = true
         }
     }
 
@@ -448,15 +490,19 @@ struct DiscoveryAudit {
                 {
                     self.selectedChips.insert(Self.knownLabel(in: chip) ?? "<label>")
                 }
+                if key == "musicSortFilterButtonRenderer", let button = nested as? [String: Any] {
+                    self.sortMenuTitles.insert(Self.knownLabel(in: button) ?? "<label>")
+                }
                 if ["pageType", "musicVideoType"].contains(key), let type = nested as? String,
                    type.hasPrefix("MUSIC_"), type.count <= 100,
                    type.unicodeScalars.allSatisfy({ (65 ... 90).contains($0.value) || $0.value == 95 })
                 {
                     self.pageTypes[type, default: 0] += 1
                 }
-                // Only the explicit transcript read is extracted from service
-                // wrappers. Other embedded commands remain schema-only.
-                if ["serviceEndpoint", "defaultServiceEndpoint", "toggledServiceEndpoint", "commandExecutorCommand", "formData", "submitEndpoint", "onDeselectedCommand"].contains(key) {
+                // Browse selections are extracted at their owning UI renderer.
+                // Other batch and service commands stay schema-only, except
+                // explicit transcript reads.
+                if ["serviceEndpoint", "defaultServiceEndpoint", "toggledServiceEndpoint", "commandExecutorCommand", "formData", "submitEndpoint", "acceptButton", "onDeselectedCommand"].contains(key) {
                     self.walkSchemaOnly(nested, path: nestedPath, depth: depth + 1)
                 } else {
                     self.walk(nested, path: nestedPath, source: nestedSource, label: localLabel, request: request, depth: depth + 1)
@@ -556,6 +602,9 @@ struct DiscoveryAudit {
         }
         if !self.selectedChips.isEmpty {
             lines.append("Selected chips: " + self.selectedChips.sorted().joined(separator: ", "))
+        }
+        if !self.sortMenuTitles.isEmpty {
+            lines.append("Sort menu titles: " + self.sortMenuTitles.sorted().joined(separator: ", "))
         }
         lines.append("Read-only navigation (\(self.navigation.count)):")
         for (index, entry) in self.navigation.prefix(limit).enumerated() {

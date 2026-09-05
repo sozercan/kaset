@@ -359,6 +359,79 @@ struct DiscoveryAuditTests {
         #expect(audit.navigation.first?.request.body["params"] as? String == "mock-focus")
     }
 
+    @Test("Library chips extract direct browse reads without bundled persistence or form commands")
+    func libraryChipCommands() throws {
+        let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": "FEmusic_library_landing"])
+        let response: [String: Any] = ["contents": ["chipCloudChipRenderer": [
+            "text": ["runs": [["text": "Artists"]]],
+            "navigationEndpoint": ["commandExecutorCommand": ["commands": [
+                ["browseEndpoint": ["browseId": "FEmusic_library_corpus_track_artists", "params": "mock-filter"]],
+                ["musicLibraryPersistLaunchNavigationCommand": ["command": ["browseEndpoint": ["browseId": "private-persisted-route"]]]],
+                ["browseEndpoint": ["browseId": "FEmusic_home", "formData": ["selectedValues": ["mock-selection"]]]],
+                ["feedbackEndpoint": ["feedbackTokens": ["mock-feedback"]]],
+            ]]],
+            "onDeselectedCommand": ["commandExecutorCommand": ["commands": [
+                ["browseEndpoint": ["browseId": "FEmusic_library_landing"]],
+            ]]],
+        ]]]
+        let audit = DiscoveryAudit(response: response, request: request)
+        #expect(audit.navigation.count == 1)
+        let entry = try #require(audit.navigation.first)
+        #expect(entry.request.endpoint == "browse")
+        #expect(entry.request.body["browseId"] as? String == "FEmusic_library_corpus_track_artists")
+        #expect(entry.request.body["params"] as? String == "mock-filter")
+        #expect(entry.label == "Artists")
+        #expect(entry.source == "chipCloudChipRenderer")
+        for hidden in ["mock-filter", "private-persisted-route", "mock-selection", "mock-feedback"] {
+            #expect(!audit.rendered(verbose: true).contains(hidden))
+        }
+    }
+
+    @Test("Library sort reads preserve filter context and replace the prior continuation")
+    func librarySortCommands() throws {
+        let request = try DiscoveryRequest(endpoint: "browse", body: [
+            "browseId": "FEmusic_library_landing", "params": "mock-filter", "continuation": "mock-old-page",
+        ])
+        let option: [String: Any] = ["musicMultiSelectMenuItemRenderer": [
+            "title": ["runs": [["text": "A to Z"]]],
+            "selectedCommand": ["commandExecutorCommand": ["commands": [
+                ["browseSectionListReloadEndpoint": ["continuation": ["reloadContinuationData": ["continuation": "mock-sort-page"]]]],
+                ["musicCheckboxFormItemMutatedCommand": ["formItemEntityKey": "mock-choice", "newCheckedState": true]],
+            ]]],
+        ]]
+        let response: [String: Any] = ["contents": ["musicSortFilterButtonRenderer": [
+            "title": ["runs": [["text": "Recently played"]]],
+            "menu": ["musicMultiSelectMenuRenderer": ["options": [option]]],
+        ]]]
+        let audit = DiscoveryAudit(response: response, request: request)
+        #expect(audit.navigation.count == 1)
+        let entry = try #require(audit.navigation.first)
+        #expect(entry.request.endpoint == "browse")
+        #expect(entry.request.body["browseId"] as? String == "FEmusic_library_landing")
+        #expect(entry.request.body["params"] as? String == "mock-filter")
+        #expect(entry.request.body["continuation"] as? String == "mock-sort-page")
+        #expect(entry.label == "A to Z")
+        #expect(entry.source == "musicMultiSelectMenuItemRenderer")
+        #expect(audit.sortMenuTitles == ["Recently played"])
+        #expect(!audit.rendered(verbose: true).contains("mock-sort-page"))
+        #expect(!audit.rendered(verbose: true).contains("mock-choice"))
+    }
+
+    @Test("Taste-profile acceptance buttons are never replayable discovery routes")
+    func tasteProfileAcceptanceIsNotNavigation() throws {
+        let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": "FEmusic_tastebuilder"])
+        let response: [String: Any] = ["contents": ["tastebuilderRenderer": [
+            "acceptButton": ["buttonRenderer": ["navigationEndpoint": ["browseEndpoint": [
+                "browseId": "FEmusic_home", "params": "mock-submit",
+            ]]]],
+            "contents": [["tastebuilderItemRenderer": ["selectionFormValue": "mock-selection"]]],
+        ]]]
+        let audit = DiscoveryAudit(response: response, request: request)
+        #expect(audit.navigation.isEmpty)
+        #expect(audit.observedCommands["browseEndpoint"] == 1)
+        #expect(!audit.rendered(verbose: true).contains("mock-submit"))
+    }
+
     @Test("Credit headings alone are distinguished from populated sections")
     func populatedCredits() throws {
         let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": "MPTC-test"])
