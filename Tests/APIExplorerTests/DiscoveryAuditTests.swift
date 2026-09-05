@@ -2,6 +2,8 @@ import Foundation
 import Testing
 @testable import APIExplorer
 
+// MARK: - DiscoveryAuditTests
+
 @Suite("Read-only API discovery")
 struct DiscoveryAuditTests {
     @Test("The mobile profile keeps its version and device identity consistent")
@@ -24,7 +26,8 @@ struct DiscoveryAuditTests {
         let context = profile.clientContext(language: "en")
         #expect(context["clientName"] as? String == "ANDROID_MUSIC")
         #expect(context["osName"] as? String == "Android")
-        #expect(context["androidSdkVersion"] as? Int == 36)
+        #expect(context["osVersion"] as? String == "13")
+        #expect(context["androidSdkVersion"] as? Int == 33)
         #expect(context["platform"] as? String == "MOBILE")
         #expect(context["deviceModel"] == nil)
 
@@ -39,6 +42,7 @@ struct DiscoveryAuditTests {
         profile.applyHeaders(to: &request, cookieOnly: false, accessToken: nil)
         #expect(request.value(forHTTPHeaderField: "Authorization") == "SAPISIDHASH mock-proof")
         #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("/7.21.50 ") == true)
+        #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("Android 13;") == true)
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Name") == "21")
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Version") == "7.21.50")
 
@@ -63,16 +67,16 @@ struct DiscoveryAuditTests {
         #expect(try loadMobileAccessToken(from: file.path) == "mock-access-token")
 
         try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
-        #expect(throws: (any Error).self) { try loadMobileAccessToken(from: file.path) }
+        #expect(throws: DiscoveryError.invalidMobileToken) { try loadMobileAccessToken(from: file.path) }
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: file.path)
         let link = directory.appendingPathComponent("link")
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
-        #expect(throws: (any Error).self) { try loadMobileAccessToken(from: link.path) }
-        #expect(throws: (any Error).self) { try loadMobileAccessToken(from: "-") }
+        #expect(throws: DiscoveryError.invalidMobileToken) { try loadMobileAccessToken(from: link.path) }
+        #expect(throws: DiscoveryError.invalidMobileToken) { try loadMobileAccessToken(from: "-") }
 
         for invalid in ["", "Bearer mock-token", "mock-token\r\nCookie: test-cookie", String(repeating: "x", count: 8193)] {
             try Data(invalid.utf8).write(to: file)
-            #expect(throws: (any Error).self) { try loadMobileAccessToken(from: file.path) }
+            #expect(throws: DiscoveryError.invalidMobileToken) { try loadMobileAccessToken(from: file.path) }
         }
     }
 
@@ -474,6 +478,10 @@ struct DiscoveryAuditTests {
                 "title": ["runs": [["text": "Private playlist title"]]],
                 "accountId": "private-account",
                 "mock-key-123": "mock-token",
+                "privateaccount": ["privatetoken": "mock-token"],
+                "privateRenderer": ["privateCommand": ["privateEndpoint": [:]]],
+                "musicPrivateModel": ["browseEndpoint": ["browseId": "FEmusic_private_account"]],
+                "pageType": "MUSIC_PRIVATE_ACCOUNT",
                 "accessToken": "mock-access",
                 "text": "\u{001B}[31mPrivate text",
                 "browseEndpoint": ["browseId": "UC-private-account"],
@@ -485,7 +493,7 @@ struct DiscoveryAuditTests {
         #expect(report.contains("musicShelfRenderer"))
         #expect(report.contains("<key>"))
         #expect(report.contains("UC…"))
-        for value in ["private-account", "Private", "private-error", "mock-", "\u{001B}"] {
+        for value in ["private-account", "privateaccount", "privatetoken", "privateRenderer", "privateCommand", "privateEndpoint", "private_account", "Private", "MUSIC_PRIVATE_ACCOUNT", "private-error", "mock-", "\u{001B}"] {
             #expect(!report.contains(value))
         }
         #expect(!request.summary.contains("private-account"))
@@ -524,5 +532,136 @@ struct DiscoveryAuditTests {
         let audit = DiscoveryAudit(response: response, request: request)
         #expect(audit.truncated)
         #expect(audit.navigation.isEmpty)
+    }
+}
+
+extension DiscoveryAuditTests {
+    @Test("Request validation rejects JSON boolean and numeric coercion", arguments: [
+        #"{"videoId":"test-video","index":true}"#,
+        #"{"videoId":"test-video","index":false}"#,
+        #"{"videoId":"test-video","index":1.5}"#,
+        #"{"videoId":"test-video","index":-1}"#,
+        #"{"videoId":"test-video","index":100001}"#,
+        #"{"videoId":"test-video","isAudioOnly":1}"#,
+        #"{"videoId":"test-video","isAudioOnly":0}"#,
+        #"{"videoId":"test-video","enablePersistentPlaylistPanel":1}"#,
+        #"{"videoId":"test-video","enablePersistentPlaylistPanel":0}"#,
+    ])
+    func rejectsCoercedJSONScalars(bodyJSON: String) throws {
+        let body = try #require(JSONSerialization.jsonObject(with: Data(bodyJSON.utf8)) as? [String: Any])
+        #expect(throws: DiscoveryError.unsupportedRequest) {
+            try DiscoveryRequest(endpoint: "next", body: body)
+        }
+    }
+
+    @Test("Request validation accepts JSON indices and booleans", arguments: [
+        #"{"videoId":"test-video","index":0,"isAudioOnly":true,"enablePersistentPlaylistPanel":false}"#,
+        #"{"videoId":"test-video","index":1,"isAudioOnly":false,"enablePersistentPlaylistPanel":true}"#,
+        #"{"videoId":"test-video","index":100000}"#,
+    ])
+    func acceptsJSONScalars(bodyJSON: String) throws {
+        let body = try #require(JSONSerialization.jsonObject(with: Data(bodyJSON.utf8)) as? [String: Any])
+        let request = try DiscoveryRequest(endpoint: "next", body: body)
+        #expect(request.endpoint == "next")
+    }
+
+    @Test("Only known public browse routes are printed")
+    func redactsUnknownBrowseRoutes() throws {
+        for browseID in ["FEmusic_private_account", "FEmusic_privatetoken", "privateaccount"] {
+            let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": browseID])
+            let audit = DiscoveryAudit(response: ["navigationEndpoint": ["browseEndpoint": ["browseId": browseID]]], request: request)
+            #expect(!request.summary.contains(browseID))
+            #expect(!audit.rendered(verbose: true).contains(browseID))
+        }
+        for browseID in ["FEmusic_home", "FEmusic_library_corpus_track_artists", "FEmusic_charts"] {
+            let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": browseID])
+            #expect(request.summary.contains(browseID))
+        }
+    }
+
+    @Test("Content named like a UI label stays hidden, including inside a labeled header")
+    func contentTitlesAreNotLabels() throws {
+        let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": "FEmusic_home"])
+        let audit = DiscoveryAudit(response: ["contents": [
+            "musicCarouselShelfBasicHeaderRenderer": [
+                "title": ["simpleText": "Listen again"],
+                "contents": [["musicTwoRowItemRenderer": [
+                    "title": ["runs": [["text": "Focus"]]],
+                    "navigationEndpoint": ["browseEndpoint": ["browseId": "VLtest-playlist"]],
+                ]]],
+            ],
+            "musicResponsiveListItemRenderer": [
+                "text": "Popular",
+                "navigationEndpoint": ["watchEndpoint": ["videoId": "test-video"]],
+            ],
+            "musicSpeedDialShelfModel": ["data": ["items": [[
+                "title": "Chill",
+                "navigationCommand": ["browseEndpoint": ["browseId": "UCtest-artist"]],
+            ]]]],
+        ]], request: request)
+        #expect(audit.labels == ["Listen again": 1])
+        #expect(audit.navigation.count == 3)
+        #expect(audit.navigation.allSatisfy { $0.label == nil })
+        let report = audit.rendered(verbose: true)
+        for title in ["Focus", "Popular", "Chill"] {
+            #expect(!report.contains(title))
+        }
+    }
+
+    @Test("Invalid token files get a separate redacted diagnostic")
+    func invalidTokenDiagnostic() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let token = directory.appendingPathComponent("access-token")
+        let report = directory.appendingPathComponent("report.txt")
+        #expect(FileManager.default.createFile(atPath: token.path, contents: Data("Bearer mock-token".utf8), attributes: [.posixPermissions: 0o600]))
+
+        let succeeded = await discoverAPI(
+            endpoint: "browse", bodyJSON: #"{"browseId":"FEmusic_home"}"#,
+            followIndices: [], limit: 1, verbose: true, outputFile: report.path,
+            mobileClient: .ios, mobileTokenFile: token.path
+        )
+        #expect(!succeeded)
+        let output = try String(contentsOf: report, encoding: .utf8)
+        #expect(output.contains("Invalid mobile access-token file"))
+        #expect(!output.contains("Unsupported discovery request"))
+        #expect(!output.contains("mock-token"))
+        #expect(!output.contains(token.path))
+    }
+
+    @Test("Discovery never replaces its token input, even when request validation fails")
+    func tokenOutputAliases() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let token = directory.appendingPathComponent("access-token")
+        let original = Data("mock-access-token".utf8)
+        #expect(FileManager.default.createFile(atPath: token.path, contents: original, attributes: [.posixPermissions: 0o600]))
+        let link = directory.appendingPathComponent("token-link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: token)
+        let directoryLink = directory.appendingPathComponent("directory-link")
+        try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: directory)
+        let hardLink = directory.appendingPathComponent("hard-link")
+        try FileManager.default.linkItem(at: token, to: hardLink)
+        let parentDepth = FileManager.default.currentDirectoryPath.split(separator: "/").count
+        let relativePath = String(repeating: "../", count: parentDepth) + token.path.dropFirst()
+        let aliases = [token.path, directory.path + "/./access-token", relativePath, link.path, directoryLink.path + "/access-token", hardLink.path]
+        for outputPath in aliases {
+            let succeeded = await discoverAPI(
+                endpoint: "browse", bodyJSON: "{}", followIndices: [], limit: 1,
+                verbose: false, outputFile: outputPath, mobileClient: .ios, mobileTokenFile: token.path
+            )
+            #expect(!succeeded)
+            #expect(try Data(contentsOf: token) == original)
+            #expect(try Data(contentsOf: URL(fileURLWithPath: outputPath)) == original)
+        }
+        let missing = directory.appendingPathComponent("missing-token")
+        let succeeded = await discoverAPI(
+            endpoint: "browse", bodyJSON: "{}", followIndices: [], limit: 1,
+            verbose: false, outputFile: missing.path, mobileClient: .ios, mobileTokenFile: missing.path
+        )
+        #expect(!succeeded)
+        #expect(!FileManager.default.fileExists(atPath: missing.path))
     }
 }

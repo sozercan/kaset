@@ -1,3 +1,4 @@
+import CoreFoundation
 import Foundation
 
 func discoveryHelp() -> String {
@@ -19,6 +20,7 @@ func discoveryHelp() -> String {
         "--mobile-cookie-only omits SAPISIDHASH on mobile discovery while retaining saved cookies.",
         "--mobile-token-file <mode-0600-path> uses a mobile OAuth access token instead of web cookies.",
         "Token files must be owned by you, have mode 0600 and no extended ACL, and not be symlinks.",
+        "The report destination must not refer to the token file.",
         "Do not put tokens in command arguments, reports, or chat. Token acquisition is separate.",
         "Web-cookie mobile probes were rejected; cookie-only probes returned a guest session.",
         "A content envelope or HTTP 200 alone does not prove a feature works or auth succeeded.",
@@ -77,11 +79,15 @@ struct DiscoveryRequest {
                       ids.allSatisfy({ !$0.isEmpty && $0.count <= 128 })
                 else { throw DiscoveryError.unsupportedRequest }
             case "index":
-                guard let number = value as? Int, (0 ... 100_000).contains(number) else {
+                guard let scalar = value as? NSNumber, CFGetTypeID(scalar) != CFBooleanGetTypeID(),
+                      let number = value as? Int, (0 ... 100_000).contains(number)
+                else {
                     throw DiscoveryError.unsupportedRequest
                 }
             case "isAudioOnly", "enablePersistentPlaylistPanel":
-                guard value is Bool else { throw DiscoveryError.unsupportedRequest }
+                guard let scalar = value as? NSNumber, CFGetTypeID(scalar) == CFBooleanGetTypeID() else {
+                    throw DiscoveryError.unsupportedRequest
+                }
             default:
                 guard let text = value as? String, !text.isEmpty, text.utf8.count <= 32768 else {
                     throw DiscoveryError.unsupportedRequest
@@ -124,8 +130,9 @@ struct DiscoveryRequest {
 
 // MARK: - DiscoveryError
 
-enum DiscoveryError: Error {
+enum DiscoveryError: Error, Equatable {
     case unsupportedRequest
+    case invalidMobileToken
 }
 
 // MARK: - DiscoveryNavigation
@@ -201,6 +208,78 @@ struct DiscoveryAudit {
     private var identities: Set<Data> = []
     private var visitedNodes = 0
 
+    /// Response dictionaries can be keyed by private IDs, even all-letter ones.
+    /// Extend this list only with verified, static schema names.
+    private static let safeSchemaKeys: Set<String> = [
+        "responseContext", "mainAppWebResponseContext", "loggedOut", "serviceTrackingParams", "service", "params",
+        "key", "value", "visitorData", "trackingParams", "clickTrackingParams", "error", "code", "status", "message",
+        "contents", "content", "continuationContents", "onResponseReceivedActions", "onResponseReceivedEndpoints",
+        "actions", "videoDetails", "queueDatas", "tabs", "header", "footer", "items", "options", "menu", "data",
+        "title", "subtitle", "secondSubtitle", "text", "label", "simpleText", "runs", "secondaryText",
+        "browseId", "videoId", "videoIds", "playlistId", "playlistSetVideoId", "query", "input", "index",
+        "isAudioOnly", "enablePersistentPlaylistPanel", "tunerSettingValue", "continuation", "continuations", "token",
+        "nextContinuationData", "nextRadioContinuationData", "reloadContinuationData", "isSelected", "selected",
+        "formData", "selectedValues", "opaqueToken", "selectionFormValue", "formItemEntityKey", "newCheckedState",
+        "frameworkUpdates", "entityBatchUpdate", "mutations", "payload", "musicFormBooleanChoice",
+        "pageType", "musicVideoType", "browseEndpointContextSupportedConfigs", "browseEndpointContextMusicConfig",
+        "thumbnail", "thumbnails", "image", "sources", "url", "width", "height", "icon", "iconType", "badges",
+        "flexColumns", "fixedColumns", "playlistItemData", "overlay", "shelfId", "counterpart", "isShortcut",
+        "newElement", "type", "componentType", "model", "onTap", "onLongPress", "commands", "command", "acceptButton",
+        "feedbackToken", "feedbackTokens", "dismissalToken", "accessToken", "accountId",
+        "browseEndpoint", "browseSectionListReloadEndpoint", "searchEndpoint", "watchEndpoint", "watchPlaylistEndpoint",
+        "navigationEndpoint", "navigationCommand", "playNavigationEndpoint", "startPlaybackCommand", "innertubeCommand",
+        "serviceEndpoint", "defaultServiceEndpoint", "toggledServiceEndpoint", "submitEndpoint", "feedbackEndpoint",
+        "getTranscriptEndpoint", "continuationEndpoint", "continuationCommand", "commandExecutorCommand", "serialCommand",
+        "selectedCommand", "onDeselectedCommand", "musicLibraryPersistLaunchNavigationCommand", "musicCheckboxFormItemMutatedCommand",
+        "musicBrowseFormBinderCommand", "reloadContinuationItemsCommand", "appendContinuationItemsAction",
+        "singleColumnBrowseResultsRenderer", "twoColumnBrowseResultsRenderer", "singleColumnMusicWatchNextResultsRenderer",
+        "tabbedSearchResultsRenderer", "twoColumnSearchResultsRenderer", "tabRenderer", "tabbedRenderer",
+        "watchNextTabbedResultsRenderer", "sectionListRenderer", "itemSectionRenderer", "gridRenderer", "gridHeaderRenderer",
+        "musicShelfRenderer", "musicPlaylistShelfRenderer", "musicCardShelfRenderer", "musicCardShelfHeaderBasicRenderer",
+        "musicCarouselShelfRenderer", "musicCarouselShelfBasicHeaderRenderer", "musicImmersiveCarouselShelfRenderer",
+        "musicDescriptionShelfRenderer", "musicTwoRowItemRenderer", "musicResponsiveListItemRenderer", "musicMultiRowListItemRenderer",
+        "musicResponsiveListItemFlexColumnRenderer", "musicResponsiveListItemFixedColumnRenderer", "musicResponsiveHeaderRenderer",
+        "musicDetailHeaderRenderer", "musicEditablePlaylistDetailHeaderRenderer", "musicImmersiveHeaderRenderer", "musicVisualHeaderRenderer",
+        "musicQueueRenderer", "playlistPanelRenderer", "playlistPanelVideoRenderer", "playlistPanelVideoWrapperRenderer",
+        "chipCloudRenderer", "chipCloudChipRenderer", "feedFilterChipBarRenderer", "musicSortFilterButtonRenderer",
+        "musicMultiSelectMenuRenderer", "musicMultiSelectMenuItemRenderer", "musicNavigationButtonRenderer",
+        "menuRenderer", "menuNavigationItemRenderer", "menuServiceItemRenderer", "toggleMenuServiceItemRenderer",
+        "musicMenuTitleRenderer", "buttonRenderer", "toggleButtonRenderer", "musicPlayButtonRenderer", "likeButtonRenderer",
+        "musicThumbnailRenderer", "musicItemThumbnailOverlayRenderer", "musicInlineBadgeRenderer", "metadataBadgeRenderer",
+        "continuationItemRenderer", "counterpartRenderer", "dismissableDialogContentSectionRenderer",
+        "tastebuilderRenderer", "tastebuilderItemRenderer", "messageRenderer", "notificationTextRenderer",
+        "elementRenderer", "musicSpeedDialShelfModel", "musicGridItemCarouselModel", "musicListItemCarouselModel",
+        "musicQuickPicksModel", "timedLyricsModel", "searchSuggestionsSectionRenderer", "searchSuggestionRenderer",
+        "historySuggestionRenderer", "transcriptRenderer", "transcriptSearchPanelRenderer", "transcriptSegmentListRenderer",
+        "transcriptSegmentRenderer", "transcriptSectionHeaderRenderer", "engagementPanelSectionListRenderer",
+    ]
+
+    private static let publicBrowseIDs: Set<String> = [
+        "FEmusic_home", "FEmusic_explore", "FEmusic_charts", "FEmusic_moods_and_genres", "FEmusic_moods_and_genres_category",
+        "FEmusic_new_releases", "FEmusic_podcasts", "FEmusic_radio_builder",
+        "FEmusic_liked_playlists", "FEmusic_liked_albums", "FEmusic_liked_videos", "FEmusic_history",
+        "FEmusic_library_landing", "FEmusic_library_artists", "FEmusic_library_corpus_artists", "FEmusic_library_corpus_track_artists",
+        "FEmusic_library_songs", "FEmusic_library_non_music_audio_list", "FEmusic_library_non_music_audio_channels_list",
+        "FEmusic_library_user_profile_channels_list", "FEmusic_tastebuilder", "FEmusic_listening_review",
+        "FEmusic_recently_played", "FEmusic_offline", "FEmusic_library_privately_owned_landing", "FEmusic_library_privately_owned_tracks",
+        "FEmusic_library_privately_owned_albums", "FEmusic_library_privately_owned_releases", "FEmusic_library_privately_owned_artists",
+        "FEsubscriptions", "FElibrary", "FEhistory", "FEplaylist_aggregation",
+    ]
+
+    private static let safePageTypes: Set<String> = [
+        "MUSIC_PAGE_TYPE_ALBUM", "MUSIC_PAGE_TYPE_AUDIOBOOK", "MUSIC_PAGE_TYPE_ARTIST", "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
+        "MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY", "MUSIC_PAGE_TYPE_USER_CHANNEL", "MUSIC_PAGE_TYPE_PLAYLIST",
+        "MUSIC_PAGE_TYPE_PODCAST_SHOW_DETAIL_PAGE", "MUSIC_PAGE_TYPE_TRACK_CREDITS", "MUSIC_PAGE_TYPE_TRACK_RELATED",
+        "MUSIC_VIDEO_TYPE_ATV", "MUSIC_VIDEO_TYPE_OMV", "MUSIC_VIDEO_TYPE_UGC", "MUSIC_VIDEO_TYPE_OFFICIAL_SOURCE_MUSIC",
+        "MUSIC_VIDEO_TYPE_PODCAST_EPISODE",
+    ]
+
+    private static let uiLabelRenderers: Set<String> = [
+        "chipCloudChipRenderer", "tabRenderer", "menuNavigationItemRenderer", "menuServiceItemRenderer",
+        "toggleMenuServiceItemRenderer", "musicMultiSelectMenuItemRenderer", "musicSortFilterButtonRenderer",
+        "musicCarouselShelfBasicHeaderRenderer", "musicCardShelfHeaderBasicRenderer", "dismissableDialogContentSectionRenderer",
+    ]
+
     private static let safeLabels: Set<String> = [
         "All", "Albums", "Artists", "Songs", "Videos", "Playlists", "Podcasts", "Episodes", "Profiles", "Channels",
         "Featured playlists", "Community playlists", "Uploads", "Your library", "Downloads",
@@ -252,11 +331,7 @@ struct DiscoveryAudit {
     }
 
     static func schemaKey(_ key: String) -> String {
-        guard !key.isEmpty, key.count <= 100,
-              key.first?.isASCII == true, key.first?.isLowercase == true,
-              key.unicodeScalars.allSatisfy({ (65 ... 90).contains($0.value) || (97 ... 122).contains($0.value) })
-        else { return "<key>" }
-        return key
+        self.safeSchemaKeys.contains(key) ? key : "<key>"
     }
 
     /// Only fixed error categories may leave the response. Server messages can
@@ -279,12 +354,10 @@ struct DiscoveryAudit {
     }
 
     static func browseFamily(_ value: String) -> String {
-        if value.hasPrefix("FEmusic_"), value.count <= 90,
-           value.dropFirst(8).unicodeScalars.allSatisfy({ (97 ... 122).contains($0.value) || $0.value == 95 })
-        {
+        if self.publicBrowseIDs.contains(value) {
             return value
         }
-        for family in ["MPLA", "MPTC", "MPTR", "MPLY", "MPRE", "MPSP", "VL", "UC"] where value.hasPrefix(family) {
+        for family in ["FEmusic_", "MPLA", "MPTC", "MPTR", "MPLY", "MPRE", "MPSP", "VL", "UC"] where value.hasPrefix(family) {
             return family + "…"
         }
         return "<browse-id>"
@@ -431,12 +504,7 @@ struct DiscoveryAudit {
         }
         self.visitedNodes += 1
         if let dictionary = value as? [String: Any] {
-            let ownsLabel = ["title", "text", "label"].contains { dictionary[$0] != nil }
-            let localLabel = ownsLabel ? Self.knownLabel(in: dictionary) : label
-            if let ownLabel = Self.knownLabel(in: dictionary) {
-                self.labels[ownLabel, default: 0] += 1
-            }
-            self.collectNavigation(dictionary, source: source, label: localLabel, request: request)
+            self.collectNavigation(dictionary, source: source, label: label, request: request)
             for key in dictionary.keys.sorted() {
                 guard let nested = dictionary[key] else { continue }
                 let safeKey = Self.schemaKey(key)
@@ -447,10 +515,18 @@ struct DiscoveryAudit {
                     self.schemaTruncated = true
                 }
                 var nestedSource = source
+                var nestedLabel = label
                 if key.hasSuffix("Renderer") || key.hasSuffix("ViewModel") || (key.hasPrefix("music") && key.hasSuffix("Model")) {
                     self.renderers[safeKey, default: 0] += 1
+                    // Labels belong to UI metadata on this renderer only. A new
+                    // content renderer must not inherit its parent's heading.
+                    nestedLabel = nil
                     if let renderer = nested as? [String: Any] {
                         self.rendererFields[safeKey, default: []].formUnion(renderer.keys.map(Self.schemaKey))
+                        if Self.uiLabelRenderers.contains(key), let ownLabel = Self.knownLabel(in: renderer) {
+                            nestedLabel = ownLabel
+                            self.labels[ownLabel, default: 0] += 1
+                        }
                     }
                     nestedSource = safeKey
                 }
@@ -494,8 +570,7 @@ struct DiscoveryAudit {
                     self.sortMenuTitles.insert(Self.knownLabel(in: button) ?? "<label>")
                 }
                 if ["pageType", "musicVideoType"].contains(key), let type = nested as? String,
-                   type.hasPrefix("MUSIC_"), type.count <= 100,
-                   type.unicodeScalars.allSatisfy({ (65 ... 90).contains($0.value) || $0.value == 95 })
+                   Self.safePageTypes.contains(type)
                 {
                     self.pageTypes[type, default: 0] += 1
                 }
@@ -505,7 +580,7 @@ struct DiscoveryAudit {
                 if ["serviceEndpoint", "defaultServiceEndpoint", "toggledServiceEndpoint", "commandExecutorCommand", "formData", "submitEndpoint", "acceptButton", "onDeselectedCommand"].contains(key) {
                     self.walkSchemaOnly(nested, path: nestedPath, depth: depth + 1)
                 } else {
-                    self.walk(nested, path: nestedPath, source: nestedSource, label: localLabel, request: request, depth: depth + 1)
+                    self.walk(nested, path: nestedPath, source: nestedSource, label: nestedLabel, request: request, depth: depth + 1)
                 }
             }
         } else if let array = value as? [Any] {
@@ -639,6 +714,10 @@ func discoverAPI(
         print(report)
         reports.append(report)
     }
+    if let mobileTokenFile, let outputFile, pathsReferToSameFile(mobileTokenFile, outputFile) {
+        record("The discovery report destination must not refer to the mobile access-token file.")
+        return false
+    }
     do {
         guard let data = bodyJSON.data(using: .utf8),
               let body = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -693,7 +772,10 @@ func discoverAPI(
                 request = entry.request
             }
         }
-    } catch is DiscoveryError {
+    } catch DiscoveryError.invalidMobileToken {
+        record("Invalid mobile access-token file. Use a raw token of 1-8192 bytes in a mode-0600 regular file owned by you, without a symlink or extended ACL.")
+        succeeded = false
+    } catch DiscoveryError.unsupportedRequest {
         record("Unsupported discovery request. See discover help for allowed endpoints and fields; only the chart country form is accepted.")
         succeeded = false
     } catch {

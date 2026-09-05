@@ -514,7 +514,6 @@ Action endpoints perform operations or fetch specific data.
 | `subscription/subscribe` | Subscribe | 🔐 | Subscribe to artist |
 | `subscription/unsubscribe` | Unsubscribe | 🔐 | Unsubscribe from artist |
 | `account/accounts_list` | Accounts List | 🔐 | List all accounts (primary + brand) |
-| `account/account_menu` | Account Menu | 🔐 | Current account info and settings |
 | `playlist/get_add_to_playlist` | Add-to-Playlist Menu | 🔐 | Playlist choices cached with library TTL |
 | `browse/edit_playlist` | Edit Playlist | 🔐 | Add/remove tracks and invalidate affected caches |
 | `playlist/create` | Create Playlist | 🔐 | Create a playlist, optionally with seed videos |
@@ -1073,7 +1072,7 @@ These endpoints exist but are primarily for YouTube's internal use:
 
 | Endpoint | Type | Auth | Parameters | Notes |
 |----------|------|------|------------|-------|
-| `account/account_menu` | Action | 🌐/🔐 | `{}` | Returns account menu structure (settings, premium promo) |
+| `account/account_menu` | Action | 🌐/🔐 | `{}` | Not implemented; allowlisted for authentication but has no app caller or parser. Account selection uses `account/accounts_list` |
 | `reel/reel_item_watch` | Action | 🌐 | `{}` | Returns status tracking params (YouTube Shorts related) |
 | `log_event` | Action | 🌐 | `{}` | Analytics/telemetry logging endpoint |
 | `att/get` | Action | 🌐 | `{}` | Anti-bot/botguard challenge data |
@@ -1327,6 +1326,7 @@ are listed separately in the same row.
 | Native YouTube transcript | Not implemented | No working transcript request or native panel |
 | Recommendation dismissal | Not implemented | Dislike and library add/remove feedback exist; Not interested for recommendations does not |
 | Taste profile onboarding | Not implemented | No artist-selection onboarding |
+| Account menu | Not implemented | No `account/account_menu` caller or parser; account selection uses the implemented `account/accounts_list` endpoint |
 | Uploaded albums/artists | Not implemented | Their issued browse routes return signed-in empty states; Uploaded Songs is implemented separately |
 | Recap | Not implemented | No Recap page or parser |
 | Audio/video counterpart switch | Not implemented | The existing video button changes presentation, not the recording |
@@ -1458,7 +1458,8 @@ sends `POST https://music.youtube.com/youtubei/v1/browse?prettyPrint=false` with
 `browseId: FEmusic_home`. Its profile uses version `9.06.4`, platform `MOBILE`,
 iOS `26.2.1`, and device `iPhone18,4`. It authenticates with mobile OAuth.
 
-Verified locally on 2026-09-04:
+Verified locally on 2026-09-04, with the Android rows rechecked on 2026-09-05
+using a matching Android 13 / API level 33 profile:
 
 | Probe | Result |
 |-------|--------|
@@ -1530,15 +1531,19 @@ token. The file must be owned by the current user, have mode 0600 and no extende
 ACL, and be a regular file rather than a symlink. Its value stays in memory and
 is sent only to mobile discovery requests as Bearer authorization; web cookies
 and account-selection headers are omitted. It cannot be combined with guest
-mode, cookie-only mode, or web account selection. Do not put credentials in
-command arguments, documentation, fixtures, or chat. This option does not obtain,
+mode, cookie-only mode, or web account selection. A report destination that refers
+to the token file is rejected before loading credentials or making requests.
+Invalid token files produce a separate diagnostic without printing their contents.
+Do not put credentials in command arguments, documentation, fixtures, or chat.
+This option does not obtain,
 refresh, or validate a mobile credential by itself; a populated signed-in
 response still needs live verification.
 
 Both mobile profiles are restricted to `discover`, cannot be combined with
 `--youtube` or each other, and stay active on every followed request. They omit
 the web API-key lookup by default and send matching client headers and user
-agents. `--client-version` overrides the configured version. The Android default
+agents. The Android profile pairs Android 13 with SDK level 33; its user agent
+also declares Android 13. `--client-version` overrides the configured version. The Android default
 `5.34.51` comes from the
 [YouTube.js client definitions](https://github.com/LuanRT/YouTube.js/blob/a480854c501406cf55c9eb7ad5b540ab36a65b56/src/utils/Constants.ts)
 and is a diagnostic baseline, not a verified Home feed profile. The model and
@@ -1653,9 +1658,11 @@ swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
 
 `discover` inventories renderer and mobile model types, recognized UI labels, command kinds,
 and replayable navigation. It keeps opaque request parameters in memory and
-prints browse-ID families instead of content or account identifiers. Unknown
-labels and all free-form response text remain hidden. `-v` adds schema paths
-and value types, never raw response values.
+prints browse-ID families instead of content or account identifiers. Only known
+schema names, public routes, and content types are printed; unknown names are
+redacted. Labels are recognized only on specific chip, header, and menu renderers,
+so a song or playlist named Focus does not become a UI label. `-v` adds schema
+paths and value types, never raw response values.
 
 #### Repeat the discovery probes
 
@@ -1713,6 +1720,8 @@ Authentication stays consistent across hops. Cookies are used when available;
 `--guest` suppresses them. The report distinguishes the requested auth mode from
 the server's explicit session marker. Music responses often omit that marker.
 HTTP 200 and a content envelope alone do not establish authenticated content.
+Rechecked on 2026-09-05 with saved cookies available: a guest Home request and
+its followed chip request both explicitly reported guest sessions.
 Use `--body-file` for private request IDs or opaque parameters. Reports use
 owner-only file permissions and never contain raw payloads.
 
@@ -2118,6 +2127,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-09-05 | Tightened discovery redaction, JSON scalar validation, and token-file diagnostics and overwrite protection. Rechecked Android with a consistent OS/SDK profile and verified guest hops; corrected Account menu implementation status |
 | 2026-09-04 | Verified signed-in Library filters, sort reloads, pagination, podcast Channels, Profiles, upload empty states, and taste-builder data. Added safe selection-read extraction and blocked taste acceptance in Explorer; recorded Recap and authenticated transcript limits |
 | 2026-09-04 | Located the mobile Speed dial Home model in an existing client; verified guest `IOS_MUSIC` Home requests, added a read-only mobile profile and model/item counts to Explorer, and recorded the missing signed-in validation |
 | 2026-09-04 | Confirmed the new web login works while tested mobile clients reject SAPISIDHASH; cookie-only iOS responses explicitly report guest. Added Android comparison, server login/error diagnostics, and private OAuth input to Explorer. Actual Speed dial remains blocked on mobile authentication; Favorites was not replaced with Listen again |

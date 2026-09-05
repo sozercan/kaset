@@ -694,7 +694,7 @@ struct MusicMobileRequestProfile {
             ]) { _, value in value }
         case .android:
             context.merge([
-                "osName": "Android", "osVersion": "13", "androidSdkVersion": 36,
+                "osName": "Android", "osVersion": "13", "androidSdkVersion": 33,
                 "clientFormFactor": "SMALL_FORM_FACTOR",
             ]) { _, value in value }
         }
@@ -2236,15 +2236,29 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
 /// Reuses the owner, mode, ACL, symlink, and bounded-read checks for private input.
 /// Only a regular file is accepted so a token can never be echoed by a terminal.
 func loadMobileAccessToken(from path: String) throws -> String {
-    guard path != "-" else { throw DiscoveryError.unsupportedRequest }
-    let token = try loadPrivatePrompt(from: path)
-    guard token.utf8.count <= 8192,
+    guard path != "-", let token = try? loadPrivatePrompt(from: path),
+          token.utf8.count <= 8192,
           token.unicodeScalars.allSatisfy({ scalar in
               (65 ... 90).contains(scalar.value) || (97 ... 122).contains(scalar.value)
                   || (48 ... 57).contains(scalar.value) || "-._~+/=".unicodeScalars.contains(scalar)
           })
-    else { throw DiscoveryError.unsupportedRequest }
+    else { throw DiscoveryError.invalidMobileToken }
     return token
+}
+
+/// Prevents discovery reports from replacing their credential input, including
+/// relative paths, symlinked directories, and existing hard-link aliases.
+func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
+    let first = URL(fileURLWithPath: NSString(string: firstPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    let second = URL(fileURLWithPath: NSString(string: secondPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    if first == second {
+        return true
+    }
+    var firstStatus = stat()
+    var secondStatus = stat()
+    return first.path.withCString { Darwin.lstat($0, &firstStatus) } == 0
+        && second.path.withCString { Darwin.lstat($0, &secondStatus) } == 0
+        && firstStatus.st_dev == secondStatus.st_dev && firstStatus.st_ino == secondStatus.st_ino
 }
 
 func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> String {
