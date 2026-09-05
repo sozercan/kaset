@@ -25,7 +25,7 @@ struct PlayerBarArtworkGlow: View {
             } else if let image {
                 Image(nsImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
                     .frame(width: self.width, height: self.height)
                     .clipShape(.rect(cornerRadius: self.cornerRadius, style: .continuous))
                     .compositingGroup()

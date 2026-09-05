@@ -952,31 +952,71 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
-private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
-    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data),
-          let byline = renderer["longBylineText"] as? [String: Any],
-          let runs = byline["runs"] as? [[String: Any]],
-          !runs.isEmpty
-    else { return "" }
+/// Lists playlist destinations without exposing tracking or continuation tokens.
+private func playlistNavigationSummary(_ data: [String: Any]) -> String {
+    var destinations: [String] = []
+    var seen = Set<String>()
 
-    var output = "\n🎤 Playlist-panel long byline runs:\n"
-    for (index, run) in runs.enumerated() {
-        let text = run["text"] as? String ?? ""
-        let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
-        let browseKind = if let browseId {
-            if browseId.hasPrefix("MPLAUC") {
-                "MPLAUC…"
-            } else if browseId.hasPrefix("UC") {
-                "UC…"
-            } else if browseId.hasPrefix("MPRE") {
-                "MPRE…"
-            } else {
-                "other"
+    func visit(_ value: Any) {
+        guard destinations.count < 12 else { return }
+        if let dictionary = value as? [String: Any] {
+            for key in ["musicCardShelfRenderer", "musicTwoRowItemRenderer", "musicResponsiveListItemRenderer"] {
+                guard let renderer = dictionary[key] as? [String: Any],
+                      let endpoint = renderer["navigationEndpoint"] ?? renderer["onTap"] ?? renderer["title"],
+                      let browse = findFirstRenderer(named: "browseEndpoint", in: endpoint),
+                      let browseId = browse["browseId"] as? String,
+                      browseId.hasPrefix("VL") || browseId.hasPrefix("RD") || browseId.hasPrefix("PL"),
+                      seen.insert(browseId).inserted
+                else { continue }
+
+                let columns = renderer["flexColumns"] as? [[String: Any]]
+                let firstColumn = columns?.first?["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any]
+                let title = joinedRunsText(renderer["title"] as? [String: Any])
+                    ?? joinedRunsText(firstColumn?["text"] as? [String: Any]) ?? "Untitled"
+                destinations.append("  • \(terminalSafe(title)): \(terminalSafe(browseId))")
             }
-        } else {
-            "none"
+            for key in dictionary.keys.sorted() {
+                if let child = dictionary[key] {
+                    visit(child)
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                visit(child)
+            }
         }
-        output += "  [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+    }
+
+    visit(data)
+    guard !destinations.isEmpty else { return "" }
+    return "\n📂 Playlist browse targets:\n" + destinations.joined(separator: "\n") + "\n"
+}
+
+private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
+    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data) else { return "" }
+
+    var output = "\n🎤 Playlist-panel byline runs:\n"
+    for field in ["shortBylineText", "longBylineText"] {
+        let runs = (renderer[field] as? [String: Any])?["runs"] as? [[String: Any]] ?? []
+        output += "  \(field): \(runs.count) run(s)\n"
+        for (index, run) in runs.enumerated() {
+            let text = run["text"] as? String ?? ""
+            let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
+            let browseKind = if let browseId {
+                if browseId.hasPrefix("MPLAUC") {
+                    "MPLAUC…"
+                } else if browseId.hasPrefix("UC") {
+                    "UC…"
+                } else if browseId.hasPrefix("MPRE") {
+                    "MPRE…"
+                } else {
+                    "other"
+                }
+            } else {
+                "none"
+            }
+            output += "    [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+        }
     }
     return output
 }
@@ -1549,6 +1589,8 @@ func analyzeResponse(
     output += libraryFeedbackProbeSummary(data)
 
     output += playlistPanelBylineSummary(data)
+
+    output += playlistNavigationSummary(data)
 
     if !youtubeMode {
         output += searchResponseAuditSummary(

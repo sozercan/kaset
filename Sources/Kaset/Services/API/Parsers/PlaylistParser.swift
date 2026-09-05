@@ -1507,9 +1507,14 @@ enum PlaylistParser {
             .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
             ?? "Unknown"
 
-        let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
-        let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
-        let artistId = Self.extractArtistId(from: artistRuns)
+        // Curated queues keep artist links in the long byline; the short byline is display-only.
+        var artists = SongMetadataParser.parseArtists(from: renderer)
+        if artists.isEmpty {
+            let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
+            let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
+            let artistId = Self.extractArtistId(from: artistRuns)
+            artists = [Artist(id: artistId ?? "", name: artistName)]
+        }
 
         let durationText = (renderer["lengthText"] as? [String: Any])?["runs"]
             .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
@@ -1524,7 +1529,7 @@ enum PlaylistParser {
         return Song(
             id: videoId,
             title: title,
-            artists: [Artist(id: artistId ?? "", name: artistName, thumbnailURL: nil)],
+            artists: artists,
             album: nil,
             duration: durationText.flatMap { ParsingHelpers.parseDuration($0) },
             thumbnailURL: thumbnailURL,
