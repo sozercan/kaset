@@ -271,10 +271,16 @@ struct SyncedLyricsBridgeScriptTests {
         };
         var playerBar = { attributes: {}, childNodes: [] };
         var playerApi = {
-            getVideoData: function() { return { video_id: 'abc', title: 'Title', author: 'Artist' }; }
+            getVideoData: function() { return { video_id: 'abc', title: 'Title', author: 'Artist' }; },
+            getPresentingPlayerType: function() { return 1; },
+            addEventListener: function() {}
         };
         var ytmusicPlayer = { playerApi: playerApi };
-        var moviePlayer = { getVideoData: playerApi.getVideoData };
+        var moviePlayer = {
+            getVideoData: playerApi.getVideoData,
+            getPresentingPlayerType: playerApi.getPresentingPlayerType,
+            addEventListener: function() {}
+        };
         var document = {
             readyState: 'complete',
             body: {},

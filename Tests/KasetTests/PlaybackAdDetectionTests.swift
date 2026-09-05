@@ -178,34 +178,64 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("lastState().isAd").toBool())
     }
 
-    @Test("Ad listeners wait for the player API on an existing element", arguments: [false, true])
-    func latePlayerAPI(isMusic: Bool) throws {
+    @Test("Ad listeners attach when the player API initializes late", arguments: [false, true], [false, true])
+    func latePlayerAPI(isMusic: Bool, notifiesChildren: Bool) throws {
         let context = try self.makeContext(isMusic: isMusic)
         try self.evaluate(
             """
-            var playerAddEventListener = moviePlayer.addEventListener;
-            var presentingPlayerType = moviePlayer.getPresentingPlayerType;
-            delete moviePlayer.getPresentingPlayerType;
-            moviePlayer.addEventListener = function() {};
+            var activeApi = \(isMusic ? "musicApi" : "moviePlayer");
+            var playerAddEventListener = activeApi.addEventListener;
+            var presentingPlayerType = activeApi.getPresentingPlayerType;
+            delete activeApi.getPresentingPlayerType;
+            activeApi.addEventListener = function() {};
             """,
             in: context
         )
         try self.installObserver(isMusic: isMusic, in: context)
         try self.evaluate(
             """
-            moviePlayer.getPresentingPlayerType = presentingPlayerType;
-            moviePlayer.addEventListener = playerAddEventListener;
-            notifyChildrenChanged();
+            activeApi.getPresentingPlayerType = presentingPlayerType;
+            activeApi.addEventListener = playerAddEventListener;
+            if (\(notifiesChildren)) notifyChildrenChanged();
             timers.splice(0).forEach(function(callback) { callback(); });
             postedMessages = [];
-            moviePlayer.presentingType = 2;
-            moviePlayer.fire('onAdStart');
+            activeApi.presentingType = 2;
+            activeApi.fire('onAdStart');
             """,
             in: context
         )
 
         #expect(context.evaluateScript("stateCount()").toInt32() == 1)
         #expect(context.evaluateScript("lastState().isAd").toBool())
+    }
+
+    @Test("API hookup retries stop after readiness or the retry limit", arguments: [false, true])
+    func apiAttachmentRetriesStop(apiBecomesReady: Bool) throws {
+        let context = try self.makeContext(isMusic: false)
+        try self.evaluate(
+            """
+            var presentingPlayerType = moviePlayer.getPresentingPlayerType;
+            delete moviePlayer.getPresentingPlayerType;
+            \(PlaybackAdDetectionScript.detection)
+            \(PlaybackAdDetectionScript.observation)
+            var adChanges = 0;
+            var refresh = observeAdStateChanges(function() { adChanges += 1; });
+            refresh();
+            var retryTurns = 0;
+            while (timers.length && retryTurns < 100) {
+                if (\(apiBecomesReady)) moviePlayer.getPresentingPlayerType = presentingPlayerType;
+                timers.splice(0).forEach(function(callback) { callback(); });
+                retryTurns += 1;
+            }
+            moviePlayer.presentingType = 2;
+            moviePlayer.fire('onAdStart');
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("retryTurns").toInt32() > 0)
+        #expect(context.evaluateScript("timers.length").toInt32() == 0)
+        #expect(context.evaluateScript("adChanges").toInt32() == (apiBecomesReady ? 1 : 0))
     }
 
     @Test("Ad-end events clear ads first observed through media updates", arguments: [false, true])
@@ -458,6 +488,48 @@ struct PlaybackAdDetectionTests {
         )
         #expect(!context.evaluateScript("lastState().isAd").toBool())
         #expect(context.evaluateScript("lastState().videoId").toString() == "content")
+    }
+
+    @Test("Consecutive creatives remain ads between player ad signals", arguments: [false, true])
+    func consecutiveAdCreatives(isMusic: Bool) throws {
+        let context = try self.makeContext(isMusic: isMusic)
+        try self.installObserver(isMusic: isMusic, in: context)
+        try self.evaluate(
+            """
+            var contentData = currentData;
+            var activeApi = \(isMusic ? "musicApi" : "moviePlayer");
+            currentData = { video_id: 'creative-one', title: 'First ad' };
+            video.currentSrc = 'https://media.example/creative-one';
+            video.currentTime = 0;
+            video.duration = 30;
+            activeApi.presentingType = 2;
+            activeApi.fire('onAdStart');
+            activeApi.presentingType = 1;
+            currentData = { video_id: 'creative-two', title: 'Second ad' };
+            video.currentSrc = 'https://media.example/creative-two';
+            activeApi.fire('onAdEnd');
+            """,
+            in: context
+        )
+
+        #expect(context.evaluateScript("video.__kasetBoundVideoId").toString() == "creative-two")
+        #expect(context.evaluateScript("lastState().isAd").toBool())
+        if isMusic {
+            #expect(!context.evaluateScript("lastState().trackChanged").toBool())
+        }
+
+        try self.evaluate(
+            """
+            currentData = contentData;
+            video.currentSrc = 'https://media.example/content';
+            video.currentTime = 12;
+            video.duration = 180;
+            fireVideoEvent('waiting');
+            """,
+            in: context
+        )
+        #expect(!context.evaluateScript("lastState().isAd").toBool())
+        #expect(context.evaluateScript("video.__kasetBoundVideoId").toString() == "content")
     }
 
     @Test("Recovery seeks wait for content when only the player API identifies an ad")

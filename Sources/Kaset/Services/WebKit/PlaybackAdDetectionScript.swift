@@ -58,18 +58,20 @@ enum PlaybackAdDetectionScript {
             const adVideoId = window.__kasetAdVideoId || '';
             const video = document.querySelector('#movie_player video') || document.querySelector('video');
             const boundVideoId = video && video.__kasetBoundVideoId;
-            // Metadata can return before the physical content occurrence does.
-            const isAdCreative = adVideoId !== ''
+            // An ad pod can change creatives while ad signals briefly clear.
+            // Wait for the requested content's metadata and physical media.
+            const awaitingContent = adVideoId !== ''
                 && adVideoId !== contentVideoId
-                && (!videoId || videoId === adVideoId || boundVideoId === adVideoId);
-            if (!isAd && !isAdCreative) delete window.__kasetAdVideoId;
-            return isAd || isAdCreative;
+                && (videoId !== contentVideoId
+                    || (!!boundVideoId && boundVideoId !== contentVideoId));
+            if (!isAd && !awaitingContent) delete window.__kasetAdVideoId;
+            return isAd || awaitingContent;
         }
         """
     }
 
     /// Returns a refresh hook for the bridges' existing player-attachment paths.
-    /// Watches only the player class and ad events; it adds no polling timer.
+    /// Watches player class and ad events, retrying late API hookup for up to ten seconds.
     nonisolated static var observation: String {
         """
         function observeAdStateChanges(onChange) {
@@ -77,6 +79,8 @@ enum PlaybackAdDetectionScript {
             let observedPlayer = null;
             let classObserver = null;
             let observedAPIs = [];
+            let apiRetryCount = 0;
+            let apiRetryTimeoutId = null;
             let lastIsAd = isAdShowing();
 
             function reportChange() {
@@ -96,6 +100,7 @@ enum PlaybackAdDetectionScript {
             return function refreshAdObserver() {
                 const player = document.getElementById('movie_player');
                 if (player !== observedPlayer) {
+                    apiRetryCount = 0;
                     if (classObserver) classObserver.disconnect();
                     classObserver = null;
                     observedPlayer = player;
@@ -108,7 +113,8 @@ enum PlaybackAdDetectionScript {
                     }
                 }
 
-                const apis = adPlayerAPIs().filter(function(api) {
+                const candidates = adPlayerAPIs();
+                const apis = candidates.filter(function(api) {
                     // A bare player div already has DOM addEventListener.
                     // Wait for YouTube's API before subscribing to player events.
                     return typeof api.getPresentingPlayerType === 'function'
@@ -127,6 +133,17 @@ enum PlaybackAdDetectionScript {
                     }
                 }
                 observedAPIs = apis;
+                if (apis.length === candidates.length) {
+                    apiRetryCount = 0;
+                    if (apiRetryTimeoutId !== null) clearTimeout(apiRetryTimeoutId);
+                    apiRetryTimeoutId = null;
+                } else if (apiRetryTimeoutId === null && apiRetryCount < 20) {
+                    apiRetryCount += 1;
+                    apiRetryTimeoutId = setTimeout(function() {
+                        apiRetryTimeoutId = null;
+                        refreshAdObserver();
+                    }, 500);
+                }
                 reportChange();
             };
         }

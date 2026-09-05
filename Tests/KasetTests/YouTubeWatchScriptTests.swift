@@ -565,6 +565,7 @@ struct YouTubeWatchScriptTests {
             };
             var player = {
                 classList: { contains: function() { return false; } },
+                getPresentingPlayerType: function() { return 1; }, addEventListener: function() {},
                 getVideoData: function() {
                     return { video_id: currentDataVideoId, title: 'Title' };
                 },
@@ -772,6 +773,7 @@ extension YouTubeWatchScriptTests {
 
             var moviePlayer = {
                 classList: { contains: function() { return false; } },
+                getPresentingPlayerType: function() { return 1; }, addEventListener: function() {},
                 getVideoData: function() { return { video_id: 'abc123', title: 'Test Video' }; },
                 unMute: function() {}
             };
