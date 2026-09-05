@@ -15,10 +15,14 @@ extension PlayerService {
             return
         }
         guard isAuthoritativeContent else { return }
-        self.isShowingAd = false
+        self.clearAdPlaybackBoundary()
         guard let observedVideoId = self.normalizedPlaybackVideoId(observedVideoId) else { return }
         self.lastNonAdContentProgress = observedProgress
         self.lastNonAdContentVideoId = observedVideoId
+    }
+
+    func clearAdPlaybackBoundary() {
+        self.isShowingAd = false
     }
 
     func resetAdPlaybackState() {
@@ -58,19 +62,71 @@ extension PlayerService {
             isPlaying: isPlaying,
             progress: progress,
             duration: duration,
-            observedVideoId: self.currentTrack?.videoId
+            observedVideoId: self.currentTrack?.videoId ?? self.pendingPlayVideoId
         )
     }
 
-    /// Updates playback state with the video identity carried by the same WebView observation.
+    /// Updates playback state from an identity-bearing WebView observation.
+    /// State from an earlier/out-of-order video must not overwrite the current
+    /// queue target's progress, duration, or near-end flag.
     func updatePlaybackState(
         isPlaying: Bool,
         progress: Double,
         duration: Double,
         observedVideoId: String?
     ) {
+        // Preserve bridge-observation provenance for consumers such as mix
+        // scrobbling even when this sample is stale for PlayerService state.
+        self.recordPlaybackStateObservation(videoId: observedVideoId)
+        guard self.observedPlaybackMatchesCurrentTarget(videoId: observedVideoId) else {
+            self.logger.debug(
+                "Ignoring playback state for stale video \(observedVideoId ?? "unknown")"
+            )
+            return
+        }
+
+        self.applyPlaybackStateObservation(
+            isPlaying: isPlaying,
+            progress: progress,
+            duration: duration
+        )
+        self.recordDurationObservation(
+            videoId: self.playbackStateVideoId,
+            duration: duration
+        )
+    }
+
+    private func applyPlaybackStateObservation(
+        isPlaying: Bool,
+        progress: Double,
+        duration: Double
+    ) {
         let previousProgress = self.progress
         self.isApplyingPlaybackStateObservation = true
+        defer {
+            self.isApplyingPlaybackStateObservation = false
+        }
+
+        if self.isPendingRestoredLoadDeferred {
+            if self.pendingRestoredSeek == nil {
+                self.progress = progress
+            }
+            if duration > 0 {
+                self.duration = duration
+            }
+            self.state = .paused
+            if isPlaying, !self.hasIssuedAutoplayPauseDuringDeferredRestore {
+                self.hasIssuedAutoplayPauseDuringDeferredRestore = true
+                SingletonPlayerWebView.shared.pause()
+            }
+            if let targetProgress = self.pendingRestoredSeek {
+                _ = self.scheduleTerminalRestoredSeekIfNeeded(
+                    targetProgress: targetProgress,
+                    resolvedDuration: self.duration
+                )
+            }
+            return
+        }
 
         if self.isRestoringPlaybackSession {
             self.reconcileRestoredPlaybackState(
@@ -87,9 +143,6 @@ extension PlayerService {
                 previousProgress: previousProgress
             )
         }
-
-        self.isApplyingPlaybackStateObservation = false
-        self.recordPlaybackStateObservation(videoId: observedVideoId, duration: duration)
     }
 
     /// Updates only play/pause transport while deliberately preserving the
@@ -126,10 +179,16 @@ extension PlayerService {
     ) {
         guard let currentSong = queue[safe: currentIndex] else { return }
         self.beginMusicPlaybackIntent()
+        self.playbackContextGeneration &+= 1
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.cancelDeferredQueueWork()
         self.clearQueueUndoRedoHistory()
 
         self.clearRestoredPlaybackSessionState()
+        self.restoredPlaybackSessionGeneration &+= 1
+        let restoreGeneration = self.restoredPlaybackSessionGeneration
         self.clearForwardSkipNavigationStack()
         if let entrySources, entrySources.count == queue.count {
             self.setQueue(entries: zip(queue, entrySources).map { song, source in
@@ -146,6 +205,8 @@ extension PlayerService {
         self.showMiniPlayer = false
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
+        self.isAwaitingWebRestoredTrack = true
+        self.hasIssuedAutoplayPauseDuringDeferredRestore = false
 
         let resolvedDuration = max(duration, currentSong.duration ?? 0)
         let clampedProgress = self.clampedRestoredProgress(progress, duration: resolvedDuration)
@@ -178,13 +239,28 @@ extension PlayerService {
         }
 
         // At app launch the cache may be empty and the persisted song may lack likeStatus.
-        // Fetch metadata from the API to get the correct like status.
+        // Fetch immediately; queue ownership ensures the result only applies to this persisted occurrence.
         let queueEntryID = self.currentQueueEntryID
         Task { [videoId = currentSong.videoId] in
             await self.fetchSongMetadata(
                 videoId: videoId,
                 queueOwner: queueEntryID.map(MusicQueueMetadataOwner.entry) ?? .none
             )
+        }
+
+        // Give YT Music a chance to restore its server-synced track first.
+        // If no track arrives from the web page in time, fall back to the persisted one.
+        Task {
+            try? await Task.sleep(for: .seconds(8))
+            guard self.restoredPlaybackSessionGeneration == restoreGeneration,
+                  self.isPendingRestoredLoadDeferred,
+                  self.isAwaitingWebRestoredTrack
+            else { return }
+            self.logger.info("No server-restored track observed; falling back to persisted session track")
+            self.pendingPlayVideoId = currentSong.videoId
+            self.currentTrack = currentSong
+            self.currentTrackHasVideo = currentSong.musicVideoType?.hasVideoContent ?? currentSong.hasVideo ?? false
+            self.isAwaitingWebRestoredTrack = false
         }
     }
 
@@ -193,8 +269,12 @@ extension PlayerService {
         self.pendingRestoredSeek = nil
         self.isPendingRestoredLoadDeferred = false
         self.shouldForcePendingRestoredLoad = false
+        self.isRestoringExplicitTransportSeek = false
+        self.shouldFinishRestoredSeekAtEnd = false
+        self.restoredPlaybackSessionGeneration &+= 1
         self.isRestoringPlaybackSession = false
         self.shouldAutoResumeAfterRestoredLoad = false
+        self.isAwaitingWebRestoredTrack = false
     }
 
     /// Reconciles an undo/redo clock against physical media before resuming playback.
@@ -207,7 +287,15 @@ extension PlayerService {
         startsPaused: Bool
     ) -> TimeInterval {
         self.clearRestoredPlaybackSessionState()
-        let resolvedDuration = max(restoreClock.duration, songDuration ?? 0)
+        self.isRestoringExplicitTransportSeek = restoreClock.isExplicitTransportSeek
+        self.shouldFinishRestoredSeekAtEnd = restoreClock.isExplicitTransportSeek
+        let resolvedDuration: TimeInterval = if restoreClock.duration > 0 {
+            restoreClock.duration
+        } else if restoreClock.allowsSongDurationFallback {
+            songDuration ?? 0
+        } else {
+            0
+        }
         let targetProgress = self.clampedRestoredProgress(
             restoreClock.progress,
             duration: resolvedDuration
@@ -224,6 +312,35 @@ extension PlayerService {
         self.isExplicitPauseIntentActive = startsPaused
         self.state = startsPaused ? .paused : .loading
         return targetProgress
+    }
+
+    func retargetRestoredPlaybackSeekIfNeeded(
+        to targetProgress: TimeInterval,
+        intent: MusicPlaybackIntent
+    ) async -> Bool {
+        let isDeferredRestore = self.isPendingRestoredLoadDeferred
+        let isActiveRestore = self.isRestoringPlaybackSession && self.pendingRestoredSeek != nil
+        guard isDeferredRestore || isActiveRestore else { return false }
+
+        let startsPaused = isDeferredRestore
+            || self.isExplicitPauseIntentActive
+            || !self.shouldAutoResumeAfterRestoredLoad
+        if self.duration > 0,
+           targetProgress >= self.duration - Self.seekToEndThreshold
+        {
+            await self.handleManualSeekToEnd(
+                intent: intent,
+                startsPaused: startsPaused
+            )
+            return true
+        }
+
+        self.progress = targetProgress
+        self.currentTimeMs = Int(targetProgress * 1000)
+        self.pendingRestoredSeek = targetProgress
+        self.isRestoringExplicitTransportSeek = true
+        self.shouldFinishRestoredSeekAtEnd = true
+        return true
     }
 
     /// Starts loading a restored session into the WebView without discarding the saved seek target.
@@ -326,6 +443,10 @@ extension PlayerService {
         // account scoping + the reactive now-playing resolver keep it correct.
         self.songLikeStatusManager.invalidateSession(clearsActiveCache: false)
         self.beginMusicPlaybackIntent()
+        self.playbackContextGeneration &+= 1
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.cancelDeferredQueueWork()
         self.clearQueueUndoRedoHistory()
         self.libraryMutationGeneration &+= 1
@@ -457,12 +578,64 @@ private extension PlayerService {
         return resolvedDuration
     }
 
+    @discardableResult
+    func scheduleTerminalRestoredSeekIfNeeded(
+        targetProgress: TimeInterval,
+        resolvedDuration: TimeInterval
+    ) -> Bool {
+        let clampedTargetProgress = self.clampedRestoredProgress(
+            targetProgress,
+            duration: resolvedDuration
+        )
+        guard self.shouldFinishRestoredSeekAtEnd,
+              resolvedDuration > 0,
+              clampedTargetProgress >= resolvedDuration - Self.seekToEndThreshold
+        else { return false }
+
+        let intent = self.currentMusicPlaybackIntent
+        let restorationGeneration = self.restoredPlaybackSessionGeneration
+        let playbackVideoId = self.currentTrack?.videoId ?? self.pendingPlayVideoId
+        let queueEntryID = self.queueEntryIDOwningCurrentPlayback
+        let startsPaused = self.isPendingRestoredLoadDeferred
+            || self.isExplicitPauseIntentActive
+            || !self.shouldAutoResumeAfterRestoredLoad
+        Task { @MainActor [weak self] in
+            guard let self,
+                  self.acceptsMusicPlaybackIntent(intent),
+                  self.restoredPlaybackSessionGeneration == restorationGeneration,
+                  self.isRestoringPlaybackSession || self.isPendingRestoredLoadDeferred,
+                  self.isRestoringExplicitTransportSeek,
+                  self.shouldFinishRestoredSeekAtEnd,
+                  self.pendingRestoredSeek == targetProgress,
+                  (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == playbackVideoId,
+                  self.queueEntryIDOwningCurrentPlayback == queueEntryID,
+                  self.duration > 0,
+                  self.clampedRestoredProgress(
+                      targetProgress,
+                      duration: self.duration
+                  ) >= self.duration - Self.seekToEndThreshold
+            else { return }
+            self.shouldFinishRestoredSeekAtEnd = false
+            await self.handleManualSeekToEnd(
+                intent: intent,
+                startsPaused: startsPaused
+            )
+        }
+        return true
+    }
+
     func reconcilePendingRestoredSeek(
         isPlaying: Bool,
         progress: Double,
         targetProgress: TimeInterval,
         resolvedDuration: TimeInterval
     ) {
+        if self.scheduleTerminalRestoredSeekIfNeeded(
+            targetProgress: targetProgress,
+            resolvedDuration: resolvedDuration
+        ) {
+            return
+        }
         let clampedTargetProgress = self.clampedRestoredProgress(targetProgress, duration: resolvedDuration)
         if self.progress != clampedTargetProgress {
             self.progress = clampedTargetProgress

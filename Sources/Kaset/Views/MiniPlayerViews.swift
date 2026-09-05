@@ -11,13 +11,13 @@ struct PersistentPlayerView: NSViewRepresentable {
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
 
-    let videoId: String
+    let videoId: String?
     let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
 
     private let logger = DiagnosticsLogger.player
 
     func makeNSView(context _: Context) -> NSView {
-        self.logger.info("PersistentPlayerView.makeNSView for videoId: \(self.videoId)")
+        self.logger.info("PersistentPlayerView.makeNSView for videoId: \(self.videoId ?? "nil")")
 
         let container = NSView(frame: .zero)
         container.wantsLayer = true
@@ -36,11 +36,12 @@ struct PersistentPlayerView: NSViewRepresentable {
         container.addSubview(webView)
 
         // Restored sessions keep the hidden WebView inert until the user explicitly resumes.
-        if self.playerService.shouldAutoloadPendingVideo,
-           SingletonPlayerWebView.shared.currentVideoId != self.videoId
+        if let videoId = self.videoId,
+           self.playerService.shouldAutoloadPendingVideo,
+           SingletonPlayerWebView.shared.currentVideoId != videoId
         {
-            self.logger.info("Initial hidden load for videoId: \(self.videoId)")
-            SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
+            self.logger.info("Initial hidden load for videoId: \(videoId)")
+            SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
         }
 
         return container
@@ -64,10 +65,11 @@ struct PersistentPlayerView: NSViewRepresentable {
 
         webView.frame = container.bounds
 
-        if self.playerService.shouldAutoloadPendingVideo,
-           SingletonPlayerWebView.shared.currentVideoId != self.videoId
+        if let videoId = self.videoId,
+           self.playerService.shouldAutoloadPendingVideo,
+           SingletonPlayerWebView.shared.currentVideoId != videoId
         {
-            SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
+            SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
         }
     }
 }

@@ -1,6 +1,9 @@
+// swiftlint:disable file_length
 import Foundation
 import Testing
 @testable import Kaset
+
+// MARK: - MusicPlaybackBridgeGenerationTests
 
 @Suite("YouTube Music playback bridge generation", .tags(.service))
 @MainActor
@@ -235,6 +238,30 @@ struct MusicPlaybackBridgeGenerationTests {
             expectedVideoID: "other",
             documentGeneration: documentGeneration
         ))
+    }
+
+    @Test("Superseded pending-handoff content recovery retries under the current owner")
+    func supersededPendingHandoffContentRecoveryRetries() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+        let recoveryCall = try #require(source.range(
+            of: ".recoverPendingNativeQueueAdvanceAfterContentProcessTermination(intent: intent)"
+        ))
+        let ownershipRetry = try #require(source.range(
+            of: "guard !handled, webView === self.webView else { return }"
+        ))
+        let recursiveRecovery = try #require(source.range(
+            of: "self.recoverFromContentProcessTermination(webView: webView)",
+            range: ownershipRetry.lowerBound ..< source.endIndex
+        ))
+
+        #expect(recoveryCall.lowerBound < ownershipRetry.lowerBound)
+        #expect(ownershipRetry.lowerBound < recursiveRecovery.lowerBound)
     }
 
     @Test("Content-process recovery preserves seek and playing intent")
@@ -714,9 +741,41 @@ struct MusicPlaybackBridgeGenerationTests {
         )
 
         #expect(source.contains("let playbackVideoId = Self.playbackVideoId(from: body)"))
-        #expect(source.contains("duration: Double(duration),\n                    observedVideoId: playbackVideoId"))
+        #expect(source.contains("duration: Double(duration)"))
+        #expect(source.contains("observedVideoId: playbackVideoId"))
         #expect(source.contains("videoId: Self.playbackVideoId(from: body)"))
         #expect(source.contains("videoId: playbackVideoId"))
+    }
+}
+
+extension MusicPlaybackBridgeGenerationTests {
+    @Test("Router navigation confirms only after an accepted state observation")
+    func routerNavigationConfirmationFollowsBridgeValidation() throws {
+        let coordinatorSource = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+        let multiplexerSource = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+
+        let confirmation = try #require(coordinatorSource.range(
+            of: "confirmRouterNavigationIfNeeded(videoId: playbackVideoId)"
+        ))
+        let acceptedStateGuard = try #require(coordinatorSource.range(
+            of: "guard shouldApplyPlaybackState, mediaMatches, shouldAcceptMediaState else { return }"
+        ))
+        #expect(acceptedStateGuard.lowerBound < confirmation.lowerBound)
+        #expect(!multiplexerSource.contains(
+            "singleton.confirmRouterNavigationIfNeeded(videoId: mediaVideoID)"
+        ))
     }
 
     private func objectPayloads(in script: String, marker: String, terminator: String) -> [String] {
@@ -727,5 +786,302 @@ struct MusicPlaybackBridgeGenerationTests {
 
     private func occurrenceCount(of needle: String, in haystack: String) -> Int {
         haystack.components(separatedBy: needle).count - 1
+    }
+}
+
+// MARK: - PlaybackBridgeEventQueueTests
+
+@Suite("Playback bridge event queue", .tags(.service))
+@MainActor
+struct PlaybackBridgeEventQueueTests {
+    private final class LifetimeProbe {}
+
+    private final class WeakLifetimeProbe {
+        weak var value: LifetimeProbe?
+
+        init(_ value: LifetimeProbe?) {
+            self.value = value
+        }
+    }
+
+    @Test("A new document generation cancels the prior playback bridge backlog")
+    func newDocumentGenerationCancelsPlaybackBridgeBacklog() async {
+        let eventQueue = PlaybackBridgeEventQueue()
+        let activeEventStarted = AsyncGate()
+        let releaseActiveEvent = AsyncGate()
+        let activeEventFinished = AsyncGate()
+        var handledEvents: [String] = []
+        var queuedEventProbe: LifetimeProbe? = LifetimeProbe()
+        let retainedQueuedEventProbe = WeakLifetimeProbe(queuedEventProbe)
+
+        eventQueue.enqueue(documentGeneration: 1) {
+            await activeEventStarted.open()
+            await releaseActiveEvent.wait()
+            if !Task.isCancelled {
+                handledEvents.append("old-active")
+            }
+            await activeEventFinished.open()
+        }
+        await activeEventStarted.wait()
+        eventQueue.enqueue(documentGeneration: 1) { [queuedEventProbe] in
+            _ = queuedEventProbe
+            handledEvents.append("old-backlog")
+        }
+        queuedEventProbe = nil
+        #expect(retainedQueuedEventProbe.value != nil)
+        eventQueue.enqueue(documentGeneration: 2) {
+            handledEvents.append("new-document")
+        }
+
+        await eventQueue.waitUntilIdle()
+        #expect(retainedQueuedEventProbe.value == nil)
+        await releaseActiveEvent.open()
+        await activeEventFinished.wait()
+
+        #expect(handledEvents == ["new-document"])
+    }
+
+    @Test("Bridge integer decoding rejects values outside the platform range")
+    func bridgeIntegerDecodingRejectsOversizedValues() {
+        let oversizedGeneration = NSNumber(value: UInt64(Int.max) + 1)
+
+        #expect(SingletonPlayerWebView.playbackBridgeInt(from: NSNumber(value: 42)) == 42)
+        #expect(SingletonPlayerWebView.playbackBridgeInt(from: oversizedGeneration) == nil)
+    }
+}
+
+// MARK: - WebPlaybackTransitionFallbackPolicyTests
+
+@Suite("Web playback transition fallback policy", .tags(.service))
+struct WebPlaybackTransitionFallbackPolicyTests {
+    @Test("Router fallback watchdog starts before command evaluation")
+    func routerFallbackWatchdogStartsBeforeCommandEvaluation() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView.swift"
+            ),
+            encoding: .utf8
+        )
+        let pendingInstallation = try #require(source.range(
+            of: "self.pendingRouterNavigation = PendingRouterNavigation("
+        ))
+        let fallbackScheduling = try #require(source.range(
+            of: "self.scheduleRouterNavigationFallback("
+        ))
+        let routerEvaluation = try #require(source.range(
+            of: "webView.evaluateJavaScript(routerScript)"
+        ))
+
+        #expect(pendingInstallation.lowerBound < fallbackScheduling.lowerBound)
+        #expect(fallbackScheduling.lowerBound < routerEvaluation.lowerBound)
+        #expect(source.components(
+            separatedBy: "self.pendingRouterNavigation = PendingRouterNavigation("
+        ).count - 1 == 1)
+    }
+
+    @Test("Ordered content clears the ad boundary before pending-source rejection")
+    @MainActor
+    func orderedContentClearsAdBeforePendingSourceRejection() throws {
+        let source = try String(
+            contentsOfFile: #filePath.replacingOccurrences(
+                of: "Tests/KasetTests/MusicPlaybackBridgeGenerationTests.swift",
+                with: "Sources/Kaset/Views/MiniPlayerWebView+Coordinator.swift"
+            ),
+            encoding: .utf8
+        )
+        let clearBoundary = try #require(source.range(of: "self.playerService.clearAdPlaybackBoundary()"))
+        let pendingReconciliation = try #require(source.range(
+            of: ".reconcilePendingNativeQueueAdvanceObservation("
+        ))
+
+        #expect(clearBoundary.lowerBound < pendingReconciliation.lowerBound)
+
+        let playerService = PlayerService()
+        playerService.lastNonAdContentProgress = 42
+        playerService.lastNonAdContentVideoId = "content"
+        playerService.isShowingAd = true
+        playerService.clearAdPlaybackBoundary()
+        #expect(!playerService.isShowingAd)
+        #expect(playerService.lastNonAdContentProgress == 42)
+        #expect(playerService.lastNonAdContentVideoId == "content")
+    }
+
+    @Test("Advertisement state requires a newer occurrence for the pending source")
+    func advertisementStateRequiresNewOccurrenceForPendingSource() {
+        #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 2,
+                lastAcceptedMediaGeneration: 1
+            )
+        ))
+        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 1,
+                lastAcceptedMediaGeneration: 1
+            )
+        ))
+        #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 11,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 0,
+                lastAcceptedMediaGeneration: 4
+            )
+        ))
+        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "source",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: nil,
+                mediaGeneration: 1,
+                lastAcceptedMediaGeneration: nil
+            )
+        ))
+        #expect(WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "target",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 10,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 2,
+                lastAcceptedMediaGeneration: 1
+            )
+        ))
+        #expect(!WebPlaybackIdentityTransition.shouldAcceptAdvertisementState(
+            hasReadyMedia: true,
+            isShowingAd: true,
+            observedVideoId: "target",
+            pendingSourceVideoId: "source",
+            order: WebPlaybackIdentityTransition.ObservationOrder(
+                observerEpoch: 9,
+                lastAcceptedObserverEpoch: 10,
+                mediaGeneration: 3,
+                lastAcceptedMediaGeneration: 2
+            )
+        ))
+    }
+
+    @Test("Identity deadline payload requires strict identityless provenance")
+    func identityDeadlinePayloadValidation() {
+        func isValid(
+            disposition: String? = "deadlineFallback",
+            uncertain: Bool? = true,
+            videoId: String? = "",
+            mediaVideoId: String? = "",
+            observerEpoch: Double? = 10,
+            timestamp: Double? = 100,
+            documentGeneration: UInt64? = 7,
+            nativeGeneration: UInt64? = 4,
+            mediaGeneration: UInt64? = 2,
+            isAd: Bool? = false
+        ) -> Bool {
+            WebPlaybackIdentityTransition.isValidTrackEndedIdentityDeadlinePayload(
+                .init(
+                    identityDisposition: disposition,
+                    mediaIdentityUncertain: uncertain,
+                    videoId: videoId,
+                    mediaVideoId: mediaVideoId,
+                    observerEpoch: observerEpoch,
+                    eventIssuedAtMilliseconds: timestamp,
+                    documentGeneration: documentGeneration,
+                    nativePlaybackGeneration: nativeGeneration,
+                    mediaGeneration: mediaGeneration,
+                    isAd: isAd
+                )
+            )
+        }
+
+        #expect(isValid())
+        #expect(!isValid(disposition: "resolved"))
+        #expect(!isValid(uncertain: false))
+        #expect(!isValid(videoId: "video"))
+        #expect(!isValid(mediaVideoId: nil))
+        #expect(!isValid(mediaVideoId: "video"))
+        #expect(!isValid(observerEpoch: .infinity))
+        #expect(!isValid(timestamp: .nan))
+        #expect(!isValid(documentGeneration: nil))
+        #expect(!isValid(nativeGeneration: nil))
+        #expect(!isValid(mediaGeneration: 0))
+        #expect(!isValid(isAd: true))
+        #expect(!isValid(isAd: nil))
+    }
+
+    @Test("Paused same-video queue navigation forces a pause-preserving load")
+    func pausedSameVideoQueueNavigationForcesFullLoad() {
+        #expect(SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: "video",
+            targetVideoId: "video",
+            startsPaused: true
+        ) == .forceFullPageWhenSameVideoId)
+        #expect(SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: "video",
+            targetVideoId: "video",
+            startsPaused: false
+        ) == .preferInPlaceWhenSameVideoId)
+        #expect(SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: "video",
+            targetVideoId: "video",
+            startsPaused: false,
+            allowsInPlaceRestart: false
+        ) == .forceFullPageWhenSameVideoId)
+        #expect(SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: "source",
+            targetVideoId: "target",
+            startsPaused: true
+        ) == .standard)
+    }
+
+    @Test("Advertisement grace is bounded after the normal fallback delay")
+    func advertisementGraceIsBoundedAfterNormalFallbackDelay() {
+        let now = ContinuousClock.now
+        let deadline = SingletonPlayerWebView.transitionFallbackDeadline(
+            now: now,
+            initialFallbackDelay: .seconds(3)
+        )
+
+        #expect(deadline == now.advanced(by: .seconds(18)))
+        #expect(SingletonPlayerWebView.shouldDeferTransitionFallback(
+            isShowingAd: true,
+            now: now,
+            deadline: deadline
+        ))
+        #expect(!SingletonPlayerWebView.shouldDeferTransitionFallback(
+            isShowingAd: false,
+            now: now,
+            deadline: deadline
+        ))
+        let nearDeadline = deadline.advanced(by: .milliseconds(-250))
+        #expect(SingletonPlayerWebView.transitionFallbackRetryDelay(
+            isShowingAd: true,
+            now: nearDeadline,
+            deadline: deadline
+        ) == .milliseconds(250))
+        #expect(!SingletonPlayerWebView.shouldDeferTransitionFallback(
+            isShowingAd: true,
+            now: deadline,
+            deadline: deadline
+        ))
     }
 }

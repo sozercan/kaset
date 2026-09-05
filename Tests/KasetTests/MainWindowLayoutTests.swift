@@ -36,4 +36,42 @@ struct MainWindowLayoutTests {
         #expect(MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: MainWindowLayout.autosaveName))
         #expect(!MainWindowLayout.isPrimaryWindowIdentity(title: "Settings", frameAutosaveName: ""))
     }
+
+    @Test("Persistent player mounts for authenticated preload or guest playback")
+    func persistentPlayerMountingPolicy() {
+        #expect(MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: true,
+            pendingVideoId: nil,
+            isPendingRestoredLoadDeferred: false,
+            showVideo: false
+        ))
+        #expect(MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: false,
+            pendingVideoId: "public-video",
+            isPendingRestoredLoadDeferred: false,
+            showVideo: false
+        ))
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: false,
+            pendingVideoId: nil,
+            isPendingRestoredLoadDeferred: false,
+            showVideo: false
+        ))
+    }
+
+    @Test("Persistent player respects deferred restoration and video window ownership", arguments: [true, false])
+    func persistentPlayerMountingRespectsPlaybackState(isLoggedIn: Bool) {
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: isLoggedIn,
+            pendingVideoId: "restored-video",
+            isPendingRestoredLoadDeferred: true,
+            showVideo: false
+        ))
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: isLoggedIn,
+            pendingVideoId: "playing-video",
+            isPendingRestoredLoadDeferred: false,
+            showVideo: true
+        ))
+    }
 }

@@ -141,6 +141,275 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(playerService.remoteMusicTransportIntent == nil)
     }
 
+    @Test("Remote relative seek uses the deferred restored clock without a snapshot")
+    func remoteRelativeSeekUsesDeferredRestoredClock() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "remote-deferred-restore")
+        playerService.applyRestoredPlaybackSession(
+            queue: [song],
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        var snapshotCallCount = 0
+        playerService.currentMusicPlaybackSnapshot = {
+            snapshotCallCount += 1
+            return nil
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: 15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(snapshotCallCount == 0)
+        #expect(playerService.isPendingRestoredLoadDeferred)
+        #expect(playerService.progress == 75)
+        #expect(playerService.pendingRestoredSeek == 75)
+        #expect(playerService.isRestoringExplicitTransportSeek)
+        #expect(playerService.shouldFinishRestoredSeekAtEnd)
+    }
+
+    @Test("Remote backward seek re-anchors a pending native handoff source")
+    func remoteBackwardSeekReanchorsPendingNativeHandoff() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let songs = [
+            self.makeSong(id: "remote-handoff-source"),
+            self.makeSong(id: "remote-handoff-target"),
+        ]
+        await playerService.playQueue(songs, startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 100
+        playerService.duration = 180
+        playerService.beginPendingNativeQueueAdvance(to: 1)
+        let handoffGeneration = playerService.pendingNativeQueueAdvanceGeneration
+        let navigationGeneration = playerService.playbackNavigationGeneration
+        playerService.currentMusicPlaybackSnapshot = {
+            SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 5,
+                duration: 30,
+                videoId: nil
+            )
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await playerService.remoteMusicTransportTask?.value
+        await playerService.handleNativeQueueAdvanceTimeout(generation: handoffGeneration)
+
+        #expect(playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(playerService.currentIndex == 0)
+        #expect(playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(playerService.pendingPlayVideoId == songs[0].videoId)
+        #expect(playerService.progress == 85)
+        #expect(playerService.pendingRestoredSeek == 85)
+        #expect(playerService.playbackNavigationGeneration > navigationGeneration)
+    }
+
+    @Test("Identityless remote snapshot uses its live clock without a pending handoff")
+    func identitylessRemoteSnapshotUsesLiveClock() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "identityless-snapshot")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 10
+        playerService.duration = 100
+        playerService.currentMusicPlaybackSnapshot = {
+            SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 40,
+                duration: 100,
+                videoId: nil
+            )
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.progress == 25)
+        #expect(playerService.pendingRestoredSeek == nil)
+    }
+
+    @Test("Remote seek during an advertisement defers the canonical content target")
+    func remoteSeekDuringAdvertisementDefersContentClock() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "remote-ad-content")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 100
+        playerService.duration = 180
+        playerService.isShowingAd = true
+        playerService.currentMusicPlaybackSnapshot = {
+            SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 5,
+                duration: 30,
+                videoId: song.videoId
+            )
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.progress == 85)
+        #expect(playerService.pendingRestoredSeek == 85)
+        #expect(playerService.isRestoringPlaybackSession)
+        #expect(playerService.shouldAutoResumeAfterRestoredLoad)
+        #expect(playerService.shouldResumeAfterInterruption)
+        #expect(!playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Remote seek ignores an ad snapshot completed after content resumes")
+    func remoteSeekIgnoresAdSnapshotAfterContentResumes() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "remote-ad-transition")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 100
+        playerService.duration = 180
+        playerService.isShowingAd = true
+        let snapshotStarted = AsyncGate()
+        let releaseSnapshot = AsyncGate()
+        playerService.currentMusicPlaybackSnapshot = {
+            await snapshotStarted.open()
+            await releaseSnapshot.wait()
+            return SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 5,
+                duration: 30,
+                videoId: song.videoId
+            )
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await snapshotStarted.wait()
+        playerService.updateAdPlaybackState(
+            isShowingAd: false,
+            observedProgress: 100,
+            observedVideoId: song.videoId,
+            isAuthoritativeContent: true
+        )
+        playerService.updatePlaybackState(
+            isPlaying: true,
+            progress: 100,
+            duration: 180,
+            observedVideoId: song.videoId
+        )
+        await releaseSnapshot.open()
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.progress == 85)
+        #expect(playerService.pendingRestoredSeek == nil)
+        #expect(!playerService.isShowingAd)
+    }
+
+    @Test("Remote seek uses the canonical clock when a transition snapshot is unavailable")
+    func remoteSeekUsesCanonicalClockWhenTransitionSnapshotUnavailable() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "remote-ad-transition-nil")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 100
+        playerService.duration = 180
+        playerService.isShowingAd = true
+        let snapshotStarted = AsyncGate()
+        let releaseSnapshot = AsyncGate()
+        playerService.currentMusicPlaybackSnapshot = {
+            await snapshotStarted.open()
+            await releaseSnapshot.wait()
+            return nil
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await snapshotStarted.wait()
+        playerService.updateAdPlaybackState(
+            isShowingAd: false,
+            observedProgress: 100,
+            observedVideoId: song.videoId,
+            isAuthoritativeContent: true
+        )
+        playerService.updatePlaybackState(
+            isPlaying: true,
+            progress: 100,
+            duration: 180,
+            observedVideoId: song.videoId
+        )
+        await releaseSnapshot.open()
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.progress == 85)
+        #expect(playerService.pendingRestoredSeek == nil)
+        #expect(!playerService.isShowingAd)
+    }
+
+    @Test("Remote relative seek batch preserves deltas during source re-anchor")
+    func remoteRelativeSeekBatchPreservesDeltasDuringSourceReanchor() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let songs = [
+            self.makeSong(id: "remote-batch-source"),
+            self.makeSong(id: "remote-batch-target"),
+        ]
+        await playerService.playQueue(songs, startingAt: 0)
+        playerService.state = .playing
+        playerService.progress = 100
+        playerService.duration = 180
+        playerService.beginPendingNativeQueueAdvance(to: 1)
+        var snapshotCallCount = 0
+        playerService.currentMusicPlaybackSnapshot = {
+            snapshotCallCount += 1
+            return SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 5,
+                duration: 30,
+                videoId: songs[1].videoId
+            )
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        let admittedAt = ContinuousClock.now
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: admittedAt),
+            issuedAtMilliseconds: 1001
+        )
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: 5, admittedAt: admittedAt),
+            issuedAtMilliseconds: 1002
+        )
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(snapshotCallCount == 0)
+        #expect(playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(playerService.progress == 90)
+        #expect(playerService.pendingRestoredSeek == 90)
+        #expect(playerService.remoteMusicSkipTarget == 90)
+        #expect(playerService.remoteMusicTransportCommands.isEmpty)
+    }
+
     @Test("Remote Next commands do not wait for intermediate metadata")
     func remoteNextCommandsDoNotWaitForIntermediateMetadata() async {
         let (playerService, mockClient) = self.makePlayerService()

@@ -306,6 +306,43 @@ struct MusicPlaybackRequestDedupTests {
         #expect(playerService.currentTimeMs == 17000)
     }
 
+    @Test("Forced same-video recovery bypasses a pending duplicate load")
+    func forcedSameVideoRecoveryBypassesPendingDuplicateLoad() async {
+        let videoId = "forced-recovery-video"
+        let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoId)
+        _ = webKitManager
+        defer { SingletonPlayerWebView.shared.tearDown() }
+        let entryID = UUID()
+        let song = Song(
+            id: "forced-recovery-song",
+            title: "Forced Recovery",
+            artists: [],
+            duration: 180,
+            videoId: videoId
+        )
+        playerService.setQueue(entries: [QueueEntry(id: entryID, song: song)])
+        playerService.currentIndex = 0
+        playerService.currentTrack = song
+        playerService.activePlaybackQueueEntryID = entryID
+        playerService.pendingPlayVideoId = videoId
+        playerService.state = .loading
+        playerService.isAwaitingPlaybackConfirmation = true
+        var navigationRequests: [String] = []
+        playerService.onMusicPlaybackNavigationRequested = { requestedVideoId, _ in
+            navigationRequests.append(requestedVideoId)
+        }
+
+        await playerService.play(
+            song: song,
+            webLoadStrategy: .forceFullPageWhenSameVideoId,
+            isQueueNavigationRecovery: true
+        )
+
+        #expect(navigationRequests == [videoId])
+        #expect(playerService.currentTrack?.videoId == videoId)
+        #expect(playerService.activePlaybackQueueEntryID == entryID)
+    }
+
     @Test("Fresh same-video occurrence forces navigation while an ad is active")
     func sameVideoOccurrenceUsesFullNavigationDuringAd() {
         #expect(SingletonPlayerWebView.freshSameIDPlaybackStrategy(isShowingAd: true)
