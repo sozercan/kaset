@@ -649,6 +649,13 @@ func extractConfigInteger(named name: String, from html: String) -> Int? {
     return Int(html[range])
 }
 
+func isValidClientVersion(_ value: String) -> Bool {
+    !value.isEmpty && value.utf8.count <= 64
+        && value.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { component in
+            !component.isEmpty && component.utf8.allSatisfy { (48 ... 57).contains($0) }
+        }
+}
+
 // MARK: - MusicMobileRequestProfile
 
 /// Mobile Home uses element models that the WEB_REMIX client does not request.
@@ -3883,9 +3890,7 @@ func runMain() async {
             }
             index += 1
             let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, value.utf8.count <= 64,
-                  value.unicodeScalars.allSatisfy({ (48 ... 57).contains($0.value) || $0.value == 46 })
-            else {
+            guard isValidClientVersion(value) else {
                 print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
                 return
             }

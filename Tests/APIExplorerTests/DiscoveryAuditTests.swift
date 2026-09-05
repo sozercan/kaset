@@ -536,6 +536,20 @@ struct DiscoveryAuditTests {
 }
 
 extension DiscoveryAuditTests {
+    @Test("Client version overrides reject empty or nonnumeric components", arguments: [
+        "", ".", "1..2", "1.", ".1", "1...2", "1.a.2", "1.2\r\nInjected", "１.２", String(repeating: "1", count: 65),
+    ])
+    func rejectsMalformedClientVersion(version: String) {
+        #expect(!isValidClientVersion(version))
+    }
+
+    @Test("Client version overrides accept numeric components", arguments: [
+        "1", "9.06.4", "7.21.50", "1.20231204.01.00", String(repeating: "1", count: 64),
+    ])
+    func acceptsClientVersion(version: String) {
+        #expect(isValidClientVersion(version))
+    }
+
     @Test("Request validation rejects JSON boolean and numeric coercion", arguments: [
         #"{"videoId":"test-video","index":true}"#,
         #"{"videoId":"test-video","index":false}"#,
