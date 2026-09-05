@@ -702,6 +702,7 @@ struct MusicPlaybackClockJSTests {
         let context = try #require(JSContext())
         context.evaluateScript(
             """
+            var window = this;
             var pauseCount = 0;
             var media = {
                 currentTime: 30,
@@ -719,6 +720,7 @@ struct MusicPlaybackClockJSTests {
             SingletonPlayerWebView.seekAndPauseScript(to: 10)
         )
 
+        try #require(context.exception == nil)
         #expect(result?.toString() == "seeked-paused")
         #expect(context.evaluateScript("media.currentTime").toDouble() == 10)
         #expect(context.evaluateScript("pauseCount").toInt32() == 2)

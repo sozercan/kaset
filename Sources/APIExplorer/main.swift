@@ -1685,103 +1685,25 @@ private func queueProbeAutoplayVideoId(in data: [String: Any]) -> String? {
 
 private let queueProbeRedactedDiagnosticValue = "[REDACTED]"
 
-/// String fields that are part of the queue/display shape and remain useful in a diagnostic.
-/// Every other scalar fails closed to `[REDACTED]`, so newly introduced opaque API fields cannot leak.
-private let queueProbeSafeDiagnosticStringKeys: Set<String> = [
-    "browseid",
-    "icontype",
-    "label",
-    "musicvideotype",
-    "pagetype",
-    "playlistid",
-    "simpletext",
-    "text",
-    "videoid",
-    "webpagetype",
-]
-
-/// Opaque response subtrees known to contain authorization, identity, continuation, or tracking data.
-/// The ancestor flag also protects generic child keys such as `value` or even otherwise-safe `text`.
-private let queueProbeSensitiveDiagnosticKeyFragments = [
-    "account",
-    "authorization",
-    "cipher",
-    "continuation",
-    "cookie",
-    "credential",
-    "datasync",
-    "delegat",
-    "identity",
-    "nonce",
-    "pageid",
-    "params",
-    "serialized",
-    "session",
-    "signature",
-    "token",
-    "tracking",
-    "visitor",
-]
-
-private func isSensitiveQueueProbeDiagnosticKey(_ key: String) -> Bool {
-    let normalizedKey = key.lowercased()
-    return queueProbeSensitiveDiagnosticKeyFragments.contains { normalizedKey.contains($0) }
-}
-
-private func sanitizedQueueProbeDiagnosticValue(
-    _ value: Any,
-    fieldName: String? = nil,
-    redactingOpaqueSubtree: Bool = false
-) -> Any {
-    let shouldRedactOpaqueSubtree = redactingOpaqueSubtree
-        || fieldName.map(isSensitiveQueueProbeDiagnosticKey) == true
-
+/// Preserve response structure without exporting personalized identifiers, text, or opaque values.
+private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
     if let dictionary = value as? [String: Any] {
-        var sanitizedDictionary: [String: Any] = [:]
-        for (key, childValue) in dictionary {
-            sanitizedDictionary[key] = sanitizedQueueProbeDiagnosticValue(
-                childValue,
-                fieldName: key,
-                redactingOpaqueSubtree: shouldRedactOpaqueSubtree
-            )
-        }
-        return sanitizedDictionary
+        return sanitizedQueueProbeDiagnosticResponse(dictionary)
     }
 
     if let array = value as? [Any] {
-        return array.map {
-            sanitizedQueueProbeDiagnosticValue(
-                $0,
-                fieldName: fieldName,
-                redactingOpaqueSubtree: shouldRedactOpaqueSubtree
-            )
-        }
+        return array.map(sanitizedQueueProbeDiagnosticValue)
     }
 
     if value is NSNull {
         return value
     }
 
-    if shouldRedactOpaqueSubtree {
-        return queueProbeRedactedDiagnosticValue
-    }
-
-    if let string = value as? String,
-       let fieldName,
-       queueProbeSafeDiagnosticStringKeys.contains(fieldName.lowercased())
-    {
-        return string
-    }
-
     return queueProbeRedactedDiagnosticValue
 }
 
 private func sanitizedQueueProbeDiagnosticResponse(_ data: [String: Any]) -> [String: Any] {
-    var sanitized: [String: Any] = [:]
-    for (key, value) in data {
-        sanitized[key] = sanitizedQueueProbeDiagnosticValue(value, fieldName: key)
-    }
-    return sanitized
+    data.mapValues(sanitizedQueueProbeDiagnosticValue)
 }
 
 private func prettyPrintedSanitizedQueueProbeResponse(_ data: [String: Any]) throws -> Data {
@@ -1801,8 +1723,8 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
         "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
     ]
 
-    print("🎧 Probing queue for videoId: \(videoId)")
-    print("   playlistId: \(resolvedPlaylistId)")
+    print("🎧 Probing queue (identifiers and text stay hidden)")
+    print("   playlist: \(playlistId == nil ? "derived from seed" : "supplied")")
     print("   endpoint: next")
     if loadCookiesFromAppBackup() != nil, !forceUnauthenticatedRequests {
         print("   auth: cookies available")
@@ -1827,19 +1749,10 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
         print("Queue summary:")
         print("  • Parsed songs: \(songs.count)")
         print("  • Seed positions: \(seedPositions.isEmpty ? "none" : seedPositions.map(String.init).joined(separator: ", "))")
-        print("  • First parsed id: \(firstPlayable?.videoId ?? "none")")
-        print("  • Second parsed id: \(nextPlayable?.videoId ?? "none")")
-        print("  • Autoplay overlay id: \(queueProbeAutoplayVideoId(in: data) ?? "none")")
+        print("  • Has first parsed song: \(firstPlayable == nil ? "no" : "yes")")
+        print("  • Has second parsed song: \(nextPlayable == nil ? "no" : "yes")")
+        print("  • Has autoplay overlay: \(queueProbeAutoplayVideoId(in: data) == nil ? "no" : "yes")")
         print("  • Has continuation: \(queueProbeContinuationToken(in: data) == nil ? "no" : "yes")")
-
-        if !songs.isEmpty {
-            print("\nFirst songs:")
-            for (index, song) in songs.prefix(10).enumerated() {
-                let marker = song.videoId == videoId ? " ← seed" : ""
-                let artistSuffix = song.artists.isEmpty ? "" : " — \(song.artists)"
-                print("  [\(index)] \(song.videoId) :: \(song.title)\(artistSuffix)\(marker)")
-            }
-        }
 
         if verbose || outputFile != nil {
             let sanitizedData = try prettyPrintedSanitizedQueueProbeResponse(data)
@@ -1847,7 +1760,7 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
             if verbose,
                let sanitizedString = String(data: sanitizedData, encoding: .utf8)
             {
-                print("\n📄 Sanitized response (opaque values and tokens redacted):")
+                print("\n📄 Sanitized response (all scalar values redacted):")
                 print(sanitizedString)
             }
 
@@ -1858,7 +1771,7 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
             }
         }
     } catch {
-        print("❌ Error: \(error.localizedDescription)")
+        print("❌ Queue probe failed (error code: \((error as NSError).code))")
     }
 }
 
