@@ -299,7 +299,7 @@ struct PlaybackAdDetectionTests {
     }
 
     @Test("Music waits for content metadata after an early ad-end event", arguments: [false, true], [false, true])
-    func musicAdEndBeforeMetadata(startsDuringAd: Bool, metadataReturnsFirst: Bool) throws {
+    func musicAdEndBeforeMetadata(startsDuringAd: Bool, textReturnsFirst: Bool) throws {
         let context = try self.makeContext(isMusic: true)
         if !startsDuringAd {
             try self.installObserver(isMusic: true, in: context)
@@ -308,6 +308,9 @@ struct PlaybackAdDetectionTests {
             """
             var contentData = currentData;
             currentData = { video_id: 'creative', title: 'Advertisement', author: 'Advertiser' };
+            video.currentSrc = 'https://media.example/creative';
+            video.currentTime = 0;
+            video.duration = 30;
             musicApi.presentingType = 2;
             musicApi.fire('onAdStart');
             """,
@@ -319,7 +322,7 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("lastState().isAd").toBool())
         #expect(!context.evaluateScript("lastState().trackChanged").toBool())
 
-        if metadataReturnsFirst {
+        if textReturnsFirst {
             try self.evaluate(
                 "currentData.title = contentData.title; currentData.author = contentData.author; fireVideoEvent('waiting');",
                 in: context
@@ -330,7 +333,16 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("lastState().isAd").toBool())
         #expect(!context.evaluateScript("lastState().trackChanged").toBool())
 
-        try self.evaluate("currentData = contentData; fireVideoEvent('waiting');", in: context)
+        try self.evaluate(
+            """
+            currentData = contentData;
+            video.currentSrc = 'https://media.example/content';
+            video.currentTime = 12;
+            video.duration = 180;
+            fireVideoEvent('waiting');
+            """,
+            in: context
+        )
         #expect(!context.evaluateScript("lastState().isAd").toBool())
         #expect(context.evaluateScript("lastState().trackChanged").toBool() == startsDuringAd)
         #expect(context.evaluateScript("lastState().videoId").toString() == "content")
@@ -361,8 +373,8 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("lastState().videoId").toString() == "next")
     }
 
-    @Test("Early ad-end events preserve native content state on both players", arguments: [false, true])
-    func earlyAdEndPreservesNativeState(isMusic: Bool) throws {
+    @Test("Early ad-end events preserve native content state on both players", arguments: [false, true], [false, true])
+    func earlyAdEndPreservesNativeState(isMusic: Bool, contentIDReturnsFirst: Bool) throws {
         let context = try self.makeContext(isMusic: isMusic)
         try self.installObserver(isMusic: isMusic, in: context)
         try self.evaluate(
@@ -375,6 +387,7 @@ struct PlaybackAdDetectionTests {
             video.duration = 30;
             activeApi.presentingType = 2;
             activeApi.fire('onAdStart');
+            if (\(contentIDReturnsFirst)) currentData = contentData;
             activeApi.presentingType = 1;
             activeApi.fire('onAdEnd');
             """,
@@ -382,6 +395,7 @@ struct PlaybackAdDetectionTests {
         )
         let isAd = context.evaluateScript("lastState().isAd").toBool()
         let hasReadyMedia = context.evaluateScript("lastState().hasReadyMedia").toBool()
+        #expect(context.evaluateScript("video.__kasetBoundVideoId").toString() == "creative")
         #expect(isAd)
         let standaloneDetection = """
         (function() {
@@ -422,6 +436,9 @@ struct PlaybackAdDetectionTests {
             let isShowingAd = player.isShowingAd
             #expect(currentVideoId == "content")
             #expect(isShowingAd)
+            player.seek(to: 20)
+            let adSeeks = controller.seeks
+            #expect(adSeeks.isEmpty)
             player.reloadCurrentVideoForIdentitySwitch()
             let recoveryPositions = controller.reloadResumeSeconds
             #expect(recoveryPositions == [12])

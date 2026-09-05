@@ -116,7 +116,8 @@ that an ad is playing.
 Ad samples update transport state while preserving Music's content clock,
 metadata, like status, video availability, and queue. Ad metadata does not consume
 the observer's next content-change notification. If the ad signal clears early,
-both players keep a known creative classified as an ad until a content ID returns.
+both players keep a known creative classified as an ad until content metadata and
+the physical media binding have moved away from the creative.
 End events and recovery seek/resume decisions use the same detector.
 
 Both playback services ignore user and system seek requests during ads. The Music

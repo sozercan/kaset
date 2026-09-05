@@ -56,9 +56,12 @@ enum PlaybackAdDetectionScript {
             // Ad-end signals can precede the return of content media. Share the
             // known creative ID with end-event and recovery-seek scripts too.
             const adVideoId = window.__kasetAdVideoId || '';
+            const video = document.querySelector('#movie_player video') || document.querySelector('video');
+            const boundVideoId = video && video.__kasetBoundVideoId;
+            // Metadata can return before the physical content occurrence does.
             const isAdCreative = adVideoId !== ''
                 && adVideoId !== contentVideoId
-                && (!videoId || videoId === adVideoId);
+                && (!videoId || videoId === adVideoId || boundVideoId === adVideoId);
             if (!isAd && !isAdCreative) delete window.__kasetAdVideoId;
             return isAd || isAdCreative;
         }
