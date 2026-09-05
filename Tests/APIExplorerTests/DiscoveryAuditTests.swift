@@ -45,10 +45,14 @@ struct DiscoveryAuditTests {
         #expect(request.value(forHTTPHeaderField: "User-Agent")?.contains("Android 13;") == true)
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Name") == "21")
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Version") == "7.21.50")
+        #expect(request.value(forHTTPHeaderField: "Origin") == "https://music.youtube.com")
+        #expect(request.value(forHTTPHeaderField: "Referer") == "https://music.youtube.com/")
 
         profile.applyHeaders(to: &request, cookieOnly: true, accessToken: nil, cookieHeader: "test-cookie")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "Cookie") == "test-cookie")
+        #expect(request.value(forHTTPHeaderField: "Origin") == "https://music.youtube.com")
+        #expect(request.value(forHTTPHeaderField: "Referer") == "https://music.youtube.com/")
 
         profile.applyHeaders(to: &request, cookieOnly: false, accessToken: "mock-access-token")
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer mock-access-token")
@@ -536,6 +540,24 @@ struct DiscoveryAuditTests {
 }
 
 extension DiscoveryAuditTests {
+    @Test("Guest mobile profiles omit web headers", arguments: [MusicMobileRequestProfile.Client.ios, .android])
+    func guestMobileHeaders(client: MusicMobileRequestProfile.Client) throws {
+        let profile = MusicMobileRequestProfile(client: client)
+        for cookieOnly in [false, true] {
+            var request = try URLRequest(url: #require(URL(string: "https://music.youtube.com/youtubei/v1/browse")))
+            let webHeaders = ["X-Goog-AuthUser", "X-Goog-PageId", "X-Origin", "Origin", "Referer"]
+            for field in webHeaders {
+                request.setValue("mock-value", forHTTPHeaderField: field)
+            }
+            profile.applyHeaders(to: &request, cookieOnly: cookieOnly, accessToken: nil)
+            for field in webHeaders + ["Cookie", "Authorization"] {
+                #expect(request.value(forHTTPHeaderField: field) == nil)
+            }
+            #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Name") == client.headerID)
+            #expect(request.value(forHTTPHeaderField: "User-Agent") == profile.userAgent)
+        }
+    }
+
     @Test("Mobile cookie-only probes retain cookies without a signing cookie")
     func cookieOnlyWithoutSigningCookie() throws {
         let cookie = try #require(HTTPCookie(properties: [

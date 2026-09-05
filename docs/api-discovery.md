@@ -1458,13 +1458,14 @@ sends `POST https://music.youtube.com/youtubei/v1/browse?prettyPrint=false` with
 `browseId: FEmusic_home`. Its profile uses version `9.06.4`, platform `MOBILE`,
 iOS `26.2.1`, and device `iPhone18,4`. It authenticates with mobile OAuth.
 
-Verified locally on 2026-09-04, with the Android rows rechecked on 2026-09-05
-using a matching Android 13 / API level 33 profile:
+Initial probes ran on 2026-09-04. The guest mobile rows and Android web-cookie
+comparisons were rechecked on 2026-09-05. Guest mobile probes omit browser
+headers; Android uses a matching Android 13 / API level 33 profile.
 
 | Probe | Result |
 |-------|--------|
 | Guest `WEB_REMIX` Home | HTTP 200 with two `musicCarouselShelfRenderer` sections; no Speed dial model |
-| Guest `IOS_MUSIC` Home | HTTP 200 with mobile `elementRenderer` models. One response contained `musicGridItemCarouselModel`, `musicListItemCarouselModel`, and Quick picks; no Speed dial model |
+| Guest `IOS_MUSIC` Home | HTTP 200, explicitly guest, with mobile `elementRenderer` and `musicGridItemCarouselModel` content; no Speed dial model |
 | Signed-in `WEB_REMIX` Home | HTTP 200; `logged_in=1` and `yt_li=1`. Returned Listen again with 20 items, but no Speed dial model |
 | `IOS_MUSIC` with web cookies and SAPISIDHASH | HTTP 400 `INVALID_ARGUMENT`. Repeated with matching client headers and with the resolved web API key; same rejection |
 | `IOS_MUSIC` with cookies but no Authorization header | HTTP 200, explicitly guest in service metadata; no Speed dial model. Adding the web API key did not authenticate it |
@@ -1543,7 +1544,9 @@ response still needs live verification.
 Both mobile profiles are restricted to `discover`, cannot be combined with
 `--youtube` or each other, and stay active on every followed request. They omit
 the web API-key lookup by default and send matching client headers and user
-agents. The Android profile pairs Android 13 with SDK level 33; its user agent
+agents. Guest and OAuth requests omit `Origin`, `Referer`, `X-Origin`, and web
+account-selection headers. These headers are retained for web-cookie comparisons.
+The Android profile pairs Android 13 with SDK level 33; its user agent
 also declares Android 13. `--client-version` overrides the configured version. The Android default
 `5.34.51` comes from the
 [YouTube.js client definitions](https://github.com/LuanRT/YouTube.js/blob/a480854c501406cf55c9eb7ad5b540ab36a65b56/src/utils/Constants.ts)

@@ -724,12 +724,15 @@ struct MusicMobileRequestProfile {
         request.setValue(self.version, forHTTPHeaderField: "X-Youtube-Client-Version")
         if let accessToken {
             request.setValue("Bearer " + accessToken, forHTTPHeaderField: "Authorization")
-            for field in ["Cookie", "X-Goog-AuthUser", "X-Goog-PageId", "X-Origin", "Origin", "Referer"] {
-                request.setValue(nil, forHTTPHeaderField: field)
-            }
+            request.setValue(nil, forHTTPHeaderField: "Cookie")
         } else if cookieOnly {
             request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
             request.setValue(nil, forHTTPHeaderField: "Authorization")
+        }
+        if request.value(forHTTPHeaderField: "Cookie") == nil {
+            for field in ["X-Goog-AuthUser", "X-Goog-PageId", "X-Origin", "Origin", "Referer"] {
+                request.setValue(nil, forHTTPHeaderField: field)
+            }
         }
     }
 }
