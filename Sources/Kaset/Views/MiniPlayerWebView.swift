@@ -187,23 +187,29 @@ enum MusicHomePreloadPolicy {
 // MARK: - WebPlaybackTransitionFallbackPolicy
 
 enum WebPlaybackTransitionFallbackPolicy {
-    static let maximumAdvertisementGrace: Duration = .seconds(15)
+    static let advertisementStallGrace: Duration = .seconds(15)
     static let advertisementRetryInterval: Duration = .seconds(1)
 
     nonisolated static func deadline(
         now: ContinuousClock.Instant,
         initialFallbackDelay: Duration
     ) -> ContinuousClock.Instant {
-        now.advanced(by: initialFallbackDelay + self.maximumAdvertisementGrace)
+        now.advanced(by: initialFallbackDelay + self.advertisementStallGrace)
     }
 
     nonisolated static func retryDelay(
         isShowingAd: Bool,
         now: ContinuousClock.Instant,
-        deadline: ContinuousClock.Instant
+        deadline: ContinuousClock.Instant,
+        lastAdvertisementProgressAt: ContinuousClock.Instant? = nil
     ) -> Duration? {
-        guard isShowingAd, now < deadline else { return nil }
-        return min(self.advertisementRetryInterval, deadline - now)
+        guard isShowingAd else { return nil }
+        // A healthy ad can outlast the initial grace. Recover after its media
+        // clock stops advancing, rather than reloading in the middle of the ad.
+        let progressDeadline = lastAdvertisementProgressAt?.advanced(by: self.advertisementStallGrace)
+        let effectiveDeadline = max(deadline, progressDeadline ?? deadline)
+        guard now < effectiveDeadline else { return nil }
+        return min(self.advertisementRetryInterval, effectiveDeadline - now)
     }
 
     nonisolated static func shouldDefer(
@@ -578,8 +584,8 @@ final class SingletonPlayerWebView {
     var isDocumentNavigationInProgress = false
     private(set) var documentGeneration = WebPlaybackDocumentGeneration()
     private(set) var documentNavigationStartedAtMilliseconds: Double?
-    private var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
-    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
+    private var documentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackTrackedNavigation>()
+    private var cancelledDocumentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackCancelledNavigation>()
     private var continuationGenerationsAwaitingStart: Set<UInt64> = []
 
     private var expectedBridgeDocumentID: Int? {
@@ -975,6 +981,7 @@ final class SingletonPlayerWebView {
                 window.__kasetResumeAdOnly = false;
                 window.__kasetAutoplayAttempts = 0;
                 window.__kasetAutoplayRetryScheduled = false;
+                \(WebPlaybackAudioOutput.prepareScript)
             })();
         """
         webView.evaluateJavaScript(prepareScript, completionHandler: nil)
@@ -998,12 +1005,14 @@ final class SingletonPlayerWebView {
     nonisolated static func transitionFallbackRetryDelay(
         isShowingAd: Bool,
         now: ContinuousClock.Instant,
-        deadline: ContinuousClock.Instant
+        deadline: ContinuousClock.Instant,
+        lastAdvertisementProgressAt: ContinuousClock.Instant? = nil
     ) -> Duration? {
         WebPlaybackTransitionFallbackPolicy.retryDelay(
             isShowingAd: isShowingAd,
             now: now,
-            deadline: deadline
+            deadline: deadline,
+            lastAdvertisementProgressAt: lastAdvertisementProgressAt
         )
     }
 
@@ -1181,7 +1190,8 @@ final class SingletonPlayerWebView {
             if let retryDelay = Self.transitionFallbackRetryDelay(
                 isShowingAd: self.coordinator?.playerService.isShowingAd ?? false,
                 now: now,
-                deadline: pendingRouterNavigation.fallbackDeadline
+                deadline: pendingRouterNavigation.fallbackDeadline,
+                lastAdvertisementProgressAt: self.coordinator?.playerService.lastAdPlaybackProgressAt
             ) {
                 self.logger.debug("Deferring router fallback for \(videoId) while an advertisement is active")
                 self.scheduleRouterNavigationFallback(
@@ -1350,6 +1360,12 @@ final class SingletonPlayerWebView {
             forMainFrameOnly: true
         )
         contentController.addUserScript(pageBootstrapScript)
+
+        contentController.addUserScript(WKUserScript(
+            source: WebPlaybackAudioOutput.script,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        ))
 
         // Keep the page preference in sync before any page script reads localStorage.
         let mediaControlBootstrapScript = WKUserScript(
@@ -1714,7 +1730,7 @@ extension SingletonPlayerWebView {
             self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
             return
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: generation
         )
     }
@@ -1736,7 +1752,7 @@ extension SingletonPlayerWebView {
             self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
             return
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: generation
         )
         self.continuationGenerationsAwaitingStart.remove(generation)
@@ -1763,26 +1779,25 @@ extension SingletonPlayerWebView {
     @discardableResult
     func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) -> Bool {
         guard webView === self.webView else { return false }
-        let identifier = navigation.map { ObjectIdentifier($0) }
-        if let identifier {
-            let trackedGeneration = self.documentNavigations[identifier]?.generation
+        if let navigation {
+            let trackedGeneration = self.documentNavigations[navigation]?.generation
             if trackedGeneration != nil {
                 return Self.acceptsDocumentNavigationStart(
-                    isCancelled: self.cancelledDocumentNavigations[identifier] != nil,
+                    isCancelled: self.cancelledDocumentNavigations[navigation] != nil,
                     trackedGeneration: trackedGeneration,
                     candidateGeneration: nil,
                     inFlightGeneration: self.documentGeneration.inFlightGeneration,
                     hasPendingGeneration: self.documentGeneration.pendingGeneration != nil
                 )
             }
-            if self.cancelledDocumentNavigations[identifier] != nil {
+            if self.cancelledDocumentNavigations[navigation] != nil {
                 return false
             }
         }
         if WebPlaybackDocumentGeneration.isInternalBlankNavigation(webView.url) {
             return self.documentGeneration.ownsBlankNavigation(webView.url)
         }
-        guard let identifier else { return false }
+        guard let navigation else { return false }
         let candidateGeneration = WebPlaybackDocumentGeneration.generation(from: webView.url)
             ?? (self.documentGeneration.committedIntermediaryGeneration
                 == self.documentGeneration.inFlightGeneration
@@ -1798,7 +1813,7 @@ extension SingletonPlayerWebView {
             hasPendingGeneration: self.documentGeneration.pendingGeneration != nil
         ), let candidateGeneration
         else { return false }
-        self.documentNavigations[identifier] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: candidateGeneration
         )
         return true
@@ -1814,7 +1829,7 @@ extension SingletonPlayerWebView {
     func handleDocumentNavigationRedirect(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView,
               let navigation,
-              let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)],
+              let trackedNavigation = self.documentNavigations[navigation],
               trackedNavigation.generation == self.documentGeneration.inFlightGeneration,
               self.documentGeneration.pendingGeneration == nil,
               self.isActiveDocumentNavigation(navigation, in: webView)
@@ -1829,7 +1844,7 @@ extension SingletonPlayerWebView {
             self.committedDocumentID = self.activeDocumentNavigationID ?? self.pendingDocumentID
         }
         if let navigation,
-           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
+           let cancelledNavigation = self.cancelledDocumentNavigations[navigation]
         {
             if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
                 cancelledGeneration: cancelledNavigation.generation,
@@ -1858,7 +1873,7 @@ extension SingletonPlayerWebView {
             return
         }
         guard let navigation,
-              var trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+              var trackedNavigation = self.documentNavigations[navigation]
         else { return }
         trackedNavigation.didCommit = true
         if let currentVideoId = self.currentVideoId,
@@ -1883,7 +1898,7 @@ extension SingletonPlayerWebView {
                 trackedNavigation.generation
             ) else { return }
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = trackedNavigation
+        self.documentNavigations[navigation] = trackedNavigation
         if trackedNavigation.didActivatePlaybackOrigin {
             self.syncAutoplayIntent(on: webView)
         }
@@ -1894,7 +1909,7 @@ extension SingletonPlayerWebView {
     ) -> WebPlaybackCancelledNavigation? {
         guard let navigation else { return nil }
         return self.cancelledDocumentNavigations.removeValue(
-            forKey: ObjectIdentifier(navigation)
+            forKey: navigation
         )
     }
 
@@ -1948,7 +1963,7 @@ extension SingletonPlayerWebView {
         }
         guard let navigation,
               let trackedNavigation = self.documentNavigations.removeValue(
-                  forKey: ObjectIdentifier(navigation)
+                  forKey: navigation
               )
         else { return false }
         guard trackedNavigation.didCommit else {
@@ -1976,7 +1991,7 @@ extension SingletonPlayerWebView {
     ) {
         guard webView === self.webView else { return }
         if let navigation,
-           self.documentNavigations[ObjectIdentifier(navigation)] != nil
+           self.documentNavigations[navigation] != nil
         {
             self.failDocumentNavigation(navigation, webView: webView)
             return
@@ -2017,12 +2032,12 @@ extension SingletonPlayerWebView {
 
     func failDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
         if let navigation {
-            self.cancelledDocumentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+            self.cancelledDocumentNavigations.removeValue(forKey: navigation)
         }
         guard webView === self.webView,
               let navigation,
               let trackedNavigation = self.documentNavigations.removeValue(
-                  forKey: ObjectIdentifier(navigation)
+                  forKey: navigation
               )
         else { return }
         if trackedNavigation.didActivatePlaybackOrigin {
@@ -2090,11 +2105,11 @@ extension SingletonPlayerWebView {
         _ = self.finishDocumentNavigation(navigation, in: webView)
         if WebPlaybackNavigationFailure.isRetryableCancellation(error) {
             guard let navigation,
-                  let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+                  let trackedNavigation = self.documentNavigations[navigation]
             else {
                 if let navigation,
                    let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
-                       forKey: ObjectIdentifier(navigation)
+                       forKey: navigation
                    )
                 {
                     if cancelledNavigation.shouldReportFailure {
@@ -2106,14 +2121,14 @@ extension SingletonPlayerWebView {
                 return
             }
             let hasSameGenerationSuccessor = self.documentNavigations.contains { key, candidate in
-                key != ObjectIdentifier(navigation)
+                key !== navigation
                     && candidate.generation == trackedNavigation.generation
             }
             if !trackedNavigation.didActivatePlaybackOrigin,
                hasSameGenerationSuccessor
                || self.continuationGenerationsAwaitingStart.contains(trackedNavigation.generation)
             {
-                self.documentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+                self.documentNavigations.removeValue(forKey: navigation)
                 self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
                 return
             }

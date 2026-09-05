@@ -15,6 +15,7 @@ extension SingletonPlayerWebView {
                 }
                 if (!window.__kasetBlockAutoplay) return 'autoplay-allowed';
                 window.__kasetAutoplayPending = false;
+                \(WebPlaybackAudioOutput.stopScript)
                 var ticks = 0;
                 const timer = setInterval(function() {
                     if (!window.__kasetBlockAutoplay) {
@@ -141,11 +142,15 @@ extension SingletonPlayerWebView {
                 window.__kasetAutoplayPending = wantsPlay;
                 window.__kasetPlaybackSuppressed = !wantsPlay;
                 if (wantsPlay) {
+                    window.__kasetBlockAutoplay = false;
+                    \(WebPlaybackAudioOutput.prepareScript)
                     window.__kasetAutoplayAttempts = 0;
                     window.__kasetAutoplayRetryScheduled = false;
                     if (video && typeof window.__kasetAttemptAutoplayRecovery === 'function') {
                         return window.__kasetAttemptAutoplayRecovery(video, playBtn);
                     }
+                } else {
+                    \(WebPlaybackAudioOutput.stopScript)
                 }
                 playBtn.click();
                 return 'clicked';
@@ -155,6 +160,8 @@ extension SingletonPlayerWebView {
                 if (video.paused) {
                     window.__kasetAutoplayPending = true;
                     window.__kasetPlaybackSuppressed = false;
+                    window.__kasetBlockAutoplay = false;
+                    \(WebPlaybackAudioOutput.prepareScript)
                     window.__kasetAutoplayAttempts = 0;
                     window.__kasetAutoplayRetryScheduled = false;
                     if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
@@ -165,6 +172,7 @@ extension SingletonPlayerWebView {
                 } else {
                     window.__kasetAutoplayPending = false;
                     window.__kasetPlaybackSuppressed = true;
+                    \(WebPlaybackAudioOutput.stopScript)
                     video.pause();
                     return 'paused';
                 }
@@ -197,11 +205,13 @@ extension SingletonPlayerWebView {
         (function() {
             window.__kasetAutoplayPending = true;
             window.__kasetPlaybackSuppressed = false;
+            window.__kasetBlockAutoplay = false;
             window.__kasetResumeAdOnly = false;
             window.__kasetAutoplayAttempts = 0;
             window.__kasetAutoplayRetryScheduled = false;
             const video = document.querySelector('video');
             if (video && video.paused) {
+                \(WebPlaybackAudioOutput.prepareScript)
                 if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
                     return window.__kasetAttemptAutoplayRecovery(video, null);
                 }
@@ -266,6 +276,7 @@ extension SingletonPlayerWebView {
             (function() {
             window.__kasetAutoplayPending = false;
             window.__kasetPlaybackSuppressed = true;
+            \(WebPlaybackAudioOutput.stopScript)
                 const video = document.querySelector('video');
                 if (video && !video.paused) { video.pause(); return 'paused'; }
                 return 'already-paused';
@@ -329,6 +340,7 @@ extension SingletonPlayerWebView {
         let safeTime = time.isFinite ? max(time, 0) : 0
         return """
             (function() {
+                \(WebPlaybackAudioOutput.stopScript)
                 const video = document.querySelector('video');
                 if (!video) { return 'no-video'; }
                 video.pause();

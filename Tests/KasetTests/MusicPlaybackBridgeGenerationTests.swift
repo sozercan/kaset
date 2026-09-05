@@ -1084,4 +1084,77 @@ struct WebPlaybackTransitionFallbackPolicyTests {
             deadline: deadline
         ))
     }
+
+    @Test("Advancing ad media can finish beyond the original eighteen-second deadline")
+    @MainActor
+    func advancingAdvertisementRefreshesWatchdog() {
+        let player = PlayerService()
+        let startedAt = ContinuousClock.now
+        let deadline = SingletonPlayerWebView.transitionFallbackDeadline(
+            now: startedAt,
+            initialFallbackDelay: .seconds(3)
+        )
+
+        for second in 0 ... 30 {
+            let now = startedAt.advanced(by: .seconds(second))
+            player.updateAdPlaybackState(
+                isShowingAd: true,
+                observedProgress: Double(second),
+                observedVideoId: "content-video",
+                isAuthoritativeContent: false,
+                now: now
+            )
+            #expect(SingletonPlayerWebView.transitionFallbackRetryDelay(
+                isShowingAd: player.isShowingAd,
+                now: now,
+                deadline: deadline,
+                lastAdvertisementProgressAt: player.lastAdPlaybackProgressAt
+            ) != nil)
+        }
+
+        player.clearAdPlaybackBoundary()
+        #expect(player.lastAdPlaybackProgressAt == nil)
+        #expect(SingletonPlayerWebView.transitionFallbackRetryDelay(
+            isShowingAd: player.isShowingAd,
+            now: startedAt.advanced(by: .seconds(31)),
+            deadline: deadline,
+            lastAdvertisementProgressAt: player.lastAdPlaybackProgressAt
+        ) == nil)
+    }
+
+    @Test("Repeated or invalid ad clocks cannot keep a stalled transition alive")
+    @MainActor
+    func stalledAdvertisementStillExpires() {
+        let player = PlayerService()
+        let startedAt = ContinuousClock.now
+        for second in 0 ... 45 {
+            player.updateAdPlaybackState(
+                isShowingAd: true,
+                observedProgress: Double(min(second, 30)),
+                observedVideoId: "content-video",
+                isAuthoritativeContent: false,
+                now: startedAt.advanced(by: .seconds(second))
+            )
+        }
+        for invalidProgress in [Double.nan, Double.infinity, -1] {
+            player.updateAdPlaybackState(
+                isShowingAd: true,
+                observedProgress: invalidProgress,
+                observedVideoId: "content-video",
+                isAuthoritativeContent: false,
+                now: startedAt.advanced(by: .seconds(45))
+            )
+        }
+
+        #expect(player.lastAdPlaybackProgressAt == startedAt.advanced(by: .seconds(30)))
+        #expect(SingletonPlayerWebView.transitionFallbackRetryDelay(
+            isShowingAd: true,
+            now: startedAt.advanced(by: .seconds(45)),
+            deadline: startedAt.advanced(by: .seconds(18)),
+            lastAdvertisementProgressAt: player.lastAdPlaybackProgressAt
+        ) == nil)
+        player.resetAdPlaybackState()
+        #expect(player.lastAdPlaybackProgress == nil)
+        #expect(player.lastAdPlaybackProgressAt == nil)
+    }
 }

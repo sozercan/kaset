@@ -8,10 +8,19 @@ extension PlayerService {
         isShowingAd: Bool,
         observedProgress: TimeInterval,
         observedVideoId: String?,
-        isAuthoritativeContent: Bool
+        isAuthoritativeContent: Bool,
+        now: ContinuousClock.Instant = .now
     ) {
         if isShowingAd {
             self.isShowingAd = true
+            if observedProgress.isFinite, observedProgress >= 0 {
+                if let previousProgress = self.lastAdPlaybackProgress,
+                   observedProgress > previousProgress
+                {
+                    self.lastAdPlaybackProgressAt = now
+                }
+                self.lastAdPlaybackProgress = observedProgress
+            }
             return
         }
         guard isAuthoritativeContent else { return }

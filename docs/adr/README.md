@@ -70,3 +70,4 @@ What becomes easier or more difficult because of this change?
 | [0033](0033-login-passkey-suppression.md) | Suppress Passkey Detection in the Login WebView | Accepted |
 | [0034](0034-replace-playback-navigation.md) | Replace Playback Documents Without Growing History | Accepted |
 | [0035](0035-gapless-playback-native-queue.md) | Gapless Playback via YouTube Music Native Queue | Accepted |
+| [0036](0036-music-audio-output-continuity.md) | Music audio output continuity | Accepted |

@@ -173,8 +173,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             if self.isShowingAd != oldValue {
                 self.adPlaybackStateGeneration &+= 1
             }
+            if !self.isShowingAd {
+                self.lastAdPlaybackProgress = nil
+                self.lastAdPlaybackProgressAt = nil
+            }
         }
     }
+
+    /// Only advancing, authoritative ad media refreshes the transition watchdog.
+    var lastAdPlaybackProgress: TimeInterval?
+    var lastAdPlaybackProgressAt: ContinuousClock.Instant?
 
     /// Monotonic identity for advertisement/content boundary changes.
     private(set) var adPlaybackStateGeneration = 0

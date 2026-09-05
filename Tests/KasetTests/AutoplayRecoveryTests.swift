@@ -170,6 +170,42 @@ struct AutoplayRecoveryJSTests {
         ))
     }
 
+    @Test("Play after a restored document clears that document's autoplay block")
+    func explicitPlayClearsRestoredDocumentBlock() throws {
+        for script in [
+            SingletonPlayerWebView.playCommandScript,
+            SingletonPlayerWebView.playPauseCommandScript,
+        ] {
+            for hasPlayerButton in [true, false] {
+                let context = try #require(JSContext())
+                context.evaluateScript("""
+                var window = globalThis;
+                window.__kasetBlockAutoplay = true;
+                window.__kasetPlaybackSuppressed = true;
+                var video = {
+                    paused: true,
+                    play() {
+                        this.paused = !!window.__kasetBlockAutoplay
+                            || !!window.__kasetPlaybackSuppressed;
+                    }
+                };
+                var button = { click() { video.play(); } };
+                var document = {
+                    querySelector: selector => selector === 'video'
+                        ? video : (\(hasPlayerButton ? "true" : "false") ? button : null)
+                };
+                \(SingletonPlayerWebView.autoplayRecoveryFunctionJS)
+                window.__kasetAttemptAutoplayRecovery = __kasetAttemptAutoplayRecovery;
+                """)
+                context.evaluateScript(script)
+
+                #expect(context.evaluateScript("video.paused").toBool() == false)
+                #expect(context.evaluateScript("window.__kasetBlockAutoplay").toBool() == false)
+                #expect(context.exception == nil)
+            }
+        }
+    }
+
     @Test("Observer retries asynchronous autoplay failures without dropping intent")
     func observerRetriesAsynchronousAutoplayFailures() {
         let script = SingletonPlayerWebView.autoplayRecoveryFunctionJS

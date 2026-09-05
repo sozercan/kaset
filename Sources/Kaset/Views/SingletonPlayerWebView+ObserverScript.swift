@@ -950,6 +950,7 @@ extension SingletonPlayerWebView {
                     if (video && window.__kasetResumeAdOnly && !isAd) {
                         window.__kasetResumeAdOnly = false;
                         window.__kasetPlaybackSuppressed = true;
+                        \(WebPlaybackAudioOutput.stopScript)
                         video.pause();
                         isPlaying = false;
                     }

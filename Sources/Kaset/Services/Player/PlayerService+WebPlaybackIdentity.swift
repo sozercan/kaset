@@ -213,7 +213,8 @@ extension PlayerService {
         if let retryDelay = SingletonPlayerWebView.transitionFallbackRetryDelay(
             isShowingAd: self.isShowingAd,
             now: now,
-            deadline: pending.fallbackDeadline
+            deadline: pending.fallbackDeadline,
+            lastAdvertisementProgressAt: self.lastAdPlaybackProgressAt
         ) {
             Task {
                 try? await Task.sleep(for: retryDelay)

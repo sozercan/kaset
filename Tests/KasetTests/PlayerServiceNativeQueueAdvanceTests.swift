@@ -1141,6 +1141,48 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentTrack?.videoId == "v1")
     }
 
+    @Test("Native handoff waits for advancing ad media beyond the initial grace")
+    func nativeHandoffAcceptsAdvertisementProgress() async throws {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.beginPendingNativeQueueAdvance(to: 1)
+        let pending = try #require(self.playerService.pendingNativeQueueAdvance)
+        self.playerService.pendingNativeQueueAdvance = PendingNativeQueueAdvance(
+            sourceEntryID: pending.sourceEntryID,
+            sourceVideoId: pending.sourceVideoId,
+            targetEntryID: pending.targetEntryID,
+            targetVideoId: pending.targetVideoId,
+            generation: pending.generation,
+            fallbackDeadline: ContinuousClock.now.advanced(by: .seconds(-12))
+        )
+        self.playerService.updateAdPlaybackState(
+            isShowingAd: true,
+            observedProgress: 29,
+            observedVideoId: "v2",
+            isAuthoritativeContent: false
+        )
+        self.playerService.updateAdPlaybackState(
+            isShowingAd: true,
+            observedProgress: 30,
+            observedVideoId: "v2",
+            isAuthoritativeContent: false
+        )
+
+        await self.playerService.handleNativeQueueAdvanceTimeout(generation: pending.generation)
+
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == "v2")
+        #expect(self.playerService.currentIndex == 0)
+        self.playerService.clearAdPlaybackBoundary()
+        let accepted = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
+        #expect(accepted)
+        #expect(self.playerService.pendingNativeQueueAdvanceVideoId == nil)
+        #expect(self.playerService.currentIndex == 1)
+    }
+
     @Test("Native maintenance resynchronizes the newly materialized successor")
     func nativeMaintenanceResynchronizesMaterializedSuccessor() async {
         let mockClient = MockYTMusicClient()

@@ -45,8 +45,8 @@ final class YouTubeWatchWebView {
 
     /// Tracks which full-page watch document may publish playback bridge events.
     private(set) var documentGeneration = WebPlaybackDocumentGeneration()
-    var documentNavigations: [ObjectIdentifier: WebPlaybackTrackedNavigation] = [:]
-    private var cancelledDocumentNavigations: [ObjectIdentifier: WebPlaybackCancelledNavigation] = [:]
+    var documentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackTrackedNavigation>()
+    private var cancelledDocumentNavigations = WebPlaybackNavigationMap<WKNavigation, WebPlaybackCancelledNavigation>()
     var continuationGenerationsAwaitingStart: Set<UInt64> = []
     var pendingSeeksByGeneration: [UInt64: Double] = [:]
     var pendingSeekVideoIdsByGeneration: [UInt64: String] = [:]
@@ -424,7 +424,7 @@ extension YouTubeWatchWebView {
             self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
             return
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: generation,
             pendingSeek: self.pendingSeeksByGeneration[generation] ?? pendingSeek
         )
@@ -447,7 +447,7 @@ extension YouTubeWatchWebView {
             self.handleCurrentDocumentNavigationFailure(generation, webView: webView)
             return
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: generation,
             pendingSeek: self.pendingSeeksByGeneration[generation]
         )
@@ -480,7 +480,7 @@ extension YouTubeWatchWebView {
     func trackDocumentNavigationStart(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView,
               let navigation,
-              self.documentNavigations[ObjectIdentifier(navigation)] == nil,
+              self.documentNavigations[navigation] == nil,
               let generation = WebPlaybackDocumentGeneration.generation(from: webView.url)
               ?? (self.documentGeneration.committedIntermediaryGeneration
                   == self.documentGeneration.inFlightGeneration
@@ -490,7 +490,7 @@ extension YouTubeWatchWebView {
                   ) ? self.documentGeneration.inFlightGeneration : nil),
               generation == self.documentGeneration.inFlightGeneration
         else { return }
-        self.documentNavigations[ObjectIdentifier(navigation)] = WebPlaybackTrackedNavigation(
+        self.documentNavigations[navigation] = WebPlaybackTrackedNavigation(
             generation: generation,
             pendingSeek: self.pendingSeeksByGeneration[generation]
         )
@@ -499,7 +499,7 @@ extension YouTubeWatchWebView {
     func handleDocumentNavigationRedirect(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView,
               let navigation,
-              let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)],
+              let trackedNavigation = self.documentNavigations[navigation],
               trackedNavigation.generation == self.documentGeneration.inFlightGeneration,
               self.documentGeneration.pendingGeneration == nil
         else { return }
@@ -517,7 +517,7 @@ extension YouTubeWatchWebView {
     func commitDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
         guard webView === self.webView else { return }
         if let navigation,
-           let cancelledNavigation = self.cancelledDocumentNavigations[ObjectIdentifier(navigation)]
+           let cancelledNavigation = self.cancelledDocumentNavigations[navigation]
         {
             if WebPlaybackDocumentGeneration.shouldSuppressCancelledNavigationCommit(
                 cancelledGeneration: cancelledNavigation.generation,
@@ -546,7 +546,7 @@ extension YouTubeWatchWebView {
             return
         }
         guard let navigation,
-              var trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+              var trackedNavigation = self.documentNavigations[navigation]
         else { return }
         trackedNavigation.didCommit = true
         if let currentVideoId = self.currentVideoId,
@@ -566,7 +566,7 @@ extension YouTubeWatchWebView {
                 trackedNavigation.generation
             ) else { return }
         }
-        self.documentNavigations[ObjectIdentifier(navigation)] = trackedNavigation
+        self.documentNavigations[navigation] = trackedNavigation
         if trackedNavigation.didActivatePlaybackOrigin {
             if self.cancelledPendingSeekGenerations.remove(trackedNavigation.generation) != nil {
                 webView.evaluateJavaScript(
@@ -589,7 +589,7 @@ extension YouTubeWatchWebView {
     ) -> WebPlaybackCancelledNavigation? {
         guard let navigation else { return nil }
         return self.cancelledDocumentNavigations.removeValue(
-            forKey: ObjectIdentifier(navigation)
+            forKey: navigation
         )
     }
 
@@ -604,7 +604,7 @@ extension YouTubeWatchWebView {
         }
         guard let navigation,
               let trackedNavigation = self.documentNavigations.removeValue(
-                  forKey: ObjectIdentifier(navigation)
+                  forKey: navigation
               )
         else { return false }
         guard trackedNavigation.didCommit else {
@@ -639,7 +639,7 @@ extension YouTubeWatchWebView {
     ) {
         guard webView === self.webView else { return }
         if let navigation,
-           self.documentNavigations[ObjectIdentifier(navigation)] != nil
+           self.documentNavigations[navigation] != nil
         {
             self.failDocumentNavigation(navigation, webView: webView)
             return
@@ -668,12 +668,12 @@ extension YouTubeWatchWebView {
 
     private func failDocumentNavigation(_ navigation: WKNavigation?, webView: WKWebView) {
         if let navigation {
-            self.cancelledDocumentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+            self.cancelledDocumentNavigations.removeValue(forKey: navigation)
         }
         guard webView === self.webView,
               let navigation,
               let trackedNavigation = self.documentNavigations.removeValue(
-                  forKey: ObjectIdentifier(navigation)
+                  forKey: navigation
               )
         else { return }
         let resumeAt = trackedNavigation.pendingSeek
@@ -758,11 +758,11 @@ extension YouTubeWatchWebView {
     ) {
         if WebPlaybackNavigationFailure.isRetryableCancellation(error) {
             guard let navigation,
-                  let trackedNavigation = self.documentNavigations[ObjectIdentifier(navigation)]
+                  let trackedNavigation = self.documentNavigations[navigation]
             else {
                 if let navigation,
                    let cancelledNavigation = self.cancelledDocumentNavigations.removeValue(
-                       forKey: ObjectIdentifier(navigation)
+                       forKey: navigation
                    )
                 {
                     if cancelledNavigation.shouldReportFailure {
@@ -774,14 +774,14 @@ extension YouTubeWatchWebView {
                 return
             }
             let hasSameGenerationSuccessor = self.documentNavigations.contains { key, candidate in
-                key != ObjectIdentifier(navigation)
+                key !== navigation
                     && candidate.generation == trackedNavigation.generation
             }
             if !trackedNavigation.didActivatePlaybackOrigin,
                hasSameGenerationSuccessor
                || self.continuationGenerationsAwaitingStart.contains(trackedNavigation.generation)
             {
-                self.documentNavigations.removeValue(forKey: ObjectIdentifier(navigation))
+                self.documentNavigations.removeValue(forKey: navigation)
                 self.webKitManager?.extensionHostWebViewDidFailNavigation(webView)
                 return
             }

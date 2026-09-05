@@ -60,7 +60,9 @@ track into YouTube Music's native **Up Next** queue ahead of time.
   The outgoing song remains visible until the media-bound observer reports that
   exact target. A wrong video or the normal three-second timeout falls back through
   `play(song:)` / `loadVideo(videoId:)`. While an advertisement is active, only that
-  timeout receives a bounded 15-second grace period (18 seconds maximum from handoff start).
+  timeout receives a 15-second stall grace. Advancing ad media refreshes that grace,
+  so a healthy ad can finish even when it exceeds 18 seconds. A frozen ad clock or
+  stale ad flag still expires; invalid queue relationships bypass the grace.
 - Document-scoped playback events carry an observer epoch and media generation.
   Kaset consumes each ended media occurrence once, rejects duplicate/older events,
   and advances the occurrence generation for a same-element replay without
