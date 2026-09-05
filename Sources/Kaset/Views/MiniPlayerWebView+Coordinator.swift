@@ -619,6 +619,7 @@ private extension SingletonPlayerWebView.Coordinator {
         let duration = SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["duration"]) ?? 0
         let isAd = body["isAd"] as? Bool ?? false
         let hasReadyMedia = body["hasReadyMedia"] as? Bool ?? false
+        let hasContentMetadata = body["hasContentMetadata"] as? Bool ?? true
         let title = body["title"] as? String ?? ""
         let artist = body["artist"] as? String ?? ""
         let thumbnailUrl = SingletonPlayerWebView.playbackBridgeThumbnailURLString(from: body["thumbnailUrl"])
@@ -682,7 +683,7 @@ private extension SingletonPlayerWebView.Coordinator {
 
             // Ad creatives can expose their own metadata and video identity.
             // Only content may update the track, queue, or track-specific controls.
-            guard !isAd else { return }
+            guard !isAd, hasContentMetadata else { return }
 
             // Update video availability
             self.playerService.updateVideoAvailability(hasVideo: hasVideo)

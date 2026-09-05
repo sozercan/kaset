@@ -292,6 +292,69 @@ struct PlaybackAdDetectionTests {
         #expect(!context.evaluateScript("lastState().trackChanged").toBool())
     }
 
+    @Test("Music waits for content metadata after an early ad-end event", arguments: [false, true], [false, true])
+    func musicAdEndBeforeMetadata(startsDuringAd: Bool, metadataReturnsFirst: Bool) throws {
+        let context = try self.makeContext(isMusic: true)
+        if !startsDuringAd {
+            try self.installObserver(isMusic: true, in: context)
+        }
+        try self.evaluate(
+            """
+            var contentData = currentData;
+            currentData = { video_id: 'creative', title: 'Advertisement', author: 'Advertiser' };
+            musicApi.presentingType = 2;
+            musicApi.fire('onAdStart');
+            """,
+            in: context
+        )
+        if startsDuringAd {
+            try self.installObserver(isMusic: true, in: context)
+        }
+        #expect(context.evaluateScript("lastState().isAd").toBool())
+        #expect(!context.evaluateScript("lastState().trackChanged").toBool())
+
+        if metadataReturnsFirst {
+            try self.evaluate(
+                "currentData.title = contentData.title; currentData.author = contentData.author; fireVideoEvent('waiting');",
+                in: context
+            )
+        }
+        try self.evaluate("musicApi.presentingType = 1; musicApi.fire('onAdEnd');", in: context)
+
+        #expect(!context.evaluateScript("lastState().isAd").toBool())
+        #expect(!context.evaluateScript("lastState().hasContentMetadata").toBool())
+        #expect(!context.evaluateScript("lastState().trackChanged").toBool())
+
+        try self.evaluate("currentData = contentData; fireVideoEvent('waiting');", in: context)
+        #expect(!context.evaluateScript("lastState().isAd").toBool())
+        #expect(context.evaluateScript("lastState().hasContentMetadata").toBool())
+        #expect(context.evaluateScript("lastState().trackChanged").toBool() == startsDuringAd)
+        #expect(context.evaluateScript("lastState().videoId").toString() == "content")
+        #expect(context.evaluateScript("lastState().title").toString() == "Song")
+    }
+
+    @Test("Music accepts requested content when its metadata leads the watch URL during an ad")
+    func musicRequestedMetadataDuringAd() throws {
+        let context = try self.makeContext(isMusic: true)
+        try self.installObserver(isMusic: true, in: context)
+        try self.evaluate(
+            """
+            currentData = { video_id: 'next', title: 'Next song', author: 'Artist' };
+            musicApi.presentingType = 2;
+            musicApi.fire('onAdStart');
+            window.location.href = 'https://music.youtube.com/watch?v=next';
+            musicApi.presentingType = 1;
+            musicApi.fire('onAdEnd');
+            """,
+            in: context
+        )
+
+        #expect(!context.evaluateScript("lastState().isAd").toBool())
+        #expect(context.evaluateScript("lastState().hasContentMetadata").toBool())
+        #expect(context.evaluateScript("lastState().trackChanged").toBool())
+        #expect(context.evaluateScript("lastState().videoId").toString() == "next")
+    }
+
     @Test("Recovery seeks wait for content when only the player API identifies an ad")
     func recoverySeekWaitsForContent() throws {
         let context = try self.makeContext(isMusic: false)
@@ -329,6 +392,8 @@ struct PlaybackAdDetectionTests {
             var console = { log: function() {} };
             window.__kasetDocumentGeneration = 7;
             window.location = { href: 'https://\(isMusic ? "music" : "www").youtube.com/watch?v=content' };
+            // JavaScriptCore has no browser URL API.
+            var URL = function(value) { this.searchParams = { get: key => value.match(new RegExp('[?&]' + key + '=([^&]*)'))?.[1] || null }; };
             var bridge = { postMessage: function(message) { postedMessages.push(message); } };
             window.webkit = { messageHandlers: { singletonPlayer: bridge, youtubePlayer: bridge } };
             function setTimeout(callback) { timers.push(callback); return timers.length; }

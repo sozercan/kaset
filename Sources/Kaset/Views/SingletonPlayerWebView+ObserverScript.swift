@@ -135,6 +135,7 @@ extension SingletonPlayerWebView {
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
+            let adVideoId = '';
             let mediaVideoId = '';
             let mediaSource = '';
             let mediaGeneration = 0;
@@ -423,6 +424,10 @@ extension SingletonPlayerWebView {
                     if (playerVideoId) return playerVideoId;
                 }
 
+                return watchVideoId();
+            }
+
+            function watchVideoId() {
                 try {
                     const url = new URL(window.location.href);
                     return url.searchParams.get('v') || '';
@@ -697,8 +702,18 @@ extension SingletonPlayerWebView {
                     // Check if track changed
                     const metadataChanged = title !== '' && (title !== lastTitle || artist !== lastArtist);
                     const videoIdChanged = videoId !== '' && videoId !== lastVideoId;
-                    // Keep content metadata pending until the ad has finished.
-                    const trackChanged = !isAd && (metadataChanged || videoIdChanged);
+                    const contentVideoId = watchVideoId() || lastVideoId;
+                    if (isAd && contentVideoId && videoId && videoId !== contentVideoId) {
+                        adVideoId = videoId;
+                    }
+                    // The ad signal can clear before the player restores the content ID.
+                    // Do not publish that creative as a content transition.
+                    const isAdMetadata = adVideoId !== ''
+                        && adVideoId !== contentVideoId
+                        && videoId === adVideoId;
+                    if (!isAd && !isAdMetadata) adVideoId = '';
+                    const hasContentMetadata = !isAd && !isAdMetadata;
+                    const trackChanged = hasContentMetadata && (metadataChanged || videoIdChanged);
                     if (trackChanged) {
                         if (title !== '') {
                             lastTitle = title;
@@ -735,6 +750,7 @@ extension SingletonPlayerWebView {
                         duration: playbackClock.duration,
                         isAd: isAd,
                         hasReadyMedia: hasReadyMedia,
+                        hasContentMetadata: hasContentMetadata,
                         title: title,
                         artist: artist,
                         videoId: videoId,
