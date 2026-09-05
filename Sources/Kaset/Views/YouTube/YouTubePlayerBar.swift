@@ -4,9 +4,8 @@ import SwiftUI
 
 /// The Liquid Glass player bar, adapted for YouTube video playback.
 ///
-/// Same capsule, sizing, and interaction patterns as the music `PlayerBar`
-/// (which is untouched); shown instead of it while a YouTube video is
-/// loaded. Differences per the YouTube content model:
+/// Shares the music `PlayerBar` layout and appears when a YouTube video is loaded.
+/// Differences per the YouTube content model:
 /// - No shuffle/repeat — left/right transport controls seek 30 seconds
 ///   back/forward within the current video.
 /// - Center shows the video thumbnail, title, and channel · views.
@@ -108,10 +107,9 @@ struct YouTubePlayerBar: View {
             self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
-        .onChange(of: self.youtubePlayer.isShowingAd) { _, isShowingAd in
-            if isShowingAd {
-                self.chapterPreviewMarker = nil
-            }
+        .onChange(of: self.youtubePlayer.isShowingAd) { _, _ in
+            self.clearSeekHold()
+            self.chapterPreviewMarker = nil
         }
         .onChange(of: self.youtubePlayer.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -299,27 +297,29 @@ struct YouTubePlayerBar: View {
 
     private var youtubeProgressSection: some View {
         ZStack(alignment: .top) {
-            PlayerBarProgressLane(
-                fraction: self.displayFraction,
-                accent: Self.brandAccent,
-                elapsedText: Self.formatTime(self.progressTextValue),
-                remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
-                markers: self.chapterProgressMarkers,
-                segments: self.chapterProgressSegments,
-                isLive: false,
-                canSeek: self.canSeek,
-                isLoading: self.isProgressLoading,
-                onScrub: { fraction in
-                    self.isSeeking = true
-                    self.seekValue = fraction
-                },
-                onCommit: {
-                    self.performSeek()
-                },
-                onMarkerPreviewChange: { marker in
-                    self.chapterPreviewMarker = marker
+            Group {
+                if self.youtubePlayer.isShowingAd {
+                    PlayerBarAdIndicator()
+                } else {
+                    PlayerBarProgressLane(
+                        fraction: self.displayFraction,
+                        accent: Self.brandAccent,
+                        elapsedText: Self.formatTime(self.progressTextValue),
+                        remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
+                        markers: self.chapterProgressMarkers,
+                        segments: self.chapterProgressSegments,
+                        isLive: false,
+                        canSeek: self.canSeek,
+                        isLoading: self.isProgressLoading,
+                        onScrub: { fraction in
+                            self.isSeeking = true
+                            self.seekValue = fraction
+                        },
+                        onCommit: self.performSeek,
+                        onMarkerPreviewChange: { self.chapterPreviewMarker = $0 }
+                    )
                 }
-            )
+            }
             .padding(.top, 18)
             // Match the music player's segmented lane layering so chapter tooltips stay above
             // transport controls without intercepting their clicks.
@@ -716,7 +716,7 @@ struct YouTubePlayerBar: View {
     }
 
     private func performSeek() {
-        guard self.isSeeking else { return }
+        guard self.isSeeking, self.canSeek else { return }
         let seekTime = self.seekValue * self.youtubePlayer.duration
         let holdID = self.seekHold.begin(target: seekTime)
         self.isSeeking = false

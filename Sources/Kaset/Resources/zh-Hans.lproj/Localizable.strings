@@ -1,3 +1,6 @@
+"Ad" = "广告";
+"Advertisement" = "广告";
+
 // Localizable.strings
 
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "“实时”会随视频播放变换颜色，其他样式则保持不变";
