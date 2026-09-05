@@ -117,7 +117,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
 
     var body: some View {
         ZStack(alignment: .top) {
-            self.surface
+            self.surface.overlay { WindowDragHandle() }
 
             self.panelBody
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -678,7 +678,6 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             .tint(PackageResourceLookup.brandAccent)
             .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
-
             HStack {
                 Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
                 Spacer()
@@ -688,6 +687,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.76))
             .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
+            .overlay { WindowDragHandle() }
         }
     }
 
