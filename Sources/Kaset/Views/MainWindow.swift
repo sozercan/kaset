@@ -272,6 +272,22 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             AccountErrorToast()
                 .padding(.top, 60)
         }
+        .overlay {
+            if self.playerService.showNowPlayingLyrics {
+                ZStack(alignment: .topLeading) {
+                    Rectangle()
+                        .fill(.clear)
+                        .ignoresSafeArea()
+
+                    if #available(macOS 26.0, *) {
+                        NowPlayingLyricsView(client: self.client)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                .ignoresSafeArea()
+            }
+        }
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
     }
 
