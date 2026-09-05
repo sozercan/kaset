@@ -20,7 +20,7 @@ func discoveryHelp() -> String {
         "--mobile-cookie-only omits SAPISIDHASH on mobile discovery while retaining saved cookies.",
         "--mobile-token-file <mode-0600-path> uses a mobile OAuth access token instead of web cookies.",
         "Token files must be owned by you, have mode 0600 and no extended ACL, and not be symlinks.",
-        "The report destination must not refer to the token file or request-body file.",
+        "The report destination must not refer to the cookie archive, token file, or request-body file, including redirected stdin.",
         "Do not put tokens in command arguments, reports, or chat. Token acquisition is separate.",
         "Web-cookie mobile probes were rejected; cookie-only probes returned a guest session.",
         "A content envelope or HTTP 200 alone does not prove a feature works or auth succeeded.",
@@ -264,6 +264,8 @@ struct DiscoveryAudit {
         "FEmusic_recently_played", "FEmusic_offline", "FEmusic_library_privately_owned_landing", "FEmusic_library_privately_owned_tracks",
         "FEmusic_library_privately_owned_albums", "FEmusic_library_privately_owned_releases", "FEmusic_library_privately_owned_artists",
         "FEsubscriptions", "FElibrary", "FEhistory", "FEplaylist_aggregation",
+        "FEwhat_to_watch", "FEgaming_destination", "FEnews_destination", "FEsports_destination",
+        "FElive_destination", "FEfashion_destination", "FElearning_destination",
     ]
 
     private static let safePageTypes: Set<String> = [
@@ -702,6 +704,15 @@ struct DiscoveryAudit {
     }
 }
 
+func discoveryOutputOverwritesInput(
+    _ outputFile: String, bodyFile: String?, mobileTokenFile: String?, cookieBackupFile: URL?,
+    standardInput: Int32 = STDIN_FILENO
+) -> Bool {
+    let inputFiles = [mobileTokenFile, bodyFile == "-" ? nil : bodyFile, cookieBackupFile?.path].compactMap(\.self)
+    return inputFiles.contains { pathsReferToSameFile($0, outputFile) }
+        || (bodyFile == "-" && fileDescriptorRefersToFile(standardInput, path: outputFile))
+}
+
 func discoverAPI(
     endpoint: String, bodyJSON: String, followIndices: [Int], limit: Int,
     verbose: Bool, outputFile: String?, mobileClient: MusicMobileRequestProfile.Client? = nil,
@@ -714,9 +725,11 @@ func discoverAPI(
         print(report)
         reports.append(report)
     }
-    let inputFiles = [mobileTokenFile, bodyFile == "-" ? nil : bodyFile].compactMap(\.self)
-    if let outputFile, inputFiles.contains(where: { pathsReferToSameFile($0, outputFile) }) {
-        record("The discovery report destination must differ from --body-file and --mobile-token-file.")
+    let cookieFile = selectedCookieBackupFile()
+    if let outputFile, discoveryOutputOverwritesInput(
+        outputFile, bodyFile: bodyFile, mobileTokenFile: mobileTokenFile, cookieBackupFile: cookieFile
+    ) {
+        record("The discovery report destination must differ from the cookie archive, --body-file, and --mobile-token-file, including redirected stdin.")
         return false
     }
     do {
@@ -725,10 +738,12 @@ func discoverAPI(
         else { throw DiscoveryError.unsupportedRequest }
         var request = try DiscoveryRequest(endpoint: endpoint, body: body)
         let mobileAccessToken = try mobileTokenFile.map { try loadMobileAccessToken(from: $0) }
-        let mobileCookieHeader = mobileCookieOnly && mobileAccessToken == nil
-            ? loadCookiesFromAppBackup().flatMap { buildCookieHeader(from: $0) }
-            : nil
-        let authenticated = mobileAccessToken == nil && hasUsableAuthMaterial()
+        // Freeze the cookie identity for the whole chain, including web configuration
+        // reads. An empty snapshot keeps a guest run from acquiring cookies later.
+        let cookies = mobileAccessToken == nil ? loadCookiesFromAppBackup(from: cookieFile) ?? [] : []
+        let cookieHeader = buildCookieHeader(from: cookies)
+        let mobileCookieHeader = mobileCookieOnly ? cookieHeader : nil
+        let authenticated = getSAPISID(from: cookies) != nil && cookieHeader != nil
         let authentication = mobileAccessToken != nil
             ? "mobile OAuth supplied on every hop"
             : (authenticated || mobileCookieHeader != nil ? "web cookies supplied on every hop" : "guest")
@@ -748,7 +763,8 @@ func discoverAPI(
 
         for step in 0 ... followIndices.count {
             let wire = try await makeWireRequest(
-                endpoint: request.endpoint, body: request.body, authenticated: authenticated, mobileClient: mobileClient,
+                endpoint: request.endpoint, body: request.body, authenticated: authenticated,
+                cookieSnapshot: cookies, mobileClient: mobileClient,
                 mobileWebKey: mobileWebKey, mobileCookieOnly: mobileCookieOnly,
                 mobileAccessToken: mobileAccessToken, mobileCookieHeader: mobileCookieHeader
             )

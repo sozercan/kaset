@@ -1523,7 +1523,9 @@ swift run api-explorer discover browse '{"browseId":"FEmusic_home"}' --ios-music
 ```
 
 Without `--mobile-token-file`, mobile discovery uses saved web cookies if
-available, or guest mode when `--guest` is supplied. `--mobile-cookie-only`
+available, or guest mode when `--guest` is supplied. Discovery captures cookies
+once and reuses them for every followed request and web configuration lookup.
+`--mobile-cookie-only`
 retains available cookies even when no signing cookie is present, but omits
 SAPISIDHASH for comparison. `--mobile-web-key` adds
 the resolved web API key; it did not fix the iOS authentication rejection.
@@ -1534,7 +1536,9 @@ ACL, and be a regular file rather than a symlink. Its value stays in memory and
 is sent only to mobile discovery requests as Bearer authorization; web cookies
 and account-selection headers are omitted. It cannot be combined with guest
 mode, cookie-only mode, or web account selection. A report destination that refers
-to the token file is rejected before loading credentials or making requests.
+to the token file, selected cookie archive, or request-body file is rejected
+before loading credentials or making requests. This includes symlink and
+hard-link aliases and a regular file redirected into `--body-file -`.
 Invalid token files produce a separate diagnostic without printing their contents.
 Do not put credentials in command arguments, documentation, fixtures, or chat.
 This option does not obtain,

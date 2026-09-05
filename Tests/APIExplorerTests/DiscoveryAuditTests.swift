@@ -640,15 +640,21 @@ extension DiscoveryAuditTests {
 
     @Test("Only known public browse routes are printed")
     func redactsUnknownBrowseRoutes() throws {
-        for browseID in ["FEmusic_private_account", "FEmusic_privatetoken", "privateaccount"] {
+        for browseID in ["FEmusic_private_account", "FEmusic_privatetoken", "FEprivate_destination", "privateaccount"] {
             let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": browseID])
             let audit = DiscoveryAudit(response: ["navigationEndpoint": ["browseEndpoint": ["browseId": browseID]]], request: request)
             #expect(!request.summary.contains(browseID))
             #expect(!audit.rendered(verbose: true).contains(browseID))
         }
-        for browseID in ["FEmusic_home", "FEmusic_library_corpus_track_artists", "FEmusic_charts"] {
+        for browseID in [
+            "FEmusic_home", "FEmusic_library_corpus_track_artists", "FEmusic_charts", "FEwhat_to_watch",
+            "FEgaming_destination", "FEnews_destination", "FEsports_destination", "FElive_destination",
+            "FEfashion_destination", "FElearning_destination",
+        ] {
             let request = try DiscoveryRequest(endpoint: "browse", body: ["browseId": browseID])
+            let audit = DiscoveryAudit(response: ["navigationEndpoint": ["browseEndpoint": ["browseId": browseID]]], request: request)
             #expect(request.summary.contains(browseID))
+            #expect(audit.rendered().contains(browseID))
         }
     }
 
@@ -711,16 +717,7 @@ extension DiscoveryAuditTests {
         let file = directory.appendingPathComponent("private-input")
         let original = Data((mobileInput ? "mock-access-token" : #"{"params":"mock-private-params"}"#).utf8)
         #expect(FileManager.default.createFile(atPath: file.path, contents: original, attributes: [.posixPermissions: 0o600]))
-        let link = directory.appendingPathComponent("token-link")
-        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
-        let directoryLink = directory.appendingPathComponent("directory-link")
-        try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: directory)
-        let hardLink = directory.appendingPathComponent("hard-link")
-        try FileManager.default.linkItem(at: file, to: hardLink)
-        let parentDepth = FileManager.default.currentDirectoryPath.split(separator: "/").count
-        let relativePath = String(repeating: "../", count: parentDepth) + file.path.dropFirst()
-        let aliases = [file.path, directory.path + "/./private-input", relativePath, link.path, directoryLink.path + "/private-input", hardLink.path]
-        for outputPath in aliases {
+        for outputPath in try self.outputAliases(for: file) {
             let succeeded = await discoverAPI(
                 endpoint: "browse", bodyJSON: "{}", followIndices: [], limit: 1,
                 verbose: false, outputFile: outputPath, mobileClient: mobileInput ? .ios : nil,
@@ -738,5 +735,84 @@ extension DiscoveryAuditTests {
         )
         #expect(!succeeded)
         #expect(!FileManager.default.fileExists(atPath: missing.path))
+    }
+
+    @Test("Discovery protects cookie archives and redirected stdin aliases", arguments: [false, true])
+    func implicitInputOutputAliases(redirectedInput: Bool) throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let file = directory.appendingPathComponent("cookies.dat")
+        #expect(FileManager.default.createFile(atPath: file.path, contents: Data("test-cookie".utf8), attributes: [.posixPermissions: 0o600]))
+        let input = try FileHandle(forReadingFrom: file)
+        defer { try? input.close() }
+        for outputPath in try self.outputAliases(for: file) {
+            #expect(discoveryOutputOverwritesInput(
+                outputPath, bodyFile: redirectedInput ? "-" : nil, mobileTokenFile: nil,
+                cookieBackupFile: redirectedInput ? nil : file, standardInput: input.fileDescriptor
+            ))
+        }
+        #expect(!discoveryOutputOverwritesInput(
+            directory.appendingPathComponent("report.txt").path, bodyFile: redirectedInput ? "-" : nil,
+            mobileTokenFile: nil, cookieBackupFile: redirectedInput ? nil : file, standardInput: input.fileDescriptor
+        ))
+        let pipe = Pipe()
+        #expect(!discoveryOutputOverwritesInput(
+            file.path, bodyFile: "-", mobileTokenFile: nil, cookieBackupFile: nil,
+            standardInput: pipe.fileHandleForReading.fileDescriptor
+        ))
+    }
+
+    @Test("Cookie archive selection preserves container authority after logout")
+    func cookieBackupSelection() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let appSupport = directory.appendingPathComponent("Library/Application Support")
+        let legacy = appSupport.appendingPathComponent("Kaset/cookies.dat")
+        let container = directory.appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data/Library/Application Support/Kaset/cookies.dat")
+        try FileManager.default.createDirectory(at: legacy.deletingLastPathComponent(), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == nil)
+        #expect(FileManager.default.createFile(atPath: legacy.path, contents: Data("test-cookie".utf8)))
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == legacy)
+        try FileManager.default.createDirectory(at: container.deletingLastPathComponent(), withIntermediateDirectories: true)
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == nil)
+        #expect(FileManager.default.createFile(atPath: container.path, contents: Data("test-cookie".utf8)))
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == container)
+        try FileManager.default.removeItem(at: container)
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == nil)
+    }
+
+    @Test("Configuration requests use the supplied cookie snapshot, including an empty guest snapshot")
+    func configurationCookieSnapshot() throws {
+        let cookie = try #require(HTTPCookie(properties: [
+            .domain: ".youtube.com", .path: "/", .name: "test-session", .value: "test-cookie",
+        ]))
+        let cookies = [cookie]
+        let first = webClientConfiguration(authenticated: true, cookieSnapshot: cookies)
+        let firstCookieCount = first.httpCookieStorage?.cookies?.count ?? 0
+        #expect(firstCookieCount == 1)
+        first.httpCookieStorage?.deleteCookie(cookie)
+        let next = webClientConfiguration(authenticated: true, cookieSnapshot: cookies)
+        let preservedSnapshot = next.httpCookieStorage?.cookies?.contains {
+            $0.name == "test-session" && $0.value == "test-cookie"
+        } == true
+        #expect(preservedSnapshot)
+        let guest = webClientConfiguration(authenticated: true, cookieSnapshot: [])
+        let guestHasNoCookies = guest.httpCookieStorage?.cookies?.isEmpty != false
+        #expect(guestHasNoCookies)
+    }
+
+    private func outputAliases(for file: URL) throws -> [String] {
+        let directory = file.deletingLastPathComponent()
+        let link = directory.appendingPathComponent("input-link")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
+        let directoryLink = directory.appendingPathComponent("directory-link")
+        try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: directory)
+        let hardLink = directory.appendingPathComponent("hard-link")
+        try FileManager.default.linkItem(at: file, to: hardLink)
+        let parentDepth = FileManager.default.currentDirectoryPath.split(separator: "/").count
+        let relativePath = String(repeating: "../", count: parentDepth) + file.path.dropFirst()
+        return [file.path, directory.path + "/./" + file.lastPathComponent, relativePath, link.path,
+                directoryLink.appendingPathComponent(file.lastPathComponent).path, hardLink.path]
     }
 }

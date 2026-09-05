@@ -319,30 +319,42 @@ private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegat
 
 // MARK: - Cookie Management
 
-/// Reads cookies from Kaset app's backup file in Application Support.
-/// This allows the standalone tool to make authenticated API requests.
-func loadCookiesFromAppBackup() -> [HTTPCookie]? {
-    guard !forceUnauthenticatedRequests else {
-        return nil
-    }
-
-    guard let appSupport = FileManager.default.urls(
+/// Locates the authoritative cookie archive without reading its contents.
+func selectedCookieBackupFile(
+    appSupport: URL? = FileManager.default.urls(
         for: .applicationSupportDirectory,
         in: .userDomainMask
-    ).first
-    else {
-        return nil
-    }
+    ).first,
+    homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+) -> URL? {
+    guard let appSupport else { return nil }
 
     let legacyCookieFile =
         appSupport
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    let containerCookieFile = FileManager.default.homeDirectoryForCurrentUser
+    let containerCookieFile = homeDirectory
         .appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data", isDirectory: true)
         .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
         .appendingPathComponent("cookies.dat")
+
+    // Once the sandboxed app has created its Application Support directory, its
+    // container export is authoritative. Never resurrect the legacy host archive
+    // after logout, account switching, expiry, corruption, or a cleared export.
+    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
+        return containerCookieFile
+    }
+    if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
+        return nil
+    }
+    return FileManager.default.fileExists(atPath: legacyCookieFile.path) ? legacyCookieFile : nil
+}
+
+/// Reads cookies from Kaset app's backup file in Application Support.
+/// This allows the standalone tool to make authenticated API requests.
+func loadCookiesFromAppBackup(from cookieFile: URL? = selectedCookieBackupFile()) -> [HTTPCookie]? {
+    guard !forceUnauthenticatedRequests, let cookieFile else { return nil }
 
     func decodeCookies(at cookieFile: URL) -> [HTTPCookie]? {
         guard let data = try? Data(contentsOf: cookieFile) else {
@@ -381,22 +393,7 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
         return cookies.isEmpty ? nil : cookies
     }
 
-    // Once the sandboxed app has created its Application Support directory, its
-    // container export is authoritative. Never resurrect the legacy host archive
-    // after logout, account switching, expiry, corruption, or a cleared export.
-    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
-        return decodeCookies(at: containerCookieFile)
-    }
-
-    let containerStorageDirectory = containerCookieFile.deletingLastPathComponent()
-    if FileManager.default.fileExists(atPath: containerStorageDirectory.path) {
-        return nil
-    }
-
-    guard FileManager.default.fileExists(atPath: legacyCookieFile.path) else {
-        return nil
-    }
-    return decodeCookies(at: legacyCookieFile)
+    return decodeCookies(at: cookieFile)
 }
 
 /// Filters cookies to those that match the active API host
@@ -499,21 +496,21 @@ private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLR
     return request
 }
 
-private func webClientConfiguration(authenticated: Bool) -> URLSessionConfiguration {
+func webClientConfiguration(authenticated: Bool, cookieSnapshot: [HTTPCookie]? = nil) -> URLSessionConfiguration {
     let configuration = URLSessionConfiguration.ephemeral
-    if authenticated, let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty {
-        let storage = HTTPCookieStorage()
+    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup(), !cookies.isEmpty,
+       let storage = configuration.httpCookieStorage
+    {
         for cookie in cookies {
             storage.setCookie(cookie)
         }
-        configuration.httpCookieStorage = storage
         configuration.httpShouldSetCookies = true
         configuration.httpCookieAcceptPolicy = .always
     }
     return configuration
 }
 
-func resolveAPIKey(authenticated: Bool = false) async throws -> String {
+func resolveAPIKey(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = nil) async throws -> String {
     if let cachedAPIKey {
         return cachedAPIKey
     }
@@ -523,13 +520,13 @@ func resolveAPIKey(authenticated: Bool = false) async throws -> String {
     {
         let trimmed = override.trimmingCharacters(in: .whitespacesAndNewlines)
         cachedAPIKey = trimmed
-        await resolveLiveClientVersionIfNeeded(authenticated: authenticated)
+        await resolveLiveClientVersionIfNeeded(authenticated: authenticated, cookieSnapshot: cookieSnapshot)
         return trimmed
     }
 
     let request = webClientConfigurationRequest()
     let (data, response) = try await boundedResponseData(
-        configuration: webClientConfiguration(authenticated: authenticated),
+        configuration: webClientConfiguration(authenticated: authenticated, cookieSnapshot: cookieSnapshot),
         request: request,
         maximumBytes: maximumConfigurationResponseBytes
     )
@@ -567,7 +564,7 @@ func resolveAPIKey(authenticated: Bool = false) async throws -> String {
 /// Resolves only the live client version when the API key came from an explicit
 /// environment override. Failure is non-fatal: callers can still use the
 /// configured fallback, and search-audit labels that source explicitly.
-func resolveLiveClientVersionIfNeeded(authenticated: Bool = false) async {
+func resolveLiveClientVersionIfNeeded(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = nil) async {
     guard cachedClientVersion == nil else { return }
 
     let request = webClientConfigurationRequest(timeout: 5)
@@ -575,7 +572,7 @@ func resolveLiveClientVersionIfNeeded(authenticated: Bool = false) async {
     let response: URLResponse
     do {
         (data, response) = try await boundedResponseData(
-            configuration: webClientConfiguration(authenticated: authenticated),
+            configuration: webClientConfiguration(authenticated: authenticated, cookieSnapshot: cookieSnapshot),
             request: request,
             maximumBytes: maximumConfigurationResponseBytes
         )
@@ -769,7 +766,7 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
     ]
 }
 
-func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [String: String] {
+func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil, cookieSnapshot: [HTTPCookie]? = nil) -> [String: String] {
     var headers: [String: String] = [
         "Content-Type": "application/json",
         "User-Agent":
@@ -777,7 +774,7 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
         "Origin": activeOrigin,
         "Referer": "\(activeOrigin)/",
     ]
-    if authenticated, let cookies = loadCookiesFromAppBackup() {
+    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup() {
         if let authorization = buildSIDAuthorizationHeader(
             from: cookies,
             includeAllAvailableProofs: false
@@ -873,6 +870,7 @@ func canonicalAPIEndpoint(_ endpoint: String) throws -> String {
 
 func makeWireRequest(
     endpoint: String, body: [String: Any], authenticated: Bool = false,
+    cookieSnapshot: [HTTPCookie]? = nil,
     mobileClient: MusicMobileRequestProfile.Client? = nil,
     mobileWebKey: Bool = false, mobileCookieOnly: Bool = false,
     mobileAccessToken: String? = nil, mobileCookieHeader: String? = nil
@@ -889,7 +887,7 @@ func makeWireRequest(
     var components = URLComponents(string: "\(activeBaseURL)/\(endpoint)")
     var queryItems = [URLQueryItem(name: "prettyPrint", value: "false")]
     if mobileProfile == nil || mobileWebKey {
-        let apiKey = try await resolveAPIKey(authenticated: authenticated)
+        let apiKey = try await resolveAPIKey(authenticated: authenticated, cookieSnapshot: cookieSnapshot)
         queryItems.insert(URLQueryItem(name: "key", value: apiKey), at: 0)
     }
     components?.queryItems = queryItems
@@ -902,7 +900,7 @@ func makeWireRequest(
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
 
-    for (key, value) in buildHeaders(authenticated: authenticated) {
+    for (key, value) in buildHeaders(authenticated: authenticated, cookieSnapshot: cookieSnapshot) {
         request.setValue(value, forHTTPHeaderField: key)
     }
     if let mobileProfile {
@@ -2270,6 +2268,17 @@ func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
     return first.path.withCString { Darwin.lstat($0, &firstStatus) } == 0
         && second.path.withCString { Darwin.lstat($0, &secondStatus) } == 0
         && firstStatus.st_dev == secondStatus.st_dev && firstStatus.st_ino == secondStatus.st_ino
+}
+
+/// Shell redirection can make stdin another alias of an output file.
+func fileDescriptorRefersToFile(_ fileDescriptor: Int32, path: String) -> Bool {
+    var inputStatus = stat()
+    var outputStatus = stat()
+    let output = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    return fstat(fileDescriptor, &inputStatus) == 0
+        && (inputStatus.st_mode & S_IFMT) == S_IFREG
+        && output.path.withCString { Darwin.lstat($0, &outputStatus) } == 0
+        && inputStatus.st_dev == outputStatus.st_dev && inputStatus.st_ino == outputStatus.st_ino
 }
 
 func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> String {
