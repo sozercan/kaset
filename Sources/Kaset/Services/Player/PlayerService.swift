@@ -161,7 +161,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     }
 
     /// Whether the music playback WebView currently reports an advertisement.
-    var isShowingAd = false
+    var isShowingAd = false {
+        didSet {
+            if self.isShowingAd != oldValue {
+                self.adPlaybackGeneration &+= 1
+            }
+        }
+    }
+
+    /// Invalidates asynchronous snapshots that span an ad transition.
+    @ObservationIgnored private(set) var adPlaybackGeneration: UInt64 = 0
 
     /// Last clock sample known to belong to the requested music content.
     var lastNonAdContentProgress: TimeInterval = 0

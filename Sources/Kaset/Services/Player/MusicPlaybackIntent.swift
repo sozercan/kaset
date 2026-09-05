@@ -156,6 +156,9 @@ extension PlayerService {
         issuedAtMilliseconds: Double
     ) {
         guard issuedAtMilliseconds.isFinite else { return }
+        if case .relativeSeek = command, self.isShowingAd {
+            return
+        }
 
         if let intent = self.remoteMusicTransportIntent,
            self.acceptsMusicRemoteCommand(
@@ -344,11 +347,13 @@ extension PlayerService {
 
         let currentVideoID = self.currentTrack?.videoId ?? self.pendingPlayVideoId
         let currentQueueEntryID = self.queueEntryIDOwningCurrentPlayback
+        let adPlaybackGeneration = self.adPlaybackGeneration
         let playbackSnapshot = await self.currentMusicPlaybackSnapshot()
         guard self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
         guard !self.isShowingAd,
+              self.adPlaybackGeneration == adPlaybackGeneration,
               self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
               (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID,
               let playbackSnapshot,

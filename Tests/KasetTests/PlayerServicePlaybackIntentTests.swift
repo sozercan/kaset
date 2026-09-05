@@ -308,8 +308,8 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(contentProgress == 60)
     }
 
-    @Test("A remote Music skip cannot apply an ad snapshot")
-    func remoteSkipWhenAdStarts() async {
+    @Test("A remote Music skip cannot apply an ad snapshot", arguments: [false, true])
+    func remoteSkipWhenAdStarts(adEndsBeforeSnapshot: Bool) async {
         let (playerService, _) = self.makePlayerService()
         defer { self.resetSingletonPlayer() }
         let song = self.makeSong(id: "ad-remote-skip")
@@ -332,6 +332,11 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         playerService.updateAdPlaybackState(
             isShowingAd: true, observedProgress: 5, observedVideoId: song.videoId, isAuthoritativeContent: false
         )
+        if adEndsBeforeSnapshot {
+            playerService.updateAdPlaybackState(
+                isShowingAd: false, observedProgress: 12, observedVideoId: song.videoId, isAuthoritativeContent: true
+            )
+        }
 
         await releaseSnapshot.open()
         await remoteTask?.value
@@ -340,6 +345,30 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         let pendingSkipTarget = playerService.remoteMusicSkipTarget
         #expect(progress == 12)
         #expect(pendingSkipTarget == nil)
+    }
+
+    @Test("Remote Music skips are rejected when admitted during an ad")
+    func remoteSkipDuringAdIsRejected() async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "ad-skip-admission")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        playerService.updateAdPlaybackState(
+            isShowingAd: true, observedProgress: 5, observedVideoId: song.videoId, isAuthoritativeContent: false
+        )
+        let intent = playerService.currentMusicPlaybackIntent
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: 15, admittedAt: ContinuousClock.now), issuedAtMilliseconds: 1001
+        )
+
+        let pendingTask = playerService.remoteMusicTransportTask
+        let intentAfterSkip = playerService.currentMusicPlaybackIntent
+        #expect(pendingTask == nil)
+        #expect(intentAfterSkip == intent)
+        pendingTask?.cancel()
+        await pendingTask?.value
     }
 
     @Test("A disappeared queue entry cannot claim a playback reservation")
