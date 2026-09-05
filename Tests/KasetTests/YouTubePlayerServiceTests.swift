@@ -1011,6 +1011,42 @@ struct YouTubePlayerServiceTests {
 }
 
 extension YouTubePlayerServiceTests {
+    @Test("YouTube ignores absolute, relative, and remote seeks during ads")
+    func adSeeksAreIgnored() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "content"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 12, duration: 180, hasReadyMedia: true,
+            videoId: "content", boundVideoId: "content"
+        ))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 5, duration: 30, hasReadyMedia: true,
+            videoId: "creative", boundVideoId: "creative", isAd: true
+        ))
+        let intent = self.sut.youtubePlaybackIntentGeneration
+
+        self.sut.seek(to: 20)
+        self.sut.seekForward(by: 2)
+        self.sut.seekBackward(by: 2)
+        self.sut.handleRemoteSeek(to: 30, issuedAtMilliseconds: Date().timeIntervalSince1970 * 1000 + 1)
+
+        let seeks = self.controller.seeks
+        let pendingSeeks = self.controller.pendingRecoverySeeks
+        let progress = self.sut.progress
+        let intentAfterSeeks = self.sut.youtubePlaybackIntentGeneration
+        #expect(seeks.isEmpty)
+        #expect(pendingSeeks.isEmpty)
+        #expect(progress == 5)
+        #expect(intentAfterSeeks == intent)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 12, duration: 180, hasReadyMedia: true,
+            videoId: "content", boundVideoId: "content"
+        ))
+        self.sut.seekForward(by: 15)
+        let contentSeeks = self.controller.seeks
+        #expect(contentSeeks == [27])
+    }
+
     @Test("Non-authoritative post-roll placeholders survive process termination")
     func loadingPostRollPlaceholderTerminationRecoversNextVideo() {
         for isAd in [true, false] {

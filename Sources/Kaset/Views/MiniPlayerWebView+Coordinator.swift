@@ -680,6 +680,10 @@ private extension SingletonPlayerWebView.Coordinator {
                 }
             }
 
+            // Ad creatives can expose their own metadata and video identity.
+            // Only content may update the track, queue, or track-specific controls.
+            guard !isAd else { return }
+
             // Update video availability
             self.playerService.updateVideoAvailability(hasVideo: hasVideo)
 

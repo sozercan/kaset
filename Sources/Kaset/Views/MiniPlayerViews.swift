@@ -72,20 +72,6 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 }
 
-// MARK: - MiniPlayerToast
-
-/// A small toast-style view that appears when mini player is shown.
-/// Uses Liquid Glass materialize transition for smooth appearance.
-struct MiniPlayerToast: View {
-    let videoId: String
-
-    var body: some View {
-        PersistentPlayerView(videoId: self.videoId, isExpanded: true)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .compatGlassTransition(.materialize)
-    }
-}
-
 // MARK: - MiniPlayerWindow
 
 struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
@@ -145,6 +131,11 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.currentTrackIdentity) { _, _ in
             self.clearSeekHold()
+        }
+        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.clearSeekHold()
+            }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -676,7 +667,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             }
             .controlSize(.small)
             .tint(PackageResourceLookup.brandAccent)
-            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive)
+            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
             HStack {
                 Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
@@ -868,7 +859,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func performSeek() {
-        guard self.playerService.duration > 0 else { return }
+        guard self.playerService.duration > 0, !self.playerService.isShowingAd else { return }
         let target = self.seekValue * self.playerService.duration
         let holdID = self.seekHold.begin(target: target)
         Task { await self.playerService.seek(to: target) }

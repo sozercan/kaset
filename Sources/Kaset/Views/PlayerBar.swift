@@ -103,6 +103,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .onChange(of: self.currentSeekIdentity) { _, _ in
             self.clearSeekHold()
         }
+        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.clearSeekHold()
+            }
+        }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
                 self.volumeValue = newValue
@@ -382,6 +387,9 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             if case let .error(message) = playerService.state {
                 self.errorView(message: message)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if self.playerService.isShowingAd {
+                PlayerBarAdIndicator()
+                    .padding(.top, 18)
             } else {
                 PlayerBarProgressLane(
                     fraction: self.displayFraction,
@@ -639,6 +647,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.playerService.currentTrack != nil
             && self.playerService.duration > 0
             && !self.playerService.isCurrentItemLive
+            && !self.playerService.isShowingAd
     }
 
     private var isProgressLoading: Bool {
@@ -1182,7 +1191,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     /// Performs the actual seek operation after slider interaction ends.
     private func performSeek() {
-        guard self.isSeeking, self.playerService.duration > 0 else { return }
+        guard self.isSeeking, self.canSeek else { return }
         let seekTime = self.seekValue * self.playerService.duration
         let holdID = self.seekHold.begin(target: seekTime)
         self.updateFormattedTimes(progress: seekTime, duration: self.playerService.duration)

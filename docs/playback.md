@@ -104,6 +104,33 @@ Swift updates `PlayerService` from every `STATE_UPDATE`, then uses
 `PlayerService+WebQueueSync` to decide whether the reported track matches
 Kaset's queue or whether YouTube autoplay needs to be corrected.
 
+Both playback WebViews share `PlaybackAdDetectionScript`. It checks
+`getPresentingPlayerType(true) === 2` on the movie player and Music's `playerApi`,
+with `ad-showing` and `ad-interrupting` player classes as fallbacks. The argument
+includes server-stitched ad segments when the player exposes them. Player ad
+events and class mutations report transitions even while playback is paused.
+API hookup retries every half-second during initialization, stopping when the
+API is ready or after ten seconds.
+These are undocumented player signals and require rechecking when YouTube changes
+its player. Ad inventory or the presence of an ad container does not establish
+that an ad is playing.
+
+Ad samples update transport state while preserving Music's content clock,
+metadata, like status, video availability, and queue. Ad metadata does not consume
+the observer's next content-change notification. After observing a distinct
+creative ID, both players retain ad state across subsequent creatives until the
+requested content returns in metadata and the physical media binding. Ads that
+retain the content ID rely on the player's ad signals.
+End events and recovery seek/resume decisions use the same detector.
+
+Both playback services ignore user and system seek requests during ads. Music
+also rejects a delayed seek snapshot if ad state changed while it was being read.
+The Music mini-player disables its seek slider until content returns.
+
+During ads, both native player bars replace the content timeline with a yellow
+`Ad` badge. Content timestamps and player-bar seeking return when content resumes;
+the selected song or video metadata stays visible throughout the ad.
+
 ### 5. Track-End Handling
 
 Natural track completion is handled by a dedicated bridge event:

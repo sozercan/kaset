@@ -145,8 +145,8 @@ extension YouTubeWatchWebView {
             window.__kasetPendingSeekInFlightAttempt = null;
 
             const video = document.querySelector('video');
-            const player = document.getElementById('movie_player');
-            const isAd = !!(player && player.classList && player.classList.contains('ad-showing'));
+            \(PlaybackAdDetectionScript.detection)
+            const isAd = isAdShowing();
             const expectedVideoId = \(videoIdLiteral);
             if (isAd || !video || video.readyState < 1 || !video.currentSrc) { return 'armed'; }
             if (expectedVideoId && (video.__kasetBoundVideoId || '') !== expectedVideoId) { return 'armed'; }
