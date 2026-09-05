@@ -347,8 +347,8 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(pendingSkipTarget == nil)
     }
 
-    @Test("Remote Music skips are rejected when admitted during an ad")
-    func remoteSkipDuringAdIsRejected() async {
+    @Test("Remote Music seeks are rejected when admitted during an ad", arguments: [false, true])
+    func remoteSeekDuringAdIsRejected(absoluteSeek: Bool) async {
         let (playerService, _) = self.makePlayerService()
         defer { self.resetSingletonPlayer() }
         let song = self.makeSong(id: "ad-skip-admission")
@@ -359,9 +359,10 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         )
         let intent = playerService.currentMusicPlaybackIntent
 
-        playerService.enqueueRemoteMusicTransportCommand(
-            .relativeSeek(delta: 15, admittedAt: ContinuousClock.now), issuedAtMilliseconds: 1001
-        )
+        let command: MusicRemoteTransportCommand = absoluteSeek
+            ? .absoluteSeek(position: 60)
+            : .relativeSeek(delta: 15, admittedAt: ContinuousClock.now)
+        playerService.enqueueRemoteMusicTransportCommand(command, issuedAtMilliseconds: 1001)
 
         let pendingTask = playerService.remoteMusicTransportTask
         let intentAfterSkip = playerService.currentMusicPlaybackIntent

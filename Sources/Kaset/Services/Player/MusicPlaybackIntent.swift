@@ -156,8 +156,11 @@ extension PlayerService {
         issuedAtMilliseconds: Double
     ) {
         guard issuedAtMilliseconds.isFinite else { return }
-        if case .relativeSeek = command, self.isShowingAd {
-            return
+        switch command {
+        case .relativeSeek, .absoluteSeek:
+            guard !self.isShowingAd else { return }
+        default:
+            break
         }
 
         if let intent = self.remoteMusicTransportIntent,
