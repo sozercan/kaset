@@ -146,6 +146,11 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         .onChange(of: self.currentTrackIdentity) { _, _ in
             self.clearSeekHold()
         }
+        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.clearSeekHold()
+            }
+        }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
                 self.volumeValue = newValue
