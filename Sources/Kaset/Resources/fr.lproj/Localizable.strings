@@ -312,7 +312,6 @@
 "Not Playing" = "Pas en lecture";
 "Not signed in" = "Non connecté";
 "Not Supported" = "Non pris en charge";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Remarque : si les clés d'identification ne fonctionnent pas, utilisez \"Try another way\" pour vous connecter avec un mot de passe.";
 "Nothing here right now" = "Rien ici pour le moment";
 "Nothing to show" = "Rien à afficher";
 "Now Playing" = "En lecture";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Ouvrez la barre de commandes pour contrôler la musique en langage naturel. Essayez par exemple \"play something chill\" ou \"add jazz to queue\".";
 "Options…" = "Options…";
 "Output" = "Sortie";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "La connexion par clé d'identification n'est pas disponible dans cette fenêtre. Google vous demandera votre mot de passe ou une autre méthode de connexion à la place.";
 "Pause" = "Pause";
 "Permission needed" = "Autorisation requise";
 "Piano" = "Piano";

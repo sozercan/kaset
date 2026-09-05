@@ -10,7 +10,7 @@ struct VideoPlayerWindow: View {
     var body: some View {
         // The Window controls the aspect ratio and min size;
         // using .fit here can cause the webview to shrink/be letterboxed incorrectly during fast resize.
-        VideoWebViewContainer()
+        VideoWebViewContainer(videoId: self.playerService.pendingPlayVideoId)
             .background(.black)
             .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
     }
@@ -20,18 +20,41 @@ struct VideoPlayerWindow: View {
 
 /// NSViewRepresentable container for the video WebView.
 struct VideoWebViewContainer: NSViewRepresentable {
+    @Environment(WebKitManager.self) private var webKitManager
+    @Environment(PlayerService.self) private var playerService
+    @Environment(AuthService.self) private var authService
+
+    let videoId: String?
+
     func makeNSView(context _: Context) -> VideoContainerView {
         DiagnosticsLogger.player.info("VideoWebViewContainer.makeNSView called")
         let container = VideoContainerView()
         container.wantsLayer = true
         container.layer?.backgroundColor = NSColor.black.cgColor
+        self.attachPlayerWebView(to: container)
         return container
     }
 
     func updateNSView(_ nsView: VideoContainerView, context _: Context) {
         DiagnosticsLogger.player.debug("VideoWebViewContainer.updateNSView called")
-        // Reparent the WebView into this container for video display
-        SingletonPlayerWebView.shared.ensureInHierarchy(container: nsView)
+        self.attachPlayerWebView(to: nsView)
+    }
+
+    private func attachPlayerWebView(to container: VideoContainerView) {
+        _ = SingletonPlayerWebView.shared.getWebView(
+            webKitManager: self.webKitManager,
+            playerService: self.playerService,
+            usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
+        )
+        SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
+        SingletonPlayerWebView.shared.updateDisplayMode(.video)
+
+        if let videoId = self.videoId,
+           self.playerService.shouldAutoloadPendingVideo,
+           SingletonPlayerWebView.shared.currentVideoId != videoId
+        {
+            SingletonPlayerWebView.shared.loadVideo(videoId: videoId)
+        }
     }
 }
 
@@ -79,5 +102,7 @@ final class VideoContainerView: NSView {
 #Preview {
     VideoPlayerWindow()
         .environment(PlayerService())
+        .environment(WebKitManager.shared)
+        .environment(AuthService())
         .frame(width: 480, height: 270)
 }

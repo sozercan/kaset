@@ -181,6 +181,19 @@ struct PlayerServiceTests {
         #expect(self.playerService.volume == 1.0)
     }
 
+    @Test("Immediate volume commands preserve dispatch order")
+    func immediateVolumeChanges() {
+        var appliedVolumes: [Double] = []
+        self.playerService.applyMusicPlaybackVolume = { appliedVolumes.append($0) }
+
+        self.playerService.setVolumeImmediately(0.4)
+        self.playerService.setVolumeImmediately(0.7)
+
+        #expect(appliedVolumes == [0.4, 0.7])
+        #expect(self.playerService.volume == 0.7)
+        #expect(UserDefaults.standard.double(forKey: "playerVolume") == 0.7)
+    }
+
     // MARK: - Queue Tests
 
     @Test("Play queue sets queue")

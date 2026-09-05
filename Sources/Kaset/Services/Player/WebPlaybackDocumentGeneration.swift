@@ -444,6 +444,10 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return literal
     }
 
+    static func locationReplacementScript(for url: URL) -> String {
+        "window.location.replace(\(self.javaScriptStringLiteral(url.absoluteString)));"
+    }
+
     static func isFragmentOnlyNavigation(from currentURL: URL?, to proposedURL: URL?) -> Bool {
         guard var current = currentURL.flatMap({
             URLComponents(url: $0, resolvingAgainstBaseURL: false)

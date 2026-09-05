@@ -312,7 +312,6 @@
 "Not Playing" = "لا يتم التشغيل";
 "Not signed in" = "لم يتم تسجيل الدخول";
 "Not Supported" = "غير مدعوم";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "ملاحظة: إذا لم تعمل مفاتيح المرور، فاستخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور.";
 "Nothing here right now" = "لا يوجد شيء هنا الآن";
 "Nothing to show" = "لا يوجد ما يمكن عرضه";
 "Now Playing" = "قيد التشغيل";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "افتح شريط الأوامر للتحكم في الموسيقى باللغة الطبيعية. جرّب قول \"play something chill\" أو \"add jazz to queue\".";
 "Options…" = "الخيارات…";
 "Output" = "الإخراج";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "تسجيل الدخول بمفتاح المرور غير متاح في هذه النافذة. سيطلب Google كلمة المرور أو طريقة تسجيل دخول أخرى بدلاً من ذلك.";
 "Pause" = "إيقاف مؤقت";
 "Permission needed" = "الإذن مطلوب";
 "Piano" = "بيانو";
