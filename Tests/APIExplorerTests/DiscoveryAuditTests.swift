@@ -46,7 +46,7 @@ struct DiscoveryAuditTests {
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Name") == "21")
         #expect(request.value(forHTTPHeaderField: "X-Youtube-Client-Version") == "7.21.50")
 
-        profile.applyHeaders(to: &request, cookieOnly: true, accessToken: nil)
+        profile.applyHeaders(to: &request, cookieOnly: true, accessToken: nil, cookieHeader: "test-cookie")
         #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
         #expect(request.value(forHTTPHeaderField: "Cookie") == "test-cookie")
 
@@ -536,6 +536,43 @@ struct DiscoveryAuditTests {
 }
 
 extension DiscoveryAuditTests {
+    @Test("Mobile cookie-only probes retain cookies without a signing cookie")
+    func cookieOnlyWithoutSigningCookie() throws {
+        let cookie = try #require(HTTPCookie(properties: [
+            .name: "VISITOR_INFO1_LIVE", .value: "test-cookie", .domain: ".youtube.com", .path: "/",
+        ]))
+        let cookieHeader = try #require(HTTPCookie.requestHeaderFields(with: [cookie])["Cookie"])
+        let profile = MusicMobileRequestProfile(client: .ios)
+        var request = try URLRequest(url: #require(URL(string: "https://music.youtube.com/youtubei/v1/browse")))
+        profile.applyHeaders(to: &request, cookieOnly: true, accessToken: nil, cookieHeader: cookieHeader)
+        #expect(request.value(forHTTPHeaderField: "Cookie") == "VISITOR_INFO1_LIVE=test-cookie")
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+
+        profile.applyHeaders(to: &request, cookieOnly: true, accessToken: nil)
+        #expect(request.value(forHTTPHeaderField: "Cookie") == nil)
+        #expect(request.value(forHTTPHeaderField: "Authorization") == nil)
+    }
+
+    @Test("Command continuations are reported as content without exposing their values")
+    func commandContinuationContent() throws {
+        let request = try DiscoveryRequest(endpoint: "search", body: ["query": "test-query", "continuation": "mock-page"])
+        let response: [String: Any] = ["onResponseReceivedCommands": [["appendContinuationItemsAction": [
+            "continuationItems": [["musicResponsiveListItemRenderer": [
+                "title": "Private result", "navigationEndpoint": ["watchEndpoint": ["videoId": "test-video"]],
+            ]]],
+        ]]]]
+        let audit = DiscoveryAudit(response: response, request: request)
+        #expect(audit.hasContent)
+        #expect(audit.renderers["musicResponsiveListItemRenderer"] == 1)
+        #expect(audit.navigation.count == 1)
+        let report = audit.rendered(verbose: true)
+        #expect(report.contains("content envelope present"))
+        #expect(report.contains("onResponseReceivedCommands"))
+        #expect(!report.contains("Private result"))
+        #expect(!report.contains("mock-page"))
+        #expect(!DiscoveryAudit(response: ["onResponseReceivedCommands": []], request: request).hasContent)
+    }
+
     @Test("Client version overrides reject empty or nonnumeric components", arguments: [
         "", ".", "1..2", "1.", ".1", "1...2", "1.a.2", "1.2\r\nInjected", "１.２", String(repeating: "1", count: 65),
     ])
@@ -644,36 +681,38 @@ extension DiscoveryAuditTests {
         #expect(!output.contains(token.path))
     }
 
-    @Test("Discovery never replaces its token input, even when request validation fails")
-    func tokenOutputAliases() async throws {
+    @Test("Discovery never replaces an input file, even when request validation fails", arguments: [false, true])
+    func inputOutputAliases(mobileInput: Bool) async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
         defer { try? FileManager.default.removeItem(at: directory) }
-        let token = directory.appendingPathComponent("access-token")
-        let original = Data("mock-access-token".utf8)
-        #expect(FileManager.default.createFile(atPath: token.path, contents: original, attributes: [.posixPermissions: 0o600]))
+        let file = directory.appendingPathComponent("private-input")
+        let original = Data((mobileInput ? "mock-access-token" : #"{"params":"mock-private-params"}"#).utf8)
+        #expect(FileManager.default.createFile(atPath: file.path, contents: original, attributes: [.posixPermissions: 0o600]))
         let link = directory.appendingPathComponent("token-link")
-        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: token)
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: file)
         let directoryLink = directory.appendingPathComponent("directory-link")
         try FileManager.default.createSymbolicLink(at: directoryLink, withDestinationURL: directory)
         let hardLink = directory.appendingPathComponent("hard-link")
-        try FileManager.default.linkItem(at: token, to: hardLink)
+        try FileManager.default.linkItem(at: file, to: hardLink)
         let parentDepth = FileManager.default.currentDirectoryPath.split(separator: "/").count
-        let relativePath = String(repeating: "../", count: parentDepth) + token.path.dropFirst()
-        let aliases = [token.path, directory.path + "/./access-token", relativePath, link.path, directoryLink.path + "/access-token", hardLink.path]
+        let relativePath = String(repeating: "../", count: parentDepth) + file.path.dropFirst()
+        let aliases = [file.path, directory.path + "/./private-input", relativePath, link.path, directoryLink.path + "/private-input", hardLink.path]
         for outputPath in aliases {
             let succeeded = await discoverAPI(
                 endpoint: "browse", bodyJSON: "{}", followIndices: [], limit: 1,
-                verbose: false, outputFile: outputPath, mobileClient: .ios, mobileTokenFile: token.path
+                verbose: false, outputFile: outputPath, mobileClient: mobileInput ? .ios : nil,
+                mobileTokenFile: mobileInput ? file.path : nil, bodyFile: mobileInput ? nil : file.path
             )
             #expect(!succeeded)
-            #expect(try Data(contentsOf: token) == original)
+            #expect(try Data(contentsOf: file) == original)
             #expect(try Data(contentsOf: URL(fileURLWithPath: outputPath)) == original)
         }
-        let missing = directory.appendingPathComponent("missing-token")
+        let missing = directory.appendingPathComponent("missing-input")
         let succeeded = await discoverAPI(
             endpoint: "browse", bodyJSON: "{}", followIndices: [], limit: 1,
-            verbose: false, outputFile: missing.path, mobileClient: .ios, mobileTokenFile: missing.path
+            verbose: false, outputFile: missing.path, mobileClient: mobileInput ? .ios : nil,
+            mobileTokenFile: mobileInput ? missing.path : nil, bodyFile: mobileInput ? nil : missing.path
         )
         #expect(!succeeded)
         #expect(!FileManager.default.fileExists(atPath: missing.path))

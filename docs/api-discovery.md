@@ -1523,7 +1523,8 @@ swift run api-explorer discover browse '{"browseId":"FEmusic_home"}' --ios-music
 
 Without `--mobile-token-file`, mobile discovery uses saved web cookies if
 available, or guest mode when `--guest` is supplied. `--mobile-cookie-only`
-retains cookies but removes SAPISIDHASH for comparison. `--mobile-web-key` adds
+retains available cookies even when no signing cookie is present, but omits
+SAPISIDHASH for comparison. `--mobile-web-key` adds
 the resolved web API key; it did not fix the iOS authentication rejection.
 
 The token-file option reads an existing OAuth **access token**, not a refresh
@@ -1724,6 +1725,9 @@ Rechecked on 2026-09-05 with saved cookies available: a guest Home request and
 its followed chip request both explicitly reported guest sessions.
 Use `--body-file` for private request IDs or opaque parameters. Reports use
 owner-only file permissions and never contain raw payloads.
+Discovery rejects report paths that alias either the request-body file or mobile
+token file, including symlink and hard-link aliases. Standard input via
+`--body-file -` is not a file destination.
 
 ### Regular YouTube Mode
 

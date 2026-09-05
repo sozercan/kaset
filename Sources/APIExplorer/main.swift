@@ -718,7 +718,7 @@ struct MusicMobileRequestProfile {
     }
 
     /// Keeps the body, client headers, and user agent on the same identity.
-    func applyHeaders(to request: inout URLRequest, cookieOnly: Bool, accessToken: String?) {
+    func applyHeaders(to request: inout URLRequest, cookieOnly: Bool, accessToken: String?, cookieHeader: String? = nil) {
         request.setValue(self.userAgent, forHTTPHeaderField: "User-Agent")
         request.setValue(self.client.headerID, forHTTPHeaderField: "X-Youtube-Client-Name")
         request.setValue(self.version, forHTTPHeaderField: "X-Youtube-Client-Version")
@@ -728,6 +728,7 @@ struct MusicMobileRequestProfile {
                 request.setValue(nil, forHTTPHeaderField: field)
             }
         } else if cookieOnly {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
             request.setValue(nil, forHTTPHeaderField: "Authorization")
         }
     }
@@ -871,7 +872,7 @@ func makeWireRequest(
     endpoint: String, body: [String: Any], authenticated: Bool = false,
     mobileClient: MusicMobileRequestProfile.Client? = nil,
     mobileWebKey: Bool = false, mobileCookieOnly: Bool = false,
-    mobileAccessToken: String? = nil
+    mobileAccessToken: String? = nil, mobileCookieHeader: String? = nil
 ) async throws
     -> APIWireResponse
 {
@@ -902,7 +903,7 @@ func makeWireRequest(
         request.setValue(value, forHTTPHeaderField: key)
     }
     if let mobileProfile {
-        mobileProfile.applyHeaders(to: &request, cookieOnly: mobileCookieOnly, accessToken: mobileAccessToken)
+        mobileProfile.applyHeaders(to: &request, cookieOnly: mobileCookieOnly, accessToken: mobileAccessToken, cookieHeader: mobileCookieHeader)
     }
 
     var fullBody = body
@@ -2253,7 +2254,7 @@ func loadMobileAccessToken(from path: String) throws -> String {
     return token
 }
 
-/// Prevents discovery reports from replacing their credential input, including
+/// Prevents discovery reports from replacing an input file, including
 /// relative paths, symlinked directories, and existing hard-link aliases.
 func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
     let first = URL(fileURLWithPath: NSString(string: firstPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
@@ -3964,7 +3965,7 @@ func runMain() async {
                 followIndices: discoveryFollowIndices, limit: discoveryLimit,
                 verbose: verbose, outputFile: outputFile, mobileClient: mobileClient,
                 mobileWebKey: mobileWebKey, mobileCookieOnly: mobileCookieOnly,
-                mobileTokenFile: mobileTokenFile
+                mobileTokenFile: mobileTokenFile, bodyFile: bodyFile
             )
             if !succeeded {
                 exit(1)

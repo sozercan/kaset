@@ -20,7 +20,7 @@ func discoveryHelp() -> String {
         "--mobile-cookie-only omits SAPISIDHASH on mobile discovery while retaining saved cookies.",
         "--mobile-token-file <mode-0600-path> uses a mobile OAuth access token instead of web cookies.",
         "Token files must be owned by you, have mode 0600 and no extended ACL, and not be symlinks.",
-        "The report destination must not refer to the token file.",
+        "The report destination must not refer to the token file or request-body file.",
         "Do not put tokens in command arguments, reports, or chat. Token acquisition is separate.",
         "Web-cookie mobile probes were rejected; cookie-only probes returned a guest session.",
         "A content envelope or HTTP 200 alone does not prove a feature works or auth succeeded.",
@@ -213,7 +213,7 @@ struct DiscoveryAudit {
     private static let safeSchemaKeys: Set<String> = [
         "responseContext", "mainAppWebResponseContext", "loggedOut", "serviceTrackingParams", "service", "params",
         "key", "value", "visitorData", "trackingParams", "clickTrackingParams", "error", "code", "status", "message",
-        "contents", "content", "continuationContents", "onResponseReceivedActions", "onResponseReceivedEndpoints",
+        "contents", "content", "continuationContents", "continuationItems", "onResponseReceivedActions", "onResponseReceivedEndpoints", "onResponseReceivedCommands",
         "actions", "videoDetails", "queueDatas", "tabs", "header", "footer", "items", "options", "menu", "data",
         "title", "subtitle", "secondSubtitle", "text", "label", "simpleText", "runs", "secondaryText",
         "browseId", "videoId", "videoIds", "playlistId", "playlistSetVideoId", "query", "input", "index",
@@ -311,7 +311,7 @@ struct DiscoveryAudit {
         self.serverLoggedOut = (webContext?["loggedOut"] as? Bool) ?? inferredLoggedOut
         self.hasAPIError = response["error"] != nil
         self.apiErrorSummary = Self.describeAPIError(response["error"] as? [String: Any])
-        self.hasContent = ["contents", "continuationContents", "onResponseReceivedActions", "onResponseReceivedEndpoints", "actions", "videoDetails", "queueDatas"]
+        self.hasContent = ["contents", "continuationContents", "onResponseReceivedActions", "onResponseReceivedEndpoints", "onResponseReceivedCommands", "actions", "videoDetails", "queueDatas"]
             .contains { key in
                 if let object = response[key] as? [String: Any] {
                     return !object.isEmpty
@@ -706,7 +706,7 @@ func discoverAPI(
     endpoint: String, bodyJSON: String, followIndices: [Int], limit: Int,
     verbose: Bool, outputFile: String?, mobileClient: MusicMobileRequestProfile.Client? = nil,
     mobileWebKey: Bool = false,
-    mobileCookieOnly: Bool = false, mobileTokenFile: String? = nil
+    mobileCookieOnly: Bool = false, mobileTokenFile: String? = nil, bodyFile: String? = nil
 ) async -> Bool {
     var reports: [String] = []
     var succeeded = true
@@ -714,8 +714,9 @@ func discoverAPI(
         print(report)
         reports.append(report)
     }
-    if let mobileTokenFile, let outputFile, pathsReferToSameFile(mobileTokenFile, outputFile) {
-        record("The discovery report destination must not refer to the mobile access-token file.")
+    let inputFiles = [mobileTokenFile, bodyFile == "-" ? nil : bodyFile].compactMap(\.self)
+    if let outputFile, inputFiles.contains(where: { pathsReferToSameFile($0, outputFile) }) {
+        record("The discovery report destination must differ from --body-file and --mobile-token-file.")
         return false
     }
     do {
@@ -724,10 +725,13 @@ func discoverAPI(
         else { throw DiscoveryError.unsupportedRequest }
         var request = try DiscoveryRequest(endpoint: endpoint, body: body)
         let mobileAccessToken = try mobileTokenFile.map { try loadMobileAccessToken(from: $0) }
+        let mobileCookieHeader = mobileCookieOnly && mobileAccessToken == nil
+            ? loadCookiesFromAppBackup().flatMap { buildCookieHeader(from: $0) }
+            : nil
         let authenticated = mobileAccessToken == nil && hasUsableAuthMaterial()
         let authentication = mobileAccessToken != nil
             ? "mobile OAuth supplied on every hop"
-            : (authenticated ? "web cookies supplied on every hop" : "guest")
+            : (authenticated || mobileCookieHeader != nil ? "web cookies supplied on every hop" : "guest")
         record("Read-only discovery. Response values, account IDs, and tokens stay hidden.")
         record("Client: \(mobileClient?.rawValue ?? activeClientName); authentication: \(authentication)")
         if let mobileClient {
@@ -737,7 +741,7 @@ func discoverAPI(
             let authorization = mobileAccessToken != nil ? "Bearer" : (authenticated && !mobileCookieOnly ? "SAPISIDHASH" : "omitted")
             record("Mobile authorization header: \(authorization)")
         }
-        if mobileClient != nil, authenticated {
+        if mobileClient != nil, authenticated || mobileCookieHeader != nil {
             record("Mobile web-cookie authentication must be confirmed by the server session, not credential presence.")
         }
         record("Captured: " + ISO8601DateFormatter().string(from: Date()))
@@ -746,7 +750,7 @@ func discoverAPI(
             let wire = try await makeWireRequest(
                 endpoint: request.endpoint, body: request.body, authenticated: authenticated, mobileClient: mobileClient,
                 mobileWebKey: mobileWebKey, mobileCookieOnly: mobileCookieOnly,
-                mobileAccessToken: mobileAccessToken
+                mobileAccessToken: mobileAccessToken, mobileCookieHeader: mobileCookieHeader
             )
             guard let response = try? JSONSerialization.jsonObject(with: wire.data) as? [String: Any] else {
                 record("Step \(step): \(request.summary)\nHTTP \(wire.statusCode); response is not a JSON object. Use wire-action to inspect its format.")
