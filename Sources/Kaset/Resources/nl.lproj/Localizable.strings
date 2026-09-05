@@ -312,7 +312,6 @@
 "Not Playing" = "Speelt niet af";
 "Not signed in" = "Niet ingelogd";
 "Not Supported" = "Niet ondersteund";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Opmerking: als passkeys niet werken, gebruik je \"Try another way\" om met een wachtwoord in te loggen.";
 "Nothing here right now" = "Hier staat nu niets";
 "Nothing to show" = "Niets om weer te geven";
 "Now Playing" = "Speelt nu";
@@ -329,6 +328,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Open de opdrachtbalk om muziek met natuurlijke taal te bedienen. Probeer bijvoorbeeld \"play something chill\" of \"add jazz to queue\".";
 "Options…" = "Opties…";
 "Output" = "Uitvoer";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Inloggen met een passkey is niet beschikbaar in dit venster. Google vraagt in plaats daarvan om je wachtwoord of een andere inlogmethode.";
 "Pause" = "Pauze";
 "Permission needed" = "Toestemming vereist";
 "Piano" = "Piano";

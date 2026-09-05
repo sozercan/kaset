@@ -98,6 +98,14 @@ nonisolated(unsafe) var authUserOptionWasSpecified = false
 /// Global brand account ID (21-digit number from myaccount.google.com/brandaccounts)
 nonisolated(unsafe) var globalBrandAccountId: String?
 
+/// Language code sent as the InnerTube `hl` client parameter.
+///
+/// Overridable with `--hl` so response localization can be probed directly —
+/// InnerTube accepts both Apple's script identifiers (`zh-Hans`/`zh-Hant`) and
+/// common region aliases (`zh-CN`/`zh-TW`), so either form can be compared
+/// against real responses.
+nonisolated(unsafe) var globalHl = "en"
+
 private func effectivePort(for url: URL) -> Int? {
     if let port = url.port {
         return port
@@ -657,7 +665,7 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
         "client": [
             "clientName": activeClientName,
             "clientVersion": cachedClientVersion ?? activeFallbackClientVersion,
-            "hl": "en",
+            "hl": globalHl,
             "gl": "US",
             "browserName": "Safari",
             "browserVersion": "17.0",
@@ -944,31 +952,71 @@ private func playlistBrowseSummary(_ data: [String: Any]) -> String? {
     return output
 }
 
-private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
-    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data),
-          let byline = renderer["longBylineText"] as? [String: Any],
-          let runs = byline["runs"] as? [[String: Any]],
-          !runs.isEmpty
-    else { return "" }
+/// Lists playlist destinations without exposing tracking or continuation tokens.
+private func playlistNavigationSummary(_ data: [String: Any]) -> String {
+    var destinations: [String] = []
+    var seen = Set<String>()
 
-    var output = "\n🎤 Playlist-panel long byline runs:\n"
-    for (index, run) in runs.enumerated() {
-        let text = run["text"] as? String ?? ""
-        let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
-        let browseKind = if let browseId {
-            if browseId.hasPrefix("MPLAUC") {
-                "MPLAUC…"
-            } else if browseId.hasPrefix("UC") {
-                "UC…"
-            } else if browseId.hasPrefix("MPRE") {
-                "MPRE…"
-            } else {
-                "other"
+    func visit(_ value: Any) {
+        guard destinations.count < 12 else { return }
+        if let dictionary = value as? [String: Any] {
+            for key in ["musicCardShelfRenderer", "musicTwoRowItemRenderer", "musicResponsiveListItemRenderer"] {
+                guard let renderer = dictionary[key] as? [String: Any],
+                      let endpoint = renderer["navigationEndpoint"] ?? renderer["onTap"] ?? renderer["title"],
+                      let browse = findFirstRenderer(named: "browseEndpoint", in: endpoint),
+                      let browseId = browse["browseId"] as? String,
+                      browseId.hasPrefix("VL") || browseId.hasPrefix("RD") || browseId.hasPrefix("PL"),
+                      seen.insert(browseId).inserted
+                else { continue }
+
+                let columns = renderer["flexColumns"] as? [[String: Any]]
+                let firstColumn = columns?.first?["musicResponsiveListItemFlexColumnRenderer"] as? [String: Any]
+                let title = joinedRunsText(renderer["title"] as? [String: Any])
+                    ?? joinedRunsText(firstColumn?["text"] as? [String: Any]) ?? "Untitled"
+                destinations.append("  • \(terminalSafe(title)): \(terminalSafe(browseId))")
             }
-        } else {
-            "none"
+            for key in dictionary.keys.sorted() {
+                if let child = dictionary[key] {
+                    visit(child)
+                }
+            }
+        } else if let array = value as? [Any] {
+            for child in array {
+                visit(child)
+            }
         }
-        output += "  [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+    }
+
+    visit(data)
+    guard !destinations.isEmpty else { return "" }
+    return "\n📂 Playlist browse targets:\n" + destinations.joined(separator: "\n") + "\n"
+}
+
+private func playlistPanelBylineSummary(_ data: [String: Any]) -> String {
+    guard let renderer = findFirstRenderer(named: "playlistPanelVideoRenderer", in: data) else { return "" }
+
+    var output = "\n🎤 Playlist-panel byline runs:\n"
+    for field in ["shortBylineText", "longBylineText"] {
+        let runs = (renderer[field] as? [String: Any])?["runs"] as? [[String: Any]] ?? []
+        output += "  \(field): \(runs.count) run(s)\n"
+        for (index, run) in runs.enumerated() {
+            let text = run["text"] as? String ?? ""
+            let browseId = ((run["navigationEndpoint"] as? [String: Any])?["browseEndpoint"] as? [String: Any])?["browseId"] as? String
+            let browseKind = if let browseId {
+                if browseId.hasPrefix("MPLAUC") {
+                    "MPLAUC…"
+                } else if browseId.hasPrefix("UC") {
+                    "UC…"
+                } else if browseId.hasPrefix("MPRE") {
+                    "MPRE…"
+                } else {
+                    "other"
+                }
+            } else {
+                "none"
+            }
+            output += "    [\(index)] text=\(String(reflecting: text)) browse=\(browseKind)\n"
+        }
     }
     return output
 }
@@ -1541,6 +1589,8 @@ func analyzeResponse(
     output += libraryFeedbackProbeSummary(data)
 
     output += playlistPanelBylineSummary(data)
+
+    output += playlistNavigationSummary(data)
 
     if !youtubeMode {
         output += searchResponseAuditSummary(
@@ -3692,6 +3742,9 @@ func showHelp() {
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
           --client-version <version>     Override the resolved InnerTube client version
+          --hl <code>                    Override the InnerTube `hl` language parameter
+                                         (default: en). Use to compare how a locale
+                                         code localizes real responses.
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
           --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
@@ -3871,6 +3924,18 @@ func runMain() async {
             }
             index += 1
             globalBrandAccountId = value
+        case "--hl":
+            guard let rawValue = commandLineOptionValue(after: index, in: args) else {
+                print("❌ --hl requires a language code")
+                return
+            }
+            index += 1
+            let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !value.isEmpty, !value.hasPrefix("-") else {
+                print("❌ Invalid --hl value: provide a language code such as en, ko, or zh-CN")
+                return
+            }
+            globalHl = value
         case "--client-version":
             guard let rawValue = commandLineOptionValue(after: index, in: args) else {
                 print("❌ --client-version requires a value")

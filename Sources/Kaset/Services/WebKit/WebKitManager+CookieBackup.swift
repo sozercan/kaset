@@ -288,16 +288,16 @@ extension WebKitManager {
         guard let baseline = await self.captureLoginCookieBackupBaseline(
             expectedOperationGeneration: expectedOperationGeneration
         ) else { return nil }
-        guard let transaction = await CookieArchiveWriteQueue.shared.beginLoginTransaction(
+        guard let transaction = await self.cookieArchiveQueue.beginLoginTransaction(
             liveBaseline: baseline.liveBaseline,
             previousLoginCookies: baseline.loginCookies,
             previousLiveSnapshotFingerprint: baseline.authSnapshot?.stabilityFingerprint
         ) else {
-            if await CookieArchiveWriteQueue.shared
+            if await self.cookieArchiveQueue
                 .consumeLoginTransactionSetupCleanupRequirement()
             {
                 self.loginCookieBackupSetupRequiresCleanup = true
-                _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+                _ = await self.cookieArchiveQueue.invalidateAndDelete()
             }
             return nil
         }
@@ -311,13 +311,13 @@ extension WebKitManager {
             } else if self.isClearingAuthCookies
                 || !self.authCookieOperationFence.isCurrent(expectedOperationGeneration)
             {
-                _ = await CookieArchiveWriteQueue.shared.abandonLoginTransaction(transaction)
-            } else if await CookieArchiveWriteQueue.shared.claimLoginTransactionRollback(transaction) {
-                let didRollback = await CookieArchiveWriteQueue.shared
+                _ = await self.cookieArchiveQueue.abandonLoginTransaction(transaction)
+            } else if await self.cookieArchiveQueue.claimLoginTransactionRollback(transaction) {
+                let didRollback = await self.cookieArchiveQueue
                     .rollbackLoginTransaction(transaction)
                 if !didRollback {
                     self.loginCookieBackupSetupRequiresCleanup = true
-                    _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+                    _ = await self.cookieArchiveQueue.invalidateAndDelete()
                 }
             }
             return nil
@@ -386,11 +386,11 @@ extension WebKitManager {
     private func abandonUnstableLoginCookieBackup(
         _ transaction: CookieBackupTransaction
     ) async {
-        let didAbandon = await CookieArchiveWriteQueue.shared
+        let didAbandon = await self.cookieArchiveQueue
             .abandonLoginTransaction(transaction)
         self.loginCookieBackupSetupRequiresCleanup = true
         if !didAbandon {
-            _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+            _ = await self.cookieArchiveQueue.invalidateAndDelete()
         }
     }
 
@@ -409,7 +409,7 @@ extension WebKitManager {
     }
 
     func isLoginCookieBackupActive(_ transaction: CookieBackupTransaction) async -> Bool {
-        let queueOwnsTransaction = await CookieArchiveWriteQueue.shared
+        let queueOwnsTransaction = await self.cookieArchiveQueue
             .isActiveLoginTransaction(transaction)
         return self.isCurrentLoginCookieBackup(transaction) && queueOwnsTransaction
     }
@@ -463,7 +463,7 @@ extension WebKitManager {
                   let postCommitSnapshot = await self.currentCookieArchiveSnapshot(),
                   attempt.snapshot == postCommitSnapshot
             else {
-                _ = await CookieArchiveWriteQueue.shared
+                _ = await self.cookieArchiveQueue
                     .disableLoginTransactionRestore(transaction)
                 return nil
             }
@@ -479,7 +479,7 @@ extension WebKitManager {
     ) async -> String? {
         guard self.isCurrentLoginCookieBackup(transaction),
               !Task.isCancelled,
-              await CookieArchiveWriteQueue.shared
+              await self.cookieArchiveQueue
               .disableLoginTransactionRestore(transaction),
               await self.commitLoginCookieBackup(transaction) != nil
         else {
@@ -506,7 +506,7 @@ extension WebKitManager {
               !Task.isCancelled
         else { return nil }
 
-        let didFinalize = await CookieArchiveWriteQueue.shared.finalizeLoginTransaction(transaction)
+        let didFinalize = await self.cookieArchiveQueue.finalizeLoginTransaction(transaction)
         guard didFinalize,
               self.isCurrentLoginCookieBackup(transaction),
               !self.forcedCookieBackupDirty,
@@ -527,7 +527,7 @@ extension WebKitManager {
         for _ in 0 ..< 3 {
             self.forcedCookieBackupDirty = false
             guard await self.forceBackupCookies(),
-                  let archiveData = await CookieArchiveWriteQueue.shared.persistedArchiveData()
+                  let archiveData = await self.cookieArchiveQueue.persistedArchiveData()
             else {
                 return nil
             }
@@ -544,7 +544,7 @@ extension WebKitManager {
         guard self.isCurrentLoginCookieBackup(transaction) else {
             return true
         }
-        if await CookieArchiveWriteQueue.shared.disableLoginTransactionRestore(transaction) {
+        if await self.cookieArchiveQueue.disableLoginTransactionRestore(transaction) {
             return true
         }
         guard self.isCurrentLoginCookieBackup(transaction) else {
@@ -559,8 +559,8 @@ extension WebKitManager {
         guard self.isCurrentLoginCookieBackup(transaction) else {
             return .superseded
         }
-        guard await CookieArchiveWriteQueue.shared.claimLoginTransactionRollback(transaction) else {
-            let ownership = await CookieArchiveWriteQueue.shared
+        guard await self.cookieArchiveQueue.claimLoginTransactionRollback(transaction) else {
+            let ownership = await self.cookieArchiveQueue
                 .loginTransactionOwnership(transaction)
             return ownership == .none ? .failed : .superseded
         }
@@ -601,7 +601,7 @@ extension WebKitManager {
             )
         }
 
-        let didRollback = await CookieArchiveWriteQueue.shared.rollbackLoginTransaction(transaction)
+        let didRollback = await self.cookieArchiveQueue.rollbackLoginTransaction(transaction)
         guard self.isCurrentLoginCookieBackup(transaction) else { return .superseded }
         guard didRollback else {
             self.isClearingAuthCookies = wasClearingAuthCookies
@@ -617,7 +617,7 @@ extension WebKitManager {
             expirationCutoff: expirationCutoff
         )
         guard postRollbackState == expectedState else {
-            _ = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+            _ = await self.cookieArchiveQueue.invalidateAndDelete()
             self.isClearingAuthCookies = wasClearingAuthCookies
             self.activeLoginCookieBackupTransaction = nil
             self.logger.error("Authentication cookies changed during login rollback")
@@ -663,7 +663,7 @@ extension WebKitManager {
         _ transaction: CookieBackupTransaction,
         restoringClearingStateTo wasClearingAuthCookies: Bool
     ) async -> CookieBackupRollbackResult {
-        _ = await CookieArchiveWriteQueue.shared.failLoginTransactionRollback(transaction)
+        _ = await self.cookieArchiveQueue.failLoginTransactionRollback(transaction)
         self.isClearingAuthCookies = wasClearingAuthCookies
         self.activeLoginCookieBackupTransaction = nil
         return .failed
@@ -734,7 +734,7 @@ extension WebKitManager {
     }
 
     private func makeCurrentCookieArchiveWriteAttempt() async -> CookieArchiveWriteAttempt? {
-        let generation = await CookieArchiveWriteQueue.shared.reserveGeneration()
+        let generation = await self.cookieArchiveQueue.reserveGeneration()
         guard let snapshot = await self.currentCookieArchiveSnapshot() else { return nil }
         return CookieArchiveWriteAttempt(snapshot: snapshot, generation: generation)
     }
@@ -748,7 +748,7 @@ extension WebKitManager {
     private func persistCookieArchiveAttempt(
         _ attempt: CookieArchiveWriteAttempt
     ) async -> CookieArchiveSaveResult {
-        await CookieArchiveWriteQueue.shared.save(
+        await self.cookieArchiveQueue.save(
             archiveData: attempt.snapshot.data,
             cookieCount: attempt.snapshot.cookieCount,
             generation: attempt.generation
@@ -795,7 +795,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
 
     private func performCookieBackup(cookieStore: WKHTTPCookieStore) async {
         guard !self.isClearingAuthCookies else { return }
-        let generation = await CookieArchiveWriteQueue.shared.reserveGeneration()
+        let generation = await self.cookieArchiveQueue.reserveGeneration()
         let cookies = await cookieStore.allCookies()
         guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
         let authCookies = cookies.filter(KeychainCookieStorage.isAuthCookie)
@@ -804,7 +804,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
         )
         switch action {
         case .invalidate:
-            let result = await CookieArchiveWriteQueue.shared.invalidateAndDeleteIfLatest(
+            let result = await self.cookieArchiveQueue.invalidateAndDeleteIfLatest(
                 generation: generation
             )
             if result == .failed {
@@ -814,7 +814,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             self.logger.error("Retaining the last authentication-cookie archive after serialization failure")
         case let .persist(data, cookieCount):
             guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
-            _ = await CookieArchiveWriteQueue.shared.save(
+            _ = await self.cookieArchiveQueue.save(
                 archiveData: data,
                 cookieCount: cookieCount,
                 generation: generation

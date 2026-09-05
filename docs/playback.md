@@ -68,14 +68,17 @@ This sets:
 
 `MainWindow` keeps a hidden `PersistentPlayerView` mounted whenever the user is
 logged in, even before a track is requested. Signed-out users mount the same view
-on demand when public/guest playback creates a pending video. The hidden view
-creates the singleton WebView and preloads the YouTube Music home page so the app
-shell and router are ready for playback.
+on demand when public/guest playback creates a pending video. Mounting waits while
+restored playback is deferred, and the hidden view yields ownership to the video
+window while it is open. The hidden view creates the singleton WebView and preloads
+the YouTube Music home page so the app shell and router are ready for playback.
 
 ```swift
 if MainWindow.shouldMountPersistentPlayer(
     isLoggedIn: authService.state.isLoggedIn,
-    pendingVideoId: playerService.pendingPlayVideoId
+    pendingVideoId: playerService.pendingPlayVideoId,
+    isPendingRestoredLoadDeferred: playerService.isPendingRestoredLoadDeferred,
+    showVideo: playerService.showVideo
 ) {
     PersistentPlayerView(videoId: playerService.pendingPlayVideoId, isExpanded: false)
         .frame(width: 1, height: 1)
@@ -103,9 +106,11 @@ app.resolveCommand({ watchEndpoint: { videoId } })
 ```
 
 If the router is unavailable, stale, or rejects the command, Kaset falls back to
-loading `https://music.youtube.com/watch?v=<videoId>`. The router callback is
-bound to the current load generation so an older failed router attempt cannot
-full-load a stale track over a newer request.
+loading `https://music.youtube.com/watch?v=<videoId>`. An existing playback
+document uses `window.location.replace` to keep navigation history bounded;
+initial loads use `WKWebView.load`. The router callback is bound to the current
+load generation so an older failed router attempt cannot full-load a stale track
+over a newer request.
 
 ### 4. State Updates
 
@@ -164,12 +169,14 @@ canceling their originating task.
 When the user plays a different track:
 
 1. `pendingPlayVideoId` changes.
-2. SwiftUI updates the hidden `PersistentPlayerView`.
+2. SwiftUI updates the active `PersistentPlayerView`.
 3. `SingletonPlayerWebView.loadVideo(videoId:)` pauses the current element,
    refreshes autoplay/volume bootstrap state, and tries YouTube Music's SPA
    router.
 4. If router navigation fails and this is still the latest load generation,
-   Kaset falls back to a full watch URL load.
+   Kaset falls back to a full watch URL load. The fallback uses
+   `window.location.replace` when a playback document already exists, or
+   `WKWebView.load` for the initial document.
 
 Manual `next()` and `previous()` always update Kaset's local queue state first
 and use deterministic Kaset navigation:
@@ -185,6 +192,11 @@ and use deterministic Kaset navigation:
 
 Native **Up Next** injection is used for natural track-end auto-advance, not for
 manual Next button presses.
+
+Replacement navigation prevents old YouTube watch pages from accumulating in
+WebKit's back-forward/page cache. See
+[ADR-0034](adr/0034-replace-playback-navigation.md) for the measurement and
+tradeoff record.
 
 When the WebView reports a new `videoId`, Kaset treats that as authoritative
 even if the DOM title/artist are still stale. This avoids a race where YouTube

@@ -27,7 +27,6 @@ struct KasetSidebarRow: View {
                     .foregroundStyle(PackageResourceLookup.brandAccent)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(self.selectionBackground)
             .contentShape(Rectangle())

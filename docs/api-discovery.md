@@ -888,13 +888,18 @@ let body = ["playlistId": "RDCLAK5uy_l2pHac-aawJYLcesgTf67gaKU-B9ekk1o"]
 }
 ```
 
-> ⚠️ **Note**: The response uses a **wrapper structure** (`playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer`) 
-> rather than a direct `playlistPanelVideoRenderer`. Parsers must handle this wrapper.
+> ⚠️ **Note**: Responses can contain either a direct `playlistPanelVideoRenderer` or a **wrapper structure** (`playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer`). Parsers must handle both.
 
 **playlistPanelVideoRenderer keys** (verified):
 - `title`, `longBylineText`, `thumbnail`, `lengthText`
 - `selected`, `navigationEndpoint`, `videoId`, `shortBylineText`
 - `trackingParams`, `menu`
+
+Artist navigation, verified with guest requests for **Chill R&B** and **Country Summer** on 2026-09-04:
+
+- `shortBylineText` contains a single display-only run, such as `COLORS & Tems`, without artist browse endpoints.
+- `longBylineText` contains separate artist runs with `UC...` browse endpoints. Ampersands or commas separate co-artists; a bullet separates the artists from view and like counts.
+- Parse artists from the long byline, stopping before trailing metadata. Use the short byline as a fallback when the long byline has no artists.
 
 **Use cases**:
 - Get metadata for multiple videos in one call (queue display)

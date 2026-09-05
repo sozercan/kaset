@@ -25,6 +25,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         await SingletonPlayerWebView.shared.currentPlaybackSnapshot()
     }
 
+    @ObservationIgnored var applyMusicPlaybackVolume: @MainActor (Double) -> Void = {
+        SingletonPlayerWebView.shared.setVolume($0)
+    }
+
     @ObservationIgnored var smartShuffleFeatureEnabled: @MainActor () -> Bool = {
         SettingsManager.shared.smartShuffleEnabled
     }

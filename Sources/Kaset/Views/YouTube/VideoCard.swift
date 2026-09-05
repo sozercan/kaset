@@ -76,7 +76,7 @@ struct VideoThumbnailView: View {
         ) { image in
             image
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .scaledToFill()
         } placeholder: {
             Rectangle()
                 .fill(.quaternary)

@@ -240,7 +240,7 @@ struct YouTubeWatchView: View {
                 ) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     Rectangle().fill(.black)
                 }
@@ -300,7 +300,7 @@ struct YouTubeWatchView: View {
                             ) { image in
                                 image
                                     .resizable()
-                                    .aspectRatio(contentMode: .fill)
+                                    .scaledToFill()
                             } placeholder: {
                                 Circle().fill(.quaternary)
                             }
@@ -759,7 +759,7 @@ private struct CommentRow: View {
         ) { image in
             image
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .scaledToFill()
         } placeholder: {
             Circle()
                 .fill(.quaternary)
@@ -811,7 +811,7 @@ private struct ChapterCard: View {
         ) { image in
             image
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .scaledToFill()
         } placeholder: {
             Rectangle()
                 .fill(.quaternary)

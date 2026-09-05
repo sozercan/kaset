@@ -180,15 +180,15 @@ struct HistoryViewModelTests {
         await self.viewModel.loadMore()
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
 
-        let historyGate = AsyncGate()
-        self.mockClient.getHistoryGate = historyGate
+        self.mockClient.shouldWaitForGetHistoryResponse = true
         let refreshTask = Task { await self.viewModel.refresh() }
         await self.waitForHistoryRefresh {
             self.mockClient.getHistoryCallCount == 2
         }
 
         await self.viewModel.loadMore()
-        await historyGate.open()
+
+        self.mockClient.resumeNextGetHistoryResponse()
         _ = await refreshTask.value
 
         #expect(self.mockClient.getHistoryContinuationCallCount == 1)

@@ -69,7 +69,7 @@ struct ArtistDiscographyView: View {
             CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)

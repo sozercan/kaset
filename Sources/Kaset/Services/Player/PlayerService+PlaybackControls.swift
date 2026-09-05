@@ -1087,15 +1087,31 @@ extension PlayerService {
 
     /// Sets the volume.
     func setVolume(_ value: Double) async {
-        let clampedValue = max(0, min(1, value))
-        self.volume = clampedValue
-        UserDefaults.standard.set(clampedValue, forKey: Self.volumeKey)
+        let clampedValue = self.storeVolumeValue(value)
 
         if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.setVolume(clampedValue)
+            self.applyMusicPlaybackVolume(clampedValue)
         } else {
             await self.evaluatePlayerCommand("setVolume(\(Int(clampedValue * 100)))")
         }
+    }
+
+    /// Sets volume state and dispatches the playback command before returning.
+    /// Interactive controls use this path so rapid updates retain event order.
+    func setVolumeImmediately(_ value: Double) {
+        let clampedValue = self.storeVolumeValue(value)
+
+        let playbackVolume = self.pendingPlayVideoId == nil
+            ? Double(Int(clampedValue * 100)) / 100
+            : clampedValue
+        self.applyMusicPlaybackVolume(playbackVolume)
+    }
+
+    private func storeVolumeValue(_ value: Double) -> Double {
+        let clampedValue = max(0, min(1, value))
+        self.volume = clampedValue
+        UserDefaults.standard.set(clampedValue, forKey: Self.volumeKey)
+        return clampedValue
     }
 
     /// Toggles mute state. Remembers previous volume for unmuting.

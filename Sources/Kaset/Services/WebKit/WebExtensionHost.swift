@@ -104,19 +104,32 @@ enum WebExtensionHostedWebViewRole: String {
             self.activate(tab)
         }
 
-        func deactivate(role: WebExtensionHostedWebViewRole) {
-            guard let tab = self.tabsByRole[role], self.activeTab === tab else { return }
+        func unregister(role: WebExtensionHostedWebViewRole) {
+            guard let tab = self.tabsByRole.removeValue(forKey: role) else { return }
 
-            let fallbackTab = self.window.firstTab(excluding: tab)
-            self.activeTab = nil
-            self.window.activeTab = nil
-            self.controller.didDeselectTabs([tab])
-
-            if let fallbackTab {
-                self.activate(fallbackTab)
-            } else {
-                self.controller.didFocusWindow(self.window)
+            let wasActive = self.activeTab === tab
+            if wasActive {
+                self.activeTab = nil
+                self.window.activeTab = nil
+                self.controller.didDeselectTabs([tab])
             }
+            let windowWillClose = self.tabsByRole.isEmpty
+            self.tabsByWebViewID = self.tabsByWebViewID.filter { $0.value !== tab }
+            self.window.remove(tab)
+            self.controller.didCloseTab(tab, windowIsClosing: windowWillClose)
+            tab.pendingNavigationURL = nil
+            tab.webView = nil
+            tab.window = nil
+
+            if windowWillClose {
+                self.controller.didCloseWindow(self.window)
+                self.controller.didFocusWindow(nil)
+                self.didOpenWindow = false
+            } else if wasActive, let fallbackTab = self.window.firstTab(excluding: tab) {
+                self.activate(fallbackTab)
+            }
+
+            self.logger.info("Unregistered WebExtension tab for \(role.rawValue)")
         }
 
         func noteNavigationFinished(for webView: WKWebView) {
@@ -227,6 +240,13 @@ enum WebExtensionHostedWebViewRole: String {
             self.tabs.append(tab)
             if self.activeTab == nil {
                 self.activeTab = tab
+            }
+        }
+
+        func remove(_ tab: KasetWebExtensionTab) {
+            self.tabs.removeAll { $0 === tab }
+            if self.activeTab === tab {
+                self.activeTab = nil
             }
         }
 

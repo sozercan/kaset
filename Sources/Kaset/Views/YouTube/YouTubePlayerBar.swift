@@ -38,6 +38,7 @@ struct YouTubePlayerBar: View {
     @Environment(\.colorScheme) private var colorScheme
 
     private let isDetachedWindow: Bool
+    private let onVolumeOverlayChange: (Bool) -> Void
 
     /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
@@ -51,8 +52,9 @@ struct YouTubePlayerBar: View {
     @State private var showsVolumeOverlay = false
     @State private var chapterPreviewMarker: PlayerBarProgressMarker?
 
-    init(isDetachedWindow: Bool) {
+    init(isDetachedWindow: Bool, onVolumeOverlayChange: @escaping (Bool) -> Void = { _ in }) {
         self.isDetachedWindow = isDetachedWindow
+        self.onVolumeOverlayChange = onVolumeOverlayChange
     }
 
     var body: some View {
@@ -116,6 +118,7 @@ struct YouTubePlayerBar: View {
                 self.volumeValue = newValue
             }
         }
+        .onChange(of: self.showsVolumeOverlay) { _, isPresented in self.onVolumeOverlayChange(isPresented) }
         .onAppear {
             self.volumeValue = self.youtubePlayer.volume
             if self.youtubePlayer.duration > 0 {
@@ -159,7 +162,7 @@ struct YouTubePlayerBar: View {
                 ) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(.quaternary)
@@ -381,6 +384,7 @@ struct YouTubePlayerBar: View {
             PlayerBarIconButton(
                 action: self.toggleYouTubeVolumeOverlay,
                 accessibilityLabel: String(localized: "Volume"),
+                accessibilityValue: "\(Int(self.displayedVolume * 100))%",
                 icon: {
                     Image(systemName: self.volumeIcon)
                         .font(.system(size: 15, weight: .regular))
@@ -389,13 +393,8 @@ struct YouTubePlayerBar: View {
                         .contentTransition(.symbolEffect(.replace))
                 }
             )
-            .overlay(alignment: .top) {
-                if self.showsVolumeOverlay {
-                    self.youtubeVolumeOverlay
-                        .offset(y: -176)
-                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                        .zIndex(1)
-                }
+            .playerBarVolumeOverlay(isPresented: self.$showsVolumeOverlay) {
+                self.youtubeVolumeOverlay
             }
         }
     }
@@ -746,20 +745,24 @@ struct YouTubePlayerBar: View {
     }
 
     private var volumeIcon: String {
-        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.youtubePlayer.volume
-        if currentVolume == 0 {
-            return "speaker.slash.fill"
-        } else if currentVolume < 0.5 {
-            return "speaker.wave.1.fill"
+        if self.displayedVolume == 0 {
+            "speaker.slash.fill"
+        } else if self.displayedVolume < 0.5 {
+            "speaker.wave.1.fill"
         } else {
-            return "speaker.wave.2.fill"
+            "speaker.wave.2.fill"
         }
+    }
+
+    private var displayedVolume: Double {
+        self.isAdjustingVolume ? self.volumeValue : self.youtubePlayer.volume
     }
 
     private func toggleYouTubeVolumeOverlay() {
         HapticService.toggle()
+        let isPresented = !self.showsVolumeOverlay
         withAnimation(AppAnimation.quick) {
-            self.showsVolumeOverlay.toggle()
+            self.showsVolumeOverlay = isPresented
         }
     }
 

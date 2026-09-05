@@ -4,7 +4,7 @@ import WebKit
 // MARK: - Startup Cookie Restoration
 
 extension WebKitManager {
-    /// Restores auth cookies from Keychain to WebKit.
+    /// Restores auth cookies from the configured archive storage to WebKit.
     /// Handles migration from legacy file-based storage on first run.
     func restoreAuthCookiesFromBackup(expectedGeneration: UInt64) async -> Bool {
         self.isRestoringCookies = true
@@ -16,12 +16,12 @@ extension WebKitManager {
         try? await Task.sleep(for: .milliseconds(100))
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
 
-        switch await CookieArchiveWriteQueue.shared.restoreDecision() {
+        switch await self.cookieArchiveQueue.restoreDecision() {
         case .allowed:
             break
         case .denied:
             self.logger.info("Cookie backup restoration is disabled after explicit invalidation")
-            let didDeletePersistedCookies = await CookieArchiveWriteQueue.shared.invalidateAndDelete()
+            let didDeletePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
             guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
             let didClearLiveCookies = await self.clearLiveLoginSessionCookies(
                 expectedGeneration: expectedGeneration
@@ -46,11 +46,8 @@ extension WebKitManager {
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
         self.logger.info("WebKit has \(existingCookies.count) cookies on startup")
 
-        // Load cookies from Keychain.
-        // Perform Keychain I/O off the main actor; decode on main actor.
-        let archiveResult = await Task(priority: .utility) {
-            KeychainCookieStorage.loadArchiveResult()
-        }.value
+        // Archive I/O runs on the injected storage queue, never on the main actor.
+        let archiveResult = await self.cookieArchiveQueue.loadArchiveResult()
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
 
         switch archiveResult {
@@ -64,7 +61,7 @@ extension WebKitManager {
             guard await self.clearLiveLoginSessionCookies(
                 expectedGeneration: expectedGeneration
             ) else { return false }
-            self.logger.info("No cookies found in Keychain (first run or signed out)")
+            self.logger.info("No cookies found in archive storage (first run or signed out)")
             return true
         case let .data(archiveData):
             // The persisted archive is the source of truth for login-session
@@ -112,7 +109,7 @@ extension WebKitManager {
         }
 
         #if DEBUG
-            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
+            await self.cookieArchiveQueue.exportDebugArchiveIfEnabled(archiveData)
         #endif
 
         self.logger.info("Restoring \(keychainCookies.count) auth cookies from Keychain")

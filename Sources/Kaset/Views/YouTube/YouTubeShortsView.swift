@@ -141,7 +141,7 @@ private struct ShortPage: View {
                 ) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     Rectangle()
                         .fill(.black)

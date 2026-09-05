@@ -21,9 +21,11 @@ opt_in_rules:
   - redundant_nil_coalescing
   - sorted_first_last
   - toggle_bool
-  - unused_import
   - vertical_whitespace_closing_braces
   - yoda_condition
+
+analyzer_rules:
+  - unused_import
 
 included:
   - Sources

@@ -141,7 +141,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -538,7 +538,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -573,7 +573,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -612,7 +612,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -711,7 +711,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 CachedAsyncImage(url: episode.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 220, height: 124)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     Rectangle()
                         .fill(.quaternary)
@@ -788,7 +788,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     } placeholder: {
                         Rectangle()
                             .fill(.quaternary)
@@ -834,7 +834,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: show.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -877,7 +877,7 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 120, height: 120)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)

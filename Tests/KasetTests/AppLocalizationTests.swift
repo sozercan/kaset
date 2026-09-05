@@ -251,10 +251,34 @@ struct AppLocalizationTests {
             ("sv", "Smart blandning"),
             ("tr", "Akıllı Karıştırma"),
             ("uk", "Розумне перемішування"),
+            ("zh-Hans", "智能随机播放"),
+            ("zh-Hant", "智慧隨機播放"),
         ]
 
         for (locale, expectedValue) in expectedValues {
             #expect(self.localizedValue(key: "Smart Shuffle", localeIdentifier: locale) == expectedValue)
+        }
+    }
+
+    /// The two Chinese locales are distinguished by script, so a mix-up would
+    /// still produce plausible-looking Chinese. Assert on strings whose
+    /// simplified and traditional forms differ in wording, not just in
+    /// character shape, so a swapped or machine-converted file fails here.
+    @Test("Chinese locales use script-appropriate vocabulary")
+    func chineseLocalesUseScriptAppropriateVocabulary() {
+        let expectedValues = [
+            ("zh-Hans", "Playlist", "播放列表"),
+            ("zh-Hant", "Playlist", "播放清單"),
+            ("zh-Hans", "Search", "搜索"),
+            ("zh-Hant", "Search", "搜尋"),
+            ("zh-Hans", "Video", "视频"),
+            ("zh-Hant", "Video", "影片"),
+            ("zh-Hans", "Sign In", "登录"),
+            ("zh-Hant", "Sign In", "登入"),
+        ]
+
+        for (locale, key, expectedValue) in expectedValues {
+            #expect(self.localizedValue(key: key, localeIdentifier: locale) == expectedValue)
         }
     }
 
