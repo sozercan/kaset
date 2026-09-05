@@ -76,7 +76,7 @@ struct AccountRowView: View {
                 CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     self.avatarPlaceholder
                 }

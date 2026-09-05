@@ -162,7 +162,7 @@ struct YouTubePlayerBar: View {
                 ) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(.quaternary)

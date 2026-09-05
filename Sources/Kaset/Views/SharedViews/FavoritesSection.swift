@@ -266,7 +266,7 @@ private struct FavoriteItemCard: View {
                 CachedAsyncImage(url: url, targetSize: Self.thumbnailTargetSize) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     self.placeholderView
                 }
