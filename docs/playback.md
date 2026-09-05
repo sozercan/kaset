@@ -116,8 +116,11 @@ that an ad is playing.
 Ad samples update transport state while preserving Music's content clock,
 metadata, like status, video availability, and queue. Ad metadata does not consume
 the observer's next content-change notification. If the ad signal clears early,
-Music withholds a known creative's metadata until the player restores a content ID.
-Both players use the same detector for end events and recovery seek/resume decisions.
+both players keep a known creative classified as an ad until a content ID returns.
+End events and recovery seek/resume decisions use the same detector.
+
+Both playback services ignore user and system seek requests during ads. The Music
+mini-player also disables its seek slider until content returns.
 
 During ads, both native player bars replace the content timeline with a yellow
 `Ad` badge. Content timestamps and player-bar seeking return when content resumes;

@@ -670,7 +670,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             }
             .controlSize(.small)
             .tint(PackageResourceLookup.brandAccent)
-            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive)
+            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
 
             HStack {
@@ -862,7 +862,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func performSeek() {
-        guard self.playerService.duration > 0 else { return }
+        guard self.playerService.duration > 0, !self.playerService.isShowingAd else { return }
         let target = self.seekValue * self.playerService.duration
         let holdID = self.seekHold.begin(target: target)
         Task { await self.playerService.seek(to: target) }

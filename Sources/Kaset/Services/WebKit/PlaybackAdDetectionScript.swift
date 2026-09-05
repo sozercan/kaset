@@ -11,7 +11,7 @@ enum PlaybackAdDetectionScript {
             });
         }
 
-        function isAdShowing() {
+        function hasAdPlayerSignal() {
             const moviePlayer = document.getElementById('movie_player');
             if (moviePlayer && moviePlayer.classList
                 && (moviePlayer.classList.contains('ad-showing')
@@ -29,6 +29,38 @@ enum PlaybackAdDetectionScript {
                 } catch (e) {}
             }
             return false;
+        }
+
+        function isAdShowing() {
+            const isAd = hasAdPlayerSignal();
+            let contentVideoId = '';
+            try {
+                contentVideoId = new URL(window.location.href).searchParams.get('v') || '';
+            } catch (e) {}
+
+            let videoId = '';
+            // Match the bridges' metadata preference: Music API, then movie player.
+            for (const api of adPlayerAPIs().reverse()) {
+                try {
+                    const data = typeof api.getVideoData === 'function' ? api.getVideoData() : null;
+                    const id = data && (data.video_id || data.videoId);
+                    if (typeof id === 'string' && id) {
+                        videoId = id;
+                        break;
+                    }
+                } catch (e) {}
+            }
+            if (isAd && contentVideoId && videoId && videoId !== contentVideoId) {
+                window.__kasetAdVideoId = videoId;
+            }
+            // Ad-end signals can precede the return of content media. Share the
+            // known creative ID with end-event and recovery-seek scripts too.
+            const adVideoId = window.__kasetAdVideoId || '';
+            const isAdCreative = adVideoId !== ''
+                && adVideoId !== contentVideoId
+                && (!videoId || videoId === adVideoId);
+            if (!isAd && !isAdCreative) delete window.__kasetAdVideoId;
+            return isAd || isAdCreative;
         }
         """
     }

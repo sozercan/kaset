@@ -234,11 +234,17 @@ struct PlaybackAdDetectionTests {
         #expect(!context.evaluateScript("lastState().isAd").toBool())
     }
 
-    @Test("Ended events retain ad classification", arguments: [false, true])
-    func adEndsAreNotContentEnds(isMusic: Bool) throws {
+    @Test("Ended events retain ad classification", arguments: [false, true], [false, true])
+    func adEndsAreNotContentEnds(isMusic: Bool, signalClearsFirst: Bool) throws {
         let context = try self.makeContext(isMusic: isMusic)
-        try self.evaluate("moviePlayer.presentingType = 2; musicApi.presentingType = 2;", in: context)
+        try self.evaluate(
+            "currentData = { video_id: 'creative', title: 'Advertisement' }; moviePlayer.presentingType = 2; musicApi.presentingType = 2;",
+            in: context
+        )
         try self.installObserver(isMusic: isMusic, in: context)
+        if signalClearsFirst {
+            try self.evaluate("moviePlayer.presentingType = 1; musicApi.presentingType = 1;", in: context)
+        }
         try self.evaluate("postedMessages = []; video.ended = true; fireVideoEvent('ended');", in: context)
 
         #expect(context.evaluateScript(
@@ -321,38 +327,120 @@ struct PlaybackAdDetectionTests {
         }
         try self.evaluate("musicApi.presentingType = 1; musicApi.fire('onAdEnd');", in: context)
 
-        #expect(!context.evaluateScript("lastState().isAd").toBool())
-        #expect(!context.evaluateScript("lastState().hasContentMetadata").toBool())
+        #expect(context.evaluateScript("lastState().isAd").toBool())
         #expect(!context.evaluateScript("lastState().trackChanged").toBool())
 
         try self.evaluate("currentData = contentData; fireVideoEvent('waiting');", in: context)
         #expect(!context.evaluateScript("lastState().isAd").toBool())
-        #expect(context.evaluateScript("lastState().hasContentMetadata").toBool())
         #expect(context.evaluateScript("lastState().trackChanged").toBool() == startsDuringAd)
         #expect(context.evaluateScript("lastState().videoId").toString() == "content")
         #expect(context.evaluateScript("lastState().title").toString() == "Song")
     }
 
-    @Test("Music accepts requested content when its metadata leads the watch URL during an ad")
-    func musicRequestedMetadataDuringAd() throws {
-        let context = try self.makeContext(isMusic: true)
-        try self.installObserver(isMusic: true, in: context)
+    @Test("Both players accept requested content when its metadata leads the watch URL during an ad", arguments: [false, true])
+    func requestedMetadataDuringAd(isMusic: Bool) throws {
+        let context = try self.makeContext(isMusic: isMusic)
+        try self.installObserver(isMusic: isMusic, in: context)
         try self.evaluate(
             """
             currentData = { video_id: 'next', title: 'Next song', author: 'Artist' };
-            musicApi.presentingType = 2;
-            musicApi.fire('onAdStart');
-            window.location.href = 'https://music.youtube.com/watch?v=next';
-            musicApi.presentingType = 1;
-            musicApi.fire('onAdEnd');
+            var activeApi = \(isMusic ? "musicApi" : "moviePlayer");
+            activeApi.presentingType = 2;
+            activeApi.fire('onAdStart');
+            window.location.href = 'https://\(isMusic ? "music" : "www").youtube.com/watch?v=next';
+            activeApi.presentingType = 1;
+            activeApi.fire('onAdEnd');
             """,
             in: context
         )
 
         #expect(!context.evaluateScript("lastState().isAd").toBool())
-        #expect(context.evaluateScript("lastState().hasContentMetadata").toBool())
-        #expect(context.evaluateScript("lastState().trackChanged").toBool())
+        if isMusic {
+            #expect(context.evaluateScript("lastState().trackChanged").toBool())
+        }
         #expect(context.evaluateScript("lastState().videoId").toString() == "next")
+    }
+
+    @Test("Early ad-end events preserve native content state on both players", arguments: [false, true])
+    func earlyAdEndPreservesNativeState(isMusic: Bool) throws {
+        let context = try self.makeContext(isMusic: isMusic)
+        try self.installObserver(isMusic: isMusic, in: context)
+        try self.evaluate(
+            """
+            var contentData = currentData;
+            var activeApi = \(isMusic ? "musicApi" : "moviePlayer");
+            currentData = { video_id: 'creative', title: 'Advertisement', author: 'Advertiser' };
+            video.currentSrc = 'https://media.example/creative';
+            video.currentTime = 0;
+            video.duration = 30;
+            activeApi.presentingType = 2;
+            activeApi.fire('onAdStart');
+            activeApi.presentingType = 1;
+            activeApi.fire('onAdEnd');
+            """,
+            in: context
+        )
+        let isAd = context.evaluateScript("lastState().isAd").toBool()
+        let hasReadyMedia = context.evaluateScript("lastState().hasReadyMedia").toBool()
+        #expect(isAd)
+        let standaloneDetection = """
+        (function() {
+            \(PlaybackAdDetectionScript.detection)
+            return isAdShowing();
+        })();
+        """
+        #expect(context.evaluateScript(standaloneDetection).toBool())
+        if isMusic {
+            #expect(!SingletonPlayerWebView.isAuthoritativePlaybackSample(
+                hasReadyMedia: hasReadyMedia,
+                isShowingAd: isAd
+            ))
+        } else {
+            let controller = MockYouTubeWatchPlaybackController()
+            let player = YouTubePlayerService(playbackController: controller)
+            defer { player.stop() }
+            player.play(video: MockYouTubeClient.makeVideo(videoId: "content"))
+            player.updatePlaybackState(.init(
+                isPlaying: true,
+                progress: 12,
+                duration: 180,
+                hasReadyMedia: true,
+                videoId: "content",
+                boundVideoId: "content"
+            ))
+            player.updatePlaybackState(.init(
+                isPlaying: context.evaluateScript("lastState().isPlaying").toBool(),
+                progress: context.evaluateScript("lastState().progress").toDouble(),
+                duration: context.evaluateScript("lastState().duration").toDouble(),
+                hasReadyMedia: hasReadyMedia,
+                videoId: context.evaluateScript("lastState().videoId").toString(),
+                boundVideoId: context.evaluateScript("lastState().boundVideoId").toString(),
+                title: context.evaluateScript("lastState().title").toString(),
+                isAd: isAd
+            ))
+            let currentVideoId = player.currentVideo?.videoId
+            let isShowingAd = player.isShowingAd
+            #expect(currentVideoId == "content")
+            #expect(isShowingAd)
+            player.reloadCurrentVideoForIdentitySwitch()
+            let recoveryPositions = controller.reloadResumeSeconds
+            #expect(recoveryPositions == [12])
+        }
+
+        try self.evaluate("currentData = null;", in: context)
+        #expect(context.evaluateScript(standaloneDetection).toBool())
+        try self.evaluate(
+            """
+            currentData = contentData;
+            video.currentSrc = 'https://media.example/content';
+            video.currentTime = 12;
+            video.duration = 180;
+            fireVideoEvent('waiting');
+            """,
+            in: context
+        )
+        #expect(!context.evaluateScript("lastState().isAd").toBool())
+        #expect(context.evaluateScript("lastState().videoId").toString() == "content")
     }
 
     @Test("Recovery seeks wait for content when only the player API identifies an ad")

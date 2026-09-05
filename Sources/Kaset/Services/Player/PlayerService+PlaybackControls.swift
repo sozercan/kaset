@@ -761,12 +761,13 @@ extension PlayerService {
 
     /// Seeks to a specific time.
     func seek(to time: TimeInterval) async {
+        guard !self.isShowingAd else { return }
         let intent = self.beginMusicPlaybackIntent()
         await self.seek(to: time, intent: intent)
     }
 
     func seek(to time: TimeInterval, intent: MusicPlaybackIntent) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard !self.isShowingAd, self.acceptsMusicPlaybackIntent(intent) else { return }
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
         self.logger.debug("Seeking to \(clampedTime)")
 

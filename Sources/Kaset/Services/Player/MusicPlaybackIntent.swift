@@ -348,7 +348,8 @@ extension PlayerService {
         guard self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
-        guard self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
+        guard !self.isShowingAd,
+              self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
               (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID,
               let playbackSnapshot,
               self.remoteMusicPlaybackSnapshot(playbackSnapshot, matches: currentVideoID)
