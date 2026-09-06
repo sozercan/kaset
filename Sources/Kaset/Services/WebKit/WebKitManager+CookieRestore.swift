@@ -28,10 +28,7 @@ extension WebKitManager {
             )
             return didDeletePersistedCookies && didClearLiveCookies
         case .unavailable:
-            self.logger.error("Cookie restore policy could not be read; preserving the archive for retry")
-            _ = await self.clearLiveLoginSessionCookies(
-                expectedGeneration: expectedGeneration
-            )
+            self.logger.error("Cookie restore policy could not be read; preserving live cookies and the archive for retry")
             return false
         }
 
@@ -52,16 +49,13 @@ extension WebKitManager {
 
         switch archiveResult {
         case .failure:
-            self.logger.error("Cookie backup storage could not be read; preserving it for retry")
-            _ = await self.clearLiveLoginSessionCookies(
-                expectedGeneration: expectedGeneration
-            )
+            self.logger.error("Cookie backup storage could not be read; preserving live cookies and the archive for retry")
             return false
         case .notFound:
-            guard await self.clearLiveLoginSessionCookies(
-                expectedGeneration: expectedGeneration
-            ) else { return false }
-            self.logger.info("No cookies found in archive storage (first run or signed out)")
+            // Explicit invalidation persists a denied restore policy before it
+            // deletes the archive. An allowed policy with no archive is not an
+            // authoritative sign-out signal and may coexist with a live login.
+            self.logger.info("No cookies found in archive storage; preserving the live WebKit session")
             return true
         case let .data(archiveData):
             // The persisted archive is the source of truth for login-session

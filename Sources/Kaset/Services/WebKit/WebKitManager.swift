@@ -15,12 +15,14 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Creates an isolated manager for unit tests. The cookie archive queue is private to the
     /// instance and backed by in-memory storage, so parallel suites cannot clear or overwrite
     /// each other's archive through the process-wide `CookieArchiveWriteQueue.shared`.
-    static func makeTestInstance() -> WebKitManager {
+    static func makeTestInstance(
+        cookieArchiveStorage: CookieArchiveStorage = .inMemory()
+    ) -> WebKitManager {
         WebKitManager(
             dataStore: .nonPersistent(),
             restoresCookies: false,
             loadsExtensions: false,
-            cookieArchiveQueue: CookieArchiveWriteQueue(storage: .inMemory())
+            cookieArchiveQueue: CookieArchiveWriteQueue(storage: cookieArchiveStorage)
         )
     }
 
