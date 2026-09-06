@@ -618,8 +618,14 @@ final class SingletonPlayerWebView {
         case standard
         /// Restart the tracked song in place. For another song, prefer the SPA router.
         case preferInPlaceWhenSameVideoId
+        /// Retry navigation through the SPA router even when Swift already tracks the requested ID.
+        case preferRouterWhenSameVideoId
         /// Reload when the tracked ID matches but the media is out of sync. For another song, prefer the SPA router.
         case forceFullPageWhenSameVideoId
+
+        var requiresSameVideoNavigation: Bool {
+            self == .preferRouterWhenSameVideoId || self == .forceFullPageWhenSameVideoId
+        }
     }
 
     nonisolated static func acceptsPlaybackRequest(
@@ -936,6 +942,8 @@ final class SingletonPlayerWebView {
             if videoId == previousVideoId {
                 self.logger.info("Force full navigation for \(videoId) (DOM/WebView resync)")
             }
+        case .preferRouterWhenSameVideoId:
+            break
         }
 
         guard let fallbackURL = Self.youtubeMusicWatchURL(videoId: videoId) else {
@@ -1162,6 +1170,17 @@ final class SingletonPlayerWebView {
                 self.startRouterFallbackFullPageNavigation(videoId: videoId, on: webView)
             }
         }
+    }
+
+    /// The router owns media confirmation and its bounded full-page fallback.
+    /// Stale observations must not restart that recovery while it is in flight.
+    func isRouterNavigationPending(for videoId: String) -> Bool {
+        guard let pendingRouterNavigation = self.pendingRouterNavigation else { return false }
+        return pendingRouterNavigation.videoId == videoId
+            && pendingRouterNavigation.generation == self.loadGeneration
+            && self.currentVideoId == videoId
+            && self.committedDocumentID != nil
+            && self.documentGeneration.accepts(generation: self.documentGeneration.currentGeneration)
     }
 
     func confirmRouterNavigationIfNeeded(videoId: String?) {

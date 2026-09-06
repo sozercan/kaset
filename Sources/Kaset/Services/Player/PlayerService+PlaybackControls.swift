@@ -238,7 +238,7 @@ extension PlayerService {
         let hasPendingSameLogicalLoad = self.pendingPlayVideoId == song.videoId
             && (self.state == .loading || self.isAwaitingPlaybackConfirmation)
         let shouldBypassSamePlaybackFastPath = bypassesSamePlaybackFastPath
-            || webLoadStrategy == .forceFullPageWhenSameVideoId
+            || webLoadStrategy.requiresSameVideoNavigation
         guard shouldBypassSamePlaybackFastPath
             || !isSameLogicalPlayback
             || (acceptsPlaybackRequest && !hasPendingSameLogicalLoad)
@@ -961,7 +961,7 @@ extension PlayerService {
             startsPaused: startsPaused,
             restoreClock: restoreClock,
             fetchesMetadata: fetchesMetadata,
-            bypassesSamePlaybackFastPath: strategy == .forceFullPageWhenSameVideoId,
+            bypassesSamePlaybackFastPath: strategy.requiresSameVideoNavigation,
             intent: intent
         )
         guard self.acceptsMusicPlaybackIntent(intent) else { return false }

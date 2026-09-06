@@ -7,6 +7,86 @@ import WebKit
 @Suite("AirPlay navigation continuity", .serialized, .tags(.service))
 @MainActor
 struct AirPlayNavigationTests {
+    @Test("Same-ID queue drift recovery retries the SPA router without replacing the document")
+    func sameTrackRouterRecoveryPreservesDocument() {
+        let webView = RecordingPlaybackWebView()
+        let singleton = Self.makePlayer(webView: webView)
+        defer { singleton.tearDown() }
+        singleton.currentVideoId = "target"
+        let generation = singleton.documentGeneration.currentGeneration
+
+        singleton.loadVideo(videoId: "target", strategy: .preferRouterWhenSameVideoId)
+
+        #expect(webView.scripts.contains { $0.contains("app.resolveCommand") })
+        #expect(!webView.scripts.contains { $0.contains("location.replace") })
+        #expect(singleton.documentGeneration.currentGeneration == generation)
+        #expect(singleton.documentGeneration.inFlightGeneration == nil)
+        #expect(singleton.isRouterNavigationPending(for: "target"))
+        singleton.confirmRouterNavigationIfNeeded(videoId: "target")
+    }
+
+    @Test("Only the pending router target coalesces recovery until its media is confirmed")
+    func pendingRouterRecoveryTracksConfirmationAndTarget() {
+        let webView = RecordingPlaybackWebView()
+        let singleton = Self.makePlayer(webView: webView)
+        defer { singleton.tearDown() }
+        singleton.currentVideoId = "source"
+        #expect(!singleton.isRouterNavigationPending(for: "target"))
+
+        singleton.loadVideo(videoId: "target")
+        singleton.confirmRouterNavigationIfNeeded(videoId: "source")
+
+        #expect(singleton.isRouterNavigationPending(for: "target"))
+        #expect(!singleton.isRouterNavigationPending(for: "source"))
+
+        singleton.loadVideo(videoId: "new-target")
+
+        #expect(!singleton.isRouterNavigationPending(for: "target"))
+        #expect(singleton.isRouterNavigationPending(for: "new-target"))
+
+        singleton.confirmRouterNavigationIfNeeded(videoId: "new-target")
+
+        #expect(!singleton.isRouterNavigationPending(for: "new-target"))
+    }
+
+    @Test("Losing the document releases a pending router recovery and requires a fresh page")
+    func lostDocumentDoesNotCoalesceRouterRecovery() {
+        let webView = RecordingPlaybackWebView()
+        let singleton = Self.makePlayer(webView: webView)
+        defer { singleton.tearDown() }
+        singleton.currentVideoId = "source"
+        singleton.loadVideo(videoId: "target")
+        singleton.invalidateDocumentNavigationState()
+
+        #expect(!singleton.isRouterNavigationPending(for: "target"))
+        webView.scripts.removeAll()
+        singleton.loadVideo(videoId: "target", strategy: .preferRouterWhenSameVideoId)
+
+        #expect(!webView.scripts.contains { $0.contains("app.resolveCommand") })
+        #expect(webView.scripts.contains { $0.contains("location.replace") })
+    }
+
+    @Test("Unconfirmed same-ID router recovery still falls back to a fresh document")
+    func unconfirmedSameTrackRouterRecoveryTimesOut() async throws {
+        let webView = RecordingPlaybackWebView()
+        let singleton = Self.makePlayer(webView: webView)
+        defer { singleton.tearDown() }
+        singleton.currentVideoId = "target"
+
+        singleton.loadVideo(videoId: "target", strategy: .preferRouterWhenSameVideoId)
+
+        #expect(singleton.isRouterNavigationPending(for: "target"))
+        #expect(!webView.scripts.contains { $0.contains("location.replace") })
+        let deadline = ContinuousClock.now.advanced(by: .seconds(20))
+        while singleton.isRouterNavigationPending(for: "target"), ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(50))
+        }
+
+        #expect(!singleton.isRouterNavigationPending(for: "target"))
+        #expect(webView.scripts.contains { $0.contains("location.replace") })
+        #expect(singleton.documentGeneration.inFlightGeneration != nil)
+    }
+
     @Test("Queue recovery for another song keeps the document and uses the SPA router")
     func differentTrackRecoveryPreservesDocument() {
         let webView = RecordingPlaybackWebView()
@@ -70,19 +150,23 @@ struct AirPlayNavigationTests {
         #expect(singleton.documentGeneration.inFlightGeneration != nil)
     }
 
-    @Test("An unavailable SPA router retains the full-page recovery path")
-    func unavailableRouterFallsBackToDocumentNavigation() {
+    @Test("An unavailable SPA router retains the full-page recovery path", arguments: [
+        SingletonPlayerWebView.VideoLoadStrategy.standard,
+        .preferRouterWhenSameVideoId,
+    ])
+    func unavailableRouterFallsBackToDocumentNavigation(strategy: SingletonPlayerWebView.VideoLoadStrategy) {
         let webView = RecordingPlaybackWebView()
         webView.routerSucceeds = false
         let singleton = Self.makePlayer(webView: webView)
         defer { singleton.tearDown() }
-        singleton.currentVideoId = "source"
+        singleton.currentVideoId = strategy == .standard ? "source" : "target"
 
-        singleton.loadVideo(videoId: "target")
+        singleton.loadVideo(videoId: "target", strategy: strategy)
 
         #expect(webView.scripts.contains { $0.contains("app.resolveCommand") })
         #expect(webView.scripts.contains { $0.contains("location.replace") })
         #expect(singleton.documentGeneration.inFlightGeneration != nil)
+        #expect(!singleton.isRouterNavigationPending(for: "target"))
     }
 
     private static func makePlayer(webView: WKWebView) -> SingletonPlayerWebView {

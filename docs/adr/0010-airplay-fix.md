@@ -20,12 +20,13 @@ Use WebKit's picker from both the main player and mini player, anchor it at the 
 
 YouTube Music can change sources within the same document and video element. WebKit also retains a selected playback target and can assign it to eligible media clients. Element replacement alone therefore does not prove that the user must reconnect. See [WebKit's media-session manager](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/Modules/airplay/WebMediaSessionManager.mm#L268) and its [AirPlay autoplay regression test](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/LayoutTests/media/airplay-autoplay.html).
 
-Kaset already uses YouTube Music's SPA router and native queue handoff. The investigation found two avoidable full-document reloads:
+Kaset already uses YouTube Music's SPA router and native queue handoff. The investigation found three avoidable full-document reloads:
 
 - Queue recovery requested `.forceFullPageWhenSameVideoId`, but `loadVideo` disabled the router even when the requested song differed from the tracked song. The strategy now forces a reload only when the IDs match. A different song uses the router when the current Music document is committed and still accepted.
 - The three-second router fallback fired while the next media was still loading. The confirmation window is now 15 seconds. A missing or failed router still falls back immediately. Existing advertisement-aware deferral remains in effect.
+- After consecutive Next commands, YouTube could briefly play the intended track and then switch to unexpected queue media. The native tracked ID already matched the intended target, so queue recovery forced a full reload. Queue recovery now uses `.preferRouterWhenSameVideoId` to reissue the intended target through the existing document, bypassing duplicate-play suppression. If a router attempt for that target is still pending, stale metadata leaves its confirmation deadline in control instead of starting another recovery.
 
-Same-ID resynchronization, an uncommitted or lost document, and an unconfirmed router transition retain full-page recovery. Normal same-ID restarts continue to use the existing in-place restart path.
+Explicit full-page resynchronization, an uncommitted or lost document, and an unconfirmed router transition retain full-page recovery. Normal same-ID restarts continue to use the existing in-place restart path.
 
 ### Picker position and window ownership
 
@@ -51,10 +52,11 @@ Packaged runtime checks used an Apple TV receiver on macOS 27:
 - Manual Next preserved AirPlay.
 - Moving between the main and mini-player windows preserved the connection.
 - An automatic track-end handoff encountered unexpected native queue media and recovered through the router. The next track played wirelessly with the same document generation, document ID, and video element. No full navigation occurred.
+- A consecutive-Next reproduction first confirmed the intended track, then observed unexpected queue media. Before the follow-up fix, same-ID recovery replaced the document and left playback local until the picker reopened. With the fix, the same recovery used the router, confirmed the intended media in about 0.5 seconds, and restored wireless playback without opening the picker. Document generation, document ID, and video element were unchanged.
 
 The repaired automatic recovery reached wireless playback about 1.3 seconds after router navigation began. This verifies the different-ID recovery fix. It does not establish a worst-case loading time or prove that every transition interrupted by the old three-second deadline will finish within 15 seconds.
 
-Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views. Window-controller tests cover minimize/restore notifications in both mini-player modes, video-window ownership, and closing a minimized window.
+Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views. Queue-recovery coverage includes same-ID routing, duplicate-play suppression, pending-target confirmation and supersession, document loss, and the full-page timeout when media never confirms. Window-controller tests cover minimize/restore notifications in both mini-player modes, video-window ownership, and closing a minimized window.
 
 ## Known limitations
 

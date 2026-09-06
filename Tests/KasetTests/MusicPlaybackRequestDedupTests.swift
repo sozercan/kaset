@@ -306,8 +306,11 @@ struct MusicPlaybackRequestDedupTests {
         #expect(playerService.currentTimeMs == 17000)
     }
 
-    @Test("Forced same-video recovery bypasses a pending duplicate load")
-    func forcedSameVideoRecoveryBypassesPendingDuplicateLoad() async {
+    @Test("Same-video recovery bypasses a pending duplicate load", arguments: [
+        SingletonPlayerWebView.VideoLoadStrategy.forceFullPageWhenSameVideoId,
+        .preferRouterWhenSameVideoId,
+    ])
+    func forcedSameVideoRecoveryBypassesPendingDuplicateLoad(strategy: SingletonPlayerWebView.VideoLoadStrategy) async {
         let videoId = "forced-recovery-video"
         let (playerService, webKitManager) = self.makeLoadedPlayer(videoId: videoId)
         _ = webKitManager
@@ -334,7 +337,7 @@ struct MusicPlaybackRequestDedupTests {
 
         await playerService.play(
             song: song,
-            webLoadStrategy: .forceFullPageWhenSameVideoId,
+            webLoadStrategy: strategy,
             isQueueNavigationRecovery: true
         )
 
