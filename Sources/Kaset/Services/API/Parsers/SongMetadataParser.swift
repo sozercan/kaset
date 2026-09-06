@@ -159,13 +159,17 @@ enum SongMetadataParser {
         var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: nil)
 
         guard let menu = renderer["menu"] as? [String: Any],
-              let menuRenderer = menu["menuRenderer"] as? [String: Any],
-              let items = menuRenderer["items"] as? [[String: Any]]
+              let menuRenderer = menu["menuRenderer"] as? [String: Any]
         else { return result }
 
-        for item in items {
-            self.parseMenuServiceItem(item, into: &result)
-            self.parseToggleMenuItem(item, into: &result)
+        // Library/feedback tokens live in `items`; like status lives in `topLevelButtons`.
+        // Parse them independently so a menu that carries one but not the other still yields
+        // what it does have (e.g. a queue row exposing a like button without an overflow menu).
+        if let items = menuRenderer["items"] as? [[String: Any]] {
+            for item in items {
+                self.parseMenuServiceItem(item, into: &result)
+                self.parseToggleMenuItem(item, into: &result)
+            }
         }
 
         self.parseLikeStatus(from: menuRenderer, into: &result)
