@@ -69,6 +69,39 @@ extension URL {
 
         return URL(string: urlString)
     }
+
+    /// Returns a square variant of a YouTube artwork URL at the requested pixel size.
+    ///
+    /// YouTube's image hosts encode the served dimensions in a `w<N>-h<N>` option suffix
+    /// (`…=w544-h544-l90-rj`). `highQualityThumbnailURL` only lifts list-sized thumbnails to
+    /// 226px, so full-size surfaces must request their own dimensions. Hosts serve at most
+    /// the source resolution, so an oversized request degrades to the original artwork.
+    func artworkURL(side: Int) -> URL? {
+        guard side > 0,
+              host?.contains("ytimg.com") == true || host?.contains("googleusercontent.com") == true
+        else { return self }
+
+        let absolute = absoluteString
+        guard let separatorIndex = absolute.lastIndex(of: "=") else { return self }
+
+        let base = absolute[absolute.startIndex ..< separatorIndex]
+        let options = absolute[absolute.index(after: separatorIndex)...]
+        guard !options.isEmpty else { return self }
+
+        var didResize = false
+        let rescaled = options.split(separator: "-").map { token -> String in
+            guard let prefix = token.first,
+                  prefix == "w" || prefix == "h",
+                  token.count > 1,
+                  token.dropFirst().allSatisfy(\.isNumber)
+            else { return String(token) }
+            didResize = true
+            return "\(prefix)\(side)"
+        }
+
+        guard didResize else { return self }
+        return URL(string: base + "=" + rescaled.joined(separator: "-")) ?? self
+    }
 }
 
 // MARK: - String Extensions

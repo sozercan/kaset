@@ -569,3 +569,7 @@
 "Start a new chat to continue." = "계속하려면 새 채팅을 시작하세요.";
 "Ask Gemini response ready" = "Gemini에게 질문 응답 준비됨";
 "New Ask Gemini chat ready" = "새 Gemini 채팅이 준비되었습니다";
+"View Artwork" = "아트워크 보기";
+"Album Artwork" = "앨범 아트워크";
+"Artwork Unavailable" = "아트워크를 사용할 수 없음";
+"This track has no artwork available." = "이 트랙에는 사용할 수 있는 아트워크가 없습니다.";

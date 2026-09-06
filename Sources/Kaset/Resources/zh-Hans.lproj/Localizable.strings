@@ -567,3 +567,7 @@
 "e.g., Remove slow songs, reorder by energy..." = "例如：移除慢歌、按能量重新排序…";
 "songs" = "首歌曲";
 "tracks" = "首曲目";
+"View Artwork" = "查看封面";
+"Album Artwork" = "专辑封面";
+"Artwork Unavailable" = "无可用封面";
+"This track has no artwork available." = "此曲目没有可用封面。";
