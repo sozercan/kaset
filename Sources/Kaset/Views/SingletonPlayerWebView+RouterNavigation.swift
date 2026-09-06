@@ -20,6 +20,7 @@ extension SingletonPlayerWebView {
             const playbackGeneration = window.__kasetNativePlaybackGeneration;
             let observationTimer = null;
             let unstartedAt = null;
+            let confirmedFailureAt = null;
             let didRetry = false;
             const retry = { generation: \(generation), cancel: cancelRetry };
             \(PlaybackAdDetectionScript.detection)
@@ -29,6 +30,7 @@ extension SingletonPlayerWebView {
                 observationTimer = null;
                 if (api && typeof api.removeEventListener === 'function') {
                     api.removeEventListener('onStateChange', handleStateChange);
+                    api.removeEventListener('onError', handlePlayerError);
                 }
             }
 
@@ -61,8 +63,18 @@ extension SingletonPlayerWebView {
                 const state = typeof event === 'number' ? event : event && event.data;
                 if (state !== -1) {
                     unstartedAt = null;
+                    confirmedFailureAt = null;
                     return;
                 }
+                observeTarget();
+            }
+
+            function handlePlayerError(event) {
+                const code = typeof event === 'number' ? event : event && event.data;
+                if (code !== 150 || !isCurrentRequest() || didRetry || !targetIsUnstarted()) return;
+                // In the failing AirPlay handoff, error 5 precedes 150. Let
+                // YouTube's final error handlers settle before the one retry.
+                if (confirmedFailureAt === null) confirmedFailureAt = performance.now();
                 observeTarget();
             }
 
@@ -74,11 +86,14 @@ extension SingletonPlayerWebView {
                 if (didRetry) return;
                 if (observationTimer !== null) clearTimeout(observationTimer);
                 observationTimer = null;
+                let nextObservationDelay = 250;
 
                 if (targetIsUnstarted()) {
                     const now = performance.now();
                     if (unstartedAt === null) unstartedAt = now;
-                    if (now - unstartedAt >= 1000) {
+                    const retryAt = Math.min(unstartedAt + 1000,
+                        confirmedFailureAt === null ? Infinity : confirmedFailureAt + 250);
+                    if (now >= retryAt) {
                         didRetry = true;
                         stopObservingPlayer();
                         // Keep ownership until media confirmation so a rapid skip
@@ -90,14 +105,16 @@ extension SingletonPlayerWebView {
                         }
                         return;
                     }
+                    nextObservationDelay = Math.min(nextObservationDelay, retryAt - now);
                 } else {
                     unstartedAt = null;
+                    confirmedFailureAt = null;
                 }
 
                 // YouTube can update track identity and media readiness after its
                 // state callback. Observe the pending target until confirmation,
-                // allowing normal loading a full second to resume before retrying.
-                observationTimer = setTimeout(observeTarget, 250);
+                // allowing normal loading a full second unless it reports failure.
+                observationTimer = setTimeout(observeTarget, nextObservationDelay);
             }
 
             if (video && (video.webkitCurrentPlaybackTargetIsWireless || previousRetry)
@@ -107,6 +124,7 @@ extension SingletonPlayerWebView {
                 && typeof api.removeEventListener === 'function') {
                 window.__kasetAirPlayNavigationRetry = retry;
                 api.addEventListener('onStateChange', handleStateChange);
+                api.addEventListener('onError', handlePlayerError);
                 window.addEventListener('pagehide', cancelRetry, { once: true });
                 observationTimer = setTimeout(observeTarget, 250);
             }

@@ -5,6 +5,91 @@ import Testing
 @Suite("AirPlay navigation recovery", .tags(.service))
 @MainActor
 struct AirPlayNavigationScriptTests {
+    @Test("A confirmed AirPlay failure retries after YouTube's error handlers settle", arguments: ["150", "{ data: 150 }"])
+    func confirmedFailureRetriesAfterErrorHandlersSettle(error: String) throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("""
+        video.webkitCurrentPlaybackTargetIsWireless = false;
+        emitState(-1);
+        advance(100);
+        emitError(\(error));
+        advance(249);
+        """, in: context)
+        #expect(Self.requests(in: context) == ["target"])
+
+        Self.evaluate("advance(1);", in: context)
+        #expect(Self.requests(in: context) == ["target", "target"])
+
+        Self.evaluate("emitError(150); advance(2000);", in: context)
+        #expect(Self.requests(in: context) == ["target", "target"])
+        #expect(context.evaluateScript("errorListeners.length")?.toInt32() == 0)
+    }
+
+    @Test("An initial HTML5 error keeps the normal stalled-player settling window")
+    func initialSourceErrorKeepsNormalSettlingWindow() throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("emitState(-1); emitError(5); advance(350);", in: context)
+        #expect(Self.requests(in: context) == ["target"])
+
+        Self.evaluate("advance(650);", in: context)
+        #expect(Self.requests(in: context) == ["target", "target"])
+    }
+
+    @Test("A late failure does not extend the original stalled-player wait")
+    func confirmedFailureDoesNotDelayExistingRecovery() throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("emitState(-1); advance(900); emitError(150); advance(100);", in: context)
+        #expect(Self.requests(in: context) == ["target", "target"])
+    }
+
+    @Test("Resumed buffering resets the shorter error recovery window")
+    func resumedBufferingClearsConfirmedFailure() throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("""
+        emitState(-1); emitError(150); advance(100);
+        emitState(3); emitState(-1); advance(250);
+        """, in: context)
+        #expect(Self.requests(in: context) == ["target"])
+
+        Self.evaluate("advance(750);", in: context)
+        #expect(Self.requests(in: context) == ["target", "target"])
+    }
+
+    @Test("A failed source still revalidates media identity and advertisement state", arguments: [
+        "video.readyState = 1;",
+        "video = Object.assign({}, video);",
+        "currentVideoId = 'other';",
+        "api.getPresentingPlayerType = () => 2;",
+    ])
+    func confirmedFailureRevalidatesMedia(setup: String) throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("emitState(-1); emitError(150); advance(100); \(setup) advance(2000);", in: context)
+        #expect(Self.requests(in: context) == ["target"])
+    }
+
+    @Test("An older error callback cannot accelerate a newer navigation")
+    func staleErrorDoesNotAccelerateNewNavigation() throws {
+        let context = try Self.makeContext()
+        Self.navigate(to: "first", generation: 1, in: context)
+        Self.evaluate("""
+        const oldError = errorListeners[0];
+        emitState(-1); emitError(150); advance(100);
+        video.webkitCurrentPlaybackTargetIsWireless = false;
+        window.__kasetNativePlaybackGeneration += 1;
+        """, in: context)
+        Self.navigate(to: "second", generation: 2, in: context)
+        Self.evaluate("emitState(-1); oldError(150); advance(250);", in: context)
+        #expect(Self.requests(in: context) == ["first", "second"])
+
+        Self.evaluate("advance(750);", in: context)
+        #expect(Self.requests(in: context) == ["first", "second", "second"])
+    }
+
     @Test("An unstarted AirPlay target is retried once inside the existing document")
     func retriesUnstartedTarget() throws {
         let context = try Self.makeContext()
@@ -164,12 +249,13 @@ struct AirPlayNavigationScriptTests {
     func confirmationCancelsRetry() throws {
         let context = try Self.makeContext()
         Self.navigate(to: "target", generation: 1, in: context)
-        Self.evaluate("emitState(-1);", in: context)
+        Self.evaluate("emitState(-1); emitError(150);", in: context)
         Self.evaluate(SingletonPlayerWebView.routerNavigationRetryCancellationScript(generation: 1), in: context)
         Self.evaluate("advance(1000);", in: context)
 
         #expect(Self.requests(in: context) == ["target"])
         #expect(context.evaluateScript("stateListeners.length")?.toInt32() == 0)
+        #expect(context.evaluateScript("errorListeners.length")?.toInt32() == 0)
         #expect(context.evaluateScript("timers.size")?.toInt32() == 0)
         #expect(context.evaluateScript("window.__kasetAirPlayNavigationRetry === null")?.toBool() == true)
     }
@@ -234,10 +320,11 @@ struct AirPlayNavigationScriptTests {
     func pageHideCancelsRetry() throws {
         let context = try Self.makeContext()
         Self.navigate(to: "target", generation: 1, in: context)
-        Self.evaluate("emitState(-1); hidePage(); advance(1000);", in: context)
+        Self.evaluate("emitState(-1); emitError(150); hidePage(); advance(1000);", in: context)
 
         #expect(Self.requests(in: context) == ["target"])
         #expect(context.evaluateScript("stateListeners.length")?.toInt32() == 0)
+        #expect(context.evaluateScript("errorListeners.length")?.toInt32() == 0)
         #expect(context.evaluateScript("timers.size")?.toInt32() == 0)
     }
 
@@ -280,6 +367,7 @@ struct AirPlayNavigationScriptTests {
         var originalVideo = video;
         var requests = [];
         var stateListeners = [];
+        var errorListeners = [];
         var pageHideListeners = [];
         var timers = new Map();
         var nextTimer = 0;
@@ -290,9 +378,11 @@ struct AirPlayNavigationScriptTests {
             getPlayerState: () => playerState,
             addEventListener: (event, handler) => {
                 if (event === 'onStateChange') stateListeners.push(handler);
+                if (event === 'onError') errorListeners.push(handler);
             },
             removeEventListener: (event, handler) => {
                 if (event === 'onStateChange') stateListeners = stateListeners.filter(value => value !== handler);
+                if (event === 'onError') errorListeners = errorListeners.filter(value => value !== handler);
             }
         };
         var app = {
@@ -338,6 +428,7 @@ struct AirPlayNavigationScriptTests {
             playerState = typeof event === 'number' ? event : event.data;
             stateListeners.slice().forEach(handler => handler(event));
         }
+        function emitError(event) { errorListeners.slice().forEach(handler => handler(event)); }
         function hidePage() { pageHideListeners.slice().forEach(handler => handler()); }
         \(setup)
         """, in: context)
