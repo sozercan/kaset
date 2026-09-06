@@ -3,62 +3,70 @@ import WebKit
 // MARK: - SingletonPlayerWebView Playback Controls Extension
 
 extension SingletonPlayerWebView {
+    /// Enables/disables startup autoplay blocking inside the observer script.
+    func setAutoplayBlocked(_ blocked: Bool) {
+        guard let webView else { return }
+        let script = """
+            (function() {
+                window.__kasetBlockAutoplay = \(blocked ? "true" : "false");
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
+                if (!window.__kasetBlockAutoplay) return 'autoplay-allowed';
+                window.__kasetAutoplayPending = false;
+                \(WebPlaybackAudioOutput.stopScript)
+                var ticks = 0;
+                const timer = setInterval(function() {
+                    if (!window.__kasetBlockAutoplay) {
+                        clearInterval(timer);
+                        if (window.__kasetAutoplayBlockTimer === timer) window.__kasetAutoplayBlockTimer = null;
+                        return;
+                    }
+                    const video = document.querySelector('video');
+                    if (video && !video.paused) {
+                        try { video.pause(); } catch (_) {}
+                    }
+                    ticks += 1;
+                    if (ticks >= 20) {
+                        clearInterval(timer);
+                        if (window.__kasetAutoplayBlockTimer === timer) window.__kasetAutoplayBlockTimer = null;
+                    }
+                }, 150);
+                window.__kasetAutoplayBlockTimer = timer;
+                return 'autoplay-blocked';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
+    }
+
     struct PlaybackSnapshot {
         let progress: TimeInterval
         let duration: TimeInterval
         let videoId: String?
     }
 
+    nonisolated static let playbackSnapshotScript = """
+        (function() {
+            const video = document.querySelector('video');
+            if (!video || video.readyState < 1 || !video.__kasetBoundVideoId
+                || !(video.__kasetMediaGeneration > 0)) return null;
+            const source = video.currentSrc || video.src || '';
+            if (!source || source !== video.__kasetBoundMediaSource) return null;
+            return {
+                progress: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+                duration: Number.isFinite(video.duration) ? video.duration : 0,
+                videoId: video.__kasetBoundVideoId
+            };
+        })();
+    """
+
     /// Reads playback time from the live WebView video element.
     func currentPlaybackSnapshot() async -> PlaybackSnapshot? {
         guard let webView else { return nil }
 
-        let script = """
-            (function() {
-                function currentPlayerData() {
-                    const ytmusicPlayer = document.querySelector('ytmusic-player');
-                    if (ytmusicPlayer && ytmusicPlayer.playerApi
-                        && typeof ytmusicPlayer.playerApi.getVideoData === 'function') {
-                        const data = ytmusicPlayer.playerApi.getVideoData();
-                        if (data && typeof data === 'object') return data;
-                    }
-
-                    const moviePlayer = document.getElementById('movie_player');
-                    if (moviePlayer && typeof moviePlayer.getVideoData === 'function') {
-                        const data = moviePlayer.getVideoData();
-                        if (data && typeof data === 'object') return data;
-                    }
-
-                    return null;
-                }
-
-                function currentVideoId() {
-                    const playerData = currentPlayerData();
-                    if (playerData) {
-                        const playerVideoId = playerData.video_id || playerData.videoId || '';
-                        if (playerVideoId) return playerVideoId;
-                    }
-
-                    try {
-                        const url = new URL(window.location.href);
-                        return url.searchParams.get('v') || '';
-                    } catch (e) {
-                        return '';
-                    }
-                }
-
-                const video = document.querySelector('video');
-                if (!video) return null;
-                return {
-                    progress: Number.isFinite(video.currentTime) ? video.currentTime : 0,
-                    duration: Number.isFinite(video.duration) ? video.duration : 0,
-                    videoId: currentVideoId()
-                };
-            })();
-        """
-
         return await withCheckedContinuation { continuation in
-            webView.evaluateJavaScript(script) { result, error in
+            webView.evaluateJavaScript(Self.playbackSnapshotScript) { result, error in
                 if let error {
                     self.logger.error("currentPlaybackSnapshot error: \(error.localizedDescription)")
                     continuation.resume(returning: nil)
@@ -105,11 +113,15 @@ extension SingletonPlayerWebView {
                 window.__kasetAutoplayPending = wantsPlay;
                 window.__kasetPlaybackSuppressed = !wantsPlay;
                 if (wantsPlay) {
+                    window.__kasetBlockAutoplay = false;
+                    \(WebPlaybackAudioOutput.prepareScript)
                     window.__kasetAutoplayAttempts = 0;
                     window.__kasetAutoplayRetryScheduled = false;
                     if (video && typeof window.__kasetAttemptAutoplayRecovery === 'function') {
                         return window.__kasetAttemptAutoplayRecovery(video, playBtn);
                     }
+                } else {
+                    \(WebPlaybackAudioOutput.stopScript)
                 }
                 playBtn.click();
                 return 'clicked';
@@ -119,6 +131,8 @@ extension SingletonPlayerWebView {
                 if (video.paused) {
                     window.__kasetAutoplayPending = true;
                     window.__kasetPlaybackSuppressed = false;
+                    window.__kasetBlockAutoplay = false;
+                    \(WebPlaybackAudioOutput.prepareScript)
                     window.__kasetAutoplayAttempts = 0;
                     window.__kasetAutoplayRetryScheduled = false;
                     if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
@@ -129,6 +143,7 @@ extension SingletonPlayerWebView {
                 } else {
                     window.__kasetAutoplayPending = false;
                     window.__kasetPlaybackSuppressed = true;
+                    \(WebPlaybackAudioOutput.stopScript)
                     video.pause();
                     return 'paused';
                 }
@@ -161,11 +176,13 @@ extension SingletonPlayerWebView {
         (function() {
             window.__kasetAutoplayPending = true;
             window.__kasetPlaybackSuppressed = false;
+            window.__kasetBlockAutoplay = false;
             window.__kasetResumeAdOnly = false;
             window.__kasetAutoplayAttempts = 0;
             window.__kasetAutoplayRetryScheduled = false;
             const video = document.querySelector('video');
             if (video && video.paused) {
+                \(WebPlaybackAudioOutput.prepareScript)
                 if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
                     return window.__kasetAttemptAutoplayRecovery(video, null);
                 }
@@ -198,6 +215,11 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript("""
             (function() {
                 if (window.__kasetDocumentGeneration !== \(generation)) return 'stale';
+                window.__kasetBlockAutoplay = false;
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
                 \(PlaybackAdDetectionScript.detection)
                 const isAd = isAdShowing();
                 const video = document.querySelector('video');
@@ -225,6 +247,7 @@ extension SingletonPlayerWebView {
             (function() {
             window.__kasetAutoplayPending = false;
             window.__kasetPlaybackSuppressed = true;
+            \(WebPlaybackAudioOutput.stopScript)
                 const video = document.querySelector('video');
                 if (video && !video.paused) { video.pause(); return 'paused'; }
                 return 'already-paused';
@@ -288,6 +311,7 @@ extension SingletonPlayerWebView {
         let safeTime = time.isFinite ? max(time, 0) : 0
         return """
             (function() {
+                \(WebPlaybackAudioOutput.stopScript)
                 const video = document.querySelector('video');
                 if (!video) { return 'no-video'; }
                 video.pause();
@@ -306,11 +330,40 @@ extension SingletonPlayerWebView {
 
     /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
-        if let generation = self.coordinator?.playerService.currentMusicPlaybackOccurrence?.nativeGeneration {
-            self.setNativePlaybackGeneration(generation)
+        guard let webView else { return }
+        if let nativeGeneration = self.coordinator?.playerService.currentMusicPlaybackOccurrence?.nativeGeneration {
+            self.setNativePlaybackGeneration(nativeGeneration)
         }
-        self.seek(to: 0)
-        self.play()
+        let documentGeneration = self.documentGeneration.currentGeneration
+        guard self.documentGeneration.accepts(generation: documentGeneration) else { return }
+        let script = """
+            (function() {
+                if (window.__kasetDocumentGeneration !== \(documentGeneration)) return 'stale';
+                window.__kasetBlockAutoplay = false;
+                if (window.__kasetAutoplayBlockTimer) {
+                    clearInterval(window.__kasetAutoplayBlockTimer);
+                    window.__kasetAutoplayBlockTimer = null;
+                }
+                window.__kasetAutoplayPending = true;
+                window.__kasetPlaybackSuppressed = false;
+                window.__kasetResumeAdOnly = false;
+                window.__kasetAutoplayAttempts = 0;
+                window.__kasetAutoplayRetryScheduled = false;
+                const video = document.querySelector('video');
+                if (!video) return 'no-video';
+                video.currentTime = 0;
+                if (typeof window.__kasetAdvanceMediaGeneration === 'function') {
+                    window.__kasetAdvanceMediaGeneration();
+                }
+                if (typeof window.__kasetAttemptAutoplayRecovery === 'function') {
+                    window.__kasetAttemptAutoplayRecovery(video, null);
+                } else {
+                    video.play();
+                }
+                return 'restarted';
+            })();
+        """
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     /// Set volume (0.0 - 1.0).

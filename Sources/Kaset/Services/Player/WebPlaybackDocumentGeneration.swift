@@ -58,6 +58,7 @@ struct WebPlaybackDocumentGeneration: Equatable {
     static let mediaSuppressionScript = """
     (function() {
         window.__kasetPlaybackSuppressed = true;
+        \(WebPlaybackAudioOutput.stopScript)
         if (!window.__kasetPlaybackSuppressionInstalled) {
             window.__kasetPlaybackSuppressionInstalled = true;
             document.addEventListener('play', function(event) {

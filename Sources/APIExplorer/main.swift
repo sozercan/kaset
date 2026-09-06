@@ -27,8 +27,8 @@
 //    help                          - Show this help message
 //
 //  Options:
-//    -v, --verbose                 - Show raw JSON, or redacted audit schemas/samples
-//    -o, --output <file>           - Save a response; discover saves only a redacted report
+//    -v, --verbose                 - Show raw JSON or expand audits; discover/queue-probe stay redacted
+//    -o, --output <file>           - Save mode-0600 output; discover/queue-probe stay redacted
 //    --client-version <version>    - Override the resolved InnerTube client version
 //    --confirm-live-ai             - Required acknowledgement for live AI requests
 //    --prompt-file <path|->         - Read a private free-text prompt from a mode-0600 file or stdin
@@ -1711,6 +1711,192 @@ func analyzeResponse(
     output += rendererHistogram(data)
 
     return output
+}
+
+// MARK: - QueueProbeSong
+
+private struct QueueProbeSong {
+    let videoId: String
+    let title: String
+    let artists: String
+}
+
+private func playlistPanelRenderer(in data: [String: Any]) -> [String: Any]? {
+    guard let contents = data["contents"] as? [String: Any],
+          let watchNextRenderer = contents["singleColumnMusicWatchNextResultsRenderer"] as? [String: Any],
+          let tabbedRenderer = watchNextRenderer["tabbedRenderer"] as? [String: Any],
+          let watchNextTabbedResults = tabbedRenderer["watchNextTabbedResultsRenderer"] as? [String: Any],
+          let tabs = watchNextTabbedResults["tabs"] as? [[String: Any]],
+          let firstTab = tabs.first,
+          let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+          let tabContent = tabRenderer["content"] as? [String: Any],
+          let musicQueueRenderer = tabContent["musicQueueRenderer"] as? [String: Any],
+          let queueContent = musicQueueRenderer["content"] as? [String: Any]
+    else {
+        return nil
+    }
+
+    return queueContent["playlistPanelRenderer"] as? [String: Any]
+}
+
+private func playlistPanelVideoRenderer(from item: [String: Any]) -> [String: Any]? {
+    if let direct = item["playlistPanelVideoRenderer"] as? [String: Any] {
+        return direct
+    }
+
+    if let wrapper = item["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+       let primary = wrapper["primaryRenderer"] as? [String: Any],
+       let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+    {
+        return wrapped
+    }
+
+    return nil
+}
+
+private func parseQueueProbeSongs(from data: [String: Any]) -> [QueueProbeSong] {
+    guard let renderer = playlistPanelRenderer(in: data),
+          let contents = renderer["contents"] as? [[String: Any]]
+    else { return [] }
+
+    return contents.compactMap { item in
+        guard let videoRenderer = playlistPanelVideoRenderer(from: item),
+              let videoId = videoRenderer["videoId"] as? String
+        else { return nil }
+
+        let title = joinedRunsText(videoRenderer["title"] as? [String: Any]) ?? "Unknown"
+        let artists = joinedRunsText(videoRenderer["longBylineText"] as? [String: Any]) ?? ""
+        return QueueProbeSong(videoId: videoId, title: title, artists: artists)
+    }
+}
+
+private func queueProbeContinuationToken(in data: [String: Any]) -> String? {
+    guard let renderer = playlistPanelRenderer(in: data),
+          let continuations = renderer["continuations"] as? [[String: Any]],
+          let firstContinuation = continuations.first,
+          let nextRadioData = firstContinuation["nextRadioContinuationData"] as? [String: Any]
+    else { return nil }
+
+    return nextRadioData["continuation"] as? String
+}
+
+private func queueProbeAutoplayVideoId(in data: [String: Any]) -> String? {
+    guard let autoplay = data["playerOverlays"] as? [String: Any],
+          let playerOverlayRenderer = autoplay["playerOverlayRenderer"] as? [String: Any],
+          let autoplayRenderer = playerOverlayRenderer["autoplay"] as? [String: Any],
+          let playerOverlayAutoplayRenderer = autoplayRenderer["playerOverlayAutoplayRenderer"] as? [String: Any],
+          let item = playerOverlayAutoplayRenderer["item"] as? [String: Any],
+          let compactVideoRenderer = item["compactVideoRenderer"] as? [String: Any]
+    else { return nil }
+
+    return compactVideoRenderer["videoId"] as? String
+}
+
+private let queueProbeRedactedDiagnosticValue = "[REDACTED]"
+private let queueProbeDiagnosticKeys: Set<String> = [
+    "autoplay", "browseId", "compactVideoRenderer", "content", "contents", "continuation",
+    "continuations", "item", "longBylineText", "musicQueueRenderer", "nextRadioContinuationData",
+    "playerOverlayAutoplayRenderer", "playerOverlayRenderer", "playerOverlays", "playlistId",
+    "playlistPanelRenderer", "playlistPanelVideoRenderer", "playlistPanelVideoWrapperRenderer",
+    "primaryRenderer", "responseContext", "runs", "simpleText", "singleColumnMusicWatchNextResultsRenderer",
+    "tabRenderer", "tabbedRenderer", "tabs", "text", "title", "videoId", "watchNextTabbedResultsRenderer",
+]
+
+/// Preserve response structure without exporting personalized identifiers, text, or opaque values.
+private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
+    if let dictionary = value as? [String: Any] {
+        return sanitizedQueueProbeDiagnosticResponse(dictionary)
+    }
+
+    if let array = value as? [Any] {
+        return array.map(sanitizedQueueProbeDiagnosticValue)
+    }
+
+    if value is NSNull {
+        return value
+    }
+
+    return queueProbeRedactedDiagnosticValue
+}
+
+private func sanitizedQueueProbeDiagnosticResponse(_ data: [String: Any]) -> [String: Any] {
+    var sanitized: [String: Any] = [:]
+    for (index, key) in data.keys.sorted().enumerated() {
+        // Preserve known queue fields; dynamic keys may themselves contain private values.
+        // Numbered placeholders retain every member without collisions between unknown keys.
+        let safeKey = queueProbeDiagnosticKeys.contains(key) ? key : "[REDACTED_KEY_\(index)]"
+        sanitized[safeKey] = data[key].map(sanitizedQueueProbeDiagnosticValue)
+    }
+    return sanitized
+}
+
+private func prettyPrintedSanitizedQueueProbeResponse(_ data: [String: Any]) throws -> Data {
+    try JSONSerialization.data(
+        withJSONObject: sanitizedQueueProbeDiagnosticResponse(data),
+        options: [.prettyPrinted, .sortedKeys]
+    )
+}
+
+func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = false, outputFile: String? = nil) async {
+    let resolvedPlaylistId = playlistId ?? "RDAMVM\(videoId)"
+    let body: [String: Any] = [
+        "videoId": videoId,
+        "playlistId": resolvedPlaylistId,
+        "enablePersistentPlaylistPanel": true,
+        "isAudioOnly": true,
+        "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+    ]
+
+    print("🎧 Probing queue (identifiers and text stay hidden)")
+    print("   playlist: \(playlistId == nil ? "derived from seed" : "supplied")")
+    print("   endpoint: next")
+    if loadCookiesFromAppBackup() != nil, !forceUnauthenticatedRequests {
+        print("   auth: cookies available")
+    } else {
+        print("   auth: guest/no cookies")
+    }
+    print()
+
+    do {
+        let (data, statusCode) = try await makeRequest(endpoint: "next", body: body, authenticated: !forceUnauthenticatedRequests && loadCookiesFromAppBackup() != nil)
+        print("✅ HTTP \(statusCode)")
+        if statusCode == 401 || statusCode == 403 {
+            print("❌ Authentication required")
+            return
+        }
+
+        let songs = parseQueueProbeSongs(from: data)
+        let ids = songs.map(\.videoId)
+        let seedPositions = ids.enumerated().compactMap { index, id in id == videoId ? index : nil }
+        let firstPlayable = songs.first
+        let nextPlayable = songs.dropFirst().first
+        print("Queue summary:")
+        print("  • Parsed songs: \(songs.count)")
+        print("  • Seed positions: \(seedPositions.isEmpty ? "none" : seedPositions.map(String.init).joined(separator: ", "))")
+        print("  • Has first parsed song: \(firstPlayable == nil ? "no" : "yes")")
+        print("  • Has second parsed song: \(nextPlayable == nil ? "no" : "yes")")
+        print("  • Has autoplay overlay: \(queueProbeAutoplayVideoId(in: data) == nil ? "no" : "yes")")
+        print("  • Has continuation: \(queueProbeContinuationToken(in: data) == nil ? "no" : "yes")")
+
+        if verbose || outputFile != nil {
+            let sanitizedData = try prettyPrintedSanitizedQueueProbeResponse(data)
+
+            if verbose,
+               let sanitizedString = String(data: sanitizedData, encoding: .utf8)
+            {
+                print("\n📄 Sanitized response (scalar values and unknown keys redacted):")
+                print(sanitizedString)
+            }
+
+            if let outputFile {
+                let url = URL(fileURLWithPath: outputFile)
+                try writePrivateOutput(sanitizedData, to: url.path)
+                print("\n💾 Saved sanitized response to: \(outputFile)")
+            }
+        }
+    } catch {
+        print("❌ Queue probe failed (error code: \((error as NSError).code))")
+    }
 }
 
 // MARK: - Commands
@@ -3628,6 +3814,8 @@ func showHelp() {
                                          Validate one server-commanded free-text request
           search-audit <query>           Audit live Music search shapes, filters, and continuations
           continuation <token> [ep]      Explore a continuation (ep: 'browse', 'search', or 'next')
+          queue-probe <videoId> [playlistId]
+                                         Summarize the Music next/radio queue shape
           analyze-file <path>            Safely summarize a saved JSON response
           list                           List all known endpoints
           auth                           Check authentication status
@@ -3642,8 +3830,8 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show raw JSON for browse/action/continuation; expand audits
-          -o, --output <file>            Save raw output, or discover's redacted report (mode 0600)
+          -v, --verbose                  Show raw JSON or expand audits; discover/queue-probe stay redacted
+          -o, --output <file>            Save mode-0600 output; discover/queue-probe stay redacted
           --body-file <path|->           Read a sensitive JSON body from a chmod-600 file or stdin
           --prompt-file <path|->         Read a private prompt from a mode-0600 file or stdin
           --confirm-live-ai              Required acknowledgement for live Ask commands
@@ -3703,6 +3891,7 @@ func showHelp() {
           swift run api-explorer action search '{"query":"never gonna give you up"}'
           swift run api-explorer action player '{"videoId":"dQw4w9WgXcQ"}'
           swift run api-explorer action next '{"playlistId":"RDEM...","videoId":"abc123"}'
+          swift run api-explorer queue-probe dQw4w9WgXcQ
 
           # Deeply audit YouTube Music search response coverage
           swift run api-explorer --guest search-audit "ambient electronic mix"
@@ -4161,6 +4350,16 @@ func runMain() async {
         await exploreContinuation(
             token, endpoint: endpoint, verbose: verbose, outputFile: outputFile
         )
+
+    case "queue-probe":
+        guard filteredArgs.count >= 2 else {
+            print("❌ Usage: queue-probe <videoId> [playlistId]")
+            print("   playlistId defaults to RDAMVM<videoId>, matching YTMusicClient.getRadioQueue")
+            return
+        }
+        let videoId = filteredArgs[1]
+        let playlistId = filteredArgs.count >= 3 ? filteredArgs[2] : nil
+        await probeQueue(videoId: videoId, playlistId: playlistId, verbose: verbose, outputFile: outputFile)
 
     case "analyze-file":
         guard filteredArgs.count >= 2 else {

@@ -1,0 +1,86 @@
+import Foundation
+
+@MainActor
+extension PlayerService {
+    private static let queueNavigationRecoveryTimeout: Duration = .seconds(8)
+
+    func finishPlaybackAfterFailedQueueAdvance(reason: String) async {
+        // A transient failure leaves the current token intact, while a duplicate-only page can
+        // advance to another token. Only a nil token proves that the continuation is exhausted.
+        let hasRetryableMixContinuation = self.mixContinuationToken != nil
+        if !hasRetryableMixContinuation {
+            self.mixContinuationRequiresAuth = false
+        }
+        self.shouldSuppressAutoplayAfterQueueEnd = true
+        self.markPlaybackEnded()
+        self.logger.info(
+            "Ending playback after failed queue advance: \(reason), retryable continuation: \(hasRetryableMixContinuation)"
+        )
+        await self.pause()
+    }
+
+    func clearQueueNavigationRecovery() {
+        self.queueNavigationRecoveryGeneration &+= 1
+        self.queueNavigationRecoveryLoadTask?.cancel()
+        self.queueNavigationRecoveryLoadTask = nil
+        self.queueNavigationRecoveryTask?.cancel()
+        self.queueNavigationRecoveryTask = nil
+        self.queueNavigationRecoveryVideoId = nil
+    }
+
+    func scheduleQueueNavigationRecovery(for song: Song) {
+        guard self.queueNavigationRecoveryVideoId != song.videoId else {
+            self.logger.debug("Coalescing stale metadata recovery for \(song.videoId)")
+            return
+        }
+
+        self.clearQueueNavigationRecovery()
+        let generation = self.queueNavigationRecoveryGeneration
+        let intent = self.currentMusicPlaybackIntent
+        let startsPaused = self.isExplicitPauseIntentActive
+        let queueEntryID = self.currentQueueEntryID(matching: song)
+        self.queueNavigationRecoveryVideoId = song.videoId
+        self.protectQueueNavigationTarget(song.videoId)
+        self.queueNavigationRecoveryLoadTask = Task { @MainActor [weak self] in
+            guard let self,
+                  !Task.isCancelled,
+                  self.queueNavigationRecoveryGeneration == generation,
+                  self.queueNavigationRecoveryVideoId == song.videoId,
+                  self.acceptsMusicPlaybackIntent(intent),
+                  self.isExplicitPauseIntentActive == startsPaused
+            else {
+                return
+            }
+
+            await self.play(
+                song: song,
+                webLoadStrategy: .forceFullPageWhenSameVideoId,
+                queueEntryID: queueEntryID,
+                startsPaused: startsPaused,
+                isQueueNavigationRecovery: true,
+                intent: intent
+            )
+
+            guard self.queueNavigationRecoveryGeneration == generation else { return }
+            self.queueNavigationRecoveryLoadTask = nil
+        }
+        self.queueNavigationRecoveryTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(for: Self.queueNavigationRecoveryTimeout)
+            } catch {
+                return
+            }
+            guard let self,
+                  self.queueNavigationRecoveryGeneration == generation,
+                  self.queueNavigationRecoveryVideoId == song.videoId
+            else {
+                return
+            }
+            self.queueNavigationRecoveryGeneration &+= 1
+            self.queueNavigationRecoveryLoadTask?.cancel()
+            self.queueNavigationRecoveryLoadTask = nil
+            self.queueNavigationRecoveryTask = nil
+            self.queueNavigationRecoveryVideoId = nil
+        }
+    }
+}

@@ -22,6 +22,15 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         let accountID: String
     }
 
+    nonisolated static func shouldMountPersistentPlayer(
+        isLoggedIn: Bool,
+        pendingVideoId: String?,
+        isPendingRestoredLoadDeferred: Bool,
+        showVideo: Bool
+    ) -> Bool {
+        !showVideo && (isLoggedIn || (!isPendingRestoredLoadDeferred && pendingVideoId != nil))
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -217,14 +226,18 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
 
-            // Persistent WebView - present once a video is ready to load.
+            // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if let videoId = playerService.pendingPlayVideoId,
-               !self.playerService.isPendingRestoredLoadDeferred,
-               !self.playerService.showVideo
-            {
-                PersistentPlayerView(videoId: videoId, isExpanded: false)
+            // Keep authenticated Home available while restoration defers watch loading.
+            // Let the video window own the visible WebView.
+            if Self.shouldMountPersistentPlayer(
+                isLoggedIn: self.authService.state.isLoggedIn,
+                pendingVideoId: self.playerService.pendingPlayVideoId,
+                isPendingRestoredLoadDeferred: self.playerService.isPendingRestoredLoadDeferred,
+                showVideo: self.playerService.showVideo
+            ) {
+                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
                     .allowsHitTesting(false)

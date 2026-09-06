@@ -124,6 +124,9 @@ extension SingletonPlayerWebView {
         """
         (function() {
             \(eventTimestampFunctionJS)
+            const observerEpoch = (window.performance && performance.timeOrigin)
+                ? performance.timeOrigin : Date.now();
+            const documentID = Number(window.__kasetDocumentID || 0);
             if (typeof window.__kasetUseNextPrev !== 'boolean') {
                 try {
                     window.__kasetUseNextPrev =
@@ -157,7 +160,9 @@ extension SingletonPlayerWebView {
                                 .postMessage({
                                     type: 'REMOTE_NEXT',
                                     documentGeneration: window.__kasetDocumentGeneration,
-                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
                                 });
                         });
                         ms.setActionHandler('previoustrack', function() {
@@ -165,7 +170,9 @@ extension SingletonPlayerWebView {
                                 .postMessage({
                                     type: 'REMOTE_PREVIOUS',
                                     documentGeneration: window.__kasetDocumentGeneration,
-                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
                                 });
                         });
                     });

@@ -40,6 +40,9 @@ extension PlayerService {
         self.invalidatePendingPlaybackRequests()
         self.cancelDeferredQueueWork()
         self.clearRestoredPlaybackSessionState()
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         SingletonPlayerWebView.shared.tearDown()
         self.state = .idle
         self.shouldResumeAfterInterruption = false
@@ -55,6 +58,9 @@ extension PlayerService {
         self.pendingPlayVideoId = nil
         self.progress = 0
         self.currentTimeMs = 0
+        self.setPlaybackStateVideoId(nil)
+        self.currentLyricsLineIndex = nil
+        self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
         self.showMiniPlayer = false
         self.isMiniPlayerVisible = false
@@ -97,6 +103,9 @@ extension PlayerService {
         self.isAwaitingPlaybackConfirmation = false
         self.isExplicitPauseIntentActive = true
         self.clearRestoredPlaybackSessionState()
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.state = .idle
         self.songNearingEnd = false
         self.isKasetInitiatedPlayback = false
@@ -108,6 +117,9 @@ extension PlayerService {
         self.pendingPlayVideoId = nil
         self.progress = 0
         self.currentTimeMs = 0
+        self.setPlaybackStateVideoId(nil)
+        self.currentLyricsLineIndex = nil
+        self.currentLyricsDisplayTimeMs = nil
         self.duration = 0
         self.resetAdPlaybackState()
         await SingletonPlayerWebView.shared.cancelPendingPlayback()

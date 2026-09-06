@@ -11,7 +11,7 @@ extension PlayerService {
 
     /// Whether the persistent player should navigate to the pending video immediately.
     var shouldAutoloadPendingVideo: Bool {
-        !self.isPendingRestoredLoadDeferred
+        !self.isPendingRestoredLoadDeferred && self.pendingNativeQueueAdvanceVideoId == nil
     }
 
     /// Toggles between popup and side panel queue display modes.
@@ -83,12 +83,18 @@ extension PlayerService {
 
     /// Plays a track by video ID.
     func play(videoId: String) async {
+        self.playbackContextGeneration &+= 1
+        self.invalidatePendingPlaybackSelectionRequests()
         let intent = self.beginMusicPlaybackIntent()
         await self.play(videoId: videoId, intent: intent)
     }
 
     func play(videoId: String, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        self.beginPlaybackNavigation()
+        self.clearQueueNavigationRecovery()
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.logger.debug("play() called with videoId: \(videoId)")
         let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
             videoId: videoId,
@@ -163,6 +169,8 @@ extension PlayerService {
 
     /// Plays a song.
     func play(song: Song) async {
+        self.playbackContextGeneration &+= 1
+        self.invalidatePendingPlaybackSelectionRequests()
         let intent = self.beginMusicPlaybackIntent()
         await self.play(
             song: song,
@@ -179,7 +187,8 @@ extension PlayerService {
     func play(
         song: Song,
         webLoadStrategy: SingletonPlayerWebView.VideoLoadStrategy,
-        episode: ArtistEpisode? = nil
+        episode: ArtistEpisode? = nil,
+        isQueueNavigationRecovery: Bool = false
     ) async {
         let intent = self.beginMusicPlaybackIntent()
         await self.play(
@@ -187,6 +196,7 @@ extension PlayerService {
             webLoadStrategy: webLoadStrategy,
             episode: episode,
             queueEntryID: self.currentQueueEntryID(matching: song),
+            isQueueNavigationRecovery: isQueueNavigationRecovery,
             intent: intent
         )
     }
@@ -200,9 +210,17 @@ extension PlayerService {
         startsPaused: Bool = false,
         restoreClock: MusicPlaybackRestoreClock? = nil,
         fetchesMetadata: Bool = true,
+        isQueueNavigationRecovery: Bool = false,
+        bypassesSamePlaybackFastPath: Bool = false,
         intent: MusicPlaybackIntent
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        self.beginPlaybackNavigation()
+        if !isQueueNavigationRecovery {
+            self.clearQueueNavigationRecovery()
+        }
+        self.clearWebQueueInjectionState()
+        self.clearPendingNativeQueueAdvance()
         self.logger.info("Playing song: \(song.title)")
         let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
             videoId: song.videoId,
@@ -218,7 +236,10 @@ extension PlayerService {
             && self.currentEpisode?.id == episode?.id
         let hasPendingSameLogicalLoad = self.pendingPlayVideoId == song.videoId
             && (self.state == .loading || self.isAwaitingPlaybackConfirmation)
-        guard !isSameLogicalPlayback
+        let shouldBypassSamePlaybackFastPath = bypassesSamePlaybackFastPath
+            || webLoadStrategy == .forceFullPageWhenSameVideoId
+        guard shouldBypassSamePlaybackFastPath
+            || !isSameLogicalPlayback
             || (acceptsPlaybackRequest && !hasPendingSameLogicalLoad)
         else {
             if let restoreClock {
@@ -269,7 +290,13 @@ extension PlayerService {
         self.resetAdPlaybackState()
         self.progress = restoreClock?.progress ?? 0
         self.currentTimeMs = Int((restoreClock?.progress ?? 0) * 1000)
-        self.duration = max(restoreClock?.duration ?? 0, song.duration ?? 0)
+        self.duration = if let restoreClock {
+            restoreClock.duration > 0
+                ? restoreClock.duration
+                : (restoreClock.allowsSongDurationFallback ? song.duration ?? 0 : 0)
+        } else {
+            song.duration ?? 0
+        }
         self.songNearingEnd = false
         self.shouldSuppressAutoplayAfterQueueEnd = false
         self.currentTrack = song
@@ -376,6 +403,7 @@ extension PlayerService {
 
         if didStartPlayback {
             self.logger.info("Playback confirmed started")
+            self.syncWebQueue()
         }
     }
 
@@ -486,6 +514,7 @@ extension PlayerService {
     func pause(intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("Pausing playback")
+        self.clearQueueNavigationRecovery()
         self.shouldResumeAfterInterruption = false
         self.isAwaitingPlaybackConfirmation = false
         self.isExplicitPauseIntentActive = true
@@ -525,8 +554,12 @@ extension PlayerService {
         await self.resume(intent: intent)
     }
 
+    // swiftlint:disable:next cyclomatic_complexity
     func resume(intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        if await self.resolvePendingNativeQueueAdvanceForResume(intent: intent) {
+            return
+        }
         self.logger.debug("Resuming playback")
         self.isStoppingPlayback = false
         self.shouldResumeAfterInterruption = true
@@ -541,6 +574,52 @@ extension PlayerService {
             self.songNearingEnd = false
             self.shouldSuppressAutoplayAfterQueueEnd = false
             self.resetAdPlaybackState()
+        }
+
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
+
+        if self.isPendingRestoredLoadDeferred {
+            if let pendingPlayVideoId = self.pendingPlayVideoId,
+               self.shouldLoadPendingVideoBeforePlayback
+            {
+                let strategy: SingletonPlayerWebView.VideoLoadStrategy = self.shouldForcePendingRestoredLoad ? .forceFullPageWhenSameVideoId : .standard
+                self.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
+                self.showMiniPlayer = false
+                self.state = .loading
+                self.isKasetInitiatedPlayback = true
+                if SingletonPlayerWebView.shared.webView != nil {
+                    SingletonPlayerWebView.shared.loadVideo(videoId: pendingPlayVideoId, strategy: strategy)
+                    self.shouldForcePendingRestoredLoad = false
+                }
+                return
+            }
+
+            if let targetProgress = self.pendingRestoredSeek {
+                self.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
+                self.showMiniPlayer = false
+                self.state = .loading
+                self.isKasetInitiatedPlayback = true
+                if SingletonPlayerWebView.shared.webView != nil {
+                    SingletonPlayerWebView.shared.seek(to: targetProgress)
+                    SingletonPlayerWebView.shared.play()
+                } else {
+                    await self.evaluatePlayerCommand("seekTo(\(targetProgress), true)")
+                    await self.evaluatePlayerCommand("play")
+                }
+                return
+            }
+
+            self.clearRestoredPlaybackSessionState()
+            self.showMiniPlayer = false
+            self.state = .loading
+            self.isKasetInitiatedPlayback = true
+
+            if SingletonPlayerWebView.shared.webView != nil {
+                SingletonPlayerWebView.shared.play()
+            } else {
+                await self.evaluatePlayerCommand("play")
+            }
+            return
         }
 
         guard let pendingPlayVideoId = self.pendingPlayVideoId else {
@@ -583,112 +662,172 @@ extension PlayerService {
 
     /// Skips to next track.
     func next() async {
+        self.invalidatePendingPlaybackSelectionRequests()
         let intent = self.beginMusicPlaybackIntent()
-        await self.next(intent: intent)
+        _ = await self.performNextNavigation(intent: intent)
     }
 
     func next(
         intent: MusicPlaybackIntent,
         defersNetworkFollowUp: Bool = false
     ) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        _ = await self.performNextNavigation(
+            intent: intent,
+            defersNetworkFollowUp: defersNetworkFollowUp
+        )
+    }
+
+    /// Performs Next and reports whether Kaset accepted a concrete playback target.
+    /// Track-end callers use the result because a repeat-all restart can intentionally
+    /// keep the same queue entry ID and index.
+    func performNextNavigation( // swiftlint:disable:this cyclomatic_complexity
+        intent: MusicPlaybackIntent? = nil,
+        defersNetworkFollowUp: Bool = false,
+        startsPaused: Bool = false
+    ) async -> Bool {
+        let intent = intent ?? self.currentMusicPlaybackIntent
+        guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return false }
         self.logger.debug("Skipping to next track")
         self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.setAutoplayBlocked(startsPaused)
 
         if self.shouldUseNativeQueueForTrackNavigation,
            !self.queueEntries.isEmpty
         {
-            await self.advanceNativeQueue(
+            var targetIndex: Int?
+            if self.currentIndex < self.queue.count - 1 {
+                targetIndex = self.currentIndex + 1
+            } else if self.repeatMode == .all {
+                targetIndex = 0
+            } else if self.mixContinuationToken != nil {
+                let sourceContext = self.queuePlaybackContext
+                let previousCount = self.queue.count
+                await self.fetchMoreMixSongsIfNeeded()
+                guard !Task.isCancelled,
+                      self.acceptsMusicPlaybackIntent(intent),
+                      self.queuePlaybackContext == sourceContext
+                else {
+                    return false
+                }
+                if self.queue.count > previousCount {
+                    targetIndex = self.currentIndex + 1
+                }
+            }
+
+            guard let targetIndex else { return false }
+            self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
+            guard await self.loadQueueSongForNavigation(
+                at: targetIndex,
+                startsPaused: startsPaused,
                 intent: intent,
-                defersNetworkFollowUp: defersNetworkFollowUp
-            )
-            return
+                fetchesMetadata: !defersNetworkFollowUp
+            ) else { return false }
+            guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+            if defersNetworkFollowUp {
+                self.saveQueueForPersistence(syncWebQueue: false)
+                return true
+            }
+            await self.fetchMoreMixSongsIfNeeded()
+            guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+            await self.fillSmartShuffleWindow()
+            guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+            self.saveQueueForPersistence(syncWebQueue: false)
+            return true
         }
 
         // Standalone artist episodes are intentionally not in the local queue.
         // Do not let them fall through to YouTube Music's ambient next button.
         guard self.currentEpisode == nil else {
             self.logger.debug("Ignoring next for standalone artist episode playback")
-            return
+            return false
         }
 
-        if self.pendingPlayVideoId != nil {
-            SingletonPlayerWebView.shared.next()
+        guard self.queueEntries.isEmpty || self.queueEntryIDOwningCurrentPlayback != nil else {
+            self.logger.debug("Ignoring next for detached playback with a non-owning queue")
+            return false
         }
+
+        if let currentTrack = self.currentTrack {
+            let sourceGeneration = self.playbackContextGeneration
+            let sourceVideoId = currentTrack.videoId
+            let sourceEntryID = self.currentQueueEntryID
+            let radioOutcome = await self.fetchAndApplyRadioQueue(for: sourceVideoId)
+            guard !Task.isCancelled,
+                  radioOutcome != .superseded,
+                  sourceGeneration == self.playbackContextGeneration,
+                  self.currentTrack?.videoId == sourceVideoId
+            else {
+                return false
+            }
+            let resolvedSourceEntryID = self.queueEntryIDOwningCurrentPlayback ?? sourceEntryID
+            if await self.advanceToMaterializedNextQueueSongIfAvailable(
+                after: resolvedSourceEntryID,
+                currentEntryRepresentsSource: radioOutcome == .applied,
+                intent: intent,
+                defersNetworkFollowUp: defersNetworkFollowUp,
+                startsPaused: startsPaused
+            ) {
+                guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+                if defersNetworkFollowUp {
+                    self.saveQueueForPersistence(syncWebQueue: false)
+                    return true
+                }
+                await self.fetchMoreMixSongsIfNeeded()
+                guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+                await self.fillSmartShuffleWindow()
+                guard !Task.isCancelled, self.acceptsMusicPlaybackIntent(intent) else { return true }
+                self.saveQueueForPersistence(syncWebQueue: false)
+                return true
+            } else {
+                self.logger.debug("Ignoring next without a Kaset queue")
+            }
+        } else if self.pendingPlayVideoId != nil {
+            self.logger.debug("Ignoring next without a Kaset queue")
+        }
+        return false
     }
 
-    private func advanceNativeQueue(
-        intent: MusicPlaybackIntent,
-        defersNetworkFollowUp: Bool
-    ) async {
-        if self.currentIndex < self.queueEntries.count - 1 {
-            await self.advanceToQueueIndex(
-                self.currentIndex + 1,
-                intent: intent,
-                fetchesMixContinuation: true,
-                defersNetworkFollowUp: defersNetworkFollowUp
-            )
-            return
+    /// Advances using only the queue state already materialized in memory.
+    /// This is also used after async queue work is invalidated by a same-playback queue edit.
+    func advanceToMaterializedNextQueueSongIfAvailable(
+        after sourceEntryID: UUID?,
+        currentEntryRepresentsSource: Bool = false,
+        intent suppliedIntent: MusicPlaybackIntent? = nil,
+        defersNetworkFollowUp: Bool = false,
+        startsPaused: Bool = false
+    ) async -> Bool {
+        let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
+        guard self.acceptsMusicPlaybackIntent(intent), !self.queue.isEmpty else { return false }
+
+        let sourceIndex = sourceEntryID.flatMap { self.queueEntryIDs.firstIndex(of: $0) }
+            ?? (currentEntryRepresentsSource && self.queue.indices.contains(self.currentIndex)
+                ? self.currentIndex
+                : nil)
+        let targetIndex: Int? = if let sourceIndex, sourceIndex < self.queue.count - 1 {
+            sourceIndex + 1
+        } else if sourceIndex != nil, self.repeatMode == .all {
+            0
+        } else if sourceIndex == nil {
+            self.queue.indices.contains(self.currentIndex)
+                ? self.currentIndex
+                : self.queue.indices.first
+        } else {
+            nil
         }
-        if self.repeatMode == .all {
-            await self.advanceToQueueIndex(
-                0,
-                intent: intent,
-                fetchesMixContinuation: false,
-                defersNetworkFollowUp: defersNetworkFollowUp
-            )
-            return
-        }
-        guard self.mixContinuationToken != nil else { return }
-        let previousCount = self.queueEntries.count
-        let queueGeneration = self.queueLoadGeneration
-        await self.fetchMoreMixSongsIfNeeded(queueGeneration: queueGeneration)
-        guard self.acceptsMusicPlaybackIntent(intent),
-              self.queueEntries.count > previousCount
-        else { return }
-        await self.advanceToQueueIndex(
-            self.currentIndex + 1,
+
+        guard let targetIndex else { return false }
+        self.pushForwardSkipStackIfLeavingIndex(for: targetIndex)
+        return await self.loadQueueSongForNavigation(
+            at: targetIndex,
+            startsPaused: startsPaused,
             intent: intent,
-            fetchesMixContinuation: false,
-            defersNetworkFollowUp: defersNetworkFollowUp
+            fetchesMetadata: !defersNetworkFollowUp
         )
-    }
-
-    private func advanceToQueueIndex(
-        _ index: Int,
-        intent: MusicPlaybackIntent,
-        fetchesMixContinuation: Bool,
-        defersNetworkFollowUp: Bool
-    ) async {
-        guard self.acceptsMusicPlaybackIntent(intent),
-              let entry = self.queueEntries[safe: index]
-        else { return }
-        let queueGeneration = self.queueLoadGeneration
-        self.pushForwardSkipStackIfLeavingIndex(for: index)
-        self.currentIndex = index
-        await self.play(
-            song: entry.song,
-            webLoadStrategy: .standard,
-            queueEntryID: entry.id,
-            fetchesMetadata: !defersNetworkFollowUp,
-            intent: intent
-        )
-        guard self.isCurrentQueueLoad(queueGeneration) else { return }
-        if defersNetworkFollowUp {
-            self.saveQueueForPersistence()
-            return
-        }
-        if fetchesMixContinuation {
-            await self.fetchMoreMixSongsIfNeeded(queueGeneration: queueGeneration)
-            guard self.isCurrentQueueLoad(queueGeneration) else { return }
-        }
-        await self.fillSmartShuffleWindow()
-        guard self.isCurrentQueueLoad(queueGeneration) else { return }
-        self.saveQueueForPersistence()
     }
 
     /// Goes to previous track.
     func previous() async {
+        self.invalidatePendingPlaybackSelectionRequests()
         let intent = self.beginMusicPlaybackIntent()
         await self.previous(intent: intent)
     }
@@ -698,8 +837,43 @@ extension PlayerService {
         defersNetworkFollowUp: Bool = false
     ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        if self.pendingNativeQueueAdvance != nil {
+            let sourceIsAvailable = self.hasAvailablePendingNativeQueueAdvanceSource
+            let startsPaused = self.isExplicitPauseIntentActive
+            if !sourceIsAvailable {
+                self.cancelPendingNativeQueueAdvanceForExplicitPriorNavigation(reason: "previous")
+                self.progress = 0
+                self.currentTimeMs = 0
+                let priorIndex = self.popForwardSkipIndex().flatMap { index in
+                    self.queueEntries.indices.contains(index) ? index : nil
+                } ?? (self.currentIndex > 0 ? self.currentIndex - 1 : self.currentIndex)
+                if self.queueEntries.indices.contains(priorIndex) {
+                    _ = await self.loadQueueSongForNavigation(
+                        at: priorIndex,
+                        startsPaused: startsPaused,
+                        intent: intent,
+                        fetchesMetadata: !defersNetworkFollowUp
+                    )
+                    return
+                }
+            } else {
+                let restartsSource = self.progress > 3
+                    || (self.currentIndex == 0 && self.peekForwardSkipIndex() == nil)
+                if restartsSource,
+                   await self.reanchorPendingNativeQueueAdvanceSource(
+                       intent: intent,
+                       startsPaused: startsPaused,
+                       reason: "previous"
+                   )
+                {
+                    return
+                }
+                self.cancelPendingNativeQueueAdvanceForExplicitPriorNavigation(reason: "previous")
+            }
+        }
         self.logger.debug("Going to previous track")
         self.clearRestoredPlaybackSessionState()
+        SingletonPlayerWebView.shared.setAutoplayBlocked(false)
 
         if self.shouldUseNativeQueueForTrackNavigation,
            !self.queueEntries.isEmpty
@@ -711,34 +885,22 @@ extension PlayerService {
             }
 
             if let priorIndex = self.popForwardSkipIndex(), self.queueEntries.indices.contains(priorIndex) {
-                self.currentIndex = priorIndex
-                if let previousEntry = self.queueEntries[safe: priorIndex] {
-                    await self.play(
-                        song: previousEntry.song,
-                        webLoadStrategy: .standard,
-                        queueEntryID: previousEntry.id,
-                        fetchesMetadata: !defersNetworkFollowUp,
-                        intent: intent
-                    )
-                }
+                _ = await self.loadQueueSongForNavigation(
+                    at: priorIndex,
+                    intent: intent,
+                    fetchesMetadata: !defersNetworkFollowUp
+                )
                 guard self.isCurrentQueueLoad(queueGeneration) else { return }
-                self.saveQueueForPersistence()
                 return
             }
 
             if self.currentIndex > 0 {
-                self.currentIndex -= 1
-                if let previousEntry = self.queueEntries[safe: self.currentIndex] {
-                    await self.play(
-                        song: previousEntry.song,
-                        webLoadStrategy: .standard,
-                        queueEntryID: previousEntry.id,
-                        fetchesMetadata: !defersNetworkFollowUp,
-                        intent: intent
-                    )
-                }
+                _ = await self.loadQueueSongForNavigation(
+                    at: self.currentIndex - 1,
+                    intent: intent,
+                    fetchesMetadata: !defersNetworkFollowUp
+                )
                 guard self.isCurrentQueueLoad(queueGeneration) else { return }
-                self.saveQueueForPersistence()
             } else {
                 await self.seek(to: 0, intent: intent)
             }
@@ -755,8 +917,94 @@ extension PlayerService {
         if self.progress > 3 {
             await self.seek(to: 0, intent: intent)
         } else {
-            SingletonPlayerWebView.shared.previous()
+            self.logger.debug("Ignoring previous without a Kaset-owned queue")
         }
+    }
+
+    /// Navigates to a queue song through Kaset's deterministic load path.
+    @discardableResult
+    func loadQueueSongForNavigation(
+        at index: Int,
+        webLoadStrategy strategyOverride: SingletonPlayerWebView.VideoLoadStrategy? = nil,
+        startsPaused: Bool = false,
+        restoreClock: MusicPlaybackRestoreClock? = nil,
+        intent suppliedIntent: MusicPlaybackIntent? = nil,
+        fetchesMetadata: Bool = true
+    ) async -> Bool {
+        let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
+        guard self.acceptsMusicPlaybackIntent(intent),
+              let entry = self.queueEntries[safe: index]
+        else { return false }
+        let song = entry.song
+        self.currentIndex = index
+        self.progress = restoreClock?.progress ?? 0
+        self.currentTimeMs = Int((restoreClock?.progress ?? 0) * 1000)
+        self.duration = if let restoreClock {
+            restoreClock.duration > 0
+                ? restoreClock.duration
+                : (restoreClock.allowsSongDurationFallback ? song.duration ?? 0 : 0)
+        } else {
+            song.duration ?? 0
+        }
+        self.protectQueueNavigationTarget(song.videoId)
+        let strategy = strategyOverride ?? SingletonPlayerWebView.queueNavigationStrategy(
+            currentVideoId: SingletonPlayerWebView.shared.currentVideoId,
+            targetVideoId: song.videoId,
+            startsPaused: startsPaused,
+            allowsInPlaceRestart: SingletonPlayerWebView.shared.canRestartInPlace
+        )
+        await self.play(
+            song: song,
+            webLoadStrategy: strategy,
+            queueEntryID: entry.id,
+            startsPaused: startsPaused,
+            restoreClock: restoreClock,
+            fetchesMetadata: fetchesMetadata,
+            bypassesSamePlaybackFastPath: strategy == .forceFullPageWhenSameVideoId,
+            intent: intent
+        )
+        guard self.acceptsMusicPlaybackIntent(intent) else { return false }
+        self.saveQueueForPersistence()
+        return true
+    }
+
+    /// Commits a media-confirmed native WebView queue transition without forcing a page load.
+    func advanceQueueStateForNativeNavigation(to index: Int) {
+        guard let song = self.queue[safe: index] else { return }
+
+        self.beginPlaybackNavigation()
+        let trackChanged = self.currentTrack?.videoId != song.videoId
+        self.currentIndex = index
+        self.activePlaybackQueueEntryID = self.currentQueueEntryID
+        self.currentTrack = song
+        self.currentEpisode = nil
+        self.pendingPlayVideoId = song.videoId
+        self.progress = 0
+        self.duration = song.duration ?? 0
+        self.protectQueueNavigationTarget(song.videoId)
+        // The confirming media observation may already be paused. Starting from
+        // `.paused` lets the same observation promote to `.playing` when needed,
+        // while a non-playing observation cannot otherwise escape `.loading`.
+        self.state = .paused
+        self.isKasetInitiatedPlayback = false
+        self.songNearingEnd = false
+        self.shouldSuppressAutoplayAfterQueueEnd = false
+        self.currentTrackHasVideo = song.musicVideoType?.hasVideoContent ?? song.hasVideo ?? false
+
+        if trackChanged {
+            self.resetTrackStatus()
+            if let cachedStatus = self.songLikeStatusManager.status(for: song.videoId) {
+                self.currentTrackLikeStatus = cachedStatus
+            }
+        }
+
+        if let details = song.feedbackTokens {
+            self.currentTrackFeedbackTokens = details
+            self.currentTrackInLibrary = song.isInLibrary ?? false
+            self.currentTrackLikeStatus = song.likeStatus ?? self.currentTrackLikeStatus
+        }
+
+        self.saveQueueForPersistence(syncWebQueue: false)
     }
 
     /// Seeks to a specific time.
@@ -769,16 +1017,46 @@ extension PlayerService {
     func seek(to time: TimeInterval, intent: MusicPlaybackIntent) async {
         guard !self.isShowingAd, self.acceptsMusicPlaybackIntent(intent) else { return }
         let clampedTime = self.duration > 0 ? min(max(time, 0), self.duration) : max(time, 0)
-        self.logger.debug("Seeking to \(clampedTime)")
-
-        if self.isPendingRestoredLoadDeferred {
-            self.progress = clampedTime
-            self.pendingRestoredSeek = clampedTime
+        if self.pendingNativeQueueAdvance != nil,
+           self.duration > 0,
+           clampedTime >= self.duration - Self.seekToEndThreshold
+        {
+            await self.resolvePendingNativeQueueAdvanceForExplicitTerminal(
+                intent: intent,
+                reason: "manual seek reached end during native handoff"
+            )
             return
         }
 
+        if self.pendingNativeQueueAdvance != nil {
+            let startsPaused = self.isExplicitPauseIntentActive
+            let restoreClock = MusicPlaybackRestoreClock(
+                progress: clampedTime,
+                duration: self.duration,
+                isExplicitTransportSeek: true
+            )
+            if await self.reanchorPendingNativeQueueAdvanceSource(
+                intent: intent,
+                startsPaused: startsPaused,
+                restoreClock: restoreClock,
+                reason: "backward seek"
+            ) {
+                return
+            }
+        }
+        self.logger.debug("Seeking to \(clampedTime)")
+
+        if await self.retargetRestoredPlaybackSeekIfNeeded(
+            to: clampedTime,
+            intent: intent
+        ) {
+            return
+        }
+
+        guard !self.isShowingAd else { return }
+
         if self.duration > 0, clampedTime >= self.duration - Self.seekToEndThreshold {
-            await self.handleManualSeekToEnd()
+            await self.handleManualSeekToEnd(intent: intent)
             return
         }
 
@@ -906,6 +1184,9 @@ extension PlayerService {
     /// Cycles through repeat modes: off -> all -> one -> off.
     func cycleRepeatMode() {
         self.advanceRepeatMode()
+        self.clearWebQueueInjectionState()
+        self.revalidatePendingNativeQueueAdvanceAfterRepeatModeChange()
+        self.syncWebQueue()
         self.logger.info("Repeat mode: \(String(describing: self.repeatMode))")
     }
 
