@@ -355,8 +355,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
 
-    /// Whether the native mini player window is visible.
+    /// Whether the native mini player window is open, including when minimized.
     var isMiniPlayerVisible: Bool = false
+
+    var isMiniPlayerMiniaturized: Bool = false
+
+    var shouldHostPlaybackInMiniPlayer: Bool {
+        self.isMiniPlayerVisible && !self.isMiniPlayerMiniaturized && !self.showVideo
+    }
 
     /// How the native mini player was opened.
     var miniPlayerMode: MiniPlayerMode = .auxiliary

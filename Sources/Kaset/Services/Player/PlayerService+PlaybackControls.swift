@@ -55,6 +55,7 @@ extension PlayerService {
     @discardableResult
     func closeMiniPlayer(restoringMainWindow shouldRestore: Bool) -> Bool {
         self.isMiniPlayerVisible = false
+        self.isMiniPlayerMiniaturized = false
         self.miniPlayerMode = .auxiliary
         self.shouldRestoreMainWindowWhenMiniPlayerCloses = false
         self.miniPlayerMainWindowRestoreRequest = shouldRestore

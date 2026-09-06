@@ -113,7 +113,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         .background(alignment: .bottomTrailing) {
             // The picker needs the playback WebView in a visible window. Move
             // the same WebView here while the main window is hidden.
-            if !self.playerService.showVideo {
+            if self.playerService.shouldHostPlaybackInMiniPlayer {
                 PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)

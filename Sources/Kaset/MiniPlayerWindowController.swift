@@ -17,6 +17,15 @@ final class MiniPlayerWindowController {
 
     private init() {}
 
+    /// Creates an isolated controller without presenting a window or loading playback.
+    static func makeTestInstance(window: NSWindow, playerService: PlayerService) -> MiniPlayerWindowController {
+        let controller = MiniPlayerWindowController()
+        controller.window = window
+        controller.playerService = playerService
+        controller.observeWindow(window)
+        return controller
+    }
+
     func show(
         playerService: PlayerService,
         client: any YTMusicClientProtocol,
@@ -35,6 +44,7 @@ final class MiniPlayerWindowController {
 
         if let existingWindow = self.window {
             self.isClosing = false
+            playerService.isMiniPlayerMiniaturized = existingWindow.isMiniaturized
             self.hostingView?.rootView = AnyView(contentView)
             existingWindow.delegate = nil
             Self.hideStandardWindowButtons(existingWindow)
@@ -73,12 +83,7 @@ final class MiniPlayerWindowController {
         }
         self.applySize(for: playerService.miniPlayerPanel, window: window)
 
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(self.windowWillClose),
-            name: NSWindow.willCloseNotification,
-            object: window
-        )
+        self.observeWindow(window)
         window.orderFront(nil)
         self.window = window
         self.isClosing = false
@@ -89,7 +94,7 @@ final class MiniPlayerWindowController {
         guard let window = self.window else { return }
 
         self.isClosing = true
-        NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
+        NotificationCenter.default.removeObserver(self, name: nil, object: window)
         window.saveFrame(usingName: self.frameAutosaveKey)
         self.performCleanup()
         window.close()
@@ -119,6 +124,29 @@ final class MiniPlayerWindowController {
         self.window?.orderFrontRegardless()
     }
 
+    private func observeWindow(_ window: NSWindow) {
+        self.playerService?.isMiniPlayerMiniaturized = window.isMiniaturized
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.windowWillClose),
+            name: NSWindow.willCloseNotification,
+            object: window
+        )
+        for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+            NotificationCenter.default.addObserver(
+                self,
+                selector: #selector(self.windowMiniaturizationChanged),
+                name: name,
+                object: window
+            )
+        }
+    }
+
+    @objc private func windowMiniaturizationChanged(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow, window === self.window else { return }
+        self.playerService?.isMiniPlayerMiniaturized = notification.name == NSWindow.didMiniaturizeNotification
+    }
+
     @objc private func windowWillClose(_ notification: Notification) {
         guard !self.isClosing else { return }
         self.isClosing = true
@@ -133,8 +161,9 @@ final class MiniPlayerWindowController {
 
     private func performCleanup() {
         if let window {
-            NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)
+            NotificationCenter.default.removeObserver(self, name: nil, object: window)
         }
+        self.playerService?.isMiniPlayerMiniaturized = false
         self.window = nil
         self.hostingView = nil
         self.playerService = nil

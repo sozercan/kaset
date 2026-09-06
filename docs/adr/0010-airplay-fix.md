@@ -35,7 +35,7 @@ WebKit uses the document's [last native mouse position](https://github.com/WebKi
 
 The event uses the playback window's content-view coordinates. WebKit supplies the [window's content view](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebKit/UIProcess/mac/WebPageProxyMac.mm#L877) to its picker, but its [picker conversion treats window coordinates as view coordinates](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/platform/graphics/avfoundation/objc/AVRoutePickerViewTargetPicker.mm#L120). Converting the anchor compensates for flipped SwiftUI content views.
 
-The mini player now calls the same WebKit picker instead of an unbound `AVRoutePickerView`. While the mini player is visible, it hosts the existing hidden playback WebView and the main window releases that host. The visible video window retains ownership when video mode is active. Moving the WebView between windows preserves its document and media element.
+The mini player now calls the same WebKit picker instead of an unbound `AVRoutePickerView`. While the mini player is visible, it hosts the existing hidden playback WebView and the main window releases that host. Minimize and restore notifications update hosting separately from the mini player's open state, so an auxiliary mini player releases playback to the main window while minimized and takes it back when restored. The visible video window retains ownership when video mode is active. Moving the WebView between windows preserves its document and media element.
 
 ### Connection reporting
 
@@ -54,7 +54,7 @@ Packaged runtime checks used an Apple TV receiver on macOS 27:
 
 The repaired automatic recovery reached wireless playback about 1.3 seconds after router navigation began. This verifies the different-ID recovery fix. It does not establish a worst-case loading time or prove that every transition interrupted by the old three-second deadline will finish within 15 seconds.
 
-Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views.
+Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views. Window-controller tests cover minimize/restore notifications in both mini-player modes, video-window ownership, and closing a minimized window.
 
 ## Known limitations
 

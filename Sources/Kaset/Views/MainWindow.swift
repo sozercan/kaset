@@ -231,7 +231,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
             // Keep authenticated Home available while restoration defers watch loading.
             // Let the video or mini-player window own the WebView while visible.
-            if !self.playerService.isMiniPlayerVisible, Self.shouldMountPersistentPlayer(
+            if !self.playerService.shouldHostPlaybackInMiniPlayer, Self.shouldMountPersistentPlayer(
                 isLoggedIn: self.authService.state.isLoggedIn,
                 pendingVideoId: self.playerService.pendingPlayVideoId,
                 isPendingRestoredLoadDeferred: self.playerService.isPendingRestoredLoadDeferred,
