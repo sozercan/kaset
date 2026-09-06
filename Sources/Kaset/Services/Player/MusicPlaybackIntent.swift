@@ -463,7 +463,10 @@ extension PlayerService {
         currentVideoID: String?,
         playbackStateObservationSequence: Int
     ) -> (progress: TimeInterval, duration: TimeInterval)? {
-        if self.playbackStateObservationSequence != playbackStateObservationSequence {
+        // Rejected stale observations also advance the sequence, without updating the clock.
+        if self.playbackStateObservationSequence != playbackStateObservationSequence,
+           self.playbackStateVideoId == currentVideoID
+        {
             return (self.progress, self.duration)
         }
         guard let playbackSnapshot,

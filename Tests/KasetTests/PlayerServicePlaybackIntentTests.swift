@@ -400,6 +400,55 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(!playerService.isShowingAd)
     }
 
+    @Test("A rejected stale observation cannot supersede a valid remote seek snapshot", arguments: [false, true])
+    func remoteSeekIgnoresRejectedObservationWhileAwaitingSnapshot(snapshotAvailable: Bool) async {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let song = self.makeSong(id: "remote-current")
+        await playerService.playQueue([song], startingAt: 0)
+        playerService.state = .playing
+        playerService.updatePlaybackState(
+            isPlaying: true,
+            progress: 40,
+            duration: 180,
+            observedVideoId: song.videoId
+        )
+        let snapshotStarted = AsyncGate()
+        let releaseSnapshot = AsyncGate()
+        playerService.currentMusicPlaybackSnapshot = {
+            await snapshotStarted.open()
+            await releaseSnapshot.wait()
+            return snapshotAvailable ? SingletonPlayerWebView.PlaybackSnapshot(
+                progress: 100,
+                duration: 180,
+                videoId: song.videoId
+            ) : nil
+        }
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await snapshotStarted.wait()
+        let sequenceBeforeStaleSample = playerService.playbackStateObservationSequence
+        playerService.updatePlaybackState(
+            isPlaying: true,
+            progress: 175,
+            duration: 200,
+            observedVideoId: "remote-stale"
+        )
+        #expect(playerService.playbackStateObservationSequence > sequenceBeforeStaleSample)
+        #expect(playerService.playbackStateVideoId == "remote-stale")
+        #expect(playerService.progress == 40)
+
+        await releaseSnapshot.open()
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.progress == (snapshotAvailable ? 85 : 40))
+        #expect(playerService.remoteMusicSkipTarget == (snapshotAvailable ? 85 : nil))
+    }
+
     @Test("Remote relative seek batch preserves deltas during source re-anchor")
     func remoteRelativeSeekBatchPreservesDeltasDuringSourceReanchor() async {
         let (playerService, _) = self.makePlayerService()
