@@ -729,7 +729,7 @@ final class SingletonPlayerWebView {
             nativePlaybackGeneration: playerService.currentNativeMusicPlaybackGeneration
         )
 
-        let newWebView = WKWebView(frame: .zero, configuration: configuration)
+        let newWebView = KasetWebView(frame: .zero, configuration: configuration)
         newWebView.navigationDelegate = self.coordinator
         newWebView.customUserAgent = WebKitManager.userAgent
         self.webKitManager = webKitManager
