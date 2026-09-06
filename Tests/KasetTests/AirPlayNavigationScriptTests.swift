@@ -1,6 +1,9 @@
 import JavaScriptCore
 import Testing
+import WebKit
 @testable import Kaset
+
+// MARK: - AirPlayNavigationScriptTests
 
 @Suite("AirPlay navigation recovery", .tags(.service))
 @MainActor
@@ -328,6 +331,38 @@ struct AirPlayNavigationScriptTests {
         #expect(context.evaluateScript("timers.size")?.toInt32() == 0)
     }
 
+    @Test("Stopping or suppressing a document cancels a pending AirPlay retry", arguments: [false, true], [false, true])
+    func documentSuppressionCancelsPendingRetry(explicitStop: Bool, confirmedFailure: Bool) async throws {
+        let context = try Self.makeContext(setup: """
+        video.paused = true;
+        video.pause = () => { video.paused = true; };
+        document.addEventListener = () => {};
+        document.querySelectorAll = () => [video];
+        """)
+        let webView = AirPlayRetryTestWebView(context: context)
+        let singleton = SingletonPlayerWebView.makeTestInstance(webView: webView)
+        defer { singleton.tearDown() }
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("emitState(-1); const staleError = errorListeners[0];", in: context)
+        if confirmedFailure {
+            Self.evaluate("emitError(150);", in: context)
+        }
+        Self.evaluate("advance(100); const staleTimer = Array.from(timers.values())[0].callback;", in: context)
+
+        if explicitStop {
+            await singleton.cancelPendingPlayback()
+        } else {
+            singleton.suppressSurvivingDocumentMedia(webView)
+        }
+        Self.evaluate("staleTimer(); staleError(150); advance(2000);", in: context)
+
+        #expect(Self.requests(in: context) == ["target"])
+        #expect(context.evaluateScript("window.__kasetAirPlayNavigationRetry === null")?.toBool() == true)
+        #expect(context.evaluateScript("stateListeners.length + errorListeners.length + pageHideListeners.length")?.toInt32() == 0)
+        #expect(context.evaluateScript("timers.size")?.toInt32() == 0)
+        #expect(context.evaluateScript("window.__kasetPlaybackSuppressed && !window.__kasetAutoplayPending")?.toBool() == true)
+    }
+
     @Test("Recovery preserves autoplay suppression received during the handoff")
     func retryKeepsCurrentAutoplaySuppression() throws {
         let context = try Self.makeContext()
@@ -446,5 +481,33 @@ struct AirPlayNavigationScriptTests {
 
     private static func requests(in context: JSContext) -> [String] {
         context.evaluateScript("requests")?.toArray() as? [String] ?? []
+    }
+}
+
+// MARK: - AirPlayRetryTestWebView
+
+@MainActor
+private final class AirPlayRetryTestWebView: WKWebView {
+    private let context: JSContext
+
+    init(context: JSContext) {
+        self.context = context
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        super.init(frame: .zero, configuration: configuration)
+    }
+
+    @available(*, unavailable)
+    required init?(coder _: NSCoder) {
+        nil
+    }
+
+    override func evaluateJavaScript(
+        _ javaScriptString: String,
+        completionHandler: (@MainActor @Sendable (Any?, (any Error)?) -> Void)? = nil
+    ) {
+        let result = self.context.evaluateScript(javaScriptString)
+        #expect(self.context.exception == nil)
+        completionHandler?(result?.toObject(), nil)
     }
 }

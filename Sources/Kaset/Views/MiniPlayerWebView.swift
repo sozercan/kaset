@@ -1099,7 +1099,6 @@ final class SingletonPlayerWebView {
         }
 
         let prenavScript = """
-            window.__kasetAirPlayNavigationRetry?.cancel();
             window.__kasetAutoplayPending = false;
             window.__kasetAutoplayAttempts = 0;
             window.__kasetAutoplayRetryScheduled = false;

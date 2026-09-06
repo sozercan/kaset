@@ -36,7 +36,7 @@ Both the source-error sequence and a competing native autoplay transition can le
 
 Track identity and media readiness can update after the player-state event. A timer checks the pending target every 250 milliseconds, or sooner when a retry deadline is nearer, and starts the settling window once all conditions match. Resumed loading resets both recovery windows.
 
-The retry requires the same playback occurrence, requested video ID, and unloaded media element. A rapid skip cancels the old retry and inherits its pending AirPlay handoff while WebKit's wireless flag is temporarily false. Media confirmation, page replacement, teardown, and leaving the page release that handoff. A late callback cannot cancel a newer retry. The original confirmation deadline still bounds a failed recovery.
+The retry requires the same playback occurrence, requested video ID, and unloaded media element. A rapid skip cancels the old retry and inherits its pending AirPlay handoff while WebKit's wireless flag is temporarily false. Media confirmation, page replacement, teardown, and leaving the page release that handoff. Explicit stop and failed-navigation suppression cancel the same retry before pausing media. A late callback cannot cancel a newer retry. The original confirmation deadline still bounds a failed recovery.
 
 ### Picker position and window ownership
 
