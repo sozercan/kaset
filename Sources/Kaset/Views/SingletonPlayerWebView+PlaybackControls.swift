@@ -416,10 +416,32 @@ extension SingletonPlayerWebView {
     }
 
     /// Show the native AirPlay picker for the WebView's video element.
-    func showAirPlayPicker() {
+    func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         guard let webView else {
             DiagnosticsLogger.airplay.warning("showAirPlayPicker called but webView is nil")
             return
+        }
+
+        // WebKit anchors the picker at its last native mouse position and treats
+        // that point as content-view coordinates, including a flipped SwiftUI host.
+        // A zero-click mouse-up updates it through public WKWebView API without
+        // pressing any of YouTube's controls. See ADR-0010 for the WebKit paths.
+        if let screenPoint, let window = webView.window, let contentView = window.contentView {
+            let windowPoint = window.convertPoint(fromScreen: screenPoint)
+            let pickerPoint = contentView.convert(windowPoint, from: nil)
+            if let event = NSEvent.mouseEvent(
+                with: .leftMouseUp,
+                location: pickerPoint,
+                modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                windowNumber: window.windowNumber,
+                context: nil,
+                eventNumber: 0,
+                clickCount: 0,
+                pressure: 0
+            ) {
+                webView.mouseUp(with: event)
+            }
         }
 
         let script = """
@@ -428,7 +450,6 @@ extension SingletonPlayerWebView {
                 if (!video) return 'no-video';
                 if (typeof video.webkitShowPlaybackTargetPicker !== 'function') return 'unsupported';
 
-                window.__kasetAirPlayRequested = true;
                 video.webkitShowPlaybackTargetPicker();
                 return 'picker-shown';
             })();

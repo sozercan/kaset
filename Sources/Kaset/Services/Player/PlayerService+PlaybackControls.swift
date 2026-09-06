@@ -1191,17 +1191,13 @@ extension PlayerService {
     }
 
     /// Show the AirPlay picker for selecting audio output devices.
-    func showAirPlayPicker() {
-        self.markAirPlayRequested()
-        SingletonPlayerWebView.shared.showAirPlayPicker()
+    func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
+        SingletonPlayerWebView.shared.showAirPlayPicker(at: screenPoint)
     }
 
     /// Updates the AirPlay connection status from the WebView.
-    func updateAirPlayStatus(isConnected: Bool, wasRequested: Bool = false) {
+    func updateAirPlayStatus(isConnected: Bool) {
         self.isAirPlayConnected = isConnected
-        if wasRequested {
-            self.markAirPlayRequested()
-        }
     }
 
     /// Legacy method for evaluating player commands - now delegates to SingletonPlayerWebView.

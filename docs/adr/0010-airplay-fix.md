@@ -1,155 +1,71 @@
-# ADR-0010: Fix AirPlay for WebView-Based Playback
+# ADR-0010: Fix AirPlay for WebView-based playback
 
 ## Status
 
-Implemented (with known limitations)
+Implemented, with remaining recovery and compatibility limits documented below.
 
 ## Context
 
-**Issue:** [GitHub Issue #42](https://github.com/sozercan/kaset/issues/42) - AirPlay does not work
+[Issue #42](https://github.com/sozercan/kaset/issues/42) reported that selecting an AirPlay device in the app left audio playing on the Mac. System-wide AirPlay worked.
 
-The in-app AirPlay button shows available devices and allows selection, but audio continues playing from the Mac instead of the selected AirPlay device. System-wide AirPlay settings work correctly.
+Kaset plays DRM-protected media through `WKWebView`. The original `AVRoutePickerView` had no connection to that media, so selecting a device did not route WebKit playback. The first fix replaced the main player's control with `video.webkitShowPlaybackTargetPicker()`.
 
-### Root Cause
-
-**Architectural mismatch between the AirPlay UI control and the audio playback system:**
-
-1. **Current Implementation**: Uses `AVRoutePickerView` (AVKit) which only controls routing for AVFoundation-based playback (AVPlayer, AVAudioSession)
-2. **Audio Source**: App uses WKWebView to play YouTube Music (required for Widevine DRM per ADR-0001)
-3. **The Disconnect**: `AVRoutePickerView` has no connection to WebKit's audio output
+The original version of this ADR also claimed that every track change destroys the video element and that the picker's position follows the video's CSS bounds. Runtime traces and WebKit source inspection disproved both claims.
 
 ## Decision
 
-Replace `AVRoutePickerView` with WebKit's native AirPlay picker triggered via JavaScript injection using `webkitShowPlaybackTargetPicker()`.
+Use WebKit's picker from both the main player and mini player, anchor it at the invoking button, and preserve the playback document during normal track changes and recoverable queue drift. Report connection state from the current media element.
 
-This follows the existing pattern used for play/pause, volume, seek, and other playback controls in `SingletonPlayerWebView+PlaybackControls.swift`.
+### Track continuity
 
-## Implementation
+YouTube Music can change sources within the same document and video element. WebKit also retains a selected playback target and can assign it to eligible media clients. Element replacement alone therefore does not prove that the user must reconnect. See [WebKit's media-session manager](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/Modules/airplay/WebMediaSessionManager.mm#L268) and its [AirPlay autoplay regression test](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/LayoutTests/media/airplay-autoplay.html).
 
-### Files to Modify
+Kaset already uses YouTube Music's SPA router and native queue handoff. The investigation found two avoidable full-document reloads:
 
-1. **`Sources/Kaset/Views/SingletonPlayerWebView+PlaybackControls.swift`** - Add `showAirPlayPicker()` method
-2. **`Sources/Kaset/Views/PlayerBar.swift`** - Replace `AVRoutePickerView` with custom button
-3. **`Sources/Kaset/Services/Player/PlayerService.swift`** - Add `showAirPlayPicker()` method to call through to SingletonPlayerWebView
+- Queue recovery requested `.forceFullPageWhenSameVideoId`, but `loadVideo` disabled the router even when the requested song differed from the tracked song. The strategy now forces a reload only when the IDs match. A different song uses the router when the current Music document is committed and still accepted.
+- The three-second router fallback fired while the next media was still loading. The confirmation window is now 15 seconds. A missing or failed router still falls back immediately. Existing advertisement-aware deferral remains in effect.
 
-### Step 1: Add JavaScript injection method
+Same-ID resynchronization, an uncommitted or lost document, and an unconfirmed router transition retain full-page recovery. Normal same-ID restarts continue to use the existing in-place restart path.
 
-**File:** `Sources/Kaset/Views/SingletonPlayerWebView+PlaybackControls.swift`
+### Picker position and window ownership
 
-```swift
-/// Show the native AirPlay picker for the WebView's video element.
-func showAirPlayPicker() {
-    guard let webView else { return }
+WebKit uses the document's [last native mouse position](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/dom/Document.cpp#L10297) to anchor the picker. Changing the video's CSS bounds does not set that position.
 
-    let script = """
-        (function() {
-            const video = document.querySelector('video');
-            if (video && typeof video.webkitShowPlaybackTargetPicker === 'function') {
-                video.webkitShowPlaybackTargetPicker();
-                return 'picker-shown';
-            }
-            return 'no-video-or-unsupported';
-        })();
-    """
-    webView.evaluateJavaScript(script) { [weak self] result, error in
-        if let error {
-            self?.logger.error("showAirPlayPicker error: \(error.localizedDescription)")
-        } else if let result = result as? String {
-            self?.logger.debug("showAirPlayPicker: \(result)")
-        }
-    }
-}
-```
+`AirPlayPickerAnchorView` resolves the invoking button's screen position. Before calling `webkitShowPlaybackTargetPicker()`, Kaset forwards a zero-click `mouseUp` event to the playback `WKWebView`, with no preceding mouse-down. This updates WebKit's anchor through public AppKit and WebKit APIs.
 
-### Step 2: Add PlayerService method
+The event uses the playback window's content-view coordinates. WebKit supplies the [window's content view](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebKit/UIProcess/mac/WebPageProxyMac.mm#L877) to its picker, but its [picker conversion treats window coordinates as view coordinates](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/platform/graphics/avfoundation/objc/AVRoutePickerViewTargetPicker.mm#L120). Converting the anchor compensates for flipped SwiftUI content views.
 
-**File:** `Sources/Kaset/Services/Player/PlayerService.swift`
+The mini player now calls the same WebKit picker instead of an unbound `AVRoutePickerView`. While the mini player is visible, it hosts the existing hidden playback WebView and the main window releases that host. The visible video window retains ownership when video mode is active. Moving the WebView between windows preserves its document and media element.
 
-```swift
-/// Show the AirPlay picker for selecting audio output devices.
-func showAirPlayPicker() {
-    SingletonPlayerWebView.shared.showAirPlayPicker()
-}
-```
+### Connection reporting
 
-Note: No `Task` wrapper needed since `PlayerService` is already `@MainActor`.
+The observer publishes `webkitCurrentPlaybackTargetIsWireless` for the current `document.querySelector('video')`. It sends initial state, including false when media is absent, and updates on attachment, replacement, removal, and wireless-target events. Duplicate reports are suppressed, and late events from detached media are ignored.
 
-### Step 3: Replace AirPlayButton in PlayerBar
-
-**File:** `Sources/Kaset/Views/PlayerBar.swift`
-
-Replace the `AVRoutePickerView`-based `AirPlayButton` with:
-
-```swift
-Button {
-    HapticService.toggle()
-    self.playerService.showAirPlayPicker()
-} label: {
-    Image(systemName: "airplayaudio")
-        .font(.system(size: 15, weight: .medium))
-        .foregroundStyle(.primary.opacity(0.85))
-}
-.buttonStyle(.pressable)
-.accessibilityIdentifier(AccessibilityID.PlayerBar.airplayButton)
-.accessibilityLabel("AirPlay")
-.disabled(self.playerService.currentTrack == nil)
-```
-
-Notes:
-- `HapticService.toggle()` matches other PlayerBar buttons
-- `self.` prefix per SwiftFormat `--self insert` rule
-- Disabled when no track to avoid silent failures (requires video element)
-
-### Step 4: Add accessibility identifier constant
-
-**File:** Wherever `AccessibilityID.PlayerBar` is defined (likely `Sources/Kaset/Constants/AccessibilityID.swift` or similar)
-
-```swift
-static let airplayButton = "playerBar.airplayButton"
-```
-
-### Step 5: Clean up unused code
-
-- Remove the `AirPlayButton` struct (lines 541-555)
-- Remove `import AVKit` from PlayerBar.swift if no longer used
-
-## Consequences
-
-### Positive
-
-- **Actually works** - AirPlay will route WebView audio to selected devices
-- **Consistent pattern** - Uses same JavaScript injection approach as other playback controls
-- **Native picker** - Shows WebKit's native AirPlay UI which matches system behavior
-
-### Negative
-
-- **Availability detection unreliable** - `webkitplaybacktargetavailabilitychanged` may not fire in WKWebView, so button visibility can't be conditional on AirPlay device availability
-- **Requires active playback** - Picker needs video element to exist; button is disabled until a track is playing
-- **Minor UX change** - Current `AVRoutePickerView` shows devices even without playback (though they don't work). New approach disables button until playback starts, which is more honest but slightly different behavior
+An accepted document commit, WebView teardown, or loss of the current WebContent process clears the native connection indicator. The unused "AirPlay requested" state was removed because opening the picker does not establish a connection.
 
 ## Verification
 
-1. Build the app - ensure no compilation errors
-2. Start playing a song
-3. Click the AirPlay button
-4. Verify native WebKit AirPlay picker appears
-5. Select an AirPlay device (Sonos, HomePod, Apple TV)
-6. Verify audio routes to selected device
+Packaged runtime checks used an Apple TV receiver on macOS 27:
 
-## Known Limitations
+- The main and mini-player pickers appeared at their respective buttons and showed the selected receiver.
+- Manual Next preserved AirPlay.
+- Moving between the main and mini-player windows preserved the connection.
+- An automatic track-end handoff encountered unexpected native queue media and recovered through the router. The next track played wirelessly with the same document generation, document ID, and video element. No full navigation occurred.
 
-### AirPlay Connection Lost on Track Change
+The repaired automatic recovery reached wireless playback about 1.3 seconds after router navigation began. This verifies the different-ID recovery fix. It does not establish a worst-case loading time or prove that every transition interrupted by the old three-second deadline will finish within 15 seconds.
 
-**Problem:** When a track changes (skip, song ends), YouTube Music destroys and recreates the `<video>` element. This breaks the AirPlay connection because WebKit ties the AirPlay session to the specific video element instance.
+Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views.
 
-**Why This Can't Be Fixed:** WebKit does not provide a programmatic API to connect to an AirPlay device. The user must manually click the AirPlay button and select a device after each track change. There is no way to automatically reconnect to the previously selected device.
+## Known limitations
 
-### Picker Position
-
-The AirPlay picker's position is determined by the video element's location in the viewport. Since YouTube Music hides the video element (0x0 at position 0,0), the picker appears in the top-left corner. Attempts to reposition the video element via CSS have been unsuccessful due to YouTube's CSS hierarchy. This is a cosmetic issue - the picker still functions correctly.
+- Full document, WebContent-process, or account-store recovery can lose the route. Receiver disappearance can also require the user to reopen the picker. Kaset has no supported API to silently choose a receiver.
+- A router that accepts navigation but never confirms the target media now waits 15 seconds before full-page recovery, up from three seconds. Advertisement-aware deferral can extend that wait.
+- Route retention does not guarantee gapless audio. WebKit may briefly report a local target while loading the next source before restoring the wireless route.
+- Picker placement depends on WebKit's native event handling and coordinate conversion. Hardware verification covered an Apple TV on macOS 27. Other receivers and macOS versions still need runtime verification.
+- Device-availability events remain unreliable in `WKWebView`. The button stays available when a track is selected, but opening the picker still requires a media element.
 
 ## References
 
 - [Apple: Adding an AirPlay button to Safari media controls](https://developer.apple.com/documentation/webkitjs/adding_an_airplay_button_to_your_safari_media_controls)
 - [Apple Developer Forums: AirPlay inside a webview](https://developer.apple.com/forums/thread/30179)
-- ADR-0001: WebView-Based Playback
+- [ADR-0001: WebView-based playback](0001-webview-playback.md)

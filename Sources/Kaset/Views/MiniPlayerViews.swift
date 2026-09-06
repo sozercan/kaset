@@ -22,14 +22,12 @@ struct PersistentPlayerView: NSViewRepresentable {
         let container = NSView(frame: .zero)
         container.wantsLayer = true
 
-        // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
             playerService: self.playerService,
             usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
-        // Remove from any previous superview and add to this container
         webView.removeFromSuperview()
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
@@ -48,7 +46,6 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: NSView, context _: Context) {
-        // Ensure WebView is in this container
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
             playerService: self.playerService,
@@ -102,6 +99,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     @State private var isAdjustingVolume = false
     @State private var detailPane: DetailPane = .lyrics
     @State private var isHovering = false
+    @State private var airPlayAnchor = AirPlayPickerAnchor()
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -111,6 +109,16 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             self.hoverChrome
+        }
+        .background(alignment: .bottomTrailing) {
+            // The picker needs the playback WebView in a visible window. Move
+            // the same WebView here while the main window is hidden.
+            if !self.playerService.showVideo {
+                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
+                    .frame(width: 1, height: 1)
+                    .opacity(0)
+                    .allowsHitTesting(false)
+            }
         }
         .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
         .contentShape(.rect)
@@ -471,21 +479,20 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private var airPlayButton: some View {
-        ZStack {
-            MiniPlayerAirPlayRoutePickerView()
-                .frame(width: 22, height: 22)
-
-            MiniPlayerGlassIconLabel(systemName: "airplayaudio", isActive: self.playerService.isAirPlayConnected, size: 22)
-                .allowsHitTesting(false)
+        self.hoverIconButton(
+            systemName: "airplayaudio",
+            accessibilityID: AccessibilityID.MiniPlayer.airplayButton,
+            label: self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"),
+            isActive: self.playerService.isAirPlayConnected
+        ) {
+            HapticService.toggle()
+            self.playerService.showAirPlayPicker(at: self.airPlayAnchor.screenPoint)
         }
-        .compatGlass(interactive: true, in: .circle)
-        .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
-        .accessibilityIdentifier(AccessibilityID.MiniPlayer.airplayButton)
-        .accessibilityLabel(self.playerService.isAirPlayConnected ? String(localized: "AirPlay Connected") : String(localized: "AirPlay"))
-        .disabled(self.playerService.currentTrack == nil)
-        .simultaneousGesture(TapGesture().onEnded {
-            self.playerService.markAirPlayRequested()
-        })
+        .background {
+            AirPlayPickerAnchorView(anchor: self.airPlayAnchor)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     @ViewBuilder

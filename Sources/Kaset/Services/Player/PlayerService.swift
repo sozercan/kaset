@@ -466,9 +466,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether AirPlay is currently connected (playing to a wireless target).
     var isAirPlayConnected: Bool = false
 
-    /// Whether the user has requested AirPlay this session (for persistence across track changes).
-    private(set) var airPlayWasRequested: Bool = false
-
     // MARK: - Internal Properties (for extensions)
 
     let logger = DiagnosticsLogger.player
@@ -710,11 +707,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Records that playback has succeeded after a user gesture in this app session.
     func markUserInteractedThisSession() {
         self.hasUserInteractedThisSession = true
-    }
-
-    /// Records that the user explicitly requested AirPlay in this app session.
-    func markAirPlayRequested() {
-        self.airPlayWasRequested = true
     }
 
     /// Clears forward-skip undo when the queue is replaced or reordered so indices are not stale.

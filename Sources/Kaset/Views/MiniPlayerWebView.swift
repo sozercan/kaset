@@ -445,7 +445,9 @@ struct MiniPlayerWebView: NSViewRepresentable {
 @MainActor
 // swiftlint:disable:next type_body_length
 final class SingletonPlayerWebView {
-    private static let routerNavigationFallbackDelay: Duration = .seconds(3)
+    /// Media confirmation can take longer than three seconds while AirPlay changes
+    /// sources. Keep a bounded recovery window without reloading a healthy handoff.
+    private static let routerNavigationFallbackDelay: Duration = .seconds(15)
 
     private struct PendingRouterNavigation {
         let videoId: String
@@ -562,8 +564,14 @@ final class SingletonPlayerWebView {
     static let shared = SingletonPlayerWebView()
 
     /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
-    static func makeTestInstance() -> SingletonPlayerWebView {
-        SingletonPlayerWebView()
+    static func makeTestInstance(
+        webView: WKWebView? = nil,
+        documentGeneration: WebPlaybackDocumentGeneration = WebPlaybackDocumentGeneration()
+    ) -> SingletonPlayerWebView {
+        let instance = SingletonPlayerWebView()
+        instance.webView = webView
+        instance.documentGeneration = documentGeneration
+        return instance
     }
 
     private(set) var webView: WKWebView?
@@ -608,9 +616,9 @@ final class SingletonPlayerWebView {
     enum VideoLoadStrategy: Equatable {
         /// Skip navigation when `videoId` matches `currentVideoId`.
         case standard
-        /// Same `videoId` as tracked: `seek(0)` + play only (fast). Different id: full watch URL load.
+        /// Restart the tracked song in place. For another song, prefer the SPA router.
         case preferInPlaceWhenSameVideoId
-        /// Same `videoId` as tracked: full `webView.load` (DOM out of sync with Swift). Different id: full load.
+        /// Reload when the tracked ID matches but the media is out of sync. For another song, prefer the SPA router.
         case forceFullPageWhenSameVideoId
     }
 
@@ -834,6 +842,7 @@ final class SingletonPlayerWebView {
 
     /// Stops playback, blanks the page, and detaches the persistent music WebView.
     func tearDown() {
+        self.coordinator?.playerService.updateAirPlayStatus(isConnected: false)
         let blankURL = self.beginBlankDocumentNavigation()
         guard let webView else { return }
         self.logger.info("Tearing down singleton music WebView")
@@ -900,7 +909,7 @@ final class SingletonPlayerWebView {
 
     /// Load a video, stopping any currently playing audio first.
     /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
-    /// AirPlay connections will be lost on full navigation but the auto-reconnect picker will appear.
+    /// Preserve the document through the SPA router when possible to retain the AirPlay route.
     func loadVideo(videoId: String, strategy: VideoLoadStrategy = .standard) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
@@ -949,7 +958,9 @@ final class SingletonPlayerWebView {
         let nativePlaybackGeneration = playerService?.currentNativeMusicPlaybackGeneration ?? 0
         self.logger.info("Will apply volume \(currentVolume) after page load")
 
-        let canUseRouter = strategy != .forceFullPageWhenSameVideoId
+        let requiresSameVideoReload = strategy == .forceFullPageWhenSameVideoId && videoId == previousVideoId
+        let canUseRouter = !requiresSameVideoReload
+            && self.committedDocumentID != nil
             && self.documentGeneration.accepts(generation: self.documentGeneration.currentGeneration)
             && WebPlaybackDocumentGeneration.isExpectedPlaybackURL(
                 webView.url,
@@ -2150,6 +2161,7 @@ extension SingletonPlayerWebView {
 
     func recoverFromContentProcessTermination(webView: WKWebView) {
         guard webView === self.webView else { return }
+        self.coordinator?.playerService.updateAirPlayStatus(isConnected: false)
         DiagnosticsLogger.player.error("Singleton WebView content process terminated, attempting recovery")
         self.invalidateDocumentNavigationState()
         self.cancelledDocumentNavigations.removeAll()
