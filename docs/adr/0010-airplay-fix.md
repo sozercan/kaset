@@ -28,6 +28,16 @@ Kaset already uses YouTube Music's SPA router and native queue handoff. The inve
 
 Explicit full-page resynchronization, an uncommitted or lost document, and an unconfirmed router transition retain full-page recovery. Normal same-ID restarts continue to use the existing in-place restart path.
 
+### Stalled AirPlay track changes
+
+An accepted router command can fail before YouTube assigns the next media source. In the reproduced AirPlay transition, YouTube emitted player errors `5` and `150` for the requested track, then automatically played a different song from its own queue. Kaset kept showing the requested song until its 15-second fallback replaced the document and lost the route. The requested song played successfully when connected to AirPlay directly.
+
+Both the source-error sequence and a competing native autoplay transition can leave the requested player unstarted (`-1`) with no loaded media. For navigation that starts on a wireless media element, Kaset retries the requested router command once if that state persists for one second. The delay lets normal loading and YouTube's error handlers settle before recovery interrupts its automatic skip. Buffering, paused, loaded, and advertisement media do not trigger recovery. The player states and error values are described in [YouTube's player API reference](https://developers.google.com/youtube/iframe_api_reference#Events).
+
+Track identity and media readiness can update after the player-state event. A timer checks the pending target every 250 milliseconds and starts the settling window once all conditions match. Player-state changes also reset the window when loading resumes.
+
+The retry requires the same playback occurrence, requested video ID, and unloaded media element. A rapid skip cancels the old retry and inherits its pending AirPlay handoff while WebKit's wireless flag is temporarily false. Media confirmation, page replacement, teardown, and leaving the page release that handoff. A late callback cannot cancel a newer retry. The original confirmation deadline still bounds a failed recovery.
+
 ### Picker position and window ownership
 
 WebKit uses the document's [last native mouse position](https://github.com/WebKit/WebKit/blob/6270255c36bd2919ef0eea13368231f488df509b/Source/WebCore/dom/Document.cpp#L10297) to anchor the picker. Changing the video's CSS bounds does not set that position.
@@ -53,15 +63,20 @@ Packaged runtime checks used an Apple TV receiver on macOS 27:
 - Moving between the main and mini-player windows preserved the connection.
 - An automatic track-end handoff encountered unexpected native queue media and recovered through the router. The next track played wirelessly with the same document generation, document ID, and video element. No full navigation occurred.
 - A consecutive-Next reproduction first confirmed the intended track, then observed unexpected queue media. Before the follow-up fix, same-ID recovery replaced the document and left playback local until the picker reopened. With the fix, the same recovery used the router, confirmed the intended media in about 0.5 seconds, and restored wireless playback without opening the picker. Document generation, document ID, and video element were unchanged.
+- Skipping from "Aslolan Aşktır" to "İncelikler" reproduced the source-error sequence and an unexpected YouTube queue song. An error-triggered prototype reissued the requested track inside the existing document. WebKit then reported wireless playback with matching player-response and Media Session metadata, through that song and the following natural transition to "Seyrüsefer". A later transition exposed the equivalent unstarted state without an error event.
+
+The final state-based recovery has unit coverage, including delayed identity and readiness updates and a missing state callback. Its packaged receiver check remains pending. The prototype's receiver audio and display were not independently confirmed.
 
 The repaired automatic recovery reached wireless playback about 1.3 seconds after router navigation began. This verifies the different-ID recovery fix. It does not establish a worst-case loading time or prove that every transition interrupted by the old three-second deadline will finish within 15 seconds.
 
 Unit coverage exercises the production observer, current-versus-stale document resets, `loadVideo` routing and fallback, and picker event ordering and coordinates in flipped and unflipped AppKit content views. Queue-recovery coverage includes same-ID routing, duplicate-play suppression, pending-target confirmation and supersession, document loss, and the full-page timeout when media never confirms. Window-controller tests cover minimize/restore notifications in both mini-player modes, video-window ownership, and closing a minimized window.
 
+The router script's tests exercise the measured unstarted state, its single retry, buffering and pause transitions, advertisements, rapid-skip supersession, playback-occurrence changes, confirmation cancellation, and late callbacks after media or document changes.
+
 ## Known limitations
 
 - Full document, WebContent-process, or account-store recovery can lose the route. Receiver disappearance can also require the user to reopen the picker. Kaset has no supported API to silently choose a receiver.
-- A router that accepts navigation but never confirms the target media now waits 15 seconds before full-page recovery, up from three seconds. Advertisement-aware deferral can extend that wait.
+- A router that accepts navigation but never confirms the target media, including after the single AirPlay recovery retry, waits 15 seconds before full-page recovery. Advertisement-aware deferral can extend that wait.
 - Route retention does not guarantee gapless audio. WebKit may briefly report a local target while loading the next source before restoring the wireless route.
 - Picker placement depends on WebKit's native event handling and coordinate conversion. Hardware verification covered an Apple TV on macOS 27. Other receivers and macOS versions still need runtime verification.
 - Device-availability events remain unreliable in `WKWebView`. The button stays available when a track is selected, but opening the picker still requires a media element.

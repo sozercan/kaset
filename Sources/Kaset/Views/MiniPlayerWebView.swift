@@ -860,7 +860,10 @@ final class SingletonPlayerWebView {
         self.committedDocumentID = nil
         self.isDocumentNavigationInProgress = false
         self.currentVideoId = nil
-        webView.evaluateJavaScript("document.querySelector('video')?.pause()", completionHandler: nil)
+        webView.evaluateJavaScript(
+            "window.__kasetAirPlayNavigationRetry?.cancel(); document.querySelector('video')?.pause();",
+            completionHandler: nil
+        )
         if let blankURL {
             webView.load(URLRequest(url: blankURL))
         }
@@ -1096,6 +1099,7 @@ final class SingletonPlayerWebView {
         }
 
         let prenavScript = """
+            window.__kasetAirPlayNavigationRetry?.cancel();
             window.__kasetAutoplayPending = false;
             window.__kasetAutoplayAttempts = 0;
             window.__kasetAutoplayRetryScheduled = false;
@@ -1121,19 +1125,7 @@ final class SingletonPlayerWebView {
             return
         }
 
-        let videoIdLiteral = Self.javaScriptStringLiteral(videoId)
-        let routerScript = """
-        (function() {
-            const app = document.querySelector('ytmusic-app');
-            if (!app || typeof app.resolveCommand !== 'function') return false;
-            try {
-                app.resolveCommand({ watchEndpoint: { videoId: \(videoIdLiteral) } });
-                return true;
-            } catch (_) {
-                return false;
-            }
-        })();
-        """
+        let routerScript = Self.routerNavigationScript(videoId: videoId, generation: generation)
 
         let fallbackStartedAt = ContinuousClock.now
         self.pendingRouterNavigation = PendingRouterNavigation(
@@ -1193,6 +1185,10 @@ final class SingletonPlayerWebView {
         }
 
         self.pendingRouterNavigation = nil
+        self.webView?.evaluateJavaScript(
+            Self.routerNavigationRetryCancellationScript(generation: pendingRouterNavigation.generation),
+            completionHandler: nil
+        )
         self.logger.debug("Router navigation confirmed for video: \(videoId)")
     }
 
