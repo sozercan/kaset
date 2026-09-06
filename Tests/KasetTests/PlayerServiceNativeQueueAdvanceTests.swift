@@ -1183,32 +1183,55 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
     }
 
-    @Test("Native maintenance resynchronizes the newly materialized successor")
-    func nativeMaintenanceResynchronizesMaterializedSuccessor() async {
+    @Test("Native maintenance resynchronizes the successor across metadata updates", arguments: [false, true])
+    func nativeMaintenanceResynchronizesMaterializedSuccessor(refreshMetadata: Bool) async throws {
         let mockClient = MockYTMusicClient()
+        let continuationStarted = AsyncGate()
         let continuationGate = AsyncGate()
         let songs = [
-            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
-            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+            TestFixtures.makeSong(id: "v1", title: "Song 1"),
+            TestFixtures.makeSong(id: "v2", title: "Song 2"),
         ]
-        let successor = Song(id: "3", title: "Song 3", artists: [], duration: 220, videoId: "v3")
-        mockClient.mixQueueContinuationGate = continuationGate
+        let successor = TestFixtures.makeSong(id: "v3", title: "Song 3")
+        mockClient.beforeMixQueueContinuationReturn = { _ in
+            await continuationStarted.open()
+            await continuationGate.wait()
+        }
         mockClient.mixQueueContinuationResult = RadioQueueResult(
             songs: [successor],
             continuationToken: nil
         )
+        let previousWebVideoId = SingletonPlayerWebView.shared.currentVideoId
+        defer { SingletonPlayerWebView.shared.currentVideoId = previousWebVideoId }
         self.playerService.setYTMusicClient(mockClient)
         await self.playerService.playQueue(songs, startingAt: 0)
         self.playerService[keyPath: \.mixContinuationToken] = "maintenance-continuation"
         self.playerService.beginPendingNativeQueueAdvance(to: 1)
 
-        _ = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
-        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+        let confirmed = await self.playerService.reconcilePendingNativeQueueAdvanceObservation(videoId: "v2")
+        try #require(confirmed)
+        let maintenanceTask = try #require(self.playerService.nativeQueueMaintenanceTask)
+        await continuationStarted.wait()
+
+        if refreshMetadata {
+            let entryIDs = self.playerService.queueEntryIDs
+            let queueGeneration = self.playerService.queueMutationGeneration
+            var metadata = TestFixtures.makeSong(id: "v2", artistName: "Resolved Artist")
+            metadata.isInLibrary = true
+            mockClient.songResponses["v2"] = metadata
+
+            await self.playerService.fetchSongMetadata(videoId: "v2")
+
+            #expect(self.playerService.queueEntryIDs == entryIDs)
+            #expect(self.playerService.queueMutationGeneration == queueGeneration)
+            #expect(self.playerService.queue[safe: 1]?.artists == metadata.artists)
+            #expect(self.playerService.queue[safe: 1]?.isInLibrary == true)
+            #expect(!maintenanceTask.isCancelled)
+        }
         let injectionGenerationBeforeCompletion = self.playerService.webQueueInjectionGeneration
-        let maintenanceTask = self.playerService.nativeQueueMaintenanceTask
 
         await continuationGate.open()
-        await maintenanceTask?.value
+        await maintenanceTask.value
 
         #expect(self.playerService.queue.map(\.videoId) == ["v1", "v2", "v3"])
         #expect(self.playerService.currentTrack?.videoId == "v2")

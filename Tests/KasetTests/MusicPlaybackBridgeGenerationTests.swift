@@ -8,6 +8,61 @@ import Testing
 @Suite("YouTube Music playback bridge generation", .tags(.service))
 @MainActor
 struct MusicPlaybackBridgeGenerationTests {
+    @Test("Current-document media keys pass the document ID gate during navigation", arguments: ["REMOTE_NEXT", "REMOTE_PREVIOUS"])
+    func currentDocumentMediaKeysPassDocumentIDGateDuringNavigation(messageType: String) {
+        var generation = WebPlaybackDocumentGeneration()
+        let committed = generation.beginNavigation()
+        let startedCommitted = generation.startNavigation(committed)
+        let committedInitial = generation.commitNavigation(committed)
+        #expect(startedCommitted)
+        #expect(committedInitial)
+        let pending = generation.beginNavigation()
+
+        #expect(SingletonPlayerWebView.acceptsBridgeDocumentID(
+            1,
+            expectedDocumentID: 2,
+            messageType: messageType
+        ))
+        #expect(generation.acceptsUserCommand(
+            generation: committed,
+            issuedAtMilliseconds: 101,
+            navigationStartedAtMilliseconds: 100
+        ))
+        let startedPending = generation.startNavigation(pending)
+        #expect(startedPending)
+        #expect(!generation.acceptsUserCommand(
+            generation: committed,
+            issuedAtMilliseconds: 99,
+            navigationStartedAtMilliseconds: 100
+        ))
+        #expect(!generation.acceptsUserCommand(
+            generation: pending,
+            issuedAtMilliseconds: 101,
+            navigationStartedAtMilliseconds: 100
+        ))
+        let committedPending = generation.commitNavigation(pending)
+        #expect(committedPending)
+        #expect(!generation.acceptsUserCommand(
+            generation: committed,
+            issuedAtMilliseconds: 101,
+            navigationStartedAtMilliseconds: nil
+        ))
+    }
+
+    @Test("Playback observations retain the document ID gate", arguments: ["STATE_UPDATE", "TRACK_ENDED", "QUEUE_INJECTION_RESULT"])
+    func playbackObservationsRetainDocumentIDGate(messageType: String) {
+        #expect(!SingletonPlayerWebView.acceptsBridgeDocumentID(
+            1,
+            expectedDocumentID: 2,
+            messageType: messageType
+        ))
+        #expect(SingletonPlayerWebView.acceptsBridgeDocumentID(
+            2,
+            expectedDocumentID: 2,
+            messageType: messageType
+        ))
+    }
+
     @Test("Bridge acceptance requires current WebView identity and active generation")
     func bridgeAcceptanceRequiresIdentityAndGeneration() {
         let currentWebView = NSObject()

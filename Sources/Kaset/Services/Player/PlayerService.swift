@@ -736,7 +736,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         if queueStructureChanged {
             self.queueMutationGeneration &+= 1
         }
-        if !NativeQueueMaintenanceContext.isApplyingQueueMutation,
+        if queueStructureChanged,
+           !NativeQueueMaintenanceContext.isApplyingQueueMutation,
            !self.isApplyingQueueEnrichmentResult
         {
             self.clearNativeQueueMaintenance()

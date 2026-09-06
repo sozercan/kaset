@@ -46,56 +46,27 @@ extension SingletonPlayerWebView {
         let videoId: String?
     }
 
+    nonisolated static let playbackSnapshotScript = """
+        (function() {
+            const video = document.querySelector('video');
+            if (!video || video.readyState < 1 || !video.__kasetBoundVideoId
+                || !(video.__kasetMediaGeneration > 0)) return null;
+            const source = video.currentSrc || video.src || '';
+            if (!source || source !== video.__kasetBoundMediaSource) return null;
+            return {
+                progress: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+                duration: Number.isFinite(video.duration) ? video.duration : 0,
+                videoId: video.__kasetBoundVideoId
+            };
+        })();
+    """
+
     /// Reads playback time from the live WebView video element.
     func currentPlaybackSnapshot() async -> PlaybackSnapshot? {
         guard let webView else { return nil }
 
-        let script = """
-            (function() {
-                function currentPlayerData() {
-                    const ytmusicPlayer = document.querySelector('ytmusic-player');
-                    if (ytmusicPlayer && ytmusicPlayer.playerApi
-                        && typeof ytmusicPlayer.playerApi.getVideoData === 'function') {
-                        const data = ytmusicPlayer.playerApi.getVideoData();
-                        if (data && typeof data === 'object') return data;
-                    }
-
-                    const moviePlayer = document.getElementById('movie_player');
-                    if (moviePlayer && typeof moviePlayer.getVideoData === 'function') {
-                        const data = moviePlayer.getVideoData();
-                        if (data && typeof data === 'object') return data;
-                    }
-
-                    return null;
-                }
-
-                function currentVideoId() {
-                    const playerData = currentPlayerData();
-                    if (playerData) {
-                        const playerVideoId = playerData.video_id || playerData.videoId || '';
-                        if (playerVideoId) return playerVideoId;
-                    }
-
-                    try {
-                        const url = new URL(window.location.href);
-                        return url.searchParams.get('v') || '';
-                    } catch (e) {
-                        return '';
-                    }
-                }
-
-                const video = document.querySelector('video');
-                if (!video) return null;
-                return {
-                    progress: Number.isFinite(video.currentTime) ? video.currentTime : 0,
-                    duration: Number.isFinite(video.duration) ? video.duration : 0,
-                    videoId: currentVideoId()
-                };
-            })();
-        """
-
         return await withCheckedContinuation { continuation in
-            webView.evaluateJavaScript(script) { result, error in
+            webView.evaluateJavaScript(Self.playbackSnapshotScript) { result, error in
                 if let error {
                     self.logger.error("currentPlaybackSnapshot error: \(error.localizedDescription)")
                     continuation.resume(returning: nil)

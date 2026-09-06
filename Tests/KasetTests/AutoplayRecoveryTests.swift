@@ -226,6 +226,31 @@ struct AutoplayRecoveryJSTests {
         }
     }
 
+    @Test(
+        "Committed navigation applies the latest autoplay intent to media events",
+        arguments: [true, false], ["canplay", "playing"]
+    )
+    func committedNavigationAppliesLatestAutoplayIntent(shouldAutoplay: Bool, event: String) throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("""
+        window.__kasetBlockAutoplay = \(shouldAutoplay ? "true" : "false");
+        video.paused = true;
+        """)
+        context.evaluateScript(SingletonPlayerWebView.autoplayIntentSynchronizationScript(
+            shouldAutoplay: shouldAutoplay,
+            nativePlaybackGeneration: 9,
+            documentGeneration: 7
+        ))
+        if event == "playing" {
+            context.evaluateScript("video.play();")
+        }
+        context.evaluateScript("dispatch('\(event)');")
+
+        #expect(context.evaluateScript("video.paused").toBool() == !shouldAutoplay)
+        #expect(context.evaluateScript("window.__kasetBlockAutoplay").toBool() == !shouldAutoplay)
+        #expect(context.exception == nil)
+    }
+
     @Test("Committed autoplay synchronization is generation guarded")
     func autoplaySynchronizationIsGenerationGuarded() {
         let script = SingletonPlayerWebView.autoplayIntentSynchronizationScript(

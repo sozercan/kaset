@@ -1,6 +1,7 @@
 // swiftlint:disable file_length
 
 import Foundation
+import JavaScriptCore
 import Testing
 @testable import Kaset
 
@@ -211,6 +212,39 @@ struct PlayerServicePlaybackIntentTests { // swiftlint:disable:this type_body_le
         #expect(playerService.progress == 85)
         #expect(playerService.pendingRestoredSeek == 85)
         #expect(playerService.playbackNavigationGeneration > navigationGeneration)
+    }
+
+    @Test("Remote relative seek rejects outgoing media after the target is selected")
+    func remoteRelativeSeekRejectsOutgoingMediaSnapshot() async throws {
+        let (playerService, _) = self.makePlayerService()
+        defer { self.resetSingletonPlayer() }
+        let songs = [self.makeSong(id: "v1"), self.makeSong(id: "v2")]
+        await playerService.playQueue(songs, startingAt: 1)
+        playerService.state = .playing
+        playerService.progress = 1
+        playerService.duration = 200
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("currentDataVideoId = 'v2';")
+        let sample = try #require(context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript))
+        #expect(context.exception == nil)
+        let snapshot = SingletonPlayerWebView.PlaybackSnapshot(
+            progress: sample.objectForKeyedSubscript("progress").toDouble(),
+            duration: sample.objectForKeyedSubscript("duration").toDouble(),
+            videoId: sample.objectForKeyedSubscript("videoId").toString()
+        )
+        playerService.currentMusicPlaybackSnapshot = { snapshot }
+
+        playerService.enqueueRemoteMusicTransportCommand(
+            .relativeSeek(delta: -15, admittedAt: ContinuousClock.now),
+            issuedAtMilliseconds: 1001
+        )
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.currentTrack?.videoId == "v2")
+        #expect(playerService.progress == 1)
+        #expect(playerService.remoteMusicSkipTarget == nil)
     }
 
     @Test("Identityless remote snapshot uses its live clock without a pending handoff")

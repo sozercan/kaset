@@ -478,11 +478,11 @@ final class SingletonPlayerWebView {
                   )
             else { return }
 
-            if let documentID = body["documentID"] as? Int,
-               documentID != singleton.expectedBridgeDocumentID
-            {
-                return
-            }
+            guard SingletonPlayerWebView.acceptsBridgeDocumentID(
+                body["documentID"] as? Int,
+                expectedDocumentID: singleton.expectedBridgeDocumentID,
+                messageType: type
+            ) else { return }
 
             switch type {
             case "QUEUE_INJECTION_RESULT":
@@ -1473,6 +1473,16 @@ extension SingletonPlayerWebView {
         return documentGeneration.accepts(rawGeneration: rawDocumentGeneration)
     }
 
+    nonisolated static func acceptsBridgeDocumentID(
+        _ documentID: Int?,
+        expectedDocumentID: Int?,
+        messageType: String
+    ) -> Bool {
+        // The coordinator fences media keys by committed generation and command time.
+        messageType == "REMOTE_NEXT" || messageType == "REMOTE_PREVIOUS"
+            || documentID == nil || documentID == expectedDocumentID
+    }
+
     nonisolated static func isCurrentBridgeWebView(
         sourceWebView: AnyObject?,
         currentWebView: AnyObject?
@@ -1941,6 +1951,7 @@ extension SingletonPlayerWebView {
             if (window.__kasetDocumentGeneration !== \(documentGeneration)) return 'stale';
             window.__kasetNativePlaybackGeneration = \(nativePlaybackGeneration);
             window.__kasetAutoplayPending = \(shouldAutoplay ? "true" : "false");
+            window.__kasetBlockAutoplay = \(shouldAutoplay ? "false" : "true");
             window.__kasetPlaybackSuppressed = \(shouldAutoplay ? "false" : "true");
             if (window.__kasetAutoplayPending) {
                 window.__kasetAutoplayAttempts = 0;

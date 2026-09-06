@@ -7,6 +7,94 @@ import WebKit
 @Suite(.tags(.service))
 @MainActor
 struct PlaybackObserverIdentityTests {
+    @Test("Playback snapshots retain outgoing identity until the physical media changes")
+    func playbackSnapshotRejectsEarlyLogicalIdentity() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        let initial = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(initial?.objectForKeyedSubscript("videoId")?.toString() == "v1")
+        #expect(initial?.objectForKeyedSubscript("progress")?.toDouble() == 179)
+
+        context.evaluateScript("currentDataVideoId = 'v2'; dispatch('timeupdate');")
+        let transitioning = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(transitioning?.objectForKeyedSubscript("videoId")?.toString() == "v1")
+        #expect(transitioning?.objectForKeyedSubscript("progress")?.toDouble() == 179)
+
+        context.evaluateScript("""
+        video.currentSrc = 'https://media.example/v2';
+        video.currentTime = 1;
+        video.duration = 200;
+        dispatch('loadedmetadata');
+        """)
+        let bound = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(bound?.objectForKeyedSubscript("videoId")?.toString() == "v2")
+        #expect(bound?.objectForKeyedSubscript("progress")?.toDouble() == 1)
+        #expect(bound?.objectForKeyedSubscript("duration")?.toDouble() == 200)
+        #expect(context.exception == nil)
+    }
+
+    @Test("Playback snapshots wait for identity when physical media changes first")
+    func playbackSnapshotWaitsForMediaIdentityRefresh() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("""
+        video.currentSrc = 'https://media.example/v2';
+        video.currentTime = 1;
+        """)
+        let beforeBinding = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(beforeBinding?.isNull == true)
+
+        context.evaluateScript("dispatch('loadedmetadata');")
+        let refreshing = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(refreshing?.isNull == true)
+
+        context.evaluateScript("currentDataVideoId = 'v2'; fakeNow = 1000; dispatch('timeupdate');")
+        let bound = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(bound?.objectForKeyedSubscript("videoId")?.toString() == "v2")
+        #expect(bound?.objectForKeyedSubscript("progress")?.toDouble() == 1)
+        #expect(context.exception == nil)
+    }
+
+    @Test("Playback snapshots reject a replacement media element before observer binding")
+    func playbackSnapshotRejectsUnboundReplacement() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("""
+        video = Object.assign({}, video);
+        delete video.__kasetBoundVideoId;
+        delete video.__kasetMediaGeneration;
+        """)
+
+        let snapshot = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(snapshot?.isNull == true)
+        #expect(context.exception == nil)
+    }
+
+    @Test("Playback snapshots stay available after a seek within the same media")
+    func playbackSnapshotSurvivesSameMediaSeek() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("video.currentTime = 30; dispatch('canplay');")
+
+        let snapshot = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(snapshot?.objectForKeyedSubscript("videoId")?.toString() == "v1")
+        #expect(snapshot?.objectForKeyedSubscript("progress")?.toDouble() == 30)
+        #expect(context.exception == nil)
+    }
+
+    @Test("Playback snapshots resume after a same-track source correction settles")
+    func playbackSnapshotResumesAfterSourceCorrection() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("""
+        video.currentSrc = 'https://media.example/v1-new-quality';
+        dispatch('loadedmetadata');
+        """)
+        let correcting = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(correcting?.isNull == true)
+
+        context.evaluateScript("fakeNow = 6000; dispatch('timeupdate');")
+        let snapshot = context.evaluateScript(SingletonPlayerWebView.playbackSnapshotScript)
+        #expect(snapshot?.objectForKeyedSubscript("videoId")?.toString() == "v1")
+        #expect(snapshot?.objectForKeyedSubscript("progress")?.toDouble() == 179)
+        #expect(context.exception == nil)
+    }
+
     @Test("Observer reports media-bound identity and generation with playback state")
     func observerReportsMediaIdentity() {
         let script = SingletonPlayerWebView.observerScript

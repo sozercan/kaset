@@ -555,6 +555,7 @@ extension SingletonPlayerWebView {
                     if (videoId && (!mediaVideoId || (identityChanged && mediaIdentityNeedsRefresh))) {
                         mediaVideoId = videoId;
                         video.__kasetBoundVideoId = videoId;
+                        video.__kasetBoundMediaSource = source;
                         mediaIdentityNeedsRefresh = false;
                         mediaIdentityUncertain = false;
                         mediaIdentityTransitionFromVideoId = '';
@@ -592,6 +593,7 @@ extension SingletonPlayerWebView {
                     mediaIdentityNeedsRefresh = false;
                 }
                 video.__kasetBoundVideoId = videoId;
+                video.__kasetBoundMediaSource = source;
                 video.__kasetMediaGeneration = mediaGeneration;
                 video.__kasetEndedOccurrenceGeneration = null;
                 video.__kasetEndedReported = false;
@@ -620,6 +622,7 @@ extension SingletonPlayerWebView {
                 mediaIdentityCorrectionShouldAdvanceGeneration = false;
                 mediaIdentityNeedsRefresh = false;
                 video.__kasetBoundVideoId = mediaVideoId;
+                video.__kasetBoundMediaSource = mediaSource;
                 sendUpdate(true);
                 return true;
             };
@@ -631,6 +634,11 @@ extension SingletonPlayerWebView {
                 )) return;
                 if (mediaIdentityCorrectionShouldAdvanceGeneration) {
                     window.__kasetAdvanceMediaOccurrenceGeneration();
+                }
+                const video = document.querySelector('video');
+                if (video && video.__kasetMediaGeneration === mediaGeneration
+                    && video.__kasetBoundVideoId === mediaVideoId) {
+                    video.__kasetBoundMediaSource = mediaSource;
                 }
                 mediaIdentityCorrectionDeadline = 0;
                 mediaIdentityCorrectionShouldAdvanceGeneration = false;
