@@ -42,6 +42,8 @@ struct KasetSidebarRow: View {
         if self.isSelected {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.secondary.opacity(0.22))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
         }
     }
 }
