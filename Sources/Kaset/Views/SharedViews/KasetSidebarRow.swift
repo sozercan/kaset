@@ -21,6 +21,7 @@ struct KasetSidebarRow: View {
             Label {
                 Text(self.title)
                     .lineLimit(1)
+                    .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(.primary)
             } icon: {
                 Image(systemName: self.systemImage)
@@ -28,11 +29,11 @@ struct KasetSidebarRow: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 5)
-            .background(self.selectionBackground)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .listRowInsets(EdgeInsets(top: 1, leading: 10, bottom: 1, trailing: 10))
+        .listRowBackground(self.selectionBackground)
         .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 
@@ -41,6 +42,8 @@ struct KasetSidebarRow: View {
         if self.isSelected {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.secondary.opacity(0.22))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
         }
     }
 }
