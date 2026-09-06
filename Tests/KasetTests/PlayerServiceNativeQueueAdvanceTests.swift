@@ -1238,6 +1238,57 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.webQueueInjectionGeneration > injectionGenerationBeforeCompletion)
     }
 
+    @Test("Coalesced mix callers share an unchanged result without retrying", arguments: [false, true])
+    func coalescedMixCallersDoNotRetryUnchangedResult(fails: Bool) async {
+        let mockClient = MockYTMusicClient()
+        let continuationGate = AsyncGate()
+        let current = TestFixtures.makeSong(id: "current")
+        let successor = TestFixtures.makeSong(id: "successor")
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([current], startingAt: 0)
+        self.playerService.mixContinuationToken = "test"
+        mockClient.mixQueueContinuationGate = continuationGate
+        mockClient.mixQueueContinuationResult = RadioQueueResult(
+            songs: [],
+            continuationToken: "test"
+        )
+        if fails {
+            mockClient.shouldThrowError = URLError(.timedOut)
+        }
+
+        let activeFetch = Task { @MainActor in
+            await self.playerService.fetchMoreMixSongsIfNeeded()
+        }
+        await Self.waitUntilNativeQueueMaintenanceStarts(mockClient: mockClient)
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        let waitingFetches = (0 ..< 3).map { _ in
+            Task { @MainActor in
+                await self.playerService.fetchMoreMixSongsIfNeeded()
+            }
+        }
+        await Self.waitUntilMixContinuationWaitersAreRegistered(count: 3, playerService: self.playerService)
+        #expect(self.playerService.mixContinuationFetchWaiters.count == 3)
+
+        await continuationGate.open()
+        await activeFetch.value
+        for waitingFetch in waitingFetches {
+            await waitingFetch.value
+        }
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.queue.map(\.videoId) == [current.videoId])
+        #expect(self.playerService.mixContinuationToken == "test")
+        #expect(self.playerService.mixContinuationFetchWaiters.isEmpty)
+        #expect(!self.playerService.isFetchingMoreMixSongs)
+
+        mockClient.shouldThrowError = nil
+        mockClient.mixQueueContinuationResult = RadioQueueResult(songs: [successor], continuationToken: nil)
+        await self.playerService.fetchMoreMixSongsIfNeeded()
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 2)
+        #expect(self.playerService.queue.map(\.videoId) == [current.videoId, successor.videoId])
+    }
+
     @Test("Cancelled native queue maintenance yields to a valid replacement fetch")
     func cancelledNativeQueueMaintenanceYieldsToReplacementFetch() async {
         let mockClient = MockYTMusicClient()
@@ -1282,7 +1333,7 @@ extension PlayerServiceWebQueueSyncTests {
         let replacementFetch = Task { @MainActor in
             await self.playerService.fetchMoreMixSongsIfNeeded()
         }
-        await Self.waitUntilMixContinuationWaiterIsRegistered(playerService: self.playerService)
+        await Self.waitUntilMixContinuationWaitersAreRegistered(playerService: self.playerService)
         #expect(self.playerService.mixContinuationFetchWaiters.count == 1)
         await continuationGate.open()
         await cancelledMaintenance?.value
@@ -1324,7 +1375,7 @@ extension PlayerServiceWebQueueSyncTests {
             await self.playerService.fetchMoreMixSongsIfNeeded()
             coalescedFetchCompleted = true
         }
-        await Self.waitUntilMixContinuationWaiterIsRegistered(playerService: self.playerService)
+        await Self.waitUntilMixContinuationWaitersAreRegistered(playerService: self.playerService)
 
         self.playerService.invalidateMixContinuationRequest()
         self.playerService.mixContinuationToken = nil
@@ -1509,11 +1560,11 @@ extension PlayerServiceWebQueueSyncTests {
         }
     }
 
-    private static func waitUntilMixContinuationWaiterIsRegistered(playerService: PlayerService) async {
+    private static func waitUntilMixContinuationWaitersAreRegistered(count: Int = 1, playerService: PlayerService) async {
         let clock = ContinuousClock()
         let deadline = clock.now + .seconds(1)
         while clock.now < deadline {
-            if playerService.mixContinuationFetchWaiters.count == 1 {
+            if playerService.mixContinuationFetchWaiters.count == count {
                 return
             }
             try? await Task.sleep(for: .milliseconds(10))

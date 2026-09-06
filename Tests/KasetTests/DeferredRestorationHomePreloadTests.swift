@@ -5,6 +5,37 @@ import Testing
 @Suite("Deferred restoration home preload", .serialized, .tags(.service))
 @MainActor
 struct DeferredRestorationHomePreloadTests {
+    @Test("Authenticated deferred restoration mounts Home without loading the saved video")
+    func authenticatedDeferredRestorationMountsHomeWithoutLoadingSavedVideo() {
+        let playerService = PlayerService()
+        defer { playerService.clearRestoredPlaybackSessionState() }
+        let restoredSong = TestFixtures.makeSong(id: "restored-mount-video")
+        playerService.applyRestoredPlaybackSession(
+            queue: [restoredSong],
+            currentIndex: 0,
+            progress: 42,
+            duration: 180
+        )
+
+        #expect(playerService.isAwaitingWebRestoredTrack)
+        #expect(playerService.isPendingRestoredLoadDeferred)
+        #expect(playerService.pendingPlayVideoId == restoredSong.videoId)
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: false,
+            pendingVideoId: playerService.pendingPlayVideoId,
+            isPendingRestoredLoadDeferred: playerService.isPendingRestoredLoadDeferred,
+            showVideo: playerService.showVideo
+        ))
+        #expect(MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: true,
+            pendingVideoId: playerService.pendingPlayVideoId,
+            isPendingRestoredLoadDeferred: playerService.isPendingRestoredLoadDeferred,
+            showVideo: playerService.showVideo
+        ))
+        #expect(!playerService.shouldAutoloadPendingVideo)
+        #expect(!playerService.shouldAutoplayPlaybackDocument)
+    }
+
     @Test("Home preload remains enabled for ordinary creation but can be suppressed for a rebuild")
     func homePreloadPolicyDistinguishesOrdinaryCreationFromDeferredRebuild() {
         #expect(MusicHomePreloadPolicy.shouldPreload(

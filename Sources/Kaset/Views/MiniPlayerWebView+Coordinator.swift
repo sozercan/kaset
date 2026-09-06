@@ -242,6 +242,7 @@ extension SingletonPlayerWebView {
                 documentGeneration: documentGeneration
             )
             let endedDuringAd = body["isAd"] as? Bool ?? false
+            let endedIdentityUncertain = body["mediaIdentityUncertain"] as? Bool ?? false
             let observerEpoch = SingletonPlayerWebView.finitePlaybackBridgeDouble(
                 from: body["observerEpoch"]
             ) ?? 0
@@ -257,6 +258,9 @@ extension SingletonPlayerWebView {
                           eventIssuedAtMilliseconds: eventIssuedAtMilliseconds
                       ),
                       !endedDuringAd,
+                      // Identity retries retain this occurrence. Neither deduplication layer
+                      // may claim it before identity resolves or the observer's deadline arrives.
+                      !endedIdentityUncertain || identityResolutionTimedOut,
                       !identityResolutionTimedOut || playbackOccurrence != nil,
                       coordinator.consumeTrackEndedOccurrence(
                           observerEpoch: observerEpoch,
@@ -321,7 +325,7 @@ extension SingletonPlayerWebView {
                 documentGeneration: documentGeneration,
                 musicPlaybackIntent: self.playerService.currentMusicPlaybackIntent,
                 eventIssuedAtMilliseconds: self.playerService.musicPlaybackIntentIssuedAtMilliseconds + 1,
-                identityResolutionTimedOut: false,
+                identityResolutionTimedOut: body["type"] as? String == "TRACK_ENDED_IDENTITY_DEADLINE",
                 beforeHandling: beforeHandling
             )
         }

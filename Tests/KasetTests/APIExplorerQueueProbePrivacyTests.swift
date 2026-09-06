@@ -48,8 +48,10 @@ struct APIExplorerQueueProbePrivacyTests {
         let savedData = try Data(contentsOf: savedURL)
         let savedJSON = try #require(String(bytes: savedData, encoding: .utf8))
         #expect(verboseJSON == savedJSON)
+        #expect(verboseJSON.contains("\"playlistPanelRenderer\""))
         let sanitized = try JSONSerialization.jsonObject(with: savedData)
-        try Self.expectRedactedStructure(original: fixture, sanitized: sanitized)
+        #expect(Self.diagnosticShape(fixture) == Self.diagnosticShape(sanitized))
+        Self.expectRedactedValues(sanitized)
         let attributes = try FileManager.default.attributesOfItem(atPath: savedURL.path)
         #expect((attributes[.posixPermissions] as? NSNumber)?.intValue == 0o600)
         #expect(attributes[.type] as? FileAttributeType == .typeRegular)
@@ -184,6 +186,7 @@ struct APIExplorerQueueProbePrivacyTests {
             "content": ["playlistPanelRenderer": panel],
         ]]]]
         return [
+            "test-private-response-key": "test-private-response-value",
             "contents": ["singleColumnMusicWatchNextResultsRenderer": [
                 "tabbedRenderer": ["watchNextTabbedResultsRenderer": ["tabs": [tab]]],
             ]],
@@ -191,6 +194,9 @@ struct APIExplorerQueueProbePrivacyTests {
                 "item": ["compactVideoRenderer": ["videoId": "test-autoplay-video"]],
             ]]]],
             "privateFields": [
+                "test-private-identifier": ["test-private-nested-key": "test-private-nested-value"],
+                "test-privateRenderer": "test-private-renderer-value",
+                "[REDACTED_KEY_0]": "test-private-placeholder-value",
                 "videoId": "test-private-video",
                 "playlistId": "test-private-playlist",
                 "browseId": "test-private-browse",
@@ -215,25 +221,33 @@ struct APIExplorerQueueProbePrivacyTests {
         ]
     }
 
-    private static func expectRedactedStructure(original: Any, sanitized: Any) throws {
-        if let originalObject = original as? [String: Any] {
-            let object = try #require(sanitized as? [String: Any])
-            #expect(Set(object.keys) == Set(originalObject.keys))
-            for (key, value) in originalObject {
-                try Self.expectRedactedStructure(original: value, sanitized: #require(object[key]))
+    // swiftformat:disable redundantStaticSelf
+    /// Compare container structure without relying on names or ordering of redacted object keys.
+    private static func diagnosticShape(_ value: Any) -> String {
+        if let object = value as? [String: Any] {
+            return "{\(object.values.map(Self.diagnosticShape).sorted().joined(separator: ","))}"
+        }
+        if let array = value as? [Any] {
+            return "[\(array.map(Self.diagnosticShape).joined(separator: ","))]"
+        }
+        return value is NSNull ? "null" : "scalar"
+    }
+
+    private static func expectRedactedValues(_ value: Any) {
+        if let object = value as? [String: Any] {
+            for nested in object.values {
+                Self.expectRedactedValues(nested)
             }
-        } else if let originalArray = original as? [Any] {
-            let array = try #require(sanitized as? [Any])
-            #expect(array.count == originalArray.count)
-            for (originalValue, sanitizedValue) in zip(originalArray, array) {
-                try Self.expectRedactedStructure(original: originalValue, sanitized: sanitizedValue)
+        } else if let array = value as? [Any] {
+            for nested in array {
+                Self.expectRedactedValues(nested)
             }
-        } else if original is NSNull {
-            #expect(sanitized is NSNull)
-        } else {
-            #expect(sanitized as? String == "[REDACTED]")
+        } else if !(value is NSNull) {
+            #expect(value as? String == "[REDACTED]")
         }
     }
+
+    // swiftformat:enable redundantStaticSelf
 
     private static func modeOutput(_ mode: String, in output: String) throws -> Substring {
         let startMarker = "MODE \(mode) BEGIN\n"

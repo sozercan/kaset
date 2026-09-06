@@ -28,7 +28,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         isPendingRestoredLoadDeferred: Bool,
         showVideo: Bool
     ) -> Bool {
-        !isPendingRestoredLoadDeferred && !showVideo && (isLoggedIn || pendingVideoId != nil)
+        !showVideo && (isLoggedIn || (!isPendingRestoredLoadDeferred && pendingVideoId != nil))
     }
 
     @Environment(AuthService.self) private var authService
@@ -229,7 +229,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            // Defer restored playback and let the video window own the visible WebView.
+            // Keep authenticated Home available while restoration defers watch loading.
+            // Let the video window own the visible WebView.
             if Self.shouldMountPersistentPlayer(
                 isLoggedIn: self.authService.state.isLoggedIn,
                 pendingVideoId: self.playerService.pendingPlayVideoId,

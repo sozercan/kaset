@@ -521,6 +521,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Callers waiting for the current mix continuation request to release its single-flight slot.
     @ObservationIgnored var mixContinuationFetchWaiters: [CheckedContinuation<Void, Never>] = []
+    @ObservationIgnored var mixContinuationCompletionGeneration: UInt64 = 0
 
     /// Smart Shuffle: videoIds suggested this session, for dedup across fills.
     var smartShuffleSeenSuggestionIds: Set<String> = []

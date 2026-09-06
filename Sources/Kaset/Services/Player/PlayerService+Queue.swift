@@ -234,6 +234,7 @@ extension PlayerService {
             let queueCountBeforeWait = self.queue.count
             let continuationBeforeWait = self.mixContinuationToken
             let queueMutationGenerationBeforeWait = self.queueMutationGeneration
+            let completionGenerationBeforeWait = self.mixContinuationCompletionGeneration
             await withCheckedContinuation { continuation in
                 self.mixContinuationFetchWaiters.append(continuation)
             }
@@ -242,7 +243,8 @@ extension PlayerService {
                   self.isCurrentQueueLoad(queueGeneration),
                   self.queue.count == queueCountBeforeWait,
                   self.mixContinuationToken == continuationBeforeWait,
-                  self.queueMutationGeneration == queueMutationGenerationBeforeWait
+                  self.queueMutationGeneration == queueMutationGenerationBeforeWait,
+                  self.mixContinuationCompletionGeneration == completionGenerationBeforeWait
             else {
                 return
             }
@@ -276,7 +278,8 @@ extension PlayerService {
         self.isFetchingMoreMixSongs = true
         let requestID = UUID()
         self.activeMixContinuationRequestID = requestID
-        defer { self.finishMixContinuationFetch(requestID: requestID) }
+        var didHandleResult = false
+        defer { self.finishMixContinuationFetch(requestID: requestID, didHandleResult: didHandleResult) }
 
         do {
             let result = try await client.getMixQueueContinuation(continuationToken: continuation)
@@ -290,6 +293,7 @@ extension PlayerService {
                 self.logger.info("Discarding stale or cancelled mix continuation")
                 return
             }
+            didHandleResult = true
             self.logger.debug(
                 "Continuation returned \(result.songs.count) songs, hasNextToken: \(result.continuationToken != nil)"
             )
@@ -312,12 +316,17 @@ extension PlayerService {
                   self.isCurrentQueueLoad(queueGeneration),
                   self.activeMixContinuationRequestID == requestID
             else { return }
+            didHandleResult = true
             self.logger.warning("Failed to fetch more mix songs: \(error.localizedDescription)")
         }
     }
 
-    private func finishMixContinuationFetch(requestID: UUID) {
+    private func finishMixContinuationFetch(requestID: UUID, didHandleResult: Bool) {
         guard self.finishMixContinuationRequest(requestID) else { return }
+        if didHandleResult {
+            // Coalesced callers share success or failure; only a discarded owner needs replacement.
+            self.mixContinuationCompletionGeneration &+= 1
+        }
         self.resumeMixContinuationFetchWaiters()
     }
 

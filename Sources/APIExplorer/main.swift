@@ -1684,6 +1684,14 @@ private func queueProbeAutoplayVideoId(in data: [String: Any]) -> String? {
 }
 
 private let queueProbeRedactedDiagnosticValue = "[REDACTED]"
+private let queueProbeDiagnosticKeys: Set<String> = [
+    "autoplay", "browseId", "compactVideoRenderer", "content", "contents", "continuation",
+    "continuations", "item", "longBylineText", "musicQueueRenderer", "nextRadioContinuationData",
+    "playerOverlayAutoplayRenderer", "playerOverlayRenderer", "playerOverlays", "playlistId",
+    "playlistPanelRenderer", "playlistPanelVideoRenderer", "playlistPanelVideoWrapperRenderer",
+    "primaryRenderer", "responseContext", "runs", "simpleText", "singleColumnMusicWatchNextResultsRenderer",
+    "tabRenderer", "tabbedRenderer", "tabs", "text", "title", "videoId", "watchNextTabbedResultsRenderer",
+]
 
 /// Preserve response structure without exporting personalized identifiers, text, or opaque values.
 private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
@@ -1703,7 +1711,14 @@ private func sanitizedQueueProbeDiagnosticValue(_ value: Any) -> Any {
 }
 
 private func sanitizedQueueProbeDiagnosticResponse(_ data: [String: Any]) -> [String: Any] {
-    data.mapValues(sanitizedQueueProbeDiagnosticValue)
+    var sanitized: [String: Any] = [:]
+    for (index, key) in data.keys.sorted().enumerated() {
+        // Preserve known queue fields; dynamic keys may themselves contain private values.
+        // Numbered placeholders retain every member without collisions between unknown keys.
+        let safeKey = queueProbeDiagnosticKeys.contains(key) ? key : "[REDACTED_KEY_\(index)]"
+        sanitized[safeKey] = data[key].map(sanitizedQueueProbeDiagnosticValue)
+    }
+    return sanitized
 }
 
 private func prettyPrintedSanitizedQueueProbeResponse(_ data: [String: Any]) throws -> Data {
@@ -1760,7 +1775,7 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
             if verbose,
                let sanitizedString = String(data: sanitizedData, encoding: .utf8)
             {
-                print("\n📄 Sanitized response (all scalar values redacted):")
+                print("\n📄 Sanitized response (scalar values and unknown keys redacted):")
                 print(sanitizedString)
             }
 

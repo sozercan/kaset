@@ -59,18 +59,24 @@ struct MainWindowLayoutTests {
         ))
     }
 
-    @Test("Persistent player respects deferred restoration and video window ownership", arguments: [true, false])
+    @Test("Persistent player defers guest restoration and respects video window ownership", arguments: [true, false])
     func persistentPlayerMountingRespectsPlaybackState(isLoggedIn: Bool) {
-        #expect(!MainWindow.shouldMountPersistentPlayer(
+        #expect(MainWindow.shouldMountPersistentPlayer(
             isLoggedIn: isLoggedIn,
             pendingVideoId: "restored-video",
             isPendingRestoredLoadDeferred: true,
             showVideo: false
-        ))
+        ) == isLoggedIn)
         #expect(!MainWindow.shouldMountPersistentPlayer(
             isLoggedIn: isLoggedIn,
             pendingVideoId: "playing-video",
             isPendingRestoredLoadDeferred: false,
+            showVideo: true
+        ))
+        #expect(!MainWindow.shouldMountPersistentPlayer(
+            isLoggedIn: isLoggedIn,
+            pendingVideoId: "restored-video",
+            isPendingRestoredLoadDeferred: true,
             showVideo: true
         ))
     }
