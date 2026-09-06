@@ -13,6 +13,7 @@
 //    browse <browseId> [params]    - Explore a browse endpoint
 //    action <endpoint> <body>      - Explore a JSON action endpoint (body as JSON)
 //    wire-action <endpoint> <body> - Safely inspect JSON, streaming, or opaque responses
+//    discover <endpoint> <body>    - Inspect and follow read-only navigation, with values redacted
 //    ask-video-audit <videoId>     - Audit YouTube Ask Gemini / YouChat API surfaces
 //    ask-video-parity <videoId>    - Compare read-only Ask request profiles
 //    ask-video-live-test <videoId> - Replay server-issued summary/follow-up suggestions
@@ -26,8 +27,8 @@
 //    help                          - Show this help message
 //
 //  Options:
-//    -v, --verbose                 - Show raw JSON (queue-probe output is sanitized)
-//    -o, --output <file>           - Save JSON (queue-probe output is sanitized)
+//    -v, --verbose                 - Show raw JSON or expand audits; discover/queue-probe stay redacted
+//    -o, --output <file>           - Save mode-0600 output; discover/queue-probe stay redacted
 //    --client-version <version>    - Override the resolved InnerTube client version
 //    --confirm-live-ai             - Required acknowledgement for live AI requests
 //    --prompt-file <path|->         - Read a private free-text prompt from a mode-0600 file or stdin
@@ -35,7 +36,12 @@
 //    --follow-up                   - Replay one server-issued follow-up suggestion
 //    --youtube, --yt               - Target regular YouTube (www.youtube.com, WEB client)
 //                                    instead of YouTube Music
+//    --ios-music, --android-music  - Use a mobile Music request profile with discover
+//    --mobile-web-key             - Add the resolved web API key to mobile discovery
+//    --mobile-cookie-only         - Omit the authorization header for mobile comparison
+//    --mobile-token-file <path>   - Read a mobile OAuth access token from a private file
 //    --no-auth, --guest            - Force unauthenticated requests even if Kaset cookies exist
+//    --follow <index>              - Follow a discover navigation entry; repeat for deeper pages
 //
 //  Examples:
 //    swift run api-explorer browse FEmusic_home
@@ -313,30 +319,42 @@ private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegat
 
 // MARK: - Cookie Management
 
-/// Reads cookies from Kaset app's backup file in Application Support.
-/// This allows the standalone tool to make authenticated API requests.
-func loadCookiesFromAppBackup() -> [HTTPCookie]? {
-    guard !forceUnauthenticatedRequests else {
-        return nil
-    }
-
-    guard let appSupport = FileManager.default.urls(
+/// Locates the authoritative cookie archive without reading its contents.
+func selectedCookieBackupFile(
+    appSupport: URL? = FileManager.default.urls(
         for: .applicationSupportDirectory,
         in: .userDomainMask
-    ).first
-    else {
-        return nil
-    }
+    ).first,
+    homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
+) -> URL? {
+    guard let appSupport else { return nil }
 
     let legacyCookieFile =
         appSupport
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    let containerCookieFile = FileManager.default.homeDirectoryForCurrentUser
+    let containerCookieFile = homeDirectory
         .appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data", isDirectory: true)
         .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
         .appendingPathComponent("cookies.dat")
+
+    // Once the sandboxed app has created its Application Support directory, its
+    // container export is authoritative. Never resurrect the legacy host archive
+    // after logout, account switching, expiry, corruption, or a cleared export.
+    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
+        return containerCookieFile
+    }
+    if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
+        return nil
+    }
+    return FileManager.default.fileExists(atPath: legacyCookieFile.path) ? legacyCookieFile : nil
+}
+
+/// Reads cookies from Kaset app's backup file in Application Support.
+/// This allows the standalone tool to make authenticated API requests.
+func loadCookiesFromAppBackup(from cookieFile: URL? = selectedCookieBackupFile()) -> [HTTPCookie]? {
+    guard !forceUnauthenticatedRequests, let cookieFile else { return nil }
 
     func decodeCookies(at cookieFile: URL) -> [HTTPCookie]? {
         guard let data = try? Data(contentsOf: cookieFile) else {
@@ -375,22 +393,7 @@ func loadCookiesFromAppBackup() -> [HTTPCookie]? {
         return cookies.isEmpty ? nil : cookies
     }
 
-    // Once the sandboxed app has created its Application Support directory, its
-    // container export is authoritative. Never resurrect the legacy host archive
-    // after logout, account switching, expiry, corruption, or a cleared export.
-    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
-        return decodeCookies(at: containerCookieFile)
-    }
-
-    let containerStorageDirectory = containerCookieFile.deletingLastPathComponent()
-    if FileManager.default.fileExists(atPath: containerStorageDirectory.path) {
-        return nil
-    }
-
-    guard FileManager.default.fileExists(atPath: legacyCookieFile.path) else {
-        return nil
-    }
-    return decodeCookies(at: legacyCookieFile)
+    return decodeCookies(at: cookieFile)
 }
 
 /// Filters cookies to those that match the active API host
@@ -493,21 +496,21 @@ private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLR
     return request
 }
 
-private func webClientConfiguration(authenticated: Bool) -> URLSessionConfiguration {
+func webClientConfiguration(authenticated: Bool, cookieSnapshot: [HTTPCookie]? = nil) -> URLSessionConfiguration {
     let configuration = URLSessionConfiguration.ephemeral
-    if authenticated, let cookies = loadCookiesFromAppBackup(), !cookies.isEmpty {
-        let storage = HTTPCookieStorage()
+    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup(), !cookies.isEmpty,
+       let storage = configuration.httpCookieStorage
+    {
         for cookie in cookies {
             storage.setCookie(cookie)
         }
-        configuration.httpCookieStorage = storage
         configuration.httpShouldSetCookies = true
         configuration.httpCookieAcceptPolicy = .always
     }
     return configuration
 }
 
-func resolveAPIKey(authenticated: Bool = false) async throws -> String {
+func resolveAPIKey(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = nil) async throws -> String {
     if let cachedAPIKey {
         return cachedAPIKey
     }
@@ -517,13 +520,13 @@ func resolveAPIKey(authenticated: Bool = false) async throws -> String {
     {
         let trimmed = override.trimmingCharacters(in: .whitespacesAndNewlines)
         cachedAPIKey = trimmed
-        await resolveLiveClientVersionIfNeeded(authenticated: authenticated)
+        await resolveLiveClientVersionIfNeeded(authenticated: authenticated, cookieSnapshot: cookieSnapshot)
         return trimmed
     }
 
     let request = webClientConfigurationRequest()
     let (data, response) = try await boundedResponseData(
-        configuration: webClientConfiguration(authenticated: authenticated),
+        configuration: webClientConfiguration(authenticated: authenticated, cookieSnapshot: cookieSnapshot),
         request: request,
         maximumBytes: maximumConfigurationResponseBytes
     )
@@ -561,7 +564,7 @@ func resolveAPIKey(authenticated: Bool = false) async throws -> String {
 /// Resolves only the live client version when the API key came from an explicit
 /// environment override. Failure is non-fatal: callers can still use the
 /// configured fallback, and search-audit labels that source explicitly.
-func resolveLiveClientVersionIfNeeded(authenticated: Bool = false) async {
+func resolveLiveClientVersionIfNeeded(authenticated: Bool = false, cookieSnapshot: [HTTPCookie]? = nil) async {
     guard cachedClientVersion == nil else { return }
 
     let request = webClientConfigurationRequest(timeout: 5)
@@ -569,7 +572,7 @@ func resolveLiveClientVersionIfNeeded(authenticated: Bool = false) async {
     let response: URLResponse
     do {
         (data, response) = try await boundedResponseData(
-            configuration: webClientConfiguration(authenticated: authenticated),
+            configuration: webClientConfiguration(authenticated: authenticated, cookieSnapshot: cookieSnapshot),
             request: request,
             maximumBytes: maximumConfigurationResponseBytes
         )
@@ -643,7 +646,93 @@ func extractConfigInteger(named name: String, from html: String) -> Int? {
     return Int(html[range])
 }
 
-// MARK: - Request Builder
+func isValidClientVersion(_ value: String) -> Bool {
+    !value.isEmpty && value.utf8.count <= 64
+        && value.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { component in
+            !component.isEmpty && component.utf8.allSatisfy { (48 ... 57).contains($0) }
+        }
+}
+
+// MARK: - MusicMobileRequestProfile
+
+/// Mobile Home uses element models that the WEB_REMIX client does not request.
+/// This profile is scoped to read-only discovery, not production playback.
+struct MusicMobileRequestProfile {
+    enum Client: String {
+        case ios = "IOS_MUSIC"
+        case android = "ANDROID_MUSIC"
+
+        var defaultVersion: String {
+            switch self {
+            case .ios: "9.06.4"
+            case .android: "5.34.51"
+            }
+        }
+
+        var headerID: String {
+            switch self {
+            case .ios: "26"
+            case .android: "21"
+            }
+        }
+    }
+
+    let client: Client
+    let version: String
+
+    init(client: Client, version: String? = nil) {
+        self.client = client
+        self.version = version ?? client.defaultVersion
+    }
+
+    func clientContext(language: String) -> [String: Any] {
+        var context: [String: Any] = [
+            "clientName": self.client.rawValue, "clientVersion": self.version,
+            "hl": language, "gl": "US", "platform": "MOBILE",
+        ]
+        switch self.client {
+        case .ios:
+            context.merge([
+                "osName": "iOS", "osVersion": "26.2.1",
+                "deviceMake": "Apple", "deviceModel": "iPhone18,4",
+            ]) { _, value in value }
+        case .android:
+            context.merge([
+                "osName": "Android", "osVersion": "13", "androidSdkVersion": 33,
+                "clientFormFactor": "SMALL_FORM_FACTOR",
+            ]) { _, value in value }
+        }
+        return context
+    }
+
+    var userAgent: String {
+        switch self.client {
+        case .ios:
+            "com.google.ios.youtubemusic/\(self.version) iSL/3.4 iPhone/26.2.1 hw/iPhone18_4 (gzip)"
+        case .android:
+            "com.google.android.apps.youtube.music/\(self.version) (Linux; U; Android 13; en_US) gzip"
+        }
+    }
+
+    /// Keeps the body, client headers, and user agent on the same identity.
+    func applyHeaders(to request: inout URLRequest, cookieOnly: Bool, accessToken: String?, cookieHeader: String? = nil) {
+        request.setValue(self.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(self.client.headerID, forHTTPHeaderField: "X-Youtube-Client-Name")
+        request.setValue(self.version, forHTTPHeaderField: "X-Youtube-Client-Version")
+        if let accessToken {
+            request.setValue("Bearer " + accessToken, forHTTPHeaderField: "Authorization")
+            request.setValue(nil, forHTTPHeaderField: "Cookie")
+        } else if cookieOnly {
+            request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+            request.setValue(nil, forHTTPHeaderField: "Authorization")
+        }
+        if request.value(forHTTPHeaderField: "Cookie") == nil {
+            for field in ["X-Goog-AuthUser", "X-Goog-PageId", "X-Origin", "Origin", "Referer"] {
+                request.setValue(nil, forHTTPHeaderField: field)
+            }
+        }
+    }
+}
 
 func buildContext(brandAccountId: String? = nil) -> [String: Any] {
     var userDict: [String: Any] = [
@@ -677,7 +766,7 @@ func buildContext(brandAccountId: String? = nil) -> [String: Any] {
     ]
 }
 
-func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [String: String] {
+func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil, cookieSnapshot: [HTTPCookie]? = nil) -> [String: String] {
     var headers: [String: String] = [
         "Content-Type": "application/json",
         "User-Agent":
@@ -685,7 +774,7 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil) -> [St
         "Origin": activeOrigin,
         "Referer": "\(activeOrigin)/",
     ]
-    if authenticated, let cookies = loadCookiesFromAppBackup() {
+    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup() {
         if let authorization = buildSIDAuthorizationHeader(
             from: cookies,
             includeAllAvailableProofs: false
@@ -779,16 +868,29 @@ func canonicalAPIEndpoint(_ endpoint: String) throws -> String {
     return endpoint
 }
 
-func makeWireRequest(endpoint: String, body: [String: Any], authenticated: Bool = false) async throws
+func makeWireRequest(
+    endpoint: String, body: [String: Any], authenticated: Bool = false,
+    cookieSnapshot: [HTTPCookie]? = nil,
+    mobileClient: MusicMobileRequestProfile.Client? = nil,
+    mobileWebKey: Bool = false, mobileCookieOnly: Bool = false,
+    mobileAccessToken: String? = nil, mobileCookieHeader: String? = nil
+) async throws
     -> APIWireResponse
 {
     let endpoint = try canonicalAPIEndpoint(endpoint)
-    let apiKey = try await resolveAPIKey(authenticated: authenticated)
+    let mobileProfile = mobileClient.map {
+        MusicMobileRequestProfile(client: $0, version: clientVersionWasForced ? cachedClientVersion : nil)
+    }
+    guard mobileAccessToken == nil || (mobileProfile != nil && !authenticated && !mobileCookieOnly && !youtubeMode) else {
+        throw DiscoveryError.unsupportedRequest
+    }
     var components = URLComponents(string: "\(activeBaseURL)/\(endpoint)")
-    components?.queryItems = [
-        URLQueryItem(name: "key", value: apiKey),
-        URLQueryItem(name: "prettyPrint", value: "false"),
-    ]
+    var queryItems = [URLQueryItem(name: "prettyPrint", value: "false")]
+    if mobileProfile == nil || mobileWebKey {
+        let apiKey = try await resolveAPIKey(authenticated: authenticated, cookieSnapshot: cookieSnapshot)
+        queryItems.insert(URLQueryItem(name: "key", value: apiKey), at: 0)
+    }
+    components?.queryItems = queryItems
     guard let url = components?.url else {
         throw NSError(
             domain: "APIExplorer", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]
@@ -798,12 +900,19 @@ func makeWireRequest(endpoint: String, body: [String: Any], authenticated: Bool 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
 
-    for (key, value) in buildHeaders(authenticated: authenticated) {
+    for (key, value) in buildHeaders(authenticated: authenticated, cookieSnapshot: cookieSnapshot) {
         request.setValue(value, forHTTPHeaderField: key)
+    }
+    if let mobileProfile {
+        mobileProfile.applyHeaders(to: &request, cookieOnly: mobileCookieOnly, accessToken: mobileAccessToken, cookieHeader: mobileCookieHeader)
     }
 
     var fullBody = body
-    fullBody["context"] = buildContext()
+    var context = buildContext()
+    if let mobileProfile {
+        context["client"] = mobileProfile.clientContext(language: globalHl)
+    }
+    fullBody["context"] = context
     request.httpBody = try JSONSerialization.data(withJSONObject: fullBody)
 
     let (data, response) = try await boundedResponseData(
@@ -1804,11 +1913,16 @@ let authRequiredEndpoints = Set([
     "FEmusic_library_corpus_track_artists",
     "FEmusic_library_songs",
     "FEmusic_library_non_music_audio_list",
+    "FEmusic_library_non_music_audio_channels_list",
+    "FEmusic_library_user_profile_channels_list",
+    "FEmusic_tastebuilder",
+    "FEmusic_listening_review",
     "FEmusic_recently_played",
     "FEmusic_offline",
     "FEmusic_library_privately_owned_landing",
     "FEmusic_library_privately_owned_tracks",
     "FEmusic_library_privately_owned_albums",
+    "FEmusic_library_privately_owned_releases",
     "FEmusic_library_privately_owned_artists",
 ])
 
@@ -2009,9 +2123,13 @@ func exploreAction(
     }
 }
 
-private let maximumPrivateBodyBytes = 2 * 1024 * 1024
-private let maximumPrivatePromptBytes = 64 * 1024
-private let maximumPrivatePromptCharacters = 16000
+// MARK: - PrivateInputLimits
+
+private enum PrivateInputLimits {
+    static let bodyBytes = 2 * 1024 * 1024
+    static let promptBytes = 64 * 1024
+    static let promptCharacters = 16000
+}
 
 private func posixError(_ description: String, code: Int32 = errno) -> NSError {
     NSError(
@@ -2168,7 +2286,7 @@ func writePrivateOutput(_ data: Data, to path: String) throws {
 
 private func readBoundedData(
     fileDescriptor: Int32,
-    maximumBytes: Int = maximumPrivateBodyBytes,
+    maximumBytes: Int = PrivateInputLimits.bodyBytes,
     contentDescription: String = "Request body"
 ) throws -> Data {
     var result = Data()
@@ -2227,7 +2345,7 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
         }
         data = try readBoundedData(
             fileDescriptor: STDIN_FILENO,
-            maximumBytes: maximumPrivatePromptBytes,
+            maximumBytes: PrivateInputLimits.promptBytes,
             contentDescription: "Prompt"
         )
     } else {
@@ -2274,7 +2392,7 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
             )
         }
         guard status.st_size >= 0,
-              status.st_size <= off_t(maximumPrivatePromptBytes)
+              status.st_size <= off_t(PrivateInputLimits.promptBytes)
         else {
             throw NSError(
                 domain: "APIExplorer",
@@ -2284,7 +2402,7 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
         }
         data = try readBoundedData(
             fileDescriptor: fileDescriptor,
-            maximumBytes: maximumPrivatePromptBytes,
+            maximumBytes: PrivateInputLimits.promptBytes,
             contentDescription: "Prompt"
         )
     }
@@ -2297,17 +2415,56 @@ func loadPrivatePrompt(from promptFile: String) throws -> String {
         )
     }
     prompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !prompt.isEmpty, prompt.count <= maximumPrivatePromptCharacters else {
+    guard !prompt.isEmpty, prompt.count <= PrivateInputLimits.promptCharacters else {
         throw NSError(
             domain: "APIExplorer",
             code: -1,
             userInfo: [
                 NSLocalizedDescriptionKey:
-                    "Prompt must contain 1-\(maximumPrivatePromptCharacters) characters",
+                    "Prompt must contain 1-\(PrivateInputLimits.promptCharacters) characters",
             ]
         )
     }
     return prompt
+}
+
+/// Reuses the owner, mode, ACL, symlink, and bounded-read checks for private input.
+/// Only a regular file is accepted so a token can never be echoed by a terminal.
+func loadMobileAccessToken(from path: String) throws -> String {
+    guard path != "-", let token = try? loadPrivatePrompt(from: path),
+          token.utf8.count <= 8192,
+          token.unicodeScalars.allSatisfy({ scalar in
+              (65 ... 90).contains(scalar.value) || (97 ... 122).contains(scalar.value)
+                  || (48 ... 57).contains(scalar.value) || "-._~+/=".unicodeScalars.contains(scalar)
+          })
+    else { throw DiscoveryError.invalidMobileToken }
+    return token
+}
+
+/// Prevents discovery reports from replacing an input file, including
+/// relative paths, symlinked directories, and existing hard-link aliases.
+func pathsReferToSameFile(_ firstPath: String, _ secondPath: String) -> Bool {
+    let first = URL(fileURLWithPath: NSString(string: firstPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    let second = URL(fileURLWithPath: NSString(string: secondPath).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    if first == second {
+        return true
+    }
+    var firstStatus = stat()
+    var secondStatus = stat()
+    return first.path.withCString { Darwin.lstat($0, &firstStatus) } == 0
+        && second.path.withCString { Darwin.lstat($0, &secondStatus) } == 0
+        && firstStatus.st_dev == secondStatus.st_dev && firstStatus.st_ino == secondStatus.st_ino
+}
+
+/// Shell redirection can make stdin another alias of an output file.
+func fileDescriptorRefersToFile(_ fileDescriptor: Int32, path: String) -> Bool {
+    var inputStatus = stat()
+    var outputStatus = stat()
+    let output = URL(fileURLWithPath: NSString(string: path).expandingTildeInPath).resolvingSymlinksInPath().standardizedFileURL
+    return fstat(fileDescriptor, &inputStatus) == 0
+        && (inputStatus.st_mode & S_IFMT) == S_IFREG
+        && output.path.withCString { Darwin.lstat($0, &outputStatus) } == 0
+        && inputStatus.st_dev == outputStatus.st_dev && inputStatus.st_ino == outputStatus.st_ino
 }
 
 func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> String {
@@ -2374,7 +2531,7 @@ func loadRequestBodyJSON(inlineBody: String?, bodyFile: String?) throws -> Strin
             )
         }
         guard status.st_size >= 0,
-              status.st_size <= off_t(maximumPrivateBodyBytes)
+              status.st_size <= off_t(PrivateInputLimits.bodyBytes)
         else {
             throw NSError(
                 domain: "APIExplorer",
@@ -3446,6 +3603,7 @@ func listEndpoints() {
         FEmusic_moods_and_genres      Browse by mood (Chill, Focus) or genre (Pop, Rock)
         FEmusic_new_releases          Recently released albums, singles, videos
         FEmusic_podcasts              Podcast discovery
+        FEmusic_radio_builder         Radio controls and form entities (creation unverified)
 
         🔐 AUTHENTICATED (Requires Sign-in)
         ───────────────────────────────────────────────────────────────────────────────
@@ -3454,10 +3612,15 @@ func listEndpoints() {
         FEmusic_liked_videos          Liked songs (returns playlist format)
         FEmusic_history               Listening history (organized by time)
         FEmusic_library_landing       Library overview page
+        FEmusic_tastebuilder          Artist-selection data; acceptance is not replayable in discover
+        FEmusic_listening_review      Recap probe (signed-in sample returned a message only)
         FEmusic_library_artists       Rejected with HTTP 400 in current sessions
         FEmusic_library_corpus_artists Followed artists (returns public UC... pages)
         FEmusic_library_corpus_track_artists  Artists chip from Library (returns MPLAUC... pages)
-        FEmusic_library_songs         All songs in library (requires params*)
+        FEmusic_library_songs         Unverified legacy ID; the Songs chip issues FEmusic_liked_videos
+        FEmusic_library_non_music_audio_list       Dedicated podcast library
+        FEmusic_library_non_music_audio_channels_list Podcast library channel filter (preserve params)
+        FEmusic_library_user_profile_channels_list Profiles filter (preserve issued params)
         FEmusic_recently_played       Recently played content
         FEmusic_offline               Downloaded content (may not work on desktop)
 
@@ -3465,7 +3628,8 @@ func listEndpoints() {
         ───────────────────────────────────────────────────────────────────────────────
         FEmusic_library_privately_owned_landing   Uploads landing page
         FEmusic_library_privately_owned_tracks    User-uploaded songs
-        FEmusic_library_privately_owned_albums    User-uploaded albums
+        FEmusic_library_privately_owned_releases  Upload Albums chip (empty signed-in sample verified)
+        FEmusic_library_privately_owned_albums    Rejected legacy probe; use the issued releases route
         FEmusic_library_privately_owned_artists   Artists from user uploads
 
         🌐 DYNAMIC BROWSE IDs (Pattern-based)
@@ -3475,6 +3639,8 @@ func listEndpoints() {
         MPLAUC{libraryArtistId}       Library artist detail (from Artists chip, requires auth)
         MPREb_{albumId}               Album detail
         MPLYt_{lyricsId}              Lyrics content
+        MPTC{creditsId}               Song credits dialog (use server-issued browseId)
+        MPTR{relatedId}               Related tracks, playlists, artists (from next tabs)
         FEmusic_moods_and_genres_category   Mood/Genre category (with params)
 
         ═══════════════════════════════════════════════════════════════════════════════
@@ -3605,6 +3771,9 @@ func listEndpoints() {
         Audit a video:                swift run api-explorer ask-video-audit <VIDEO_ID>
         Compare Ask request profiles: swift run api-explorer ask-video-parity <VIDEO_ID>
         Inspect wire format:          swift run api-explorer --youtube wire-action <ep> '{}'
+        Discover read-only routes:    swift run api-explorer discover help
+        Signed-in Library filters:   swift run api-explorer discover browse '{"browseId":"FEmusic_library_landing"}'
+        Transcript navigation:       next may issue getTranscriptEndpoint; guest replay returned 400
 
         ═══════════════════════════════════════════════════════════════════════════════
         💡 USAGE TIPS
@@ -3637,6 +3806,7 @@ func showHelp() {
           browse <browseId> [params]     Explore a browse endpoint
           action <endpoint> [body]       Explore a JSON action endpoint
           wire-action <endpoint> [body]  Safely inspect JSON, streaming, or opaque responses
+          discover <endpoint> [body]     Inspect read-only navigation, filters, and response shapes
           ask-video-audit <videoId>      Audit Ask Gemini / YouChat without sending a prompt
           ask-video-parity <videoId>     Compare ordered read-only Ask request profiles
           ask-video-live-test <videoId>  Replay the server-issued summary suggestion
@@ -3660,13 +3830,15 @@ func showHelp() {
           help                           Show this help message
 
         Options:
-          -v, --verbose                  Show raw JSON or expand audits; queue-probe stays sanitized
-          -o, --output <file>            Save mode-0600 output; queue-probe stays sanitized
+          -v, --verbose                  Show raw JSON or expand audits; discover/queue-probe stay redacted
+          -o, --output <file>            Save mode-0600 output; discover/queue-probe stay redacted
           --body-file <path|->           Read a sensitive JSON body from a chmod-600 file or stdin
           --prompt-file <path|->         Read a private prompt from a mode-0600 file or stdin
           --confirm-live-ai              Required acknowledgement for live Ask commands
           --fresh-chats N                Run 1-3 independent summary chats (default: 1)
           --follow-up                    Replay the first server-issued follow-up suggestion
+          --follow <index>               Follow a numbered discover entry, repeat up to 5 times
+          --limit N                      Show 1-500 discover entries (default: 40)
           --authuser N                   Use Google account at index N (for multi-account)
           --brand <ID>                   Use brand account ID (21-digit number)
           --client-version <version>     Override the resolved InnerTube client version
@@ -3675,6 +3847,11 @@ func showHelp() {
                                          code localizes real responses.
           --youtube, --yt                Target regular YouTube (www.youtube.com, WEB client)
                                          instead of YouTube Music
+          --ios-music                    Use IOS_MUSIC with discover, including mobile Home models
+          --android-music                Use ANDROID_MUSIC with discover
+          --mobile-web-key               Add the resolved web API key to mobile discovery
+          --mobile-cookie-only           Omit SAPISIDHASH while retaining cookies for comparison
+          --mobile-token-file <path>     Read a mobile OAuth access token from a mode-0600 file
           --no-auth, --guest             Force signed-out requests even if Kaset cookies exist
 
         YouTube mode examples:
@@ -3785,6 +3962,13 @@ func runMain() async {
     var outputFile: String?
     var bodyFile: String?
     var promptFile: String?
+    var discoveryFollowIndices: [Int] = []
+    var discoveryLimit = 40
+    var discoveryLimitWasSpecified = false
+    var mobileClient: MusicMobileRequestProfile.Client?
+    var mobileWebKey = false
+    var mobileCookieOnly = false
+    var mobileTokenFile: String?
     var filteredArgs: [String] = []
 
     var index = 0
@@ -3795,12 +3979,49 @@ func runMain() async {
             verbose = true
         case "--youtube", "--yt":
             activateYouTubeMode()
+        case "--ios-music", "--android-music":
+            guard mobileClient == nil else {
+                print("❌ Select only one mobile client profile")
+                exit(1)
+            }
+            mobileClient = argument == "--ios-music" ? .ios : .android
+        case "--mobile-web-key":
+            mobileWebKey = true
+        case "--mobile-cookie-only":
+            mobileCookieOnly = true
+        case "--mobile-token-file":
+            guard let value = commandLineOptionValue(after: index, in: args) else {
+                print("❌ --mobile-token-file requires a private regular file path")
+                exit(1)
+            }
+            mobileTokenFile = value
+            index += 1
         case "--no-auth", "--guest":
             forceUnauthenticatedRequests = true
         case "--confirm-live-ai":
             confirmLiveAI = true
         case "--follow-up":
             includeAskFollowUp = true
+        case "--follow":
+            guard let rawValue = commandLineOptionValue(after: index, in: args),
+                  let value = Int(rawValue), value >= 0,
+                  discoveryFollowIndices.count < 5
+            else {
+                print("❌ --follow requires a nonnegative entry index, at most 5 times")
+                exit(1)
+            }
+            discoveryFollowIndices.append(value)
+            index += 1
+        case "--limit":
+            guard let rawValue = commandLineOptionValue(after: index, in: args),
+                  let value = Int(rawValue), (1 ... 500).contains(value)
+            else {
+                print("❌ --limit requires an integer between 1 and 500")
+                exit(1)
+            }
+            discoveryLimit = value
+            discoveryLimitWasSpecified = true
+            index += 1
         case "-o", "--output":
             guard let value = commandLineOptionValue(
                 after: index,
@@ -3871,7 +4092,7 @@ func runMain() async {
             }
             index += 1
             let value = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !value.isEmpty, !value.hasPrefix("-") else {
+            guard isValidClientVersion(value) else {
                 print("❌ Invalid --client-version value: provide a version such as 1.20231204.01.00")
                 return
             }
@@ -3905,8 +4126,56 @@ func runMain() async {
         print("❌ --prompt-file is supported only by ask-video-free-text-test")
         return
     }
+    guard command == "discover" || (discoveryFollowIndices.isEmpty && !discoveryLimitWasSpecified) else {
+        print("❌ --follow and --limit are supported only by discover")
+        exit(1)
+    }
+    guard mobileClient == nil || (command == "discover" && !youtubeMode) else {
+        print("❌ Mobile profiles are supported only by discover and cannot be combined with --youtube")
+        exit(1)
+    }
+    guard (!mobileWebKey && !mobileCookieOnly) || mobileClient != nil else {
+        print("❌ --mobile-web-key and --mobile-cookie-only require a discover mobile profile")
+        exit(1)
+    }
+    guard mobileTokenFile == nil || (command == "discover" && mobileClient != nil
+        && !forceUnauthenticatedRequests && !mobileCookieOnly
+        && globalBrandAccountId == nil && !authUserOptionWasSpecified)
+    else {
+        print("❌ --mobile-token-file requires mobile discover and cannot mix with guest, cookie-only, or web account selection")
+        exit(1)
+    }
 
     switch command {
+    case "discover":
+        if filteredArgs.count == 2, filteredArgs[1] == "help" {
+            print(discoveryHelp())
+            return
+        }
+        guard (2 ... 3).contains(filteredArgs.count) else {
+            print("❌ Usage: discover <endpoint> [body-json] [--body-file <path|->] [--follow N]")
+            exit(1)
+        }
+        do {
+            let bodyJSON = try loadRequestBodyJSON(
+                inlineBody: filteredArgs.count == 3 ? filteredArgs[2] : nil,
+                bodyFile: bodyFile
+            )
+            let succeeded = await discoverAPI(
+                endpoint: filteredArgs[1], bodyJSON: bodyJSON,
+                followIndices: discoveryFollowIndices, limit: discoveryLimit,
+                verbose: verbose, outputFile: outputFile, mobileClient: mobileClient,
+                mobileWebKey: mobileWebKey, mobileCookieOnly: mobileCookieOnly,
+                mobileTokenFile: mobileTokenFile, bodyFile: bodyFile
+            )
+            if !succeeded {
+                exit(1)
+            }
+        } catch {
+            print("❌ Could not read the discovery request body")
+            exit(1)
+        }
+
     case "browse":
         guard filteredArgs.count >= 2 else {
             print("❌ Usage: browse <browseId> [params]")
