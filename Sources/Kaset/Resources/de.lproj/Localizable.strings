@@ -213,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset funktioniert ohne Anmeldung für öffentliches Browsen, Suchen und Wiedergeben. Melde dich an, um auf persönliche Musiksammlungen zuzugreifen.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset funktioniert ohne Anmeldung für öffentliche YouTube-Suche, Entdecken und Wiedergabe. Melde dich an, um auf persönliche Videosammlungen zuzugreifen.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset konnte die gespeicherten Anmeldedaten nicht sicher löschen. Versuche es erneut, bevor du dich wieder anmeldest.";
+"Sign-In Temporarily Unavailable" = "Anmeldung vorübergehend nicht verfügbar";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset konnte die gespeicherten Anmeldedaten nicht lesen. Versuche es erneut, um deine Sitzung wiederherzustellen.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset konnte die gespeicherten Anmeldedaten nicht entfernen. Versuche vor dem Beenden erneut, dich abzumelden.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Halte ein laufendes Video in einem schwebenden Fenster, wenn du die Seite verlässt. Ist die Option aus, stoppt das Video stattdessen.";
 "Keep listening even when the window is closed" = "Weiterhören, auch wenn das Fenster geschlossen ist";

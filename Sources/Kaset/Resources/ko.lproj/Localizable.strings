@@ -213,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset은 로그인 없이 공개 탐색, 검색 및 재생을 사용할 수 있습니다. 개인 음악 모음을 보려면 로그인하세요.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset은 로그인 없이 공개 YouTube 검색, 탐색 및 재생을 사용할 수 있습니다. 개인 동영상 모음을 보려면 로그인하세요.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset이 저장된 로그인 데이터를 안전하게 지우지 못했습니다. 다시 로그인하기 전에 재시도하세요.";
+"Sign-In Temporarily Unavailable" = "일시적으로 로그인할 수 없음";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset이 저장된 로그인 데이터를 읽지 못했습니다. 세션을 복원하려면 재시도하세요.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset이 저장된 로그인 데이터를 제거하지 못했습니다. 앱을 종료하기 전에 다시 로그아웃해 보세요.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "페이지를 벗어나도 재생 중인 비디오를 떠 있는 윈도우에 유지합니다. 끄면 대신 비디오가 중지됩니다.";
 "Keep listening even when the window is closed" = "창이 닫혀도 계속 재생";

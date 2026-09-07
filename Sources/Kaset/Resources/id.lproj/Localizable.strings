@@ -213,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset berfungsi tanpa login untuk penelusuran, pencarian, dan pemutaran publik. Masuk untuk mengakses koleksi musik pribadi.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset berfungsi tanpa login untuk pencarian, penemuan, dan pemutaran YouTube publik. Masuk untuk mengakses koleksi video pribadi.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset tidak dapat menghapus data masuk yang tersimpan dengan aman. Coba lagi sebelum masuk kembali.";
+"Sign-In Temporarily Unavailable" = "Masuk sementara tidak tersedia";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset tidak dapat membaca data masuk yang tersimpan. Coba lagi untuk memulihkan sesi Anda.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset tidak dapat menghapus data masuk yang tersimpan. Coba keluar lagi sebelum menutup aplikasi.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Pertahankan video yang sedang diputar di jendela mengambang saat Anda meninggalkan halaman. Jika nonaktif, video akan berhenti.";
 "Keep listening even when the window is closed" = "Lanjutkan mendengarkan meski jendela ditutup";

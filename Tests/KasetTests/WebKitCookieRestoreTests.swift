@@ -5,6 +5,212 @@ import Testing
 @Suite("WebKit cookie restoration", .serialized, .tags(.service))
 @MainActor
 struct WebKitCookieRestoreTests {
+    @Test("Missing archive preserves a valid live primary session")
+    func missingArchivePreservesValidLivePrimarySession() async throws {
+        let livePrimaryCookie = try #require(HTTPCookie(properties: [
+            .name: "SAPISID",
+            .value: "mock-live-primary-session",
+            .domain: ".youtube.com",
+            .path: "/",
+            .expires: Date().addingTimeInterval(3600),
+        ]))
+        let webKitManager = WebKitManager.makeTestInstance()
+
+        await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+        _ = await webKitManager.clearAllData()
+
+        #expect(result == .ready)
+        #expect(cookies.first { $0.name == "SAPISID" }?.value == "mock-live-primary-session")
+    }
+
+    @Test("Missing archive without a live session allows signed-out startup")
+    func missingArchiveWithoutLiveSessionAllowsSignedOutStartup() async {
+        let webKitManager = WebKitManager.makeTestInstance()
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+
+        #expect(result == .ready)
+        #expect(cookies.isEmpty)
+    }
+
+    @Test("Unavailable archive preserves the complete live cookie jar")
+    func unavailableArchivePreservesLiveCookies() async throws {
+        let persistedState = InMemoryCookieArchiveBox()
+        let persistedMarker = Data([0x47])
+        persistedState.store(persistedMarker)
+        let storage = CookieArchiveStorage(
+            save: { _, _ in true },
+            loadResult: { .failure },
+            delete: {
+                persistedState.store(nil)
+                return true
+            }
+        )
+        let webKitManager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage)
+        let liveCookies = try [
+            Self.makeCookie(name: "SAPISID", value: "mock-live-primary-session", domain: ".youtube.com"),
+            Self.makeCookie(name: "LSID", value: "mock-live-login-state", domain: ".google.com"),
+            Self.makeCookie(name: "PREF", value: "mock-preference", domain: ".youtube.com"),
+        ]
+        for cookie in liveCookies {
+            await webKitManager.dataStore.httpCookieStore.setCookie(cookie)
+        }
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+
+        #expect(result == .unavailable)
+        #expect(Self.cookieValues(cookies) == Self.cookieValues(liveCookies))
+        #expect(persistedState.load() == persistedMarker)
+    }
+
+    @Test("Unavailable restore policy preserves live cookies and persisted archive")
+    func unavailableRestorePolicyPreservesLiveAndPersistedState() async throws {
+        let persistedState = InMemoryCookieArchiveBox()
+        let persistedMarker = Data([0x48])
+        persistedState.store(persistedMarker)
+        let storage = CookieArchiveStorage(
+            save: { _, _ in true },
+            loadResult: {
+                guard let data = persistedState.load() else { return .notFound }
+                return .data(data)
+            },
+            delete: {
+                persistedState.store(nil)
+                return true
+            },
+            restoreDecision: { .unavailable }
+        )
+        let webKitManager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage)
+        let liveCookies = try [
+            Self.makeCookie(name: "SAPISID", value: "mock-live-primary-session", domain: ".youtube.com"),
+            Self.makeCookie(name: "PREF", value: "mock-preference", domain: ".youtube.com"),
+        ]
+        for cookie in liveCookies {
+            await webKitManager.dataStore.httpCookieStore.setCookie(cookie)
+        }
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+
+        #expect(result == .unavailable)
+        #expect(Self.cookieValues(cookies) == Self.cookieValues(liveCookies))
+        #expect(await webKitManager.cookieArchiveQueue.persistedArchiveData() == persistedMarker)
+    }
+
+    @Test("Denied restore remains authoritative")
+    func deniedRestoreClearsLoginStateAndArchive() async throws {
+        let persistedState = InMemoryCookieArchiveBox()
+        persistedState.store(Data([0x49]))
+        let storage = CookieArchiveStorage(
+            save: { _, _ in true },
+            loadResult: {
+                guard let data = persistedState.load() else { return .notFound }
+                return .data(data)
+            },
+            delete: {
+                persistedState.store(nil)
+                return true
+            },
+            restoreDecision: { .denied }
+        )
+        let webKitManager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage)
+        let livePrimaryCookie = try Self.makeCookie(
+            name: "SAPISID",
+            value: "mock-live-primary-session",
+            domain: ".youtube.com"
+        )
+        let preferenceCookie = try Self.makeCookie(
+            name: "PREF",
+            value: "mock-preference",
+            domain: ".youtube.com"
+        )
+        await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
+        await webKitManager.dataStore.httpCookieStore.setCookie(preferenceCookie)
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+
+        #expect(result == .ready)
+        #expect(!cookies.contains { $0.name == "SAPISID" })
+        #expect(cookies.first { $0.name == "PREF" }?.value == "mock-preference")
+        #expect(await webKitManager.cookieArchiveQueue.persistedArchiveData() == nil)
+    }
+
+    @Test("Denied restore clears residual login state when the archive is missing")
+    func deniedRestoreWithMissingArchiveClearsResidualLoginState() async throws {
+        let storage = CookieArchiveStorage(
+            save: { _, _ in true },
+            loadResult: { .notFound },
+            delete: { true },
+            restoreDecision: { .denied }
+        )
+        let webKitManager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage)
+        let livePrimaryCookie = try Self.makeCookie(
+            name: "SAPISID",
+            value: "mock-residual-primary-session",
+            domain: ".youtube.com"
+        )
+        await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+
+        #expect(result == .ready)
+        #expect(!cookies.contains { $0.name == "SAPISID" })
+    }
+
+    @Test("Invalid archive is quarantined through startup restoration")
+    func invalidArchiveIsQuarantinedThroughRestoreEntryPoint() async throws {
+        let webKitManager = WebKitManager.makeTestInstance()
+        let generation = await webKitManager.cookieArchiveQueue.reserveGeneration()
+        #expect(await webKitManager.cookieArchiveQueue.save(
+            archiveData: Data([0x4A]),
+            cookieCount: 1,
+            generation: generation
+        ).isPersisted)
+        let livePrimaryCookie = try Self.makeCookie(
+            name: "SAPISID",
+            value: "mock-live-primary-session",
+            domain: ".youtube.com"
+        )
+        let preferenceCookie = try Self.makeCookie(
+            name: "PREF",
+            value: "mock-preference",
+            domain: ".youtube.com"
+        )
+        await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
+        await webKitManager.dataStore.httpCookieStore.setCookie(preferenceCookie)
+        let restorePolicyGeneration = CookieArchiveRestorePolicy.generation
+
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
+            expectedGeneration: webKitManager.authCookieOperationFence.generation
+        )
+        let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
+        _ = await webKitManager.clearAllData()
+
+        #expect(result == .failed)
+        #expect(CookieArchiveRestorePolicy.generation > restorePolicyGeneration)
+        #expect(!cookies.contains { $0.name == "SAPISID" })
+        #expect(cookies.first { $0.name == "PREF" }?.value == "mock-preference")
+    }
+
     @Test("Clearing one manager's data leaves another manager's cookie archive intact")
     func clearingOneManagerPreservesAnotherManagersArchive() async {
         let archiveOwner = WebKitManager.makeTestInstance()
@@ -65,13 +271,13 @@ struct WebKitCookieRestoreTests {
         await webKitManager.dataStore.httpCookieStore.setCookie(staleGAIA)
         await webKitManager.dataStore.httpCookieStore.setCookie(publicPreference)
 
-        let restored = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
         _ = await webKitManager.clearAllData()
 
-        #expect(restored)
+        #expect(result == .ready)
         #expect(cookies.first { $0.name == "__Secure-3PAPISID" }?.value == "isolated-restore-session")
         #expect(cookies.contains { $0.name == "SAPISID" } == false)
         #expect(cookies.contains { $0.name == "LSID" } == false)
@@ -345,5 +551,25 @@ struct WebKitCookieRestoreTests {
             expectedLoginCookies: [primaryCookie, baselineCompanion],
             currentCookies: [primaryCookie, refreshedCompanion]
         ))
+    }
+
+    private static func makeCookie(
+        name: String,
+        value: String,
+        domain: String
+    ) throws -> HTTPCookie {
+        try #require(HTTPCookie(properties: [
+            .name: name,
+            .value: value,
+            .domain: domain,
+            .path: "/",
+            .expires: Date().addingTimeInterval(3600),
+        ]))
+    }
+
+    private static func cookieValues(_ cookies: [HTTPCookie]) -> [String] {
+        cookies.map { cookie in
+            "\(cookie.domain)|\(cookie.path)|\(cookie.name)|\(cookie.value)"
+        }.sorted()
     }
 }
