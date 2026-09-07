@@ -680,8 +680,8 @@ struct MusicPlaybackBridgeGenerationTests {
             terminator: "});"
         )
 
-        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 6)
-        #expect(payloads.count == 5)
+        #expect(self.occurrenceCount(of: "postMessage(", in: script) == 4)
+        #expect(payloads.count == 3)
         for payload in payloads {
             #expect(payload.contains("documentGeneration: window.__kasetDocumentGeneration"))
             if payload.contains("type: 'STATE_UPDATE'") {

@@ -244,6 +244,8 @@ extension SingletonPlayerWebView {
             let pollIntervalId = null;
             let lastUpdateTime = 0;
             let trailingUpdateTimeoutId = null;
+            let lastAirPlayVideo;
+            let lastAirPlayConnected;
             const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
             const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
             const TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100;
@@ -272,6 +274,21 @@ extension SingletonPlayerWebView {
                 setTimeout(() => { isEnforcingVolume = false; }, 50);
             }
 
+            function sendAirPlayStatus() {
+                const video = document.querySelector('video');
+                const isConnected = !!(video && video.webkitCurrentPlaybackTargetIsWireless);
+                if (video === lastAirPlayVideo && isConnected === lastAirPlayConnected) return;
+                lastAirPlayVideo = video;
+                lastAirPlayConnected = isConnected;
+                bridge.postMessage({
+                    type: 'AIRPLAY_STATUS',
+                    observerEpoch: observerEpoch,
+                    documentID: documentID,
+                    documentGeneration: window.__kasetDocumentGeneration,
+                    isConnected: isConnected
+                });
+            }
+
             function waitForPlayerBar() {
                 const playerBar = document.querySelector('ytmusic-player-bar');
                 if (playerBar) {
@@ -287,6 +304,7 @@ extension SingletonPlayerWebView {
                 function attachVideoListeners() {
                     refreshAdObserver();
                     const video = document.querySelector('video');
+                    sendAirPlayStatus();
                     if (!video) {
                         setTimeout(attachVideoListeners, 500);
                         return;
@@ -368,46 +386,9 @@ extension SingletonPlayerWebView {
 
                     // AirPlay state tracking
                     video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
-                        const isWireless = video.webkitCurrentPlaybackTargetIsWireless;
-                        const wasConnected = window.__kasetAirPlayConnected;
-                        window.__kasetAirPlayConnected = isWireless;
-
-                        bridge.postMessage({
-                            type: 'AIRPLAY_STATUS',
-                            observerEpoch: observerEpoch,
-                    documentID: documentID,
-                            documentGeneration: window.__kasetDocumentGeneration,
-                            isConnected: isWireless,
-                            wasConnected: wasConnected,
-                            wasRequested: window.__kasetAirPlayRequested || false
-                        });
+                        if (video !== document.querySelector('video')) return;
+                        sendAirPlayStatus();
                     });
-
-                    // Check initial AirPlay state
-                    const initialWireless = video.webkitCurrentPlaybackTargetIsWireless;
-                    if (initialWireless) {
-                        window.__kasetAirPlayConnected = true;
-                        bridge.postMessage({
-                            type: 'AIRPLAY_STATUS',
-                            observerEpoch: observerEpoch,
-                    documentID: documentID,
-                            documentGeneration: window.__kasetDocumentGeneration,
-                            isConnected: true,
-                            wasConnected: false,
-                            wasRequested: window.__kasetAirPlayRequested || false
-                        });
-                    } else if (window.__kasetAirPlayRequested && window.__kasetAirPlayConnected) {
-                        window.__kasetAirPlayConnected = false;
-                        bridge.postMessage({
-                            type: 'AIRPLAY_STATUS',
-                            observerEpoch: observerEpoch,
-                    documentID: documentID,
-                            documentGeneration: window.__kasetDocumentGeneration,
-                            isConnected: false,
-                            wasConnected: true,
-                            wasRequested: true
-                        });
-                    }
 
                     // Volume enforcement: immediately revert external volume changes
                     // No debounce — the isEnforcingVolume flag prevents feedback loops.
@@ -470,6 +451,7 @@ extension SingletonPlayerWebView {
                 // Also watch for video element replacement (YouTube may recreate it)
                 const videoObserver = new MutationObserver(() => {
                     refreshAdObserver();
+                    sendAirPlayStatus();
                     const video = document.querySelector('video');
                     if (video && !video.__kasetListenersAttached) {
                         attachVideoListeners();
@@ -1046,6 +1028,9 @@ extension SingletonPlayerWebView {
                 } catch (e) {}
             }
 
+            // Report initial state even before YouTube creates its player bar
+            // or media element.
+            sendAirPlayStatus();
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', waitForPlayerBar);
             } else {

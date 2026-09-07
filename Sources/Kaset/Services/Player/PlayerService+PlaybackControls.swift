@@ -55,6 +55,7 @@ extension PlayerService {
     @discardableResult
     func closeMiniPlayer(restoringMainWindow shouldRestore: Bool) -> Bool {
         self.isMiniPlayerVisible = false
+        self.isMiniPlayerMiniaturized = false
         self.miniPlayerMode = .auxiliary
         self.shouldRestoreMainWindowWhenMiniPlayerCloses = false
         self.miniPlayerMainWindowRestoreRequest = shouldRestore
@@ -237,7 +238,7 @@ extension PlayerService {
         let hasPendingSameLogicalLoad = self.pendingPlayVideoId == song.videoId
             && (self.state == .loading || self.isAwaitingPlaybackConfirmation)
         let shouldBypassSamePlaybackFastPath = bypassesSamePlaybackFastPath
-            || webLoadStrategy == .forceFullPageWhenSameVideoId
+            || webLoadStrategy.requiresSameVideoNavigation
         guard shouldBypassSamePlaybackFastPath
             || !isSameLogicalPlayback
             || (acceptsPlaybackRequest && !hasPendingSameLogicalLoad)
@@ -960,7 +961,7 @@ extension PlayerService {
             startsPaused: startsPaused,
             restoreClock: restoreClock,
             fetchesMetadata: fetchesMetadata,
-            bypassesSamePlaybackFastPath: strategy == .forceFullPageWhenSameVideoId,
+            bypassesSamePlaybackFastPath: strategy.requiresSameVideoNavigation,
             intent: intent
         )
         guard self.acceptsMusicPlaybackIntent(intent) else { return false }
@@ -1191,17 +1192,13 @@ extension PlayerService {
     }
 
     /// Show the AirPlay picker for selecting audio output devices.
-    func showAirPlayPicker() {
-        self.markAirPlayRequested()
-        SingletonPlayerWebView.shared.showAirPlayPicker()
+    func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
+        SingletonPlayerWebView.shared.showAirPlayPicker(at: screenPoint)
     }
 
     /// Updates the AirPlay connection status from the WebView.
-    func updateAirPlayStatus(isConnected: Bool, wasRequested: Bool = false) {
+    func updateAirPlayStatus(isConnected: Bool) {
         self.isAirPlayConnected = isConnected
-        if wasRequested {
-            self.markAirPlayRequested()
-        }
     }
 
     /// Legacy method for evaluating player commands - now delegates to SingletonPlayerWebView.

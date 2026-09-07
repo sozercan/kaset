@@ -29,6 +29,11 @@ extension PlayerService {
     }
 
     func scheduleQueueNavigationRecovery(for song: Song) {
+        // Source changes can report outgoing media while the requested track is
+        // still loading. Let the existing router attempt confirm or time out.
+        guard !SingletonPlayerWebView.shared.isRouterNavigationPending(for: song.videoId) else {
+            return
+        }
         guard self.queueNavigationRecoveryVideoId != song.videoId else {
             self.logger.debug("Coalescing stale metadata recovery for \(song.videoId)")
             return
@@ -54,7 +59,7 @@ extension PlayerService {
 
             await self.play(
                 song: song,
-                webLoadStrategy: .forceFullPageWhenSameVideoId,
+                webLoadStrategy: .preferRouterWhenSameVideoId,
                 queueEntryID: queueEntryID,
                 startsPaused: startsPaused,
                 isQueueNavigationRecovery: true,

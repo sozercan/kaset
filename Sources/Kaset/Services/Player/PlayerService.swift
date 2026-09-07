@@ -355,8 +355,14 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether the mini player should be shown (user needs to interact to start playback).
     var showMiniPlayer: Bool = false
 
-    /// Whether the native mini player window is visible.
+    /// Whether the native mini player window is open, including when minimized.
     var isMiniPlayerVisible: Bool = false
+
+    var isMiniPlayerMiniaturized: Bool = false
+
+    var shouldHostPlaybackInMiniPlayer: Bool {
+        self.isMiniPlayerVisible && !self.isMiniPlayerMiniaturized && !self.showVideo
+    }
 
     /// How the native mini player was opened.
     var miniPlayerMode: MiniPlayerMode = .auxiliary
@@ -465,9 +471,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
 
     /// Whether AirPlay is currently connected (playing to a wireless target).
     var isAirPlayConnected: Bool = false
-
-    /// Whether the user has requested AirPlay this session (for persistence across track changes).
-    private(set) var airPlayWasRequested: Bool = false
 
     // MARK: - Internal Properties (for extensions)
 
@@ -710,11 +713,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Records that playback has succeeded after a user gesture in this app session.
     func markUserInteractedThisSession() {
         self.hasUserInteractedThisSession = true
-    }
-
-    /// Records that the user explicitly requested AirPlay in this app session.
-    func markAirPlayRequested() {
-        self.airPlayWasRequested = true
     }
 
     /// Clears forward-skip undo when the queue is replaced or reordered so indices are not stale.

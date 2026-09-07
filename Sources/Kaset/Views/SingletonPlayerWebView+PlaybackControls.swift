@@ -416,11 +416,13 @@ extension SingletonPlayerWebView {
     }
 
     /// Show the native AirPlay picker for the WebView's video element.
-    func showAirPlayPicker() {
+    func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         guard let webView else {
             DiagnosticsLogger.airplay.warning("showAirPlayPicker called but webView is nil")
             return
         }
+
+        AirPlayPickerAnchor.preparePicker(in: webView, at: screenPoint)
 
         let script = """
             (function() {
@@ -428,7 +430,6 @@ extension SingletonPlayerWebView {
                 if (!video) return 'no-video';
                 if (typeof video.webkitShowPlaybackTargetPicker !== 'function') return 'unsupported';
 
-                window.__kasetAirPlayRequested = true;
                 video.webkitShowPlaybackTargetPicker();
                 return 'picker-shown';
             })();

@@ -51,7 +51,9 @@ extension SingletonPlayerWebView {
 
     @discardableResult
     func commitDocumentNavigation(_ navigation: WKNavigation?, in webView: WKWebView) -> Bool {
-        self.isActiveDocumentNavigation(navigation, in: webView)
+        guard self.isActiveDocumentNavigation(navigation, in: webView) else { return false }
+        self.coordinator?.playerService.updateAirPlayStatus(isConnected: false)
+        return true
     }
 
     @discardableResult

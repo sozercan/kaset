@@ -37,6 +37,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @State private var resolvedAlbum: Playlist?
     @State private var isResolvingArtist = false
     @State private var isResolvingAlbum = false
+    @State private var airPlayAnchor = AirPlayPickerAnchor()
 
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
@@ -467,6 +468,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     .frame(width: 10, height: 16)
                     .foregroundStyle(self.playerService.isAirPlayConnected ? Self.brandAccent : .primary)
                     .contentTransition(.symbolEffect(.replace))
+            }
+            .background {
+                AirPlayPickerAnchorView(anchor: self.airPlayAnchor)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
             .disabled(self.playerService.currentTrack == nil)
 
@@ -1133,7 +1139,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     private func showAirPlayPicker() {
         HapticService.toggle()
-        self.playerService.showAirPlayPicker()
+        self.playerService.showAirPlayPicker(at: self.airPlayAnchor.screenPoint)
     }
 
     private func previousTrack() {
