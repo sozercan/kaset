@@ -310,6 +310,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// `nil` means legacy/unknown and must not be trusted across guest privacy boundaries.
     var restoredPlaybackSessionOwnerScope: String?
 
+    /// Startup must classify the restored queue before authentication can change its ownership.
+    var hasResolvedStartupPlaybackOwnership = false
+
+    var shouldPreserveRestoredPlaybackOwnership: Bool {
+        self.isPendingRestoredLoadDeferred && !self.hasResolvedStartupPlaybackOwnership
+    }
+
     static let playbackSessionScopeGuest = "guest"
     static let playbackSessionScopeAuthenticated = "authenticated"
     var queue: [Song] {

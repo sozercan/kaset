@@ -225,7 +225,7 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
-                let startupState = self.authService.state
+                let startupState = self.authService.startupState
                 MainWindow(
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
@@ -283,18 +283,22 @@ struct KasetApp: App {
                     }
                 }
                 .task(id: startupState) {
+                    guard let startupState else { return }
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
                     let signOutSequence = self.authService.signOutSequence
                     // Check if user is already logged in from previous session
                     guard await self.authService.checkLoginStatusForStartup(
                         expectedState: startupState
                     ), !Task.isCancelled,
-                    self.authService.state == startupState,
+                    self.authService.startupState == startupState,
                     self.authService.signOutSequence == signOutSequence
                     else { return }
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
-                        if self.authService.state.isLoggedIn {
+                        if self.authService.signOutSequence > 0 {
+                            self.playerService.clearPlaybackForSignOut()
+                            self.youtubePlayerService.stop()
+                        } else if self.authService.state.isLoggedIn {
                             self.playerService.clearGuestPlaybackForAuthenticatedStartup()
                         } else {
                             self.playerService.clearPlaybackForGuestStartup()

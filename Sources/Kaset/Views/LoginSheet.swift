@@ -18,7 +18,9 @@ struct LoginSheet: View {
     @State private var pollTask: Task<Void, Never>?
     @State private var loginCheckTask: Task<Void, Never>?
     @State private var recoveryRetryTask: Task<Void, Never>?
+    @State private var signOutTask: Task<Void, Never>?
     @State private var isRetryingRecovery = false
+    @State private var signOutFailurePresented = false
     @State private var isActive = false
 
     var body: some View {
@@ -43,6 +45,20 @@ struct LoginSheet: View {
             }
         }
         .frame(width: 500, height: 650)
+        .alert(
+            String(localized: "Sign Out Incomplete"),
+            isPresented: self.$signOutFailurePresented
+        ) {
+            Button(String(localized: "Retry")) {
+                self.signOutForRecovery()
+            }
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(
+                "Kaset could not remove saved sign-in data. Try signing out again before quitting.",
+                comment: "Sign-out durable storage failure message"
+            )
+        }
         .onChange(of: self.webKitManager.cookiesDidChange) { _, _ in
             self.checkForSuccessfulLogin()
         }
@@ -88,16 +104,19 @@ struct LoginSheet: View {
             let pollTask = self.pollTask
             let loginCheckTask = self.loginCheckTask
             let recoveryRetryTask = self.recoveryRetryTask
+            let signOutTask = self.signOutTask
             preparationTask?.cancel()
             pollTask?.cancel()
             loginCheckTask?.cancel()
             recoveryRetryTask?.cancel()
+            signOutTask?.cancel()
 
             Task { @MainActor in
                 await preparationTask?.value
                 await loginCheckTask?.value
                 await pollTask?.value
                 await recoveryRetryTask?.value
+                await signOutTask?.value
 
                 if let transaction = self.cookieBackupTransaction {
                     self.cookieBackupTransaction = nil
@@ -160,7 +179,14 @@ struct LoginSheet: View {
                     Text(String(localized: "Retry"))
                 }
             }
-            .disabled(self.isRetryingRecovery || self.authService.isLoginCleanupInProgress)
+            .disabled(self.isRetryingRecovery || self.signOutTask != nil || self.authService.isLoginCleanupInProgress)
+
+            if self.authService.isCookieRestoreUnavailable {
+                Button(String(localized: "Sign Out"), role: .destructive) {
+                    self.signOutForRecovery()
+                }
+                .disabled(self.signOutTask != nil || self.authService.isLoginCleanupInProgress)
+            }
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -304,6 +330,7 @@ struct LoginSheet: View {
 
     private func retryLoginRecovery() {
         guard self.recoveryRetryTask == nil,
+              self.signOutTask == nil,
               !self.authService.isLoginCleanupInProgress
         else { return }
         let expectedAttemptID = self.authService.activeLoginAttemptID
@@ -343,6 +370,25 @@ struct LoginSheet: View {
             }
 
             await self.restartLoginAfterRecovery()
+        }
+    }
+
+    private func signOutForRecovery() {
+        guard self.signOutTask == nil,
+              !self.authService.isLoginCleanupInProgress
+        else { return }
+        self.authService.cancelLoginStatusCheck()
+        self.recoveryRetryTask?.cancel()
+        self.signOutTask = Task { @MainActor in
+            defer { self.signOutTask = nil }
+
+            let didSignOut = await self.authService.signOut()
+            guard !Task.isCancelled, self.isActive else { return }
+            if didSignOut {
+                self.dismiss()
+            } else {
+                self.signOutFailurePresented = true
+            }
         }
     }
 

@@ -200,9 +200,138 @@ struct AuthServiceCookieRestoreTests {
         #expect(manager.clearAllDataCalled)
     }
 
+    @Test("Startup waits for recovery to finish publishing authentication", arguments: [true, false])
+    func startupWaitsForRecoveryPublication(restoresSession: Bool) async {
+        let manager = MockWebKitManager()
+        manager.waitForInitialCookieRestoreResult = .unavailable
+        let authService = AuthService(webKitManager: manager)
+        await authService.checkLoginStatus()
+        manager.waitForInitialCookieRestoreResult = .ready
+        manager.sapisidValue = restoresSession ? "mock-restored-session" : nil
+        let cookieReadEntered = AsyncGate()
+        let releaseCookieRead = AsyncGate()
+        manager.getSAPISIDGate = {
+            await cookieReadEntered.open()
+            await releaseCookieRead.wait()
+        }
+
+        let recovery = Task { @MainActor in
+            await authService.checkLoginStatus()
+        }
+        await cookieReadEntered.wait()
+        #expect(authService.isCookieRestoreUnavailable)
+        #expect(authService.state == .loggedOut)
+        #expect(!authService.shouldPersistGuestPlaybackState)
+        #expect(await authService.checkLoginStatusForStartup(expectedState: .loggedOut) == false)
+        await releaseCookieRead.open()
+        await recovery.value
+        #expect(!authService.isCookieRestoreUnavailable)
+        #expect(authService.state.isLoggedIn == restoresSession)
+        #expect(authService.shouldPersistGuestPlaybackState == !restoresSession)
+        #expect(await authService.checkLoginStatusForStartup(expectedState: authService.state))
+    }
+
+    @Test("Sign-out supersedes a pending recovery read", arguments: [true, false], [true, false])
+    func signOutSupersedesPendingRecovery(waitingForCookie: Bool, canInvalidateRestoration: Bool) async {
+        let manager = MockWebKitManager()
+        manager.waitForInitialCookieRestoreResult = .unavailable
+        let authService = AuthService(webKitManager: manager)
+        await authService.checkLoginStatus()
+        manager.waitForInitialCookieRestoreResult = .ready
+        manager.sapisidValue = "mock-restored-session"
+        let readEntered = AsyncGate()
+        let releaseRead = AsyncGate()
+        let readGate: @Sendable () async -> Void = {
+            await readEntered.open()
+            await releaseRead.wait()
+        }
+        if waitingForCookie {
+            manager.getSAPISIDGate = readGate
+        } else {
+            manager.waitForInitialCookieRestoreGate = readGate
+        }
+        let recovery = Task { @MainActor in
+            await authService.checkLoginStatus()
+        }
+        await readEntered.wait()
+        #expect(authService.isCookieRestoreUnavailable)
+        #expect(authService.startupState == nil)
+
+        manager.invalidateAuthCookieRestorationResult = canInvalidateRestoration
+        #expect(await authService.signOut() == canInvalidateRestoration)
+        #expect(authService.isCookieRestoreUnavailable == !canInvalidateRestoration)
+        #expect(authService.startupState == (canInvalidateRestoration ? .loggedOut : nil))
+        #expect(manager.clearAllDataCalled == canInvalidateRestoration)
+
+        await releaseRead.open()
+        await recovery.value
+        #expect(authService.state == .loggedOut)
+        #expect(authService.needsReauth == !canInvalidateRestoration)
+        #expect(authService.isCookieRestoreUnavailable == !canInvalidateRestoration)
+    }
+
+    @Test("Recovery cancellation rejects a cookie result before asynchronous sign-out", arguments: [true, false])
+    func signOutClickFencesPendingRecovery(canInvalidateRestoration: Bool) async {
+        let manager = MockWebKitManager()
+        manager.waitForInitialCookieRestoreResult = .unavailable
+        let authService = AuthService(webKitManager: manager)
+        await authService.checkLoginStatus()
+        manager.waitForInitialCookieRestoreResult = .ready
+        manager.sapisidValue = "mock-restored-session"
+        manager.invalidateAuthCookieRestorationResult = canInvalidateRestoration
+        let cookieReadEntered = AsyncGate()
+        let releaseCookieRead = AsyncGate()
+        manager.getSAPISIDGate = {
+            await cookieReadEntered.open()
+            await releaseCookieRead.wait()
+        }
+        let recovery = Task { @MainActor in
+            await authService.checkLoginStatus()
+        }
+        await cookieReadEntered.wait()
+
+        // The Sign Out action cancels recovery before scheduling its async task.
+        authService.cancelLoginStatusCheck()
+        recovery.cancel()
+        // A queued cookie callback can run before that sign-out task starts.
+        await releaseCookieRead.open()
+        await recovery.value
+        #expect(authService.state == .loggedOut)
+        #expect(authService.isCookieRestoreUnavailable)
+        #expect(authService.startupState == nil)
+
+        #expect(await authService.signOut() == canInvalidateRestoration)
+        #expect(authService.state == .loggedOut)
+        #expect(authService.isCookieRestoreUnavailable == !canInvalidateRestoration)
+    }
+
+    @Test("Cancelled status callers cannot restart cookie recovery")
+    func cancelledStatusCallerDoesNotStartRecovery() async {
+        let manager = MockWebKitManager()
+        manager.waitForInitialCookieRestoreResult = .unavailable
+        let authService = AuthService(webKitManager: manager)
+        await authService.checkLoginStatus()
+        manager.waitForInitialCookieRestoreResult = .ready
+        manager.sapisidValue = "mock-restored-session"
+        let startRetry = AsyncGate()
+        let recovery = Task { @MainActor in
+            await startRetry.wait()
+            await authService.checkLoginStatus()
+        }
+
+        recovery.cancel()
+        await startRetry.open()
+        await recovery.value
+
+        #expect(authService.state == .loggedOut)
+        #expect(authService.isCookieRestoreUnavailable)
+        #expect(manager.waitForInitialCookieRestoreCallCount == 1)
+        #expect(manager.getSAPISIDCallCount == 0)
+    }
+
     private static func observeStartup(authService: AuthService, accountService: AccountService) {
         let state = withObservationTracking {
-            authService.state
+            authService.startupState
         } onChange: { [weak authService, weak accountService] in
             Task { @MainActor in
                 guard let authService, let accountService else { return }
@@ -210,9 +339,9 @@ struct AuthServiceCookieRestoreTests {
             }
         }
         Task { @MainActor [weak authService, weak accountService] in
-            guard let authService, let accountService,
+            guard let state, let authService, let accountService,
                   await authService.checkLoginStatusForStartup(expectedState: state),
-                  authService.state == state
+                  authService.startupState == state
             else { return }
             accountService.authenticationIdentityDidChange()
             await accountService.fetchAccounts()

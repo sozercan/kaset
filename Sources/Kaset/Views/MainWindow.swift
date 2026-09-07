@@ -201,7 +201,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     private var windowChrome: some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
-                if self.authService.state.isInitializing {
+                if self.authService.isCookieRestoreUnavailable {
+                    SignInRequiredView(
+                        title: String(localized: "Sign-In Temporarily Unavailable"),
+                        message: String(localized: "Kaset could not read saved sign-in data. Retry to restore your session.")
+                    )
+                } else if self.authService.state.isInitializing {
                     // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
@@ -231,7 +236,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
             // Keep authenticated Home available while restoration defers watch loading.
             // Let the video window own the visible WebView.
-            if Self.shouldMountPersistentPlayer(
+            if !self.authService.isCookieRestoreUnavailable, Self.shouldMountPersistentPlayer(
                 isLoggedIn: self.authService.state.isLoggedIn,
                 pendingVideoId: self.playerService.pendingPlayVideoId,
                 isPendingRestoredLoadDeferred: self.playerService.isPendingRestoredLoadDeferred,

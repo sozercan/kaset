@@ -1127,10 +1127,12 @@ extension PlayerService {
                 ? min(max(self.progress, 0), resolvedDuration)
                 : max(self.progress, 0)
 
-            let isKnownGuestSession = self.authService?.shouldPersistGuestPlaybackState == true
-            let ownerScope = ownerScopeOverride ?? (isKnownGuestSession
-                ? Self.playbackSessionScopeGuest
-                : Self.playbackSessionScopeAuthenticated)
+            let retainedOwnerScope = self.shouldPreserveRestoredPlaybackOwnership
+                ? (self.restoredPlaybackSessionOwnerScope ?? Self.playbackSessionScopeAuthenticated) : nil
+            let ownerScope = retainedOwnerScope ?? ownerScopeOverride
+                ?? (self.authService?.shouldPersistGuestPlaybackState == true
+                    ? Self.playbackSessionScopeGuest : Self.playbackSessionScopeAuthenticated)
+            let isKnownGuestSession = ownerScope == Self.playbackSessionScopeGuest
             let persistedQueue = isKnownGuestSession ? Self.queueWithoutAccountMetadata(persistableQueue) : persistableQueue
             let persistedEntryIndexByID = Dictionary(
                 uniqueKeysWithValues: persistedEntries.enumerated().map { ($0.element.id, $0.offset) }
@@ -1254,6 +1256,8 @@ extension PlayerService {
     /// Re-tags a restored/persisted playback session after crossing a playback
     /// privacy boundary without otherwise changing the queue payload.
     func updateRestoredPlaybackSessionOwnerScope(_ ownerScope: String?) {
+        // A data-store reload can precede the root task's startup privacy decision.
+        guard !self.shouldPreserveRestoredPlaybackOwnership else { return }
         self.restoredPlaybackSessionOwnerScope = ownerScope
 
         guard let sessionData = self.queuePersistenceDefaults.data(forKey: self.savedPlaybackSessionKey) else { return }

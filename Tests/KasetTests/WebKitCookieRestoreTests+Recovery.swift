@@ -95,6 +95,31 @@ extension WebKitCookieRestoreTests {
         #expect(storage.snapshot.deleteCount == 1)
     }
 
+    @Test("Explicit sign-out discards a session behind an unreadable restore policy")
+    func signOutDiscardsUnreadableRestorePolicy() async throws {
+        let storage = CookieRecoveryStorage()
+        storage.update {
+            $0.policy = .unavailable
+            $0.archive = Data("mock-retained-archive".utf8)
+        }
+        let manager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage.interface)
+        try await manager.dataStore.httpCookieStore.setCookie(
+            Self.makeRecoveryCookie(name: "SAPISID", domain: ".youtube.com")
+        )
+        let authService = AuthService(webKitManager: manager)
+        manager.startInitialCookieRestore()
+        await authService.checkLoginStatus()
+        #expect(authService.isCookieRestoreUnavailable)
+
+        #expect(await authService.signOut())
+
+        #expect(!authService.isCookieRestoreUnavailable)
+        #expect(authService.state == .loggedOut)
+        #expect(await manager.getSAPISID() == nil)
+        #expect(storage.snapshot.archive == nil)
+        #expect(storage.snapshot.policy == .denied)
+    }
+
     @Test("Clearing data fences an in-flight startup retry")
     func clearingDataFencesRetry() async throws {
         let storage = CookieRecoveryStorage()

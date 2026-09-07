@@ -28,12 +28,28 @@ A partial Google session without a primary YouTube authentication cookie can
 start login. Its native archive baseline is empty, while rollback retains the
 complete live Google and YouTube cookie jar captured before login.
 
-The root task follows authentication state and owns account loading for startup,
-sign-in, and recovery. Initializing or active-login tasks cannot continue into
-playback cleanup. Cancelling an early sign-in resumes the status check; its
-resolved state starts the task that performs cleanup and account loading. A
-newly presented cleanup sheet captures the last login attempt's identity so
-Retry retains ownership after cancellation releases the active attempt.
+The root task follows startup readiness and authentication state and owns account
+loading for startup, sign-in, and recovery. Unavailable storage and pending
+authentication checks defer playback cleanup, preserving the saved queue and
+current track throughout recovery. Resolving storage restarts startup even when
+authentication remains logged out. Saves and data-store reloads preserve the
+restored queue's guest or personal ownership until startup cleanup decides which
+session to retain. Legacy sessions without an ownership marker remain private.
+Explicit sign-out clears either kind of queue.
+
+Recovery status and authentication publish together. The window keeps playback
+hidden and offers a recovery entry point while restoration is unresolved. The
+recovery sheet offers Retry and an explicit Sign Out to discard the saved session.
+Sign Out cancels the pending authentication check synchronously when clicked,
+before scheduling asynchronous sign-out. Cancelled status callers cannot start
+another recovery check. A failed sign-out write leaves recovery and the failure
+alert available for another attempt.
+
+Initializing or active-login tasks cannot continue into playback cleanup.
+Cancelling an early sign-in resumes the status check; its resolved state starts
+the task that performs cleanup and account loading. A newly presented cleanup
+sheet captures the last login attempt's identity so Retry retains ownership
+after cancellation releases the active attempt.
 
 ## Consequences
 
