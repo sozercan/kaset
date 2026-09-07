@@ -43,21 +43,25 @@ struct SingletonPlayerNavigationStateTests {
     func staleCallbacksDoNotClearActiveNavigationGate() throws {
         let singleton = SingletonPlayerWebView.shared
         singleton.tearDown()
+        let playerService = PlayerService()
         let webView = singleton.getWebView(
             webKitManager: WebKitManager.makeTestInstance(),
-            playerService: PlayerService()
+            playerService: playerService
         )
         webView.navigationDelegate = nil
         defer { singleton.tearDown() }
 
         let activeNavigation = try #require(webView.loadHTMLString("<html>active</html>", baseURL: nil))
         let staleNavigation = try #require(webView.loadHTMLString("<html>stale</html>", baseURL: nil))
+        playerService.updateAirPlayStatus(isConnected: true)
 
         #expect(singleton.beginDocumentNavigation(activeNavigation, in: webView))
+        #expect(playerService.isAirPlayConnected)
         #expect(singleton.isDocumentNavigationInProgress)
         #expect(singleton.activeDocumentNavigation === activeNavigation)
 
         #expect(!singleton.commitDocumentNavigation(staleNavigation, in: webView))
+        #expect(playerService.isAirPlayConnected)
         #expect(singleton.isDocumentNavigationInProgress)
         #expect(singleton.activeDocumentNavigation === activeNavigation)
 
@@ -66,6 +70,7 @@ struct SingletonPlayerNavigationStateTests {
         #expect(singleton.activeDocumentNavigation === activeNavigation)
 
         #expect(singleton.commitDocumentNavigation(activeNavigation, in: webView))
+        #expect(!playerService.isAirPlayConnected)
         #expect(singleton.isDocumentNavigationInProgress)
 
         #expect(singleton.finishDocumentNavigation(activeNavigation, in: webView))

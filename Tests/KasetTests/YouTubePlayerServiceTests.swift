@@ -96,7 +96,7 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
         self.volumes.append(volume)
     }
 
-    func showAirPlayPicker() {}
+    func showAirPlayPicker(at _: CGPoint?) {}
 
     var captionTracks: [YouTubeCaptionTrack] = []
     var quality: [String] = []

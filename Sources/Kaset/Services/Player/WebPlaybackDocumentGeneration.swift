@@ -57,6 +57,7 @@ struct WebPlaybackDocumentGeneration: Equatable {
 
     static let mediaSuppressionScript = """
     (function() {
+        window.__kasetAirPlayNavigationRetry?.cancel();
         window.__kasetPlaybackSuppressed = true;
         \(WebPlaybackAudioOutput.stopScript)
         if (!window.__kasetPlaybackSuppressionInstalled) {

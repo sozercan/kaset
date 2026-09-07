@@ -5,7 +5,7 @@ import Testing
 // MARK: - MusicPlaybackObserverTestContext
 
 enum MusicPlaybackObserverTestContext {
-    static func make() throws -> JSContext {
+    static func make(setup: String = "") throws -> JSContext {
         let context = try #require(JSContext())
         context.evaluateScript(
             """
@@ -104,7 +104,7 @@ enum MusicPlaybackObserverTestContext {
             };
             """
         )
-        context.evaluateScript(SingletonPlayerWebView.observerScript)
+        context.evaluateScript(setup + "\n" + SingletonPlayerWebView.observerScript)
         return context
     }
 }

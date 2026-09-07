@@ -19,8 +19,10 @@ final class YouTubeWatchWebView {
     static let shared = YouTubeWatchWebView()
 
     /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
-    static func makeTestInstance() -> YouTubeWatchWebView {
-        YouTubeWatchWebView()
+    static func makeTestInstance(webView: WKWebView? = nil) -> YouTubeWatchWebView {
+        let instance = YouTubeWatchWebView()
+        instance.webView = webView
+        return instance
     }
 
     private(set) var webView: WKWebView?

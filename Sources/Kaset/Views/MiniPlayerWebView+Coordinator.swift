@@ -433,16 +433,12 @@ extension SingletonPlayerWebView {
             documentGeneration: UInt64
         ) {
             let isConnected = body["isConnected"] as? Bool ?? false
-            let wasRequested = body["wasRequested"] as? Bool ?? false
 
             Task { @MainActor in
                 guard SingletonPlayerWebView.shared.documentGeneration.accepts(
                     generation: documentGeneration
                 ) else { return }
-                self.playerService.updateAirPlayStatus(
-                    isConnected: isConnected,
-                    wasRequested: wasRequested
-                )
+                self.playerService.updateAirPlayStatus(isConnected: isConnected)
             }
         }
 
