@@ -844,14 +844,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     await self.presentCurrentWhatsNew()
                 }
             }
-            // KasetApp's root startup task owns the initializing -> logged-in
-            // account fetch. Later login and reauthentication transitions still
-            // need to refresh the account list here.
-            if oldState != .initializing {
-                Task {
-                    await self.accountService.fetchAccounts()
-                }
-            }
+            // KasetApp's state-keyed root task owns account loading for every
+            // authenticated transition, after startup playback cleanup.
             // If we just completed login/reauth, refresh content. This handles
             // the case where cookies were unavailable during initial load and
             // preserved views that may currently hold auth-expired state.

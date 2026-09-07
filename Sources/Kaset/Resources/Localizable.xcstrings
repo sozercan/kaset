@@ -12752,6 +12752,112 @@
     },
     "Item %lld": {},
     "Kaset": {},
+    "Kaset could not read saved sign-in data. Retry to restore your session.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تعذّر على Kaset قراءة بيانات تسجيل الدخول المحفوظة. أعد المحاولة لاستعادة جلستك."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset konnte die gespeicherten Anmeldedaten nicht lesen. Versuche es erneut, um deine Sitzung wiederherzustellen."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset could not read saved sign-in data. Retry to restore your session."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset no pudo leer los datos de inicio de sesión guardados. Reinténtalo para restaurar tu sesión."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset n'a pas pu lire les données de connexion enregistrées. Réessayez pour restaurer votre session."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset tidak dapat membaca data masuk yang tersimpan. Coba lagi untuk memulihkan sesi Anda."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset non ha potuto leggere i dati di accesso salvati. Riprova per ripristinare la sessione."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset이 저장된 로그인 데이터를 읽지 못했습니다. 세션을 복원하려면 재시도하세요."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kon de opgeslagen aanmeldgegevens niet lezen. Probeer het opnieuw om je sessie te herstellen."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset nie mógł odczytać zapisanych danych logowania. Spróbuj ponownie, aby przywrócić sesję."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O Kaset não conseguiu ler os dados de início de sessão guardados. Tente novamente para restaurar a sua sessão."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не удалось прочитать сохранённые данные для входа. Повторите попытку, чтобы восстановить сеанс."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kunde inte läsa sparade inloggningsdata. Försök igen för att återställa din session."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset kayıtlı oturum açma verilerini okuyamadı. Oturumunuzu geri yüklemek için tekrar deneyin."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset не вдалося прочитати збережені дані входу. Повторіть спробу, щоб відновити сеанс."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset 无法读取已保存的登录数据。请重试以恢复会话。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset 無法讀取已儲存的登入資料。請重試以還原工作階段。"
+          }
+        }
+      }
+    },
     "Kaset could not safely clear saved sign-in data. Retry before signing in again.": {
       "localizations": {
         "ar": {
@@ -25173,6 +25279,112 @@
           "stringUnit": {
             "state": "translated",
             "value": "登出"
+          }
+        }
+      }
+    },
+    "Sign-In Temporarily Unavailable": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تسجيل الدخول غير متاح مؤقتًا"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anmeldung vorübergehend nicht verfügbar"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sign-In Temporarily Unavailable"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inicio de sesión no disponible temporalmente"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Connexion temporairement indisponible"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Masuk sementara tidak tersedia"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Accesso temporaneamente non disponibile"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일시적으로 로그인할 수 없음"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aanmelden tijdelijk niet beschikbaar"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Logowanie tymczasowo niedostępne"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Início de sessão temporariamente indisponível"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход временно недоступен"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inloggning tillfälligt otillgänglig"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oturum Açma Geçici Olarak Kullanılamıyor"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вхід тимчасово недоступний"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂时无法登录"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暫時無法登入"
           }
         }
       }

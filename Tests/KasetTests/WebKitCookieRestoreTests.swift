@@ -18,13 +18,13 @@ struct WebKitCookieRestoreTests {
 
         await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
         _ = await webKitManager.clearAllData()
 
-        #expect(allowsAuthentication)
+        #expect(result == .ready)
         #expect(cookies.first { $0.name == "SAPISID" }?.value == "mock-live-primary-session")
     }
 
@@ -32,12 +32,12 @@ struct WebKitCookieRestoreTests {
     func missingArchiveWithoutLiveSessionAllowsSignedOutStartup() async {
         let webKitManager = WebKitManager.makeTestInstance()
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
 
-        #expect(allowsAuthentication)
+        #expect(result == .ready)
         #expect(cookies.isEmpty)
     }
 
@@ -64,12 +64,12 @@ struct WebKitCookieRestoreTests {
             await webKitManager.dataStore.httpCookieStore.setCookie(cookie)
         }
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
 
-        #expect(!allowsAuthentication)
+        #expect(result == .unavailable)
         #expect(Self.cookieValues(cookies) == Self.cookieValues(liveCookies))
         #expect(persistedState.load() == persistedMarker)
     }
@@ -100,12 +100,12 @@ struct WebKitCookieRestoreTests {
             await webKitManager.dataStore.httpCookieStore.setCookie(cookie)
         }
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
 
-        #expect(!allowsAuthentication)
+        #expect(result == .unavailable)
         #expect(Self.cookieValues(cookies) == Self.cookieValues(liveCookies))
         #expect(await webKitManager.cookieArchiveQueue.persistedArchiveData() == persistedMarker)
     }
@@ -140,12 +140,12 @@ struct WebKitCookieRestoreTests {
         await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
         await webKitManager.dataStore.httpCookieStore.setCookie(preferenceCookie)
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
 
-        #expect(allowsAuthentication)
+        #expect(result == .ready)
         #expect(!cookies.contains { $0.name == "SAPISID" })
         #expect(cookies.first { $0.name == "PREF" }?.value == "mock-preference")
         #expect(await webKitManager.cookieArchiveQueue.persistedArchiveData() == nil)
@@ -167,12 +167,12 @@ struct WebKitCookieRestoreTests {
         )
         await webKitManager.dataStore.httpCookieStore.setCookie(livePrimaryCookie)
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
 
-        #expect(allowsAuthentication)
+        #expect(result == .ready)
         #expect(!cookies.contains { $0.name == "SAPISID" })
     }
 
@@ -199,13 +199,13 @@ struct WebKitCookieRestoreTests {
         await webKitManager.dataStore.httpCookieStore.setCookie(preferenceCookie)
         let restorePolicyGeneration = CookieArchiveRestorePolicy.generation
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
         _ = await webKitManager.clearAllData()
 
-        #expect(!allowsAuthentication)
+        #expect(result == .failed)
         #expect(CookieArchiveRestorePolicy.generation > restorePolicyGeneration)
         #expect(!cookies.contains { $0.name == "SAPISID" })
         #expect(cookies.first { $0.name == "PREF" }?.value == "mock-preference")
@@ -271,13 +271,13 @@ struct WebKitCookieRestoreTests {
         await webKitManager.dataStore.httpCookieStore.setCookie(staleGAIA)
         await webKitManager.dataStore.httpCookieStore.setCookie(publicPreference)
 
-        let allowsAuthentication = await webKitManager.restoreAuthCookiesFromBackup(
+        let result = await webKitManager.restoreAuthCookiesFromBackup(
             expectedGeneration: webKitManager.authCookieOperationFence.generation
         )
         let cookies = await webKitManager.dataStore.httpCookieStore.allCookies()
         _ = await webKitManager.clearAllData()
 
-        #expect(allowsAuthentication)
+        #expect(result == .ready)
         #expect(cookies.first { $0.name == "__Secure-3PAPISID" }?.value == "isolated-restore-session")
         #expect(cookies.contains { $0.name == "SAPISID" } == false)
         #expect(cookies.contains { $0.name == "LSID" } == false)

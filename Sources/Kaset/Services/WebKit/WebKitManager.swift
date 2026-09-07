@@ -67,11 +67,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Records cookie changes delivered while a forced snapshot is being persisted.
     var forcedCookieBackupDirty = false
 
-    /// Task for the one-time startup restore from Keychain into WebKit.
-    private var initialCookieRestoreTask: Task<Bool, Never>?
+    /// Coalesces startup restoration and retries after temporary storage failures.
+    var initialCookieRestoreTask: Task<CookieRestoreResult, Never>?
 
-    /// Whether startup left authentication cookies safe to evaluate.
-    private var initialCookieRestoreAllowsAuthentication = true
+    /// Authentication and archive writes stay blocked until restoration is resolved.
+    var initialCookieRestoreResult: CookieRestoreResult = .ready
 
     /// Invalidates startup restores and backups that began before an auth-cookie clear.
     var authCookieOperationFence = AuthCookieOperationFence()
@@ -124,15 +124,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Restore auth cookies on startup.
         // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
         if restoresCookies, !UITestConfig.isRunningUnitTests {
-            let restoreGeneration = self.authCookieOperationFence.generation
-            self.initialCookieRestoreTask = Task { @MainActor in
-                let allowsAuthentication = await self.restoreAuthCookiesFromBackup(
-                    expectedGeneration: restoreGeneration
-                )
-                self.initialCookieRestoreAllowsAuthentication = allowsAuthentication
-                self.initialCookieRestoreTask = nil
-                return allowsAuthentication
-            }
+            self.startInitialCookieRestore()
         }
 
         self.logger.info("WebKitManager initialized with persistent data store")
@@ -420,14 +412,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return URL(string: normalizedPath, relativeTo: rootURL)?.absoluteURL
     }
 
-    /// Waits for the one-time startup cookie restore to finish.
-    func waitForInitialCookieRestore() async -> Bool {
-        if let restoreTask = self.initialCookieRestoreTask {
-            return await restoreTask.value
-        }
-        return self.initialCookieRestoreAllowsAuthentication
-    }
-
     /// Retrieves all cookies from the HTTP cookie store.
     func getAllCookies() async -> [HTTPCookie] {
         await self.dataStore.httpCookieStore.allCookies()
@@ -566,7 +550,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         }
 
         let didClear = liveClearResult.didClear && didInvalidatePersistedCookies
-        self.initialCookieRestoreAllowsAuthentication = didClear
+        self.initialCookieRestoreResult = didClear ? .ready : .failed
         self.loginCookieBackupSetupRequiresCleanup = !didClear
         self.cookiesDidChange = Date()
         return didClear
@@ -598,7 +582,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let remainingCookies = await self.dataStore.httpCookieStore.allCookies()
         let didClearLiveCookies = !remainingCookies.contains(where: KeychainCookieStorage.isLoginDomainCookie)
         let didClear = didInvalidatePersistedCookies && didClearLiveCookies
-        self.initialCookieRestoreAllowsAuthentication = didClear
+        self.initialCookieRestoreResult = didClear ? .ready : .failed
         self.loginCookieBackupSetupRequiresCleanup = !didClear
         if didClear {
             self.logger.info("WebKit data cleared successfully")

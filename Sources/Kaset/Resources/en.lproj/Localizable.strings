@@ -17,6 +17,8 @@
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset could not remove saved sign-in data. Try signing out again before quitting.";
 "Sign-In Cleanup Required" = "Sign-In Cleanup Required";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset could not safely clear saved sign-in data. Retry before signing in again.";
+"Sign-In Temporarily Unavailable" = "Sign-In Temporarily Unavailable";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset could not read saved sign-in data. Retry to restore your session.";
 
 // YouTube Ask Gemini
 "Ask Gemini" = "Ask Gemini";

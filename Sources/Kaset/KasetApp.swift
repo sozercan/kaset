@@ -225,6 +225,7 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
+                let startupState = self.authService.state
                 MainWindow(
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
@@ -281,10 +282,16 @@ struct KasetApp: App {
                         self.handleIncomingURL(url)
                     }
                 }
-                .task {
+                .task(id: startupState) {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
+                    let signOutSequence = self.authService.signOutSequence
                     // Check if user is already logged in from previous session
-                    await self.authService.checkLoginStatus()
+                    guard await self.authService.checkLoginStatusForStartup(
+                        expectedState: startupState
+                    ), !Task.isCancelled,
+                    self.authService.state == startupState,
+                    self.authService.signOutSequence == signOutSequence
+                    else { return }
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
                         if self.authService.state.isLoggedIn {
@@ -297,11 +304,14 @@ struct KasetApp: App {
                     }
                     self.drainPendingIncomingURLsIfReady()
 
-                    // Fetch accounts after login check (for account switcher)
+                    // This task owns account loading for startup, login, and recovery.
+                    self.accountService?.authenticationIdentityDidChange()
                     await self.accountService?.fetchAccounts()
 
                     // Warm up Foundation Models in background (macOS 26+ only)
-                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *),
+                       !FoundationModelsService.shared.isWarmedUp
+                    {
                         await FoundationModelsService.shared.warmup()
                     }
                 }

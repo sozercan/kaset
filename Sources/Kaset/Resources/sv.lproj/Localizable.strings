@@ -213,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset fungerar utan inloggning för offentlig bläddring, sökning och uppspelning. Logga in för att komma åt personliga musiksamlingar.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset fungerar utan inloggning för offentlig YouTube-sökning, upptäckt och uppspelning. Logga in för att komma åt personliga videosamlingar.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kunde inte rensa sparade inloggningsdata på ett säkert sätt. Försök igen innan du loggar in på nytt.";
+"Sign-In Temporarily Unavailable" = "Inloggning tillfälligt otillgänglig";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset kunde inte läsa sparade inloggningsdata. Försök igen för att återställa din session.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kunde inte ta bort sparade inloggningsdata. Försök logga ut igen innan du avslutar.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Behåll en spelande video i ett flytande fönster när du lämnar sidan. När det är av stannar videon i stället.";
 "Keep listening even when the window is closed" = "Fortsätt lyssna även när fönstret är stängt";

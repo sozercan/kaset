@@ -27,7 +27,8 @@ final class MockWebKitManager: WebKitManagerProtocol {
     var loginCookieSnapshotChanged = true
     var rollbackLoginCookieBackupResult: CookieBackupRollbackResult = .rolledBack
     var loginCookieBackupSetupRequiresCleanup = false
-    var waitForInitialCookieRestoreResult = true
+    var waitForInitialCookieRestoreResult: CookieRestoreResult = .ready
+    var waitForInitialCookieRestoreGate: (@Sendable () async -> Void)?
 
     /// When set, `switchSessionIdentity` throws this error instead of succeeding.
     var switchSessionIdentityError: Error?
@@ -231,10 +232,11 @@ final class MockWebKitManager: WebKitManagerProtocol {
         return self.rollbackLoginCookieBackupResult
     }
 
-    func waitForInitialCookieRestore() async -> Bool {
+    func waitForInitialCookieRestore() async -> CookieRestoreResult {
         self.waitForInitialCookieRestoreCalled = true
         self.waitForInitialCookieRestoreCallCount += 1
         self.callSequence.append("waitForInitialCookieRestore")
+        await self.waitForInitialCookieRestoreGate?()
         return self.waitForInitialCookieRestoreResult
     }
 
@@ -308,7 +310,8 @@ final class MockWebKitManager: WebKitManagerProtocol {
         self.loginCookieSessionValues = []
         self.rollbackLoginCookieBackupResult = .rolledBack
         self.loginCookieBackupSetupRequiresCleanup = false
-        self.waitForInitialCookieRestoreResult = true
+        self.waitForInitialCookieRestoreResult = .ready
+        self.waitForInitialCookieRestoreGate = nil
         self.beginLoginCookieBackupCallCount = 0
         self.refreshLoginCookieBackupCallCount = 0
         self.commitLoginCookieBackupCallCount = 0

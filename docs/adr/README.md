@@ -71,3 +71,4 @@ What becomes easier or more difficult because of this change?
 | [0034](0034-replace-playback-navigation.md) | Replace Playback Documents Without Growing History | Accepted |
 | [0035](0035-gapless-playback-native-queue.md) | Gapless Playback via YouTube Music Native Queue | Accepted |
 | [0036](0036-music-audio-output-continuity.md) | Music audio output continuity | Accepted |
+| [0037](0037-deferred-cookie-restoration.md) | Deferred cookie restoration | Accepted |

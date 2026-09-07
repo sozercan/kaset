@@ -266,7 +266,12 @@ extension WebKitManager {
     /// Starts a rollback-safe persistence transaction before the login WebView
     /// can change authentication cookies.
     func beginLoginCookieBackup() async -> CookieBackupTransaction? {
-        guard await self.waitForInitialCookieRestore() else {
+        switch await self.waitForInitialCookieRestore() {
+        case .ready:
+            break
+        case .unavailable:
+            return nil
+        case .failed:
             self.loginCookieBackupSetupRequiresCleanup = true
             return nil
         }
@@ -346,7 +351,9 @@ extension WebKitManager {
 
         let authCookies = allLiveCookies.filter(KeychainCookieStorage.isAuthCookie)
         let loginCookies = allLiveCookies.filter(KeychainCookieStorage.isLoginDomainCookie)
-        if authCookies.isEmpty {
+        // A partial Google session cannot form a native API archive, but its
+        // complete cookie jar still provides a valid in-memory rollback baseline.
+        if case .noPrimarySession = KeychainCookieStorage.makeArchiveResult(from: authCookies) {
             return LoginCookieBackupBaseline(
                 liveBaseline: .empty,
                 authSnapshot: nil,
@@ -675,7 +682,7 @@ extension WebKitManager {
 
     /// Forces an immediate save of a stable YouTube/Google cookie snapshot.
     func forceBackupCookies() async -> Bool {
-        guard !self.isClearingAuthCookies else { return false }
+        guard self.canPersistAuthCookies else { return false }
 
         if let forcedCookieBackupTask {
             // A later caller establishes a newer freshness boundary even if
@@ -709,7 +716,7 @@ extension WebKitManager {
                         self.forcedCookieBackupDirty
                     },
                     canContinue: {
-                        !Task.isCancelled && !self.isClearingAuthCookies
+                        !Task.isCancelled && self.canPersistAuthCookies
                     }
                 )
             )
@@ -768,7 +775,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     func handleObservedCookieChange(in cookieStore: WKHTTPCookieStore) {
         self.recordCookieChange()
 
-        guard !self.isRestoringCookies, !self.isClearingAuthCookies else { return }
+        guard self.canPersistAuthCookies else { return }
         if self.isPreparingLoginCookieBackup
             || self.activeLoginCookieBackupTransaction != nil
             || self.forcedCookieBackupTask != nil
@@ -794,10 +801,10 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
     }
 
     private func performCookieBackup(cookieStore: WKHTTPCookieStore) async {
-        guard !self.isClearingAuthCookies else { return }
+        guard self.canPersistAuthCookies else { return }
         let generation = await self.cookieArchiveQueue.reserveGeneration()
         let cookies = await cookieStore.allCookies()
-        guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
+        guard !Task.isCancelled, self.canPersistAuthCookies else { return }
         let authCookies = cookies.filter(KeychainCookieStorage.isAuthCookie)
         let action = CookieArchiveBackupAction.make(
             from: KeychainCookieStorage.makeArchiveResult(from: authCookies)
@@ -813,7 +820,7 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
         case .retainExisting:
             self.logger.error("Retaining the last authentication-cookie archive after serialization failure")
         case let .persist(data, cookieCount):
-            guard !Task.isCancelled, !self.isClearingAuthCookies else { return }
+            guard !Task.isCancelled, self.canPersistAuthCookies else { return }
             _ = await self.cookieArchiveQueue.save(
                 archiveData: data,
                 cookieCount: cookieCount,
