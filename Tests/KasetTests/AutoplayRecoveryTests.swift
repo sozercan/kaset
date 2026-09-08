@@ -170,6 +170,42 @@ struct AutoplayRecoveryJSTests {
         ))
     }
 
+    @Test("Play after a restored document clears that document's autoplay block")
+    func explicitPlayClearsRestoredDocumentBlock() throws {
+        for script in [
+            SingletonPlayerWebView.playCommandScript,
+            SingletonPlayerWebView.playPauseCommandScript,
+        ] {
+            for hasPlayerButton in [true, false] {
+                let context = try #require(JSContext())
+                context.evaluateScript("""
+                var window = globalThis;
+                window.__kasetBlockAutoplay = true;
+                window.__kasetPlaybackSuppressed = true;
+                var video = {
+                    paused: true,
+                    play() {
+                        this.paused = !!window.__kasetBlockAutoplay
+                            || !!window.__kasetPlaybackSuppressed;
+                    }
+                };
+                var button = { click() { video.play(); } };
+                var document = {
+                    querySelector: selector => selector === 'video'
+                        ? video : (\(hasPlayerButton ? "true" : "false") ? button : null)
+                };
+                \(SingletonPlayerWebView.autoplayRecoveryFunctionJS)
+                window.__kasetAttemptAutoplayRecovery = __kasetAttemptAutoplayRecovery;
+                """)
+                context.evaluateScript(script)
+
+                #expect(context.evaluateScript("video.paused").toBool() == false)
+                #expect(context.evaluateScript("window.__kasetBlockAutoplay").toBool() == false)
+                #expect(context.exception == nil)
+            }
+        }
+    }
+
     @Test("Observer retries asynchronous autoplay failures without dropping intent")
     func observerRetriesAsynchronousAutoplayFailures() {
         let script = SingletonPlayerWebView.autoplayRecoveryFunctionJS
@@ -188,6 +224,31 @@ struct AutoplayRecoveryJSTests {
             #expect(script.contains("window.__kasetAutoplayAttempts = 0;"))
             #expect(script.contains("window.__kasetAutoplayRetryScheduled = false;"))
         }
+    }
+
+    @Test(
+        "Committed navigation applies the latest autoplay intent to media events",
+        arguments: [true, false], ["canplay", "playing"]
+    )
+    func committedNavigationAppliesLatestAutoplayIntent(shouldAutoplay: Bool, event: String) throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript("""
+        window.__kasetBlockAutoplay = \(shouldAutoplay ? "true" : "false");
+        video.paused = true;
+        """)
+        context.evaluateScript(SingletonPlayerWebView.autoplayIntentSynchronizationScript(
+            shouldAutoplay: shouldAutoplay,
+            nativePlaybackGeneration: 9,
+            documentGeneration: 7
+        ))
+        if event == "playing" {
+            context.evaluateScript("video.play();")
+        }
+        context.evaluateScript("dispatch('\(event)');")
+
+        #expect(context.evaluateScript("video.paused").toBool() == !shouldAutoplay)
+        #expect(context.evaluateScript("window.__kasetBlockAutoplay").toBool() == !shouldAutoplay)
+        #expect(context.exception == nil)
     }
 
     @Test("Committed autoplay synchronization is generation guarded")
@@ -300,99 +361,6 @@ struct MusicPlaybackOccurrenceJSTests {
         return context
     }
 
-    private func makeObserverContext() -> JSContext {
-        let context = JSContext()!
-        context.evaluateScript(
-            """
-            var messages = [];
-            var listeners = {};
-            function addListener(name, callback) {
-                if (!listeners[name]) listeners[name] = [];
-                listeners[name].push(callback);
-            }
-            function dispatch(name) {
-                (listeners[name] || []).forEach(function(callback) { callback({ currentTarget: video }); });
-            }
-            function setTimeout() { return 1; }
-            function clearTimeout() {}
-            function setInterval() { return 1; }
-            function clearInterval() {}
-            function MutationObserver() { this.observe = function() {}; }
-
-            var currentDataVideoId = 'v1';
-            var currentDataArtist = 'Artist';
-            var video = {
-                paused: false,
-                ended: false,
-                currentSrc: 'https://media.example/v1',
-                src: '',
-                currentTime: 179,
-                duration: 180,
-                readyState: 4,
-                volume: 1,
-                webkitCurrentPlaybackTargetIsWireless: false,
-                addEventListener: addListener,
-                pause: function() { this.paused = true; },
-                play: function() { this.paused = false; }
-            };
-            var player = {
-                playerApi: {
-                    getVideoData: function() {
-                        return {
-                            video_id: currentDataVideoId,
-                            title: currentDataVideoId,
-                            author: currentDataArtist
-                        };
-                    },
-                    setVolume: function() {}
-                }
-            };
-            var moviePlayer = {
-                classList: { contains: function() { return false; } },
-                getVideoData: function() { return { video_id: currentDataVideoId }; },
-                setVolume: function() {}
-            };
-            var playerBar = {};
-            var progressBar = {
-                getAttribute: function(name) { return name === 'value' ? '179' : '180'; }
-            };
-            var titleElement = { textContent: 'v1' };
-            var artistElement = { textContent: 'Artist' };
-            var document = {
-                readyState: 'complete',
-                body: {},
-                addEventListener: function() {},
-                getElementById: function(id) { return id === 'movie_player' ? moviePlayer : null; },
-                querySelectorAll: function() { return []; },
-                querySelector: function(selector) {
-                    if (selector === 'video') return video;
-                    if (selector === 'ytmusic-player') return player;
-                    if (selector === 'ytmusic-player-bar') return playerBar;
-                    if (selector === '#progress-bar') return progressBar;
-                    if (selector === '.ytmusic-player-bar.title') return titleElement;
-                    if (selector === '.ytmusic-player-bar.byline') return artistElement;
-                    return null;
-                }
-            };
-            var window = globalThis;
-            window.location = { href: 'https://music.youtube.com/watch?v=v1' };
-            window.__kasetDocumentGeneration = 7;
-            window.__kasetTargetVolume = 1;
-            window.__kasetAutoplayPending = false;
-            window.__kasetPlaybackSuppressed = false;
-            window.webkit = {
-                messageHandlers: {
-                    singletonPlayer: {
-                        postMessage: function(message) { messages.push(message); }
-                    }
-                }
-            };
-            """
-        )
-        context.evaluateScript(SingletonPlayerWebView.observerScript)
-        return context
-    }
-
     @Test("Leading metadata alone does not rebind the ending media occurrence")
     func leadingMetadataDoesNotRebindOccurrence() {
         let context = self.makeContext()
@@ -415,8 +383,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Leading metadata keeps the outgoing media clock owner")
-    func leadingMetadataKeepsOutgoingMediaClockOwner() {
-        let context = self.makeObserverContext()
+    func leadingMetadataKeepsOutgoingMediaClockOwner() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -440,8 +408,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Observer prefers the structured artist even when the title already matches")
-    func observerPrefersStructuredArtistForMatchingTitle() {
-        let context = self.makeObserverContext()
+    func observerPrefersStructuredArtistForMatchingTitle() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -459,8 +427,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Observer preserves every DOM byline segment when no structured artist exists")
-    func observerPreservesDOMArtistFallback() {
-        let context = self.makeObserverContext()
+    func observerPreservesDOMArtistFallback() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -504,15 +472,17 @@ struct MusicPlaybackOccurrenceJSTests {
         #expect(script.contains("eventIssuedAtMilliseconds: __kasetEventTimestampMilliseconds()"))
         #expect(script.contains("eventIssuedAtMilliseconds: now"))
         #expect(script.contains("setTimeout(() => retryTrackEnded(video, endedPayload), 16)"))
+        #expect(script.contains("TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS = 5000"))
+        #expect(script.contains("TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100"))
         #expect(script.contains("function trackEndedPayload(video)"))
-        #expect(script.contains("function retryTrackEnded(video, payload)"))
+        #expect(script.contains("function retryTrackEnded(video, payload, identityRetryDeadline = 0)"))
         #expect(script.contains("video.__kasetEndedOccurrenceGeneration"))
         #expect(script.contains("video.__kasetBoundVideoId || lastVideoId || currentVideoId()"))
     }
 
     @Test("Late ended keeps the outgoing occurrence after metadata leads")
-    func lateEndedKeepsOutgoingOccurrence() {
-        let context = self.makeObserverContext()
+    func lateEndedKeepsOutgoingOccurrence() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         #expect(context.exception == nil)
 
         context.evaluateScript(
@@ -562,29 +532,32 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("A queued ended callback cannot end a replayed media occurrence")
-    func queuedEndedAfterReplayIsIgnored() {
-        let context = self.makeObserverContext()
+    func queuedEndedAfterReplayIsIgnored() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
+            scheduledTimeouts = [];
             video.paused = true;
             video.ended = true;
             dispatch('ended');
             video.paused = false;
             video.ended = false;
             dispatch('play');
-            dispatch('ended');
+            video.ended = true;
+            var queuedRetryRan = runTimeout(16);
             """
         )
 
+        #expect(context.evaluateScript("queuedRetryRan").toBool() == true)
         #expect(context.evaluateScript(
             "messages.filter(function(message) { return message.type === 'TRACK_ENDED'; }).length"
         ).toInt32() == 1)
     }
 
     @Test("A backward seek cannot rebind old media to leading metadata")
-    func backwardSeekDoesNotPermitLeadingIdentityRepair() {
-        let context = self.makeObserverContext()
+    func backwardSeekDoesNotPermitLeadingIdentityRepair() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -620,8 +593,8 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 
     @Test("Music source transition repairs identity when metadata catches up")
-    func sourceTransitionRepairsLeadingIdentity() {
-        let context = self.makeObserverContext()
+    func sourceTransitionRepairsLeadingIdentity() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -642,9 +615,39 @@ struct MusicPlaybackOccurrenceJSTests {
         ).toString() == "v2")
     }
 
+    @Test("Playing resolves a deferred changed identity as a new occurrence")
+    func playingAdvancesDeferredIdentityRefresh() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
+        context.evaluateScript(
+            """
+            messages = [];
+            var initialGeneration = video.__kasetMediaGeneration;
+            video.currentSrc = 'https://media.example/v2';
+            video.currentTime = 0;
+            dispatch('loadedmetadata');
+            var deferredGeneration = video.__kasetMediaGeneration;
+            currentDataVideoId = 'v2';
+            titleElement.textContent = 'v2';
+            dispatch('playing');
+            var resolvedGeneration = video.__kasetMediaGeneration;
+            dispatch('waiting');
+            """
+        )
+
+        #expect(context.evaluateScript("deferredGeneration === initialGeneration").toBool() == true)
+        #expect(context.evaluateScript("resolvedGeneration === initialGeneration + 1").toBool() == true)
+        #expect(context.evaluateScript("video.__kasetBoundVideoId").toString() == "v2")
+        #expect(context.evaluateScript(
+            """
+            messages.filter(function(message) { return message.type === 'STATE_UPDATE'; })
+                .slice(-1)[0].mediaGeneration === resolvedGeneration
+            """
+        ).toBool() == true)
+    }
+
     @Test("A backward seek preserves deferred source-transition identity repair")
-    func backwardSeekPreservesDeferredIdentityRepair() {
-        let context = self.makeObserverContext()
+    func backwardSeekPreservesDeferredIdentityRepair() throws {
+        let context = try MusicPlaybackObserverTestContext.make()
         context.evaluateScript(
             """
             messages = [];
@@ -724,6 +727,7 @@ struct MusicPlaybackClockJSTests {
         let context = try #require(JSContext())
         context.evaluateScript(
             """
+            var window = this;
             var pauseCount = 0;
             var media = {
                 currentTime: 30,
@@ -741,6 +745,7 @@ struct MusicPlaybackClockJSTests {
             SingletonPlayerWebView.seekAndPauseScript(to: 10)
         )
 
+        try #require(context.exception == nil)
         #expect(result?.toString() == "seeked-paused")
         #expect(context.evaluateScript("media.currentTime").toDouble() == 10)
         #expect(context.evaluateScript("pauseCount").toInt32() == 2)

@@ -62,6 +62,20 @@ struct MusicLibraryConfirmedState: Equatable {
 struct MusicPlaybackRestoreClock: Equatable {
     let progress: TimeInterval
     let duration: TimeInterval
+    let allowsSongDurationFallback: Bool
+    let isExplicitTransportSeek: Bool
+
+    init(
+        progress: TimeInterval,
+        duration: TimeInterval,
+        allowsSongDurationFallback: Bool = true,
+        isExplicitTransportSeek: Bool = false
+    ) {
+        self.progress = progress
+        self.duration = duration
+        self.allowsSongDurationFallback = allowsSongDurationFallback
+        self.isExplicitTransportSeek = isExplicitTransportSeek
+    }
 }
 
 @MainActor
@@ -347,21 +361,74 @@ extension PlayerService {
               self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
+        guard !self.isShowingAd else {
+            self.clearRemoteMusicSkipCoalescingTarget()
+            return
+        }
 
         let currentVideoID = self.currentTrack?.videoId ?? self.pendingPlayVideoId
         let currentQueueEntryID = self.queueEntryIDOwningCurrentPlayback
-        let adPlaybackGeneration = self.adPlaybackGeneration
+        if self.isRestoringPlaybackSession || self.isPendingRestoredLoadDeferred,
+           let pendingRestoredSeek = self.pendingRestoredSeek,
+           self.pendingPlayVideoId == currentVideoID
+        {
+            let canCoalesce = self.remoteMusicSkipVideoID == currentVideoID
+                && self.remoteMusicSkipQueueEntryID == currentQueueEntryID
+                && self.remoteMusicSkipAdmittedAt.map {
+                    admittedAt >= $0 && admittedAt - $0 <= .seconds(1)
+                } == true
+            let baseProgress = canCoalesce ? self.remoteMusicSkipTarget ?? pendingRestoredSeek : pendingRestoredSeek
+            let rawTarget = baseProgress + delta
+            let target = self.duration > 0
+                ? min(max(0, rawTarget), self.duration)
+                : max(0, rawTarget)
+            self.remoteMusicSkipTarget = target
+            self.remoteMusicSkipVideoID = currentVideoID
+            self.remoteMusicSkipQueueEntryID = currentQueueEntryID
+            self.remoteMusicSkipAdmittedAt = admittedAt
+            self.progress = target
+            await self.seek(to: target, intent: intent)
+            return
+        }
+        if self.pendingNativeQueueAdvance != nil {
+            let canCoalesce = self.remoteMusicSkipVideoID == currentVideoID
+                && self.remoteMusicSkipQueueEntryID == currentQueueEntryID
+                && self.remoteMusicSkipAdmittedAt.map {
+                    admittedAt >= $0 && admittedAt - $0 <= .seconds(1)
+                } == true
+            let baseProgress = canCoalesce ? self.remoteMusicSkipTarget ?? self.progress : self.progress
+            let rawTarget = baseProgress + delta
+            let target = self.duration > 0
+                ? min(max(0, rawTarget), self.duration)
+                : max(0, rawTarget)
+            self.remoteMusicSkipTarget = target
+            self.remoteMusicSkipVideoID = currentVideoID
+            self.remoteMusicSkipQueueEntryID = currentQueueEntryID
+            self.remoteMusicSkipAdmittedAt = admittedAt
+            self.progress = target
+            await self.seek(to: target, intent: intent)
+            return
+        }
+        let adPlaybackStateGeneration = self.adPlaybackStateGeneration
+        let playbackStateObservationSequence = self.playbackStateObservationSequence
         let playbackSnapshot = await self.currentMusicPlaybackSnapshot()
         guard self.remoteMusicTransportBatchGeneration == batchGeneration,
               self.acceptsMusicPlaybackIntent(intent)
         else { return }
         guard !self.isShowingAd,
-              self.adPlaybackGeneration == adPlaybackGeneration,
+              self.adPlaybackStateGeneration == adPlaybackStateGeneration,
               self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
-              (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID,
-              let playbackSnapshot,
-              self.remoteMusicPlaybackSnapshot(playbackSnapshot, matches: currentVideoID)
+              (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID
         else {
+            self.clearRemoteMusicSkipCoalescingTarget()
+            return
+        }
+
+        guard let authoritativeClock = self.authoritativeRemoteMusicClock(
+            playbackSnapshot: playbackSnapshot,
+            currentVideoID: currentVideoID,
+            playbackStateObservationSequence: playbackStateObservationSequence
+        ) else {
             self.clearRemoteMusicSkipCoalescingTarget()
             return
         }
@@ -374,11 +441,11 @@ extension PlayerService {
         let baseProgress = if canCoalesce, let remoteMusicSkipTarget = self.remoteMusicSkipTarget {
             remoteMusicSkipTarget
         } else {
-            playbackSnapshot.progress
+            authoritativeClock.progress
         }
         let rawTarget = baseProgress + delta
-        let target = if playbackSnapshot.duration > 0 {
-            min(max(0, rawTarget), playbackSnapshot.duration)
+        let target = if authoritativeClock.duration > 0 {
+            min(max(0, rawTarget), authoritativeClock.duration)
         } else {
             max(0, rawTarget)
         }
@@ -389,6 +456,23 @@ extension PlayerService {
         self.remoteMusicSkipAdmittedAt = admittedAt
         self.progress = target
         await self.seek(to: target, intent: intent)
+    }
+
+    private func authoritativeRemoteMusicClock(
+        playbackSnapshot: SingletonPlayerWebView.PlaybackSnapshot?,
+        currentVideoID: String?,
+        playbackStateObservationSequence: Int
+    ) -> (progress: TimeInterval, duration: TimeInterval)? {
+        // Rejected stale observations also advance the sequence, without updating the clock.
+        if self.playbackStateObservationSequence != playbackStateObservationSequence,
+           self.playbackStateVideoId == currentVideoID
+        {
+            return (self.progress, self.duration)
+        }
+        guard let playbackSnapshot,
+              self.remoteMusicPlaybackSnapshot(playbackSnapshot, matches: currentVideoID)
+        else { return nil }
+        return (playbackSnapshot.progress, playbackSnapshot.duration)
     }
 
     private func remoteMusicPlaybackSnapshot(
@@ -480,11 +564,8 @@ extension PlayerService {
     func invalidateMixContinuationRequest() {
         self.activeMixContinuationRequestID = nil
         self.isFetchingMoreMixSongs = false
-        let waiters = self.mixContinuationWaiters
-        self.mixContinuationWaiters.removeAll()
-        for waiter in waiters {
-            waiter.resume()
-        }
+        self.resumeMixContinuationRequestWaiters()
+        self.resumeMixContinuationFetchWaiters()
     }
 
     func waitForActiveMixContinuationRequest() async {
@@ -494,10 +575,24 @@ extension PlayerService {
         }
     }
 
-    func finishMixContinuationRequest(_ requestID: UUID) {
-        guard self.activeMixContinuationRequestID == requestID else { return }
+    @discardableResult
+    func finishMixContinuationRequest(_ requestID: UUID) -> Bool {
+        guard self.activeMixContinuationRequestID == requestID else { return false }
         self.activeMixContinuationRequestID = nil
         self.isFetchingMoreMixSongs = false
+        self.resumeMixContinuationRequestWaiters()
+        return true
+    }
+
+    func resumeMixContinuationFetchWaiters() {
+        let waiters = self.mixContinuationFetchWaiters
+        self.mixContinuationFetchWaiters.removeAll()
+        for waiter in waiters {
+            waiter.resume()
+        }
+    }
+
+    private func resumeMixContinuationRequestWaiters() {
         let waiters = self.mixContinuationWaiters
         self.mixContinuationWaiters.removeAll()
         for waiter in waiters {

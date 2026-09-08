@@ -1,6 +1,7 @@
 import Foundation
 
 /// Playback actions for playlist-backed queues.
+@MainActor
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
@@ -13,7 +14,6 @@ enum PlaylistPlaybackActions {
 
     /// Plays a playlist immediately, replacing the current queue.
     @discardableResult
-    @MainActor
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -44,6 +44,10 @@ enum PlaylistPlaybackActions {
                         }
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
+                    }
+                    guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback after newer playback intent")
+                        return
                     }
                 } else {
                     let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)

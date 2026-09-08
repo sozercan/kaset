@@ -1090,8 +1090,10 @@ extension YouTubeWatchWebView {
     }
 
     /// Shows the system AirPlay picker for the watch page's video element.
-    func showAirPlayPicker() {
-        self.webView?.evaluateJavaScript(
+    func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
+        guard let webView = self.webView else { return }
+        AirPlayPickerAnchor.preparePicker(in: webView, at: screenPoint)
+        webView.evaluateJavaScript(
             """
             (function() {
                 const video = document.querySelector('#movie_player video') || document.querySelector('video');

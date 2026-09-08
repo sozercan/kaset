@@ -22,6 +22,15 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         let accountID: String
     }
 
+    nonisolated static func shouldMountPersistentPlayer(
+        isLoggedIn: Bool,
+        pendingVideoId: String?,
+        isPendingRestoredLoadDeferred: Bool,
+        showVideo: Bool
+    ) -> Bool {
+        !showVideo && (isLoggedIn || (!isPendingRestoredLoadDeferred && pendingVideoId != nil))
+    }
+
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
     @Environment(YouTubePlayerService.self) private var youtubePlayerService
@@ -192,7 +201,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     private var windowChrome: some View {
         ZStack(alignment: .bottomTrailing) {
             Group {
-                if self.authService.state.isInitializing {
+                if self.authService.isCookieRestoreUnavailable {
+                    SignInRequiredView(
+                        title: String(localized: "Sign-In Temporarily Unavailable"),
+                        message: String(localized: "Kaset could not read saved sign-in data. Retry to restore your session.")
+                    )
+                } else if self.authService.state.isInitializing {
                     // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
@@ -217,14 +231,21 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
 
-            // Persistent WebView - present once a video is ready to load.
+            // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
             // Uses a SINGLETON WebView instance that persists for the app lifetime.
             // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            if let videoId = playerService.pendingPlayVideoId,
-               !self.playerService.isPendingRestoredLoadDeferred,
-               !self.playerService.showVideo
+            // Keep authenticated Home available while restoration defers watch loading.
+            // Let the video or mini-player window own the WebView while visible.
+            if !self.authService.isCookieRestoreUnavailable,
+               !self.playerService.shouldHostPlaybackInMiniPlayer,
+               Self.shouldMountPersistentPlayer(
+                   isLoggedIn: self.authService.state.isLoggedIn,
+                   pendingVideoId: self.playerService.pendingPlayVideoId,
+                   isPendingRestoredLoadDeferred: self.playerService.isPendingRestoredLoadDeferred,
+                   showVideo: self.playerService.showVideo
+               )
             {
-                PersistentPlayerView(videoId: videoId, isExpanded: false)
+                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)
                     .opacity(0)
                     .allowsHitTesting(false)
@@ -849,14 +870,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     await self.presentCurrentWhatsNew()
                 }
             }
-            // KasetApp's root startup task owns the initializing -> logged-in
-            // account fetch. Later login and reauthentication transitions still
-            // need to refresh the account list here.
-            if oldState != .initializing {
-                Task {
-                    await self.accountService.fetchAccounts()
-                }
-            }
+            // KasetApp's state-keyed root task owns account loading for every
+            // authenticated transition, after startup playback cleanup.
             // If we just completed login/reauth, refresh content. This handles
             // the case where cookies were unavailable during initial load and
             // preserved views that may currently hold auth-expired state.
