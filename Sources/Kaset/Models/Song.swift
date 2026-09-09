@@ -38,6 +38,20 @@ struct Song: Identifiable, Codable, Hashable {
     /// Only populated when the song was parsed from a playlist's track list.
     var playlistSetVideoId: String?
 
+    /// Video ID of this track's audio recording, when the row itself is a music video.
+    ///
+    /// Album rows are sometimes official music videos (`MUSIC_VIDEO_TYPE_OMV`). YouTube
+    /// Music still advertises the audio recording of the same track in the row's
+    /// credits menu, and this carries that ID. `nil` when the row is already an audio
+    /// recording or when no credits entry was present — use `preferredAudioVideoId`
+    /// to resolve either case.
+    var audioTrackVideoId: String?
+
+    /// The audio recording to prefer for this track, falling back to `videoId`.
+    var preferredAudioVideoId: String {
+        self.audioTrackVideoId ?? self.videoId
+    }
+
     private enum CodingKeys: String, CodingKey {
         case id
         case title
@@ -54,6 +68,7 @@ struct Song: Identifiable, Codable, Hashable {
         case feedbackTokens
         case isExplicit
         case playlistSetVideoId
+        case audioTrackVideoId
     }
 
     /// Memberwise initializer with default values for mutable properties.
@@ -72,7 +87,8 @@ struct Song: Identifiable, Codable, Hashable {
         isInLibrary: Bool? = nil,
         feedbackTokens: FeedbackTokens? = nil,
         isExplicit: Bool? = nil,
-        playlistSetVideoId: String? = nil
+        playlistSetVideoId: String? = nil,
+        audioTrackVideoId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -89,6 +105,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.feedbackTokens = feedbackTokens
         self.isExplicit = isExplicit
         self.playlistSetVideoId = playlistSetVideoId
+        self.audioTrackVideoId = audioTrackVideoId
     }
 
     init(from decoder: any Decoder) throws {
@@ -108,6 +125,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.feedbackTokens = try container.decodeIfPresent(FeedbackTokens.self, forKey: .feedbackTokens)
         self.isExplicit = try container.decodeIfPresent(Bool.self, forKey: .isExplicit)
         self.playlistSetVideoId = try container.decodeIfPresent(String.self, forKey: .playlistSetVideoId)
+        self.audioTrackVideoId = try container.decodeIfPresent(String.self, forKey: .audioTrackVideoId)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -127,6 +145,7 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.feedbackTokens, forKey: .feedbackTokens)
         try container.encodeIfPresent(self.isExplicit, forKey: .isExplicit)
         try container.encodeIfPresent(self.playlistSetVideoId, forKey: .playlistSetVideoId)
+        try container.encodeIfPresent(self.audioTrackVideoId, forKey: .audioTrackVideoId)
     }
 
     func replacingDisplayMetadata(title: String, artists: [Artist], thumbnailURL: URL?) -> Song {
@@ -145,7 +164,8 @@ struct Song: Identifiable, Codable, Hashable {
             isInLibrary: self.isInLibrary,
             feedbackTokens: self.feedbackTokens,
             isExplicit: self.isExplicit,
-            playlistSetVideoId: self.playlistSetVideoId
+            playlistSetVideoId: self.playlistSetVideoId,
+            audioTrackVideoId: self.audioTrackVideoId
         )
     }
 
