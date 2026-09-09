@@ -157,11 +157,10 @@ struct AmbientBackdropStyleTests {
         #expect(Set(ids).count == ids.count)
     }
 
-    @Test("Display and debug names are non-empty for every case")
-    func namesNonEmpty() {
+    @Test("Display names are non-empty for every case")
+    func displayNamesNonEmpty() {
         for style in AmbientBackdropStyle.allCases {
             #expect(!style.displayName.isEmpty)
-            #expect(!style.debugLabel.isEmpty)
         }
     }
 
