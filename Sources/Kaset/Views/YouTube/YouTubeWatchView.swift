@@ -123,27 +123,22 @@ struct YouTubeWatchView: View {
             )
         }
         .youtubeAskAccessibilityAnnouncements(viewModel: self.viewModel.ask)
-        #if DEBUG
-            .toolbar {
-                self.ambientStylePicker
-            }
-        #endif
-            .task {
-                self.startOrAdoptPlayback()
-            }
-            .task(id: self.askAccountScope) {
-                let accountScope = self.askAccountScope
-                await self.viewModel.load(accountScope: accountScope)
-                YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
-                    videoId: self.video.videoId,
-                    player: self.youtubePlayer,
-                    data: self.viewModel.data
-                )
-            }
-            .onDisappear {
-                self.viewModel.cancel()
-                self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
-            }
+        .task {
+            self.startOrAdoptPlayback()
+        }
+        .task(id: self.askAccountScope) {
+            let accountScope = self.askAccountScope
+            await self.viewModel.load(accountScope: accountScope)
+            YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
+                videoId: self.video.videoId,
+                player: self.youtubePlayer,
+                data: self.viewModel.data
+            )
+        }
+        .onDisappear {
+            self.viewModel.cancel()
+            self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
+        }
     }
 
     private var askPlayerOffsetMilliseconds: Int64 {
@@ -152,32 +147,6 @@ struct YouTubeWatchView: View {
         }
         return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
-
-    // MARK: - Ambient Style Picker (PROTOTYPE)
-
-    #if DEBUG
-        /// DEBUG-only toolbar control to switch ambient styles live on-device.
-        /// Binds to the same `SettingsManager` value as the Settings → YouTube
-        /// tab, so there is a single source of truth. The whole property is
-        /// compiled out of release builds (an empty `@ToolbarContentBuilder`
-        /// body would otherwise be invalid).
-        @ToolbarContentBuilder
-        private var ambientStylePicker: some ToolbarContent {
-            ToolbarItem(placement: .automatic) {
-                Menu {
-                    Picker(String(localized: "Ambient"), selection: self.$settings.ambientBackdropStyle) {
-                        ForEach(AmbientBackdropStyle.allCases) { style in
-                            Text(style.debugLabel).tag(style)
-                        }
-                    }
-                    .pickerStyle(.inline)
-                } label: {
-                    Image(systemName: "paintpalette")
-                }
-                .help(String(localized: "Ambient backdrop style (developer)"))
-            }
-        }
-    #endif
 
     // MARK: - Video Surface
 
