@@ -122,7 +122,6 @@ struct CommandBarView: View {
             .compatGlassID("commandBar", in: self.commandBarNamespace)
         }
         .compatGlassTransition(.materialize)
-        .accessibilityIdentifier(AccessibilityID.MainWindow.commandBar)
         .onAppear {
             viewModel.handleAppear()
             self.isInputFocused = true
