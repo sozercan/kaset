@@ -15,8 +15,8 @@ final class CommandBarUITests: KasetUITestCase {
         ]
         self.launchDefault()
 
-        let sidebar = self.app.outlineRows.firstMatch
-        XCTAssertTrue(self.waitForElement(sidebar, timeout: 10), "Sidebar should be visible before opening the command bar")
+        let homeItem = self.app.buttons[TestAccessibilityID.Sidebar.homeItem].firstMatch
+        XCTAssertTrue(self.waitForElement(homeItem, timeout: 10), "Sidebar should be visible before opening the command bar")
 
         let window = self.app.windows.firstMatch
         XCTAssertTrue(self.waitForElement(window), "Main window should exist")
