@@ -122,8 +122,11 @@ struct CommandBarView: View {
             .compatGlassID("commandBar", in: self.commandBarNamespace)
         }
         .compatGlassTransition(.materialize)
-        .onAppear {
+        .task {
             viewModel.handleAppear()
+            // Let the presented field join the focus hierarchy before requesting focus.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
             self.isInputFocused = true
         }
         .onDisappear {

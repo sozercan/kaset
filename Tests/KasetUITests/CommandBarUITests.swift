@@ -40,7 +40,11 @@ final class CommandBarUITests: KasetUITestCase {
         )
 
         self.app.typeText("Play jazz")
-        XCTAssertEqual(input.value as? String, "Play jazz", "Command bar input should stay focused on presentation")
+        XCTAssertEqual(
+            input.value as? String,
+            "Play jazz",
+            "Command bar input should stay focused on presentation.\n\(self.app.debugDescription)"
+        )
 
         // Click beside the centered command bar to exercise outside-click dismissal.
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).click()
