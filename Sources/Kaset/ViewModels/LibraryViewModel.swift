@@ -264,12 +264,6 @@ final class LibraryViewModel {
     /// Strength of the response that produced the current album snapshot.
     private var libraryAlbumsSource: LibraryContentParser.LibraryAlbumsSource?
 
-    /// Selected playlist detail.
-    private(set) var selectedPlaylistDetail: PlaylistDetail?
-
-    /// Loading state for playlist detail.
-    private(set) var playlistDetailLoadingState: LoadingState = .idle
-
     /// Monotonic revision for local library state mutations.
     private var libraryStateRevision: UInt64 = 0
     private var playlistMutationRevisionByID: [String: UInt64] = [:]
@@ -606,35 +600,6 @@ final class LibraryViewModel {
                 self.loadingState = .error(LoadingError(from: error))
             }
         }
-    }
-
-    /// Loads a specific playlist's details.
-    func loadPlaylist(id: String) async {
-        guard self.playlistDetailLoadingState != .loading else { return }
-
-        self.playlistDetailLoadingState = .loading
-        self.logger.info("Loading playlist: \(id)")
-
-        do {
-            let response = try await client.getPlaylist(id: id)
-            self.selectedPlaylistDetail = response.detail
-            self.playlistDetailLoadingState = .loaded
-            let trackCount = response.detail.tracks.count
-            self.logger.info("Loaded playlist with \(trackCount) tracks")
-        } catch is CancellationError {
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
-            self.logger.debug("Playlist load cancelled")
-            self.playlistDetailLoadingState = .idle
-        } catch {
-            self.logger.error("Failed to load playlist: \(error.localizedDescription)")
-            self.playlistDetailLoadingState = .error(LoadingError(from: error))
-        }
-    }
-
-    /// Clears the selected playlist.
-    func clearSelectedPlaylist() {
-        self.selectedPlaylistDetail = nil
-        self.playlistDetailLoadingState = .idle
     }
 
     /// Refreshes library content.

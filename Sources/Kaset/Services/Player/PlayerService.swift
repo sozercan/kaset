@@ -527,7 +527,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether we're currently fetching more mix songs.
     var isFetchingMoreMixSongs: Bool = false
     var activeMixContinuationRequestID: UUID?
-    var mixContinuationWaiters: [CheckedContinuation<Void, Never>] = []
 
     /// Callers waiting for the current mix continuation request to release its single-flight slot.
     @ObservationIgnored var mixContinuationFetchWaiters: [CheckedContinuation<Void, Never>] = []
