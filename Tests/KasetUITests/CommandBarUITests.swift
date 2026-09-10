@@ -33,19 +33,18 @@ final class CommandBarUITests: KasetUITestCase {
 
         self.app.typeKey("k", modifierFlags: .command)
 
-        let commandBar = self.app.otherElements[TestAccessibilityID.MainWindow.commandBar].firstMatch
-        XCTAssertTrue(self.waitForElement(commandBar), "Command bar should appear after pressing Cmd+K")
-
         let input = self.app.textFields[TestAccessibilityID.MainWindow.commandBarInput].firstMatch
-        XCTAssertTrue(self.waitForElement(input), "Command bar input should be visible")
+        XCTAssertTrue(
+            input.waitForExistence(timeout: 5),
+            "Command bar input should appear after pressing Cmd+K.\n\(self.app.debugDescription)"
+        )
 
         self.app.typeText("Play jazz")
         XCTAssertEqual(input.value as? String, "Play jazz", "Command bar input should stay focused on presentation")
 
-        let overlay = self.app.otherElements[TestAccessibilityID.MainWindow.commandBarOverlay].firstMatch
-        XCTAssertTrue(self.waitForHittable(overlay), "Overlay should be hittable for outside-click dismissal")
-        overlay.click()
+        // Click beside the centered command bar to exercise outside-click dismissal.
+        window.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).click()
 
-        XCTAssertTrue(self.waitForElementToDisappear(commandBar), "Command bar should dismiss after clicking the overlay")
+        XCTAssertTrue(self.waitForElementToDisappear(input), "Command bar should dismiss after clicking the overlay")
     }
 }

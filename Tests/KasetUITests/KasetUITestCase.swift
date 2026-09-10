@@ -35,8 +35,6 @@ enum TestAccessibilityID {
 
     enum MainWindow {
         static let container = "mainWindow"
-        static let commandBar = "mainWindow.commandBar"
-        static let commandBarOverlay = "mainWindow.commandBarOverlay"
         static let commandBarInput = "mainWindow.commandBarInput"
     }
 
