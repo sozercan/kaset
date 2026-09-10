@@ -15,15 +15,21 @@ final class CommandBarUITests: KasetUITestCase {
         ]
         self.launchDefault()
 
+        // A launch can leave only the menu bar; open the main window explicitly.
+        self.app.activate()
+        self.app.typeKey("0", modifierFlags: .command)
+
+        let window = self.app.windows.firstMatch
+        XCTAssertTrue(
+            window.waitForExistence(timeout: 10),
+            "Main window should exist before opening the command bar.\n\(self.app.debugDescription)"
+        )
+
         let homeItem = self.app.buttons[TestAccessibilityID.Sidebar.homeItem].firstMatch
         XCTAssertTrue(
             homeItem.waitForExistence(timeout: 10),
             "Sidebar should be visible before opening the command bar.\n\(self.app.debugDescription)"
         )
-
-        let window = self.app.windows.firstMatch
-        XCTAssertTrue(self.waitForElement(window), "Main window should exist")
-        window.click()
 
         self.app.typeKey("k", modifierFlags: .command)
 
