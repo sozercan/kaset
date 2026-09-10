@@ -94,37 +94,6 @@ final class MockURLProtocol: URLProtocol {
         }
     }
 
-    /// Sets up a successful JSON response.
-    /// - Parameters:
-    ///   - json: The JSON dictionary to return.
-    ///   - statusCode: The HTTP status code (default 200).
-    static func setMockJSONResponse(_ json: [String: Any], statusCode: Int = 200) {
-        // Pre-serialize the JSON to Data to avoid capturing non-Sendable type
-        // swiftlint:disable:next force_try
-        let data = try! JSONSerialization.data(withJSONObject: json)
-        Self.handlersLock.withLock {
-            Self.requestHandler = { request in
-                let response = HTTPURLResponse(
-                    url: request.url!,
-                    statusCode: statusCode,
-                    httpVersion: nil,
-                    headerFields: ["Content-Type": "application/json"]
-                )!
-                return (response, data)
-            }
-        }
-    }
-
-    /// Sets up an error response.
-    /// - Parameter error: The error to throw.
-    static func setMockError(_ error: any Error & Sendable) {
-        self.handlersLock.withLock {
-            Self.requestHandler = { _ in
-                throw error
-            }
-        }
-    }
-
     private static func handler(for request: URLRequest) -> RequestHandler? {
         let sessionID = request.value(forHTTPHeaderField: Self.sessionIDHeader)
         return Self.handlersLock.withLock {

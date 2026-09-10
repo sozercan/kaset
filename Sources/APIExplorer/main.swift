@@ -435,21 +435,6 @@ func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
     return headerFields["Cookie"]
 }
 
-/// Computes SAPISIDHASH for YouTube API authentication.
-func computeSAPISIDHASH(sapisid: String) -> String {
-    let timestamp = Int(Date().timeIntervalSince1970)
-    let input = "\(timestamp) \(sapisid) \(activeOrigin)"
-
-    let data = Data(input.utf8)
-    var hash = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-    data.withUnsafeBytes { buffer in
-        _ = CC_SHA1(buffer.baseAddress, CC_LONG(buffer.count), &hash)
-    }
-    let hashHex = hash.map { String(format: "%02x", $0) }.joined()
-
-    return "\(timestamp)_\(hashHex)"
-}
-
 func buildSIDAuthorizationHeader(
     from cookies: [HTTPCookie],
     includeAllAvailableProofs: Bool

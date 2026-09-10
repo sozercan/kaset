@@ -3,7 +3,16 @@ import XCTest
 /// UI tests for the command bar presentation.
 @MainActor
 final class CommandBarUITests: KasetUITestCase {
-    func testCommandBarOpensWithKeyboardShortcutAndDismissesViaOverlay() {
+    func testCommandBarOpensWithKeyboardShortcutAndDismissesViaOverlay() throws {
+        if #unavailable(macOS 26.0) {
+            throw XCTSkip("The command bar requires macOS 26.")
+        }
+
+        // The command bar requires Music mode and the macOS 26 layout.
+        self.app.launchArguments += [
+            "-settings.appSource", "music",
+            "-settings.debug.useLegacyMacOS15UI", "NO",
+        ]
         self.launchDefault()
 
         let sidebar = self.app.outlineRows.firstMatch
