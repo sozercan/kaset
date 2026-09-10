@@ -3,10 +3,6 @@ import SwiftUI
 // MARK: - YouTubePlayerBar
 
 /// The Liquid Glass player bar for inline and detached YouTube playback.
-///
-/// Transport controls seek 30 seconds within the video. Chapter markers appear
-/// in the progress bar, and video controls manage captions, quality, AirPlay,
-/// picture in picture, and fullscreen.
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
@@ -102,7 +98,7 @@ struct YouTubePlayerBar: View {
             self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
-        .onChange(of: self.youtubePlayer.isShowingAd) { _, _ in
+        .onChange(of: self.canSeek) { _, _ in
             self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
@@ -303,7 +299,7 @@ struct YouTubePlayerBar: View {
                         remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
                         markers: self.chapterProgressMarkers,
                         segments: self.chapterProgressSegments,
-                        isLive: false,
+                        isLive: self.isLive,
                         canSeek: self.canSeek,
                         isLoading: self.isProgressLoading,
                         onScrub: { fraction in
@@ -328,20 +324,9 @@ struct YouTubePlayerBar: View {
 
     private var youtubeTransportControls: some View {
         HStack(spacing: 6) {
-            PlayerBarIconButton(
-                action: {
-                    HapticService.playback()
-                    self.youtubePlayer.seekBackward()
-                },
-                accessibilityLabel: String(localized: "Back 30 seconds"),
-                icon: {
-                    Image(systemName: "gobackward.30")
-                        .font(.system(size: 16, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
-                }
-            )
-            .disabled(!self.canSeek)
+            if !self.isLive {
+                self.youtubeSeekButton(isForward: false)
+            }
 
             PlayerBarIconButton(
                 action: {
@@ -361,20 +346,9 @@ struct YouTubePlayerBar: View {
             .compatGlassID("youtubePlayPause", in: self.playerNamespace)
             .disabled(self.youtubePlayer.currentVideo == nil)
 
-            PlayerBarIconButton(
-                action: {
-                    HapticService.playback()
-                    self.youtubePlayer.seekForward()
-                },
-                accessibilityLabel: String(localized: "Forward 30 seconds"),
-                icon: {
-                    Image(systemName: "goforward.30")
-                        .font(.system(size: 16, weight: .regular))
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.primary)
-                }
-            )
-            .disabled(!self.canSeek)
+            if !self.isLive {
+                self.youtubeSeekButton(isForward: true)
+            }
 
             PlayerBarIconButton(
                 action: self.toggleYouTubeVolumeOverlay,
@@ -392,6 +366,27 @@ struct YouTubePlayerBar: View {
                 self.youtubeVolumeOverlay
             }
         }
+    }
+
+    private func youtubeSeekButton(isForward: Bool) -> some View {
+        PlayerBarIconButton(
+            action: {
+                HapticService.playback()
+                if isForward {
+                    self.youtubePlayer.seekForward()
+                } else {
+                    self.youtubePlayer.seekBackward()
+                }
+            },
+            accessibilityLabel: isForward ? String(localized: "Forward 30 seconds") : String(localized: "Back 30 seconds"),
+            icon: {
+                Image(systemName: isForward ? "goforward.30" : "gobackward.30")
+                    .font(.system(size: 16, weight: .regular))
+                    .frame(width: 16, height: 16)
+                    .foregroundStyle(.primary)
+            }
+        )
+        .disabled(!self.canSeek)
     }
 
     private var youtubeOptionsSection: some View {
@@ -614,7 +609,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var chapterProgressMarkers: [PlayerBarProgressMarker] {
-        guard self.youtubePlayer.duration > 0, !self.youtubePlayer.isShowingAd else { return [] }
+        guard self.canSeek else { return [] }
         return self.youtubePlayer.chapters.compactMap { chapter in
             guard chapter.startTime > 0, chapter.startTime < self.youtubePlayer.duration else { return nil }
             return PlayerBarProgressMarker(
@@ -627,7 +622,7 @@ struct YouTubePlayerBar: View {
     }
 
     private var chapterProgressSegments: [PlayerBarProgressSegment] {
-        guard !self.youtubePlayer.isShowingAd else { return [] }
+        guard self.canSeek else { return [] }
         return Self.chapterProgressSegments(
             chapters: self.youtubePlayer.chapters,
             duration: self.youtubePlayer.duration
@@ -690,9 +685,13 @@ struct YouTubePlayerBar: View {
         }
     }
 
-    /// Seeking is unavailable during ads or before a duration is known.
+    private var isLive: Bool {
+        self.youtubePlayer.currentVideo?.isLive == true
+    }
+
+    /// A live stream can report a finite DVR duration, so duration alone does not enable seeking.
     private var canSeek: Bool {
-        self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd
+        self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd && !self.isLive
     }
 
     private var isProgressLoading: Bool {
