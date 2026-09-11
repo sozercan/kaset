@@ -985,6 +985,12 @@ enum PlaylistParser {
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
         let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
         let playlistSetVideoId = ParsingHelpers.extractPlaylistSetVideoId(from: responsiveRenderer)
+        let musicVideoType = ParsingHelpers.extractMusicVideoType(from: responsiveRenderer)
+
+        // Music-video rows advertise their audio recording through the credits menu.
+        // Ignore the credits ID when it just repeats the row (ordinary audio tracks).
+        let creditsVideoId = ParsingHelpers.extractTrackCreditsVideoId(from: responsiveRenderer)
+        let audioTrackVideoId = creditsVideoId == videoId ? nil : creditsVideoId
 
         return Song(
             id: videoId,
@@ -995,8 +1001,10 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             videoId: videoId,
             isPlayable: isPlayable,
+            musicVideoType: musicVideoType,
             isExplicit: isExplicit,
-            playlistSetVideoId: playlistSetVideoId
+            playlistSetVideoId: playlistSetVideoId,
+            audioTrackVideoId: audioTrackVideoId
         )
     }
 

@@ -1095,7 +1095,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                             musicVideoType: song.musicVideoType,
                             likeStatus: song.likeStatus,
                             isInLibrary: song.isInLibrary,
-                            feedbackTokens: song.feedbackTokens
+                            feedbackTokens: song.feedbackTokens,
+                            audioTrackVideoId: song.audioTrackVideoId
                         )
                     }
                     return song

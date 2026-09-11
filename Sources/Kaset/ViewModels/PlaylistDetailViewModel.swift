@@ -340,7 +340,10 @@ extension PlaylistDetailViewModel {
         )
         return PlaylistDetail(
             playlist: playlist,
-            tracks: allTracks,
+            tracks: PlaylistPlaybackActions.tracksForPlaylistPlayback(
+                browseTracks: detail.tracks,
+                queueTracks: allTracks
+            ),
             duration: detail.duration,
             libraryTargetId: detail.libraryTargetId ?? self.playlist.libraryTargetId
         )

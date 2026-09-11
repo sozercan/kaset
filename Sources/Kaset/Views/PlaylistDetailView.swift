@@ -580,69 +580,10 @@ struct PlaylistDetailView: View {
     func playableTracks(
         _ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil
     ) -> [Song] {
-        self.cleanTracks(
+        QueueSongMetadata.songsForQueue(
             tracks.filter(\.isPlayable), fallbackArtist: fallbackArtist,
             fallbackAlbum: fallbackAlbum
         )
-    }
-
-    /// Cleans track artists and applies fallback artist/album when needed.
-    private func cleanTracks(_ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil)
-        -> [Song]
-    {
-        tracks.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" {
-                    return nil
-                }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(
-                    id: artist.id,
-                    name: cleanName,
-                    thumbnailURL: artist.thumbnailURL,
-                    subtitle: artist.subtitle,
-                    profileKind: artist.profileKind
-                )
-            }
-
-            // Use fallback artist if artists are empty (and clean the fallback too)
-            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
-                var cleanFallback = fallback
-                if cleanFallback == "Album" {
-                    cleanFallback = "Unknown Artist"
-                } else if cleanFallback.hasPrefix("Album, ") {
-                    cleanFallback = String(cleanFallback.dropFirst(7))
-                }
-                // Also handle case where it's "Album, Artist" but we got it as a combined string
-                if cleanFallback.contains("Album,") {
-                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
-                    if parts.count > 1 {
-                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                    }
-                }
-                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
-            }
-
-            // Use fallback album if song doesn't have album info
-            let finalAlbum = song.album ?? fallbackAlbum
-            // Use fallback thumbnail if song doesn't have one
-            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
-
-            return Song(
-                id: song.id,
-                title: song.title,
-                artists: cleanedArtists,
-                album: finalAlbum,
-                duration: song.duration,
-                thumbnailURL: finalThumbnail,
-                videoId: song.videoId,
-                isPlayable: song.isPlayable,
-                playlistSetVideoId: song.playlistSetVideoId
-            )
-        }
     }
 
     private func refinePlaylist(tracks: [Song], prompt: String) async {

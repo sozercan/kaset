@@ -492,6 +492,7 @@ struct ScriptCommandsTests {
             #expect(tracks[0]["album"] as? String == "Album 1")
             #expect(tracks[0]["duration"] as? Double == 120)
             #expect(tracks[0]["videoId"] as? String == "vid-1")
+            #expect(tracks[0]["audioVideoId"] as? String == "vid-1")
             #expect(tracks[0]["artworkURL"] as? String == "https://example.com/song1.jpg")
 
             #expect(tracks[1]["name"] as? String == "Song 2")
@@ -499,6 +500,7 @@ struct ScriptCommandsTests {
             #expect((tracks[1]["album"] as? String)?.isEmpty == true)
             #expect(tracks[1]["duration"] as? Double == 180)
             #expect(tracks[1]["videoId"] as? String == "vid-2")
+            #expect(tracks[1]["audioVideoId"] as? String == "vid-2")
             #expect((tracks[1]["artworkURL"] as? String)?.isEmpty == true)
         } else {
             Issue.record("Failed to parse JSON response")
@@ -525,6 +527,55 @@ struct ScriptCommandsTests {
 
         #expect(json?["currentIndex"] as? Int == 0)
         #expect((json?["tracks"] as? [[String: Any]])?.count == 2)
+    }
+
+    @Test("GetPlayQueue emits the audio recording ID through album playback paths", arguments: [false, true])
+    func getPlayQueueEmitsPreferredAudioVideoId(usesDetailView: Bool) async {
+        let album = Album(
+            id: "MPREb_J7wVS5GlYZK",
+            title: "BORN PINK",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            thumbnailURL: nil,
+            year: "2022",
+            trackCount: 1
+        )
+        let musicVideoRow = Song(
+            id: "gQlMMD8auMs",
+            title: "Pink Venom",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            videoId: "gQlMMD8auMs",
+            musicVideoType: .omv,
+            audioTrackVideoId: "qCDPprTDkJE"
+        )
+        let queued: [Song]
+        if usesDetailView {
+            guard #available(macOS 26.0, *) else { return }
+            let playlist = TestFixtures.makePlaylist(id: album.id, title: album.title)
+            let viewModel = PlaylistDetailViewModel(playlist: playlist, client: MockYTMusicClient())
+            let view = PlaylistDetailView(playlist: playlist, viewModel: viewModel)
+            queued = view.playableTracks([musicVideoRow], fallbackArtist: nil, fallbackAlbum: album)
+        } else {
+            queued = QueueSongMetadata.albumSongs(
+                [musicVideoRow],
+                album: album,
+                purpose: .playback(trackCount: 1)
+            )
+        }
+        let playerService = PlayerService()
+        await playerService.playQueue(queued, startingAt: 0)
+        PlayerService.shared = playerService
+        defer { PlayerService.shared = nil }
+
+        let result = GetPlayQueueCommand().performDefaultImplementation() as? String
+        let json = result?.data(using: .utf8).flatMap {
+            try? JSONSerialization.jsonObject(with: $0) as? [String: Any]
+        }
+        let tracks = json?["tracks"] as? [[String: Any]]
+
+        #expect(tracks?.count == 1)
+        #expect(tracks?.first?["videoId"] as? String == "gQlMMD8auMs")
+        #expect(tracks?.first?["audioVideoId"] as? String == "qCDPprTDkJE")
+        #expect(playerService.queue.first?.musicVideoType == .omv)
     }
 
     // MARK: - PlayTrackAtIndexCommand Tests
