@@ -15,7 +15,11 @@ struct CarouselShelf<Content: View>: View {
     private let content: () -> Content
 
     @State private var scrollPosition = ScrollPosition(edge: .leading)
-    @State private var scrollMetrics = CarouselShelfScrollMetrics()
+    /// Raw geometry lives in a plain reference box so per-pixel horizontal
+    /// scroll updates don't invalidate the shelf body; only the derived
+    /// overflow flags below are SwiftUI state, and they change rarely.
+    @State private var metricsStore = CarouselShelfMetricsStore()
+    @State private var overflow = CarouselShelfOverflow()
     @State private var isShelfHovering = false
     @FocusState private var focusedDirection: CarouselShelfDirection?
 
@@ -60,7 +64,11 @@ struct CarouselShelf<Content: View>: View {
         .onScrollGeometryChange(for: CarouselShelfScrollMetrics.self) { geometry in
             CarouselShelfScrollMetrics(geometry: geometry)
         } action: { _, newMetrics in
-            self.scrollMetrics = newMetrics
+            self.metricsStore.metrics = newMetrics
+            let overflow = CarouselShelfOverflow(metrics: newMetrics)
+            if overflow != self.overflow {
+                self.overflow = overflow
+            }
         }
         .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
             if self.showsLeadingControl {
@@ -89,11 +97,11 @@ struct CarouselShelf<Content: View>: View {
     }
 
     private var hasLeadingOverflow: Bool {
-        self.scrollMetrics.contentOffsetX > 1
+        self.overflow.leading
     }
 
     private var hasTrailingOverflow: Bool {
-        self.scrollMetrics.remainingContentWidth > 1
+        self.overflow.trailing
     }
 
     private var showsLeadingControl: Bool {
@@ -134,14 +142,15 @@ struct CarouselShelf<Content: View>: View {
     }
 
     private func page(in direction: CarouselShelfDirection) {
-        let pageWidth = max(1, self.scrollMetrics.viewportWidth * self.pageFraction)
+        let metrics = self.metricsStore.metrics
+        let pageWidth = max(1, metrics.viewportWidth * self.pageFraction)
         let destination = switch direction {
         case .leading:
-            self.scrollMetrics.contentOffsetX - pageWidth
+            metrics.contentOffsetX - pageWidth
         case .trailing:
-            self.scrollMetrics.contentOffsetX + pageWidth
+            metrics.contentOffsetX + pageWidth
         }
-        let clampedDestination = min(max(destination, 0), self.scrollMetrics.maxContentOffsetX)
+        let clampedDestination = min(max(destination, 0), metrics.maxContentOffsetX)
 
         withAnimation(AppAnimation.smooth) {
             self.scrollPosition.scrollTo(x: clampedDestination)
@@ -283,6 +292,30 @@ private struct CarouselShelfScrollMetrics: Equatable {
 
     var remainingContentWidth: CGFloat {
         max(0, self.maxContentOffsetX - self.contentOffsetX)
+    }
+}
+
+// MARK: - CarouselShelfMetricsStore
+
+/// Holds the latest scroll geometry without participating in SwiftUI
+/// invalidation (deliberately not `@Observable`).
+@MainActor
+private final class CarouselShelfMetricsStore {
+    var metrics = CarouselShelfScrollMetrics()
+}
+
+// MARK: - CarouselShelfOverflow
+
+/// The only geometry-derived facts the shelf body renders from.
+private struct CarouselShelfOverflow: Equatable {
+    var leading = false
+    var trailing = false
+
+    init() {}
+
+    init(metrics: CarouselShelfScrollMetrics) {
+        self.leading = metrics.contentOffsetX > 1
+        self.trailing = metrics.remainingContentWidth > 1
     }
 }
 

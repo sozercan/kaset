@@ -110,6 +110,7 @@ struct ExploreView: View {
             ) {
                 self.playItem(item, in: section, at: index)
             }
+            .equatable()
         }
     }
 

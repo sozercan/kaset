@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - HomeSectionItemCard
 
 /// Reusable card view for home section items (songs, playlists, albums, artists).
-struct HomeSectionItemCard: View {
+struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
     let rank: Int?
     let playAction: (() -> Void)?
@@ -31,6 +31,18 @@ struct HomeSectionItemCard: View {
         self.action = action
     }
 
+    /// Lets SwiftUI skip re-evaluating unchanged cards when a shelf or its
+    /// parent re-renders (measured: this is what made Home scrolling hitch).
+    ///
+    /// Contract for callers: `action`/`playAction` must depend only on `item`
+    /// (and `rank`). If two cards compare equal, the old closures are kept, so
+    /// an action that captured section membership or index would go stale.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item == rhs.item
+            && lhs.rank == rhs.rank
+            && (lhs.playAction == nil) == (rhs.playAction == nil)
+    }
+
     var body: some View {
         if self.supportsPlaylistPlayAction {
             self.cardContent
@@ -51,6 +63,8 @@ struct HomeSectionItemCard: View {
                     self.regularContent
                 }
             }
+            // Hover scale/shadow are applied once, below, so the button style
+            // only contributes press feedback (and registers no hover responder).
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
         }
         .scaleEffect(self.isHovering ? 1.02 : 1)

@@ -109,6 +109,7 @@ struct ChartsView: View {
             ) {
                 self.playItem(item, in: section, at: index)
             }
+            .equatable()
         }
     }
 

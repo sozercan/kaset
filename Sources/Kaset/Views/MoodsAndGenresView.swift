@@ -130,6 +130,7 @@ struct MoodsAndGenresView: View {
             ) {
                 self.playItem(item, in: section, at: index)
             }
+            .equatable()
         }
     }
 
