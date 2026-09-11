@@ -30,8 +30,7 @@ struct PlaylistPlaybackActionsTests {
             thumbnailURL: URL(string: "https://example.com/queue.jpg"),
             videoId: "video-1",
             isPlayable: true,
-            isExplicit: true,
-            audioTrackVideoId: "audio-1"
+            isExplicit: true
         )
 
         let tracks = PlaylistPlaybackActions.tracksForPlaylistPlayback(
@@ -44,6 +43,26 @@ struct PlaylistPlaybackActionsTests {
         #expect(tracks.first?.thumbnailURL == queueTrack.thumbnailURL)
         #expect(tracks.first?.isExplicit == true)
         #expect(tracks.first?.audioTrackVideoId == "audio-1")
+    }
+
+    @Test("Radio playlist tracks retain known audio IDs when playability agrees", arguments: [nil, "queue-audio"] as [String?])
+    func radioPlaylistTracksRetainAudioIDs(queueAudioID: String?) {
+        var browseTrack = TestFixtures.makeSong(id: "music-video")
+        browseTrack.audioTrackVideoId = "browse-audio"
+        let duplicateWithoutAudioID = TestFixtures.makeSong(id: browseTrack.videoId)
+        var queueTrack = TestFixtures.makeSong(id: browseTrack.videoId, title: "Queue title")
+        queueTrack.audioTrackVideoId = queueAudioID
+        let queueOnlyTrack = TestFixtures.makeSong(id: "queue-only")
+
+        let tracks = PlaylistPlaybackActions.tracksForPlaylistPlayback(
+            browseTracks: [browseTrack, duplicateWithoutAudioID],
+            queueTracks: [queueTrack, queueOnlyTrack]
+        )
+
+        #expect(tracks.map(\.videoId) == [queueTrack.videoId, queueOnlyTrack.videoId])
+        #expect(tracks.first?.title == queueTrack.title)
+        #expect(tracks.first?.audioTrackVideoId == queueAudioID ?? "browse-audio")
+        #expect(tracks.last == queueOnlyTrack)
     }
 
     @Test("Playable playlist artwork filters unavailable songs and fills missing thumbnails")

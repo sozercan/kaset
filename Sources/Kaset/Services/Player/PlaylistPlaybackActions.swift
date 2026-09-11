@@ -106,11 +106,18 @@ enum PlaylistPlaybackActions {
 
     static func tracksForPlaylistPlayback(browseTracks: [Song], queueTracks: [Song]) -> [Song] {
         var browsePlayabilityByVideoId: [String: Bool] = [:]
+        var browseAudioIDsByVideoId: [String: String] = [:]
         for track in browseTracks {
             browsePlayabilityByVideoId[track.videoId] = track.isPlayable
+            if let audioTrackVideoId = track.audioTrackVideoId {
+                browseAudioIDsByVideoId[track.videoId] = audioTrackVideoId
+            }
         }
 
-        return queueTracks.map { track in
+        return queueTracks.map { queueTrack in
+            // Queue responses may omit the audio ID already discovered in browse rows.
+            var track = queueTrack
+            track.audioTrackVideoId = track.audioTrackVideoId ?? browseAudioIDsByVideoId[track.videoId]
             guard let browseIsPlayable = browsePlayabilityByVideoId[track.videoId],
                   browseIsPlayable != track.isPlayable
             else {

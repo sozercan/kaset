@@ -529,8 +529,8 @@ struct ScriptCommandsTests {
         #expect((json?["tracks"] as? [[String: Any]])?.count == 2)
     }
 
-    @Test("GetPlayQueue emits the audio recording ID for music-video album rows")
-    func getPlayQueueEmitsPreferredAudioVideoId() async {
+    @Test("GetPlayQueue emits the audio recording ID through album playback paths", arguments: [false, true])
+    func getPlayQueueEmitsPreferredAudioVideoId(usesDetailView: Bool) async {
         let album = Album(
             id: "MPREb_J7wVS5GlYZK",
             title: "BORN PINK",
@@ -547,11 +547,20 @@ struct ScriptCommandsTests {
             musicVideoType: .omv,
             audioTrackVideoId: "qCDPprTDkJE"
         )
-        let queued = QueueSongMetadata.albumSongs(
-            [musicVideoRow],
-            album: album,
-            purpose: .playback(trackCount: 1)
-        )
+        let queued: [Song]
+        if usesDetailView {
+            guard #available(macOS 26.0, *) else { return }
+            let playlist = TestFixtures.makePlaylist(id: album.id, title: album.title)
+            let viewModel = PlaylistDetailViewModel(playlist: playlist, client: MockYTMusicClient())
+            let view = PlaylistDetailView(playlist: playlist, viewModel: viewModel)
+            queued = view.playableTracks([musicVideoRow], fallbackArtist: nil, fallbackAlbum: album)
+        } else {
+            queued = QueueSongMetadata.albumSongs(
+                [musicVideoRow],
+                album: album,
+                purpose: .playback(trackCount: 1)
+            )
+        }
         let playerService = PlayerService()
         await playerService.playQueue(queued, startingAt: 0)
         PlayerService.shared = playerService
@@ -566,6 +575,7 @@ struct ScriptCommandsTests {
         #expect(tracks?.count == 1)
         #expect(tracks?.first?["videoId"] as? String == "gQlMMD8auMs")
         #expect(tracks?.first?["audioVideoId"] as? String == "qCDPprTDkJE")
+        #expect(playerService.queue.first?.musicVideoType == .omv)
     }
 
     // MARK: - PlayTrackAtIndexCommand Tests

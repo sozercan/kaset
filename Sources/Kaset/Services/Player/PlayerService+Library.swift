@@ -436,8 +436,7 @@ extension PlayerService {
         let libraryMutationGeneration = self.libraryMutationGeneration
         let accountSessionGeneration = self.accountSessionGeneration
         let pendingMutationKey = self.pendingLibraryMutationKey(
-            accountID: activeAccountID,
-            videoId: videoId,
+            accountID: activeAccountID, videoId: videoId,
             sessionGeneration: accountSessionGeneration
         )
         let libraryMutationWasPending = self.pendingLibraryMutationCountsByKey[pendingMutationKey, default: 0] > 0
@@ -499,7 +498,8 @@ extension PlayerService {
                     feedbackTokens: libraryMutationIsCurrent
                         ? songData.feedbackTokens
                         : self.currentTrack?.feedbackTokens,
-                    isExplicit: songData.isExplicit ?? self.currentTrack?.isExplicit
+                    isExplicit: songData.isExplicit ?? self.currentTrack?.isExplicit,
+                    audioTrackVideoId: songData.audioTrackVideoId ?? self.currentTrack?.audioTrackVideoId
                 )
 
                 // Update service state and sync with SongLikeStatusManager.

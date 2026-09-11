@@ -42,6 +42,7 @@ struct QueueSongMetadataTests {
             likeStatus: .like,
             isInLibrary: true,
             isExplicit: true,
+            playlistSetVideoId: "playlist-occurrence-1",
             audioTrackVideoId: "audio-1"
         )
 
@@ -60,6 +61,7 @@ struct QueueSongMetadataTests {
         #expect(preparedSong?.likeStatus == .like)
         #expect(preparedSong?.isInLibrary == true)
         #expect(preparedSong?.isExplicit == true)
+        #expect(preparedSong?.playlistSetVideoId == "playlist-occurrence-1")
         #expect(preparedSong?.audioTrackVideoId == "audio-1")
     }
 

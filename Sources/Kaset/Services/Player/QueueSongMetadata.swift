@@ -151,6 +151,7 @@ enum QueueSongMetadata {
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
             isExplicit: song.isExplicit,
+            playlistSetVideoId: song.playlistSetVideoId,
             audioTrackVideoId: song.audioTrackVideoId
         )
     }

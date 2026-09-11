@@ -95,6 +95,40 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 10)
     }
 
+    @Test("Loading a radio playlist preserves browse audio IDs and playability")
+    func radioLoadPreservesBrowseAudioIDs() async {
+        let playlist = TestFixtures.makePlaylist(id: "RD-audio-id")
+        let browseTrack = Song(
+            id: "music-video",
+            title: "Music Video",
+            artists: [],
+            videoId: "music-video",
+            isPlayable: false,
+            audioTrackVideoId: "browse-audio"
+        )
+        let queueTrack = TestFixtures.makeSong(id: browseTrack.videoId)
+        let queueOnlyTrack = TestFixtures.makeSong(id: "queue-only")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [browseTrack],
+            duration: nil
+        )
+        self.mockClient.playlistAllTracks[playlist.id] = [queueTrack, queueOnlyTrack]
+        let viewModel = PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.loadingState == .loaded)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == [browseTrack.videoId, queueOnlyTrack.videoId])
+        #expect(viewModel.playlistDetail?.tracks.first?.audioTrackVideoId == "browse-audio")
+        #expect(viewModel.playlistDetail?.tracks.first?.isPlayable == false)
+        #expect(viewModel.playlistDetail?.tracks.last == queueOnlyTrack)
+    }
+
     // MARK: - Track Removal Tests
 
     @Test("Optimistic track removal removes the matching track and confirms successfully")
