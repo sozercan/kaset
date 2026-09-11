@@ -117,6 +117,32 @@ struct PlaylistParserAudioTrackTests {
         #expect(audioRow.preferredAudioVideoId == "qCDPprTDkJE")
     }
 
+    @Test("Audio recording ID survives album queue prep")
+    func audioTrackVideoIdSurvivesAlbumQueuePrep() {
+        let data = self.makeAlbumData(rows: [
+            .init(videoId: "gQlMMD8auMs", title: "Pink Venom", creditsBrowseId: "MPTCqCDPprTDkJE"),
+        ])
+        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPREb_J7wVS5GlYZK")
+        let album = Album(
+            id: "MPREb_J7wVS5GlYZK",
+            title: "BORN PINK",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            thumbnailURL: nil,
+            year: "2022",
+            trackCount: 1
+        )
+
+        let queued = QueueSongMetadata.albumSongs(
+            detail.tracks,
+            album: album,
+            purpose: .playback(trackCount: 1)
+        )
+
+        #expect(queued.map(\.videoId) == ["gQlMMD8auMs"])
+        #expect(queued.map(\.audioTrackVideoId) == ["qCDPprTDkJE"])
+        #expect(queued.map(\.preferredAudioVideoId) == ["qCDPprTDkJE"])
+    }
+
     // MARK: - Fixtures
 
     private struct Row {

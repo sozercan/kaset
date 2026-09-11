@@ -313,6 +313,32 @@ struct PlayerServiceQueueEnrichmentTests {
         playerService.clearNativeQueueMaintenance()
     }
 
+    @Test("Queue enrichment keeps the album audio recording ID when next has none")
+    func mergingQueueMetadataPreservesAudioTrackVideoId() {
+        let current = Song(
+            id: "gQlMMD8auMs",
+            title: "Pink Venom",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            videoId: "gQlMMD8auMs",
+            musicVideoType: .omv,
+            audioTrackVideoId: "qCDPprTDkJE"
+        )
+        let response = Song(
+            id: "gQlMMD8auMs",
+            title: "Pink Venom",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            duration: 186,
+            videoId: "gQlMMD8auMs",
+            musicVideoType: .omv
+        )
+
+        let merged = PlayerService.mergingQueueMetadata(current: current, response: response)
+
+        #expect(merged.audioTrackVideoId == "qCDPprTDkJE")
+        #expect(merged.preferredAudioVideoId == "qCDPprTDkJE")
+        #expect(merged.duration == 186)
+    }
+
     private static func incompleteSong(videoId: String) -> Song {
         Song(
             id: videoId,

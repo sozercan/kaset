@@ -210,7 +210,8 @@ enum PlaylistPlaybackActions {
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
             isExplicit: song.isExplicit,
-            playlistSetVideoId: song.playlistSetVideoId
+            playlistSetVideoId: song.playlistSetVideoId,
+            audioTrackVideoId: song.audioTrackVideoId
         )
     }
 
