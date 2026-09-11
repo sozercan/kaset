@@ -143,6 +143,71 @@ struct HomeRefreshCacheTests {
         #expect(HomeRefreshControlledURLProtocol.requestCount == 3)
     }
 
+    @Test("A cancelled YouTube Music continuation keeps its token so pagination can resume")
+    func musicHomeCancelledContinuationKeepsToken() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [HomeRefreshControlledURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        HomeRefreshControlledURLProtocol.reset()
+        defer {
+            session.invalidateAndCancel()
+            HomeRefreshControlledURLProtocol.reset()
+        }
+
+        let webKitManager = WebKitManager.makeTestInstance()
+        let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
+        let client = YTMusicClient(
+            authService: authService,
+            webKitManager: webKitManager,
+            session: session,
+            apiKeyResolver: .init(session: session, environment: { name in
+                name == YTMusicAPIKeyResolver.environmentVariable ? "mock-token" : nil
+            }),
+            cache: APICache()
+        )
+
+        let seedTask = Task {
+            try await client.getHome(forceRefresh: false)
+        }
+        let seedRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        try HomeRefreshControlledURLProtocol.respond(
+            seedRequest,
+            data: JSONSerialization.data(
+                withJSONObject: Self.musicHomePayload(title: "Seed", continuation: "page-2")
+            )
+        )
+        _ = try await seedTask.value
+        #expect(client.hasMoreHomeSections)
+
+        // The bottom-of-scroll sentinel's task gets cancelled when a freshly
+        // appended page pushes it out of the lazy stack mid-request.
+        let cancelledTask = Task {
+            try await client.getHomeContinuation()
+        }
+        _ = await HomeRefreshControlledURLProtocol.nextRequest()
+        cancelledTask.cancel()
+        await #expect(throws: CancellationError.self) {
+            try await cancelledTask.value
+        }
+        #expect(client.hasMoreHomeSections)
+
+        let retryTask = Task {
+            try await client.getHomeContinuation()
+        }
+        let retryRequest = await HomeRefreshControlledURLProtocol.nextRequest()
+        let retryBody = try Self.requestBody(from: retryRequest.request)
+        #expect(retryBody["continuation"] as? String == "page-2")
+
+        try HomeRefreshControlledURLProtocol.respond(
+            retryRequest,
+            data: Self.musicHomeContinuationPayload(continuation: "page-3")
+        )
+        let sections = try await retryTask.value
+        #expect(sections != nil)
+        #expect(client.hasMoreHomeSections)
+    }
+
     @Test("A stale YouTube Music continuation cannot replace a forced refresh continuation")
     func musicHomeForceRefreshFencesInFlightContinuation() async throws {
         let configuration = URLSessionConfiguration.ephemeral
