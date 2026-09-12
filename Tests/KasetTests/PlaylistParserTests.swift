@@ -737,10 +737,15 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                                 "sectionListRenderer": [
                                     "contents": [[
                                         "musicResponsiveHeaderRenderer": [
-                                            "title": ["runs": [["text": "2AM"]]],
-                                            "subtitle": ["runs": [["text": "Album"], ["text": " • "], ["text": "2026"]]],
+                                            "title": ["runs": [["text": "1989"]]],
+                                            "subtitle": ["runs": [["text": "Album"], ["text": " • "], ["text": "2014"]]],
                                             "secondSubtitle": [
                                                 "runs": [["text": "1 song"], ["text": " • "], ["text": "2 minutes, 42 seconds"]],
+                                            ],
+                                            "description": [
+                                                "musicDescriptionShelfRenderer": [
+                                                    "description": ["runs": [["text": "Album description"]]],
+                                                ],
                                             ],
                                             "straplineTextOne": [
                                                 "runs": [[
@@ -773,7 +778,7 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                                             "flexColumns": [
                                                 [
                                                     "musicResponsiveListItemFlexColumnRenderer": [
-                                                        "text": ["runs": [["text": "2AM"]]],
+                                                        "text": ["runs": [["text": "1989"]]],
                                                     ],
                                                 ],
                                                 [
@@ -797,12 +802,15 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
             ],
         ]
 
-        let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: "MPRE-test-album")
+        let detail = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: "MPRE-test-album").detail
 
         #expect(detail.isAlbum)
+        #expect(detail.title == "1989")
         #expect(detail.author?.name == "Test Artist")
         #expect(detail.author?.id == "UCTESTARTIST")
         #expect(detail.duration == "2 minutes, 42 seconds")
+        #expect(detail.year == "2014")
+        #expect(detail.description == "Album description")
         #expect(detail.tracks.first?.artists.isEmpty == true)
     }
 
