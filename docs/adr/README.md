@@ -72,3 +72,4 @@ What becomes easier or more difficult because of this change?
 | [0035](0035-gapless-playback-native-queue.md) | Gapless Playback via YouTube Music Native Queue | Accepted |
 | [0036](0036-music-audio-output-continuity.md) | Music audio output continuity | Accepted |
 | [0037](0037-deferred-cookie-restoration.md) | Deferred cookie restoration | Accepted |
+| [0038](0038-native-appkit-home-shelves.md) | Native AppKit cards for Home-style shelves | Accepted |

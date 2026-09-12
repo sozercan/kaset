@@ -312,14 +312,7 @@ struct HomeSectionItemCard: View, Equatable {
     }
 
     private var isVideoSong: Bool {
-        guard case let .song(song) = self.item else { return false }
-
-        if let musicVideoType = song.musicVideoType {
-            return musicVideoType != .atv
-        }
-
-        let subtitle = song.artistsDisplay.lowercased()
-        return subtitle.contains("views") || subtitle.contains("video")
+        self.item.isVideoSong
     }
 }
 
@@ -362,7 +355,7 @@ private struct LiquidGlassPlayIcon: View {
 
 // MARK: - SongCoverPlayOverlay
 
-private struct SongCoverPlayOverlay: View {
+struct SongCoverPlayOverlay: View {
     let size: CGSize
 
     var body: some View {

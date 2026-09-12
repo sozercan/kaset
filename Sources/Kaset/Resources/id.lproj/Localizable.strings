@@ -136,6 +136,7 @@
 "Downloading" = "Mengunduh";
 "Drag to reorder" = "Seret untuk mengurutkan ulang";
 "E" = "E";
+"Number %lld, %@" = "Nomor %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "mis. Hapus lagu lambat, urutkan ulang berdasarkan energi...";
 "Edit" = "Edit";
 "Electronic" = "Elektronik";

@@ -20,8 +20,6 @@ struct CarouselShelf<Content: View>: View {
     /// overflow flags below are SwiftUI state, and they change rarely.
     @State private var metricsStore = CarouselShelfMetricsStore()
     @State private var overflow = CarouselShelfOverflow()
-    @State private var isShelfHovering = false
-    @FocusState private var focusedDirection: CarouselShelfDirection?
 
     init(
         accessibilityLabel: String,
@@ -70,46 +68,75 @@ struct CarouselShelf<Content: View>: View {
                 self.overflow = overflow
             }
         }
-        .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
-            if self.showsLeadingControl {
-                self.controlButton(for: .leading)
-                    // Sit at the resting inset (not the column edge) so the
-                    // button clears the floating-sidebar band on macOS 26.
-                    .padding(.leading, self.contentInset + 4)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        .modifier(CarouselShelfPagingControls(
+            accessibilityLabel: self.accessibilityLabel,
+            showsLeading: self.showsControls && self.overflow.leading,
+            showsTrailing: self.showsControls && self.overflow.trailing,
+            controlVerticalAlignment: self.controlVerticalAlignment,
+            contentInset: self.contentInset,
+            page: self.page(in:)
+        ))
+    }
+
+    private func page(in direction: CarouselShelfDirection) {
+        let metrics = self.metricsStore.metrics
+        let pageWidth = max(1, metrics.viewportWidth * self.pageFraction)
+        let destination = switch direction {
+        case .leading:
+            metrics.contentOffsetX - pageWidth
+        case .trailing:
+            metrics.contentOffsetX + pageWidth
+        }
+        let clampedDestination = min(max(destination, 0), metrics.maxContentOffsetX)
+
+        withAnimation(AppAnimation.smooth) {
+            self.scrollPosition.scrollTo(x: clampedDestination)
+        }
+    }
+}
+
+// MARK: - CarouselShelfPagingControls
+
+/// The glass paging arrows, their hover/focus prominence, and the shelf's
+/// accessibility container. Shared by the SwiftUI ``CarouselShelf`` and the
+/// AppKit-backed ``HomeItemCollectionShelf``.
+struct CarouselShelfPagingControls: ViewModifier {
+    let accessibilityLabel: String
+    let showsLeading: Bool
+    let showsTrailing: Bool
+    let controlVerticalAlignment: VerticalAlignment
+    let contentInset: CGFloat
+    let page: (CarouselShelfDirection) -> Void
+
+    @State private var isShelfHovering = false
+    @FocusState private var focusedDirection: CarouselShelfDirection?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
+                if self.showsLeading {
+                    self.controlButton(for: .leading)
+                        // Sit at the resting inset (not the column edge) so the
+                        // button clears the floating-sidebar band on macOS 26.
+                        .padding(.leading, self.contentInset + 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
             }
-        }
-        .overlay(alignment: Alignment(horizontal: .trailing, vertical: self.controlVerticalAlignment)) {
-            if self.showsTrailingControl {
-                self.controlButton(for: .trailing)
-                    .padding(.trailing, self.contentInset + 4)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            .overlay(alignment: Alignment(horizontal: .trailing, vertical: self.controlVerticalAlignment)) {
+                if self.showsTrailing {
+                    self.controlButton(for: .trailing)
+                        .padding(.trailing, self.contentInset + 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                }
             }
-        }
-        .animation(AppAnimation.quick, value: self.showsLeadingControl)
-        .animation(AppAnimation.quick, value: self.showsTrailingControl)
-        .animation(AppAnimation.quick, value: self.hasControlProminence)
-        .onHover { isHovering in
-            self.isShelfHovering = isHovering
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(self.accessibilityLabel)
-    }
-
-    private var hasLeadingOverflow: Bool {
-        self.overflow.leading
-    }
-
-    private var hasTrailingOverflow: Bool {
-        self.overflow.trailing
-    }
-
-    private var showsLeadingControl: Bool {
-        self.showsControls && self.hasLeadingOverflow
-    }
-
-    private var showsTrailingControl: Bool {
-        self.showsControls && self.hasTrailingOverflow
+            .animation(AppAnimation.quick, value: self.showsLeading)
+            .animation(AppAnimation.quick, value: self.showsTrailing)
+            .animation(AppAnimation.quick, value: self.hasControlProminence)
+            .onHover { isHovering in
+                self.isShelfHovering = isHovering
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(self.accessibilityLabel)
     }
 
     private var hasControlProminence: Bool {
@@ -118,7 +145,7 @@ struct CarouselShelf<Content: View>: View {
 
     private func controlButton(for direction: CarouselShelfDirection) -> some View {
         Button {
-            self.page(in: direction)
+            self.page(direction)
         } label: {
             Image(systemName: direction.systemImage)
                 .font(.system(size: 16, weight: .semibold))
@@ -139,22 +166,6 @@ struct CarouselShelf<Content: View>: View {
         )
         .accessibilityLabel(self.accessibilityLabel(for: direction))
         .accessibilityHint(String(localized: "Scrolls this shelf by one page"))
-    }
-
-    private func page(in direction: CarouselShelfDirection) {
-        let metrics = self.metricsStore.metrics
-        let pageWidth = max(1, metrics.viewportWidth * self.pageFraction)
-        let destination = switch direction {
-        case .leading:
-            metrics.contentOffsetX - pageWidth
-        case .trailing:
-            metrics.contentOffsetX + pageWidth
-        }
-        let clampedDestination = min(max(destination, 0), metrics.maxContentOffsetX)
-
-        withAnimation(AppAnimation.smooth) {
-            self.scrollPosition.scrollTo(x: clampedDestination)
-        }
     }
 
     private func accessibilityLabel(for direction: CarouselShelfDirection) -> String {
@@ -307,13 +318,18 @@ private final class CarouselShelfMetricsStore {
 // MARK: - CarouselShelfOverflow
 
 /// The only geometry-derived facts the shelf body renders from.
-private struct CarouselShelfOverflow: Equatable {
+struct CarouselShelfOverflow: Equatable {
     var leading = false
     var trailing = false
 
     init() {}
 
-    init(metrics: CarouselShelfScrollMetrics) {
+    init(leading: Bool, trailing: Bool) {
+        self.leading = leading
+        self.trailing = trailing
+    }
+
+    fileprivate init(metrics: CarouselShelfScrollMetrics) {
         self.leading = metrics.contentOffsetX > 1
         self.trailing = metrics.remainingContentWidth > 1
     }
@@ -321,7 +337,7 @@ private struct CarouselShelfOverflow: Equatable {
 
 // MARK: - CarouselShelfDirection
 
-private enum CarouselShelfDirection: Hashable {
+enum CarouselShelfDirection: Hashable {
     case leading
     case trailing
 

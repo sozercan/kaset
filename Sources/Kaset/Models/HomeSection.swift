@@ -144,6 +144,17 @@ enum HomeSectionItem: Identifiable, Hashable {
         }
     }
 
+    /// Whether this is a song that renders as a wide video thumbnail rather
+    /// than square artwork.
+    var isVideoSong: Bool {
+        guard case let .song(song) = self else { return false }
+        if let musicVideoType = song.musicVideoType {
+            return musicVideoType != .atv
+        }
+        let subtitle = song.artistsDisplay.lowercased()
+        return subtitle.contains("views") || subtitle.contains("video")
+    }
+
     /// Returns the video ID if this item is playable.
     var videoId: String? {
         switch self {

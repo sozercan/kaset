@@ -122,29 +122,26 @@ struct HomeView: View {
     }
 
     private func sectionView(_ section: HomeSection) -> some View {
-        CarouselShelfSection(
+        HomeItemShelfSection(
             accessibilityLabel: section.title,
-            items: Array(section.items.enumerated()),
-            id: \.element.id,
-            itemAlignment: .top,
-            contentInset: DetailContentLayout.horizontalInset
-        ) {
-            Text(section.title)
-                .font(.title2)
-                .fontWeight(.semibold)
-        } itemContent: { index, item in
-            HomeSectionItemCard(
-                item: item,
-                rank: section.isChart ? index + 1 : nil,
-                playAction: self.playlistPlayAction(for: item)
-            ) {
+            items: section.items,
+            isChart: section.isChart,
+            contentInset: DetailContentLayout.horizontalInset,
+            action: { item, index in
                 self.playItem(item, in: section, at: index)
-            }
-            .equatable()
-            .contextMenu {
+            },
+            playlistPlayAction: { item in
+                self.playlistPlayAction(for: item)
+            },
+            header: {
+                Text(section.title)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            },
+            contextMenu: { item, index in
                 self.contextMenuItems(for: item, in: section, at: index)
             }
-        }
+        )
     }
 
     // MARK: - Context Menu
