@@ -101,12 +101,12 @@ struct MoodCategoryDetailView: View {
                     title: playlist.title
                 )
                 NavigationLink(value: category) {
-                    ItemCardContent(item: item)
+                    ItemCardContent(item: item, playAction: self.quickPlayAction(for: item))
                 }
                 .buttonStyle(.plain)
             } else {
                 NavigationLink(value: playlist) {
-                    ItemCardContent(item: item)
+                    ItemCardContent(item: item, playAction: self.quickPlayAction(for: item))
                 }
                 .buttonStyle(.plain)
             }
@@ -120,14 +120,40 @@ struct MoodCategoryDetailView: View {
                 author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
             )
             NavigationLink(value: playlist) {
-                ItemCardContent(item: item)
+                ItemCardContent(item: item, playAction: self.quickPlayAction(for: item))
             }
             .buttonStyle(.plain)
         case let .artist(artist):
             NavigationLink(value: artist) {
-                ItemCardContent(item: item)
+                ItemCardContent(item: item, playAction: self.quickPlayAction(for: item))
             }
             .buttonStyle(.plain)
+        }
+    }
+
+    /// Quick-play action for the thumbnail's hover play button. Returns nil for
+    /// mood-category tiles (which navigate) and artists (not playable), so it is
+    /// safe to pass to every card.
+    private func quickPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
+        switch item {
+        case let .playlist(playlist) where SongActionsHelper.canQuickPlayPlaylist(playlist):
+            {
+                SongActionsHelper.playPlaylist(
+                    playlist,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            }
+        case let .album(album):
+            {
+                SongActionsHelper.playAlbum(
+                    album,
+                    client: self.viewModel.client,
+                    playerService: self.playerService
+                )
+            }
+        default:
+            nil
         }
     }
 }
@@ -137,9 +163,11 @@ struct MoodCategoryDetailView: View {
 /// A non-button card view for use inside NavigationLink.
 private struct ItemCardContent: View {
     let item: HomeSectionItem
+    var playAction: (() -> Void)?
 
     private static let cardWidth: CGFloat = 160
     private static let cardHeight: CGFloat = 160
+    private static let playButtonSize = CGSize(width: 48, height: 48)
 
     @State private var isHovering = false
 
@@ -177,6 +205,17 @@ private struct ItemCardContent: View {
         }
         .frame(width: Self.cardWidth, height: Self.cardHeight)
         .clipShape(.rect(cornerRadius: 8))
+        .overlay {
+            // Interactive play button on hover so the thumbnail plays directly
+            // while the surrounding NavigationLink still opens the content.
+            if let playAction = self.playAction, self.isHovering {
+                Button(action: playAction) {
+                    LiquidGlassPlayIcon(size: Self.playButtonSize, interactive: true)
+                }
+                .buttonStyle(.borderless)
+                .transition(.opacity)
+            }
+        }
     }
 
     private var placeholderView: some View {
