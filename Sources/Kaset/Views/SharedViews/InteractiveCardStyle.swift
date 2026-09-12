@@ -19,8 +19,17 @@ struct InteractiveCardStyle: ButtonStyle {
 
     @State private var isHovering = false
 
+    /// Hover tracking is skipped entirely when hovering has no visual effect.
+    /// Each `.onHover` adds a responder that SwiftUI hit-tests on every pointer
+    /// move — including during scrolling — so cards that layer their own hover
+    /// treatment on top of this style shouldn't pay for a second one.
+    private var tracksHover: Bool {
+        self.showShadow || self.hoverScale != 1
+    }
+
+    @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
+        let label = configuration.label
             .scaleEffect(configuration.isPressed ? self.pressScale : (self.isHovering ? self.hoverScale : 1.0))
             .shadow(
                 color: self.showShadow && self.isHovering ? .black.opacity(0.15) : .clear,
@@ -30,14 +39,19 @@ struct InteractiveCardStyle: ButtonStyle {
             )
             .animation(AppAnimation.spring, value: configuration.isPressed)
             .animation(AppAnimation.spring, value: self.isHovering)
-            .onHover { hovering in
-                self.isHovering = hovering
-            }
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed, let feedback = hapticFeedback {
                     HapticService.perform(feedback)
                 }
             }
+
+        if self.tracksHover {
+            label.onHover { hovering in
+                self.isHovering = hovering
+            }
+        } else {
+            label
+        }
     }
 }
 

@@ -109,6 +109,7 @@ struct NewReleasesView: View {
             ) {
                 self.playItem(item, in: section, at: index)
             }
+            .equatable()
         }
     }
 
