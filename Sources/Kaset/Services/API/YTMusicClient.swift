@@ -153,6 +153,13 @@ final class YTMusicClient: YTMusicClientProtocol {
 
             self.logger.info("\(type.displayName.capitalized) continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
             return additionalSections
+        } catch is CancellationError {
+            // A cancelled request says nothing about the server-side page, so
+            // keep the token: the bottom-of-scroll sentinel is torn down (and
+            // its task cancelled) whenever a freshly appended page pushes it
+            // out of the lazy stack, and the next appearance must be able to
+            // retry the same continuation instead of ending pagination.
+            throw CancellationError()
         } catch {
             self.logger.warning("Failed to fetch \(type.displayName) continuation: \(error.localizedDescription)")
             if generation == self.continuationGeneration,

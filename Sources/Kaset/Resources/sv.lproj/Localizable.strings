@@ -136,6 +136,7 @@
 "Downloading" = "Laddar ned";
 "Drag to reorder" = "Dra för att ändra ordning";
 "E" = "E";
+"Number %lld, %@" = "Nummer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "t.ex. ta bort långsamma låtar, ordna om efter energi…";
 "Edit" = "Redigera";
 "Electronic" = "Elektronisk";

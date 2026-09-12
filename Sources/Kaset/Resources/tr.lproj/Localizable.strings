@@ -136,6 +136,7 @@
 "Downloading" = "İndiriliyor";
 "Drag to reorder" = "Yeniden sıralamak için sürükleyin";
 "E" = "E";
+"Number %lld, %@" = "%1$lld numara, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "örn. Yavaş şarkıları kaldır, enerjiye göre yeniden sırala...";
 "Edit" = "Düzenle";
 "Electronic" = "Elektronik";

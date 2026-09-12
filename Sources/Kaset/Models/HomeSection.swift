@@ -3,7 +3,7 @@ import Foundation
 // MARK: - HomeSection
 
 /// Represents a section on the YouTube Music home page.
-struct HomeSection: Identifiable {
+struct HomeSection: Identifiable, Hashable {
     let id: String
     let title: String
     let items: [HomeSectionItem]
@@ -22,7 +22,7 @@ struct HomeSection: Identifiable {
 // MARK: - HomeSectionItem
 
 /// An item within a home section (can be song, album, playlist, or artist).
-enum HomeSectionItem: Identifiable {
+enum HomeSectionItem: Identifiable, Hashable {
     case song(Song)
     case album(Album)
     case playlist(Playlist)
@@ -142,6 +142,17 @@ enum HomeSectionItem: Identifiable {
         case let .artist(artist):
             artist.thumbnailURL
         }
+    }
+
+    /// Whether this is a song that renders as a wide video thumbnail rather
+    /// than square artwork.
+    var isVideoSong: Bool {
+        guard case let .song(song) = self else { return false }
+        if let musicVideoType = song.musicVideoType {
+            return musicVideoType != .atv
+        }
+        let subtitle = song.artistsDisplay.lowercased()
+        return subtitle.contains("views") || subtitle.contains("video")
     }
 
     /// Returns the video ID if this item is playable.

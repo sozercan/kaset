@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - HomeSectionItemCard
 
 /// Reusable card view for home section items (songs, playlists, albums, artists).
-struct HomeSectionItemCard: View {
+struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
     let rank: Int?
     let playAction: (() -> Void)?
@@ -31,6 +31,18 @@ struct HomeSectionItemCard: View {
         self.action = action
     }
 
+    /// Lets SwiftUI skip re-evaluating unchanged cards when a shelf or its
+    /// parent re-renders (measured: this is what made Home scrolling hitch).
+    ///
+    /// Contract for callers: `action`/`playAction` must depend only on `item`
+    /// (and `rank`). If two cards compare equal, the old closures are kept, so
+    /// an action that captured section membership or index would go stale.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item == rhs.item
+            && lhs.rank == rhs.rank
+            && (lhs.playAction == nil) == (rhs.playAction == nil)
+    }
+
     var body: some View {
         if self.supportsPlaylistPlayAction {
             self.cardContent
@@ -51,16 +63,11 @@ struct HomeSectionItemCard: View {
                     self.regularContent
                 }
             }
+            // Hover feedback lives on the thumbnail (see `thumbnail`), so the
+            // button style only contributes press feedback and registers no
+            // hover responder.
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
         }
-        .scaleEffect(self.isHovering ? 1.02 : 1)
-        .shadow(
-            color: self.isHovering ? .black.opacity(0.15) : .clear,
-            radius: self.isHovering ? 12 : 0,
-            x: 0,
-            y: self.isHovering ? 4 : 0
-        )
-        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -126,6 +133,12 @@ struct HomeSectionItemCard: View {
         }
         .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
+        // Hover lift is applied to the thumbnail only, and the shadow node only
+        // exists while hovering. Scaling the whole card re-rasterized its title
+        // and subtitle on every frame of the spring, and a resident `.shadow`
+        // (even clear) kept an effect layer on every card; measured together
+        // at ~5% of the app's scroll-time CPU and ~15% of dropped frames.
+        .modifier(ThumbnailHoverLift(isHovering: self.isHovering))
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
@@ -299,14 +312,28 @@ struct HomeSectionItemCard: View {
     }
 
     private var isVideoSong: Bool {
-        guard case let .song(song) = self.item else { return false }
+        self.item.isVideoSong
+    }
+}
 
-        if let musicVideoType = song.musicVideoType {
-            return musicVideoType != .atv
+// MARK: - ThumbnailHoverLift
+
+private struct ThumbnailHoverLift: ViewModifier {
+    let isHovering: Bool
+
+    func body(content: Content) -> some View {
+        self.shadowed(content)
+            .scaleEffect(self.isHovering ? 1.02 : 1)
+            .animation(AppAnimation.spring, value: self.isHovering)
+    }
+
+    @ViewBuilder
+    private func shadowed(_ content: Content) -> some View {
+        if self.isHovering {
+            content.shadow(color: .black.opacity(0.15), radius: 12, x: 0, y: 4)
+        } else {
+            content
         }
-
-        let subtitle = song.artistsDisplay.lowercased()
-        return subtitle.contains("views") || subtitle.contains("video")
     }
 }
 
@@ -328,7 +355,7 @@ private struct LiquidGlassPlayIcon: View {
 
 // MARK: - SongCoverPlayOverlay
 
-private struct SongCoverPlayOverlay: View {
+struct SongCoverPlayOverlay: View {
     let size: CGSize
 
     var body: some View {

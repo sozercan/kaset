@@ -92,6 +92,7 @@ struct MoodCategoryDetailView: View {
                     await self.playerService.playWithRadio(song: song)
                 }
             }
+            .equatable()
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
             if let parsed = playlist.resolvedMoodCategoryEndpoint {
