@@ -37,6 +37,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @State private var resolvedAlbum: Playlist?
     @State private var isResolvingArtist = false
     @State private var isResolvingAlbum = false
+    @State private var airPlayAnchor = AirPlayPickerAnchor()
 
     /// Cached formatted progress string to avoid repeated formatting.
     @State private var formattedProgress: String = "0:00"
@@ -102,6 +103,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
         .onChange(of: self.currentSeekIdentity) { _, _ in
             self.clearSeekHold()
+        }
+        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
+            if isShowingAd {
+                self.clearSeekHold()
+            }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
@@ -382,6 +388,9 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             if case let .error(message) = playerService.state {
                 self.errorView(message: message)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if self.playerService.isShowingAd {
+                PlayerBarAdIndicator()
+                    .padding(.top, 18)
             } else {
                 PlayerBarProgressLane(
                     fraction: self.displayFraction,
@@ -459,6 +468,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     .frame(width: 10, height: 16)
                     .foregroundStyle(self.playerService.isAirPlayConnected ? Self.brandAccent : .primary)
                     .contentTransition(.symbolEffect(.replace))
+            }
+            .background {
+                AirPlayPickerAnchorView(anchor: self.airPlayAnchor)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
             .disabled(self.playerService.currentTrack == nil)
 
@@ -542,7 +556,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
             PlayerBarIconButton(
                 action: self.toggleVolumePopover,
-                accessibilityLabel: String(localized: "Volume")
+                accessibilityLabel: String(localized: "Volume"),
+                accessibilityValue: "\(Int(self.displayedVolume * 100))%"
             ) {
                 Image(systemName: self.volumeIcon)
                     .font(.system(size: 15, weight: .regular))
@@ -550,13 +565,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     .foregroundStyle(.primary)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .overlay(alignment: .top) {
-                if self.showsVolumeOverlay {
-                    self.volumeOverlay
-                        .offset(y: -176)
-                        .transition(.scale(scale: 0.94, anchor: .bottom).combined(with: .opacity))
-                        .zIndex(1)
-                }
+            .playerBarVolumeOverlay(isPresented: self.$showsVolumeOverlay) {
+                self.volumeOverlay
             }
         }
     }
@@ -602,9 +612,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                     onEditingChanged: { editing in
                         self.isAdjustingVolume = editing
                         if !editing {
-                            Task {
-                                await self.playerService.setVolume(self.volumeValue)
-                            }
+                            self.playerService.setVolumeImmediately(self.volumeValue)
                         }
                     },
                     onValueChanged: { oldValue, newValue in
@@ -612,9 +620,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                             if (oldValue > 0 && newValue == 0) || (oldValue < 1 && newValue == 1) {
                                 HapticService.sliderBoundary()
                             }
-                            Task {
-                                await self.playerService.setVolume(newValue)
-                            }
+                            self.playerService.setVolumeImmediately(newValue)
                         }
                     }
                 )
@@ -647,6 +653,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.playerService.currentTrack != nil
             && self.playerService.duration > 0
             && !self.playerService.isCurrentItemLive
+            && !self.playerService.isShowingAd
     }
 
     private var isProgressLoading: Bool {
@@ -1132,7 +1139,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     private func showAirPlayPicker() {
         HapticService.toggle()
-        self.playerService.showAirPlayPicker()
+        self.playerService.showAirPlayPicker(at: self.airPlayAnchor.screenPoint)
     }
 
     private func previousTrack() {
@@ -1190,7 +1197,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     /// Performs the actual seek operation after slider interaction ends.
     private func performSeek() {
-        guard self.isSeeking, self.playerService.duration > 0 else { return }
+        guard self.isSeeking, self.canSeek else { return }
         let seekTime = self.seekValue * self.playerService.duration
         let holdID = self.seekHold.begin(target: seekTime)
         self.updateFormattedTimes(progress: seekTime, duration: self.playerService.duration)
@@ -1257,14 +1264,17 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private var volumeIcon: String {
-        let currentVolume = self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
-        if currentVolume == 0 {
-            return "speaker.slash.fill"
-        } else if currentVolume < 0.5 {
-            return "speaker.wave.1.fill"
+        if self.displayedVolume == 0 {
+            "speaker.slash.fill"
+        } else if self.displayedVolume < 0.5 {
+            "speaker.wave.1.fill"
         } else {
-            return "speaker.wave.2.fill"
+            "speaker.wave.2.fill"
         }
+    }
+
+    private var displayedVolume: Double {
+        self.isAdjustingVolume ? self.volumeValue : self.playerService.volume
     }
 
     private var repeatIconName: String {

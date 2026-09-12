@@ -21,7 +21,8 @@ protocol YouTubeClientProtocol: Sendable {
     /// single `FEwhat_to_watch` request, parsed off the main actor. Preferred
     /// over calling `getHomeFeed`/`getHomeChips`/`getHomeShelves` separately:
     /// the ~2 MB response is fetched and walked once instead of three times.
-    func getHomeBundle() async throws -> YouTubeHomeBundle
+    /// A forced refresh bypasses and replaces the scoped Home cache.
+    func getHomeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle
 
     /// Fetches the next page of the home feed, or `nil` when exhausted.
     func getHomeFeedContinuation() async throws -> YouTubeFeed?
@@ -39,7 +40,7 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Browses a home filter chip's continuation token into a personalized,
     /// topic-filtered feed for a home rail.
-    func getHomeTopicFeed(continuation: String) async throws -> YouTubeFeed
+    func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed
 
     // MARK: Search
 

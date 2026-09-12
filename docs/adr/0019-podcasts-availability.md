@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented
+Implemented, amended 2026-08-29
 
 ## Context
 
@@ -34,10 +34,12 @@ So the fix is scoped to the discovery tab only.
 ## Decision
 
 Add a `PodcastsAvailabilityService` (`@MainActor @Observable`) that probes
-`FEmusic_podcasts` once per session, gates main-window rendering on the
-result, and exposes the resolved state to the sidebar through the SwiftUI
-environment. State is **in-memory only** — every cold launch re-probes from
-scratch.
+`FEmusic_podcasts` once per session and exposes the result to the sidebar
+through the SwiftUI environment. The probe runs after the initial account is
+resolved but does not gate main-window rendering. Authenticated rendering waits
+up to 2 seconds for account resolution, then fails open with the primary-account
+scope while the account request continues. State is **in-memory only** and every
+cold launch re-probes from scratch.
 
 ### State machine
 
@@ -59,12 +61,10 @@ Successful signals can therefore promote `.unavailable` back to
 `.available` after an account/region change; unavailable signals can also
 remove the tab from either `.unknown` or `.available`.
 
-A second observable, `didResolveFirstProbe: Bool`, tracks whether the first
-probe of the session has finished. It flips to `true` on any probe
-completion (success, 404, transient error) **or** when a 2-second timeout
-fires. `MainWindow.body` shows the loading spinner until this flag flips,
-so the sidebar paints with the correct state on first frame — no
-appear-then-disappear flicker.
+While availability is `.unknown`, the sidebar renders the Podcasts row. A
+definitive 404 removes it. This optimistic state keeps the podcasts network
+request off the startup rendering path, at the cost of a brief row removal in
+unsupported regions.
 
 ### No persistence
 
@@ -75,11 +75,9 @@ The service's state lives only in memory. Trade-offs considered:
   invalidate.
 - **+** No schema versioning, no TTL, no per-account cache lifecycle to
   reason about.
-- **−** One extra `browse` request per cold launch. Cost is essentially
-  zero: the request runs in parallel with `homeViewModel.refresh()`
-  etc., warms `APICache` so opening the tab right after launch is
-  instant on available regions, and is hidden behind the spinner on
-  unavailable regions where it ends quickly with 404.
+- **−** One extra `browse` request per cold launch. It runs in parallel with
+  personalized content loads and warms `APICache`, so opening the tab after
+  launch is immediate in available regions.
 
 A persistent cache keyed by `accountId` with a TTL on `.unavailable`
 was considered but rejected — see *Alternatives*.
@@ -93,33 +91,26 @@ was considered but rejected — see *Alternatives*.
 - **Secondary** (lazy path only): a user-initiated load that returns zero
   sections. Empty payloads are noisy from the probe path (cold caches,
   transient YT issues), so we only trust them when the user has actively
-  visited the tab. Background probe with empty sections releases the gate
-  but leaves `availability` untouched.
+  visited the tab. A background probe with empty sections leaves
+  `availability` untouched.
 - **Ignored**: 5xx, network errors, auth errors. Transient failures must
-  never demote a known-good state. They still release the gate so the UI
-  doesn't hang behind a flaky network.
+  never demote a known-good state.
 
 ### Probe lifecycle (in `MainWindow`)
 
-- **First probe**: a `.task(id: authService.state.isLoggedIn)` modifier
-  fires whenever `isLoggedIn` flips to `true` — covering both cold launches
-  with cached cookies (`.initializing → .loggedIn`) and explicit sign-ins
-  (`.loggingIn → .loggedIn`). After a 200 ms cookie-settle delay it calls
-  `service.probeForFirstResolution(...)`, which races the probe against a
-  2-second timeout and flips `didResolveFirstProbe` when either completes.
-  The probe always runs to completion in the background — a slow but
-  definite 404 still demotes the tab when it lands, even if the gate
-  released earlier via timeout.
-- **Account switch**: existing `onChange(of:
-  accountService.currentAccount?.id)` block fires a probe in the same
-  `withTaskGroup` as the other content refreshes. The gate
-  (`didResolveFirstProbe`) is deliberately *not* re-closed here, so
-  `mainContent` stays visible while content refreshes; the sidebar
-  briefly shows the prior account's tab state until the probe returns
-  a definitive answer. We accept this small staleness window in
-  exchange for not tearing down the whole UI on every switch.
-- **Logout**: `service.reset()` clears both `availability` and
-  `didResolveFirstProbe`. The next sign-in re-gates the UI and re-probes.
+- **First probe**: a task keyed to the authentication generation and resolved
+  account ID fires after the account-list request restores the selected primary
+  or brand account. The main window waits up to 2 seconds for that resolution,
+  then renders against the primary-account scope if the request is still pending.
+  After account resolution and a 200 ms cookie-settle delay, the task awaits
+  `service.probe(...)`.
+- **Account switch**: changing the account ID cancels and restarts the same
+  SwiftUI task. `mainContent` stays visible while content refreshes, so the
+  sidebar can briefly show the prior account's tab state until the probe returns
+  a definitive answer. The service's generation check rejects late results from
+  an older account.
+- **Logout**: `service.reset()` clears `availability`. The next sign-in
+  re-probes after account resolution.
 - **`refreshAllContent`**: skips the podcasts viewmodel refresh when
   `availability == .unavailable` to avoid re-firing the spurious 404.
 
@@ -127,12 +118,13 @@ was considered but rejected — see *Alternatives*.
 
 - **`Sidebar.swift`** renders the Podcasts `NavigationLink` only when
   `availability != .unavailable`.
-- **`MainWindow.swift`** holds `mainContent` rendering until
-  `didResolveFirstProbe == true`; until then the existing
-  `initializingView` (cassette icon + spinner) is shown. Also redirects
-  `navigationSelection = .home` if the state flips to `.unavailable`
-  while the user is on the Podcasts tab (handles the lazy-path case
-  during account switches).
+- **`MainWindow.swift`** renders authenticated content after account
+  resolution, or after a 2-second fail-open deadline, without waiting for the
+  podcasts probe. A late account result uses the existing account-switch refresh
+  path. Post-login and reauthentication refreshes observe the same deadline so
+  they do not fetch primary-account content while brand restoration is pending.
+  The window redirects `navigationSelection = .home` if availability flips to
+  `.unavailable` while the user is on the Podcasts tab.
 - **`PodcastsViewModel.load()`** on `apiError(code: 404)` calls
   `service.markUnavailable(for:)` and lands on `.loaded` with empty
   sections instead of `.error`. The sidebar row disappears within a frame,
@@ -147,8 +139,9 @@ was considered but rejected — see *Alternatives*.
   dead tab automatically.
 - Region changes via VPN are picked up on the next app launch — no
   account/session manipulation required.
-- No flicker on cold launch in either direction (US-style users see the
-  tab when content paints, TR-style users never see it appear).
+- The podcasts probe no longer delays authenticated content rendering.
+- A stalled account-list request can delay authenticated rendering by at most
+  2 seconds. A late brand-account result refreshes content after it arrives.
 - Other podcast features (library subscriptions, search, artist pages)
   remain fully functional because they're gated separately.
 - No new third-party dependencies. No persistence-layer surface area.
@@ -158,9 +151,8 @@ was considered but rejected — see *Alternatives*.
 - One extra `browse` request per cold launch. Mitigated by parallelism
   with the existing post-login refreshes and by `APICache` warming for
   available regions.
-- Cold-launch first paint is gated on the probe (or 2 s timeout). For
-  available regions this is typically <500 ms and invisible behind the
-  spinner that already covers the auth check.
+- Unsupported regions can briefly see the Podcasts row before the 404 probe
+  removes it.
 
 **Neutral**
 
@@ -174,8 +166,8 @@ was considered but rejected — see *Alternatives*.
 
 - **Lazy-only (no proactive probe)**: simpler, but the Podcasts row
   would show on the first session in an unsupported region until the
-  user clicked it and saw the 404. The first-paint flicker is exactly
-  what we're trying to avoid.
+  user clicked it and saw the 404. The background probe removes the row
+  without requiring that failed interaction.
 - **Probe via a custom HEAD/exists endpoint**: not worth a separate
   code path; reusing `getPodcasts()` warms `APICache` on success.
 - **Persisted cache keyed by `accountId` with a TTL on `.unavailable`**:

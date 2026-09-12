@@ -92,7 +92,7 @@ struct SimplePlaylistDetailView: View {
 
         return HStack(alignment: .top, spacing: 20) {
             AsyncImage(url: detail.thumbnailURL) { image in
-                image.resizable().aspectRatio(contentMode: .fill)
+                image.resizable().scaledToFill()
             } placeholder: {
                 Color.secondary.opacity(0.2)
             }
@@ -147,7 +147,7 @@ struct SimplePlaylistDetailView: View {
                             .foregroundStyle(.secondary)
                             .frame(width: 28, alignment: .trailing)
                         AsyncImage(url: track.thumbnailURL) { image in
-                            image.resizable().aspectRatio(contentMode: .fill)
+                            image.resizable().scaledToFill()
                         } placeholder: {
                             Color.secondary.opacity(0.15)
                         }

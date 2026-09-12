@@ -77,31 +77,6 @@ enum SearchResponseParser {
         self.parse(data).songs
     }
 
-    static func parseAlbumsOnly(_ data: [String: Any]) -> ([Album], String?) {
-        let response = Self.parse(data)
-        return (response.albums, response.continuationToken)
-    }
-
-    static func parseArtistsOnly(_ data: [String: Any]) -> ([Artist], String?) {
-        let response = Self.parse(data)
-        return (response.artists, response.continuationToken)
-    }
-
-    static func parsePlaylistsOnly(_ data: [String: Any]) -> ([Playlist], String?) {
-        let response = Self.parse(data)
-        return (response.playlists, response.continuationToken)
-    }
-
-    static func parsePodcastsOnly(_ data: [String: Any]) -> ([PodcastShow], String?) {
-        let response = Self.parse(data)
-        return (response.podcastShows, response.continuationToken)
-    }
-
-    static func parseSongsWithContinuation(_ data: [String: Any]) -> ([Song], String?) {
-        let response = Self.parse(data)
-        return (response.songs, response.continuationToken)
-    }
-
     static func parseContinuation(_ data: [String: Any]) -> SearchResponse {
         var accumulator = ParseAccumulator()
 

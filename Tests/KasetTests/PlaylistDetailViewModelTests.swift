@@ -95,6 +95,40 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.playlistDetail?.tracks.count == 10)
     }
 
+    @Test("Loading a radio playlist preserves browse audio IDs and playability")
+    func radioLoadPreservesBrowseAudioIDs() async {
+        let playlist = TestFixtures.makePlaylist(id: "RD-audio-id")
+        let browseTrack = Song(
+            id: "music-video",
+            title: "Music Video",
+            artists: [],
+            videoId: "music-video",
+            isPlayable: false,
+            audioTrackVideoId: "browse-audio"
+        )
+        let queueTrack = TestFixtures.makeSong(id: browseTrack.videoId)
+        let queueOnlyTrack = TestFixtures.makeSong(id: "queue-only")
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [browseTrack],
+            duration: nil
+        )
+        self.mockClient.playlistAllTracks[playlist.id] = [queueTrack, queueOnlyTrack]
+        let viewModel = PlaylistDetailViewModel(
+            playlist: playlist,
+            client: self.mockClient,
+            likeStatusManager: self.likeStatusManager
+        )
+
+        await viewModel.load()
+
+        #expect(viewModel.loadingState == .loaded)
+        #expect(viewModel.playlistDetail?.tracks.map(\.videoId) == [browseTrack.videoId, queueOnlyTrack.videoId])
+        #expect(viewModel.playlistDetail?.tracks.first?.audioTrackVideoId == "browse-audio")
+        #expect(viewModel.playlistDetail?.tracks.first?.isPlayable == false)
+        #expect(viewModel.playlistDetail?.tracks.last == queueOnlyTrack)
+    }
+
     // MARK: - Track Removal Tests
 
     @Test("Optimistic track removal removes the matching track and confirms successfully")
@@ -163,7 +197,10 @@ struct PlaylistDetailViewModelTests {
             duration: nil
         )
         self.mockClient.playlistContinuationTracks[playlist.id] = [[songs[2]]]
-        self.mockClient.playlistContinuationDelay = .milliseconds(150)
+        let releaseContinuation = AsyncGate()
+        self.mockClient.beforePlaylistContinuationReturn = { _ in
+            await releaseContinuation.wait()
+        }
         let viewModel = PlaylistDetailViewModel(playlist: playlist, client: self.mockClient)
         await viewModel.load()
         let removal = try #require(viewModel.beginOptimisticTrackRemoval(setVideoId: "set-a"))
@@ -174,11 +211,13 @@ struct PlaylistDetailViewModelTests {
             description: "continuation load to start"
         )
         loadMoreTask.cancel()
-        await loadMoreTask.value
+        // Hold the response until the cancellation handler invalidates the load generation.
         await self.waitUntil(
             viewModel.loadingState == .loaded,
             description: "cancelled continuation to settle"
         )
+        await releaseContinuation.open()
+        await loadMoreTask.value
 
         await viewModel.rollbackTrackRemoval(removal)
 
@@ -1014,7 +1053,10 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [
             [TestFixtures.makeSong(id: "cont-1")],
         ]
-        self.mockClient.playlistContinuationDelay = .milliseconds(200)
+        let releaseContinuation = AsyncGate()
+        self.mockClient.beforePlaylistContinuationReturn = { _ in
+            await releaseContinuation.wait()
+        }
 
         await self.viewModel.load()
         let loadMoreTask = Task { await self.viewModel.loadMore() }
@@ -1024,6 +1066,11 @@ struct PlaylistDetailViewModelTests {
         )
 
         loadMoreTask.cancel()
+        await self.waitUntil(
+            self.viewModel.loadingState == .loaded,
+            description: "load more cancellation to settle"
+        )
+        await releaseContinuation.open()
         await loadMoreTask.value
 
         #expect(self.viewModel.loadingState == .loaded)

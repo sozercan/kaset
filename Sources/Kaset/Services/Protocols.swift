@@ -81,9 +81,9 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
         _ transaction: CookieBackupTransaction
     ) async -> CookieBackupRollbackResult
 
-    /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
-    /// Returns whether authentication cookies are safe to evaluate afterward.
-    func waitForInitialCookieRestore() async -> Bool
+    /// Waits for startup restoration, retrying temporary storage failures.
+    /// Only a failed restore requires destructive cleanup; unavailability preserves state.
+    func waitForInitialCookieRestore() async -> CookieRestoreResult
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async
@@ -101,7 +101,8 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
 @MainActor
 protocol YTMusicClientProtocol: Sendable {
     /// Fetches the home page content (initial sections only for fast display).
-    func getHome() async throws -> HomeResponse
+    /// A forced refresh bypasses and replaces the scoped Home cache.
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse
 
     /// Fetches the next batch of home sections via continuation.
     func getHomeContinuation() async throws -> [HomeSection]?

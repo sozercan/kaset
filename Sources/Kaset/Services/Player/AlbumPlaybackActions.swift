@@ -59,7 +59,10 @@ enum AlbumPlaybackActions {
         return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: album.id)
-                guard playerService.acceptsMusicPlaybackIntent(intent) else { return }
+                guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                    DiagnosticsLogger.ui.info("Discarding stale album playback request after newer playback intent")
+                    return
+                }
                 let songs = QueueSongMetadata.albumSongs(
                     response.detail.tracks,
                     album: album,

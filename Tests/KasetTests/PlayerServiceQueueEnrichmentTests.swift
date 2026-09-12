@@ -272,6 +272,73 @@ struct PlayerServiceQueueEnrichmentTests {
         #expect(mockClient.getSongVideoIds.isEmpty)
     }
 
+    @Test("Queue enrichment metadata writes preserve native queue maintenance")
+    func metadataWritesPreserveNativeQueueMaintenance() async {
+        let playerService = PlayerService()
+        let mockClient = MockYTMusicClient()
+        let currentEntryID = UUID()
+        let successorEntryID = UUID()
+        let current = Self.incompleteSong(videoId: "current")
+        let successor = TestFixtures.makeSong(id: "successor")
+        mockClient.songResponses[current.videoId] = TestFixtures.makeSong(
+            id: current.videoId,
+            title: "Enriched Current",
+            artistName: "Enriched Artist"
+        )
+        playerService.setYTMusicClient(mockClient)
+        playerService.setQueue(entries: [
+            QueueEntry(id: currentEntryID, song: current),
+            QueueEntry(id: successorEntryID, song: successor),
+        ])
+        playerService.stopQueueEnrichmentService()
+
+        let maintenanceGate = AsyncGate()
+        let maintenanceTask = Task { @MainActor in
+            await maintenanceGate.wait()
+        }
+        let maintenanceGeneration = playerService.nativeQueueMaintenanceGeneration
+        playerService.nativeQueueMaintenanceTask = maintenanceTask
+
+        await playerService.enrichQueueMetadata(
+            songsToEnrich: [(entryID: currentEntryID, videoId: current.videoId)]
+        )
+
+        #expect(playerService.queueEntryIDs == [currentEntryID, successorEntryID])
+        #expect(playerService.queue.first?.title == "Enriched Current")
+        #expect(playerService.nativeQueueMaintenanceGeneration == maintenanceGeneration)
+        #expect(playerService.nativeQueueMaintenanceTask != nil)
+
+        await maintenanceGate.open()
+        await maintenanceTask.value
+        playerService.clearNativeQueueMaintenance()
+    }
+
+    @Test("Queue enrichment keeps the album audio recording ID when next has none")
+    func mergingQueueMetadataPreservesAudioTrackVideoId() {
+        let current = Song(
+            id: "gQlMMD8auMs",
+            title: "Pink Venom",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            videoId: "gQlMMD8auMs",
+            musicVideoType: .omv,
+            audioTrackVideoId: "qCDPprTDkJE"
+        )
+        let response = Song(
+            id: "gQlMMD8auMs",
+            title: "Pink Venom",
+            artists: [Artist(id: "artist", name: "BLACKPINK")],
+            duration: 186,
+            videoId: "gQlMMD8auMs",
+            musicVideoType: .omv
+        )
+
+        let merged = PlayerService.mergingQueueMetadata(current: current, response: response)
+
+        #expect(merged.audioTrackVideoId == "qCDPprTDkJE")
+        #expect(merged.preferredAudioVideoId == "qCDPprTDkJE")
+        #expect(merged.duration == 186)
+    }
+
     private static func incompleteSong(videoId: String) -> Song {
         Song(
             id: videoId,

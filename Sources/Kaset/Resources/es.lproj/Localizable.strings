@@ -1,3 +1,6 @@
+"Ad" = "Anuncio";
+"Advertisement" = "Anuncio";
+
 // Localizable.strings
 
 "%lld songs" = "%lld canciones";
@@ -210,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset funciona sin iniciar sesión para explorar, buscar y reproducir contenido público. Inicia sesión para acceder a tus colecciones personales de música.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset funciona sin iniciar sesión para la búsqueda pública, el descubrimiento y la reproducción en YouTube. Inicia sesión para acceder a tus colecciones personales de videos.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset no pudo borrar de forma segura los datos de inicio de sesión guardados. Reinténtalo antes de volver a iniciar sesión.";
+"Sign-In Temporarily Unavailable" = "Inicio de sesión no disponible temporalmente";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset no pudo leer los datos de inicio de sesión guardados. Reinténtalo para restaurar tu sesión.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset no pudo eliminar los datos de inicio de sesión guardados. Intenta cerrar sesión de nuevo antes de salir.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Mantén un video en reproducción en una ventana flotante al salir de la página. Si está desactivado, el video se detiene.";
 "Keep listening even when the window is closed" = "Sigue escuchando aunque la ventana esté cerrada";
@@ -312,7 +317,6 @@
 "Not Playing" = "No se está reproduciendo";
 "Not signed in" = "Sin iniciar sesión";
 "Not Supported" = "No compatible";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Nota: si las passkeys no funcionan, usa \"Try another way\" para iniciar sesión con contraseña.";
 "Nothing here right now" = "No hay nada aquí ahora mismo";
 "Nothing to show" = "Nada para mostrar";
 "Now Playing" = "En reproducción";
@@ -329,6 +333,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Abre la barra de comandos para controlar la música con lenguaje natural. Prueba a decir \"play something chill\" o \"add jazz to queue\".";
 "Options…" = "Opciones…";
 "Output" = "Salida";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "El inicio de sesión con passkeys no está disponible en esta ventana. Google te pedirá la contraseña u otro método de inicio de sesión en su lugar.";
 "Pause" = "Pausar";
 "Permission needed" = "Se necesita permiso";
 "Piano" = "Piano";

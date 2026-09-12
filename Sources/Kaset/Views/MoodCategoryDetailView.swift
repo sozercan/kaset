@@ -195,7 +195,7 @@ private struct ItemCardContent: View {
                 CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     self.placeholderView
                 }

@@ -14,6 +14,25 @@ struct WebPlaybackDocumentGenerationTests {
         #expect(WebPlaybackDocumentGeneration.javaScriptStringLiteral(nil) == "null")
     }
 
+    @Test("Location replacement serializes the destination as one JavaScript string")
+    func locationReplacementScriptEscapesDestination() throws {
+        let url = try #require(URL(string: "https://music.youtube.com/watch?v=x%27%29%3Balert%281%29"))
+        let script = WebPlaybackDocumentGeneration.locationReplacementScript(for: url)
+        let prefix = "window.location.replace("
+
+        #expect(script.hasPrefix(prefix))
+        #expect(script.hasSuffix(");"))
+        let literalStart = script.index(script.startIndex, offsetBy: prefix.count)
+        let literalEnd = script.index(script.endIndex, offsetBy: -2)
+        let literal = String(script[literalStart ..< literalEnd])
+        let decoded = try JSONSerialization.jsonObject(
+            with: Data(literal.utf8),
+            options: .fragmentsAllowed
+        ) as? String
+        #expect(decoded == url.absoluteString)
+        #expect(!script.contains("replaceState"))
+    }
+
     @Test("Suppression script keeps an invalidated document from restarting media")
     func mediaSuppressionScriptIsPersistent() {
         let script = WebPlaybackDocumentGeneration.mediaSuppressionScript

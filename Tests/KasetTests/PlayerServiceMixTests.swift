@@ -80,10 +80,10 @@ struct PlayerServiceMixTests {
         ]
         await self.playerService.play(song: seed)
 
-        async let radio: Void = self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
+        async let radio = self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
         try? await Task.sleep(for: .milliseconds(30))
         self.playerService.clearPlaybackForGuestStartup()
-        await radio
+        _ = await radio
 
         #expect(self.playerService.queue.isEmpty)
         #expect(self.playerService.currentTrack == nil)

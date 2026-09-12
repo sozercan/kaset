@@ -61,7 +61,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     // MARK: - Protocol Implementation
 
-    func getHome() async throws -> HomeResponse {
+    func getHome(forceRefresh _: Bool) async throws -> HomeResponse {
         // Simulate network delay
         try? await Task.sleep(for: .milliseconds(100))
         return HomeResponse(sections: self.homeSections)

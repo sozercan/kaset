@@ -1,3 +1,6 @@
+"Ad" = "Reklam";
+"Advertisement" = "Reklam";
+
 // Localizable.strings
 
 "%lld songs" = "%lld şarkı";
@@ -210,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset, herkese açık gezinme, arama ve oynatma için giriş yapmadan çalışır. Kişisel müzik koleksiyonlarına erişmek için giriş yapın.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset, herkese açık YouTube araması, keşif ve oynatma için giriş yapmadan çalışır. Kişisel video koleksiyonlarına erişmek için giriş yapın.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kayıtlı oturum açma verilerini güvenli bir şekilde temizleyemedi. Yeniden oturum açmadan önce tekrar deneyin.";
+"Sign-In Temporarily Unavailable" = "Oturum Açma Geçici Olarak Kullanılamıyor";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset kayıtlı oturum açma verilerini okuyamadı. Oturumunuzu geri yüklemek için tekrar deneyin.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kayıtlı oturum açma verilerini kaldıramadı. Uygulamadan çıkmadan önce yeniden çıkış yapmayı deneyin.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Sayfadan ayrıldığınızda oynatılan videoyu kayan bir pencerede tutar. Kapalıysa video bunun yerine durur.";
 "Keep listening even when the window is closed" = "Pencere kapalıyken bile dinlemeye devam edin";
@@ -312,7 +317,6 @@
 "Not Playing" = "Çalmıyor";
 "Not signed in" = "Oturum açık değil";
 "Not Supported" = "Desteklenmiyor";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Not: Geçiş anahtarları çalışmıyorsa parola ile oturum açmak için \"Try another way\" seçeneğini kullanın.";
 "Nothing here right now" = "Şu anda burada hiçbir şey yok";
 "Nothing to show" = "Gösterilecek bir şey yok";
 "Now Playing" = "Şimdi Çalıyor";
@@ -329,6 +333,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Müziği doğal dille kontrol etmek için Komut Çubuğu'nu açın. \"play something chill\" veya \"add jazz to queue\" demeyi deneyin.";
 "Options…" = "Seçenekler…";
 "Output" = "Çıkış";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Bu pencerede geçiş anahtarıyla oturum açılamaz. Google bunun yerine parolanızı veya başka bir oturum açma yöntemini isteyecektir.";
 "Pause" = "Duraklat";
 "Permission needed" = "İzin gerekli";
 "Piano" = "Piyano";

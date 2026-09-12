@@ -284,7 +284,7 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         return self.homeFeed
     }
 
-    func getHomeBundle() async throws -> YouTubeHomeBundle {
+    func getHomeBundle(forceRefresh _: Bool) async throws -> YouTubeHomeBundle {
         try await self.waitIfNeeded()
         return self.homeBundle
     }
@@ -306,7 +306,7 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         return self.homeShelves
     }
 
-    func getHomeTopicFeed(continuation _: String) async throws -> YouTubeFeed {
+    func getHomeTopicFeed(continuation _: String, forceRefresh _: Bool) async throws -> YouTubeFeed {
         try await self.waitIfNeeded()
         return self.homeTopicFeed
     }

@@ -57,12 +57,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApplication.shared.activate(ignoringOtherApps: true)
         }
 
-        // Set up window delegate to intercept close and hide instead
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(500))
-            self.setupWindowDelegate()
-        }
-
         // Register for system sleep/wake notifications
         self.registerForSleepWakeNotifications()
 
@@ -159,18 +153,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.showMainWindowIfNeeded()
     }
 
-    private func setupWindowDelegate() {
-        DiagnosticsLogger.app.info("AppDelegate: setupWindowDelegate starting")
-        for window in NSApplication.shared.windows where window.canBecomeMain {
-            // Skip auxiliary/player and non-primary scene windows; only the regular app window should be hidden-on-close.
-            if self.isAuxiliaryPlayerWindow(window) || !MainWindowLayout.isPrimaryWindow(window) {
-                continue
-            }
-            window.delegate = self
-            MainWindowLayout.configure(window)
-            // Store reference to main window for reliable reopen
-            self.mainWindow = window
+    /// Registers the primary SwiftUI window as soon as its root view joins the
+    /// AppKit hierarchy. Window titles follow navigation state, so discovering
+    /// the main window later by title can miss it before the autosave name is set.
+    /// `KasetApp` owns this through a singleton `Window` scene, not a `WindowGroup`.
+    func registerMainWindow(_ window: NSWindow) {
+        guard !self.isAuxiliaryPlayerWindow(window) else { return }
+        window.delegate = self
+        MainWindowLayout.configureKnownPrimaryWindow(window)
+        self.mainWindow = window
+    }
+
+    /// Releases a detached primary scene without disturbing a newer window.
+    func unregisterMainWindow(_ window: NSWindow) {
+        guard self.mainWindow === window else { return }
+        if window.delegate === self {
+            window.delegate = nil
         }
+        self.mainWindow = nil
     }
 
     // MARK: - Dock Menu

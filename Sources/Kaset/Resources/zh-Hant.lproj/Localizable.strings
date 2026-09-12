@@ -1,3 +1,6 @@
+"Ad" = "廣告";
+"Advertisement" = "廣告";
+
 // Localizable.strings
 
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "「即時」會隨影片播放變換色彩，其他樣式則維持不變";
@@ -215,6 +218,8 @@
 "Kaset can't access its own audio output. Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Kaset 無法存取自身的音訊輸出。請開啟「系統設定 → 隱私權與安全性 → 螢幕與系統音訊錄製」並啟用 Kaset，然後重新開啟等化器。";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset 無法移除已儲存的登入資料。請在結束前重新嘗試登出。";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset 無法安全地清除已儲存的登入資料。請重試後再登入。";
+"Sign-In Temporarily Unavailable" = "暫時無法登入";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset 無法讀取已儲存的登入資料。請重試以還原工作階段。";
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset 會為每個請求建立全新的 AI 工作階段。如果 Apple Intelligence 在應用程式執行期間完成下載或變為可用，請重新整理狀態。";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "無需登入即可使用 Kaset 進行公開的 YouTube 搜尋、探索和播放。登入後可存取個人影片收藏。";
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "無需登入即可使用 Kaset 進行公開瀏覽、搜尋和播放。登入後可存取個人音樂收藏。";
@@ -321,7 +326,6 @@
 "Not disliked" = "未標記不喜歡";
 "Not liked" = "未標記喜歡";
 "Not signed in" = "未登入";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "注意：如果密碼金鑰無法使用，請選擇「嘗試其他方式」以使用密碼登入。";
 "Nothing here right now" = "這裡目前什麼都沒有";
 "Nothing to show" = "沒有內容可顯示";
 "Now Playing" = "正在播放";
@@ -338,6 +342,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "開啟命令列，用自然語言控制音樂。試試說「播放一些舒緩的音樂」或「把爵士加入待播清單」。";
 "Options…" = "選項…";
 "Output" = "輸出";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "此視窗不支援密碼金鑰登入，Google 會改為要求輸入密碼或使用其他登入方式。";
 "Pause" = "暫停";
 "Permission needed" = "需要權限";
 "Piano" = "鋼琴";

@@ -17,8 +17,10 @@ struct LoginSheet: View {
     @State private var preparationTask: Task<Void, Never>?
     @State private var pollTask: Task<Void, Never>?
     @State private var loginCheckTask: Task<Void, Never>?
-    @State private var cleanupRetryTask: Task<Void, Never>?
-    @State private var isRetryingCleanup = false
+    @State private var recoveryRetryTask: Task<Void, Never>?
+    @State private var signOutTask: Task<Void, Never>?
+    @State private var isRetryingRecovery = false
+    @State private var signOutFailurePresented = false
     @State private var isActive = false
 
     var body: some View {
@@ -30,8 +32,8 @@ struct LoginSheet: View {
 
             // Do not create the login WebView until reauthentication has drained
             // old session mutations and established its cookie baseline.
-            if self.authService.loginCleanupRequired {
-                self.loginCleanupFailureView
+            if self.authService.isCookieRestoreUnavailable || self.authService.loginCleanupRequired {
+                self.loginRecoveryView
             } else if self.didCaptureInitialLoginState {
                 LoginWebView(onNavigationToYouTubeMusic: {
                     self.checkForSuccessfulLogin()
@@ -43,6 +45,20 @@ struct LoginSheet: View {
             }
         }
         .frame(width: 500, height: 650)
+        .alert(
+            String(localized: "Sign Out Incomplete"),
+            isPresented: self.$signOutFailurePresented
+        ) {
+            Button(String(localized: "Retry")) {
+                self.signOutForRecovery()
+            }
+            Button(String(localized: "OK"), role: .cancel) {}
+        } message: {
+            Text(
+                "Kaset could not remove saved sign-in data. Try signing out again before quitting.",
+                comment: "Sign-out durable storage failure message"
+            )
+        }
         .onChange(of: self.webKitManager.cookiesDidChange) { _, _ in
             self.checkForSuccessfulLogin()
         }
@@ -55,6 +71,7 @@ struct LoginSheet: View {
                 self.authService.startLogin()
             }
             self.loginAttemptID = self.authService.activeLoginAttemptID
+                ?? self.authService.loginCleanupAttemptID
         }
         .task {
             guard !Task.isCancelled, self.isActive else { return }
@@ -86,17 +103,20 @@ struct LoginSheet: View {
             let preparationTask = self.preparationTask
             let pollTask = self.pollTask
             let loginCheckTask = self.loginCheckTask
-            let cleanupRetryTask = self.cleanupRetryTask
+            let recoveryRetryTask = self.recoveryRetryTask
+            let signOutTask = self.signOutTask
             preparationTask?.cancel()
             pollTask?.cancel()
             loginCheckTask?.cancel()
-            cleanupRetryTask?.cancel()
+            recoveryRetryTask?.cancel()
+            signOutTask?.cancel()
 
             Task { @MainActor in
                 await preparationTask?.value
                 await loginCheckTask?.value
                 await pollTask?.value
-                await cleanupRetryTask?.value
+                await recoveryRetryTask?.value
+                await signOutTask?.value
 
                 if let transaction = self.cookieBackupTransaction {
                     self.cookieBackupTransaction = nil
@@ -130,35 +150,43 @@ struct LoginSheet: View {
         }
     }
 
-    private var loginCleanupFailureView: some View {
+    private var loginRecoveryView: some View {
         VStack(spacing: 16) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 32))
                 .foregroundStyle(.orange)
                 .accessibilityHidden(true)
 
-            Text(String(localized: "Sign-In Cleanup Required"))
+            Text(self.authService.isCookieRestoreUnavailable
+                ? String(localized: "Sign-In Temporarily Unavailable")
+                : String(localized: "Sign-In Cleanup Required"))
                 .font(.headline)
 
-            Text(
-                "Kaset could not safely clear saved sign-in data. Retry before signing in again.",
-                comment: "Failed login cleanup explanation"
-            )
-            .multilineTextAlignment(.center)
-            .foregroundStyle(.secondary)
-            .frame(maxWidth: 340)
+            Text(self.authService.isCookieRestoreUnavailable
+                ? String(localized: "Kaset could not read saved sign-in data. Retry to restore your session.")
+                : String(localized: "Kaset could not safely clear saved sign-in data. Retry before signing in again.", comment: "Failed login cleanup explanation"))
+                .multilineTextAlignment(.center)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: 340)
 
             Button {
-                self.retryLoginCleanup()
+                self.retryLoginRecovery()
             } label: {
-                if self.isRetryingCleanup || self.authService.isLoginCleanupInProgress {
+                if self.isRetryingRecovery || self.authService.isLoginCleanupInProgress {
                     ProgressView()
                         .controlSize(.small)
                 } else {
                     Text(String(localized: "Retry"))
                 }
             }
-            .disabled(self.isRetryingCleanup || self.authService.isLoginCleanupInProgress)
+            .disabled(self.isRetryingRecovery || self.signOutTask != nil || self.authService.isLoginCleanupInProgress)
+
+            if self.authService.isCookieRestoreUnavailable {
+                Button(String(localized: "Sign Out"), role: .destructive) {
+                    self.signOutForRecovery()
+                }
+                .disabled(self.signOutTask != nil || self.authService.isLoginCleanupInProgress)
+            }
         }
         .padding(32)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -180,7 +208,7 @@ struct LoginSheet: View {
                 }
             }
 
-            Text(String(localized: "Note: If passkeys don't work, use \"Try another way\" to sign in with password."))
+            Text(String(localized: "Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead."))
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -191,6 +219,14 @@ struct LoginSheet: View {
         guard !self.authService.loginCleanupRequired,
               let loginAttemptID = self.loginAttemptID
         else { return }
+        // Sign In must still reopen the recovery sheet after it is dismissed.
+        // Release its presentation attempt before Retry checks storage.
+        if self.authService.isCookieRestoreUnavailable {
+            self.authService.deferLoginForCookieRestore(expectedAttemptID: loginAttemptID)
+            return
+        }
+
+        guard await self.restoreCookiesBeforeLogin(expectedAttemptID: loginAttemptID) else { return }
 
         if self.authService.needsReauth {
             await self.accountService.prepareForReauthentication()
@@ -208,22 +244,6 @@ struct LoginSheet: View {
                 return
             }
             self.authService.setLoginCleanupRequired(false)
-        }
-
-        let canEvaluateAuthentication = await self.webKitManager.waitForInitialCookieRestore()
-        guard self.authService.activeLoginAttemptID == loginAttemptID else { return }
-        guard canEvaluateAuthentication else {
-            let didClear = await self.authService.clearFailedLoginAfterDraining(
-                expectedAttemptID: loginAttemptID,
-                expectedSignOutSequence: self.authService.signOutSequence,
-                clearCookies: {
-                    await self.webKitManager.clearAllData()
-                }
-            )
-            if didClear == true {
-                await self.restartLoginAfterCleanup()
-            }
-            return
         }
 
         guard !Task.isCancelled,
@@ -280,39 +300,99 @@ struct LoginSheet: View {
         self.startPollingForLogin()
     }
 
-    private func retryLoginCleanup() {
-        guard self.cleanupRetryTask == nil,
-              !self.authService.isLoginCleanupInProgress
-        else { return }
-        let expectedAttemptID = self.authService.activeLoginAttemptID
-            ?? self.loginAttemptID
-            ?? LoginAttemptID(rawValue: 0)
-        let expectedSignOutSequence = self.authService.signOutSequence
-        self.cleanupRetryTask = Task { @MainActor in
-            self.isRetryingCleanup = true
-            defer {
-                self.isRetryingCleanup = false
-                self.cleanupRetryTask = nil
-            }
-
+    private func restoreCookiesBeforeLogin(expectedAttemptID: LoginAttemptID) async -> Bool {
+        let restoreResult = await self.webKitManager.waitForInitialCookieRestore()
+        guard !Task.isCancelled, self.isActive,
+              self.authService.activeLoginAttemptID == expectedAttemptID
+        else { return false }
+        switch restoreResult {
+        case .ready:
+            return true
+        case .unavailable:
+            self.authService.deferLoginForCookieRestore(expectedAttemptID: expectedAttemptID)
+            // Keep the sheet's attempt ID: if a retry reveals an invalid archive,
+            // cleanup must still prove ownership of this logged-out attempt.
+            return false
+        case .failed:
             let didClear = await self.authService.clearFailedLoginAfterDraining(
                 expectedAttemptID: expectedAttemptID,
-                expectedSignOutSequence: expectedSignOutSequence,
+                expectedSignOutSequence: self.authService.signOutSequence,
                 clearCookies: {
                     await self.webKitManager.clearAllData()
                 }
             )
-            guard !Task.isCancelled,
-                  self.isActive,
-                  let didClear
-            else { return }
-            guard didClear else { return }
-
-            await self.restartLoginAfterCleanup()
+            if didClear == true {
+                await self.restartLoginAfterRecovery()
+            }
+            return false
         }
     }
 
-    private func restartLoginAfterCleanup() async {
+    private func retryLoginRecovery() {
+        guard self.recoveryRetryTask == nil,
+              self.signOutTask == nil,
+              !self.authService.isLoginCleanupInProgress
+        else { return }
+        let expectedAttemptID = self.authService.activeLoginAttemptID
+            ?? self.loginAttemptID
+            ?? self.authService.loginCleanupAttemptID
+        guard let expectedAttemptID else { return }
+        let expectedSignOutSequence = self.authService.signOutSequence
+        self.recoveryRetryTask = Task { @MainActor in
+            self.isRetryingRecovery = true
+            defer {
+                self.isRetryingRecovery = false
+                self.recoveryRetryTask = nil
+            }
+
+            if self.authService.isCookieRestoreUnavailable {
+                await self.authService.checkLoginStatus()
+                guard !Task.isCancelled, self.isActive,
+                      self.authService.signOutSequence == expectedSignOutSequence,
+                      !self.authService.isCookieRestoreUnavailable,
+                      !self.authService.loginCleanupRequired,
+                      self.authService.activeLoginAttemptID == nil
+                else { return }
+                if self.authService.state.isLoggedIn {
+                    self.didCompleteLogin = true
+                    self.dismiss()
+                    return
+                }
+            } else {
+                let didClear = await self.authService.clearFailedLoginAfterDraining(
+                    expectedAttemptID: expectedAttemptID,
+                    expectedSignOutSequence: expectedSignOutSequence,
+                    clearCookies: {
+                        await self.webKitManager.clearAllData()
+                    }
+                )
+                guard !Task.isCancelled, self.isActive, didClear == true else { return }
+            }
+
+            await self.restartLoginAfterRecovery()
+        }
+    }
+
+    private func signOutForRecovery() {
+        guard self.signOutTask == nil,
+              !self.authService.isLoginCleanupInProgress
+        else { return }
+        self.authService.cancelLoginStatusCheck()
+        self.recoveryRetryTask?.cancel()
+        self.signOutTask = Task { @MainActor in
+            defer { self.signOutTask = nil }
+
+            let didSignOut = await self.authService.signOut()
+            guard !Task.isCancelled, self.isActive else { return }
+            if didSignOut {
+                self.dismiss()
+            } else {
+                self.signOutFailurePresented = true
+            }
+        }
+    }
+
+    private func restartLoginAfterRecovery() async {
         guard self.isActive else { return }
         if self.authService.activeLoginAttemptID == nil {
             self.authService.startLogin()

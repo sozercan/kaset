@@ -354,7 +354,7 @@ struct LibraryView: View {
                     CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     } placeholder: {
                         Rectangle()
                             .fill(.quaternary)
@@ -415,7 +415,7 @@ struct LibraryView: View {
                     CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     } placeholder: {
                         Rectangle()
                             .fill(.quaternary)
@@ -513,7 +513,7 @@ struct LibraryView: View {
                     CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     } placeholder: {
                         Rectangle()
                             .fill(.quaternary)
@@ -559,7 +559,7 @@ struct LibraryView: View {
                 CachedAsyncImage(url: show.thumbnailURL) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     Rectangle()
                         .fill(.quaternary)
@@ -604,7 +604,7 @@ struct LibraryView: View {
                 CachedAsyncImage(url: artist.thumbnailURL?.highQualityThumbnailURL) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     Circle()
                         .fill(.quaternary)

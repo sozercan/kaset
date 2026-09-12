@@ -1,3 +1,6 @@
+"Ad" = "Annons";
+"Advertisement" = "Annons";
+
 // Localizable.strings
 
 "%lld songs" = "%lld låtar";
@@ -210,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset fungerar utan inloggning för offentlig bläddring, sökning och uppspelning. Logga in för att komma åt personliga musiksamlingar.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset fungerar utan inloggning för offentlig YouTube-sökning, upptäckt och uppspelning. Logga in för att komma åt personliga videosamlingar.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kunde inte rensa sparade inloggningsdata på ett säkert sätt. Försök igen innan du loggar in på nytt.";
+"Sign-In Temporarily Unavailable" = "Inloggning tillfälligt otillgänglig";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset kunde inte läsa sparade inloggningsdata. Försök igen för att återställa din session.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kunde inte ta bort sparade inloggningsdata. Försök logga ut igen innan du avslutar.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Behåll en spelande video i ett flytande fönster när du lämnar sidan. När det är av stannar videon i stället.";
 "Keep listening even when the window is closed" = "Fortsätt lyssna även när fönstret är stängt";
@@ -312,7 +317,6 @@
 "Not Playing" = "Spelar inte";
 "Not signed in" = "Inte inloggad";
 "Not Supported" = "Stöds inte";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Obs! Om lösenkoder inte fungerar kan du använda \"Try another way\" för att logga in med lösenord.";
 "Nothing here right now" = "Det finns inget här just nu";
 "Nothing to show" = "Inget att visa";
 "Now Playing" = "Spelas nu";
@@ -329,6 +333,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Öppna kommandofältet för att styra musik med naturligt språk. Prova att säga \"play something chill\" eller \"add jazz to queue\".";
 "Options…" = "Alternativ…";
 "Output" = "Utgång";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Inloggning med lösenkod är inte tillgänglig i det här fönstret. Google ber i stället om ditt lösenord eller en annan inloggningsmetod.";
 "Pause" = "Pausa";
 "Permission needed" = "Behörighet krävs";
 "Piano" = "Piano";

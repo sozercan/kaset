@@ -218,7 +218,7 @@ struct SidebarProfileView: View {
             CachedAsyncImage(url: thumbnailURL, targetSize: CGSize(width: 32, height: 32)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 self.avatarPlaceholder
             }

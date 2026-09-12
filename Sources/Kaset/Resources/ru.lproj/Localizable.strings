@@ -1,3 +1,6 @@
+"Ad" = "Реклама";
+"Advertisement" = "Реклама";
+
 // Localizable.strings
 
 "%lld songs" = "%lld треков";
@@ -210,6 +213,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset работает без входа для публичного просмотра, поиска и воспроизведения. Войдите, чтобы получить доступ к личным музыкальным коллекциям.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset работает без входа для публичного поиска, рекомендаций и воспроизведения на YouTube. Войдите, чтобы получить доступ к личным коллекциям видео.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset не удалось безопасно удалить сохранённые данные для входа. Повторите попытку перед новым входом.";
+"Sign-In Temporarily Unavailable" = "Вход временно недоступен";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset не удалось прочитать сохранённые данные для входа. Повторите попытку, чтобы восстановить сеанс.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset не удалось удалить сохранённые данные для входа. Попробуйте выйти ещё раз перед завершением работы.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Оставляет воспроизводящееся видео в плавающем окне, когда вы покидаете страницу. Если выключено, видео останавливается.";
 "Keep listening even when the window is closed" = "Продолжайте слушать, даже когда окно закрыто";
@@ -312,7 +317,6 @@
 "Not Playing" = "Не воспроизводится";
 "Not signed in" = "Вход не выполнен";
 "Not Supported" = "Не поддерживается";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Примечание: если ключи доступа не работают, используйте \"Try another way\", чтобы войти с паролем.";
 "Nothing here right now" = "Сейчас здесь ничего нет";
 "Nothing to show" = "Нечего показывать";
 "Now Playing" = "Сейчас играет";
@@ -329,6 +333,7 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Откройте панель команд, чтобы управлять музыкой естественным языком. Попробуйте сказать \"play something chill\" или \"add jazz to queue\".";
 "Options…" = "Параметры…";
 "Output" = "Выход";
+"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Вход с ключом доступа недоступен в этом окне. Вместо этого Google запросит пароль или другой способ входа.";
 "Pause" = "Пауза";
 "Permission needed" = "Требуется разрешение";
 "Piano" = "Piano";

@@ -78,12 +78,19 @@ struct YouTubeHomeViewModelTests {
             videos: MockYouTubeClient.makeVideos(count: 1),
             continuation: nil
         )
+        self.mockClient.homeChips = [YouTubeHomeChip(title: "Music", continuation: "music-topic")]
+        self.mockClient.homeTopicFeeds = [
+            "music-topic": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 1), continuation: nil),
+        ]
         await self.sut.load()
         #expect(self.mockClient.homeFeedCallCount == 1)
 
         await self.sut.refresh()
 
         #expect(self.mockClient.homeFeedCallCount == 2)
+        #expect(self.mockClient.homeBundleForceRefreshes == [false, true])
+        #expect(self.mockClient.requestedTopicForceRefreshes == [false, true])
+        #expect(self.mockClient.getHistoryForceRefreshCount == 1)
         #expect(self.sut.loadingState == .loaded)
     }
 

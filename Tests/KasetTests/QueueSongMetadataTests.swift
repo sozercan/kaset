@@ -41,7 +41,9 @@ struct QueueSongMetadataTests {
             musicVideoType: .omv,
             likeStatus: .like,
             isInLibrary: true,
-            isExplicit: true
+            isExplicit: true,
+            playlistSetVideoId: "playlist-occurrence-1",
+            audioTrackVideoId: "audio-1"
         )
 
         let preparedSong = QueueSongMetadata.songsForQueue(
@@ -59,6 +61,8 @@ struct QueueSongMetadataTests {
         #expect(preparedSong?.likeStatus == .like)
         #expect(preparedSong?.isInLibrary == true)
         #expect(preparedSong?.isExplicit == true)
+        #expect(preparedSong?.playlistSetVideoId == "playlist-occurrence-1")
+        #expect(preparedSong?.audioTrackVideoId == "audio-1")
     }
 
     @Test("Album playback songs preserve album year and use loaded track count")

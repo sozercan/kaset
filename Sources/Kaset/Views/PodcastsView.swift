@@ -156,7 +156,7 @@ private struct PodcastShowCard: View {
                 CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 160, height: 160)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 }
                 .frame(width: 160, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -199,7 +199,7 @@ private struct PodcastEpisodeCard: View {
                     CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 200, height: 112)) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     }
                     .frame(width: 200, height: 112)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -337,7 +337,7 @@ struct PodcastShowView: View {
             CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             }
             .frame(width: 180, height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -520,7 +520,7 @@ struct PodcastEpisodeRow: View {
                 CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 80, height: 80)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 }
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 6))

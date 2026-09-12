@@ -75,6 +75,9 @@ struct KasetApp: App {
     /// Current navigation selection for the YouTube (video) experience.
     @State private var youtubeNavigationSelection: YouTubeNavigationItem? = .home
 
+    /// Monotonic command request consumed by `MainWindow` to refresh the active Home feed.
+    @State private var homeRefreshRequestID = 0
+
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
 
@@ -222,9 +225,11 @@ struct KasetApp: App {
                 Color.clear
                     .frame(width: 1, height: 1)
             } else {
+                let startupState = self.authService.startupState
                 MainWindow(
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
+                    homeRefreshRequestID: self.$homeRefreshRequestID,
                     didCompleteStartupPlaybackCleanup: self.$didCompleteStartupPlaybackCleanup,
                     client: self.sharedClient,
                     youtubeClient: self.sharedYouTubeClient
@@ -250,6 +255,16 @@ struct KasetApp: App {
                 .environment(\.showCommandBar, self.$showCommandBar)
                 .environment(\.showWhatsNew, self.$showWhatsNew)
                 .environment(\.usesLegacyMacOS15UI, self.settings.useLegacyMacOS15UI)
+                .background {
+                    MainWindowRegistrationView(
+                        register: { [weak appDelegate = self.appDelegate] window in
+                            appDelegate?.registerMainWindow(window)
+                        },
+                        unregister: { [weak appDelegate = self.appDelegate] window in
+                            appDelegate?.unregisterMainWindow(window)
+                        }
+                    )
+                }
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
                     self.textInputFocusState.startMonitoring()
@@ -267,13 +282,23 @@ struct KasetApp: App {
                         self.handleIncomingURL(url)
                     }
                 }
-                .task {
+                .task(id: startupState) {
+                    guard let startupState else { return }
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
+                    let signOutSequence = self.authService.signOutSequence
                     // Check if user is already logged in from previous session
-                    await self.authService.checkLoginStatus()
+                    guard await self.authService.checkLoginStatusForStartup(
+                        expectedState: startupState
+                    ), !Task.isCancelled,
+                    self.authService.startupState == startupState,
+                    self.authService.signOutSequence == signOutSequence
+                    else { return }
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
-                        if self.authService.state.isLoggedIn {
+                        if self.authService.signOutSequence > 0 {
+                            self.playerService.clearPlaybackForSignOut()
+                            self.youtubePlayerService.stop()
+                        } else if self.authService.state.isLoggedIn {
                             self.playerService.clearGuestPlaybackForAuthenticatedStartup()
                         } else {
                             self.playerService.clearPlaybackForGuestStartup()
@@ -283,11 +308,14 @@ struct KasetApp: App {
                     }
                     self.drainPendingIncomingURLsIfReady()
 
-                    // Fetch accounts after login check (for account switcher)
+                    // This task owns account loading for startup, login, and recovery.
+                    self.accountService?.authenticationIdentityDidChange()
                     await self.accountService?.fetchAccounts()
 
                     // Warm up Foundation Models in background (macOS 26+ only)
-                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *),
+                       !FoundationModelsService.shared.isWarmedUp
+                    {
                         await FoundationModelsService.shared.warmup()
                     }
                 }
@@ -458,6 +486,14 @@ struct KasetApp: App {
             // Navigation commands - replace default sidebar toggle
             // Each routes to the active source's equivalent destination.
             CommandGroup(replacing: .sidebar) {
+                Button(String(localized: "Refresh")) {
+                    self.homeRefreshRequestID += 1
+                }
+                .keyboardShortcut("r", modifiers: [.command, .shift])
+                .disabled(!self.canRefreshHome)
+
+                Divider()
+
                 // Home - ⌘1
                 Button(String(localized: "Home")) {
                     if self.settings.appSource == .video {
@@ -699,6 +735,15 @@ struct KasetApp: App {
 
     private var shouldDisableTrackNavigationCommands: Bool {
         !self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil
+    }
+
+    private var canRefreshHome: Bool {
+        switch self.settings.appSource {
+        case .music:
+            self.navigationSelection == .home
+        case .video:
+            self.youtubeNavigationSelection == .home
+        }
     }
 
     /// Label for repeat mode menu item.

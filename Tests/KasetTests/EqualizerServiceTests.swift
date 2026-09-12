@@ -363,16 +363,7 @@ struct EqualizerServiceTests {
         service.setPreamp(-2)
         service.setGain(forBandAt: 1, to: 3.5)
 
-        let didPersist = await self.waitUntil {
-            let revived = EqualizerService(
-                engine: MockEqualizerAudioEngine(),
-                defaults: defaults
-            )
-            return revived.settings.preset == .custom
-                && revived.settings.preampDB == -2
-                && revived.settings.bandGainsDB[1] == 3.5
-        }
-        #expect(didPersist)
+        await service.awaitPendingPersistence()
 
         // New service should load the same settings from the same suite.
         let mock = MockEqualizerAudioEngine()

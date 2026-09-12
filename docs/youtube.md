@@ -213,6 +213,10 @@ Handoff rules:
   appears, and toggling back restores the same watch view (the YouTube
   drill-in path lives in `YouTubeViewModelStore`, which survives source
   switches). A deliberately popped-out window keeps playing.
+- Closing the main window with the red button hides it and keeps an inline
+  video playing as background audio. This never opens the floating window,
+  even when automatic pop-out is enabled. Reopening Kaset restores the same
+  live inline surface.
 - Closing the floating window stops playback.
 
 The pop-out window is aspect-locked to 16:9 (512×288 minimum), shows the

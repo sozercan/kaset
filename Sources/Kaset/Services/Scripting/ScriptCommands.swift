@@ -382,6 +382,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
                     "album": track.album?.title ?? "",
                     "duration": track.duration ?? 0,
                     "videoId": track.videoId,
+                    "audioVideoId": track.preferredAudioVideoId,
                     "artworkURL": track.thumbnailURL?.absoluteString ?? "",
                 ]
             }
