@@ -140,6 +140,7 @@ struct HomeView: View {
             ) {
                 self.playItem(item, in: section, at: index)
             }
+            .equatable()
             .contextMenu {
                 self.contextMenuItems(for: item, in: section, at: index)
             }
