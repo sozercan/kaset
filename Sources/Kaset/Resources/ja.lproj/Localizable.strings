@@ -326,6 +326,7 @@
 "Nothing to show" = "表示するものはありません";
 "Now Playing" = "再生中";
 "Now Playing Controls" = "再生コントロール";
+"Number %lld, %@" = "%1$lld位、%2$@";
 "OK" = "OK";
 "Off" = "オフ";
 "On" = "オン";

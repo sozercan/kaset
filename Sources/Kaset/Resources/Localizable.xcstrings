@@ -60528,6 +60528,12 @@
             "value": "Numero %1$lld, %2$@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$lld位、%2$@"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
