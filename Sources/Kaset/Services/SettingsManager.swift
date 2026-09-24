@@ -96,6 +96,7 @@ final class SettingsManager {
         case french
         case indonesian
         case italian
+        case japanese
         case korean
         case dutch
         case polish
@@ -121,6 +122,7 @@ final class SettingsManager {
             case .german: "Deutsch"
             case .indonesian: "Bahasa Indonesia"
             case .italian: "Italiano"
+            case .japanese: "日本語"
             case .korean: "한국어"
             case .polish: "Polski"
             case .portuguese: "Português"
@@ -145,6 +147,7 @@ final class SettingsManager {
             case .german: "de"
             case .indonesian: "id"
             case .italian: "it"
+            case .japanese: "ja"
             case .korean: "ko"
             case .polish: "pl"
             case .portuguese: "pt"

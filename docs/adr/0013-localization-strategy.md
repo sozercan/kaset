@@ -6,9 +6,9 @@ Proposed
 
 ## Context
 
-Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for seventeen locales, with additional languages added incrementally.
+Kaset localizes ~360 user-facing strings via String Catalogs and checked-in `.lproj` bundles. Arabic was the first target language; the app now ships UI translations for eighteen locales, with additional languages added incrementally.
 
-Supported UI locales: `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`, `zh-Hans`, `zh-Hant`. The Settings → General → Language picker lists **System Default** first, then explicit languages in locale code order.
+Supported UI locales: `ar`, `de`, `en`, `es`, `fr`, `id`, `it`, `ja`, `ko`, `nl`, `pl`, `pt`, `ru`, `sv`, `tr`, `uk`, `zh-Hans`, `zh-Hant`. The Settings → General → Language picker lists **System Default** first, then explicit languages in locale code order.
 
 Most locales are plain ISO 639-1 codes, but Chinese is identified by **script** rather than region, matching Apple's localization identifiers (`zh-Hans`, `zh-Hant`) rather than region codes such as `zh-CN`/`zh-TW`. A user whose preferred language is `zh-Hant-TW` or `zh-Hant-HK` resolves to `zh-Hant`, so one traditional bundle serves both. `zh-Hant` follows Taiwan usage, since CLDR expands the bare tag to `zh-Hant-TW` and YouTube's own `zh-Hant` responses use Taiwan vocabulary. Hong Kong (`zh-HK`) is a separate Apple localization and is not currently shipped; adding it later is purely additive.
 

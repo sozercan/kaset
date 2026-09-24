@@ -40,6 +40,12 @@
             "value": "Annuncio"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -139,6 +145,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annuncio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告"
           }
         },
         "ko": {
@@ -241,6 +253,12 @@
             "value": "Shuffle intelligente"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマートシャッフル"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -339,6 +357,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Abilita Shuffle intelligente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマートシャッフルを有効にする"
           }
         },
         "ko": {
@@ -441,6 +465,12 @@
             "value": "Aggiunge un terzo stato 'intelligente' al pulsante Casuale che intreccia i brani consigliati nella tua coda"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シャッフルボタンに、おすすめのトラックをキューに織り交ぜる3つ目の「スマート」状態を追加します"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -539,6 +569,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Inserisci un suggerimento ogni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おすすめを挿入する間隔"
           }
         },
         "ko": {
@@ -641,6 +677,12 @@
             "value": "brani"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -739,6 +781,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quanto distanziare i suggerimenti (ogni N brani della tua playlist)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おすすめの配置間隔（プレイリストの N 曲ごと）"
           }
         },
         "ko": {
@@ -841,6 +889,12 @@
             "value": "Suggerimenti per inserimento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "挿入ごとのおすすめ数"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -939,6 +993,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quanti brani consigliati inserire in ogni punto di inserimento"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "各挿入位置で追加するおすすめトラックの数"
           }
         },
         "ko": {
@@ -1041,6 +1101,12 @@
             "value": "Mantieni i suggerimenti in coda davanti di"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューに先出ししておくおすすめの数"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1139,6 +1205,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "brani"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "トラック"
           }
         },
         "ko": {
@@ -1241,6 +1313,12 @@
             "value": "Quanti consigli mantenere pronti prima del brano attuale"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のトラックより先に用意しておくおすすめの数"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1341,6 +1419,12 @@
             "value": "Suggerito"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おすすめ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1439,6 +1523,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Intelligente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スマート"
           }
         },
         "ko": {
@@ -1571,6 +1661,12 @@
             "value": "%lld brani"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld曲"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1679,6 +1775,12 @@
             "value": "Informazioni"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "情報"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1777,6 +1879,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accedi alle tue playlist e ai brani che ti piacciono"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストと高く評価した曲にアクセス"
           }
         },
         "ko": {
@@ -1879,6 +1987,12 @@
             "value": "Account"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウント"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -1977,6 +2091,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aggiungi ai preferiti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入りに追加"
           }
         },
         "ko": {
@@ -2079,6 +2199,12 @@
             "value": "Aggiungi alla libreria"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリに追加"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -2177,6 +2303,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aggiungi alla coda"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューに追加"
           }
         },
         "ko": {
@@ -2279,6 +2411,12 @@
             "value": "Aggiunto alla libreria"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリに追加済み"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -2379,6 +2517,12 @@
             "value": "Le risposte AI seguono le impostazioni della lingua di sistema."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI の応答は、システム言語の設定に従います。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -2474,6 +2618,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirPlay"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "AirPlay"
@@ -2579,6 +2729,12 @@
             "value": "AirPlay connesso"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AirPlay 接続済み"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -2677,6 +2833,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Album"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバム"
           }
         },
         "ko": {
@@ -2779,6 +2941,12 @@
             "value": "Album"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバム"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -2877,6 +3045,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Tutti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべて"
           }
         },
         "ko": {
@@ -2979,6 +3153,12 @@
             "value": "Tutti gli episodi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべてのエピソード"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3077,6 +3257,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Si è verificato un errore sconosciuto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明なエラーが発生しました"
           }
         },
         "ko": {
@@ -3179,6 +3365,12 @@
             "value": "Analisi della playlist…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを分析中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3279,6 +3471,12 @@
             "value": "Analisi…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "分析中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3374,6 +3572,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "Apple Intelligence"
@@ -3479,6 +3683,12 @@
             "value": "Impostazioni di Apple Intelligence e Siri"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence と Siri の設定"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3577,6 +3787,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple Intelligence non è attualmente disponibile."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence は現在利用できません。"
           }
         },
         "ko": {
@@ -3679,6 +3895,12 @@
             "value": "Apple Intelligence è in download. Potrebbero volerci alcuni minuti."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence をダウンロードしています。数分かかる場合があります。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3777,6 +3999,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apple Intelligence non è disponibile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence を利用できません"
           }
         },
         "ko": {
@@ -3879,6 +4107,12 @@
             "value": "Apple Intelligence è pronta per l'uso"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence を利用できます"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -3977,6 +4211,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Applica modifiche"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更を適用"
           }
         },
         "ko": {
@@ -4079,6 +4319,12 @@
             "value": "Artista"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -4177,6 +4423,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Artista non trovato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストが見つかりません"
           }
         },
         "ko": {
@@ -4279,6 +4531,12 @@
             "value": "Profilo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロフィール"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -4377,6 +4635,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Artisti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティスト"
           }
         },
         "ko": {
@@ -4479,6 +4743,12 @@
             "value": "Chiedi all'AI (⌘K)"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI に質問（⌘K）"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -4577,6 +4847,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chiedi qualsiasi cosa sulla musica…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音楽について何でも質問…"
           }
         },
         "ko": {
@@ -4679,6 +4955,12 @@
             "value": "Controlla automaticamente gli aggiornamenti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデートを自動的に確認"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -4777,6 +5059,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disponibile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能"
           }
         },
         "ko": {
@@ -4879,6 +5167,12 @@
             "value": "Riproduzione in background"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バックグラウンド再生"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -4977,6 +5271,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Realizzato con SwiftUI per un'esperienza davvero macOS"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "SwiftUI で macOS らしい操作体験を実現"
           }
         },
         "ko": {
@@ -5079,6 +5379,12 @@
             "value": "Calcolo…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "計算中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -5177,6 +5483,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Annulla"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャンセル"
           }
         },
         "ko": {
@@ -5280,6 +5592,12 @@
             "value": "Cambia la lingua di sistema in inglese o in un'altra lingua supportata."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム言語を英語または対応言語に変更してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -5378,6 +5696,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Classifiche"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャート"
           }
         },
         "ko": {
@@ -5480,6 +5804,12 @@
             "value": "Controlla aggiornamenti…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデートを確認…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -5578,6 +5908,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Controlla ora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今すぐ確認"
           }
         },
         "ko": {
@@ -5682,6 +6018,12 @@
             "value": "Scegli quali pulsanti compaiono nel widget In riproduzione del Centro di Controllo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コントロールセンターの「再生中」ウィジェットに表示するボタンを選択"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -5780,6 +6122,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancella"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリア"
           }
         },
         "ko": {
@@ -5882,6 +6230,12 @@
             "value": "Cancella contesto AI"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI のコンテキストをクリア"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -5980,6 +6334,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancella cache"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キャッシュをクリア"
           }
         },
         "ko": {
@@ -6082,6 +6442,12 @@
             "value": "Cancella input"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "入力をクリア"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -6180,6 +6546,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancella ricerca"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索をクリア"
           }
         },
         "ko": {
@@ -6282,6 +6654,12 @@
             "value": "Cancellazione…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリア中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -6380,6 +6758,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cancella lo stato della sessione AI. Usalo se le risposte sembrano sbagliate o bloccate."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI セッションの状態をクリアします。応答がおかしい場合や停止した場合に使用してください。"
           }
         },
         "ko": {
@@ -6482,6 +6866,12 @@
             "value": "Chiudi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -6580,6 +6970,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chiudi pannello laterale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドパネルを閉じる"
           }
         },
         "ko": {
@@ -6682,6 +7078,12 @@
             "value": "Raccolta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コレクション"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -6780,6 +7182,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Barra dei comandi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドバー"
           }
         },
         "ko": {
@@ -6882,6 +7290,12 @@
             "value": "Playlist della community"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コミュニティプレイリスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -6980,6 +7394,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Connetti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続"
           }
         },
         "ko": {
@@ -7082,6 +7502,12 @@
             "value": "Connesso come %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ として接続"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -7180,6 +7606,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Il contenuto potrebbe non essere disponibile nella tua zona."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お住まいの地域ではコンテンツを利用できない場合があります。"
           }
         },
         "ko": {
@@ -7282,6 +7714,12 @@
             "value": "Continua"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "続ける"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -7380,6 +7818,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Controlla la riproduzione con la tastiera"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キーボードで再生を操作"
           }
         },
         "ko": {
@@ -7482,6 +7926,12 @@
             "value": "Impossibile creare la sessione AI"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI セッションを作成できませんでした"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -7580,6 +8030,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile cercare musica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音楽を検索できませんでした"
           }
         },
         "ko": {
@@ -7682,6 +8138,12 @@
             "value": "Crea o salva playlist su YouTube Music per vederle qui."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でプレイリストを作成または保存してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -7780,6 +8242,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pagina predefinita all'avvio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "起動時のデフォルトページ"
           }
         },
         "ko": {
@@ -7882,6 +8350,12 @@
             "value": "Disconnetti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続を解除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -7980,6 +8454,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scopri"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見つける"
           }
         },
         "ko": {
@@ -8082,6 +8562,12 @@
             "value": "Non mi piace"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低く評価"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -8180,6 +8666,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non piaciuto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低く評価済み"
           }
         },
         "ko": {
@@ -8282,6 +8774,12 @@
             "value": "Ignora"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -8380,6 +8878,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fine"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完了"
           }
         },
         "ko": {
@@ -8482,6 +8986,12 @@
             "value": "Fai doppio clic per riprovare"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックで再試行"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -8580,6 +9090,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fai doppio clic per cambiare account"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックでアカウントを切り替え"
           }
         },
         "ko": {
@@ -8682,6 +9198,12 @@
             "value": "Fai doppio clic per passare a questo account"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックでこのアカウントに切り替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -8780,6 +9302,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Download in corso"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード中"
           }
         },
         "ko": {
@@ -8882,6 +9410,12 @@
             "value": "Trascina per riordinare"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ドラッグして並べ替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -8982,6 +9516,12 @@
             "value": "ad es. rimuovi i brani lenti, riordina per energia…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "例：ゆったりした曲を削除、エネルギー順に並べ替えなど…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -9080,6 +9620,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modifica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "編集"
           }
         },
         "ko": {
@@ -9183,6 +9729,12 @@
             "value": "Abilita Scrobbling %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ スクロブリングを有効にする"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -9283,6 +9835,12 @@
             "value": "Abilita funzionalità AI"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 機能を有効にする"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -9381,6 +9939,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Abilita Apple Intelligence nelle Impostazioni di Sistema per usare le funzionalità AI."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI 機能を使用するには、システム設定で Apple Intelligence を有効にしてください。"
           }
         },
         "ko": {
@@ -9485,6 +10049,12 @@
             "value": "Abilita testi sincronizzati"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "同期歌詞を有効にする"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -9583,6 +10153,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Episodi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エピソード"
           }
         },
         "ko": {
@@ -9685,6 +10261,12 @@
             "value": "Errore: %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エラー：%@"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -9783,6 +10365,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Spiega i testi con l'AI"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI で歌詞を説明"
           }
         },
         "ko": {
@@ -9885,6 +10473,12 @@
             "value": "Esplora"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -9983,6 +10577,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento non riuscito"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込みに失敗しました"
           }
         },
         "ko": {
@@ -10085,6 +10685,12 @@
             "value": "Impossibile caricare gli account"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを読み込めませんでした"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -10183,6 +10789,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile caricare gli account. Riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを読み込めませんでした。もう一度お試しください。"
           }
         },
         "ko": {
@@ -10285,6 +10897,12 @@
             "value": "Impossibile cambiare account. Riprova."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを切り替えられませんでした。もう一度お試しください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -10385,6 +11003,12 @@
             "value": "Preferiti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入り"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -10483,6 +11107,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Playlist in primo piano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注目のプレイリスト"
           }
         },
         "ko": {
@@ -10587,6 +11217,12 @@
             "value": "Recupera e mostra testi sincronizzati in tempo reale quando disponibili"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能な場合はリアルタイムの同期歌詞を取得して表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -10685,6 +11321,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trova brani, album, artisti e playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲、アルバム、アーティスト、プレイリストを検索"
           }
         },
         "ko": {
@@ -10788,6 +11430,12 @@
             "value": "Sempre in primo piano"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最前面に表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -10886,6 +11534,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Segui gli artisti su YouTube Music per vederli qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でアーティストをフォローしてください。"
           }
         },
         "ko": {
@@ -10988,6 +11642,12 @@
             "value": "Mostra il testo romanizzato (romaji, pinyin, ecc.) sotto i testi non latini"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非ラテン文字の歌詞の下に、ローマ字表記（ローマ字、ピンインなど）を表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -11088,6 +11748,12 @@
             "value": "Generali"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一般"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -11183,6 +11849,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "GitHub"
@@ -11288,6 +11960,12 @@
             "value": "Vai all'album"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムへ移動"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -11386,6 +12064,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vai all'artista"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストへ移動"
           }
         },
         "ko": {
@@ -11488,6 +12172,12 @@
             "value": "Feedback aptico"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "触覚フィードバック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -11586,6 +12276,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nascosto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非表示"
           }
         },
         "ko": {
@@ -11688,6 +12384,12 @@
             "value": "Nascondi testo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞を非表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -11786,6 +12488,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nascondi spiegazione del testo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞の説明を非表示"
           }
         },
         "ko": {
@@ -11888,6 +12596,12 @@
             "value": "In evidenza"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ハイライト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -11986,6 +12700,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Home"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ホーム"
           }
         },
         "ko": {
@@ -12088,6 +12808,12 @@
             "value": "Cache immagini"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "画像キャッシュ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -12186,6 +12912,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nella libreria"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリ内"
           }
         },
         "ko": {
@@ -12288,6 +13020,12 @@
             "value": "%lld brani ascoltati oggi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日聴いた %lld 曲"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -12386,6 +13124,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aggiorna"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新"
           }
         },
         "ko": {
@@ -12488,6 +13232,12 @@
             "value": "Cronologia di ascolto"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生履歴"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -12588,6 +13338,12 @@
             "value": "Cronologia"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "履歴"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -12686,6 +13442,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Intelligenza"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インテリジェンス"
           }
         },
         "ko": {
@@ -12796,6 +13558,12 @@
             "value": "Kaset non ha potuto leggere i dati di accesso salvati. Riprova per ripristinare la sessione."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset は保存されたサインイン情報を読み取れませんでした。セッションを復元するには再試行してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -12900,6 +13668,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kaset non ha potuto eliminare in modo sicuro i dati di accesso salvati. Riprova prima di accedere di nuovo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset は保存されたサインイン情報を安全に消去できませんでした。再度サインインする前に再試行してください。"
           }
         },
         "ko": {
@@ -13008,6 +13782,12 @@
             "value": "Kaset non ha potuto rimuovere i dati di accesso salvati. Prova a disconnetterti di nuovo prima di uscire."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset は保存されたサインイン情報を削除できませんでした。終了する前に再度サインアウトしてください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -13106,6 +13886,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continua ad ascoltare anche quando la finestra è chiusa"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ウィンドウを閉じても再生を続ける"
           }
         },
         "ko": {
@@ -13208,6 +13994,12 @@
             "value": "Lingua non supportata"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "対応していない言語"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -13306,6 +14098,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ultimo controllo: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最終確認：%@"
           }
         },
         "ko": {
@@ -13408,6 +14206,12 @@
             "value": "Ultimo utilizzo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最後に使用"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -13506,6 +14310,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scopri di più"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "詳しく見る"
           }
         },
         "ko": {
@@ -13608,6 +14418,12 @@
             "value": "Libreria"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -13706,6 +14522,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mi piace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価"
           }
         },
         "ko": {
@@ -13808,6 +14630,12 @@
             "value": "Piaciuto"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価済み"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -13906,6 +14734,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Musica che ti piace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価した曲"
           }
         },
         "ko": {
@@ -14010,6 +14844,12 @@
             "value": "Carica altro"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もっと読み込む"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -14108,6 +14948,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento artista…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストを読み込み中…"
           }
         },
         "ko": {
@@ -14210,6 +15056,12 @@
             "value": "Caricamento classifiche…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャートを読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -14310,6 +15162,12 @@
             "value": "Caricamento contenuti Esplora…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "探索コンテンツを読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -14408,6 +15266,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento brani che ti piacciono…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価した曲を読み込み中…"
           }
         },
         "ko": {
@@ -14511,6 +15375,12 @@
             "value": "Caricamento testo…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞を読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -14609,6 +15479,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento mood e generi…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ムードとジャンルを読み込み中…"
           }
         },
         "ko": {
@@ -14712,6 +15588,12 @@
             "value": "Caricamento di altri contenuti…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "さらに読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -14810,6 +15692,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento nuove uscite…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新着リリースを読み込み中…"
           }
         },
         "ko": {
@@ -14912,6 +15800,12 @@
             "value": "Caricamento playlist…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -15010,6 +15904,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento podcast…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポッドキャストを読み込み中…"
           }
         },
         "ko": {
@@ -15112,6 +16012,12 @@
             "value": "Caricamento brani…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲を読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -15210,6 +16116,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento della tua libreria…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリを読み込み中…"
           }
         },
         "ko": {
@@ -15312,6 +16224,12 @@
             "value": "Caricamento…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -15410,6 +16328,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Testo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞"
           }
         },
         "ko": {
@@ -15512,6 +16436,12 @@
             "value": "Tasti multimediali"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メディアキー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -15610,6 +16540,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mix"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミックス"
           }
         },
         "ko": {
@@ -15712,6 +16648,12 @@
             "value": "Mood e generi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ムードとジャンル"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -15810,6 +16752,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sposta alla fine"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "末尾へ移動"
           }
         },
         "ko": {
@@ -15912,6 +16860,12 @@
             "value": "Sposta all'inizio"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "先頭へ移動"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -16010,6 +16964,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Disattiva audio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュート"
           }
         },
         "ko": {
@@ -16112,6 +17072,12 @@
             "value": "Interfaccia nativa"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ネイティブインターフェイス"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -16210,6 +17176,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mai controllato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未確認"
           }
         },
         "ko": {
@@ -16312,6 +17284,12 @@
             "value": "Nuove uscite"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新着リリース"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -16410,6 +17388,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Successivo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次へ"
           }
         },
         "ko": {
@@ -16512,6 +17496,12 @@
             "value": "Brano successivo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のトラック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -16610,6 +17600,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun artista ancora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだアーティストがいません"
           }
         },
         "ko": {
@@ -16712,6 +17708,12 @@
             "value": "Nessuna modifica suggerita. La playlist sembra a posto!"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "変更の必要はありません。プレイリストはこのままで問題ありません！"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -16810,6 +17812,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessuna connessione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接続なし"
           }
         },
         "ko": {
@@ -16912,6 +17920,12 @@
             "value": "Nessun contenuto disponibile"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能なコンテンツはありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -17010,6 +18024,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun brano che ti piace ancora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価した曲はまだありません"
           }
         },
         "ko": {
@@ -17112,6 +18132,12 @@
             "value": "Nessun testo disponibile"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用できる歌詞はありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -17210,6 +18236,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun mood o genere disponibile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可能なムードとジャンルはありません"
           }
         },
         "ko": {
@@ -17312,6 +18344,12 @@
             "value": "Nessuna playlist ancora"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストはまだありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -17410,6 +18448,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun album ancora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムはまだありません"
           }
         },
         "ko": {
@@ -17512,6 +18556,12 @@
             "value": "Nessun podcast ancora"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポッドキャストはまだありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -17610,6 +18660,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessuna coda"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューなし"
           }
         },
         "ko": {
@@ -17712,6 +18768,12 @@
             "value": "Nessun risultato trovato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索結果が見つかりません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -17810,6 +18872,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun brano in riproduzione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生中の曲はありません"
           }
         },
         "ko": {
@@ -17912,6 +18980,12 @@
             "value": "Nessun brano o playlist trovato in questa categoria."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このカテゴリでは曲やプレイリストが見つかりません。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18010,6 +19084,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non connesso"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未接続"
           }
         },
         "ko": {
@@ -18112,6 +19192,12 @@
             "value": "Nessun non mi piace"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低く評価していません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18210,6 +19296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non abilitato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "無効"
           }
         },
         "ko": {
@@ -18312,6 +19404,12 @@
             "value": "Nessun mi piace"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価していません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18410,6 +19508,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accesso non effettuato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインインしていません"
           }
         },
         "ko": {
@@ -18512,6 +19616,12 @@
             "value": "Non supportato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "非対応"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18610,6 +19720,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "L'accesso con passkey non è disponibile in questa finestra. Google chiederà invece la password o un altro metodo di accesso."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このウィンドウではパスキーによるサインインを利用できません。代わりに Google がパスワードまたは別のサインイン方法を求めます。"
           }
         },
         "ko": {
@@ -18714,6 +19830,12 @@
             "value": "Controlli In riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生コントロール"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18814,6 +19936,12 @@
             "value": "No"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -18909,6 +20037,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "OK"
@@ -19014,6 +20148,12 @@
             "value": "Sì"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オン"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -19112,6 +20252,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uno"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1曲"
           }
         },
         "ko": {
@@ -19214,6 +20360,12 @@
             "value": "Apri la coda nel pannello laterale"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドパネルでキューを開く"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -19314,6 +20466,12 @@
             "value": "Apri la barra dei comandi per controllare la musica in linguaggio naturale. Prova a dire \"play something chill\" o \"add jazz to queue\"."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自然な言葉で音楽を操作するにはコマンドバーを開きます。「play something chill」や「add jazz to queue」のように話しかけてみてください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -19412,6 +20570,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pausa"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時停止"
           }
         },
         "ko": {
@@ -19515,6 +20679,12 @@
             "value": "Riproduci"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -19614,6 +20784,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riproduci un brano per vederne qui il testo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに歌詞を表示するには、曲を再生してください。"
           }
         },
         "ko": {
@@ -19716,6 +20892,12 @@
             "value": "Riproduci tutto"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべて再生"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -19814,6 +20996,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riproduci l'ultimo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新を再生"
           }
         },
         "ko": {
@@ -19916,6 +21104,12 @@
             "value": "Riproduci dopo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次に再生"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20014,6 +21208,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riproduci brani da una playlist o da un album per creare la tua coda."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューを作成するには、プレイリストやアルバムから曲を再生してください。"
           }
         },
         "ko": {
@@ -20116,6 +21316,12 @@
             "value": "Riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20216,6 +21422,12 @@
             "value": "Riprodotto"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生済み"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20314,6 +21526,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "In riproduzione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生中"
           }
         },
         "ko": {
@@ -20417,6 +21635,12 @@
             "value": "Playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20515,6 +21739,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Playlist non trovata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストが見つかりません"
           }
         },
         "ko": {
@@ -20617,6 +21847,12 @@
             "value": "Playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20715,6 +21951,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Controlla la connessione a internet e riprova."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インターネット接続を確認して、もう一度お試しください。"
           }
         },
         "ko": {
@@ -20817,6 +22059,12 @@
             "value": "Podcast"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポッドキャスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -20915,6 +22163,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Premi Invio per cercare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter キーを押して検索"
           }
         },
         "ko": {
@@ -21017,6 +22271,12 @@
             "value": "Precedente"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前へ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -21115,6 +22375,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brano precedente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前のトラック"
           }
         },
         "ko": {
@@ -21217,6 +22483,12 @@
             "value": "Elaborazione…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "処理中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -21315,6 +22587,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fornisci feedback tattile per le azioni sui trackpad Force Touch"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Force Touch トラックパッドでの操作に触覚フィードバックを提供"
           }
         },
         "ko": {
@@ -21417,6 +22695,12 @@
             "value": "Coda"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キュー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -21515,6 +22799,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accesso rapido"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クイックアクセス"
           }
         },
         "ko": {
@@ -21617,6 +22907,12 @@
             "value": "Ripristina"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "やり直す"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -21715,6 +23011,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Affina"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "調整する"
           }
         },
         "ko": {
@@ -21817,6 +23119,12 @@
             "value": "Affina playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを調整"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -21915,6 +23223,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Note di rilascio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リリースノート"
           }
         },
         "ko": {
@@ -22017,6 +23331,12 @@
             "value": "Ricorda ordine casuale e ripetizione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シャッフルとリピートを記憶"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -22115,6 +23435,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimuovi non mi piace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "低く評価を解除"
           }
         },
         "ko": {
@@ -22217,6 +23543,12 @@
             "value": "Rimuovi dai preferiti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入りから削除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -22315,6 +23647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimuovi dalla coda"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューから削除"
           }
         },
         "ko": {
@@ -22417,6 +23755,12 @@
             "value": "Ripeti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リピート"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -22515,6 +23859,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ripeti tutto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全曲リピート"
           }
         },
         "ko": {
@@ -22617,6 +23967,12 @@
             "value": "Ripetizione disattivata"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リピートなし"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -22715,6 +24071,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ripeti uno"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1曲リピート"
           }
         },
         "ko": {
@@ -22818,6 +24180,12 @@
             "value": "Riprova"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再試行"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -22917,6 +24285,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Salva playlist e iscriviti ai podcast su YouTube Music per vederli qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でプレイリストを保存し、ポッドキャストを登録してください。"
           }
         },
         "ko": {
@@ -23019,6 +24393,12 @@
             "value": "Salva playlist, segui artisti e iscriviti ai podcast su YouTube Music per vederli qui."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でプレイリストを保存し、アーティストをフォローして、ポッドキャストを登録してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23119,6 +24499,12 @@
             "value": "Salva album su YouTube Music per vederli qui."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でアルバムを保存してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23217,6 +24603,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Salva le impostazioni di ordine casuale e ripetizione tra i riavvii dell'app"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アプリを再起動してもシャッフルとリピートの設定を保持"
           }
         },
         "ko": {
@@ -23320,6 +24712,12 @@
             "value": "Romanizza testo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞をローマ字表記"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23418,6 +24816,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scrobbling"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロブリング"
           }
         },
         "ko": {
@@ -23520,6 +24924,12 @@
             "value": "Cerca"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23618,6 +25028,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cerca la tua musica preferita"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "お気に入りの音楽を検索"
           }
         },
         "ko": {
@@ -23720,6 +25136,12 @@
             "value": "Cerca brani, album, artisti…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲、アルバム、アーティストを検索…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23820,6 +25242,12 @@
             "value": "Ricerca…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "検索中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -23918,6 +25346,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vedi tutto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべて見る"
           }
         },
         "ko": {
@@ -24021,6 +25455,12 @@
             "value": "Seleziona un elemento dalla barra laterale"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーから項目を選択してください"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -24119,6 +25559,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Selezionato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選択済み"
           }
         },
         "ko": {
@@ -24221,6 +25667,12 @@
             "value": "Condividi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "共有"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -24319,6 +25771,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra tutto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべて表示"
           }
         },
         "ko": {
@@ -24421,6 +25879,12 @@
             "value": "Mostra testo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞を表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -24519,6 +25983,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra notifiche In riproduzione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生中の通知を表示"
           }
         },
         "ko": {
@@ -24621,6 +26091,12 @@
             "value": "Visualizzazione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示中"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -24719,6 +26195,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Casuale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シャッフル"
           }
         },
         "ko": {
@@ -24821,6 +26303,12 @@
             "value": "Casuale disattivato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シャッフルオフ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -24919,6 +26407,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Casuale attivato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シャッフルオン"
           }
         },
         "ko": {
@@ -25021,6 +26515,12 @@
             "value": "Accedi a YouTube Music"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music にサインイン"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -25121,6 +26621,12 @@
             "value": "Accedi con Google"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google でサインイン"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -25219,6 +26725,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esci"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインアウト"
           }
         },
         "ko": {
@@ -25327,6 +26839,12 @@
             "value": "Accesso temporaneamente non disponibile"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時的にサインインを利用できません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -25431,6 +26949,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Pulizia dell’accesso necessaria"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインイン情報の消去が必要"
           }
         },
         "ko": {
@@ -25539,6 +27063,12 @@
             "value": "Disconnessione incompleta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインアウトが完了していません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -25637,6 +27167,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accesso eseguito a YouTube"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube にサインイン済み"
           }
         },
         "ko": {
@@ -25739,6 +27275,12 @@
             "value": "Aggiornamento software"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソフトウェアアップデート"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -25837,6 +27379,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brani"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
           }
         },
         "ko": {
@@ -25940,6 +27488,12 @@
             "value": "I brani che ti piacciono appariranno qui"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価した曲がここに表示されます"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -26038,6 +27592,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Avvia radio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ラジオを開始"
           }
         },
         "ko": {
@@ -26140,6 +27700,12 @@
             "value": "Iscriviti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -26238,6 +27804,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Iscriviti a %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録 %@"
           }
         },
         "ko": {
@@ -26340,6 +27912,12 @@
             "value": "Iscriviti ai podcast su YouTube Music per vederli qui."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここに表示するには、YouTube Music でポッドキャストを登録してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -26438,6 +28016,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Iscritto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録済み"
           }
         },
         "ko": {
@@ -26540,6 +28124,12 @@
             "value": "Errore di iscrizione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録エラー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -26638,6 +28228,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimozioni suggerite"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "削除候補"
           }
         },
         "ko": {
@@ -26740,6 +28336,12 @@
             "value": "Cambia account"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを切り替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -26838,6 +28440,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Fai clic per riprovare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クリックして再試行"
           }
         },
         "ko": {
@@ -26941,6 +28549,12 @@
             "value": "Non ci sono testi disponibili per questo brano."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この曲には利用できる歌詞がありません。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -27039,6 +28653,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Questo Mac non supporta Apple Intelligence. È richiesto un Mac con Apple Silicon."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この Mac は Apple Intelligence に対応していません。Apple Silicon Mac が必要です。"
           }
         },
         "ko": {
@@ -27141,6 +28761,12 @@
             "value": "Brani più popolari"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "人気の曲"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -27239,6 +28865,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riprova"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "もう一度試す"
           }
         },
         "ko": {
@@ -27348,6 +28980,12 @@
             "value": "Prova a chiedere:"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のように質問してみてください："
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -27446,6 +29084,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prova comandi come:"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のようなコマンドを試してください："
           }
         },
         "ko": {
@@ -27548,6 +29192,12 @@
             "value": "Prova a cercare qualcos'altro"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "別のキーワードで検索してみてください"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -27646,6 +29296,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile determinare la disponibilità"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用可否を判断できません"
           }
         },
         "ko": {
@@ -27748,6 +29404,12 @@
             "value": "Impossibile caricare l'artista"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストを読み込めません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -27846,6 +29508,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile caricare il contenuto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンテンツを読み込めません"
           }
         },
         "ko": {
@@ -27948,6 +29616,12 @@
             "value": "Impossibile caricare la playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを読み込めません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -28046,6 +29720,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non disponibile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "利用不可"
           }
         },
         "ko": {
@@ -28148,6 +29828,12 @@
             "value": "Annulla"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻す"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -28246,6 +29932,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sconosciuto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明"
           }
         },
         "ko": {
@@ -28348,6 +30040,12 @@
             "value": "Artista sconosciuto"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不明なアーティスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -28446,6 +30144,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimuovi mi piace"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価を解除"
           }
         },
         "ko": {
@@ -28548,6 +30252,12 @@
             "value": "Attiva audio"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュートを解除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -28646,6 +30356,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "In coda"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次に再生"
           }
         },
         "ko": {
@@ -28748,6 +30464,12 @@
             "value": "Aggiornamenti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデート"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -28846,6 +30568,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Versione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バージョン"
           }
         },
         "ko": {
@@ -28948,6 +30676,12 @@
             "value": "Video"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -29046,6 +30780,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra album"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アルバムを表示"
           }
         },
         "ko": {
@@ -29148,6 +30888,12 @@
             "value": "Mostra artista"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アーティストを表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -29246,6 +30992,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを表示"
           }
         },
         "ko": {
@@ -29348,6 +31100,12 @@
             "value": "Mostra podcast"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポッドキャストを表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -29446,6 +31204,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Abbassa volume"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量を下げる"
           }
         },
         "ko": {
@@ -29548,6 +31312,12 @@
             "value": "Alza volume"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量を上げる"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -29646,6 +31416,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "In attesa di autorizzazione…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "認証待ち…"
           }
         },
         "ko": {
@@ -29748,6 +31524,12 @@
             "value": "Benvenuto in Kaset"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset へようこそ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -29846,6 +31628,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Che cosa vuoi cambiare?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何を変更しますか？"
           }
         },
         "ko": {
@@ -29948,6 +31736,12 @@
             "value": "Che cosa vuoi fare con la tua coda?"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューで何をしますか？"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -30046,6 +31840,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Che cosa vuoi fare?"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "何をしますか？"
           }
         },
         "ko": {
@@ -30148,6 +31948,12 @@
             "value": "Novità in Kaset"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset の新機能"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -30246,6 +32052,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quando è abilitato, puoi usare comandi in linguaggio naturale, affinamento delle playlist con AI e spiegazioni dei testi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効にすると、自然な言葉でのコマンド、AI によるプレイリストの調整、歌詞の説明を利用できます。"
           }
         },
         "ko": {
@@ -30348,6 +32160,12 @@
             "value": "La tua libreria"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自分のライブラリ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -30446,6 +32264,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "La tua libreria è vuota"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリは空です"
           }
         },
         "ko": {
@@ -30548,6 +32372,12 @@
             "value": "Lingua dei contenuti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コンテンツの言語"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -30646,6 +32476,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brano successivo/precedente"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次のトラック/前のトラック"
           }
         },
         "ko": {
@@ -30748,6 +32584,12 @@
             "value": "Salta avanti/indietro"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "早送り/巻き戻し"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -30846,6 +32688,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Predefinito di sistema"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムのデフォルト"
           }
         },
         "ko": {
@@ -30949,6 +32797,12 @@
             "value": "Abilita equalizzatore"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "イコライザを有効にする"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -31048,6 +32902,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elabora l'uscita audio di Kaset tramite un equalizzatore a 6 bande."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset のオーディオ出力を 6 バンドのイコライザで処理します。"
           }
         },
         "ko": {
@@ -31151,6 +33011,12 @@
             "value": "Preimpostazione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリセット"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -31250,6 +33116,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Equalizzatore"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "イコライザ"
           }
         },
         "ko": {
@@ -31353,6 +33225,12 @@
             "value": "Bande"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バンド"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -31452,6 +33330,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preamplificazione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プリアンプ"
           }
         },
         "ko": {
@@ -31555,6 +33439,12 @@
             "value": "Reimposta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "リセット"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -31654,6 +33544,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Apri Impostazioni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
           }
         },
         "ko": {
@@ -31757,6 +33653,12 @@
             "value": "Caricamento…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -31856,6 +33758,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Attivo"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効"
           }
         },
         "ko": {
@@ -31959,6 +33867,12 @@
             "value": "In attesa della riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生待機中"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -32058,6 +33972,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Autorizzazione necessaria"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "権限が必要です"
           }
         },
         "ko": {
@@ -32161,6 +34081,12 @@
             "value": "Errore del motore"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エンジンエラー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -32260,6 +34186,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "L'equalizzatore sta elaborando l'uscita audio di Kaset."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "イコライザが Kaset のオーディオ出力を処理しています。"
           }
         },
         "ko": {
@@ -32363,6 +34295,12 @@
             "value": "L'equalizzatore si attiva non appena premi Riproduci."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生を押すと、イコライザがすぐに有効になります。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -32462,6 +34400,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Piatto"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フラット"
           }
         },
         "ko": {
@@ -32565,6 +34509,12 @@
             "value": "Acustico"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アコースティック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -32664,6 +34614,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bass Booster"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスブースター"
           }
         },
         "ko": {
@@ -32767,6 +34723,12 @@
             "value": "Riduttore bassi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バスレデューサー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -32866,6 +34828,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Classica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クラシック"
           }
         },
         "ko": {
@@ -32969,6 +34937,12 @@
             "value": "Dance"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダンス"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33068,6 +35042,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Deep"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディープ"
           }
         },
         "ko": {
@@ -33171,6 +35151,12 @@
             "value": "Elettronica"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エレクトロニック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33270,6 +35256,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Hip-Hop"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒップホップ"
           }
         },
         "ko": {
@@ -33373,6 +35365,12 @@
             "value": "Jazz"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ジャズ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33472,6 +35470,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Latin"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ラテン"
           }
         },
         "ko": {
@@ -33575,6 +35579,12 @@
             "value": "Loudness"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ラウドネス"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33674,6 +35684,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lounge"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ラウンジ"
           }
         },
         "ko": {
@@ -33777,6 +35793,12 @@
             "value": "Piano"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピアノ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33878,6 +35900,12 @@
             "value": "Pop"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポップ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -33974,6 +36002,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "R&B"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "R&B"
@@ -34080,6 +36114,12 @@
             "value": "Rock"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ロック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -34179,6 +36219,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Piccoli altoparlanti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "小型スピーカー"
           }
         },
         "ko": {
@@ -34282,6 +36328,12 @@
             "value": "Parlato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポークンワード"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -34381,6 +36433,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Amplifica alti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "トレブルブースター"
           }
         },
         "ko": {
@@ -34484,6 +36542,12 @@
             "value": "Riduttore alti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "トレブルレデューサー"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -34583,6 +36647,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vocal Booster"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ボーカルブースター"
           }
         },
         "ko": {
@@ -34686,6 +36756,12 @@
             "value": "Personalizzato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カスタム"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -34787,6 +36863,12 @@
             "value": "L'equalizzatore si attiva non appena avvii la riproduzione."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生を開始すると、イコライザがすぐに有効になります。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -34885,6 +36967,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile acquisire l'audio di Kaset (stato %d). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset のオーディオをキャプチャできませんでした（ステータス %d）。システム設定の「画面とシステムオーディオの録音」権限を確認してください。"
           }
         },
         "ko": {
@@ -34988,6 +37076,12 @@
             "value": "Apri Impostazioni di Sistema → Privacy e Sicurezza → Registrazione schermo e audio di sistema e abilita Kaset, quindi riattiva l'equalizzatore."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム設定 → プライバシーとセキュリティ → 画面とシステムオーディオの録音で Kaset を有効にし、イコライザをオンに戻してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -35087,6 +37181,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile creare il dispositivo audio dell'equalizzatore. Riavviare Kaset di solito risolve il problema."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "イコライザのオーディオデバイスを作成できませんでした。通常は Kaset を再起動すると解決します。"
           }
         },
         "ko": {
@@ -35190,6 +37290,12 @@
             "value": "L'equalizzatore richiede macOS 14.2 o versioni successive."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "イコライザには macOS 14.2 以降が必要です。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -35289,6 +37395,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Il sistema non ha segnalato un formato audio valido per l'uscita di Kaset. Prova a disabilitare l'equalizzatore, avviare la riproduzione e poi riabilitarlo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システムが Kaset の出力に有効なオーディオ形式を報告しませんでした。イコライザをオフにして再生を開始し、再度オンにしてみてください。"
           }
         },
         "ko": {
@@ -35392,6 +37504,12 @@
             "value": "Impossibile creare l'unità audio."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオユニットを作成できませんでした。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -35491,6 +37609,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile configurare l'unità audio (%lld)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオユニットを構成できませんでした（%lld）。"
           }
         },
         "ko": {
@@ -35594,6 +37718,12 @@
             "value": "Impossibile instradare l'audio di Kaset nel motore dell'equalizzatore."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset のオーディオをイコライザエンジンにルーティングできませんでした。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -35693,6 +37823,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile negoziare un formato audio compatibile con il dispositivo di uscita."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出力デバイスと互換性のあるオーディオ形式を調整できませんでした。"
           }
         },
         "ko": {
@@ -35796,6 +37932,12 @@
             "value": "Impossibile installare il callback di rendering audio (%lld)."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオレンダリングコールバックをインストールできませんでした（%lld）。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -35894,6 +38036,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Impossibile avviare il motore audio: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオエンジンの起動に失敗しました：%@"
           }
         },
         "ko": {
@@ -35997,6 +38145,12 @@
             "value": "Kaset non può accedere alla propria uscita audio. Apri Impostazioni di Sistema → Privacy e Sicurezza → Registrazione schermo e audio di sistema e abilita Kaset, quindi riattiva l'equalizzatore."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset が自身のオーディオ出力にアクセスできません。システム設定 → プライバシーとセキュリティ → 画面とシステムオーディオの録音で Kaset を有効にし、イコライザをオンに戻してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -36095,6 +38249,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Musica"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミュージック"
           }
         },
         "ko": {
@@ -36197,6 +38357,12 @@
             "value": "In riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生中"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -36295,6 +38461,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオ"
           }
         },
         "ko": {
@@ -36397,6 +38569,12 @@
             "value": "Comportamento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動作"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -36495,6 +38673,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Lingua"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "言語"
           }
         },
         "ko": {
@@ -36597,6 +38781,12 @@
             "value": "Archiviazione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ストレージ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -36695,6 +38885,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Uscita"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "出力"
           }
         },
         "ko": {
@@ -36797,6 +38993,12 @@
             "value": "Informazioni sulle estensioni"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能について"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -36895,6 +39097,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun servizio Scrobbling"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スクロブリングサービスなし"
           }
         },
         "ko": {
@@ -36997,6 +39205,12 @@
             "value": "Non ci sono servizi Scrobbling disponibili da configurare."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定できるスクロブリングサービスがありません。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -37095,6 +39309,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra una notifica quando inizia la riproduzione di un nuovo brano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいトラックが再生を開始したときに通知を表示"
           }
         },
         "ko": {
@@ -37197,6 +39417,12 @@
             "value": "Scegli la lingua per i contenuti e i risultati di ricerca di YouTube Music"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music のコンテンツと検索結果の言語を選択"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "needs_review",
@@ -37295,6 +39521,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Quando è abilitato, Kaset può aggiungere analisi della coda più ricche, affinamento delle playlist con AI e spiegazioni dei testi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有効にすると、Kaset はより充実したキューの分析、AI によるプレイリストの調整、歌詞の説明を追加できます。"
           }
         },
         "ko": {
@@ -37397,6 +39629,12 @@
             "value": "Aggiungi alla barra laterale"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーに追加"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -37495,6 +39733,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nella barra laterale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバー内"
           }
         },
         "ko": {
@@ -37597,6 +39841,12 @@
             "value": "Sposta in giù"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "下へ移動"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -37695,6 +39945,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sposta in su"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上へ移動"
           }
         },
         "ko": {
@@ -37797,6 +40053,12 @@
             "value": "Rimuovi dalla barra laterale"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サイドバーから削除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -37895,6 +40157,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra dietro al player un leggero bagliore di colore ricavato dal video. Si applica ai video di YouTube, non a Music."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画から抽出したやわらかな色の光がプレイヤーの背面に表示されます。ミュージックではなく YouTube の動画に適用されます。"
           }
         },
         "ko": {
@@ -37997,6 +40265,12 @@
             "value": "Aggiungi estensione…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能を追加…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -38095,6 +40369,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aggiungi un'estensione compatibile con WebKit per iniziare."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "始めるには、WebKit 対応の拡張機能を追加してください。"
           }
         },
         "ko": {
@@ -38197,6 +40477,12 @@
             "value": "Aggiungi un commento…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを追加…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -38295,6 +40581,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Aggiungi alla playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストに追加"
           }
         },
         "ko": {
@@ -38397,6 +40689,12 @@
             "value": "Aggiungi a Guarda più tardi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "後で見るに追加"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -38495,6 +40793,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ambient"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アンビエント"
           }
         },
         "ko": {
@@ -38597,6 +40901,12 @@
             "value": "Sfondo ambient"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アンビエント背景"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -38695,6 +41005,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stile dello sfondo ambient (sviluppatore)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アンビエント背景スタイル（開発者）"
           }
         },
         "ko": {
@@ -38797,6 +41113,12 @@
             "value": "Automatico"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "自動"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -38895,6 +41217,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Indietro di 30 secondi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30秒戻る"
           }
         },
         "ko": {
@@ -38997,6 +41325,12 @@
             "value": "Sfoglia senza personalizzazione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "パーソナライズなしで閲覧"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -39097,6 +41431,12 @@
             "value": "Categoria"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "カテゴリ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -39195,6 +41535,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Canali"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャンネル"
           }
         },
         "ko": {
@@ -39303,6 +41649,12 @@
             "value": "Capitolo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャプター"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -39401,6 +41753,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Capitoli"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャプター"
           }
         },
         "ko": {
@@ -39503,6 +41861,12 @@
             "value": "Controlla aggiornamenti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップデートを確認"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -39601,6 +41965,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scegli la qualità audio preferita per la riproduzione su YouTube Music"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music の再生に使用する優先オーディオ品質を選択"
           }
         },
         "ko": {
@@ -39703,6 +42073,12 @@
             "value": "Svuota coda"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューをクリア"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -39801,6 +42177,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Svuota l'intera coda e interrompi la riproduzione."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キュー全体をクリアして再生を停止します。"
           }
         },
         "ko": {
@@ -39903,6 +42285,12 @@
             "value": "Sottotitoli"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "クローズドキャプション"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40001,6 +42389,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Commenti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメント"
           }
         },
         "ko": {
@@ -40103,6 +42497,12 @@
             "value": "Configura estensione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能を構成"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40201,6 +42601,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Continua a guardare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "続きから視聴"
           }
         },
         "ko": {
@@ -40303,6 +42709,12 @@
             "value": "Debug"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "デバッグ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40401,6 +42813,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Elimina playlist…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを削除…"
           }
         },
         "ko": {
@@ -40503,6 +42921,12 @@
             "value": "Disattiva Liquid Glass, la barra dei comandi e le superfici UI di Apple Intelligence finché non viene disattivato."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフに切り替えるまで、Liquid Glass、コマンドバー、Apple Intelligence の UI を無効にします。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40601,6 +43025,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Non mi piace il commento"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを低く評価"
           }
         },
         "ko": {
@@ -40703,6 +43133,12 @@
             "value": "Fai doppio clic per riprovare a caricare gli account"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックでアカウントの読み込みを再試行"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40803,6 +43239,12 @@
             "value": "Fai doppio clic per cambiare account o passare alla modalità ospite"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックでアカウントまたはゲストモードを切り替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -40898,6 +43340,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "E"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "E"
@@ -41003,6 +43451,12 @@
             "value": "Esci dalla modalità ospite"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストモードを終了"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -41101,6 +43555,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Esplicito"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "不適切な表現を含む"
           }
         },
         "ko": {
@@ -41203,6 +43663,12 @@
             "value": "Estensioni"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -41301,6 +43767,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le estensioni vengono caricate all'avvio tramite l'API nativa delle estensioni WebKit. Le modifiche hanno effetto dopo il riavvio di Kaset."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能は起動時にネイティブの WebKit 拡張機能 API を介して読み込まれます。変更は Kaset を再起動すると反映されます。"
           }
         },
         "ko": {
@@ -41403,6 +43875,12 @@
             "value": "Ai fan potrebbe piacere anche"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファンに人気のアーティスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -41501,6 +43979,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Moda e bellezza"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ファッションとビューティー"
           }
         },
         "ko": {
@@ -41603,6 +44087,12 @@
             "value": "Filtro"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィルタ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -41701,6 +44191,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Trova video, canali e playlist."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画、チャンネル、プレイリストを検索できます。"
           }
         },
         "ko": {
@@ -41803,6 +44299,12 @@
             "value": "Per te"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あなたにおすすめ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -41901,6 +44403,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Forza viste e materiali di fallback di macOS 15 durante l'esecuzione su macOS 26+ per il debug della compatibilità"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "互換性デバッグ用に、macOS 26 以降でも macOS 15 のフォールバックビューとマテリアルを強制使用する"
           }
         },
         "ko": {
@@ -42003,6 +44511,12 @@
             "value": "Avanti di 30 secondi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "30秒進む"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -42101,6 +44615,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vista completa"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フルビュー"
           }
         },
         "ko": {
@@ -42203,6 +44723,12 @@
             "value": "Gaming"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲーム"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -42301,6 +44827,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Bagliore"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グロー"
           }
         },
         "ko": {
@@ -42403,6 +44935,12 @@
             "value": "Modalità ospite"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストモード"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -42501,6 +45039,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modalità ospite, sfoglia senza personalizzazione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストモード、パーソナライズなしで閲覧"
           }
         },
         "ko": {
@@ -42603,6 +45147,12 @@
             "value": "Modalità ospite. Accedi per la tua libreria."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストモードです。ライブラリを見るにはサインインしてください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -42701,6 +45251,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Modalità ospite. Torna al tuo account."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ゲストモードです。アカウントに戻るには切り替えてください。"
           }
         },
         "ko": {
@@ -42803,6 +45359,12 @@
             "value": "Nascondi risposte"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返信を非表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -42898,6 +45460,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hz"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "Hz"
@@ -43003,6 +45571,12 @@
             "value": "Non sono riuscito a capire quella richiesta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "そのリクエストを理解できませんでした"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -43101,6 +45675,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Estensioni installate"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "インストール済みの拡張機能"
           }
         },
         "ko": {
@@ -43203,6 +45783,12 @@
             "value": "Kaset crea una nuova sessione AI per ogni richiesta. Aggiorna lo stato se Apple Intelligence termina il download o diventa disponibile mentre l'app è aperta."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset はリクエストごとに新しい AI セッションを作成します。アプリを開いたまま Apple Intelligence のダウンロードが完了したり利用可能になったりした場合は、ステータスを更新してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -43301,6 +45887,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Kaset funziona senza accesso per ricerca pubblica, scoperta e riproduzione su YouTube. Accedi per vedere le tue raccolte video personali."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset はログインなしで公開 YouTube の検索、発見、再生が利用できます。個人の動画コレクションにアクセスするにはサインインしてください。"
           }
         },
         "ko": {
@@ -43403,6 +45995,12 @@
             "value": "Kaset funziona senza accesso per navigazione pubblica, ricerca e riproduzione. Accedi per vedere le tue raccolte musicali personali."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset はログインなしで公開ブラウジング、検索、再生が利用できます。個人の音楽コレクションにアクセスするにはサインインしてください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -43503,6 +46101,12 @@
             "value": "Mantieni un video in riproduzione in una finestra mobile quando lasci la pagina. Se disattivato, il video si interrompe."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ページを離れても再生中の動画をフローティングウィンドウに保持します。オフの場合は代わりに動画が停止します。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -43601,6 +46205,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mantieni il mini player visibile sopra le altre finestre"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミニプレイヤーを他のウィンドウの上に表示し続ける"
           }
         },
         "ko": {
@@ -43704,6 +46314,12 @@
             "value": "Mantieni il video sopra le finestre standard su questa scrivania."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このデスクトップで動画を通常のウィンドウの上に保持します。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -43802,6 +46418,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "LIVE"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ"
           }
         },
         "ko": {
@@ -43904,6 +46526,12 @@
             "value": "Più tardi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あとで"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -44002,6 +46630,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ultimi episodi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最新エピソード"
           }
         },
         "ko": {
@@ -44104,6 +46738,12 @@
             "value": "Apprendimento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "学習"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -44202,6 +46842,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mi piace il commento"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを高く評価"
           }
         },
         "ko": {
@@ -44304,6 +46950,12 @@
             "value": "Video che ti piacciono"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価した動画"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -44402,6 +47054,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Live"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ"
           }
         },
         "ko": {
@@ -44504,6 +47162,12 @@
             "value": "Live (segue il video)"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ（動画に連動）"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -44602,6 +47266,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Diretta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブ配信"
           }
         },
         "ko": {
@@ -44704,6 +47374,12 @@
             "value": "Caricamento playlist…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストを読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -44802,6 +47478,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento account"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを読み込み中"
           }
         },
         "ko": {
@@ -44904,6 +47586,12 @@
             "value": "Caricamento account…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントを読み込み中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -45002,6 +47690,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Caricamento discografia..."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ディスコグラフィを読み込み中…"
           }
         },
         "ko": {
@@ -45104,6 +47798,12 @@
             "value": "Riduci a icona"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最小化"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -45202,6 +47902,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Altro"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "その他"
           }
         },
         "ko": {
@@ -45304,6 +48010,12 @@
             "value": "Sposta il video qui"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画をここへ移動"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -45402,6 +48114,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Notizie"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ニュース"
           }
         },
         "ko": {
@@ -45504,6 +48222,12 @@
             "value": "Nessuna estensione aggiunta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "追加された拡張機能はありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -45602,6 +48326,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessuna playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストなし"
           }
         },
         "ko": {
@@ -45704,6 +48434,12 @@
             "value": "Nessuno Short al momento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在ショートはありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -45802,6 +48538,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ancora nessun commento."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントはまだありません。"
           }
         },
         "ko": {
@@ -45904,6 +48646,12 @@
             "value": "Nessuna cronologia"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "履歴なし"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -46002,6 +48750,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessuna playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストなし"
           }
         },
         "ko": {
@@ -46104,6 +48858,12 @@
             "value": "Ancora nessun suggerimento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "おすすめはまだありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -46202,6 +48962,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun video dalle iscrizioni"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録動画がありません"
           }
         },
         "ko": {
@@ -46304,6 +49070,12 @@
             "value": "Ancora nessun brano caricato"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップロードした曲はまだありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -46402,6 +49174,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nessun video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画がありません"
           }
         },
         "ko": {
@@ -46504,6 +49282,12 @@
             "value": "Non in riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生されていません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -46602,6 +49386,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Qui non c'è nulla al momento"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在ここには何もありません"
           }
         },
         "ko": {
@@ -46704,6 +49494,12 @@
             "value": "Nulla da mostrare"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "表示するものはありません"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -46802,6 +49598,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sono supportate solo le estensioni compatibili con WebKit (con un **manifest.json** valido)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "WebKit 対応の拡張機能（有効な **manifest.json** を含む）のみがサポートされます。"
           }
         },
         "ko": {
@@ -46904,6 +49706,12 @@
             "value": "Apri la barra dei comandi (⌘K)"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コマンドバーを開く（⌘K）"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -47002,6 +49810,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Opzioni…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オプション…"
           }
         },
         "ko": {
@@ -47104,6 +49918,12 @@
             "value": "Picture in Picture"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ピクチャ・イン・ピクチャ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -47202,6 +50022,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riproduci video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画を再生"
           }
         },
         "ko": {
@@ -47304,6 +50130,12 @@
             "value": "Qualità audio di riproduzione"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生オーディオ品質"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -47402,6 +50234,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Posizione di riproduzione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生位置"
           }
         },
         "ko": {
@@ -47504,6 +50342,12 @@
             "value": "Le playlist che crei o salvi appaiono qui."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作成または保存したプレイリストがここに表示されます。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -47602,6 +50446,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riporta il video in Kaset"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画を Kaset に戻す"
           }
         },
         "ko": {
@@ -47704,6 +50554,12 @@
             "value": "Pubblica commento"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントを投稿"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -47802,6 +50658,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ripristina l'ultima modifica alla coda annullata."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "元に戻した最後のキューの変更をやり直します。"
           }
         },
         "ko": {
@@ -47904,6 +50766,12 @@
             "value": "Aggiorna stato AI"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "AI ステータスを更新"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -48002,6 +50870,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Correlati"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "関連"
           }
         },
         "ko": {
@@ -48104,6 +50978,12 @@
             "value": "Rimuovi duplicati"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重複を削除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -48202,6 +51082,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimuovi duplicati: elimina i brani ripetuti dalla coda e conserva la prima occorrenza di ciascuno."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重複を削除：キュー内の重複した曲を削除し、各曲の最初の曲だけを残します。"
           }
         },
         "ko": {
@@ -48304,6 +51190,12 @@
             "value": "Rimuovi Mi piace"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "高く評価を解除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -48402,6 +51294,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Rimuovi estensione"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡張機能を削除"
           }
         },
         "ko": {
@@ -48504,6 +51402,12 @@
             "value": "Rimuovi dalla playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストから削除"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -48602,6 +51506,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Riavvia ora"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今すぐ再起動"
           }
         },
         "ko": {
@@ -48704,6 +51614,12 @@
             "value": "Riprova a caricare le playlist"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストの読み込みを再試行"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -48802,6 +51718,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Torna a Kaset"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset に戻る"
           }
         },
         "ko": {
@@ -48904,6 +51826,12 @@
             "value": "Salva la coda attuale come nuova playlist privata."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在のキューを新しい非公開プレイリストとして保存します。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -49002,6 +51930,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Salva nella playlist"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイリストに保存"
           }
         },
         "ko": {
@@ -49104,6 +52038,12 @@
             "value": "Salvataggio della coda come playlist…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "キューをプレイリストとして保存中…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -49202,6 +52142,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scorre questo scaffale di una pagina"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このシェルフを 1 ページ分スクロールします"
           }
         },
         "ko": {
@@ -49304,6 +52250,12 @@
             "value": "Cerca su YouTube"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube を検索"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -49402,6 +52354,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Shorts"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ショート"
           }
         },
         "ko": {
@@ -49504,6 +52462,12 @@
             "value": "Qui appaiono gli Shorts del tuo feed."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィードのショートがここに表示されます。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -49602,6 +52566,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra grafica grande"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大きなアートワークを表示"
           }
         },
         "ko": {
@@ -49704,6 +52674,12 @@
             "value": "Mostra mini player standard"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通常のミニプレイヤーを表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -49802,6 +52778,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mostra dietro al player un leggero bagliore di colore ricavato dal video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画から抽出したやわらかな色の光をプレイヤーの背面に表示"
           }
         },
         "ko": {
@@ -49904,6 +52886,12 @@
             "value": "Mostra altri commenti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントをもっと表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -50002,6 +52990,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mescola la coda mantenendo il brano attuale come primo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "現在の曲を最初に維持したまま、キューをシャッフルします。"
           }
         },
         "ko": {
@@ -50104,6 +53098,12 @@
             "value": "Accedi"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サインイン"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -50202,6 +53202,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Accedi per la tua libreria"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリを見るにはサインイン"
           }
         },
         "ko": {
@@ -50304,6 +53310,12 @@
             "value": "Accedi per commentare"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "コメントするにはサインイン"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -50402,6 +53414,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Singoli ed EP"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "シングルとEP"
           }
         },
         "ko": {
@@ -50504,6 +53522,12 @@
             "value": "Soffice"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ソフト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -50602,6 +53626,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "I brani che riprodurrai dopo appariranno qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次に再生する曲がここに表示されます。"
           }
         },
         "ko": {
@@ -50704,6 +53734,12 @@
             "value": "Sport"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スポーツ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -50802,6 +53838,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スタイル"
           }
         },
         "ko": {
@@ -50904,6 +53946,12 @@
             "value": "Iscrizioni"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録チャンネル"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -51002,6 +54050,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Torna al tuo account"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アカウントに戻る"
           }
         },
         "ko": {
@@ -51104,6 +54158,12 @@
             "value": "Passa al mini player"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミニプレイヤーに切り替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -51202,6 +54262,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Passa a YouTube"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube に切り替え"
           }
         },
         "ko": {
@@ -51304,6 +54370,12 @@
             "value": "Passa a YouTube Music"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music に切り替え"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -51402,6 +54474,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "La barra dei comandi resta disponibile anche se Apple Intelligence è disattivato, con l'IA che migliora solo le interpretazioni e i riepiloghi più ricchi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Intelligence がオフでもコマンドバーは利用でき、AI はより詳しい解釈と要約のみを強化します。"
           }
         },
         "ko": {
@@ -51504,6 +54582,12 @@
             "value": "Questo elenco è vuoto."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このリストは空です。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -51602,6 +54686,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Questo video è in riproduzione nel player separato."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この動画はポップアウトプレイヤーで再生されています。"
           }
         },
         "ko": {
@@ -51704,6 +54794,12 @@
             "value": "Annulla l'ultima modifica alla coda."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最後のキューの変更を元に戻します。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -51802,6 +54898,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Carica brani su YouTube Music per sfogliarli qui."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここで閲覧するには、YouTube Music に曲をアップロードしてください。"
           }
         },
         "ko": {
@@ -51904,6 +55006,12 @@
             "value": "Caricamenti"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アップロード"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -52002,6 +55110,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Finestra video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画ウィンドウ"
           }
         },
         "ko": {
@@ -52104,6 +55218,12 @@
             "value": "Capitoli video"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画チャプター"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -52202,6 +55322,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Qualità video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画の画質"
           }
         },
         "ko": {
@@ -52304,6 +55430,12 @@
             "value": "Video"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -52402,6 +55534,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Qui appaiono i video dei canali a cui sei iscritto."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "登録しているチャンネルの動画がここに表示されます。"
           }
         },
         "ko": {
@@ -52504,6 +55642,12 @@
             "value": "Qui appaiono i video che guardi."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "視聴した動画がここに表示されます。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -52602,6 +55746,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Visualizza risposte"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "返信を表示"
           }
         },
         "ko": {
@@ -52704,6 +55854,12 @@
             "value": "Volume"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "音量"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -52802,6 +55958,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Guarda più tardi"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "後で見る"
           }
         },
         "ko": {
@@ -52904,6 +56066,12 @@
             "value": "Guarda alcuni video per creare il tuo feed."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィードを作成するには、動画をいくつか視聴してください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53004,6 +56172,12 @@
             "value": "Se disattivato, tornando indietro da un video in riproduzione questo si interrompe invece di aprire il player mobile. I pulsanti pop-out e vista completa continuano a funzionare."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オフの場合、再生中の動画から戻るとフローティングプレイヤーを開く代わりに動画が停止します。ポップアウトとフルビューのボタンは引き続き機能します。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53099,6 +56273,12 @@
           }
         },
         "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube"
+          }
+        },
+        "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "YouTube"
@@ -53204,6 +56384,12 @@
             "value": "Video di YouTube"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube 動画"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53302,6 +56488,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "\"Live\" modifica i colori durante la riproduzione del video; gli altri restano costanti"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「ライブ」は動画の再生に合わせて色が変化し、それ以外は一定のままです"
           }
         },
         "ko": {
@@ -53404,6 +56596,12 @@
             "value": "Scorri %1$@ a sinistra"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ を左にスクロール"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53502,6 +56700,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Scorri %1$@ a destra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ を右にスクロール"
           }
         },
         "ko": {
@@ -53604,6 +56808,12 @@
             "value": "Accedi per usare %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%1$@ を使用するにはサインインしてください"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53702,6 +56912,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Vai al capitolo: %@"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チャプターへ移動：%1$@"
           }
         },
         "ko": {
@@ -53804,6 +57020,12 @@
             "value": "Impossibile installare il processo di I/O audio (%d)."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオ I/O プロシージャをインストールできませんでした（%d）。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -53902,6 +57124,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Sfondo colori ambientale"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "アンビエントカラー背景"
           }
         },
         "ko": {
@@ -54004,6 +57232,12 @@
             "value": "Apri video in finestra separata uscendo dalla pagina"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移動時に動画をポップアウト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -54102,6 +57336,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Mantieni mini player in primo piano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミニプレイヤーを最前面に維持"
           }
         },
         "ko": {
@@ -54204,6 +57444,12 @@
             "value": "Usa interfaccia legacy di macOS 15"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "macOS 15 レガシー UI を使用"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -54302,6 +57548,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Profili"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロフィール"
           }
         },
         "ko": {
@@ -54404,6 +57656,12 @@
             "value": "Visualizza profilo"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プロフィールを表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -54502,6 +57760,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Audiolibro"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオブック"
           }
         },
         "ko": {
@@ -54604,6 +57868,12 @@
             "value": "Visualizza audiolibro"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "オーディオブックを表示"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -54702,6 +57972,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "曲"
           }
         },
         "ko": {
@@ -54804,6 +58080,12 @@
             "value": "Podcast"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ポッドキャスト"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -54902,6 +58184,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Episodio"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "エピソード"
           }
         },
         "ko": {
@@ -55004,6 +58292,12 @@
             "value": "Brani del mix"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ミックスのトラック"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -55102,6 +58396,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Brano"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "トラック"
           }
         },
         "ko": {
@@ -55211,6 +58511,12 @@
             "value": "Chiedi a Gemini"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini に質問"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -55316,6 +58622,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chiedi qualsiasi cosa su questo video…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この動画について何でも質問…"
           }
         },
         "ko": {
@@ -55425,6 +58737,12 @@
             "value": "Chiedi informazioni su questo video…"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この動画について質問…"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -55530,6 +58848,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Le risposte sono generate da YouTube e potrebbero essere inesatte."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回答は YouTube によって生成されるため、正確でない場合があります。"
           }
         },
         "ko": {
@@ -55638,6 +58962,12 @@
             "value": "Comprimi «Chiedi a Gemini»"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」を折りたたむ"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -55744,6 +59074,12 @@
             "value": "Espandi «Chiedi a Gemini»"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」を展開"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -55848,6 +59184,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nuova chat"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "新しいチャット"
           }
         },
         "ko": {
@@ -55957,6 +59299,12 @@
             "value": "Hai chiesto: %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "質問：%@"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -56064,6 +59412,12 @@
             "value": "Risposta di YouTube: %@"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube の回答：%@"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -56168,6 +59522,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Preparazione di Chiedi a Gemini…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」を準備中…"
           }
         },
         "ko": {
@@ -56277,6 +59637,12 @@
             "value": "Invia"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -56381,6 +59747,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Invio…"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "送信中…"
           }
         },
         "ko": {
@@ -56489,6 +59861,12 @@
             "value": "Accedi di nuovo per usare Chiedi a Gemini."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」を使用するには、再度サインインしてください。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -56593,6 +59971,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chiedi a Gemini è temporaneamente limitato. Riprova più tardi."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」は一時的に利用が制限されています。後でもう一度お試しください。"
           }
         },
         "ko": {
@@ -56701,6 +60085,12 @@
             "value": "Chiedi a Gemini non ha potuto preparare questa chat."
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」でこのチャットを準備できませんでした。"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -56805,6 +60195,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Avvia una nuova chat per continuare."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "続けるには新しいチャットを開始してください。"
           }
         },
         "ko": {
@@ -56913,6 +60309,12 @@
             "value": "Risposta di Chiedi a Gemini pronta"
           }
         },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」の回答の準備ができました"
+          }
+        },
         "ko": {
           "stringUnit": {
             "state": "translated",
@@ -57017,6 +60419,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "Nuova chat di Chiedi a Gemini pronta"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "「Gemini に質問」の新しいチャットの準備ができました"
           }
         },
         "ko": {

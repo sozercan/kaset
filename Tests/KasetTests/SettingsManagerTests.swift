@@ -174,7 +174,7 @@ struct SettingsManagerTests {
         // Chinese is identified by script rather than region, matching Apple's
         // localization identifiers, so these two are not ISO 639-1 codes.
         let expectedCodes = [
-            "ar", "de", "en", "es", "fr", "id", "it", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk",
+            "ar", "de", "en", "es", "fr", "id", "it", "ja", "ko", "nl", "pl", "pt", "ru", "sv", "tr", "uk",
             "zh-Hans", "zh-Hant",
         ]
         let languages = SettingsManager.ContentLanguage.allCases
