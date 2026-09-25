@@ -70,7 +70,7 @@ extension ParsingHelpers {
         return self.isStandaloneYear(text)
     }
 
-    private static func isStandaloneYear(_ text: String) -> Bool {
+    static func isStandaloneYear(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count == 4,
               trimmed.allSatisfy(\.isNumber),

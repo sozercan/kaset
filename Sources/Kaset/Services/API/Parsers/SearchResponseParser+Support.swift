@@ -21,14 +21,7 @@ extension SearchResponseParser {
     }
 
     static func isYear(_ text: String) -> Bool {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmed.count == 4,
-              trimmed.allSatisfy(\.isNumber),
-              let year = Int(trimmed)
-        else {
-            return false
-        }
-        return (1900 ... 2100).contains(year)
+        ParsingHelpers.isStandaloneYear(text)
     }
 
     private static let durationUnitSeconds: [String: TimeInterval] = {
