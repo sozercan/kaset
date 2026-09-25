@@ -343,7 +343,6 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "開啟命令列，用自然語言控制音樂。試試說「播放一些舒緩的音樂」或「把爵士加入待播清單」。";
 "Options…" = "選項…";
 "Output" = "輸出";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "此視窗不支援密碼金鑰登入，Google 會改為要求輸入密碼或使用其他登入方式。";
 "Pause" = "暫停";
 "Permission needed" = "需要權限";
 "Piano" = "鋼琴";

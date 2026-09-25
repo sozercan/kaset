@@ -339,7 +339,6 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "自然な言葉で音楽を操作するにはコマンドバーを開きます。「play something chill」や「add jazz to queue」のように話しかけてみてください。";
 "Options…" = "オプション…";
 "Output" = "出力";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "このウィンドウではパスキーによるサインインを利用できません。代わりに Google がパスワードまたは別のサインイン方法を求めます。";
 "Pause" = "一時停止";
 "Permission needed" = "権限が必要です";
 "Piano" = "ピアノ";

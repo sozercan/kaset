@@ -334,7 +334,6 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Откройте панель команд, чтобы управлять музыкой естественным языком. Попробуйте сказать \"play something chill\" или \"add jazz to queue\".";
 "Options…" = "Параметры…";
 "Output" = "Выход";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Вход с ключом доступа недоступен в этом окне. Вместо этого Google запросит пароль или другой способ входа.";
 "Pause" = "Пауза";
 "Permission needed" = "Требуется разрешение";
 "Piano" = "Piano";

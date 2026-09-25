@@ -67,10 +67,13 @@ site never offers a flow that cannot succeed.
    the youtube.com/music.youtube.com redirects that complete the flow, none
    of which need WebAuthn. Playback WebViews use different configurations
    and are unaffected.
-3. **Keep the login sheet note, updated to describe the actual behavior**
-   ("Passkey sign-in is not available in this window. Google will ask for
-   your password or another sign-in method instead.") so users are not
-   surprised when their passkey is not offered.
+3. **Do not mention passkeys in the login sheet.** An earlier revision kept a
+   note under the sheet title ("Passkey sign-in is not available in this
+   window…"). Users read it as a malfunction and filed it as a bug (issue
+   #496), even though nothing on their end could change the outcome. With
+   suppression in place, Google already presents its password and other
+   sign-in challenges on its own, so the sheet just shows Google's sign-in
+   page.
 
 ## Consequences
 
