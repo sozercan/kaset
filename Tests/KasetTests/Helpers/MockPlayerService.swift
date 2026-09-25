@@ -5,6 +5,7 @@ import Foundation
 final class MockPlayerService: PlayerServiceProtocol {
     var state: PlayerService.PlaybackState = .idle
     var currentTrack: Song?
+    var sourcePlaylistId: String?
     var progress: TimeInterval = 0
     var duration: TimeInterval = 0
     var volume: Double = 1

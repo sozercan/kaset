@@ -97,6 +97,7 @@ extension PlayerService {
         self.clearWebQueueInjectionState()
         self.clearPendingNativeQueueAdvance()
         self.logger.debug("play() called with videoId: \(videoId)")
+        self.sourcePlaylistId = nil
         let acceptsPlaybackRequest = SingletonPlayerWebView.shared.acceptsPlaybackRequest(
             videoId: videoId,
             strategy: .standard
@@ -173,6 +174,7 @@ extension PlayerService {
         self.playbackContextGeneration &+= 1
         self.invalidatePendingPlaybackSelectionRequests()
         let intent = self.beginMusicPlaybackIntent()
+        self.sourcePlaylistId = nil
         await self.play(
             song: song,
             webLoadStrategy: .standard,
@@ -192,6 +194,7 @@ extension PlayerService {
         isQueueNavigationRecovery: Bool = false
     ) async {
         let intent = self.beginMusicPlaybackIntent()
+        self.sourcePlaylistId = nil
         await self.play(
             song: song,
             webLoadStrategy: webLoadStrategy,

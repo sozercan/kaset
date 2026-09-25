@@ -20,6 +20,7 @@ enum PlaylistPlaybackActions {
         playerService: PlayerService
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
+        playerService.sourcePlaylistId = playlist.id
         return Task { @MainActor in
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
