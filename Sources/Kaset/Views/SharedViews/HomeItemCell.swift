@@ -24,6 +24,7 @@ final class HomeItemCell: NSView {
     static let cornerRadius: CGFloat = 8
     static let likeButtonSize: CGFloat = 22
     static let likeButtonInset: CGFloat = 6
+    static let playButtonSize: CGFloat = 48
 
     static func width(for item: HomeSectionItem) -> CGFloat {
         item.isVideoSong ? self.videoWidth : self.squareWidth
@@ -42,7 +43,7 @@ final class HomeItemCell: NSView {
 
     private(set) var item: HomeSectionItem?
     private var rank: Int?
-    private var playlistPlayAction: (() -> Void)?
+    private var quickPlayAction: (() -> Void)?
     private var environment = EnvironmentValues()
     private var allowsLikeActions = false
     private var isLiked = false
@@ -94,6 +95,37 @@ final class HomeItemCell: NSView {
             width: Self.likeButtonSize,
             height: Self.likeButtonSize
         )
+    }
+
+    /// Frame of the hovered play button, or nil when the card has none. Songs
+    /// show a decorative icon instead, since clicking anywhere on them plays.
+    var playButtonFrame: NSRect? {
+        guard self.isHovered, self.quickPlayAction != nil, let item else { return nil }
+        switch item {
+        case .playlist, .album: return self.playOverlayFrame(width: Self.width(for: item))
+        case .song, .artist: return nil
+        }
+    }
+
+    private func playOverlayFrame(width: CGFloat) -> NSRect {
+        NSRect(
+            x: (width - Self.playButtonSize) / 2,
+            y: (Self.artworkHeight - Self.playButtonSize) / 2,
+            width: Self.playButtonSize,
+            height: Self.playButtonSize
+        )
+    }
+
+    private var showsPlayOverlay: Bool {
+        guard let item, self.isHovered else { return false }
+        if case .song = item {
+            return true
+        }
+        return self.playButtonFrame != nil
+    }
+
+    func performPlayAction() {
+        self.quickPlayAction?()
     }
 
     private var supportsLikeAction: Bool {
@@ -215,13 +247,13 @@ final class HomeItemCell: NSView {
         item: HomeSectionItem,
         rank: Int?,
         allowsLikeActions: Bool,
-        playlistPlayAction: (() -> Void)?,
+        quickPlayAction: (() -> Void)?,
         environment: EnvironmentValues
     ) {
-        let hasSamePlayAction = (self.playlistPlayAction == nil) == (playlistPlayAction == nil)
+        let hasSamePlayAction = (self.quickPlayAction == nil) == (quickPlayAction == nil)
         let directionChanged = self.environment.layoutDirection != environment.layoutDirection
         self.environment = environment
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         if directionChanged {
             self.needsLayout = true
             self.needsDisplay = true
@@ -282,9 +314,9 @@ final class HomeItemCell: NSView {
 
     private func updateAccessibilityActions() {
         var actions: [NSAccessibilityCustomAction] = []
-        if let item, self.playlistPlayAction != nil {
+        if let item, self.quickPlayAction != nil {
             actions.append(NSAccessibilityCustomAction(name: String(localized: "Play \(item.title)")) { [weak self] in
-                self?.playlistPlayAction?()
+                self?.quickPlayAction?()
                 return true
             })
         }
@@ -471,18 +503,18 @@ final class HomeItemCell: NSView {
 
     /// The glass play icon is the one piece of SwiftUI on the card, hosted only
     /// while this card is hovered, so at most one such view exists per shelf.
+    /// It never takes clicks: the shelf routes presses on `playButtonFrame`.
     private func updatePlayOverlay() {
-        guard let item, case .song = item, self.isHovered else {
+        guard let item, self.showsPlayOverlay else {
             self.playOverlay?.removeFromSuperview()
             self.playOverlay = nil
             return
         }
         let root = AnyView(
-            SongCoverPlayOverlay(size: CGSize(width: 48, height: 48))
+            SongCoverPlayOverlay(size: CGSize(width: Self.playButtonSize, height: Self.playButtonSize))
                 .environment(\.self, self.environment)
         )
-        let width = Self.width(for: item)
-        let frame = NSRect(x: width / 2 - 24, y: Self.artworkHeight / 2 - 24, width: 48, height: 48)
+        let frame = self.playOverlayFrame(width: Self.width(for: item))
         if let playOverlay {
             playOverlay.rootView = root
             playOverlay.frame = frame

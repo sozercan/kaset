@@ -1581,7 +1581,7 @@ struct PlaylistDetailViewModelTests {
         await loadTask.value
 
         let reconciledVideoIDs = likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) ?? []
-        #expect(reconciledVideoIDs.filter { $0 == pendingSong.videoId }.count == 1)
+        #expect(reconciledVideoIDs.count(where: { $0 == pendingSong.videoId }) == 1)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal + 1)
 
         if let event = manager.lastLikeEvent {
@@ -1590,7 +1590,7 @@ struct PlaylistDetailViewModelTests {
             Issue.record("Expected an optimistic like event")
         }
 
-        #expect(likedMusicViewModel.playlistDetail?.tracks.filter { $0.videoId == pendingSong.videoId }.count == 1)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.count(where: { $0.videoId == pendingSong.videoId }) == 1)
         #expect(likedMusicViewModel.playlistDetail?.trackCount == reportedTotal + 1)
 
         await releaseRating.open()
@@ -1736,7 +1736,7 @@ struct PlaylistDetailViewModelTests {
         )
 
         let resolvedTracks = likedMusicViewModel.playlistDetail?.tracks.filter { $0.videoId == videoID } ?? []
-        #expect(self.mockClient.getSongVideoIds.filter { $0 == videoID }.count == 1)
+        #expect(self.mockClient.getSongVideoIds.count(where: { $0 == videoID }) == 1)
         #expect(resolvedTracks.count == 1)
         #expect(resolvedTracks.first?.title == resolvedSong.title)
         #expect(resolvedTracks.first?.artistsDisplay == resolvedSong.artistsDisplay)
@@ -1785,7 +1785,7 @@ struct PlaylistDetailViewModelTests {
         await likedMusicViewModel.loadAllRemaining()
 
         #expect(self.mockClient.getPlaylistContinuationCallCount == 2)
-        #expect(self.mockClient.getSongVideoIds.filter { $0 == videoID }.count == 1)
+        #expect(self.mockClient.getSongVideoIds.count(where: { $0 == videoID }) == 1)
 
         await releaseMetadata.open()
         await releaseRating.open()

@@ -61,7 +61,10 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             NSPredicate(format: "label CONTAINS %@", "Playlist 0")
         ).firstMatch
         if firstPlaylistButton.exists {
-            firstPlaylistButton.click()
+            // The card's play button overlays the thumbnail (the card's upper
+            // center), so a click there starts playback instead of navigating.
+            // Click low on the card, over the title, to open the playlist.
+            firstPlaylistButton.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9)).click()
         } else if firstPlaylistTitle.isHittable {
             firstPlaylistTitle.click()
         } else {
@@ -74,17 +77,15 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             }
         }
 
-        // The playlist title becomes the navigation title in both
-        // implementations.
-        let detailTitle = app.staticTexts["Playlist 0"].firstMatch
-        XCTAssertTrue(waitForElement(detailTitle, timeout: 10), "Playlist detail title should be visible")
-
-        // Both `SimplePlaylistDetailView` and `PlaylistDetailView` expose
-        // Play and Shuffle as labeled buttons.
+        // Proof we routed to a playlist detail: both SimplePlaylistDetailView
+        // and PlaylistDetailView expose Play and Shuffle as labeled buttons.
+        // We do NOT assert on the title text — on macOS 26 the title is only a
+        // navigationTitle (toolbar), which XCUI does not reliably surface as a
+        // content static text, whereas the macOS 15 fallback renders it inline.
         let playButton = app.buttons["Play"].firstMatch
         let shuffleButton = app.buttons["Shuffle"].firstMatch
         XCTAssertTrue(
-            waitForElement(playButton, timeout: 10) || waitForElement(shuffleButton, timeout: 2),
+            waitForElement(playButton, timeout: 10) || waitForElement(shuffleButton, timeout: 5),
             "Playlist detail should expose Play and/or Shuffle controls"
         )
     }

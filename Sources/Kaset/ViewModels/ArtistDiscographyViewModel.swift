@@ -11,7 +11,7 @@ final class ArtistDiscographyViewModel {
     private(set) var albums: [Album] = []
 
     let destination: ArtistSeeAllDestination
-    private let client: any YTMusicClientProtocol
+    let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
     init(destination: ArtistSeeAllDestination, client: any YTMusicClientProtocol) {
