@@ -488,6 +488,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 self.albumCard(album)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                HomeItemContextMenu(item: .album(album), client: self.viewModel.client)
+            }
         }
     }
 
@@ -503,6 +506,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 self.playlistCard(playlist)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                HomeItemContextMenu(item: .playlist(playlist), client: self.viewModel.client)
+            }
         }
     }
 
@@ -518,6 +524,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 self.artistCard(artist)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                HomeItemContextMenu(item: .artist(artist), client: self.viewModel.client)
+            }
         }
     }
 
@@ -770,6 +779,9 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 self.albumCard(album)
             }
             .buttonStyle(.plain)
+            .contextMenu {
+                HomeItemContextMenu(item: .album(album), client: self.viewModel.client)
+            }
         }
     }
 
