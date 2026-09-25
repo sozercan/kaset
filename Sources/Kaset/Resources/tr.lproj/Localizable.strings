@@ -334,7 +334,6 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Müziği doğal dille kontrol etmek için Komut Çubuğu'nu açın. \"play something chill\" veya \"add jazz to queue\" demeyi deneyin.";
 "Options…" = "Seçenekler…";
 "Output" = "Çıkış";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Bu pencerede geçiş anahtarıyla oturum açılamaz. Google bunun yerine parolanızı veya başka bir oturum açma yöntemini isteyecektir.";
 "Pause" = "Duraklat";
 "Permission needed" = "İzin gerekli";
 "Piano" = "Piyano";

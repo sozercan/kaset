@@ -334,7 +334,6 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "자연어로 음악을 제어하려면 명령 막대를 여세요. \"play something chill\" 또는 \"add jazz to queue\"라고 말해 보세요.";
 "Options…" = "옵션…";
 "Output" = "출력";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "이 창에서는 패스키 로그인을 사용할 수 없습니다. 대신 Google에서 비밀번호나 다른 로그인 방법을 요청합니다.";
 "Pause" = "일시중지";
 "Permission needed" = "권한 필요";
 "Piano" = "피아노";

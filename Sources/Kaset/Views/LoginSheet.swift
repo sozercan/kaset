@@ -193,24 +193,28 @@ struct LoginSheet: View {
     }
 
     private var headerView: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(String(localized: "Sign in to YouTube Music"))
-                    .font(.headline)
+        HStack {
+            Text(String(localized: "Sign in to YouTube Music"))
+                .font(.headline)
 
-                Spacer()
+            Spacer()
 
-                if self.isCheckingLogin {
-                    ProgressView()
-                        .controlSize(.small)
-                        .scaleEffect(0.8)
-                        .frame(width: 13, height: 13)
-                }
+            if self.isCheckingLogin {
+                ProgressView()
+                    .controlSize(.small)
+                    .scaleEffect(0.8)
+                    .frame(width: 13, height: 13)
             }
 
-            Text(String(localized: "Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead."))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            // Same path as Esc: onDisappear cancels the attempt and rolls back cookies.
+            Button {
+                self.dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(String(localized: "Close"))
         }
         .padding()
     }
