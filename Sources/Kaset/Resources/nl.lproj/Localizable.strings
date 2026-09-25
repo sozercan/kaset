@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Duplicaten verwijderen: verwijdert dubbele nummers uit de wachtrij en behoudt van elk nummer de eerste vermelding.";
 "Remove extension" = "Extensie verwijderen";
 "Remove from Favorites" = "Verwijder uit favorieten";
+"Remove from Library" = "Uit bibliotheek verwijderen";
 "Remove from Playlist" = "Uit afspeellijst verwijderen";
 "Remove from Queue" = "Verwijder uit wachtrij";
 "Remove from Sidebar" = "Verwijder uit zijbalk";

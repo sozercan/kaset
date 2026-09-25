@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "إزالة التكرارات: احذف الأغاني المكررة من قائمة الانتظار واحتفظ بأول ظهور لكل أغنية.";
 "Remove extension" = "إزالة الإضافة";
 "Remove from Favorites" = "إزالة من المفضلة";
+"Remove from Library" = "إزالة من المكتبة";
 "Remove from Playlist" = "إزالة من قائمة التشغيل";
 "Remove from Queue" = "إزالة من قائمة الانتظار";
 "Remove from Sidebar" = "إزالة من الشريط الجانبي";

@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Hapus Duplikat: hapus lagu berulang dari antrean dan pertahankan kemunculan pertama setiap lagu.";
 "Remove extension" = "Hapus ekstensi";
 "Remove from Favorites" = "Hapus dari Favorit";
+"Remove from Library" = "Hapus dari Pustaka";
 "Remove from Playlist" = "Hapus dari Playlist";
 "Remove from Queue" = "Hapus dari Antrean";
 "Remove from Sidebar" = "Hapus dari Bilah Samping";

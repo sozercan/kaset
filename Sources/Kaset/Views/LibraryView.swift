@@ -50,7 +50,6 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -364,7 +363,15 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
+            PlaylistContextMenu(
+                playlist: playlist,
+                client: self.viewModel.client,
+                navigate: { self.navigationPath.append($0) }
+            )
+
             if playlist.canDelete {
+                Divider()
+
                 Button(role: .destructive) {
                     SongActionsHelper.confirmDeletePlaylist(
                         playlist,
@@ -420,48 +427,11 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            Button {
-                self.navigationPath.append(self.playlist(from: album))
-            } label: {
-                Label("View Album", systemImage: "square.stack")
-            }
-
-            Divider()
-
-            Button {
-                SongActionsHelper.playAlbum(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Play", systemImage: "play.fill")
-            }
-
-            Button {
-                SongActionsHelper.addAlbumToQueueNext(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Play Next", systemImage: "text.insert")
-            }
-
-            Button {
-                SongActionsHelper.addAlbumToQueueLast(
-                    album,
-                    client: self.viewModel.client,
-                    playerService: self.playerService
-                )
-            } label: {
-                Label("Add to Queue", systemImage: "text.append")
-            }
-
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: album, manager: self.favoritesManager)
-            ShareContextMenu.menuItem(for: album)
+            AlbumContextMenu(
+                album: album,
+                client: self.viewModel.client,
+                navigate: { self.navigationPath.append($0) }
+            )
         }
     }
 
@@ -565,7 +535,7 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: show, manager: self.favoritesManager)
+            PodcastShowContextMenu(show: show, navigate: { self.navigationPath.append($0) })
         }
     }
 
@@ -605,8 +575,7 @@ struct LibraryView: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: artist, manager: self.favoritesManager)
-            ShareContextMenu.menuItem(for: artist)
+            ArtistContextMenu(artist: artist, navigate: { self.navigationPath.append($0) })
         }
     }
 }

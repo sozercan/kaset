@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Ta bort dubbletter: radera upprepade låtar från kön och behåll den första förekomsten av varje.";
 "Remove extension" = "Ta bort tillägg";
 "Remove from Favorites" = "Ta bort från favoriter";
+"Remove from Library" = "Ta bort från biblioteket";
 "Remove from Playlist" = "Ta bort från spellista";
 "Remove from Queue" = "Ta bort från kön";
 "Remove from Sidebar" = "Ta bort från sidofältet";

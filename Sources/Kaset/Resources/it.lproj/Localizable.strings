@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Rimuovi duplicati: elimina i brani ripetuti dalla coda e conserva la prima occorrenza di ciascuno.";
 "Remove extension" = "Rimuovi estensione";
 "Remove from Favorites" = "Rimuovi dai preferiti";
+"Remove from Library" = "Rimuovi dalla libreria";
 "Remove from Playlist" = "Rimuovi dalla playlist";
 "Remove from Queue" = "Rimuovi dalla coda";
 "Remove from Sidebar" = "Rimuovi dalla barra laterale";

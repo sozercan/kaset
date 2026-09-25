@@ -5,8 +5,6 @@ struct TopSongsView: View {
     @State var viewModel: TopSongsViewModel
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
         Group {
@@ -130,73 +128,12 @@ struct TopSongsView: View {
             .buttonStyle(.plain)
         }
         .contextMenu {
-            Button {
-                self.playSongInQueue(startingAt: index)
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                LikeDislikeContextMenu(song: song, likeStatusManager: self.likeStatusManager)
-            }
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                Button {
-                    SongActionsHelper.addToLibrary(song, playerService: self.playerService)
-                } label: {
-                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-                }
-            }
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: song)
-
-            Divider()
-
-            AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            Divider()
-
-            if self.authService.hasPersonalAccount {
-                AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
-            }
-
-            Divider()
-
-            // Go to Artist - show first artist with valid ID
-            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            // Go to Album - show if album has valid browse ID
-            if let album = song.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { self.playSongInQueue(startingAt: index) },
+                showsGoToArtist: false
+            )
         }
     }
 

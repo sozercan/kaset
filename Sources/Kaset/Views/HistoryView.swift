@@ -5,7 +5,6 @@ import SwiftUI
 struct HistoryView: View {
     @State var viewModel: HistoryViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
     @State private var isRefreshing = false
@@ -227,53 +226,11 @@ struct HistoryView: View {
             .buttonStyle(.plain)
         }
         .contextMenu {
-            Button {
-                Task { await self.playerService.play(song: song) }
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            Divider()
-
-            FavoritesContextMenu.menuItem(for: song, manager: self.favoritesManager)
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: song, playerService: self.playerService)
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: song)
-
-            Divider()
-
-            AddToQueueContextMenu(song: song, playerService: self.playerService)
-
-            Divider()
-
-            AddToPlaylistContextMenu(song: song, client: self.viewModel.client)
-
-            Divider()
-
-            if let artist = song.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            if let album = song.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? song.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+            SongContextMenu(
+                song: song,
+                client: self.viewModel.client,
+                play: { Task { await self.playerService.playQueue(allSongs, startingAt: index) } }
+            )
         }
     }
 }

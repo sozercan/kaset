@@ -28,6 +28,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 client: self.client
                             )
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
                         // Fallback - shouldn't happen
                         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
@@ -83,6 +84,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                         client: self.client
                     )
                 )
+                .environment(\.libraryViewModel, self.libraryViewModel)
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(
@@ -94,6 +96,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                     ),
                     playerBarNavigationAction: self.playerBarNavigationAction
                 )
+                .environment(\.libraryViewModel, self.libraryViewModel)
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
                 TopSongsView(viewModel: TopSongsViewModel(

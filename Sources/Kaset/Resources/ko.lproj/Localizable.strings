@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "중복 제거: 대기열에서 반복된 노래를 삭제하고 각 노래의 첫 번째 항목만 유지합니다.";
 "Remove extension" = "확장 프로그램 제거";
 "Remove from Favorites" = "즐겨찾기에서 삭제";
+"Remove from Library" = "보관함에서 제거";
 "Remove from Playlist" = "재생목록에서 제거";
 "Remove from Queue" = "대기열에서 삭제";
 "Remove from Sidebar" = "사이드바에서 제거";

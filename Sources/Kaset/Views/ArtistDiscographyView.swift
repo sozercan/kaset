@@ -47,6 +47,9 @@ struct ArtistDiscographyView: View {
                         self.albumCard(album)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        AlbumContextMenu(album: album, client: self.viewModel.client)
+                    }
                 }
             }
             .padding(24)

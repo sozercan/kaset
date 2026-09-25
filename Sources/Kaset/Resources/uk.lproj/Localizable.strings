@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Видалити дублікати: видаляє повторювані пісні з черги й залишає перше входження кожної.";
 "Remove extension" = "Видалити розширення";
 "Remove from Favorites" = "Вилучити з обраного";
+"Remove from Library" = "Видалити з бібліотеки";
 "Remove from Playlist" = "Видалити з плейлиста";
 "Remove from Queue" = "Вилучити з черги";
 "Remove from Sidebar" = "Прибрати з бічної панелі";

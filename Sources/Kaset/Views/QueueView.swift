@@ -6,7 +6,6 @@ import SwiftUI
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(\.showCommandBar) private var showCommandBar
 
     /// Namespace for glass effect morphing.
@@ -111,7 +110,6 @@ struct QueueView: View {
                         index: index,
                         isSuggested: entry.source == .suggested,
                         allowsLikeActions: self.authService.hasPersonalAccount,
-                        favoritesManager: self.favoritesManager,
                         playerService: self.playerService,
                         onRemove: {
                             self.playerService.removeFromQueue(entryIDs: [entry.id])
@@ -144,7 +142,6 @@ private struct QueueRowView: View {
     let index: Int
     let isSuggested: Bool
     let allowsLikeActions: Bool
-    let favoritesManager: FavoritesManager
     let playerService: PlayerService
     let onRemove: () -> Void
     let onTap: () -> Void
@@ -201,17 +198,17 @@ private struct QueueRowView: View {
             self.isHovering = hovering
         }
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: self.song, manager: self.favoritesManager)
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: self.song)
+            SongContextMenu(
+                song: self.song,
+                client: self.playerService.ytMusicClient,
+                play: self.isCurrentTrack ? nil : self.onTap,
+                showsGoToArtist: false,
+                showsGoToAlbum: false
+            )
 
             if !self.isCurrentTrack {
+                Divider()
+
                 Button(role: .destructive) {
                     self.onRemove()
                 } label: {

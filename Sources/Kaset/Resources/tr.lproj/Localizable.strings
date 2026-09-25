@@ -389,6 +389,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Yinelenenleri kaldır: kuyruktaki tekrar eden şarkıları siler ve her birinin ilk örneğini korur.";
 "Remove extension" = "Uzantıyı kaldır";
 "Remove from Favorites" = "Favorilerden Kaldır";
+"Remove from Library" = "Kitaplıktan Kaldır";
 "Remove from Playlist" = "Çalma listesinden kaldır";
 "Remove from Queue" = "Sıradan Kaldır";
 "Remove from Sidebar" = "Kenar Çubuğundan Kaldır";
