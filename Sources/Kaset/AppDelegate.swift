@@ -45,6 +45,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var isTerminating = false
     private var isPreparingTermination = false
 
+    func applicationWillFinishLaunching(_: Notification) {
+        SettingsManager.shared.applyAppearance()
+    }
+
     func applicationDidFinishLaunching(_: Notification) {
         DiagnosticsLogger.app.info("AppDelegate: applicationDidFinishLaunching")
         // Set up notification center delegate to show notifications in foreground

@@ -43,6 +43,17 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Account"))
             }
 
+            Section {
+                Picker(String(localized: "Appearance"), selection: self.$settings.appearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.displayName).tag(appearance)
+                    }
+                }
+                .pickerStyle(.menu)
+            } header: {
+                Text(String(localized: "Appearance"))
+            }
+
             // MARK: - Behavior Section
 
             Section {

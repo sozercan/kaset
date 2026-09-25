@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -11,6 +12,7 @@ final class SettingsManager {
     // MARK: - Settings Keys
 
     enum Keys {
+        static let appearance = "settings.appearance"
         static let appSource = "settings.appSource"
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
@@ -240,6 +242,18 @@ final class SettingsManager {
             case .high: "High"
             }
         }
+    }
+
+    /// App-wide override. A nil AppKit appearance keeps tracking the system.
+    var appearance: AppAppearance {
+        didSet {
+            UserDefaults.standard.set(self.appearance.rawValue, forKey: Keys.appearance)
+            self.applyAppearance()
+        }
+    }
+
+    func applyAppearance() {
+        NSApplication.shared.appearance = self.appearance.nsAppearance
     }
 
     // MARK: - Settings Properties
@@ -498,6 +512,7 @@ final class SettingsManager {
     }
 
     private init() {
+        self.appearance = AppAppearance.load(from: UserDefaults.standard)
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
