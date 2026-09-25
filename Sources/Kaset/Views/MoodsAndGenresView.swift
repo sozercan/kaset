@@ -127,6 +127,9 @@ struct MoodsAndGenresView: View {
                 Text(section.title)
                     .font(.title2)
                     .fontWeight(.semibold)
+            },
+            contextMenu: { item, _ in
+                HomeItemContextMenu(item: item, client: self.viewModel.client)
             }
         )
     }
