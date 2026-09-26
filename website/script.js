@@ -32,15 +32,19 @@
     });
   }
 
-  // Copy buttons
+  // Copy buttons. The status region announces the result, since each
+  // button's aria-label hides its visible "Copied" text from screen readers.
+  var copyStatus = document.getElementById("copy-status");
   document.querySelectorAll(".copy").forEach(function (button) {
     button.addEventListener("click", function () {
       if (!navigator.clipboard) return;
       navigator.clipboard.writeText(button.dataset.copy).then(function () {
         var original = button.textContent;
         button.textContent = "Copied";
+        if (copyStatus) copyStatus.textContent = "Copied to clipboard";
         setTimeout(function () {
           button.textContent = original;
+          if (copyStatus) copyStatus.textContent = "";
         }, 1600);
       });
     });
