@@ -172,11 +172,14 @@ struct YouTubeWatchView: View {
     /// bottom bar (Settings → YouTube → Show Controls on Video). Only while the
     /// strip they occupy is on screen: scrolled down to the comments, or with a
     /// tall video's bottom edge below the fold, the bottom bar takes them back
-    /// so exactly one bar is reachable at a time.
+    /// so exactly one bar is reachable at a time. Ask Gemini disables and
+    /// covers the page, so the bottom bar (outside both) takes over while it's
+    /// open.
     private var showsControlsOnVideo: Bool {
         self.settings.showYouTubeControlsOnVideo
             && self.presentsLiveSurface
             && self.isVideoControlsRegionOnScreen
+            && !self.viewModel.ask.isExpanded
     }
 
     /// Height of the bottom bar inset while it is shown.

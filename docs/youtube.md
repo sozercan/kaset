@@ -178,8 +178,9 @@ On the watch page, exactly one bar is shown at a time. The controls move
 onto the video only while the strip at its bottom edge, where they sit,
 is fully inside the scroll view. The bottom bar takes them back when the
 user scrolls past the video (comments, related), when a tall video in a
-wide window leaves its bottom edge below the fold, or when the video
-moves to the pop-out window, which keeps its own hover chrome.
+wide window leaves its bottom edge below the fold, while Ask Gemini is
+open (it disables and covers the page), or when the video moves to the
+pop-out window, which keeps its own hover chrome.
 
 Pages without a watch video of their own (Home, Search, Explore,
 Subscriptions, the library sections, channels, playlists) drop the bottom
