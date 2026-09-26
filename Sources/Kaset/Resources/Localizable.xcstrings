@@ -57515,109 +57515,109 @@
         }
       }
     },
-    "Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player.": {
+    "Controls appear when you move the pointer over the video and fade out while it plays.": {
       "comment": "Settings → YouTube footer explaining how the on-video controls behave",
       "localizations": {
         "ar": {
           "stringUnit": {
             "state": "translated",
-            "value": "تظهر عناصر التحكم عند تحريك المؤشر فوق الفيديو وتختفي تدريجيًا أثناء تشغيله. يعود الشريط السفلي عند التمرير بعد الفيديو أو عند تشغيله في المشغّل المنبثق."
+            "value": "تظهر عناصر التحكم عند تحريك المؤشر فوق الفيديو وتختفي تدريجيًا أثناء تشغيله."
           }
         },
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Die Steuerelemente erscheinen, wenn du den Zeiger über das Video bewegst, und werden während der Wiedergabe ausgeblendet. Die untere Leiste kehrt zurück, wenn du am Video vorbeiscrollst oder es im ausgelagerten Player läuft."
+            "value": "Die Steuerelemente erscheinen, wenn du den Zeiger über das Video bewegst, und werden während der Wiedergabe ausgeblendet."
           }
         },
         "es": {
           "stringUnit": {
             "state": "translated",
-            "value": "Los controles aparecen al mover el puntero sobre el video y se desvanecen durante la reproducción. La barra inferior vuelve cuando te desplazas más allá del video o cuando se reproduce en el reproductor emergente."
+            "value": "Los controles aparecen al mover el puntero sobre el video y se desvanecen durante la reproducción."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les commandes apparaissent lorsque vous déplacez le pointeur sur la vidéo et s'estompent pendant la lecture. La barre inférieure réapparaît lorsque vous faites défiler au-delà de la vidéo ou qu'elle est lue dans le lecteur détaché."
+            "value": "Les commandes apparaissent lorsque vous déplacez le pointeur sur la vidéo et s'estompent pendant la lecture."
           }
         },
         "id": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kontrol muncul saat Anda menggerakkan penunjuk di atas video dan memudar saat video diputar. Bilah bawah kembali muncul saat Anda menggulir melewati video atau saat video diputar di pemutar pop-out."
+            "value": "Kontrol muncul saat Anda menggerakkan penunjuk di atas video dan memudar saat video diputar."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "I controlli compaiono quando muovi il puntatore sul video e si dissolvono durante la riproduzione. La barra in basso ricompare quando scorri oltre il video o quando viene riprodotto nel player separato."
+            "value": "I controlli compaiono quando muovi il puntatore sul video e si dissolvono durante la riproduzione."
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "動画の上でポインタを動かすとコントロールが表示され、再生中はフェードアウトします。動画より下にスクロールしたときや、ポップアウトプレイヤーで再生しているときは、下部のバーが再び表示されます。"
+            "value": "動画の上でポインタを動かすとコントロールが表示され、再生中はフェードアウトします。"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다. 비디오 아래로 스크롤하거나 분리된 플레이어에서 재생하면 하단 막대가 다시 나타납니다."
+            "value": "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다."
           }
         },
         "nl": {
           "stringUnit": {
             "state": "translated",
-            "value": "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen. De onderste balk keert terug wanneer je voorbij de video scrolt of wanneer deze in de losstaande speler wordt afgespeeld."
+            "value": "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen."
           }
         },
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "Elementy sterowania pojawiają się po poruszeniu wskaźnikiem nad filmem i znikają podczas odtwarzania. Dolny pasek wraca, gdy przewiniesz poniżej filmu lub gdy film jest odtwarzany w odłączonym odtwarzaczu."
+            "value": "Elementy sterowania pojawiają się po poruszeniu wskaźnikiem nad filmem i znikają podczas odtwarzania."
           }
         },
         "pt": {
           "stringUnit": {
             "state": "translated",
-            "value": "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução. A barra inferior volta quando se desloca para lá do vídeo ou quando este é reproduzido no leitor destacado."
+            "value": "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução."
           }
         },
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Элементы управления появляются при движении указателя над видео и скрываются во время воспроизведения. Нижняя панель возвращается, если прокрутить страницу ниже видео или если оно воспроизводится во всплывающем проигрывателе."
+            "value": "Элементы управления появляются при движении указателя над видео и скрываются во время воспроизведения."
           }
         },
         "sv": {
           "stringUnit": {
             "state": "translated",
-            "value": "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp. Det nedre fältet kommer tillbaka när du rullar förbi videon eller när den spelas upp i den fristående spelaren."
+            "value": "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp."
           }
         },
         "tr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kontroller, işaretçiyi videonun üzerinde hareket ettirdiğinizde görünür ve video oynatılırken kaybolur. Videonun ötesine kaydırdığınızda veya video açılır oynatıcıda oynatıldığında alt çubuk geri gelir."
+            "value": "Kontroller, işaretçiyi videonun üzerinde hareket ettirdiğinizde görünür ve video oynatılırken kaybolur."
           }
         },
         "uk": {
           "stringUnit": {
             "state": "translated",
-            "value": "Елементи керування з’являються, коли ви рухаєте вказівник над відео, і зникають під час відтворення. Нижня панель повертається, якщо прокрутити нижче відео або коли воно відтворюється у відокремленому програвачі."
+            "value": "Елементи керування з’являються, коли ви рухаєте вказівник над відео, і зникають під час відтворення."
           }
         },
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "将指针移到视频上时会显示控制，播放时会自动淡出。滚动到视频下方或视频在弹出播放器中播放时，底部栏会重新出现。"
+            "value": "将指针移到视频上时会显示控制，播放时会自动淡出。"
           }
         },
         "zh-Hant": {
           "stringUnit": {
             "state": "translated",
-            "value": "將指標移到影片上時會顯示控制項目，播放時會自動淡出。捲動到影片下方或影片在彈出播放器中播放時，底部列會重新出現。"
+            "value": "將指標移到影片上時會顯示控制項目，播放時會自動淡出。"
           }
         }
       }

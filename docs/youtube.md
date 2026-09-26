@@ -183,8 +183,10 @@ moves to the pop-out window, which keeps its own hover chrome.
 
 Pages without a watch video of their own (Home, Search, Explore,
 Subscriptions, the library sections, channels, playlists) drop the bottom
-bar entirely (`youtubePagePlayerBarInset()`): a video started from them
-plays in the pop-out window, which carries its own controls. Shorts keeps
+bar entirely (`youtubePagePlayerBarInset()`) because they never host a
+docked video: opening a video pushes the watch page, and a video still
+playing when the user leaves it moves to the pop-out window, which carries
+its own controls. Shorts keeps
 the bar because its vertical pager has no controls of its own. Music is
 unaffected.
 

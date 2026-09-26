@@ -508,6 +508,10 @@ final class SettingsManager {
         defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
     }
 
+    static func loadShowYouTubeControlsOnVideo(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.showYouTubeControlsOnVideo) as? Bool ?? false
+    }
+
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
@@ -545,7 +549,7 @@ final class SettingsManager {
         )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
-        self.showYouTubeControlsOnVideo = UserDefaults.standard.object(forKey: Keys.showYouTubeControlsOnVideo) as? Bool ?? false
+        self.showYouTubeControlsOnVideo = Self.loadShowYouTubeControlsOnVideo(from: UserDefaults.standard)
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif

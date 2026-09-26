@@ -103,7 +103,7 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Continuar a ver";
 "Control playback with your keyboard" = "Controle a reprodução com o teclado";
-"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução. A barra inferior volta quando se desloca para lá do vídeo ou quando este é reproduzido no leitor destacado.";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução.";
 "Could not create AI session" = "Não foi possível criar a sessão de IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Não foi possível capturar o áudio do Kaset (estado %d). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Não foi possível configurar a unidade de áudio (%lld).";

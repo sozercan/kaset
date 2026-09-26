@@ -11,8 +11,8 @@ enum YouTubeInlineControlsVisibility {
     /// presses) before the controls fade out.
     static let idleDelay: Duration = .seconds(3)
 
-    /// Height of the strip at the bottom of the video the bar occupies (the
-    /// 52pt capsule plus its 8pt bottom padding).
+    /// Height the bar occupies, on the video or as the bottom inset (the 52pt
+    /// capsule plus its 8pt bottom padding).
     static let controlsRegionHeight: CGFloat = 60
 
     /// Like a regular video player: visible while paused, for `idleDelay`
@@ -40,13 +40,22 @@ enum YouTubeInlineControlsVisibility {
     /// visible with that strip below the fold, so the whole-video fraction is
     /// not enough to hand the controls over.
     ///
-    /// - Parameter visibleBounds: the scroll view's bounds in the video's local
-    ///   coordinates; `nil` outside a scroll view.
-    static func isControlsRegionVisible(videoSize: CGSize, visibleBounds: CGRect?) -> Bool {
+    /// - Parameters:
+    ///   - visibleBounds: the scroll view's bounds in the video's local
+    ///     coordinates; `nil` outside a scroll view.
+    ///   - bottomInset: height of the bottom bar while it is shown. Its
+    ///     `safeAreaInset` shrinks `visibleBounds`, so adding it back keeps the
+    ///     answer independent of which bar is showing; otherwise the bar could
+    ///     hide the strip it is waiting on and never hand the controls back.
+    static func isControlsRegionVisible(
+        videoSize: CGSize,
+        visibleBounds: CGRect?,
+        bottomInset: CGFloat = 0
+    ) -> Bool {
         guard let visibleBounds else { return true }
         // A point of slack absorbs fractional layout rounding at either edge.
         return visibleBounds.minY <= videoSize.height - self.controlsRegionHeight + 1
-            && visibleBounds.maxY >= videoSize.height - 1
+            && visibleBounds.maxY + bottomInset >= videoSize.height - 1
     }
 }
 
@@ -72,8 +81,9 @@ extension View {
 
     /// Attaches the bar to a YouTube page without a watch video of its own
     /// (feeds, search, channels, playlists). With Show Controls on Video on,
-    /// these pages drop it: a video started from them plays in the pop-out
-    /// window, which carries its own controls.
+    /// these pages drop it: they never host a docked video. Opening a video
+    /// pushes the watch page, and one still playing when you leave it moves
+    /// to the pop-out window, which carries its own controls.
     ///
     /// - Parameter keepsBar: Shorts keeps the bar regardless, since its
     ///   vertical pager has no controls of its own.

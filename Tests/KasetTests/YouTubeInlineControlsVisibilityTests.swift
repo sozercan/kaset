@@ -50,6 +50,17 @@ struct YouTubeInlineControlsVisibilityTests {
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: 840, width: 1600, height: 700)
         ))
+        // The bottom bar's inset shrinks the viewport by 60pt; adding it back
+        // gives the same answer as with the bar hidden, so it can't lock itself in.
+        #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
+            videoSize: video,
+            visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 880),
+            bottomInset: 60
+        ))
+        #expect(!YouTubeInlineControlsVisibility.isControlsRegionVisible(
+            videoSize: video,
+            visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 880)
+        ))
         // Outside a scroll view there is nothing to scroll away from.
         #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,

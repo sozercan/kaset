@@ -69,10 +69,11 @@ struct YouTubeWatchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 self.videoSurface
-                    .onGeometryChange(for: Bool.self) { proxy in
+                    .onGeometryChange(for: Bool.self) { [bottomInset = self.bottomPlayerBarHeight] proxy in
                         YouTubeInlineControlsVisibility.isControlsRegionVisible(
                             videoSize: proxy.size,
-                            visibleBounds: proxy.bounds(of: .scrollView)
+                            visibleBounds: proxy.bounds(of: .scrollView),
+                            bottomInset: bottomInset
                         )
                     } action: { isVisible in
                         self.isVideoControlsRegionOnScreen = isVisible
@@ -176,6 +177,11 @@ struct YouTubeWatchView: View {
         self.settings.showYouTubeControlsOnVideo
             && self.presentsLiveSurface
             && self.isVideoControlsRegionOnScreen
+    }
+
+    /// Height of the bottom bar inset while it is shown.
+    private var bottomPlayerBarHeight: CGFloat {
+        self.showsControlsOnVideo ? 0 : YouTubeInlineControlsVisibility.controlsRegionHeight
     }
 
     /// Whether this view's video is currently playing in the floating window.

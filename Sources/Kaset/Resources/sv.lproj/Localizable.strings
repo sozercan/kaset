@@ -103,7 +103,7 @@
 "Continue" = "Fortsätt";
 "Continue Watching" = "Fortsätt titta";
 "Control playback with your keyboard" = "Styr uppspelningen med tangentbordet";
-"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp. Det nedre fältet kommer tillbaka när du rullar förbi videon eller när den spelas upp i den fristående spelaren.";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp.";
 "Could not create AI session" = "Kunde inte skapa AI-session";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
 "Couldn't configure the audio unit (%lld)." = "Kunde inte konfigurera ljudenheten (%lld).";

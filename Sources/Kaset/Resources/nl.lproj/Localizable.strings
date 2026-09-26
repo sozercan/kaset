@@ -103,7 +103,7 @@
 "Continue" = "Ga door";
 "Continue Watching" = "Verder kijken";
 "Control playback with your keyboard" = "Bedien het afspelen met je toetsenbord";
-"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen. De onderste balk keert terug wanneer je voorbij de video scrolt of wanneer deze in de losstaande speler wordt afgespeeld.";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen.";
 "Could not create AI session" = "Kon geen AI-sessie maken";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kon het audio van Kaset niet vastleggen (status %d). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen.";
 "Couldn't configure the audio unit (%lld)." = "Kon de audio-eenheid niet configureren (%lld).";

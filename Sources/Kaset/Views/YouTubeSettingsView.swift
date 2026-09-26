@@ -34,7 +34,7 @@ struct YouTubeSettingsView: View {
             } header: {
                 Text(String(localized: "Player Controls"))
             } footer: {
-                Text(String(localized: "Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player."))
+                Text(String(localized: "Controls appear when you move the pointer over the video and fade out while it plays."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

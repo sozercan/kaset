@@ -93,10 +93,26 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
     }
 
-    @Test("Default showYouTubeControlsOnVideo is false")
-    func defaultShowYouTubeControlsOnVideo() {
-        let manager = SettingsManager.shared
-        #expect(manager.showYouTubeControlsOnVideo == false)
+    @Test("Missing showYouTubeControlsOnVideo value loads as false")
+    func missingShowYouTubeControlsOnVideoLoadsAsFalse() throws {
+        let suiteName = "SettingsManagerTests.showYouTubeControlsOnVideo.missing.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.removePersistentDomain(forName: suiteName)
+
+        #expect(SettingsManager.loadShowYouTubeControlsOnVideo(from: defaults) == false)
+    }
+
+    @Test("Stored true showYouTubeControlsOnVideo value loads as true")
+    func storedTrueShowYouTubeControlsOnVideoLoadsAsTrue() throws {
+        let suiteName = "SettingsManagerTests.showYouTubeControlsOnVideo.true.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        defaults.set(true, forKey: SettingsManager.Keys.showYouTubeControlsOnVideo)
+
+        #expect(SettingsManager.loadShowYouTubeControlsOnVideo(from: defaults) == true)
     }
 
     @Test("showYouTubeControlsOnVideo persists to UserDefaults")
