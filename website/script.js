@@ -2,14 +2,14 @@
   "use strict";
 
   var root = document.documentElement;
-  var tabs = document.querySelectorAll(".seg");
+  var segments = document.querySelectorAll(".seg");
   var shots = { a: document.getElementById("shot-a"), b: document.getElementById("shot-b") };
   var cassette = document.getElementById("cassette");
 
   function setSide(side) {
     root.setAttribute("data-side", side);
-    tabs.forEach(function (tab) {
-      tab.setAttribute("aria-selected", tab.dataset.side === side ? "true" : "false");
+    segments.forEach(function (segment) {
+      segment.setAttribute("aria-pressed", segment.dataset.side === side ? "true" : "false");
     });
     Object.keys(shots).forEach(function (key) {
       if (shots[key]) shots[key].hidden = key !== side;
@@ -20,17 +20,9 @@
     return root.getAttribute("data-side") === "b" ? "b" : "a";
   }
 
-  tabs.forEach(function (tab) {
-    tab.addEventListener("click", function () {
-      setSide(tab.dataset.side);
-    });
-    tab.addEventListener("keydown", function (event) {
-      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
-        event.preventDefault();
-        var next = currentSide() === "a" ? "b" : "a";
-        setSide(next);
-        document.getElementById("tab-" + next).focus();
-      }
+  segments.forEach(function (segment) {
+    segment.addEventListener("click", function () {
+      setSide(segment.dataset.side);
     });
   });
 
