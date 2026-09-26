@@ -7,17 +7,18 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
+    /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
-    private static let floatOnTopOptionsWidthIncrement: CGFloat = 28 + 6
+    /// One 28pt option button plus its 6pt spacing.
+    private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
     /// Below this the details block would collide with the transport controls.
     /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
 
-    /// Keeps the elapsed time and progress track off the capsule's rounded left
-    /// end once the details block is gone; matches the options section's
-    /// visual inset on the right.
-    private static let hiddenDetailsLeadingInset: CGFloat = 18
+    /// Keeps the progress lane off the capsule's rounded left end once the
+    /// details block is gone, matching the options' visual inset on the right.
+    private static let hiddenDetailsLeadingInset: CGFloat = 16
 
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
@@ -801,7 +802,14 @@ extension YouTubePlayerBar {
 
     static func hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: Bool) -> CGFloat {
         self.baseHiddenVideoDetailsBreakpoint
-            + (showsFloatOnTopControl ? self.floatOnTopOptionsWidthIncrement : 0)
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+    }
+
+    /// Sized to the buttons shown, so no Watch Later leaves no dead gap.
+    static func optionsWidth(showsFloatOnTopControl: Bool, showsWatchLaterControl: Bool) -> CGFloat {
+        self.baseYouTubeOptionsWidth
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+            - (showsWatchLaterControl ? 0 : self.optionButtonSlotWidth)
     }
 }
 
@@ -853,8 +861,10 @@ private extension YouTubePlayerBar {
     }
 
     var youtubeOptionsWidth: CGFloat {
-        Self.baseYouTubeOptionsWidth
-            + (self.showsFloatOnTopControl ? Self.floatOnTopOptionsWidthIncrement : 0)
+        Self.optionsWidth(
+            showsFloatOnTopControl: self.showsFloatOnTopControl,
+            showsWatchLaterControl: self.hasPersonalAccount
+        )
     }
 
     var showsFloatOnTopControl: Bool {
