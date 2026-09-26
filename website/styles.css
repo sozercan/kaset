@@ -8,11 +8,11 @@
   --ink-2: #a1a1a6;
   --ink-3: #86868b;
 
-  /* Side A: YouTube Music */
-  --a1: #ff1f57;
+  /* Side A: YouTube Music (a1/b1 keep white button text at 4.5:1 or better) */
+  --a1: #e0144d;
   --a2: #a33cff;
   /* Side B: YouTube */
-  --b1: #ff0a2a;
+  --b1: #e60a2a;
   --b2: #ff8a1e;
 
   /* Live accent, follows the active side */
