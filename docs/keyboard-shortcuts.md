@@ -39,3 +39,8 @@ surfaces and `⌘3` goes to Playlists.
 With macOS Keyboard navigation enabled, `Tab` moves between shelf cards and each
 song's Like/Unlike control. `⇧Tab` moves in reverse. `Return` or `Space` activates
 the focused card or toggles the focused Like/Unlike control.
+
+With **Show Controls on Video** on (Settings → YouTube), any key press outside a
+text field reveals the watch page's on-video controls for a few seconds. With
+Keyboard navigation enabled, `Tab` keeps them up so focus can move into them,
+until the pointer moves over the video again.

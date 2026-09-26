@@ -103,6 +103,7 @@
 "Continue" = "Kontynuuj";
 "Continue Watching" = "Kontynuuj oglądanie";
 "Control playback with your keyboard" = "Steruj odtwarzaniem za pomocą klawiatury";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Elementy sterowania pojawiają się po poruszeniu wskaźnikiem nad filmem i znikają podczas odtwarzania. Dolny pasek wraca, gdy przewiniesz poniżej filmu lub gdy film jest odtwarzany w odłączonym odtwarzaczu.";
 "Could not create AI session" = "Nie udało się utworzyć sesji AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Nie udało się przechwycić dźwięku Kaset (stan %d). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych.";
 "Couldn't configure the audio unit (%lld)." = "Nie udało się skonfigurować jednostki audio (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Wymagane uprawnienie";
 "Piano" = "Piano";
 "Picture in Picture" = "Obraz w obrazie";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Umieść elementy sterowania odtwarzaniem na filmie zamiast na pasku u dołu okna";
 "Play" = "Odtwórz";
 "Play a song to view its lyrics here." = "Odtwórz utwór, aby zobaczyć tutaj jego tekst.";
 "Play All" = "Odtwórz wszystko";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Jakość dźwięku odtwarzania";
 "Playback position" = "Pozycja odtwarzania";
 "Played" = "Odtworzone";
+"Player Controls" = "Sterowanie odtwarzaczem";
 "Playing" = "Odtwarzane";
 "Playlist" = "Playlista";
 "Playlist not found" = "Nie znaleziono playlisty";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Pokaż powiadomienie, gdy zacznie się odtwarzać nowy utwór";
 "Show a soft color glow, drawn from the video, behind the player" = "Pokaż za odtwarzaczem delikatną poświatę kolorów pobraną z filmu";
 "Show All" = "Pokaż wszystko";
+"Show Controls on Video" = "Pokaż sterowanie na filmie";
 "Show Large Artwork" = "Pokaż dużą okładkę";
 "Show Lyrics" = "Pokaż tekst";
 "Show more comments" = "Pokaż więcej komentarzy";

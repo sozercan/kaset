@@ -103,6 +103,7 @@
 "Continue" = "Devam Et";
 "Continue Watching" = "İzlemeye devam et";
 "Control playback with your keyboard" = "Oynatmayı klavyenizle denetleyin";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Kontroller, işaretçiyi videonun üzerinde hareket ettirdiğinizde görünür ve video oynatılırken kaybolur. Videonun ötesine kaydırdığınızda veya video açılır oynatıcıda oynatıldığında alt çubuk geri gelir.";
 "Could not create AI session" = "Yapay zeka oturumu oluşturulamadı";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset'in sesi yakalanamadı (durum %d). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin.";
 "Couldn't configure the audio unit (%lld)." = "Ses birimi yapılandırılamadı (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "İzin gerekli";
 "Piano" = "Piyano";
 "Picture in Picture" = "Resim İçinde Resim";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Oynatma kontrollerini pencerenin altındaki çubuk yerine videonun üzerine yerleştir";
 "Play" = "Çal";
 "Play a song to view its lyrics here." = "Şarkı sözlerini burada görmek için bir şarkı çalın.";
 "Play All" = "Tümünü Çal";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Oynatma Ses Kalitesi";
 "Playback position" = "Oynatma konumu";
 "Played" = "Oynatıldı";
+"Player Controls" = "Oynatıcı Kontrolleri";
 "Playing" = "Çalıyor";
 "Playlist" = "Çalma Listesi";
 "Playlist not found" = "Çalma listesi bulunamadı";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Yeni bir parça çalmaya başladığında bildirim göster";
 "Show a soft color glow, drawn from the video, behind the player" = "Oynatıcının arkasında videodan alınan yumuşak bir renk parıltısı göster";
 "Show All" = "Tümünü Göster";
+"Show Controls on Video" = "Kontrolleri Videonun Üzerinde Göster";
 "Show Large Artwork" = "Büyük kapak görselini göster";
 "Show Lyrics" = "Şarkı Sözlerini Göster";
 "Show more comments" = "Daha fazla yorum göster";

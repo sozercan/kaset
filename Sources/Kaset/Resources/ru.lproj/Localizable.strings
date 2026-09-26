@@ -103,6 +103,7 @@
 "Continue" = "Продолжить";
 "Continue Watching" = "Продолжить просмотр";
 "Control playback with your keyboard" = "Управляйте воспроизведением с помощью клавиатуры";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Элементы управления появляются при движении указателя над видео и скрываются во время воспроизведения. Нижняя панель возвращается, если прокрутить страницу ниже видео или если оно воспроизводится во всплывающем проигрывателе.";
 "Could not create AI session" = "Не удалось создать сеанс AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Не удалось захватить звук Kaset (статус %d). Проверьте разрешение на запись экрана и системного звука в Системных настройках.";
 "Couldn't configure the audio unit (%lld)." = "Не удалось настроить аудиомодуль (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Требуется разрешение";
 "Piano" = "Piano";
 "Picture in Picture" = "Картинка в картинке";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Размещать элементы управления воспроизведением на видео, а не на панели внизу окна";
 "Play" = "Воспроизвести";
 "Play a song to view its lyrics here." = "Воспроизведите трек, чтобы увидеть здесь его текст.";
 "Play All" = "Воспроизвести все";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Качество звука при воспроизведении";
 "Playback position" = "Позиция воспроизведения";
 "Played" = "Воспроизведено";
+"Player Controls" = "Элементы управления проигрывателем";
 "Playing" = "Воспроизводится";
 "Playlist" = "Плейлист";
 "Playlist not found" = "Плейлист не найден";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Показывать уведомление, когда начинает играть новый трек";
 "Show a soft color glow, drawn from the video, behind the player" = "Показывать за проигрывателем мягкое цветное свечение из видео";
 "Show All" = "Показать все";
+"Show Controls on Video" = "Показывать элементы управления на видео";
 "Show Large Artwork" = "Показывать крупную обложку";
 "Show Lyrics" = "Показать текст";
 "Show more comments" = "Показать больше комментариев";

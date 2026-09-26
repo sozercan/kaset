@@ -110,6 +110,7 @@
 "Continue" = "继续";
 "Continue Watching" = "继续观看";
 "Control playback with your keyboard" = "使用键盘控制播放";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "将指针移到视频上时会显示控制，播放时会自动淡出。滚动到视频下方或视频在弹出播放器中播放时，底部栏会重新出现。";
 "Could not create AI session" = "无法创建 AI 会话";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "无法捕获 Kaset 的音频（状态 %d）。请在系统设置中检查“屏幕与系统音频录制”权限。";
 "Couldn't configure the audio unit (%lld)." = "无法配置音频单元（%lld）。";
@@ -347,6 +348,7 @@
 "Permission needed" = "需要权限";
 "Piano" = "钢琴";
 "Picture in Picture" = "画中画";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "将播放控制放在视频上，而不是窗口底部的栏中";
 "Play" = "播放";
 "Play All" = "播放全部";
 "Play Latest" = "播放最新一集";
@@ -358,6 +360,7 @@
 "Playback Audio Quality" = "播放音频质量";
 "Playback position" = "播放位置";
 "Played" = "已播放";
+"Player Controls" = "播放器控制";
 "Playing" = "正在播放";
 "Playlist" = "播放列表";
 "Playlist not found" = "未找到该播放列表";
@@ -439,6 +442,7 @@
 "Shorts" = "Shorts";
 "Shorts from your feed appear here." = "你的动态中的 Shorts 会显示在这里。";
 "Show All" = "显示全部";
+"Show Controls on Video" = "在视频上显示控制";
 "Show Large Artwork" = "显示大尺寸封面";
 "Show Lyrics" = "显示歌词";
 "Show Now Playing Notifications" = "显示正在播放通知";

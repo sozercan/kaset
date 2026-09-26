@@ -107,6 +107,7 @@
 "Continue" = "続ける";
 "Continue Watching" = "続きから視聴";
 "Control playback with your keyboard" = "キーボードで再生を操作";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "動画の上でポインタを動かすとコントロールが表示され、再生中はフェードアウトします。動画より下にスクロールしたときや、ポップアウトプレイヤーで再生しているときは、下部のバーが再び表示されます。";
 "Could not create AI session" = "AI セッションを作成できませんでした";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset のオーディオをキャプチャできませんでした（ステータス %d）。システム設定の「画面とシステムオーディオの録音」権限を確認してください。";
 "Couldn't configure the audio unit (%lld)." = "オーディオユニットを構成できませんでした（%lld）。";
@@ -343,6 +344,7 @@
 "Permission needed" = "権限が必要です";
 "Piano" = "ピアノ";
 "Picture in Picture" = "ピクチャ・イン・ピクチャ";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "再生コントロールをウィンドウ下部のバーではなく動画上に配置";
 "Play" = "再生";
 "Play All" = "すべて再生";
 "Play Latest" = "最新を再生";
@@ -354,6 +356,7 @@
 "Playback Audio Quality" = "再生オーディオ品質";
 "Playback position" = "再生位置";
 "Played" = "再生済み";
+"Player Controls" = "プレイヤーのコントロール";
 "Playing" = "再生中";
 "Playlist" = "プレイリスト";
 "Playlist not found" = "プレイリストが見つかりません";
@@ -435,6 +438,7 @@
 "Shorts" = "ショート";
 "Shorts from your feed appear here." = "フィードのショートがここに表示されます。";
 "Show All" = "すべて表示";
+"Show Controls on Video" = "動画上にコントロールを表示";
 "Show Large Artwork" = "大きなアートワークを表示";
 "Show Lyrics" = "歌詞を表示";
 "Show Now Playing Notifications" = "再生中の通知を表示";

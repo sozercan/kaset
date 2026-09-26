@@ -869,22 +869,6 @@ private extension YouTubePlayerBar {
     }
 }
 
-// MARK: - Per-View Inset
-
-extension View {
-    /// Attaches the YouTube player bar to the bottom of a navigable view.
-    ///
-    /// Applied to EVERY YouTube view (roots and pushed destinations) —
-    /// views pushed onto a `NavigationStack` do not inherit a parent's
-    /// `safeAreaInset`, the same rule the music side follows with
-    /// `PlayerBar` (see docs/architecture.md).
-    func youtubePlayerBarInset() -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) {
-            YouTubePlayerBar(isDetachedWindow: false)
-        }
-    }
-}
-
 // MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
