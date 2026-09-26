@@ -443,6 +443,20 @@ struct WebKitCookieRestoreTests {
         ) == .unavailable)
     }
 
+    @Test("Debug file storage keeps its invalidation tombstone separate from Keychain storage")
+    func debugFileStorageUsesSeparateInvalidationTombstone() {
+        let keychainKey = CookieArchiveRestorePolicy.invalidationTombstoneKey(
+            usesDebugFileStorage: false
+        )
+        let debugFileKey = CookieArchiveRestorePolicy.invalidationTombstoneKey(
+            usesDebugFileStorage: true
+        )
+
+        // Shipped builds already persist this key; renaming it would drop existing sign-outs.
+        #expect(keychainKey == "authCookieBackupInvalidated")
+        #expect(debugFileKey != keychainKey)
+    }
+
     @Test("Cookie restore policy storage rejects malformed representations")
     func cookieRestorePolicyStorageRejectsMalformedRepresentations() {
         #expect(CookieRestorePolicyStorage.decode(Data([0])) == .denied)
