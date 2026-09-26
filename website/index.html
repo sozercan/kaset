@@ -56,9 +56,23 @@
       A native macOS app for both. Free and open source.
     </p>
     <div class="cta-row">
-      <a class="button" href="https://github.com/sozercan/kaset/releases/latest" data-download>Download</a>
-      <a class="link" href="#install">Install with Homebrew<span aria-hidden="true"> ›</span></a>
+      <a class="button" href="https://github.com/sozercan/kaset/releases/latest" data-download>Download <span data-version-short></span></a>
+      <a class="link" href="https://github.com/sozercan/kaset/releases" rel="noopener">Release notes<span aria-hidden="true"> ›</span></a>
     </div>
+    <div class="cmds">
+      <div class="cmd glass">
+        <span class="cmd-label">Downloaded by hand? Clear quarantine first</span>
+        <code>xattr -cr /Applications/Kaset.app</code>
+        <button class="copy" type="button" data-copy="xattr -cr /Applications/Kaset.app" aria-label="Copy xattr command">Copy</button>
+      </div>
+      <div class="cmd glass">
+        <span class="cmd-label">Homebrew</span>
+        <code>brew install sozercan/repo/kaset</code>
+        <button class="copy" type="button" data-copy="brew install sozercan/repo/kaset" aria-label="Copy Homebrew command">Copy</button>
+      </div>
+    </div>
+    <p class="fine">Requires macOS 15.4 or later. Kaset isn't signed with an Apple Developer ID yet. Homebrew clears the quarantine flag for you.</p>
+    <p class="visually-hidden" role="status" id="copy-status"></p>
 
     <div class="stage">
       <div class="glow" aria-hidden="true"></div>
@@ -240,8 +254,8 @@
       </article>
       <article class="tile glass">
         <h3>Links land here.</h3>
-        <p>Hand a youtube.com or youtu.be link to Kaset, from Shortcuts or <code>open -a Kaset</code>, and it opens on Side B.</p>
-        <div class="demo chips" aria-hidden="true"><span>youtu.be/…</span><span>kaset://play?v=…</span></div>
+        <p>Hand a youtube.com or youtu.be link to Kaset, from Shortcuts or <code>open -a Kaset</code>, and it opens on Side&nbsp;B.</p>
+        <div class="demo chips" aria-hidden="true"><span>youtube.com/…</span><span>youtu.be/…</span></div>
       </article>
     </div>
   </section>
@@ -278,37 +292,11 @@
       <article class="tile glass">
         <h3>Scriptable.</h3>
         <p>AppleScript for Raycast, Alfred, and Shortcuts.</p>
-<pre class="demo"><code>tell application "Kaset"
+<pre class="demo"><code>tell app "Kaset"
   playpause
 end tell</code></pre>
       </article>
     </div>
-  </section>
-
-  <!-- ====================== INSTALL ====================== -->
-  <section id="install" class="install">
-    <div class="head">
-      <h2>Put it in your Dock.</h2>
-      <p class="subhead">Free, open source, MIT licensed. Requires macOS 15.4 or later. Sign in with Google for personalization, or browse as a guest.</p>
-    </div>
-    <div class="cta-row">
-      <a class="button" href="https://github.com/sozercan/kaset/releases/latest" data-download>Download <span data-version-short></span></a>
-      <a class="link" href="https://github.com/sozercan/kaset/releases" rel="noopener">Release notes<span aria-hidden="true"> ›</span></a>
-    </div>
-    <div class="cmds">
-      <div class="cmd glass">
-        <span class="cmd-label">Homebrew</span>
-        <code>brew install sozercan/repo/kaset</code>
-        <button class="copy" type="button" data-copy="brew install sozercan/repo/kaset" aria-label="Copy Homebrew command">Copy</button>
-      </div>
-      <div class="cmd glass">
-        <span class="cmd-label">Downloaded by hand? Clear quarantine first</span>
-        <code>xattr -cr /Applications/Kaset.app</code>
-        <button class="copy" type="button" data-copy="xattr -cr /Applications/Kaset.app" aria-label="Copy xattr command">Copy</button>
-      </div>
-    </div>
-    <p class="fine">Kaset isn't signed with an Apple Developer ID yet. Homebrew clears the quarantine flag for you.</p>
-    <p class="visually-hidden" role="status" id="copy-status"></p>
   </section>
 
 </main>

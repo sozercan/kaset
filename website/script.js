@@ -66,9 +66,6 @@
         return /\.dmg$/i.test(asset.name);
       });
 
-      document.querySelectorAll("[data-version]").forEach(function (el) {
-        el.textContent = "Version " + version;
-      });
       document.querySelectorAll("[data-version-short]").forEach(function (el) {
         el.textContent = version;
       });

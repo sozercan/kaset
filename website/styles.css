@@ -252,6 +252,8 @@ main > section {
 .hero {
   text-align: center;
   padding-top: clamp(72px, 10vw, 120px) !important;
+  /* The glow is wider than phones; clip it sideways only */
+  overflow-x: clip;
 }
 
 .stage {
@@ -510,6 +512,7 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
 
 .tile h3 { font-size: 1.35rem; }
 .tile p { margin-top: 8px; color: var(--ink-2); font-size: 0.97rem; }
+.tile p code { white-space: nowrap; }
 .demo { margin-top: auto; padding-top: 26px; }
 
 /* Demos */
@@ -636,11 +639,6 @@ pre.demo {
    Install
    ============================================================ */
 
-.install {
-  padding-top: clamp(100px, 14vw, 180px) !important;
-  text-align: center;
-}
-
 .cmds {
   display: grid;
   gap: 12px;
@@ -676,7 +674,7 @@ pre.demo {
 
 .copy:hover { background: rgba(255, 255, 255, 0.16); }
 
-.fine { margin-top: 18px; font-size: 0.85rem; color: var(--ink-3); }
+.fine { max-width: 560px; margin: 18px auto 0; font-size: 0.85rem; color: var(--ink-3); }
 
 /* ============================================================
    Footer
@@ -712,6 +710,11 @@ pre.demo {
    Responsive
    ============================================================ */
 
+/* Four columns get too narrow for the AppleScript sample a bit before 960px */
+@media (max-width: 1040px) {
+  .tiles.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 960px) {
   .tiles, .tiles.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -723,4 +726,6 @@ pre.demo {
   .tile { min-height: 0; }
   .shot-frame { border-radius: 10px; }
   .glow { opacity: 0.5; }
+  /* Wrap long commands at spaces instead of cutting them off */
+  .cmd code { white-space: normal; overflow-wrap: anywhere; }
 }
