@@ -14,6 +14,11 @@ struct YouTubePlayerBar: View {
     /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
 
+    /// Keeps the elapsed time and progress track off the capsule's rounded left
+    /// end once the details block is gone; matches the options section's
+    /// visual inset on the right.
+    private static let hiddenDetailsLeadingInset: CGFloat = 18
+
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
         let start: TimeInterval
@@ -65,6 +70,7 @@ struct YouTubePlayerBar: View {
                     }
 
                     self.youtubeProgressSection
+                        .padding(.leading, hidesDetails ? Self.hiddenDetailsLeadingInset : 0)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
 
@@ -254,14 +260,6 @@ struct YouTubePlayerBar: View {
 
     private func fallbackThumbnailURL(for videoId: String) -> URL? {
         URL(string: "https://i.ytimg.com/vi/\(videoId)/mqdefault.jpg")
-    }
-
-    private func uniqueURLs(_ urls: [URL?]) -> [URL] {
-        var seen = Set<URL>()
-        return urls.compactMap { url in
-            guard let url, seen.insert(url).inserted else { return nil }
-            return url
-        }
     }
 
     private var currentTitleIdentity: String {
@@ -808,6 +806,14 @@ extension YouTubePlayerBar {
 }
 
 private extension YouTubePlayerBar {
+    func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
     static func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds)
