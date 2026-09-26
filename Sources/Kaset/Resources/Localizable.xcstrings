@@ -57194,6 +57194,434 @@
         }
       }
     },
+    "Player Controls": {
+      "comment": "Settings → YouTube section header for where the playback controls are shown",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "عناصر التحكم في المشغّل"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Player-Steuerung"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controles del reproductor"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Commandes du lecteur"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol Pemutar"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlli del player"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "プレイヤーのコントロール"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "플레이어 컨트롤"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spelerbediening"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sterowanie odtwarzaczem"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Controlos do leitor"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Элементы управления проигрывателем"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spelarreglage"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oynatıcı Kontrolleri"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Елементи керування програвачем"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放器控制"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "播放器控制項目"
+          }
+        }
+      }
+    },
+    "Show Controls on Video": {
+      "comment": "Settings → YouTube toggle that overlays the playback controls on the watch-page video",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "إظهار عناصر التحكم على الفيديو"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steuerelemente auf dem Video anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar controles sobre el video"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Afficher les commandes sur la vidéo"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tampilkan Kontrol di Video"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra i controlli sul video"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画上にコントロールを表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "비디오 위에 컨트롤 표시"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bediening op video tonen"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pokaż sterowanie na filmie"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostrar controlos no vídeo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показывать элементы управления на видео"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Visa reglage på videon"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrolleri Videonun Üzerinde Göster"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показувати елементи керування на відео"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在视频上显示控制"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在影片上顯示控制項目"
+          }
+        }
+      }
+    },
+    "Place the playback controls on the video instead of in the bar at the bottom of the window": {
+      "comment": "Help tooltip for the Show Controls on Video toggle",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "وضع عناصر التحكم في التشغيل على الفيديو بدلًا من الشريط أسفل النافذة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Wiedergabesteuerung auf dem Video statt in der Leiste am unteren Fensterrand anzeigen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Colocar los controles de reproducción sobre el video en lugar de en la barra de la parte inferior de la ventana"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Placer les commandes de lecture sur la vidéo plutôt que dans la barre en bas de la fenêtre"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Letakkan kontrol pemutaran di video, bukan di bilah bagian bawah jendela"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posiziona i controlli di riproduzione sul video anziché nella barra in fondo alla finestra"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再生コントロールをウィンドウ下部のバーではなく動画上に配置"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "재생 컨트롤을 윈도우 하단 막대 대신 비디오 위에 배치"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De afspeelbediening op de video plaatsen in plaats van in de balk onder in het venster"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Umieść elementy sterowania odtwarzaniem na filmie zamiast na pasku u dołu okna"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Colocar os controlos de reprodução no vídeo em vez de na barra na parte inferior da janela"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Размещать элементы управления воспроизведением на видео, а не на панели внизу окна"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Placera uppspelningsreglagen på videon i stället för i fältet längst ned i fönstret"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Oynatma kontrollerini pencerenin altındaki çubuk yerine videonun üzerine yerleştir"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Розміщувати елементи керування відтворенням на відео, а не на панелі внизу вікна"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将播放控制放在视频上，而不是窗口底部的栏中"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將播放控制項目放在影片上，而非視窗底部的列中"
+          }
+        }
+      }
+    },
+    "Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player.": {
+      "comment": "Settings → YouTube footer explaining how the on-video controls behave",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تظهر عناصر التحكم عند تحريك المؤشر فوق الفيديو وتختفي تدريجيًا أثناء تشغيله. يعود الشريط السفلي عند التمرير بعد الفيديو أو عند تشغيله في المشغّل المنبثق."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die Steuerelemente erscheinen, wenn du den Zeiger über das Video bewegst, und werden während der Wiedergabe ausgeblendet. Die untere Leiste kehrt zurück, wenn du am Video vorbeiscrollst oder es im ausgelagerten Player läuft."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Los controles aparecen al mover el puntero sobre el video y se desvanecen durante la reproducción. La barra inferior vuelve cuando te desplazas más allá del video o cuando se reproduce en el reproductor emergente."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les commandes apparaissent lorsque vous déplacez le pointeur sur la vidéo et s'estompent pendant la lecture. La barre inférieure réapparaît lorsque vous faites défiler au-delà de la vidéo ou qu'elle est lue dans le lecteur détaché."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontrol muncul saat Anda menggerakkan penunjuk di atas video dan memudar saat video diputar. Bilah bawah kembali muncul saat Anda menggulir melewati video atau saat video diputar di pemutar pop-out."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I controlli compaiono quando muovi il puntatore sul video e si dissolvono durante la riproduzione. La barra in basso ricompare quando scorri oltre il video o quando viene riprodotto nel player separato."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "動画の上でポインタを動かすとコントロールが表示され、再生中はフェードアウトします。動画より下にスクロールしたときや、ポップアウトプレイヤーで再生しているときは、下部のバーが再び表示されます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다. 비디오 아래로 스크롤하거나 분리된 플레이어에서 재생하면 하단 막대가 다시 나타납니다."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen. De onderste balk keert terug wanneer je voorbij de video scrolt of wanneer deze in de losstaande speler wordt afgespeeld."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Elementy sterowania pojawiają się po poruszeniu wskaźnikiem nad filmem i znikają podczas odtwarzania. Dolny pasek wraca, gdy przewiniesz poniżej filmu lub gdy film jest odtwarzany w odłączonym odtwarzaczu."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução. A barra inferior volta quando se desloca para lá do vídeo ou quando este é reproduzido no leitor destacado."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Элементы управления появляются при движении указателя над видео и скрываются во время воспроизведения. Нижняя панель возвращается, если прокрутить страницу ниже видео или если оно воспроизводится во всплывающем проигрывателе."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp. Det nedre fältet kommer tillbaka när du rullar förbi videon eller när den spelas upp i den fristående spelaren."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kontroller, işaretçiyi videonun üzerinde hareket ettirdiğinizde görünür ve video oynatılırken kaybolur. Videonun ötesine kaydırdığınızda veya video açılır oynatıcıda oynatıldığında alt çubuk geri gelir."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Елементи керування з’являються, коли ви рухаєте вказівник над відео, і зникають під час відтворення. Нижня панель повертається, якщо прокрутити нижче відео або коли воно відтворюється у відокремленому програвачі."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将指针移到视频上时会显示控制，播放时会自动淡出。滚动到视频下方或视频在弹出播放器中播放时，底部栏会重新出现。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將指標移到影片上時會顯示控制項目，播放時會自動淡出。捲動到影片下方或影片在彈出播放器中播放時，底部列會重新出現。"
+          }
+        }
+      }
+    },
     "Keep Mini Player on Top": {
       "localizations": {
         "ar": {

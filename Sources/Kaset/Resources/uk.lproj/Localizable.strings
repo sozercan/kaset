@@ -103,6 +103,7 @@
 "Continue" = "Продовжити";
 "Continue Watching" = "Продовжити перегляд";
 "Control playback with your keyboard" = "Керуйте відтворенням за допомогою клавіатури";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Елементи керування з’являються, коли ви рухаєте вказівник над відео, і зникають під час відтворення. Нижня панель повертається, якщо прокрутити нижче відео або коли воно відтворюється у відокремленому програвачі.";
 "Could not create AI session" = "Не вдалося створити сеанс ШІ";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Не вдалося захопити звук Kaset (стан %d). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах.";
 "Couldn't configure the audio unit (%lld)." = "Не вдалося налаштувати аудіомодуль (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Потрібен дозвіл";
 "Piano" = "Фортепіано";
 "Picture in Picture" = "Картинка в картинці";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Розміщувати елементи керування відтворенням на відео, а не на панелі внизу вікна";
 "Play" = "Грати";
 "Play a song to view its lyrics here." = "Увімкніть пісню, щоб побачити її текст тут.";
 "Play All" = "Грати все";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Якість звуку відтворення";
 "Playback position" = "Позиція відтворення";
 "Played" = "Відтворено";
+"Player Controls" = "Елементи керування програвачем";
 "Playing" = "Грає";
 "Playlist" = "Плейлист";
 "Playlist not found" = "Плейлист не знайдено";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Показувати сповіщення, коли починає грати новий трек";
 "Show a soft color glow, drawn from the video, behind the player" = "Показувати за програвачем м’яке кольорове сяйво з відео";
 "Show All" = "Показати все";
+"Show Controls on Video" = "Показувати елементи керування на відео";
 "Show Large Artwork" = "Показувати велику обкладинку";
 "Show Lyrics" = "Показати текст пісні";
 "Show more comments" = "Показати більше коментарів";

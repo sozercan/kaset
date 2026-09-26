@@ -103,6 +103,7 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Continuar a ver";
 "Control playback with your keyboard" = "Controle a reprodução com o teclado";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução. A barra inferior volta quando se desloca para lá do vídeo ou quando este é reproduzido no leitor destacado.";
 "Could not create AI session" = "Não foi possível criar a sessão de IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Não foi possível capturar o áudio do Kaset (estado %d). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Não foi possível configurar a unidade de áudio (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Permissão necessária";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Colocar os controlos de reprodução no vídeo em vez de na barra na parte inferior da janela";
 "Play" = "Reproduzir";
 "Play a song to view its lyrics here." = "Reproduza uma música para ver aqui a letra.";
 "Play All" = "Reproduzir tudo";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Qualidade de áudio da reprodução";
 "Playback position" = "Posição de reprodução";
 "Played" = "Reproduzido";
+"Player Controls" = "Controlos do leitor";
 "Playing" = "A reproduzir";
 "Playlist" = "Lista de reprodução";
 "Playlist not found" = "Lista de reprodução não encontrada";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Mostrar uma notificação quando começa a reproduzir uma nova faixa";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostrar atrás do leitor um brilho suave de cor extraído do vídeo";
 "Show All" = "Mostrar tudo";
+"Show Controls on Video" = "Mostrar controlos no vídeo";
 "Show Large Artwork" = "Mostrar capa grande";
 "Show Lyrics" = "Mostrar letras";
 "Show more comments" = "Mostrar mais comentários";

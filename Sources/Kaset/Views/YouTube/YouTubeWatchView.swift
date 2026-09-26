@@ -27,6 +27,7 @@ struct YouTubeWatchView: View {
 
     @State private var commentDraft = ""
     @State private var settings = SettingsManager.shared
+    @State private var isVideoControlsRegionOnScreen = true
 
     /// The ambient backdrop style to render: the user's chosen style, or `.off`
     /// when they've disabled the feature in Settings → YouTube.
@@ -68,6 +69,14 @@ struct YouTubeWatchView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 self.videoSurface
+                    .onGeometryChange(for: Bool.self) { proxy in
+                        YouTubeInlineControlsVisibility.isControlsRegionVisible(
+                            videoSize: proxy.size,
+                            visibleBounds: proxy.bounds(of: .scrollView)
+                        )
+                    } action: { isVisible in
+                        self.isVideoControlsRegionOnScreen = isVisible
+                    }
 
                 // Below the video: title/metadata + chapters/comments down the
                 // left, the related rail down the right.
@@ -139,6 +148,8 @@ struct YouTubeWatchView: View {
             self.viewModel.cancel()
             self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .youtubePlayerBarInset(isHidden: self.showsControlsOnVideo)
     }
 
     private var askPlayerOffsetMilliseconds: Int64 {
@@ -156,6 +167,17 @@ struct YouTubeWatchView: View {
             && self.youtubePlayer.surfaceLocation == .inline
     }
 
+    /// Whether the player controls sit on the docked video instead of the
+    /// bottom bar (Settings → YouTube → Show Controls on Video). Only while the
+    /// strip they occupy is on screen: scrolled down to the comments, or with a
+    /// tall video's bottom edge below the fold, the bottom bar takes them back
+    /// so exactly one bar is reachable at a time.
+    private var showsControlsOnVideo: Bool {
+        self.settings.showYouTubeControlsOnVideo
+            && self.presentsLiveSurface
+            && self.isVideoControlsRegionOnScreen
+    }
+
     /// Whether this view's video is currently playing in the floating window.
     private var playsInFloatingWindow: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
@@ -165,12 +187,13 @@ struct YouTubeWatchView: View {
     @ViewBuilder
     private var videoSurface: some View {
         if self.presentsLiveSurface {
-            // Clean video surface — playback is controlled from the
-            // Liquid Glass player bar at the bottom of the window.
+            // Clean video surface — playback is controlled from the Liquid
+            // Glass player bar, at the bottom of the window or on the video.
             YouTubeWatchSurfaceView()
-                .aspectRatio(16 / 9, contentMode: .fit)
-                .clipShape(.rect(cornerRadius: 12))
                 .accessibilityIdentifier(AccessibilityID.YouTubeContent.watchSurface)
+                .aspectRatio(16 / 9, contentMode: .fit)
+                .youtubeInlineVideoControls(isEnabled: self.showsControlsOnVideo)
+                .clipShape(.rect(cornerRadius: 12))
         } else if self.playsInFloatingWindow {
             // Native PiP-style placeholder while the video plays in the
             // pop-out window.

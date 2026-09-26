@@ -103,6 +103,7 @@
 "Continue" = "계속";
 "Continue Watching" = "계속 시청";
 "Control playback with your keyboard" = "키보드로 재생을 제어하세요";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다. 비디오 아래로 스크롤하거나 분리된 플레이어에서 재생하면 하단 막대가 다시 나타납니다.";
 "Could not create AI session" = "AI 세션을 생성할 수 없음";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset의 오디오를 캡처할 수 없습니다(상태 %d). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요.";
 "Couldn't configure the audio unit (%lld)." = "오디오 유닛을 구성할 수 없습니다 (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "권한 필요";
 "Piano" = "피아노";
 "Picture in Picture" = "화면 속 화면";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "재생 컨트롤을 윈도우 하단 막대 대신 비디오 위에 배치";
 "Play" = "재생";
 "Play a song to view its lyrics here." = "가사를 보려면 노래를 재생하세요.";
 "Play All" = "모두 재생";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "재생 오디오 품질";
 "Playback position" = "재생 위치";
 "Played" = "재생됨";
+"Player Controls" = "플레이어 컨트롤";
 "Playing" = "재생 중";
 "Playlist" = "재생목록";
 "Playlist not found" = "재생목록을 찾을 수 없음";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "새 트랙이 재생되기 시작하면 알림 표시";
 "Show a soft color glow, drawn from the video, behind the player" = "비디오에서 가져온 부드러운 색상 빛을 플레이어 뒤에 표시";
 "Show All" = "모두 표시";
+"Show Controls on Video" = "비디오 위에 컨트롤 표시";
 "Show Large Artwork" = "큰 아트워크 표시";
 "Show Lyrics" = "가사 표시";
 "Show more comments" = "댓글 더 보기";

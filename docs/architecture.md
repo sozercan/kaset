@@ -386,6 +386,7 @@ Manages user preferences persisted via `UserDefaults`:
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 | `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |
+| `showYouTubeControlsOnVideo` | `Bool` | `false` | Overlay the YouTube player bar on the docked watch-page video (auto-hiding while playing) instead of the bottom bar; other YouTube pages except Shorts drop the bottom bar |
 
 **Music LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
 

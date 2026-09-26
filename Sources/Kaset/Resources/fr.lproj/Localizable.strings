@@ -103,6 +103,7 @@
 "Continue" = "Continuer";
 "Continue Watching" = "Continuer à regarder";
 "Control playback with your keyboard" = "Contrôlez la lecture avec votre clavier";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Les commandes apparaissent lorsque vous déplacez le pointeur sur la vidéo et s'estompent pendant la lecture. La barre inférieure réapparaît lorsque vous faites défiler au-delà de la vidéo ou qu'elle est lue dans le lecteur détaché.";
 "Could not create AI session" = "Impossible de créer la session IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Impossible de capturer l'audio de Kaset (état %d). Vérifiez l'autorisation Enregistrement de l'écran et de l'audio système dans Réglages Système.";
 "Couldn't configure the audio unit (%lld)." = "Impossible de configurer l'unité audio (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Autorisation requise";
 "Piano" = "Piano";
 "Picture in Picture" = "Image dans l'image";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Placer les commandes de lecture sur la vidéo plutôt que dans la barre en bas de la fenêtre";
 "Play" = "Lecture";
 "Play a song to view its lyrics here." = "Lancez un morceau pour voir ses paroles ici.";
 "Play All" = "Tout lire";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Qualité audio de lecture";
 "Playback position" = "Position de lecture";
 "Played" = "Lu";
+"Player Controls" = "Commandes du lecteur";
 "Playing" = "En lecture";
 "Playlist" = "Playlist";
 "Playlist not found" = "Playlist introuvable";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Afficher une notification lorsqu'un nouveau morceau commence";
 "Show a soft color glow, drawn from the video, behind the player" = "Afficher derrière le lecteur une douce lueur colorée tirée de la vidéo";
 "Show All" = "Tout afficher";
+"Show Controls on Video" = "Afficher les commandes sur la vidéo";
 "Show Large Artwork" = "Afficher une grande illustration";
 "Show Lyrics" = "Afficher les paroles";
 "Show more comments" = "Afficher plus de commentaires";

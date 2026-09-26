@@ -18,18 +18,20 @@ extension View {
         navigationDestination(for: YouTubeRoute.self) { route in
             // Pushed views don't inherit safeAreaInsets, so every
             // destination carries its own player bar (music-side rule).
-            Group {
-                switch route {
-                case let .watch(video):
-                    YouTubeWatchView(video: video, client: client)
-                case let .channel(channelId):
-                    YouTubeChannelView(channelId: channelId, client: client)
-                case let .playlist(playlistId):
-                    YouTubePlaylistDetailView(playlistId: playlistId, client: client)
-                }
+            switch route {
+            case let .watch(video):
+                // Attaches its own bar so it can hand the controls to the
+                // docked video (Settings → YouTube → Show Controls on Video).
+                YouTubeWatchView(video: video, client: client)
+            case let .channel(channelId):
+                YouTubeChannelView(channelId: channelId, client: client)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .youtubePagePlayerBarInset()
+            case let .playlist(playlistId):
+                YouTubePlaylistDetailView(playlistId: playlistId, client: client)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .youtubePagePlayerBarInset()
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .youtubePlayerBarInset()
         }
     }
 }

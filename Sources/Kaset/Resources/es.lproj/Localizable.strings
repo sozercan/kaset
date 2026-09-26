@@ -103,6 +103,7 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Seguir viendo";
 "Control playback with your keyboard" = "Controla la reproducción con el teclado";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Los controles aparecen al mover el puntero sobre el video y se desvanecen durante la reproducción. La barra inferior vuelve cuando te desplazas más allá del video o cuando se reproduce en el reproductor emergente.";
 "Could not create AI session" = "No se pudo crear la sesión de la IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "No se pudo capturar el audio de Kaset (estado %d). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema.";
 "Couldn't configure the audio unit (%lld)." = "No se pudo configurar la unidad de audio (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Se necesita permiso";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Colocar los controles de reproducción sobre el video en lugar de en la barra de la parte inferior de la ventana";
 "Play" = "Reproducir";
 "Play a song to view its lyrics here." = "Reproduce una canción para ver aquí su letra.";
 "Play All" = "Reproducir todo";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Calidad de audio de reproducción";
 "Playback position" = "Posición de reproducción";
 "Played" = "Reproducido";
+"Player Controls" = "Controles del reproductor";
 "Playing" = "Reproduciendo";
 "Playlist" = "Playlist";
 "Playlist not found" = "Playlist no encontrada";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Mostrar una notificación cuando empiece a reproducirse una nueva pista";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostrar detrás del reproductor un suave resplandor de color extraído del video";
 "Show All" = "Mostrar todo";
+"Show Controls on Video" = "Mostrar controles sobre el video";
 "Show Large Artwork" = "Mostrar ilustración grande";
 "Show Lyrics" = "Mostrar letras";
 "Show more comments" = "Mostrar más comentarios";

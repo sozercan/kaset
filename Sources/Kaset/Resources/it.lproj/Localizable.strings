@@ -103,6 +103,7 @@
 "Continue" = "Continua";
 "Continue Watching" = "Continua a guardare";
 "Control playback with your keyboard" = "Controlla la riproduzione con la tastiera";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "I controlli compaiono quando muovi il puntatore sul video e si dissolvono durante la riproduzione. La barra in basso ricompare quando scorri oltre il video o quando viene riprodotto nel player separato.";
 "Could not create AI session" = "Impossibile creare la sessione AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Impossibile acquisire l'audio di Kaset (stato %d). Controlla il permesso Registrazione Schermo e Audio di Sistema nelle Impostazioni di Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Impossibile configurare l'unità audio (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Autorizzazione necessaria";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Posiziona i controlli di riproduzione sul video anziché nella barra in fondo alla finestra";
 "Play" = "Riproduci";
 "Play a song to view its lyrics here." = "Riproduci un brano per vederne qui il testo.";
 "Play All" = "Riproduci tutto";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Qualità audio di riproduzione";
 "Playback position" = "Posizione di riproduzione";
 "Played" = "Riprodotto";
+"Player Controls" = "Controlli del player";
 "Playing" = "In riproduzione";
 "Playlist" = "Playlist";
 "Playlist not found" = "Playlist non trovata";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Mostra una notifica quando inizia la riproduzione di un nuovo brano";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostra dietro al player un leggero bagliore di colore ricavato dal video";
 "Show All" = "Mostra tutto";
+"Show Controls on Video" = "Mostra i controlli sul video";
 "Show Large Artwork" = "Mostra grafica grande";
 "Show Lyrics" = "Mostra testo";
 "Show more comments" = "Mostra altri commenti";

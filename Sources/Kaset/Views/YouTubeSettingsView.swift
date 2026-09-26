@@ -29,6 +29,17 @@ struct YouTubeSettingsView: View {
             }
 
             Section {
+                Toggle(String(localized: "Show Controls on Video"), isOn: self.$settings.showYouTubeControlsOnVideo)
+                    .help(String(localized: "Place the playback controls on the video instead of in the bar at the bottom of the window"))
+            } header: {
+                Text(String(localized: "Player Controls"))
+            } footer: {
+                Text(String(localized: "Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section {
                 Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
                     .help(String(localized: "Keep the video above standard windows on this Space."))
 

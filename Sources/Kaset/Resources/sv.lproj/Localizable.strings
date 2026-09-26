@@ -103,6 +103,7 @@
 "Continue" = "Fortsätt";
 "Continue Watching" = "Fortsätt titta";
 "Control playback with your keyboard" = "Styr uppspelningen med tangentbordet";
+"Controls appear when you move the pointer over the video and fade out while it plays. The bottom bar returns when you scroll past the video or it plays in the pop-out player." = "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp. Det nedre fältet kommer tillbaka när du rullar förbi videon eller när den spelas upp i den fristående spelaren.";
 "Could not create AI session" = "Kunde inte skapa AI-session";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
 "Couldn't configure the audio unit (%lld)." = "Kunde inte konfigurera ljudenheten (%lld).";
@@ -338,6 +339,7 @@
 "Permission needed" = "Behörighet krävs";
 "Piano" = "Piano";
 "Picture in Picture" = "Bild i bild";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Placera uppspelningsreglagen på videon i stället för i fältet längst ned i fönstret";
 "Play" = "Spela";
 "Play a song to view its lyrics here." = "Spela en låt för att se sångtexten här.";
 "Play All" = "Spela alla";
@@ -349,6 +351,7 @@
 "Playback Audio Quality" = "Ljudkvalitet vid uppspelning";
 "Playback position" = "Uppspelningsposition";
 "Played" = "Spelad";
+"Player Controls" = "Spelarreglage";
 "Playing" = "Spelas";
 "Playlist" = "Spellista";
 "Playlist not found" = "Spellistan hittades inte";
@@ -428,6 +431,7 @@
 "Show a notification when a new track starts playing" = "Visa en avisering när ett nytt spår börjar spelas";
 "Show a soft color glow, drawn from the video, behind the player" = "Visa ett mjukt färgskimmer från videon bakom spelaren";
 "Show All" = "Visa alla";
+"Show Controls on Video" = "Visa reglage på videon";
 "Show Large Artwork" = "Visa stor omslagsbild";
 "Show Lyrics" = "Visa sångtext";
 "Show more comments" = "Visa fler kommentarer";
