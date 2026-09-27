@@ -9,6 +9,7 @@ If you are using or integrating Kaset in your project or application, please con
 | Project / App | Description | Link |
 | :--- | :--- | :--- |
 | **Droppy** | Dynamic Island and notch utility for macOS featuring a first-party extension to integrate and play YouTube Music through Kaset. | [getdroppy.app](https://getdroppy.app/) |
+| **NotchDock** | Dynamic MacBook notch hub featuring real-time YouTube Music playback controls, live progress scrubber, dominant-color artwork glow, and 1-click track favoriting via Kaset. | [notchdock.app](https://notchdock.app) |
 
 ## Adding Your Project
 
