@@ -7,10 +7,20 @@ import SwiftUI
 /// Uses native macOS sharing services for proper popup positioning in context menus.
 @MainActor
 enum ShareContextMenu {
+    /// `NSSharingServicePicker.delegate` is weak.
+    private static var activePickerDelegate: CopyLinkSharingPickerDelegate?
+
     /// Shows the share picker at the current mouse location.
     /// Exposed for AppKit context menus (e.g. queue side panel) that cannot use the SwiftUI menu item.
     static func showSharePicker(for url: URL) {
         let picker = NSSharingServicePicker(items: [url])
+        let delegate = CopyLinkSharingPickerDelegate(url: url) { finished in
+            if Self.activePickerDelegate === finished {
+                Self.activePickerDelegate = nil
+            }
+        }
+        Self.activePickerDelegate = delegate
+        picker.delegate = delegate
 
         // Get the current mouse location in screen coordinates
         let mouseLocation = NSEvent.mouseLocation
@@ -155,5 +165,41 @@ enum ShareContextMenu {
         case let .podcastShow(show):
             Self.menuItem(for: show)
         }
+    }
+}
+
+// MARK: - CopyLinkSharingPickerDelegate
+
+@MainActor
+private final class CopyLinkSharingPickerDelegate: NSObject, @preconcurrency NSSharingServicePickerDelegate {
+    private let url: URL
+    private let onFinish: (CopyLinkSharingPickerDelegate) -> Void
+
+    init(url: URL, onFinish: @escaping (CopyLinkSharingPickerDelegate) -> Void) {
+        self.url = url
+        self.onFinish = onFinish
+    }
+
+    func sharingServicePicker(
+        _: NSSharingServicePicker,
+        sharingServicesForItems _: [Any],
+        proposedSharingServices proposedServices: [NSSharingService]
+    ) -> [NSSharingService] {
+        let link = self.url.absoluteString
+        let copyLink = NSSharingService(
+            title: String(localized: "Copy Link"),
+            image: NSImage(systemSymbolName: "link", accessibilityDescription: nil) ?? NSImage(),
+            alternateImage: nil
+        ) {
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            pasteboard.setString(link, forType: .string)
+            pasteboard.setString(link, forType: .URL)
+        }
+        return [copyLink] + proposedServices
+    }
+
+    func sharingServicePicker(_: NSSharingServicePicker, didChoose _: NSSharingService?) {
+        self.onFinish(self)
     }
 }
