@@ -21,6 +21,9 @@ Kaset supports AppleScript for automation with tools like Raycast, Alfred, and S
 | `get player info` | Get player state as JSON |
 | `get play queue` | Get the current playing queue as JSON |
 | `play track at index N` | Play a specific track from the queue by its index (1-based index) |
+| `play videos {"id1", "id2"} [starting at N]` | Replace the queue with these video IDs and start playing at a 1-based index (default 1) |
+| `add to queue {"id1", "id2"} [with next]` | Append video IDs to the queue, or insert them after the current track `with next` |
+| `remove from queue "id"` | Remove every occurrence of a video ID from the queue |
 
 ## Examples
 
@@ -120,6 +123,31 @@ end tell
 
 *Note: The track index is 1-based, following AppleScript list indexing conventions. If the index is out of bounds, the command will raise an error.*
 
+### Build the Queue by Video ID
+
+```applescript
+tell application "Kaset"
+    -- Replace the queue and start playing the second video
+    play videos {"CLNaOxz3dr4", "SNNCW_DDAn4", "dQw4w9WgXcQ"} starting at 2
+
+    -- Insert after the current track
+    add to queue {"CLNaOxz3dr4"} with next
+
+    -- Append to the end of the queue
+    add to queue {"SNNCW_DDAn4"}
+
+    -- Remove every occurrence of a video
+    remove from queue "dQw4w9WgXcQ"
+end tell
+```
+
+*Notes:*
+
+- *Queued videos start as ID-only entries titled "Loading..." and get their title, artist and artwork filled in shortly afterwards, the same as `play video`.*
+- *`play videos` uses the same 1-based indexing as `play track at index`. An empty list raises error `-1700`; an out-of-range `starting at` raises error `-1728`. If shuffle is on, the starting video plays first and the rest of the list is shuffled, as when starting a playlist.*
+- *`add to queue` never starts playback, even when the queue is empty. `next` is a boolean parameter, so write `with next` (or `next true`).*
+- *`remove from queue` removes every copy of the video and raises error `-1728` if the queue does not contain it.*
+
 ## Shell Usage
 
 ```bash
@@ -146,6 +174,15 @@ osascript -e 'tell application "Kaset" to get play queue'
 
 # Play track at index 2 (1-based index)
 osascript -e 'tell application "Kaset" to play track at index 2'
+
+# Replace the queue by video ID and start at the second video
+osascript -e 'tell application "Kaset" to play videos {"CLNaOxz3dr4", "SNNCW_DDAn4"} starting at 2'
+
+# Insert a video after the current track
+osascript -e 'tell application "Kaset" to add to queue {"CLNaOxz3dr4"} with next'
+
+# Remove a video from the queue
+osascript -e 'tell application "Kaset" to remove from queue "CLNaOxz3dr4"'
 ```
 
 ## Error Handling

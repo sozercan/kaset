@@ -14,7 +14,7 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
-    private func waitUntil(
+    func waitUntil(
         timeout: Duration = .seconds(1),
         pollInterval: Duration = .milliseconds(10),
         _ condition: () -> Bool
