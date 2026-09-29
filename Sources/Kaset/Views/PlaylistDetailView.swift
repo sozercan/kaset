@@ -11,7 +11,6 @@ struct PlaylistDetailView: View {
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
@@ -293,27 +292,22 @@ struct PlaylistDetailView: View {
         _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
         fallbackAlbum: Album? = nil
     ) -> some View {
-        PlaylistTrackRow(
+        let play = {
+            self.playTrackInQueue(
+                tracks: tracks, startingAt: index, fallbackArtist: author,
+                fallbackAlbum: fallbackAlbum
+            )
+        }
+        return PlaylistTrackRow(
             track: track,
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
             artists: self.trackArtists(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
-            onPlay: {
-                self.playTrackInQueue(
-                    tracks: tracks, startingAt: index, fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            },
+            onPlay: play,
             menu: {
-                self.trackContextMenu(
-                    track,
-                    index: index,
-                    tracks: tracks,
-                    author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
+                self.trackContextMenu(track, play: play)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -404,82 +398,14 @@ struct PlaylistDetailView: View {
     // MARK: - Actions
 
     @ViewBuilder
-    private func trackContextMenu(
-        _ track: Song,
-        index: Int,
-        tracks: [Song],
-        author: String?,
-        fallbackAlbum: Album?
-    ) -> some View {
+    private func trackContextMenu(_ track: Song, play: @escaping () -> Void) -> some View {
         if track.isPlayable {
-            Button {
-                self.playTrackInQueue(
-                    tracks: tracks,
-                    startingAt: index,
-                    fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-                Divider()
-
-                LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-            }
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                Button {
-                    SongActionsHelper.addToLibrary(track, playerService: self.playerService)
-                } label: {
-                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-                }
-
-                Divider()
-
-                AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
-            }
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: track)
-
-            Divider()
-
-            AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-            Divider()
-
-            if let artist = track.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            if let album = track.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+            SongContextMenu(
+                song: track,
+                client: self.viewModel.client,
+                play: play,
+                showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
+            )
         }
 
         if self.canRemoveTrack(track) {

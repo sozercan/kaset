@@ -12,8 +12,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.playerBarNavigationAction) private var navigationAction
@@ -826,68 +824,24 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Current Song Context Menu
 
-    @ViewBuilder
     private func currentSongContextMenu(for track: Song) -> some View {
-        FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-        }
-
-        Divider()
-
-        StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            Button {
-                self.playerService.toggleLibraryStatus()
-            } label: {
-                Label(
-                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
-                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
-                )
+        SongContextMenu(
+            song: track,
+            client: self.playerService.ytMusicClient,
+            libraryToggle: SongLibraryToggle(
+                isInLibrary: self.playerService.currentTrackInLibrary,
+                toggle: { self.playerService.toggleLibraryStatus() }
+            ),
+            showsGoToArtist: self.navigationAction.openArtist != nil,
+            showsGoToAlbum: self.navigationAction.openAlbum != nil,
+            navigate: { destination in
+                if let artist = destination as? Artist {
+                    self.openArtist(artist)
+                } else if let album = destination as? Playlist {
+                    self.openAlbum(album)
+                }
             }
-        }
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: track)
-
-        Divider()
-
-        AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
-            Divider()
-
-            AddToPlaylistContextMenu(song: track, client: client)
-        }
-
-        let artist = track.artists.first(where: { $0.hasNavigableId })
-        let album = track.album
-        if artist != nil || album?.hasNavigableId == true {
-            Divider()
-        }
-
-        if let artist, self.navigationAction.openArtist != nil {
-            Button {
-                self.openArtist(artist)
-            } label: {
-                Label(String(localized: "Go to Artist"), systemImage: "person")
-            }
-        }
-
-        if let album, album.hasNavigableId, self.navigationAction.openAlbum != nil {
-            Button {
-                self.openAlbum(self.playlist(from: album, track: track))
-            } label: {
-                Label(String(localized: "Go to Album"), systemImage: "square.stack")
-            }
-        }
+        )
     }
 
     // MARK: - Error View

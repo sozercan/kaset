@@ -107,6 +107,14 @@ struct ExploreView: View {
                 Text(section.title)
                     .font(.title2)
                     .fontWeight(.semibold)
+            },
+            contextMenu: { item, index in
+                HomeSectionItemContextMenu(
+                    item: item,
+                    client: self.viewModel.client,
+                    play: { self.playItem(item, in: section, at: index) },
+                    navigate: { self.navigationPath.append($0) }
+                )
             }
         )
     }

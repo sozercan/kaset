@@ -6,7 +6,6 @@ import SwiftUI
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -113,12 +112,15 @@ struct PodcastsView: View {
     private func itemCard(_ item: PodcastSectionItem) -> some View {
         switch item {
         case let .show(show):
-            PodcastShowCard(show: show, favoritesManager: self.favoritesManager) {
+            PodcastShowCard(show: show) {
                 self.navigationPath.append(show)
             }
         case let .episode(episode):
             PodcastEpisodeCard(episode: episode) {
                 self.playEpisode(episode)
+            }
+            .contextMenu {
+                EpisodeContextMenu(episode: episode, play: { self.playEpisode(episode) })
             }
         }
     }
@@ -146,7 +148,6 @@ struct PodcastsView: View {
 
 private struct PodcastShowCard: View {
     let show: PodcastShow
-    let favoritesManager: FavoritesManager
     let action: () -> Void
 
     var body: some View {
@@ -180,7 +181,7 @@ private struct PodcastShowCard: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: self.show, manager: self.favoritesManager)
+            PodcastShowContextMenu(show: self.show)
         }
     }
 }
@@ -437,6 +438,13 @@ struct PodcastShowView: View {
                         PodcastEpisodeRow(episode: episode) {
                             self.playEpisodeInQueue(at: index)
                         }
+                        .contextMenu {
+                            EpisodeContextMenu(
+                                episode: episode,
+                                play: { self.playEpisodeInQueue(at: index) },
+                                showsViewPodcast: false
+                            )
+                        }
                         Divider()
                     }
                 }
@@ -612,6 +620,13 @@ struct AllEpisodesView: View {
                 ForEach(Array(self.episodes.enumerated()), id: \.element.id) { index, episode in
                     PodcastEpisodeRow(episode: episode) {
                         self.playEpisodeInQueue(at: index)
+                    }
+                    .contextMenu {
+                        EpisodeContextMenu(
+                            episode: episode,
+                            play: { self.playEpisodeInQueue(at: index) },
+                            showsViewPodcast: false
+                        )
                     }
                     Divider()
 
