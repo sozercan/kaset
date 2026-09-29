@@ -145,7 +145,7 @@ struct PlaylistDetailView: View {
                     title: detail.title,
                     artists: detail.author.map { [$0] },
                     thumbnailURL: detail.thumbnailURL,
-                    year: nil,
+                    year: detail.year,
                     trackCount: detail.trackCount ?? detail.tracks.count
                 )
                 self.tracksView(
@@ -200,6 +200,11 @@ struct PlaylistDetailView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 4)
 
+                if let description = detail.description, !description.isEmpty {
+                    ExpandableDescriptionText(description)
+                        .id(detail.id)
+                }
+
                 Spacer(minLength: 24)
 
                 self.headerButtons(detail)
@@ -238,11 +243,9 @@ struct PlaylistDetailView: View {
     }
 
     private func metadataText(for detail: PlaylistDetail) -> String {
-        if let duration = detail.duration {
-            return "\(detail.trackCountDisplay) • \(duration)"
-        }
-
-        return detail.trackCountDisplay
+        [detail.year, detail.trackCountDisplay, detail.duration]
+            .compactMap(\.self)
+            .joined(separator: " • ")
     }
 
     private func contentKindText(for detail: PlaylistDetail) -> String {
