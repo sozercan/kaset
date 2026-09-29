@@ -62,7 +62,7 @@ struct HomeItemCellTests {
             item: .song(Self.song(title: "Track", artists: "Band", isExplicit: true)),
             rank: 3,
             allowsLikeActions: false,
-            playlistPlayAction: nil,
+            quickPlayAction: nil,
             environment: EnvironmentValues()
         )
         let label = cell.accessibilityLabel() ?? ""
@@ -79,9 +79,9 @@ struct HomeItemCellTests {
     func reconfigureSameItemIsIdempotent() {
         let item = HomeSectionItem.song(Self.song(title: "Same"))
         let cell = HomeItemCell(frame: .zero)
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         cell.setHovered(true, animated: false)
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         #expect(cell.isHovered)
         #expect(cell.item == item)
     }
@@ -91,10 +91,10 @@ struct HomeItemCellTests {
         let original = HomeSectionItem.song(Self.song(title: "Original", artists: "Artist"))
         let updated = HomeSectionItem.song(Self.song(title: "Updated", artists: "Band", isExplicit: true))
         let cell = HomeItemCell(frame: .zero)
-        cell.configure(item: original, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: original, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         cell.setHovered(true, animated: false)
 
-        cell.configure(item: updated, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: updated, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
 
         #expect(cell.item?.title == "Updated")
         #expect(cell.isHovered)
@@ -108,21 +108,57 @@ struct HomeItemCellTests {
     func reconfigurePlaylistPlayAction() {
         let item = HomeSectionItem.playlist(Playlist(id: "playlist", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil))
         let cell = HomeItemCell(frame: .zero)
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         #expect(cell.accessibilityCustomActions()?.isEmpty == true)
 
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: {}, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: {}, environment: EnvironmentValues())
         #expect(cell.accessibilityCustomActions()?.count == 1)
 
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         #expect(cell.accessibilityCustomActions()?.isEmpty == true)
+    }
+
+    @Test("Hovered playlists and albums with a play action expose a centered play button")
+    func playButtonFrame() {
+        let items: [HomeSectionItem] = [
+            .playlist(Playlist(id: "playlist", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil)),
+            .album(Album(id: "album", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)),
+        ]
+        for item in items {
+            var plays = 0
+            let cell = HomeItemCell(frame: .zero)
+            cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: { plays += 1 }, environment: EnvironmentValues())
+            #expect(cell.playButtonFrame == nil)
+
+            cell.setHovered(true, animated: false)
+            let frame = cell.playButtonFrame
+            #expect(frame?.midX == HomeItemCell.width(for: item) / 2)
+            #expect(frame?.midY == HomeItemCell.artworkHeight / 2)
+            #expect(cell.subviews.count == 1)
+
+            cell.performPlayAction()
+            #expect(plays == 1)
+
+            cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
+            #expect(cell.playButtonFrame == nil)
+            #expect(cell.subviews.isEmpty)
+        }
+    }
+
+    @Test("Songs keep a decorative play icon without a play button")
+    func songHasNoPlayButton() {
+        let cell = HomeItemCell(frame: .zero)
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: false, quickPlayAction: {}, environment: EnvironmentValues())
+        cell.setHovered(true, animated: false)
+        #expect(cell.playButtonFrame == nil)
+        #expect(cell.subviews.count == 1)
     }
 
     @Test("Moving hover between cards releases each inactive play host")
     func releasesPlayOverlayAfterHover() {
         let cells = (0 ..< 3).map { index in
             let cell = HomeItemCell(frame: .zero)
-            cell.configure(item: .song(Self.song(id: "hover-\(index)")), rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+            cell.configure(item: .song(Self.song(id: "hover-\(index)")), rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
             return cell
         }
 
@@ -139,7 +175,7 @@ struct HomeItemCellTests {
     @Test("Chart ranks have a renderable native image")
     func chartRankImage() throws {
         let cell = HomeItemCell(frame: NSRect(x: 0, y: 0, width: 160, height: HomeItemCell.height))
-        cell.configure(item: .song(Self.song()), rank: 1, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: .song(Self.song()), rank: 1, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         cell.layoutSubtreeIfNeeded()
 
         let rankLayer = try #require(Self.layers(in: cell.layer).first { $0.contentsGravity == .topLeft })
@@ -150,7 +186,7 @@ struct HomeItemCellTests {
     @Test("Native glyphs keep their point size when the display scale changes")
     func glyphBackingScaleChanges() throws {
         let cell = HomeItemCell(frame: NSRect(x: 0, y: 0, width: 160, height: HomeItemCell.height))
-        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, quickPlayAction: nil, environment: EnvironmentValues())
         cell.setLiked(true)
         let window = HomeItemTestWindow(contentRect: cell.frame, styleMask: .borderless, backing: .buffered, defer: true)
         window.isReleasedWhenClosed = false
@@ -186,7 +222,7 @@ struct HomeItemCellTests {
     @Test("Tab reaches Like independently of card activation", arguments: [UInt16(36), 76, 49])
     func keyboardLikeAction(activationKey: UInt16) throws {
         let cell = HomeItemCell(frame: .zero)
-        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, quickPlayAction: nil, environment: EnvironmentValues())
         var likes = 0
         var activations = 0
         cell.likeAction = { likes += 1 }
@@ -206,7 +242,7 @@ struct HomeItemCellTests {
         #expect(activations == 1)
 
         try cell.keyDown(with: Self.keyEvent(48))
-        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         #expect(cell.likeButtonFrame == nil)
         try cell.keyDown(with: Self.keyEvent(activationKey))
         #expect(likes == 1)
@@ -216,7 +252,7 @@ struct HomeItemCellTests {
     @Test("Focused Like handles Space before the playback menu shortcut")
     func focusedSpaceKeyEquivalent() throws {
         let cell = HomeItemCell(frame: NSRect(x: 0, y: 0, width: 160, height: HomeItemCell.height))
-        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: .song(Self.song()), rank: nil, allowsLikeActions: true, quickPlayAction: nil, environment: EnvironmentValues())
         let window = HomeItemTestWindow(contentRect: cell.frame, styleMask: .borderless, backing: .buffered, defer: true)
         window.isReleasedWhenClosed = false
         defer { window.close() }
@@ -251,7 +287,7 @@ struct HomeItemCellTests {
             cell.needsDisplay = false
             var environment = EnvironmentValues()
             environment.layoutDirection = direction
-            cell.configure(item: item, rank: 1, allowsLikeActions: true, playlistPlayAction: nil, environment: environment)
+            cell.configure(item: item, rank: 1, allowsLikeActions: true, quickPlayAction: nil, environment: environment)
             cell.setLiked(true)
             #expect(cell.needsLayout)
             #expect(cell.needsDisplay)
@@ -305,7 +341,7 @@ struct HomeItemCellTests {
         try #require(cached != nil)
 
         let cell = HomeItemCell(frame: NSRect(x: 0, y: 0, width: size.width, height: HomeItemCell.height))
-        cell.configure(item: item, rank: nil, allowsLikeActions: false, playlistPlayAction: nil, environment: EnvironmentValues())
+        cell.configure(item: item, rank: nil, allowsLikeActions: false, quickPlayAction: nil, environment: EnvironmentValues())
         cell.layoutSubtreeIfNeeded()
         let layers = Self.layers(in: cell.layer)
         let imageLayer = try #require(layers.first { $0.contentsGravity == (item.isVideoSong ? .resizeAspect : .resizeAspectFill) })

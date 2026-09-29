@@ -23,7 +23,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     /// Invoked on click (or Return) with the item and its index in `items`.
     let action: (HomeSectionItem, Int) -> Void
     /// Optional quick-play action for playlists, exposed as an accessibility action.
-    let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+    let quickPlayAction: (HomeSectionItem) -> (() -> Void)?
     let header: () -> Header
     let contextMenu: ((HomeSectionItem, Int) -> MenuContent)?
 
@@ -36,7 +36,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
         isChart: Bool = false,
         contentInset: CGFloat = 0,
         action: @escaping (HomeSectionItem, Int) -> Void,
-        playlistPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
+        quickPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
         @ViewBuilder header: @escaping () -> Header,
         @ViewBuilder contextMenu: @escaping (HomeSectionItem, Int) -> MenuContent
     ) {
@@ -45,7 +45,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
         self.isChart = isChart
         self.contentInset = contentInset
         self.action = action
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         self.header = header
         self.contextMenu = contextMenu
     }
@@ -63,7 +63,7 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
                 isChart: self.isChart,
                 contentInset: self.contentInset,
                 action: self.action,
-                playlistPlayAction: self.playlistPlayAction,
+                quickPlayAction: self.quickPlayAction,
                 contextMenu: self.contextMenu.map { menu in { item, index in AnyView(menu(item, index)) } },
                 overflow: self.$overflow,
                 pager: self.pager
@@ -88,7 +88,7 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
         isChart: Bool = false,
         contentInset: CGFloat = 0,
         action: @escaping (HomeSectionItem, Int) -> Void,
-        playlistPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
+        quickPlayAction: @escaping (HomeSectionItem) -> (() -> Void)? = { _ in nil },
         @ViewBuilder header: @escaping () -> Header
     ) {
         self.accessibilityLabel = accessibilityLabel
@@ -96,7 +96,7 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
         self.isChart = isChart
         self.contentInset = contentInset
         self.action = action
-        self.playlistPlayAction = playlistPlayAction
+        self.quickPlayAction = quickPlayAction
         self.header = header
         self.contextMenu = nil
     }
@@ -123,7 +123,7 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
     let isChart: Bool
     let contentInset: CGFloat
     let action: (HomeSectionItem, Int) -> Void
-    let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+    let quickPlayAction: (HomeSectionItem) -> (() -> Void)?
     let contextMenu: ((HomeSectionItem, Int) -> AnyView)?
     @Binding var overflow: CarouselShelfOverflow
     let pager: HomeItemShelfPager
@@ -161,7 +161,7 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
             items: self.items,
             isChart: self.isChart,
             action: self.action,
-            playlistPlayAction: self.playlistPlayAction,
+            quickPlayAction: self.quickPlayAction,
             contextMenu: self.contextMenu,
             environment: self.environment
         ))
@@ -182,7 +182,7 @@ final class HomeItemShelfView: NSObject {
         var items: [HomeSectionItem]
         var isChart: Bool
         var action: (HomeSectionItem, Int) -> Void
-        var playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
+        var quickPlayAction: (HomeSectionItem) -> (() -> Void)?
         var contextMenu: ((HomeSectionItem, Int) -> AnyView)?
         var environment: EnvironmentValues
     }
@@ -200,7 +200,7 @@ final class HomeItemShelfView: NSObject {
         items: [],
         isChart: false,
         action: { _, _ in },
-        playlistPlayAction: { _ in nil },
+        quickPlayAction: { _ in nil },
         contextMenu: nil,
         environment: EnvironmentValues()
     )
@@ -222,11 +222,11 @@ final class HomeItemShelfView: NSObject {
         self.documentView.hoverHandler = { [weak self] point in
             self?.updateHover(at: point)
         }
-        self.documentView.clickHandler = { [weak self] index, isLikeControl in
-            if isLikeControl {
-                self?.cells[index].toggleLike()
-            } else {
-                self?.activate(index)
+        self.documentView.clickHandler = { [weak self] target in
+            switch target {
+            case let .card(index): self?.activate(index)
+            case let .likeControl(index): self?.cells[index].toggleLike()
+            case let .playButton(index): self?.cells[index].performPlayAction()
             }
         }
 
@@ -367,7 +367,7 @@ final class HomeItemShelfView: NSObject {
                 item: item,
                 rank: self.configuration.isChart ? index + 1 : nil,
                 allowsLikeActions: allowsLikeActions,
-                playlistPlayAction: self.configuration.playlistPlayAction(item),
+                quickPlayAction: self.configuration.quickPlayAction(item),
                 environment: environment
             )
             cell.menuProvider = { [weak self] in
@@ -539,16 +539,16 @@ private final class ObservationTick {
 @MainActor
 private final class HomeItemShelfDocumentView: NSView {
     var hoverHandler: ((NSPoint?) -> Void)?
-    /// `(index, isLikeControl)`.
-    var clickHandler: ((Int, Bool) -> Void)?
+    var clickHandler: ((PressTarget) -> Void)?
     var cells: [HomeItemCell] = []
     private var trackingArea: NSTrackingArea?
     private var scrollsPageForGesture: Bool?
     private var pendingScrollStartEvents: [NSEvent] = []
 
-    private enum PressTarget: Equatable {
+    enum PressTarget: Equatable {
         case card(Int)
         case likeControl(Int)
+        case playButton(Int)
     }
 
     private var pressTarget: PressTarget?
@@ -654,12 +654,16 @@ private final class HomeItemShelfDocumentView: NSView {
         }
     }
 
-    /// What is under `point`: the card, its like control, or nothing.
+    /// What is under `point`: the card, one of its controls, or nothing.
     private func target(at point: NSPoint) -> PressTarget? {
         guard let index = self.cellIndex(at: point) else { return nil }
         let cell = self.cells[index]
-        if let likeFrame = cell.likeButtonFrame, likeFrame.contains(self.convert(point, to: cell)) {
+        let cellPoint = self.convert(point, to: cell)
+        if let likeFrame = cell.likeButtonFrame, likeFrame.contains(cellPoint) {
             return .likeControl(index)
+        }
+        if let playFrame = cell.playButtonFrame, playFrame.contains(cellPoint) {
+            return .playButton(index)
         }
         return .card(index)
     }
@@ -669,14 +673,11 @@ private final class HomeItemShelfDocumentView: NSView {
     }
 
     /// A press only dispatches if it is released on the same target it began
-    /// on, so dragging off the like control (or onto it) cancels.
+    /// on, so dragging off a control (or onto it) cancels.
     override func mouseUp(with event: NSEvent) {
         defer { self.pressTarget = nil }
         let point = self.convert(event.locationInWindow, from: nil)
         guard event.clickCount == 1, let pressed = self.pressTarget, self.target(at: point) == pressed else { return }
-        switch pressed {
-        case let .card(index): self.clickHandler?(index, false)
-        case let .likeControl(index): self.clickHandler?(index, true)
-        }
+        self.clickHandler?(pressed)
     }
 }

@@ -220,7 +220,7 @@ struct HomeItemShelfViewTests {
             items: items,
             isChart: false,
             action: { _, _ in },
-            playlistPlayAction: { _ in nil },
+            quickPlayAction: { _ in nil },
             contextMenu: nil,
             environment: environment
         )
