@@ -458,7 +458,7 @@ extension PlayerService {
         self.clearPendingNativeQueueAdvance()
         self.cancelDeferredQueueWork()
         self.clearQueueUndoRedoHistory()
-        self.libraryMutationGeneration &+= 1
+        self.libraryMutationStates.removeAll()
         self.confirmedLibraryStateByKey.removeAll()
         self.mixContinuationToken = nil
         self.mixContinuationRequiresAuth = false

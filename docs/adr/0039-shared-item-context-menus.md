@@ -41,6 +41,12 @@ page is passed in:
 - `libraryToggle`: replaces Add to Library with Add/Remove when the host
   knows whether the song is saved (the player bar).
 
+Saving a song resolves its library feedback token through the API and uses the
+player's serialized library mutations without changing playback or queue ownership.
+Playlist menus report mutation failures and prevent repeat clicks while updating.
+Menus and detail headers share the playlist model's library eligibility rule,
+which excludes Liked Music, New Episodes, Episodes for Later and uploaded songs.
+
 Entries that only make sense on one page (Remove from Playlist, Remove from
 Queue, Delete Playlist, Favorites reordering) are written by the page after
 the shared menu, below a divider.

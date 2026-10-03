@@ -180,7 +180,8 @@ struct SimplePlaylistDetailView: View {
                         SongContextMenu(
                             song: track,
                             client: self.viewModel.client,
-                            play: { Task { await self.playFromIndex(index, tracks: tracks) } }
+                            play: { Task { await self.playFromIndex(index, tracks: tracks) } },
+                            showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
                         )
                     }
                 }

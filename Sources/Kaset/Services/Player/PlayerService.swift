@@ -502,7 +502,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var musicPlaybackIntentIssuedAtMilliseconds: Double = 0
     var musicPlaybackIntentAcceptsPriorTerminalEvent = false
     var musicPlaybackMinimumAcceptedTerminalIntentGeneration: UInt64 = 0
-    var libraryMutationGeneration: UInt64 = 0
+    /// Keep completed mutations authoritative over stale metadata until the account boundary.
+    var libraryMutationStates: [String: MusicLibraryMutationState] = [:]
     var libraryMutationRevisionCounter: UInt64 = 0
     var libraryMutationRevisions: [String: UInt64] = [:]
     var confirmedLibraryStateByKey: [String: MusicLibraryConfirmedState] = [:]

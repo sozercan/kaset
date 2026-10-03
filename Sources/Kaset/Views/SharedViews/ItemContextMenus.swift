@@ -218,6 +218,7 @@ struct PlaylistContextMenu: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(AuthService.self) private var authService
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
+    @State private var isUpdatingLibrary = false
 
     var body: some View {
         ContextMenuNavigationButton(
@@ -237,30 +238,17 @@ struct PlaylistContextMenu: View {
             Divider()
         }
 
-        if self.authService.hasPersonalAccount, self.supportsLibraryToggle {
+        if self.authService.hasPersonalAccount, self.playlist.supportsLibraryToggle {
             let isInLibrary = self.libraryViewModel?.isInLibrary(playlistId: self.playlist.id) ?? false
             Button {
-                Task {
-                    if isInLibrary {
-                        try? await SongActionsHelper.removePlaylistFromLibrary(
-                            self.playlist,
-                            client: self.client,
-                            libraryViewModel: self.libraryViewModel
-                        )
-                    } else {
-                        try? await SongActionsHelper.addPlaylistToLibrary(
-                            self.playlist,
-                            client: self.client,
-                            libraryViewModel: self.libraryViewModel
-                        )
-                    }
-                }
+                self.toggleLibrary(isInLibrary: isInLibrary)
             } label: {
                 Label(
                     isInLibrary ? String(localized: "Remove from Library") : String(localized: "Add to Library"),
                     systemImage: isInLibrary ? "minus.circle" : "plus.circle"
                 )
             }
+            .disabled(self.isUpdatingLibrary || LibraryMutationActions.isPlaylistMutationPending(playlistId: self.playlist.id))
         }
 
         FavoritesContextMenu.menuItem(for: self.playlist, manager: self.favoritesManager)
@@ -268,12 +256,38 @@ struct PlaylistContextMenu: View {
         ShareContextMenu.menuItem(for: self.playlist)
     }
 
-    /// YouTube Music's auto-generated "New Episodes" and "Episodes for Later" playlists.
-    private static let systemPlaylistKeys: Set<String> = ["RDPN", "SE"]
-
-    private var supportsLibraryToggle: Bool {
-        !LikedMusicPlaylist.matches(id: self.playlist.id)
-            && !Self.systemPlaylistKeys.contains(LibraryContentIdentity.playlistKey(for: self.playlist.id))
+    private func toggleLibrary(isInLibrary: Bool) {
+        guard !self.isUpdatingLibrary else { return }
+        self.isUpdatingLibrary = true
+        let owner = self.playerService.currentAccountMutationOwner
+        Task { @MainActor in
+            defer { self.isUpdatingLibrary = false }
+            guard self.playerService.acceptsAccountMutationOwner(owner),
+                  !LibraryMutationActions.isPlaylistMutationPending(playlistId: self.playlist.id)
+            else { return }
+            do {
+                if isInLibrary {
+                    try await SongActionsHelper.removePlaylistFromLibrary(
+                        self.playlist,
+                        client: self.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
+                } else {
+                    try await SongActionsHelper.addPlaylistToLibrary(
+                        self.playlist,
+                        client: self.client,
+                        libraryViewModel: self.libraryViewModel
+                    )
+                }
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+                HapticService.success()
+            } catch is CancellationError {
+                return
+            } catch {
+                guard self.playerService.acceptsAccountMutationOwner(owner) else { return }
+                SongActionsHelper.presentLibraryUpdateError(error)
+            }
+        }
     }
 }
 

@@ -49,36 +49,10 @@ enum SongActionsHelper {
         }
     }
 
-    /// Adds a song to the library by playing it and toggling library status.
-    /// Note: This still requires playing because library toggle works on current track.
+    /// Adds a song to the library without changing playback or queue ownership.
     @discardableResult
     static func addToLibrary(_ song: Song, playerService: PlayerService) -> Task<Void, Never> {
-        let intent = playerService.beginMusicPlaybackIntent()
-        let queueEntryID = playerService.currentQueueEntryID(matching: song)
-        return Task {
-            await playerService.play(
-                song: song,
-                webLoadStrategy: .standard,
-                queueEntryID: queueEntryID,
-                intent: intent
-            )
-            guard playerService.acceptsMusicPlaybackIntent(intent),
-                  playerService.currentTrack?.videoId == song.videoId
-            else { return }
-            guard !playerService.currentTrackInLibrary else { return }
-            if playerService.currentTrackFeedbackTokens?.add == nil {
-                await playerService.fetchSongMetadata(
-                    videoId: song.videoId,
-                    queueOwner: queueEntryID.map(MusicQueueMetadataOwner.entry) ?? .none
-                )
-            }
-            guard playerService.acceptsMusicPlaybackIntent(intent),
-                  playerService.currentTrack?.videoId == song.videoId,
-                  !playerService.currentTrackInLibrary,
-                  playerService.currentTrackFeedbackTokens?.add != nil
-            else { return }
-            playerService.toggleLibraryStatus()
-        }
+        playerService.addToLibrary(song: song)
     }
 
     /// Adds a song to a playlist.
@@ -118,6 +92,16 @@ enum SongActionsHelper {
             libraryViewModel: libraryViewModel,
             onMutationApplied: onMutationApplied
         )
+    }
+
+    static func presentLibraryUpdateError(_ error: any Error) {
+        HapticService.error()
+        let alert = NSAlert(error: error)
+        if let window = NSApp.keyWindow ?? NSApp.mainWindow {
+            alert.beginSheetModal(for: window)
+        } else {
+            alert.runModal()
+        }
     }
 
     /// Adds an album to the library using its album playlist target.
