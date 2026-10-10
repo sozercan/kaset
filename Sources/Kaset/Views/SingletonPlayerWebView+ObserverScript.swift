@@ -289,13 +289,31 @@ extension SingletonPlayerWebView {
                 });
             }
 
+            // YouTube Music has shipped two player UIs: the legacy `ytmusic-player-bar`
+            // and the redesigned `ytmusic-miniplayer[slot="player-bar"]`.
+            function findPlayerBar() {
+                return document.querySelector('ytmusic-player-bar')
+                    || document.querySelector('ytmusic-miniplayer');
+            }
+
+            let videoListenersStarted = false;
+            function startVideoListeners() {
+                if (videoListenersStarted) return;
+                videoListenersStarted = true;
+                setupVideoListeners();
+            }
+
             function waitForPlayerBar() {
-                const playerBar = document.querySelector('ytmusic-player-bar');
+                const playerBar = findPlayerBar();
                 if (playerBar) {
                     setupObserver(playerBar);
-                    setupVideoListeners();
+                    startVideoListeners();
                     return;
                 }
+                // Playback state comes from the <video> element, not from the bar.
+                // A missing or renamed bar must never silence state updates, or Swift
+                // never confirms playback and falls back to reloading the page.
+                startVideoListeners();
                 setTimeout(waitForPlayerBar, 500);
             }
 
@@ -765,7 +783,7 @@ extension SingletonPlayerWebView {
                 observer.observe(playerBar, {
                     attributes: true, characterData: true,
                     childList: true, subtree: true,
-                    attributeFilter: ['title', 'aria-label', 'like-status', 'value', 'aria-valuemax']
+                    attributeFilter: ['title', 'aria-label', 'like-status', 'aria-pressed', 'value', 'aria-valuemax']
                 });
                 sendUpdate(true);
             }
@@ -866,9 +884,11 @@ extension SingletonPlayerWebView {
                     const mediaTiming = __kasetMediaTiming(video, progressBar);
 
                     // Extract track metadata
-                    const titleEl = document.querySelector('.ytmusic-player-bar.title');
+                    const titleEl = document.querySelector('.ytmusic-player-bar.title')
+                        || document.querySelector('ytmusic-miniplayer .ytmusicTrackInfoTitle');
                     const artistEl = document.querySelector('.ytmusic-player-bar.byline');
-                    const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
+                    const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image')
+                        || document.querySelector('ytmusic-miniplayer img.ytmusicTrackInfoThumbnail');
 
                     const playerData = currentPlayerData();
                     const mediaElement = document.querySelector('video');
@@ -970,6 +990,20 @@ extension SingletonPlayerWebView {
                         const status = likeRenderer.getAttribute('like-status');
                         if (status === 'LIKE') likeStatus = 'LIKE';
                         else if (status === 'DISLIKE') likeStatus = 'DISLIKE';
+                    } else {
+                        // Redesigned player: like/dislike are toggle buttons that
+                        // report their state through `aria-pressed`.
+                        const likeButton = document.querySelector(
+                            'ytmusic-miniplayer like-button-view-model button'
+                        );
+                        const dislikeButton = document.querySelector(
+                            'ytmusic-miniplayer dislike-button-view-model button'
+                        );
+                        if (likeButton && likeButton.getAttribute('aria-pressed') === 'true') {
+                            likeStatus = 'LIKE';
+                        } else if (dislikeButton && dislikeButton.getAttribute('aria-pressed') === 'true') {
+                            likeStatus = 'DISLIKE';
+                        }
                     }
 
                     // Check if track changed
