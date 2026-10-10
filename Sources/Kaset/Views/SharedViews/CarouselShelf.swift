@@ -102,11 +102,10 @@ struct CarouselShelf<Content: View>: View {
 
 // MARK: - CarouselShelfHover
 
-/// Whether the pointer is over a shelf, set by the shelf itself: SwiftUI
-/// `.onHover` for ``CarouselShelf``, the AppKit tracking area for
-/// ``HomeItemCollectionShelf`` (SwiftUI re-hit-tests every hover responder on
-/// each scroll frame while content moves under the pointer). Observable, so a
-/// change re-renders only the paging controls, not the shelf content.
+/// Whether the pointer is over a ``CarouselShelf``, set by its `.onHover`.
+/// Observable, so a change re-renders only the paging controls, not the shelf
+/// content. (``HomeItemCollectionShelf`` tracks hover natively for its own
+/// AppKit arrows.)
 @MainActor
 @Observable
 final class CarouselShelfHover {

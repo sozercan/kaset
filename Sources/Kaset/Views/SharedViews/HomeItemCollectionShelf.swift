@@ -3,17 +3,10 @@ import SwiftUI
 
 // MARK: - HomeItemShelfSection
 
-// A header plus a horizontal shelf of ``HomeSectionItem`` cards, backed by
-// `NSCollectionView` with native, reusable cells.
-//
-// This replaces `CarouselShelfSection` + `HomeSectionItemCard` for the Home,
-// Explore, Charts, New Releases and Moods pages. Measured on a paginated Home
-// (19 shelves, 120 Hz): the SwiftUI shelf dropped 10–14 frames per scroll pass
-// at ~55% app CPU; the collection-view shelf drops <1 at ~33%. Hosting the
-// SwiftUI card inside collection-view cells kept almost none of that win, so
-// the card is native: what scrolls is an `NSImageView`-style layer, two text
-// fields and a badge, with SwiftUI used only for the glass play overlay of the
-// single hovered cell and for the context menu.
+// A header plus a horizontal shelf of ``HomeSectionItem`` cards for the Home,
+// Explore, Charts, New Releases and Moods pages. Only the header is SwiftUI: the
+// shelf is a plain `NSScrollView` of single-view native cards, with native glass
+// paging arrows. See ADR-0038 for the measurements behind each piece.
 
 struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     let accessibilityLabel: String
@@ -26,10 +19,6 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
     let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
     let header: () -> Header
     let contextMenu: ((HomeSectionItem, Int) -> MenuContent)?
-
-    @State private var overflow = CarouselShelfOverflow()
-    @State private var pager = HomeItemShelfPager()
-    @State private var hover = CarouselShelfHover()
 
     init(
         accessibilityLabel: String,
@@ -66,20 +55,13 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
                 action: self.action,
                 playlistPlayAction: self.playlistPlayAction,
                 contextMenu: self.contextMenu.map { menu in { item, index in AnyView(menu(item, index)) } },
-                overflow: self.$overflow,
-                hover: self.hover,
-                pager: self.pager
+                accessibilityLabel: self.accessibilityLabel
             )
             .frame(height: HomeItemCell.height)
-            .modifier(CarouselShelfPagingControls(
-                accessibilityLabel: self.accessibilityLabel,
-                showsLeading: self.overflow.leading,
-                showsTrailing: self.overflow.trailing,
-                controlVerticalAlignment: .center,
-                contentInset: self.contentInset,
-                page: { self.pager.page($0) },
-                hover: self.hover
-            ))
+            // The paging arrows are native (see `HomeItemShelfContainerView`);
+            // only the shelf's accessibility container stays in SwiftUI.
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel(self.accessibilityLabel)
         }
     }
 }
@@ -105,19 +87,6 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
     }
 }
 
-// MARK: - HomeItemShelfPager
-
-/// Lets the SwiftUI paging buttons drive the AppKit scroll view without
-/// routing a command through SwiftUI state.
-@MainActor
-final class HomeItemShelfPager {
-    weak var shelfView: HomeItemShelfView?
-
-    func page(_ direction: CarouselShelfDirection) {
-        self.shelfView?.page(direction)
-    }
-}
-
 // MARK: - HomeItemCollectionShelf
 
 /// Thin SwiftUI wrapper around ``HomeItemShelfView``.
@@ -128,9 +97,7 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
     let action: (HomeSectionItem, Int) -> Void
     let playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
     let contextMenu: ((HomeSectionItem, Int) -> AnyView)?
-    @Binding var overflow: CarouselShelfOverflow
-    let hover: CarouselShelfHover
-    let pager: HomeItemShelfPager
+    let accessibilityLabel: String
 
     /// Forwarded into the hosted play overlay and context menu so they see the
     /// same observable services as the rest of the page.
@@ -140,41 +107,38 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
         HomeItemShelfView(contentInset: self.contentInset)
     }
 
-    func makeNSView(context: Context) -> NSScrollView {
+    func makeNSView(context: Context) -> HomeItemShelfContainerView {
         let shelf = context.coordinator
         self.configure(shelf)
         shelf.installObservers()
-        return shelf.scrollView
+        return shelf.containerView
     }
 
-    func updateNSView(_: NSScrollView, context: Context) {
+    func updateNSView(_: HomeItemShelfContainerView, context: Context) {
         self.configure(context.coordinator)
     }
 
-    static func dismantleNSView(_: NSScrollView, coordinator: HomeItemShelfView) {
+    /// The shelf's size is fixed by its container. Without this, SwiftUI sizes the
+    /// platform view through Auto Layout (`intrinsicLayoutTraits` and a window
+    /// constraint pass) every time a shelf is realized mid-scroll.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView _: HomeItemShelfContainerView, context _: Context) -> CGSize? {
+        CGSize(width: proposal.width ?? 0, height: HomeItemCell.height)
+    }
+
+    static func dismantleNSView(_: HomeItemShelfContainerView, coordinator: HomeItemShelfView) {
         coordinator.removeObservers()
     }
 
     private func configure(_ view: HomeItemShelfView) {
-        view.onOverflowChange = { overflow in
-            if overflow != self.overflow {
-                self.overflow = overflow
-            }
-        }
-        view.onHoverChange = { [hover] isHovering in
-            if isHovering != hover.isHovering {
-                hover.isHovering = isHovering
-            }
-        }
         view.apply(HomeItemShelfView.Configuration(
             items: self.items,
             isChart: self.isChart,
             action: self.action,
             playlistPlayAction: self.playlistPlayAction,
             contextMenu: self.contextMenu,
+            accessibilityLabel: self.accessibilityLabel,
             environment: self.environment
         ))
-        self.pager.shelfView = view
     }
 }
 
@@ -193,18 +157,15 @@ final class HomeItemShelfView: NSObject {
         var action: (HomeSectionItem, Int) -> Void
         var playlistPlayAction: (HomeSectionItem) -> (() -> Void)?
         var contextMenu: ((HomeSectionItem, Int) -> AnyView)?
+        var accessibilityLabel = ""
         var environment: EnvironmentValues
     }
 
     static let itemSpacing: CGFloat = 16
     static let pageFraction: CGFloat = 0.85
 
-    var onOverflowChange: ((CarouselShelfOverflow) -> Void)?
-    /// Pointer entered or left the shelf (drives the paging controls' prominence).
-    var onHoverChange: ((Bool) -> Void)?
-    private var isPointerInside = false
-
     let scrollView = NSScrollView()
+    let containerView = HomeItemShelfContainerView()
     private let documentView = HomeItemShelfDocumentView()
     private let contentInset: CGFloat
     private var cells: [HomeItemCell] = []
@@ -216,7 +177,9 @@ final class HomeItemShelfView: NSObject {
         contextMenu: nil,
         environment: EnvironmentValues()
     )
-    private var overflow = CarouselShelfOverflow()
+    /// Which logical directions can still scroll; drives the paging arrows.
+    private(set) var overflow = CarouselShelfOverflow()
+    private var hasReportedOverflow = false
     private var hoveredIndex: Int?
     private var observers: [NSObjectProtocol] = []
     private var layoutViewportWidth: CGFloat = 0
@@ -234,7 +197,7 @@ final class HomeItemShelfView: NSObject {
         self.documentView.hoverHandler = { [weak self] point in
             guard let self else { return }
             self.updateHover(at: point)
-            self.setPointerInside(point != nil)
+            self.containerView.setHovering(point != nil)
         }
         self.documentView.windowHandler = { [weak self] hasWindow in
             guard let self else { return }
@@ -243,7 +206,7 @@ final class HomeItemShelfView: NSObject {
             } else {
                 // A shelf detached while hovered never receives `mouseExited`.
                 self.updateHover(at: nil)
-                self.setPointerInside(false)
+                self.containerView.setHovering(false)
             }
         }
         self.documentView.clickHandler = { [weak self] index, isLikeControl in
@@ -255,6 +218,12 @@ final class HomeItemShelfView: NSObject {
         }
 
         self.scrollView.documentView = self.documentView
+        self.containerView.install(scrollView: self.scrollView, contentInset: contentInset)
+        self.containerView.pageHandler = { [weak self] side in
+            guard let self else { return }
+            // Arrows are physical; paging is logical.
+            self.page((side == .left) != self.isRightToLeft ? .leading : .trailing)
+        }
         self.scrollView.hasHorizontalScroller = false
         self.scrollView.hasVerticalScroller = false
         self.scrollView.horizontalScrollElasticity = .allowed
@@ -317,6 +286,10 @@ final class HomeItemShelfView: NSObject {
             || self.configuration.isChart != configuration.isChart
             || directionChanged
         self.configuration = configuration
+        self.containerView.configure(
+            shelfLabel: configuration.accessibilityLabel,
+            usesLegacyMaterial: configuration.environment.usesLegacyMacOS15UI
+        )
         if directionChanged {
             self.scrollOffsetFromLeading = 0
         }
@@ -486,18 +459,7 @@ final class HomeItemShelfView: NSObject {
         // `mouseExited` would clear hover resolved while the window is not key.
         let inside = window.isKeyWindow && self.documentView.visibleRect.contains(point)
         self.updateHover(at: inside ? point : nil)
-        self.setPointerInside(inside)
-    }
-
-    private func setPointerInside(_ inside: Bool) {
-        guard inside != self.isPointerInside else { return }
-        self.isPointerInside = inside
-        // May run while SwiftUI is attaching or laying out the representable;
-        // deliver on the next turn rather than mid-update, like overflow.
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.onHoverChange?(self.isPointerInside)
-        }
+        self.containerView.setHovering(inside)
     }
 
     // MARK: Overflow + paging
@@ -523,19 +485,14 @@ final class HomeItemShelfView: NSObject {
         let contentWidth = self.documentView.frame.width
         let left = visible.minX > 1
         let right = contentWidth - visible.maxX > 1
-        let next = CarouselShelfOverflow(
+        self.overflow = CarouselShelfOverflow(
             leading: self.isRightToLeft ? right : left,
             trailing: self.isRightToLeft ? left : right
         )
-        guard next != self.overflow else { return }
-        self.overflow = next
-        // The first report happens while SwiftUI is still building the
-        // representable; a state write at that point is discarded, so deliver
-        // on the next turn.
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.onOverflowChange?(self.overflow)
-        }
+        // The first report lands while the shelf is being built (often as it
+        // scrolls into view); only later changes animate.
+        self.containerView.setArrows(left: left, right: right, animated: self.hasReportedOverflow)
+        self.hasReportedOverflow = true
     }
 
     func page(_ direction: CarouselShelfDirection) {

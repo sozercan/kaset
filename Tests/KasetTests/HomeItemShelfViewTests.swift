@@ -78,19 +78,18 @@ struct HomeItemShelfViewTests {
         let shelf = Self.shelf(width: 320, layoutDirection: layoutDirection)
         defer { shelf.removeObservers() }
         let first = try #require(Self.cells(in: shelf).first)
-        var overflow = CarouselShelfOverflow()
-        shelf.onOverflowChange = { overflow = $0 }
 
         let trailingX = shelf.scrollView.contentView.bounds.minX + (layoutDirection == .rightToLeft ? -272 : 272)
         try await Self.page(.trailing, in: shelf) {
             shelf.scrollView.contentView.bounds.minX == trailingX
-                && overflow == CarouselShelfOverflow(leading: true, trailing: true)
+                && shelf.overflow == CarouselShelfOverflow(leading: true, trailing: true)
         }
         let offset = layoutDirection == .rightToLeft
             ? first.frame.maxX + 20 - shelf.scrollView.contentView.bounds.maxX
             : shelf.scrollView.contentView.bounds.minX
         #expect(offset == 272)
-        #expect(overflow == CarouselShelfOverflow(leading: true, trailing: true))
+        #expect(shelf.overflow == CarouselShelfOverflow(leading: true, trailing: true))
+        #expect(shelf.containerView.isShowingArrow(.left) && shelf.containerView.isShowingArrow(.right))
 
         shelf.scrollView.setFrameSize(NSSize(width: 400, height: HomeItemCell.height))
         shelf.scrollView.layoutSubtreeIfNeeded()
@@ -102,14 +101,38 @@ struct HomeItemShelfViewTests {
         let leadingX = layoutDirection == .rightToLeft ? first.frame.maxX + 20 - shelf.scrollView.contentView.bounds.width : 0
         try await Self.page(.leading, in: shelf) {
             shelf.scrollView.contentView.bounds.minX == leadingX
-                && overflow == CarouselShelfOverflow(leading: false, trailing: true)
+                && shelf.overflow == CarouselShelfOverflow(leading: false, trailing: true)
         }
         if layoutDirection == .rightToLeft {
             #expect(first.frame.maxX == shelf.scrollView.contentView.bounds.maxX - 20)
         } else {
             #expect(shelf.scrollView.contentView.bounds.minX == 0)
         }
-        #expect(overflow == CarouselShelfOverflow(leading: false, trailing: true))
+        #expect(shelf.overflow == CarouselShelfOverflow(leading: false, trailing: true))
+        // Arrows are physical: the trailing arrow sits on the left in right-to-left layouts.
+        let trailingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .left : .right
+        let leadingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .right : .left
+        #expect(shelf.containerView.isShowingArrow(trailingSide))
+        #expect(!shelf.containerView.isShowingArrow(leadingSide))
+    }
+
+    @Test("Physical arrows page in the matching visual direction", arguments: [LayoutDirection.leftToRight, .rightToLeft])
+    func arrowsPagePhysically(layoutDirection: LayoutDirection) async throws {
+        let shelf = Self.shelf(width: 320, layoutDirection: layoutDirection)
+        defer { shelf.removeObservers() }
+        // The trailing arrow is the right one in LTR and the left one in RTL;
+        // either way pressing it moves the content toward the trailing edge.
+        let isRightToLeft = layoutDirection == .rightToLeft
+        let start = shelf.scrollView.contentView.bounds.minX
+        shelf.containerView.pageHandler?(isRightToLeft ? .left : .right)
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        // Wait for the paging animation to clear the 1pt overflow threshold.
+        while !shelf.overflow.leading, ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        let end = shelf.scrollView.contentView.bounds.minX
+        #expect(isRightToLeft ? end < start : end > start)
+        #expect(shelf.overflow.leading)
     }
 
     @Test("Changing layout direction repositions retained cards and resets to the leading edge")
