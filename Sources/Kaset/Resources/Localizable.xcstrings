@@ -1,6 +1,36 @@
 {
   "sourceLanguage": "en",
   "strings": {
+    "Dark Mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark Mode"
+          }
+        }
+      }
+    },
+    "Light Mode": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light Mode"
+          }
+        }
+      }
+    },
+    "Appearance": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        }
+      }
+    },
     "Ad": {
       "comment": "Compact badge shown during an advertisement",
       "localizations": {

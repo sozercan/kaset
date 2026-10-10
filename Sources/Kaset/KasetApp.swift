@@ -379,6 +379,8 @@ struct KasetApp: App {
                 .environment(self.equalizerService)
         }
         .commands {
+            AppearanceCommands(appearance: self.$settings.appearance)
+
             // Check for Updates command in app menu
             CommandGroup(after: .appInfo) {
                 Button(String(localized: "Check for Updates...")) {
