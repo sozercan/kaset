@@ -2267,6 +2267,48 @@
         }
       }
     },
+    "View Credits": {
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "عرض الاعتمادات" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Mitwirkende anzeigen" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Ver créditos" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Voir les crédits" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Lihat Kredit" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Visualizza crediti" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "クレジットを表示" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "크레딧 보기" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Credits bekijken" } },
+        "pl": { "stringUnit": { "state": "translated", "value": "Pokaż twórców" } },
+        "pt": { "stringUnit": { "state": "translated", "value": "Ver créditos" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Показать авторов" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Visa medverkande" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Emeği Geçenleri Göster" } },
+        "uk": { "stringUnit": { "state": "translated", "value": "Переглянути авторів" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "查看制作人员" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "查看製作人員" } }
+      }
+    },
+    "Credits unavailable": {
+      "localizations": {
+        "ar": { "stringUnit": { "state": "translated", "value": "الاعتمادات غير متاحة" } },
+        "de": { "stringUnit": { "state": "translated", "value": "Keine Mitwirkenden verfügbar" } },
+        "es": { "stringUnit": { "state": "translated", "value": "Créditos no disponibles" } },
+        "fr": { "stringUnit": { "state": "translated", "value": "Crédits indisponibles" } },
+        "id": { "stringUnit": { "state": "translated", "value": "Kredit tidak tersedia" } },
+        "it": { "stringUnit": { "state": "translated", "value": "Crediti non disponibili" } },
+        "ja": { "stringUnit": { "state": "translated", "value": "クレジットはありません" } },
+        "ko": { "stringUnit": { "state": "translated", "value": "크레딧을 사용할 수 없음" } },
+        "nl": { "stringUnit": { "state": "translated", "value": "Credits niet beschikbaar" } },
+        "pl": { "stringUnit": { "state": "translated", "value": "Informacje o twórcach niedostępne" } },
+        "pt": { "stringUnit": { "state": "translated", "value": "Créditos indisponíveis" } },
+        "ru": { "stringUnit": { "state": "translated", "value": "Сведения об авторах недоступны" } },
+        "sv": { "stringUnit": { "state": "translated", "value": "Medverkande saknas" } },
+        "tr": { "stringUnit": { "state": "translated", "value": "Emeği geçenler kullanılamıyor" } },
+        "uk": { "stringUnit": { "state": "translated", "value": "Відомості про авторів недоступні" } },
+        "zh-Hans": { "stringUnit": { "state": "translated", "value": "制作人员信息不可用" } },
+        "zh-Hant": { "stringUnit": { "state": "translated", "value": "製作人員資訊無法使用" } }
+      }
+    },
     "Add to Queue": {
       "localizations": {
         "ar": {

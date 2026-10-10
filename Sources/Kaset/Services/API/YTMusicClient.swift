@@ -1300,6 +1300,17 @@ final class YTMusicClient: YTMusicClientProtocol {
         return lyrics
     }
 
+    func getTrackCredits(videoId: String) async throws -> TrackCredits {
+        self.logger.info("Fetching track credits for: \(videoId)")
+        let body: [String: Any] = [
+            "browseId": ParsingHelpers.trackCreditsBrowseId(forVideoId: videoId),
+        ]
+        let data = try await request("browse", body: body, ttl: APICache.TTL.credits)
+        let credits = TrackCreditsParser.parse(data)
+        self.logger.info("Fetched track credits for \(videoId): \(credits.sections.count) sections")
+        return credits
+    }
+
     /// Fetches timed (synced) lyrics for a song from YouTube Music.
     /// Checks the "next" endpoint for timedLyricsModel data, then falls back to browse endpoint for plain lyrics.
     func getTimedLyrics(videoId: String) async throws -> LyricResult {

@@ -72,6 +72,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var showLoginSheet = false
     @State private var isCommandBarPresented = false
     @State private var whatsNewToPresent: PresentedWhatsNew?
+    @State private var trackCreditsSong: Song?
     @State private var selectedSidebarPinnedItem: SidebarPinnedItem?
     @State private var contentResetID = UUID()
     @State private var guestRefreshTask: Task<Void, Never>?
@@ -268,6 +269,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.dismissWhatsNew(presentedWhatsNew)
             }
         }
+        .sheet(item: self.$trackCreditsSong) { song in
+            TrackCreditsSheet(song: song, client: self.client)
+        }
+        .environment(\.trackCreditsAction, TrackCreditsAction { song in
+            self.trackCreditsSong = song
+        })
         .overlay {
             // Command bar overlay - dismisses when clicking outside
             if self.supportsCommandBarUI, self.isCommandBarPresented {

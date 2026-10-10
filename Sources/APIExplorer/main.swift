@@ -1953,6 +1953,11 @@ func needsAuthentication(_ browseId: String) -> Bool {
     if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
         return loadCookiesFromAppBackup() != nil
     }
+    // Track credits dialogs come from signed-in track menus; unauthenticated
+    // configuration loads can fail before the request is sent.
+    if browseId.hasPrefix("MPTC") {
+        return loadCookiesFromAppBackup() != nil
+    }
     return false
 }
 

@@ -44,6 +44,7 @@ final class APICache {
         static let search: TimeInterval = 2 * 60 // 2 minutes
         static let library: TimeInterval = 5 * 60 // 5 minutes
         static let lyrics: TimeInterval = 24 * 60 * 60 // 24 hours
+        static let credits: TimeInterval = 24 * 60 * 60 // 24 hours
         static let songMetadata: TimeInterval = 30 * 60 // 30 minutes
     }
 
