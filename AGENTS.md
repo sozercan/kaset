@@ -93,7 +93,7 @@ These are project-specific rules that differ from standard Swift/SwiftUI convent
 - Throw `YTMusicError.authExpired` on HTTP 401/403
 - Use `.task` instead of `.onAppear { Task { } }`
 
-`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`, `contentMargins`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
 
 ## Task Planning
 

@@ -53,10 +53,10 @@ struct ArtistEpisodesListView: View {
                 }
             }
             .padding(.vertical, 16)
+            // Edge-to-edge with a resting inset so the list extends under the
+            // floating glass sidebar.
+            .detailScrollContentInset()
         }
-        // Edge-to-edge with a resting inset so the list extends under the
-        // floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
     }
 
     private func episodeRow(_ episode: ArtistEpisode) -> some View {

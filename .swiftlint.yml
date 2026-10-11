@@ -101,3 +101,12 @@ custom_rules:
     regex: "\\.cornerRadius\\("
     message: "Use .clipShape(.rect(cornerRadius:)) instead of .cornerRadius()"
     severity: warning
+
+  no_content_margins:
+    name: "No contentMargins"
+    regex: "\\.contentMargins\\("
+    message: "On macOS 26 .contentMargins draws scroll content offset from where it hit-tests; use .detailScrollContentInset() inside the ScrollView (see DetailContentLayout)"
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment

@@ -202,8 +202,8 @@ struct YouTubeHomeView: View {
                 }
             }
             .padding(.vertical, 20)
+            .detailScrollContentInset()
         }
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .disabled(true)
     }
 }

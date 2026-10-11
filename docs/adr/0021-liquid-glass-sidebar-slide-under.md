@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted, amended 2026-10-10
 
 ## Context
 
@@ -70,13 +70,20 @@ Apple's Landmarks sample does.** Two coordinated changes:
      auto-scrolls live cards under the glass. The old leading edge-fade `.mask`
      was removed because it faded cards to transparent in exactly the band that
      should refract through the glass.
-   - *Vertical grids/lists and accent-backdrop detail pages*: convert fixed
-     `.padding(.horizontal, 24)` to
-     `.contentMargins(.horizontal, …, for: .scrollContent)` so the scroll view
-     reaches the column edge while keeping an unchanged resting inset. (Vertical
-     content does not visibly *slide* under the sidebar — that is inherently a
-     horizontal-scroll effect — but its edge and any accent backdrop refract
-     through the glass.)
+   - *Vertical grids/lists and accent-backdrop detail pages*: move the fixed
+     `.padding(.horizontal, 24)` from the `ScrollView` onto its content with
+     `.detailScrollContentInset()`, so the scroll view reaches the column edge
+     while keeping an unchanged resting inset. (Vertical content does not
+     visibly *slide* under the sidebar — that is inherently a horizontal-scroll
+     effect — but its edge and any accent backdrop refract through the glass.)
+
+     *Amended 2026-10-10:* this originally used
+     `.contentMargins(.horizontal, …, for: .scrollContent)`. On macOS 26 that
+     draws the scroll content offset by the inset from where it hit-tests, so
+     clicks landed beside the control under the pointer (track-row like buttons
+     started playback instead). Padding on the content gives the same layout
+     with matching hit-testing, and the `no_content_margins` SwiftLint rule
+     keeps `.contentMargins` out.
 
 A shared `DetailContentLayout.horizontalInset` constant (24) keeps the resting
 inset consistent across all surfaces.
@@ -88,9 +95,9 @@ inset consistent across all surfaces.
 toggle, not the OS version. On macOS 26 (non-legacy) it hides the list
 background to reveal the system Liquid Glass; otherwise (legacy flag, or real
 macOS 15 where the `#available` check is false at runtime) it falls back to an
-`.ultraThinMaterial` frosted panel. The `.contentMargins`/`Spacer` layout
-changes are macOS 14+ and produce the same resting layout on the legacy path
-(there is simply no glass to slide under).
+`.ultraThinMaterial` frosted panel. The padding/`Spacer` layout changes
+produce the same resting layout on the legacy path (there is simply no glass
+to slide under).
 
 ## Consequences
 
