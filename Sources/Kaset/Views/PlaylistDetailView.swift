@@ -61,26 +61,23 @@ struct PlaylistDetailView: View {
 
     var body: some View {
         Group {
-            // Rows still loaded during an in-place reload (a same-account Liked Music
-            // scope bump) stay on screen in the same branch, so the list keeps its
-            // scroll position instead of blanking to a spinner.
-            if let detail = self.displayedDetail {
-                self.contentView(detail)
-            } else {
-                switch self.viewModel.loadingState {
-                case .idle, .loading:
-                    LoadingView(String(localized: "Loading playlist..."))
-                case .loaded, .loadingMore:
+            switch self.viewModel.loadingState {
+            case .idle, .loading:
+                LoadingView(String(localized: "Loading playlist..."))
+            case .loaded, .loadingMore:
+                if let detail = viewModel.playlistDetail {
+                    self.contentView(detail)
+                } else {
                     ErrorView(
                         title: String(localized: "Unable to load playlist"),
                         message: String(localized: "Playlist not found")
                     ) {
                         Task { await self.viewModel.load() }
                     }
-                case let .error(error):
-                    ErrorView(error: error) {
-                        Task { await self.viewModel.load() }
-                    }
+                }
+            case let .error(error):
+                ErrorView(error: error) {
+                    Task { await self.viewModel.load() }
                 }
             }
         }
@@ -137,13 +134,6 @@ struct PlaylistDetailView: View {
 
     // MARK: - Views
 
-    private var displayedDetail: PlaylistDetail? {
-        if case .error = self.viewModel.loadingState {
-            return nil
-        }
-        return self.viewModel.playlistDetail
-    }
-
     private func contentView(_ detail: PlaylistDetail) -> some View {
         let fallbackAlbum = Album(
             id: detail.id,
@@ -197,9 +187,10 @@ struct PlaylistDetailView: View {
                             .foregroundStyle(.secondary)
                     }
             }
+            // No `.fadeIn`: the header lives in the lazy stack, so it would replay on
+            // every scroll back to the top. CachedAsyncImage already fades in a fresh load.
             .frame(width: 180, height: 180)
             .clipShape(.rect(cornerRadius: 8))
-            .fadeIn(duration: 0.3)
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
@@ -292,24 +283,9 @@ struct PlaylistDetailView: View {
                 }
             }
             .onAppear {
-                // Load more when reaching the last few items
-                if index >= tracks.count - 3, self.viewModel.hasMore {
-                    Task { await self.viewModel.loadMore() }
-                }
+                self.viewModel.loadMoreIfNeeded(appearingAt: index)
             }
         }
-
-        // Rows near the end only trigger pagination on appear. If they were already
-        // on screen when an in-place reload finished, nothing re-fires; this sentinel
-        // is realized only near the end and resumes paging after that reload. It reacts
-        // to `.loading -> .loaded` only, never to a page settling, so a failing
-        // continuation (`.loadingMore -> .loaded`) cannot turn into a retry loop.
-        Color.clear
-            .frame(height: 0)
-            .onChange(of: self.viewModel.loadingState) { oldState, newState in
-                guard oldState == .loading, newState == .loaded, self.viewModel.hasMore else { return }
-                Task { await self.viewModel.loadMore() }
-            }
 
         // Loading indicator for pagination
         if self.viewModel.loadingState == .loadingMore {

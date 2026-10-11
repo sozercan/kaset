@@ -175,8 +175,9 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
     @ObservationIgnored private var trackRemovalWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
-    /// callers so a player can await the complete track set before finalizing the queue.
+    /// Runs the initial load, coalescing concurrent callers onto one in-flight load. A caller
+    /// that awaited a load which ended back at `.idle` (e.g. a Liked Music scope change)
+    /// starts a fresh one instead of returning with nothing loaded.
     func ensureLoaded() async {
         while let loadTask {
             await loadTask.value
@@ -302,7 +303,6 @@ extension PlaylistDetailViewModel {
         detail = self.detailByMergingOriginalPlaylistMetadata(into: detail)
         if let snapshot = context.likedMusicSnapshot {
             guard let reconciliation = self.reconciledLikedMusicDetail(detail, snapshot: snapshot) else {
-                self.dropDetailUnlessSameAccount(as: snapshot)
                 self.loadingState = .idle
                 return nil
             }
@@ -459,19 +459,18 @@ extension PlaylistDetailViewModel {
     private func canApplyInitialLoad(_ context: InitialLoadContext) -> Bool {
         guard self.isCurrentLoadGeneration(context.generation) else { return false }
         guard self.isCurrentLikedMusicScope(context.likedMusicSnapshot) else {
-            self.dropDetailUnlessSameAccount(as: context.likedMusicSnapshot)
             self.loadingState = .idle
             return false
         }
         return true
     }
 
-    /// A Liked Music scope bump for the *same* account (e.g. the launch session
-    /// re-pin) keeps the loaded rows on screen while the view's idle-keyed load task
-    /// reloads in place; rows loaded for a different account must never stay visible.
-    private func dropDetailUnlessSameAccount(as snapshot: LikedMusicRequestSnapshot?) {
-        guard snapshot?.accountID != self.likeStatusManager.activeAccountID else { return }
-        self.replacePlaylistDetail(nil)
+    /// Starts the next page when a row within the last few loaded tracks appears.
+    /// The page request belongs to the view model, not the row: a row `.task` is cancelled
+    /// when the row scrolls away, and `loadMore`'s cancellation handler discards the page.
+    func loadMoreIfNeeded(appearingAt index: Int) {
+        guard self.hasMore, index >= (self.playlistDetail?.tracks.count ?? 0) - 3 else { return }
+        Task { await self.loadMore() }
     }
 
     /// Loads more tracks via continuation.
@@ -887,7 +886,7 @@ extension PlaylistDetailViewModel {
         self.fullLoadTask = nil
         self.hasMore = false
         self.continuationToken = nil
-        self.dropDetailUnlessSameAccount(as: self.loadedLikedMusicScope)
+        self.replacePlaylistDetail(nil)
         self.loadingState = .idle
     }
 

@@ -1504,32 +1504,6 @@ struct PlaylistDetailViewModelTests {
         #expect(likedMusicViewModel.hasMore == false)
     }
 
-    @Test("Same-account scope bump during pagination keeps loaded Liked Music rows and reloads in place")
-    func sameAccountScopeBumpKeepsLikedMusicRows() async {
-        let manager = self.likeStatusManager
-        manager.setActiveAccountID("same-account-scope-bump")
-        defer { manager.setActiveAccountID(nil) }
-
-        let firstSong = TestFixtures.makeSong(id: "first-page", title: "First Page")
-        let laterSong = TestFixtures.makeSong(id: "second-page", title: "Second Page")
-        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [firstSong], trackCount: 2)
-        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [[laterSong]]
-
-        await likedMusicViewModel.load()
-        #expect(likedMusicViewModel.hasMore == true)
-
-        manager.invalidateSession(clearsActiveCache: false)
-        await likedMusicViewModel.loadMore()
-
-        #expect(likedMusicViewModel.loadingState == .idle)
-        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [firstSong.videoId])
-
-        await likedMusicViewModel.ensureLoaded()
-        #expect(likedMusicViewModel.loadingState == .loaded)
-        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [firstSong.videoId])
-        #expect(likedMusicViewModel.hasMore == true)
-    }
-
     @Test("Account change during pagination drops loaded Liked Music rows")
     func accountChangeDropsLikedMusicRows() async {
         let manager = self.likeStatusManager
@@ -1549,6 +1523,60 @@ struct PlaylistDetailViewModelTests {
 
         #expect(likedMusicViewModel.loadingState == .idle)
         #expect(likedMusicViewModel.playlistDetail == nil)
+    }
+
+    @Test("Only rows near the end of the loaded tracks start the next page")
+    func loadMoreIfNeededPagesOnlyNearTheEnd() async {
+        let tracks = (0 ..< 10).map { TestFixtures.makeSong(id: "page-one-\($0)", title: "Page One \($0)") }
+        let laterSong = TestFixtures.makeSong(id: "page-two", title: "Page Two")
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: tracks, trackCount: 11)
+        self.mockClient.playlistContinuationTracks[LikedMusicPlaylist.id] = [[laterSong]]
+
+        await likedMusicViewModel.load()
+        #expect(likedMusicViewModel.hasMore == true)
+
+        likedMusicViewModel.loadMoreIfNeeded(appearingAt: 6)
+        try? await Task.sleep(for: .milliseconds(50))
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 0)
+
+        likedMusicViewModel.loadMoreIfNeeded(appearingAt: 7)
+        await self.waitUntil(
+            likedMusicViewModel.playlistDetail?.tracks.count == 11,
+            description: "next page to load"
+        )
+        #expect(self.mockClient.getPlaylistContinuationCallCount == 1)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.last?.videoId == laterSong.videoId)
+    }
+
+    @Test("A caller awaiting a load that ends idle starts a fresh load")
+    func ensureLoadedRestartsAfterAwaitedLoadEndsIdle() async {
+        let manager = self.likeStatusManager
+        manager.setActiveAccountID("ensure-loaded-restart")
+        defer { manager.setActiveAccountID(nil) }
+
+        let song = TestFixtures.makeSong(id: "ensure-loaded-song", title: "Ensure Loaded Song")
+        let likedMusicViewModel = self.makeLikedMusicViewModel(with: [song], trackCount: 1)
+        let releaseFirstFetch = AsyncGate()
+        self.mockClient.getPlaylistGate = releaseFirstFetch
+
+        let starter = Task { await likedMusicViewModel.ensureLoaded() }
+        await self.waitUntil(
+            self.mockClient.getPlaylistIds.count == 1,
+            description: "first Liked Music fetch to start"
+        )
+        let waiter = Task { await likedMusicViewModel.ensureLoaded() }
+        // Let the waiter reach the in-flight load before that load is invalidated.
+        await Task.yield()
+        await Task.yield()
+
+        manager.invalidateSession(clearsActiveCache: false)
+        await releaseFirstFetch.open()
+        await starter.value
+        await waiter.value
+
+        #expect(self.mockClient.getPlaylistIds.count == 2)
+        #expect(likedMusicViewModel.loadingState == .loaded)
+        #expect(likedMusicViewModel.playlistDetail?.tracks.map(\.videoId) == [song.videoId])
     }
 
     @Test("Same-account invalidation keeps loaded Liked Music live sync active")
