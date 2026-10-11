@@ -402,12 +402,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 // track/video still loaded under the previous identity must reload to
                 // record to the new account. The shared cookie session covers both.
                 guard let verifiedAccountId = self.accountService.verifiedAccountId else { return }
-                // Native reads for a brand account name it via `onBehalfOfUser`, so
-                // like data fetched before this (re-)verification is already correct;
-                // only a primary account's reads follow the cookies' delegated identity.
-                let currentAccount = self.accountService.currentAccount
-                let isVerifiedBrand = currentAccount?.id == verifiedAccountId && currentAccount?.brandId != nil
-                self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isVerifiedBrand)
+                // Re-verifying the account already in use (every launch re-pins it) keeps
+                // the like scope: an account switch already invalidated like state through
+                // the account-scope change, and other content loaded before verification
+                // is kept too. Bumping it here only made Liked Music drop its pages mid-scroll.
+                let isReverification = self.accountService.currentAccount?.id == verifiedAccountId
+                self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
                 if self.youtubePlayerService.currentVideo != nil {
                     self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
                 }

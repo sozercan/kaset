@@ -444,10 +444,10 @@ extension PlayerService {
     /// Playback position and play/pause intent are preserved across the reload
     /// via the existing restored-session machinery.
     ///
-    /// - Parameter invalidatesLikeSession: Pass `false` when native like data cannot
-    ///   be stale under the re-verified identity (brand accounts: every request names
-    ///   the brand via `onBehalfOfUser`). Bumping the like scope there only makes
-    ///   Liked Music discard its loaded pages mid-scroll.
+    /// - Parameter invalidatesLikeSession: Pass `false` when the account already in use is
+    ///   re-verified: an account switch invalidates like state through the account-scope
+    ///   change, and bumping the like scope here only makes Liked Music discard its loaded
+    ///   pages mid-scroll.
     func reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: Bool = true) {
         self.accountSessionGeneration &+= 1
         // Do NOT wipe the like cache here. On launch this fires AFTER the Liked Music page
