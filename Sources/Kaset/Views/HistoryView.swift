@@ -51,10 +51,7 @@ struct HistoryView: View {
                     .disabled(self.isRefreshing)
                 }
             }
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -78,13 +75,6 @@ struct HistoryView: View {
             await self.performRefresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .history)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     /// Refreshes with visual feedback: spinning icon → data swap.

@@ -35,10 +35,7 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Home")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -54,13 +51,6 @@ struct HomeView: View {
             }
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     // MARK: - Views

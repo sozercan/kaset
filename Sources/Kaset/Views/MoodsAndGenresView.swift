@@ -32,10 +32,7 @@ struct MoodsAndGenresView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Moods & Genres")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -54,13 +51,6 @@ struct MoodsAndGenresView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     // MARK: - Views

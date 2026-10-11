@@ -93,8 +93,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 } else {
@@ -103,8 +102,7 @@ struct LibraryView: View {
                         viewModel: PlaylistDetailViewModel(
                             playlist: playlist,
                             client: self.viewModel.client
-                        ),
-                        playerBarNavigationAction: self.playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.viewModel)
                 }
@@ -116,8 +114,7 @@ struct LibraryView: View {
                         artist: artist,
                         client: self.viewModel.client,
                         libraryViewModel: self.viewModel
-                    ),
-                    playerBarNavigationAction: self.playerBarNavigationAction
+                    )
                 )
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
@@ -153,13 +150,6 @@ struct LibraryView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     // MARK: - Views

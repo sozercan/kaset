@@ -40,10 +40,7 @@ struct SearchView: View {
                 self.contentView
             }
             .localizedNavigationTitle("Search")
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
@@ -61,13 +58,6 @@ struct SearchView: View {
             }
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     // MARK: - Search Bar

@@ -683,27 +683,16 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     NavigationStack(path: self.$likedMusicNavigationPath) {
                         Group {
                             if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
-                                PlaylistDetailView(
-                                    playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm,
-                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
-                                )
-                                .environment(\.libraryViewModel, self.libraryViewModel)
+                                PlaylistDetailView(playlist: LikedMusicPlaylist.playlist, viewModel: vm)
+                                    .environment(\.libraryViewModel, self.libraryViewModel)
                             } else {
-                                SimplePlaylistDetailView(
-                                    playlist: LikedMusicPlaylist.playlist,
-                                    viewModel: vm,
-                                    playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
-                                )
-                                .environment(\.libraryViewModel, self.libraryViewModel)
+                                SimplePlaylistDetailView(playlist: LikedMusicPlaylist.playlist, viewModel: vm)
+                                    .environment(\.libraryViewModel, self.libraryViewModel)
                             }
                         }
-                        .navigationDestinations(
-                            client: self.client,
-                            playerBarNavigationAction: self.likedMusicPlayerBarNavigationAction
-                        )
-                        .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
+                        .navigationDestinations(client: self.client)
                     }
+                    .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
                     .popsNavigationStackOnSidebarReselect(
                         path: self.$likedMusicNavigationPath,
                         for: .likedMusic
@@ -741,33 +730,15 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         )
     }
 
-    private var likedMusicPlayerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.likedMusicNavigationPath.append($0) },
-            openAlbum: { self.likedMusicNavigationPath.append($0) }
-        )
-    }
-
-    private func pinnedItemNavigationPath(for contentId: String) -> Binding<NavigationPath> {
-        Binding(
-            get: { self.pinnedNavigationPaths[contentId, default: NavigationPath()] },
-            set: { self.pinnedNavigationPaths[contentId] = $0 }
-        )
-    }
-
-    private func pinnedItemPlayerBarNavigationAction(for contentId: String) -> PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.pinnedNavigationPaths[contentId, default: NavigationPath()].append($0) },
-            openAlbum: { self.pinnedNavigationPaths[contentId, default: NavigationPath()].append($0) }
-        )
-    }
-
     private func viewForSidebarPinnedItem(
         _ item: SidebarPinnedItem,
         client: any YTMusicClientProtocol
     ) -> some View {
-        let playerBarNavigationAction = self.pinnedItemPlayerBarNavigationAction(for: item.contentId)
-        return NavigationStack(path: self.pinnedItemNavigationPath(for: item.contentId)) {
+        let path = Binding(
+            get: { self.pinnedNavigationPaths[item.contentId, default: NavigationPath()] },
+            set: { self.pinnedNavigationPaths[item.contentId] = $0 }
+        )
+        return NavigationStack(path: path) {
             Group {
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
@@ -775,8 +746,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         viewModel: PlaylistDetailViewModel(
                             playlist: item.playlistRoute,
                             client: client
-                        ),
-                        playerBarNavigationAction: playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.libraryViewModel)
                 } else {
@@ -785,19 +755,15 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         viewModel: PlaylistDetailViewModel(
                             playlist: item.playlistRoute,
                             client: client
-                        ),
-                        playerBarNavigationAction: playerBarNavigationAction
+                        )
                     )
                     .environment(\.libraryViewModel, self.libraryViewModel)
                 }
             }
             .id(item.contentId)
-            .navigationDestinations(
-                client: client,
-                playerBarNavigationAction: playerBarNavigationAction
-            )
-            .playerBarMusicNavigation(path: self.pinnedItemNavigationPath(for: item.contentId))
+            .navigationDestinations(client: client)
         }
+        .playerBarMusicNavigation(path: path)
         .environment(\.libraryViewModel, self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
             self.selectedSidebarPinnedItem = nil
