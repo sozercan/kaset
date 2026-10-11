@@ -175,18 +175,26 @@ final class PlaylistDetailViewModel {
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
     @ObservationIgnored private var trackRemovalWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Runs the initial load (including full-playlist paging) once, coalescing concurrent
-    /// callers so a player can await the complete track set before finalizing the queue.
+    /// Runs the initial load, coalescing concurrent callers onto one in-flight load. A caller
+    /// that awaited a load which ended back at `.idle` (e.g. a Liked Music scope change)
+    /// starts a fresh one instead of returning with nothing loaded.
     func ensureLoaded() async {
-        if let loadTask {
+        while let loadTask {
             await loadTask.value
-            return
+            if self.loadTask == loadTask {
+                self.loadTask = nil
+            }
+            // A finished load can drop back to `.idle` (e.g. a Liked Music scope change);
+            // fall through and start a fresh one instead of leaving the view unloaded.
+            guard self.loadingState == .idle else { return }
         }
         guard self.loadingState == .idle else { return }
         let task = Task { await self.load() }
         self.loadTask = task
         await task.value
-        self.loadTask = nil
+        if self.loadTask == task {
+            self.loadTask = nil
+        }
     }
 
     /// Drives pagination to completion (every track), for callers that need the full playlist
@@ -455,6 +463,14 @@ extension PlaylistDetailViewModel {
             return false
         }
         return true
+    }
+
+    /// Starts the next page when a row within the last few loaded tracks appears.
+    /// The page request belongs to the view model, not the row: a row `.task` is cancelled
+    /// when the row scrolls away, and `loadMore`'s cancellation handler discards the page.
+    func loadMoreIfNeeded(appearingAt index: Int) {
+        guard self.hasMore, index >= (self.playlistDetail?.tracks.count ?? 0) - 3 else { return }
+        Task { await self.loadMore() }
     }
 
     /// Loads more tracks via continuation.

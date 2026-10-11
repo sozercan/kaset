@@ -401,8 +401,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 // History is recorded by the playback WebViews' own stats pings, so a
                 // track/video still loaded under the previous identity must reload to
                 // record to the new account. The shared cookie session covers both.
-                guard self.accountService.verifiedAccountId != nil else { return }
-                self.playerService.reloadCurrentTrackForIdentitySwitch()
+                guard let verifiedAccountId = self.accountService.verifiedAccountId else { return }
+                // Re-verifying the account already in use (every launch re-pins it) keeps
+                // the like scope: an account switch already invalidated like state through
+                // the account-scope change, and other content loaded before verification
+                // is kept too. Bumping it here only made Liked Music drop its pages mid-scroll.
+                let isReverification = self.accountService.currentAccount?.id == verifiedAccountId
+                self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
                 if self.youtubePlayerService.currentVideo != nil {
                     self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
                 }

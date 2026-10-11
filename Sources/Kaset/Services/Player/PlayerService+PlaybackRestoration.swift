@@ -443,14 +443,21 @@ extension PlayerService {
     /// reload is required for subsequent listening to record to the new account.
     /// Playback position and play/pause intent are preserved across the reload
     /// via the existing restored-session machinery.
-    func reloadCurrentTrackForIdentitySwitch() {
+    ///
+    /// - Parameter invalidatesLikeSession: Pass `false` when the account already in use is
+    ///   re-verified: an account switch invalidates like state through the account-scope
+    ///   change, and bumping the like scope here only makes Liked Music discard its loaded
+    ///   pages mid-scroll.
+    func reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: Bool = true) {
         self.accountSessionGeneration &+= 1
         // Do NOT wipe the like cache here. On launch this fires AFTER the Liked Music page
         // seeds its first page (rows 1-100), and the paging re-seed only covers pages 2+,
         // so clearing permanently drops the top ~100 liked tracks from the cache — the songs
         // shown first read "not liked". Bump the session generation but keep the cache;
         // account scoping + the reactive now-playing resolver keep it correct.
-        self.songLikeStatusManager.invalidateSession(clearsActiveCache: false)
+        if invalidatesLikeSession {
+            self.songLikeStatusManager.invalidateSession(clearsActiveCache: false)
+        }
         self.beginMusicPlaybackIntent()
         self.playbackContextGeneration &+= 1
         self.clearQueueNavigationRecovery()

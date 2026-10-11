@@ -715,6 +715,18 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.confirmedLibraryStateByKey.isEmpty)
     }
 
+    @Test("Identity re-verification can keep the like request scope")
+    func identityReverificationCanKeepLikeRequestScope() {
+        let manager = self.playerService.songLikeStatusManager
+        let initialScope = manager.requestScopeGeneration
+
+        self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: false)
+        #expect(manager.requestScopeGeneration == initialScope)
+
+        self.playerService.reloadCurrentTrackForIdentitySwitch()
+        #expect(manager.requestScopeGeneration == initialScope &+ 1)
+    }
+
     @Test("Metadata cannot replace rollback state while a library mutation is pending")
     func metadataCannotReplacePendingLibraryMutationBaseline() async {
         let originalTokens = FeedbackTokens(add: "fresh-add", remove: "fresh-remove")
