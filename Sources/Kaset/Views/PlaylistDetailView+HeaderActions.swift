@@ -73,7 +73,6 @@ extension PlaylistDetailView {
             )
         } label: {
             self.headerActionLabel(localized: "Play", systemImage: "play.fill", showsTitle: showsTitles)
-                .modifier(ProminentHeaderLabelStyle())
         }
         .buttonStyle(.glassProminent)
         .controlSize(.large)
@@ -231,26 +230,6 @@ extension PlaylistDetailView {
         } else {
             Image(systemName: systemImage)
                 .accessibilityLabel(title)
-        }
-    }
-}
-
-// MARK: - ProminentHeaderLabelStyle
-
-/// Keeps the white label only while `.glassProminent` draws its accent fill.
-/// macOS drops that fill in inactive windows and for disabled buttons, so a fixed
-/// white label ends up on a near-white background and disappears.
-private struct ProminentHeaderLabelStyle: ViewModifier {
-    @Environment(\.controlActiveState) private var controlActiveState
-    @Environment(\.isEnabled) private var isEnabled
-
-    func body(content: Content) -> some View {
-        if self.isEnabled, self.controlActiveState != .inactive {
-            content.foregroundStyle(.white)
-        } else if self.isEnabled {
-            content.foregroundStyle(.primary)
-        } else {
-            content
         }
     }
 }

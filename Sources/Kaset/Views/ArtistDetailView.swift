@@ -278,7 +278,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         .frame(width: 16, height: 16)
                 } else {
                     Text(self.subscribeButtonText(detail))
-                        .foregroundStyle(.white)
                 }
             }
             .compatGlassProminentButton()
