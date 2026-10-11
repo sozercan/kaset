@@ -56,6 +56,14 @@ final class HomeItemShelfContainerView: NSView {
     func setArrows(left: Bool, right: Bool, animated: Bool) {
         self.leftArrow.setVisible(left, animated: animated)
         self.rightArrow.setVisible(right, animated: animated)
+        // Paging to an end hides the focused arrow. Hand focus to the other
+        // one; once hidden, AppKit would move it to the next key view,
+        // outside the shelf.
+        if self.leftArrow.isFocused, !left, right {
+            self.window?.makeFirstResponder(self.rightArrow)
+        } else if self.rightArrow.isFocused, !right, left {
+            self.window?.makeFirstResponder(self.leftArrow)
+        }
     }
 
     /// Physical arrow, for tests.
@@ -123,6 +131,7 @@ final class HomeItemShelfArrowView: NSView {
     private let side: HomeItemShelfContainerView.Side
     private let chevron = NSImageView()
     private var background: NSView?
+    private var shelfLabel: String?
     private var usesLegacyMaterial: Bool?
     private var isShelfProminent = false
     private var isPressed = false
@@ -146,7 +155,7 @@ final class HomeItemShelfArrowView: NSView {
 
         self.setAccessibilityElement(true)
         self.setAccessibilityRole(.button)
-        self.setAccessibilityHelp(String(localized: "Scrolls this shelf by one page"))
+        self.setAccessibilityHelp(CarouselShelfPagingControls.accessibilityHint)
     }
 
     @available(*, unavailable)
@@ -154,10 +163,12 @@ final class HomeItemShelfArrowView: NSView {
         nil
     }
 
+    /// Runs on every representable update, so both halves skip unchanged values.
     func configure(shelfLabel: String, usesLegacyMaterial: Bool) {
-        self.setAccessibilityLabel(self.side == .left
-            ? String(localized: "Scroll \(shelfLabel) left")
-            : String(localized: "Scroll \(shelfLabel) right"))
+        if shelfLabel != self.shelfLabel {
+            self.shelfLabel = shelfLabel
+            self.setAccessibilityLabel(CarouselShelfPagingControls.accessibilityLabel(shelf: shelfLabel, isLeft: self.side == .left))
+        }
         guard usesLegacyMaterial != self.usesLegacyMaterial else { return }
         self.usesLegacyMaterial = usesLegacyMaterial
         self.background?.removeFromSuperview()
@@ -285,10 +296,19 @@ final class HomeItemShelfArrowView: NSView {
 
     /// The glass and chevron are decoration; the arrow itself takes every event.
     override func hitTest(_ point: NSPoint) -> NSView? {
-        // `point` is in the superview's coordinates. Only the circle is the
-        // button, so a click in the frame's corners reaches the card beneath.
-        guard !self.isHidden, NSBezierPath(ovalIn: self.frame).contains(point) else { return nil }
+        // `point` is in the superview's coordinates. Only a showing arrow's
+        // circle is the button: clicks during the fade-out and in the frame's
+        // corners reach the card beneath.
+        guard self.isVisible, self.circleContains(self.convert(point, from: self.superview)) else { return nil }
         return self
+    }
+
+    /// Whether `point`, in this view's coordinates, is inside the circle.
+    private func circleContains(_ point: NSPoint) -> Bool {
+        let radius = self.bounds.width / 2
+        let dx = point.x - self.bounds.midX
+        let dy = point.y - self.bounds.midY
+        return dx * dx + dy * dy <= radius * radius
     }
 
     override func mouseDown(with _: NSEvent) {
@@ -297,7 +317,7 @@ final class HomeItemShelfArrowView: NSView {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        let inside = self.bounds.contains(self.convert(event.locationInWindow, from: nil))
+        let inside = self.circleContains(self.convert(event.locationInWindow, from: nil))
         self.background?.alphaValue = inside ? 0.75 : 1
     }
 
@@ -306,7 +326,7 @@ final class HomeItemShelfArrowView: NSView {
             self.isPressed = false
             self.background?.alphaValue = 1
         }
-        guard self.isPressed, self.bounds.contains(self.convert(event.locationInWindow, from: nil)) else { return }
+        guard self.isPressed, self.circleContains(self.convert(event.locationInWindow, from: nil)) else { return }
         self.press()
     }
 
@@ -314,7 +334,14 @@ final class HomeItemShelfArrowView: NSView {
         self.pressHandler?(self.side)
     }
 
+    /// A leaf button: the chevron's image cell would otherwise be exposed as
+    /// an unlabeled image inside it.
+    override func accessibilityChildren() -> [Any]? {
+        []
+    }
+
     override func accessibilityPerformPress() -> Bool {
+        guard self.isVisible else { return false }
         self.press()
         return true
     }
@@ -322,7 +349,9 @@ final class HomeItemShelfArrowView: NSView {
     // MARK: Keyboard
 
     override var acceptsFirstResponder: Bool {
-        NSApp.isFullKeyboardAccessEnabled && self.isVisible
+        // Keyboard focus only: an arrow focused by a click would keep Space,
+        // which then pages instead of toggling Play/Pause.
+        NSApp.isFullKeyboardAccessEnabled && self.isVisible && NSApp.currentEvent?.type != .leftMouseDown
     }
 
     override func becomeFirstResponder() -> Bool {
@@ -330,6 +359,7 @@ final class HomeItemShelfArrowView: NSView {
         self.isFocused = true
         self.animateProminence()
         self.focusHandler?()
+        self.scrollToVisible(self.bounds)
         return true
     }
 

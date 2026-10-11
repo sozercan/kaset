@@ -57,7 +57,6 @@ struct HomeItemShelfSection<Header: View, MenuContent: View>: View {
                 contextMenu: self.contextMenu.map { menu in { item, index in AnyView(menu(item, index)) } },
                 accessibilityLabel: self.accessibilityLabel
             )
-            .frame(height: HomeItemCell.height)
             // The paging arrows are native (see `HomeItemShelfContainerView`);
             // only the shelf's accessibility container stays in SwiftUI.
             .accessibilityElement(children: .contain)
@@ -177,8 +176,6 @@ final class HomeItemShelfView: NSObject {
         contextMenu: nil,
         environment: EnvironmentValues()
     )
-    /// Which logical directions can still scroll; drives the paging arrows.
-    private(set) var overflow = CarouselShelfOverflow()
     private var hasReportedOverflow = false
     private var hoveredIndex: Int?
     private var observers: [NSObjectProtocol] = []
@@ -222,7 +219,7 @@ final class HomeItemShelfView: NSObject {
         self.containerView.pageHandler = { [weak self] side in
             guard let self else { return }
             // Arrows are physical; paging is logical.
-            self.page((side == .left) != self.isRightToLeft ? .leading : .trailing)
+            self.page(CarouselShelfDirection(isLeft: side == .left, in: self.configuration.environment.layoutDirection))
         }
         self.scrollView.hasHorizontalScroller = false
         self.scrollView.hasVerticalScroller = false
@@ -482,16 +479,17 @@ final class HomeItemShelfView: NSObject {
 
     private func updateOverflow() {
         let visible = self.scrollView.contentView.bounds
+        // Before SwiftUI sizes the shelf every item looks clipped; reporting
+        // that would show an arrow only to fade it out at the real width.
+        guard visible.width > 0 else { return }
         let contentWidth = self.documentView.frame.width
-        let left = visible.minX > 1
-        let right = contentWidth - visible.maxX > 1
-        self.overflow = CarouselShelfOverflow(
-            leading: self.isRightToLeft ? right : left,
-            trailing: self.isRightToLeft ? left : right
-        )
         // The first report lands while the shelf is being built (often as it
         // scrolls into view); only later changes animate.
-        self.containerView.setArrows(left: left, right: right, animated: self.hasReportedOverflow)
+        self.containerView.setArrows(
+            left: visible.minX > 1,
+            right: contentWidth - visible.maxX > 1,
+            animated: self.hasReportedOverflow
+        )
         self.hasReportedOverflow = true
     }
 

@@ -54,8 +54,7 @@ struct HomeItemShelfViewTests {
         let first = try #require(Self.cells(in: shelf).first)
 
         for width: CGFloat in [320, 480, 280] {
-            shelf.scrollView.setFrameSize(NSSize(width: width, height: HomeItemCell.height))
-            shelf.scrollView.layoutSubtreeIfNeeded()
+            Self.resize(shelf, to: width)
             #expect(first.frame.maxX == shelf.scrollView.contentView.bounds.maxX - 20)
         }
     }
@@ -68,47 +67,57 @@ struct HomeItemShelfViewTests {
         #expect(first.frame.maxX == 620)
         #expect(shelf.scrollView.contentView.bounds.minX == 0)
 
-        shelf.scrollView.setFrameSize(NSSize(width: 720, height: HomeItemCell.height))
-        shelf.scrollView.layoutSubtreeIfNeeded()
+        Self.resize(shelf, to: 720)
         #expect(first.frame.maxX == 700)
     }
 
+    @Test("Arrows wait for the shelf's width instead of flashing on short shelves", arguments: [6, 2])
+    func arrowsWaitForWidth(itemCount: Int) {
+        let shelf = Self.shelf(width: 0, layoutDirection: .leftToRight, items: Self.items(count: itemCount))
+        defer { shelf.removeObservers() }
+        let right = shelf.containerView.arrow(.right)
+        #expect(!right.isVisible && right.isHidden)
+
+        Self.resize(shelf, to: 640)
+        if itemCount > 2 {
+            // The first sized report shows the arrow without animating.
+            #expect(right.isVisible && !right.isHidden)
+            #expect(abs(right.alphaValue - 0.72) < 0.01)
+        } else {
+            #expect(!right.isVisible && right.isHidden && right.alphaValue == 0)
+        }
+        #expect(!shelf.containerView.isShowingArrow(.left))
+    }
+
     @Test("Paging follows reading direction and preserves its position through resize", arguments: [LayoutDirection.leftToRight, .rightToLeft])
-    func pagingAndResize(layoutDirection: LayoutDirection) async throws {
+    func pagingAndResize(layoutDirection: LayoutDirection) throws {
         let shelf = Self.shelf(width: 320, layoutDirection: layoutDirection)
         defer { shelf.removeObservers() }
         let first = try #require(Self.cells(in: shelf).first)
 
         let trailingX = shelf.scrollView.contentView.bounds.minX + (layoutDirection == .rightToLeft ? -272 : 272)
-        try await Self.page(.trailing, in: shelf) {
-            shelf.scrollView.contentView.bounds.minX == trailingX
-                && shelf.overflow == CarouselShelfOverflow(leading: true, trailing: true)
-        }
+        shelf.page(.trailing)
+        #expect(shelf.scrollView.contentView.bounds.minX == trailingX)
         let offset = layoutDirection == .rightToLeft
             ? first.frame.maxX + 20 - shelf.scrollView.contentView.bounds.maxX
             : shelf.scrollView.contentView.bounds.minX
         #expect(offset == 272)
-        #expect(shelf.overflow == CarouselShelfOverflow(leading: true, trailing: true))
         #expect(shelf.containerView.isShowingArrow(.left) && shelf.containerView.isShowingArrow(.right))
 
-        shelf.scrollView.setFrameSize(NSSize(width: 400, height: HomeItemCell.height))
-        shelf.scrollView.layoutSubtreeIfNeeded()
+        Self.resize(shelf, to: 400)
         let resizedOffset = layoutDirection == .rightToLeft
             ? first.frame.maxX + 20 - shelf.scrollView.contentView.bounds.maxX
             : shelf.scrollView.contentView.bounds.minX
         #expect(resizedOffset == 272)
 
         let leadingX = layoutDirection == .rightToLeft ? first.frame.maxX + 20 - shelf.scrollView.contentView.bounds.width : 0
-        try await Self.page(.leading, in: shelf) {
-            shelf.scrollView.contentView.bounds.minX == leadingX
-                && shelf.overflow == CarouselShelfOverflow(leading: false, trailing: true)
-        }
+        shelf.page(.leading)
+        #expect(shelf.scrollView.contentView.bounds.minX == leadingX)
         if layoutDirection == .rightToLeft {
             #expect(first.frame.maxX == shelf.scrollView.contentView.bounds.maxX - 20)
         } else {
             #expect(shelf.scrollView.contentView.bounds.minX == 0)
         }
-        #expect(shelf.overflow == CarouselShelfOverflow(leading: false, trailing: true))
         // Arrows are physical: the trailing arrow sits on the left in right-to-left layouts.
         let trailingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .left : .right
         let leadingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .right : .left
@@ -117,22 +126,50 @@ struct HomeItemShelfViewTests {
     }
 
     @Test("Physical arrows page in the matching visual direction", arguments: [LayoutDirection.leftToRight, .rightToLeft])
-    func arrowsPagePhysically(layoutDirection: LayoutDirection) async throws {
+    func arrowsPagePhysically(layoutDirection: LayoutDirection) {
         let shelf = Self.shelf(width: 320, layoutDirection: layoutDirection)
         defer { shelf.removeObservers() }
         // The trailing arrow is the right one in LTR and the left one in RTL;
         // either way pressing it moves the content toward the trailing edge.
         let isRightToLeft = layoutDirection == .rightToLeft
         let start = shelf.scrollView.contentView.bounds.minX
-        shelf.containerView.pageHandler?(isRightToLeft ? .left : .right)
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        // Wait for the paging animation to clear the 1pt overflow threshold.
-        while !shelf.overflow.leading, ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+        #expect(shelf.containerView.arrow(isRightToLeft ? .left : .right).accessibilityPerformPress())
         let end = shelf.scrollView.contentView.bounds.minX
         #expect(isRightToLeft ? end < start : end > start)
-        #expect(shelf.overflow.leading)
+        // Leaving the leading edge reveals the leading arrow.
+        #expect(shelf.containerView.isShowingArrow(isRightToLeft ? .right : .left))
+    }
+
+    @Test("Only a showing arrow's circle takes clicks and presses")
+    func arrowHitTesting() {
+        let shelf = Self.shelf(width: 320, layoutDirection: .leftToRight)
+        defer { shelf.removeObservers() }
+        var pressed: [HomeItemShelfContainerView.Side] = []
+        shelf.containerView.pageHandler = { pressed.append($0) }
+        let right = shelf.containerView.arrow(.right)
+        let center = NSPoint(x: right.frame.midX, y: right.frame.midY)
+        #expect(right.hitTest(center) === right)
+        #expect(right.hitTest(NSPoint(x: right.frame.minX + 2, y: right.frame.minY + 2)) == nil)
+
+        // Reaching the end starts the arrow's fade-out; it must stop
+        // intercepting the card beneath right away.
+        shelf.containerView.setArrows(left: true, right: false, animated: true)
+        #expect(right.hitTest(center) == nil)
+        #expect(!right.accessibilityPerformPress())
+        #expect(pressed.isEmpty)
+    }
+
+    @Test("Arrows are labeled buttons without an unlabeled image inside")
+    func arrowAccessibility() {
+        let shelf = Self.shelf(width: 320, layoutDirection: .leftToRight)
+        defer { shelf.removeObservers() }
+        var configuration = Self.configuration(items: Self.items())
+        configuration.accessibilityLabel = "Quick picks"
+        shelf.apply(configuration)
+        let right = shelf.containerView.arrow(.right)
+        #expect(right.accessibilityRole() == .button)
+        #expect(right.accessibilityLabel() == String(localized: "Scroll Quick picks right"))
+        #expect(right.accessibilityChildren()?.isEmpty ?? true)
     }
 
     @Test("Changing layout direction repositions retained cards and resets to the leading edge")
@@ -205,10 +242,32 @@ struct HomeItemShelfViewTests {
         #expect(outer.scrollEvents == [wheel])
     }
 
+    @Test("Scroll gestures that start on an arrow route like the shelf's own")
+    func arrowScrollRouting() throws {
+        let shelf = Self.shelf(width: 320, layoutDirection: .leftToRight)
+        defer { shelf.removeObservers() }
+        let outer = Self.page(containing: shelf)
+        let arrow = shelf.containerView.arrow(.right)
+        let vertical = try [
+            Self.scrollEvent(y: 12, phase: .began),
+            Self.scrollEvent(phase: .ended),
+        ]
+        for event in vertical {
+            arrow.scrollWheel(with: event)
+        }
+        #expect(outer.scrollEvents == vertical)
+        outer.scrollEvents = []
+
+        try arrow.scrollWheel(with: Self.scrollEvent(x: 12))
+        #expect(outer.scrollEvents.isEmpty)
+    }
+
+    /// Places the shelf's container (scroll view and arrows) on a page inside
+    /// an outer scroll view, like the Home page's vertical `ScrollView`.
     private static func page(containing shelf: HomeItemShelfView) -> HomeItemTestScrollView {
         let outer = HomeItemTestScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: 300))
         let page = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 1200))
-        page.addSubview(shelf.scrollView)
+        page.addSubview(shelf.containerView)
         outer.documentView = page
         return outer
     }
@@ -262,7 +321,7 @@ struct HomeItemShelfViewTests {
         let documentView = shelf.scrollView.documentView
         shelf.scrollView.contentView = clipView
         shelf.scrollView.documentView = documentView
-        shelf.scrollView.frame = NSRect(x: 0, y: 0, width: width, height: HomeItemCell.height)
+        Self.resize(shelf, to: width)
         shelf.apply(Self.configuration(items: items, layoutDirection: layoutDirection))
         shelf.installObservers()
         return shelf
@@ -272,13 +331,12 @@ struct HomeItemShelfViewTests {
         shelf.scrollView.documentView?.subviews.compactMap { $0 as? HomeItemCell } ?? []
     }
 
-    private static func page(_ direction: CarouselShelfDirection, in shelf: HomeItemShelfView, until isSettled: () -> Bool) async throws {
-        shelf.page(direction)
-        // Overflow is delivered asynchronously even with immediate scrolling.
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
-        while !isSettled(), ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(10))
-        }
+    /// Sizes the container as SwiftUI would; its layout sizes the scroll view
+    /// and places the arrows.
+    private static func resize(_ shelf: HomeItemShelfView, to width: CGFloat) {
+        shelf.containerView.frame = NSRect(x: 0, y: 0, width: width, height: HomeItemCell.height)
+        shelf.containerView.needsLayout = true
+        shelf.containerView.layoutSubtreeIfNeeded()
     }
 }
 

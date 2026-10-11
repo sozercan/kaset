@@ -24,10 +24,10 @@ while attached — scales with the number of `NSView`s in the subtree.
 
 Shelves of `HomeSectionItem` cards render through `HomeItemShelfSection`
 (SwiftUI: header) → `HomeItemCollectionShelf`
-(`NSViewRepresentable`) → `HomeItemShelfContainerView` (the scroll view plus
-native paging arrows) → `HomeItemShelfView` (a plain horizontal
-`NSScrollView` driven by a controller object) whose document view owns one
-`HomeItemCell` per item for the shelf's lifetime.
+(`NSViewRepresentable`) → `HomeItemShelfView` (its coordinator: a controller
+that owns a plain horizontal `NSScrollView` and hosts it, with native paging
+arrows, in a `HomeItemShelfContainerView`). The scroll view's document view
+owns one `HomeItemCell` per item for the shelf's lifetime.
 
 `HomeItemCell` is a single layer-backed `NSView`. Artwork and its hover lift
 are sublayers; title, subtitle and explicit badge are a cached bitmap on a
@@ -80,5 +80,14 @@ Measured, and therefore rejected:
   Keyboard Access.
 - New card chrome must stay layer-based; adding `NSView`s per card brings the
   re-attach cost back.
+- The paging arrows (`HomeItemShelfArrowView`) are reimplemented natively and
+  must be kept in step with `CarouselShelfPagingControls` (they share its
+  labels): size and inset, resting/prominent opacity, scale and shadow, and
+  Return/Space paging under Full Keyboard Access. They handle press, keyboard
+  and accessibility themselves; an `NSButton` would still need a subclass for
+  Space taking precedence over Play/Pause, the circular hit area and focus
+  ring, and focus-driven prominence. Known differences: no interactive-glass
+  hover highlight, and the macOS 15 path uses the `.popover` visual-effect
+  material where SwiftUI uses `.ultraThinMaterial`.
 - `CarouselShelfSection`/`CarouselShelf` remain for non-`HomeSectionItem`
   shelves (Favorites, Artist detail, Podcasts, YouTube).
