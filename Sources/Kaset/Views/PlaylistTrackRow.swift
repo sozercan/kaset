@@ -108,10 +108,10 @@ struct PlaylistTrackRow<Menu: View>: View {
             Color.clear
                 .contentShape(Rectangle())
         }
-        // The row's own `.onHover` drives the highlight: `.interactiveRow` would add a
-        // second hover tracker plus two animations per row, which is enough to push
-        // long playlists past the frame budget while scrolling.
-        .buttonStyle(TrackRowButtonStyle(isHovered: self.isHovered))
+        // The row's own `.onHover` drives the highlight: a second hover tracker per row
+        // is enough to push long playlists past the frame budget while scrolling.
+        // Unplayable rows never highlight, since their button is disabled.
+        .buttonStyle(.interactiveRow(cornerRadius: 6, isHovered: self.isHovered && self.track.isPlayable))
         .disabled(!self.track.isPlayable)
         .accessibilityLabel(Text(verbatim: self.playbackAccessibilityLabel))
         .accessibilityHint(Text(String(localized: "Play")))
@@ -161,23 +161,5 @@ struct PlaylistTrackRow<Menu: View>: View {
 
             Spacer(minLength: 0)
         }
-    }
-}
-
-// MARK: - TrackRowButtonStyle
-
-/// `InteractiveRowStyle` without its own hover tracking: the owning row passes its hover state in.
-private struct TrackRowButtonStyle: ButtonStyle {
-    let isHovered: Bool
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(self.isHovered || configuration.isPressed ? Color.primary.opacity(0.06) : .clear)
-            )
-            .opacity(configuration.isPressed ? 0.8 : 1.0)
-            .animation(AppAnimation.quick, value: configuration.isPressed)
-            .animation(AppAnimation.quick, value: self.isHovered)
     }
 }

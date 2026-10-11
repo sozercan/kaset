@@ -68,20 +68,33 @@ struct InteractiveRowStyle: ButtonStyle {
     /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
+    /// Hover state from a parent that already tracks hover. When set, the style skips its
+    /// own hover tracker, which adds up across the rows of a long list.
+    var isHovered: Bool?
+
     @State private var isHovering = false
 
+    @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
+        if self.isHovered == nil {
+            self.highlightedLabel(configuration, isHovered: self.isHovering)
+                .onHover { hovering in
+                    self.isHovering = hovering
+                }
+        } else {
+            self.highlightedLabel(configuration, isHovered: self.isHovered == true)
+        }
+    }
+
+    private func highlightedLabel(_ configuration: Configuration, isHovered: Bool) -> some View {
         configuration.label
             .background(
                 RoundedRectangle(cornerRadius: self.cornerRadius)
-                    .fill(self.isHovering || configuration.isPressed ? self.hoverColor : .clear)
+                    .fill(isHovered || configuration.isPressed ? self.hoverColor : .clear)
             )
             .opacity(configuration.isPressed ? 0.8 : 1.0)
             .animation(AppAnimation.quick, value: configuration.isPressed)
-            .animation(AppAnimation.quick, value: self.isHovering)
-            .onHover { hovering in
-                self.isHovering = hovering
-            }
+            .animation(AppAnimation.quick, value: isHovered)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed, let feedback = hapticFeedback {
                     HapticService.perform(feedback)
@@ -162,12 +175,14 @@ extension ButtonStyle where Self == InteractiveRowStyle {
         InteractiveRowStyle()
     }
 
-    /// Interactive row style with custom corner radius and optional haptic feedback.
+    /// Interactive row style with custom corner radius, optional haptic feedback, and an
+    /// optional hover state supplied by a parent that already tracks hover.
     static func interactiveRow(
         cornerRadius: CGFloat = 8,
-        hapticFeedback: HapticService.FeedbackType? = nil
+        hapticFeedback: HapticService.FeedbackType? = nil,
+        isHovered: Bool? = nil
     ) -> InteractiveRowStyle {
-        InteractiveRowStyle(cornerRadius: cornerRadius, hapticFeedback: hapticFeedback)
+        InteractiveRowStyle(cornerRadius: cornerRadius, hapticFeedback: hapticFeedback, isHovered: isHovered)
     }
 }
 
