@@ -121,6 +121,38 @@ extension PlayerServiceWebQueueSyncTests {
         }
     }
 
+    @Test("Web like state applies once, from the first update after a track change that reports it")
+    func webLikeStatusWaitsForPlayerBarToCatchUp() async throws {
+        self.playerService.setSongLikeStatusManager(SongLikeStatusManager())
+        try await self.withEndedIdentityCoordinator(preparePendingHandoff: false) { coordinator, context, documentGeneration in
+            // The harness's track-change update came from a bar without like controls.
+            #expect(self.playerService.currentTrackLikeStatus == .indifferent)
+
+            for likeStatus in ["LIKE", "INDIFFERENT"] {
+                context.evaluateScript(
+                    """
+                    messages = [];
+                    likeRenderer = { getAttribute: function() { return '\(likeStatus)'; } };
+                    dispatch('waiting');
+                    """
+                )
+                let state = try #require(context.evaluateScript(
+                    "messages.filter(function(message) { return message.type === 'STATE_UPDATE'; }).slice(-1)[0]"
+                ).toDictionary() as? [String: Any])
+                #expect(state["trackChanged"] as? Bool == false)
+                #expect(state["likeStatus"] as? String == likeStatus)
+                coordinator.enqueueStateUpdateForTesting(
+                    body: state,
+                    observedVideoId: "v1",
+                    documentGeneration: documentGeneration
+                )
+                await coordinator.awaitPlaybackBridgeDrainForTesting()
+            }
+
+            #expect(self.playerService.currentTrackLikeStatus == .like)
+        }
+    }
+
     private func withEndedIdentityCoordinator(
         preparePendingHandoff: Bool = true,
         _ operation: @MainActor (

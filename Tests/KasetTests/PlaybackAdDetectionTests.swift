@@ -629,7 +629,7 @@ struct PlaybackAdDetectionTests {
             var moviePlayer = makePlayer();
             var musicApi = makePlayer();
             var musicPlayer = { playerApi: musicApi };
-            var playerBar = {};
+            var playerBar = { querySelector: function() { return null; } };
             var video = {
                 currentTime: 12, duration: 180, currentSrc: 'https://media.example/content',
                 paused: true, ended: false, readyState: 4, volume: 1, muted: false,
@@ -645,7 +645,7 @@ struct PlaybackAdDetectionTests {
                 querySelector: function(selector) {
                     if (selector === 'video' || selector === '#movie_player video') return video;
                     if (selector === 'ytmusic-player' && \(isMusic)) return musicPlayer;
-                    if (selector === 'ytmusic-player-bar' && \(isMusic)) return playerBar;
+                    if (selector === '[slot="player-bar"]' && \(isMusic)) return playerBar;
                     return null;
                 },
                 querySelectorAll: function() { return []; },
