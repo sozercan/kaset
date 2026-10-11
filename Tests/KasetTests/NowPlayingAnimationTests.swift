@@ -134,7 +134,7 @@ struct NowPlayingAnimationTests {
     // MARK: Marquee view
 
     @Test("Overflowing titles scroll in Core Animation; fitting titles stay put")
-    func marqueeViewAnimatesOnlyOverflow() {
+    func marqueeViewAnimatesOnlyOverflow() throws {
         let window = Self.makeWindow()
         defer { window.close() }
         let view = PlayerBarMarqueeView(frame: NSRect(x: 0, y: 0, width: 110, height: 13))
@@ -142,9 +142,17 @@ struct NowPlayingAnimationTests {
 
         view.configure(Self.marqueeConfiguration(text: "A title that is much too long for the player bar"))
         view.layoutSubtreeIfNeeded()
-        #expect(view.cycle != nil)
-        #expect(view.layer?.sublayers?.first?.animation(forKey: PlayerBarMarqueeView.scrollAnimationKey) != nil)
-        #expect(view.layer?.mask?.animation(forKey: PlayerBarMarqueeView.fadeAnimationKey) != nil)
+        let period = try #require(view.cycle?.period)
+        let scroll = view.layer?.sublayers?.first?.animation(forKey: PlayerBarMarqueeView.scrollAnimationKey)
+        #expect(scroll?.duration == period)
+        #expect(scroll?.repeatCount == .infinity)
+        // The fade tracks leave `duration` at 0; adding the group gives them its duration,
+        // so they span the whole cycle rather than the 0.25 s animation default.
+        let fade = try #require(view.layer?.mask?.animation(forKey: PlayerBarMarqueeView.fadeAnimationKey) as? CAAnimationGroup)
+        #expect(fade.duration == period)
+        #expect(fade.repeatCount == .infinity)
+        #expect(fade.animations?.count == 2)
+        #expect(fade.animations?.allSatisfy { $0.duration == period } == true)
 
         view.configure(Self.marqueeConfiguration(text: "Short"))
         view.layoutSubtreeIfNeeded()
