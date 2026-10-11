@@ -7,6 +7,15 @@ private struct CachedAsyncImageRequest: Equatable {
     let targetSize: CGSize
 }
 
+// MARK: - CachedAsyncImageTaskID
+
+/// Restarts the load task when a memory-cache hit stops being available (evicted),
+/// so a view showing a cached image never needs to copy it into its own state.
+private struct CachedAsyncImageTaskID: Equatable {
+    let request: CachedAsyncImageRequest
+    let isMemoryHit: Bool
+}
+
 // MARK: - CachedAsyncImage
 
 /// A cached version of AsyncImage that uses ImageCache.
@@ -46,10 +55,11 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         // fade, so views re-realized while scrolling (lazy stack rows) don't pay a
         // placeholder render + async hop + crossfade animation each time.
         let cached = self.memoryCachedImage
+        let isMemoryHit = cached != nil
         ZStack {
             if let image = self.image ?? cached {
                 self.content(Image(nsImage: image))
-                    .opacity(self.isLoaded || cached != nil ? 1 : 0)
+                    .opacity(self.isLoaded || isMemoryHit ? 1 : 0)
                     .animation(self.shouldAnimate ? .easeIn(duration: 0.25) : nil, value: self.isLoaded)
             } else {
                 self.placeholder()
@@ -61,20 +71,12 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
             self.image = nil
             self.isLoaded = false
         }
-        .task(id: self.request) {
+        // A memory hit needs no load and no state write (which would cost another body
+        // pass per realized row). If it is evicted, the next body pass flips the ID and
+        // the task loads it from disk.
+        .task(id: CachedAsyncImageTaskID(request: self.request, isMemoryHit: isMemoryHit)) {
             let request = self.request
-            guard let url = request.url else { return }
-            if let cached = ImageCache.shared.cachedImage(for: url, targetSize: request.targetSize) {
-                // Already on screen via `memoryCachedImage`; adopt it without an
-                // animated transition so it survives a later memory-cache eviction.
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    self.image = cached
-                    self.isLoaded = true
-                }
-                return
-            }
+            guard !isMemoryHit, let url = request.url else { return }
             let loadedImage = await ImageCache.shared.image(for: url, targetSize: request.targetSize)
             guard !Task.isCancelled, self.request == request else { return }
 
