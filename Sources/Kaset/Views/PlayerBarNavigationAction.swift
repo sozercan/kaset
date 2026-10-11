@@ -31,7 +31,9 @@ extension EnvironmentValues {
 enum PlayerBarCurrentRoute {
     static func albumIDs(for playlist: Playlist, detail: PlaylistDetail?) -> Set<String> {
         guard playlist.isAlbum else { return [] }
-        return Set([playlist.id, playlist.libraryTargetId, detail?.libraryTargetId].compactMap(\.self))
+        // An album opened by its OLAK ID loads the album's playlist page, whose tracks name its MPRE ID.
+        let trackAlbumIDs = detail?.tracks.compactMap(\.album).filter(\.hasNavigableId).map(\.id) ?? []
+        return Set([playlist.id, playlist.libraryTargetId, detail?.libraryTargetId].compactMap(\.self) + trackAlbumIDs)
     }
 
     static func isAlbum(_ album: Playlist, in routeAlbumIDs: Set<String>) -> Bool {

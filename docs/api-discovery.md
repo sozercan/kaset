@@ -288,6 +288,8 @@ let body = ["browseId": "FEmusic_liked_albums"]
 
 **Library mutations**: Album detail navigation uses an `MPRE...` browse ID, but `like/like` and `like/removelike` must target the album's `OLAK...` playlist ID. Album browse responses expose that playlist ID through play/queue endpoints even when the personalized Save button is unavailable.
 
+**Album playlist (`OLAK...`) browse**: A bare `OLAK...` browse ID returns HTTP 400; browse `VLOLAK...` instead. That page is a plain `musicPlaylistShelfRenderer` with no album header (no title, artwork, or artist), and each track's album column links the album's `MPRE...` browse ID. `YTMusicClient.playlistBrowseId(for:)` adds the prefix, and `PlaylistDetailViewModel` fills the missing header from the route.
+
 ---
 
 #### Liked Songs (`VLLM`)

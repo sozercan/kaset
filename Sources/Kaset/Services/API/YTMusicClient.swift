@@ -979,32 +979,26 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     // MARK: - Playlist with Pagination
 
+    /// Maps a playlist, album, or radio ID to the browse ID that loads it.
+    ///
+    /// - VL..., RD..., MPRE..., UC... and uploaded songs load as-is.
+    /// - PL... playlists and OLAK... album playlists need the VL prefix: a bare OLAK browse
+    ///   returns HTTP 400, while VLOLAK... lists the album's tracks without an album header.
+    nonisolated static func playlistBrowseId(for id: String) -> String {
+        let loadsAsIs = id == Playlist.uploadedSongsBrowseID
+            || id.hasPrefix("VL")
+            || id.hasPrefix("RD")
+            || id.hasPrefix("MPRE")
+            || id.hasPrefix("UC")
+        return loadsAsIs ? id : "VL\(id)"
+    }
+
     /// Fetches playlist details including tracks with pagination support.
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.logger.info("Fetching playlist: \(id)")
 
-        // Handle different ID formats:
-        // - VL... = playlist (already has prefix)
-        // - PL... = playlist (needs VL prefix)
-        // - RD... = radio/mix (use as-is)
-        // - OLAK... = album (use as-is)
-        // - MPRE... = album (use as-is)
-        let browseId: String = if id == Playlist.uploadedSongsBrowseID
-            || id.hasPrefix("VL")
-            || id.hasPrefix("RD")
-            || id.hasPrefix("OLAK")
-            || id.hasPrefix("MPRE")
-            || id.hasPrefix("UC")
-        {
-            id
-        } else if id.hasPrefix("PL") {
-            "VL\(id)"
-        } else {
-            "VL\(id)"
-        }
-
         let body: [String: Any] = [
-            "browseId": browseId,
+            "browseId": Self.playlistBrowseId(for: id),
         ]
 
         let data = try await request("browse", body: body, ttl: APICache.TTL.playlist)

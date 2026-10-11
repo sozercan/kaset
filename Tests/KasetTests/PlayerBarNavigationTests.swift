@@ -71,6 +71,23 @@ struct PlayerBarNavigationTests {
         #expect(PlayerBarCurrentRoute.albumIDs(for: Self.playlist(id: "PL_TEST"), detail: nil).isEmpty)
     }
 
+    @Test("An album opened by its OLAK ID also reports the MPRE ID its tracks name")
+    func albumIDsIncludeTrackAlbum() {
+        let route = Self.playlist(id: Self.albumPlaylistID)
+        let album = Album(id: Self.albumID, title: "Test Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
+        let unnamedAlbum = Album(id: UUID().uuidString, title: "Test Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
+        let detail = PlaylistDetail(
+            playlist: route,
+            tracks: [
+                Song(id: "track-1", title: "Track 1", artists: [Self.artist], album: album, videoId: "video-1"),
+                Song(id: "track-2", title: "Track 2", artists: [Self.artist], album: unnamedAlbum, videoId: "video-2"),
+            ],
+            libraryTargetId: Self.albumPlaylistID
+        )
+
+        #expect(PlayerBarCurrentRoute.albumIDs(for: route, detail: detail) == [Self.albumPlaylistID, Self.albumID])
+    }
+
     @Test("Album targets match the current page through either album ID")
     func albumMatchesThroughAlias() {
         let routeIDs: Set = [Self.albumID, Self.albumPlaylistID]
