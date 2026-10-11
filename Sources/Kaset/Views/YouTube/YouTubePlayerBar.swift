@@ -177,8 +177,8 @@ struct YouTubePlayerBar: View {
                 VStack(alignment: .leading, spacing: 4) {
                     PlayerBarMarqueeText(
                         text: self.videoDetailsTitle,
-                        font: .system(size: 13),
-                        color: .primary,
+                        font: .systemFont(ofSize: 13),
+                        color: .labelColor,
                         height: 13,
                         reduceMotion: self.reduceMotion
                     )
