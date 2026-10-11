@@ -112,12 +112,7 @@ extension PlayerService {
             self.currentEpisode = nil
             if self.currentTrack?.videoId != videoId {
                 self.resetTrackStatus()
-                self.currentTrack = Song(
-                    id: videoId,
-                    title: "Loading...",
-                    artists: [],
-                    videoId: videoId
-                )
+                self.currentTrack = Song.placeholder(videoId: videoId)
             }
             self.logger.debug("Video \(videoId) already loaded; resuming existing playback")
             await self.resume(intent: intent)
@@ -145,15 +140,7 @@ extension PlayerService {
         self.shouldSuppressAutoplayAfterQueueEnd = false
 
         // Create a minimal Song object for now
-        self.currentTrack = Song(
-            id: videoId,
-            title: "Loading...",
-            artists: [],
-            album: nil,
-            duration: nil,
-            thumbnailURL: nil,
-            videoId: videoId
-        )
+        self.currentTrack = Song.placeholder(videoId: videoId)
 
         self.pendingPlayVideoId = videoId
 

@@ -18,7 +18,12 @@ actor ImageCache {
     /// external changes without scanning the cache directory after every write.
     private static let defaultDiskEvictionWriteThreshold = 32
 
-    private let memoryCache = NSCache<NSString, NSImage>()
+    // swiftformat:disable modifierOrder
+    /// `NSCache` is thread-safe, so the memory tier can be read synchronously
+    /// from the main thread (see `cachedImage(for:targetSize:)`) without an
+    /// actor hop — AppKit cells that are rebuilt during scrolling rely on that.
+    nonisolated(unsafe) private let memoryCache = NSCache<NSString, NSImage>()
+    // swiftformat:enable modifierOrder
     /// Keyed by URL + target size (the memory-cache key), so an in-flight
     /// 320×180 fetch is not awaited by a 1280×720 request and handed back the
     /// small downsampled image.
@@ -97,6 +102,11 @@ actor ImageCache {
     ///   - url: The URL of the image to fetch.
     ///   - targetSize: Optional target size for downsampling. If provided, the image will be
     ///                 downsampled to fit this size, significantly reducing memory usage.
+    /// Synchronous memory-cache lookup; returns nil on a miss without loading.
+    nonisolated func cachedImage(for url: URL, targetSize: CGSize? = nil) -> NSImage? {
+        self.memoryCache.object(forKey: Self.memoryKey(for: url, targetSize: targetSize))
+    }
+
     func image(for url: URL, targetSize: CGSize? = nil) async -> NSImage? {
         // Memory cache is keyed by URL *and* target size: the same thumbnail is
         // requested at different sizes (Home cards at 320×180, the watch

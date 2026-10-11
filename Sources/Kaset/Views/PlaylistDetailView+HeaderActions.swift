@@ -133,7 +133,7 @@ extension PlaylistDetailView {
 
     @ViewBuilder
     private func libraryButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
-        if !detail.isUploadedSongs, self.hasPersonalAccount {
+        if detail.supportsLibraryToggle, self.hasPersonalAccount {
             let currentlyInLibrary = self.isInLibrary
             let libraryTitle = currentlyInLibrary
                 ? String(localized: "Added to Library")

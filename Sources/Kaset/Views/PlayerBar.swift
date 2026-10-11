@@ -12,8 +12,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.playerBarNavigationAction) private var navigationAction
@@ -239,8 +237,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         VStack(alignment: .leading, spacing: 4) {
             PlayerBarMarqueeText(
                 text: self.playerService.currentTrack?.title ?? String(localized: "Not Playing"),
-                font: .system(size: 13),
-                color: .primary,
+                font: .systemFont(ofSize: 13),
+                color: .labelColor,
                 height: 13,
                 reduceMotion: self.reduceMotion
             )
@@ -827,68 +825,24 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Current Song Context Menu
 
-    @ViewBuilder
     private func currentSongContextMenu(for track: Song) -> some View {
-        FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-        }
-
-        Divider()
-
-        StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            Button {
-                self.playerService.toggleLibraryStatus()
-            } label: {
-                Label(
-                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
-                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
-                )
+        SongContextMenu(
+            song: track,
+            client: self.playerService.ytMusicClient,
+            libraryToggle: SongLibraryToggle(
+                isInLibrary: self.playerService.currentTrackInLibrary,
+                toggle: { self.playerService.toggleLibraryStatus() }
+            ),
+            showsGoToArtist: self.showsGoToArtist(for: track),
+            showsGoToAlbum: self.showsGoToAlbum(for: track),
+            navigate: { destination in
+                if let artist = destination as? Artist {
+                    self.openArtist(artist)
+                } else if let album = destination as? Playlist {
+                    self.openAlbum(album)
+                }
             }
-        }
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: track)
-
-        Divider()
-
-        AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
-            Divider()
-
-            AddToPlaylistContextMenu(song: track, client: client)
-        }
-
-        let artist = self.contextMenuArtist(for: track)
-        let album = self.contextMenuAlbum(for: track)
-        if artist != nil || album != nil {
-            Divider()
-        }
-
-        if let artist {
-            Button {
-                self.openArtist(artist)
-            } label: {
-                Label(String(localized: "Go to Artist"), systemImage: "person")
-            }
-        }
-
-        if let album {
-            Button {
-                self.openAlbum(album)
-            } label: {
-                Label(String(localized: "Go to Album"), systemImage: "square.stack")
-            }
-        }
+        )
     }
 
     // MARK: - Error View
@@ -924,25 +878,20 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Actions
 
-    /// The track's artist, unless the player bar can't navigate or that artist's page is already showing.
-    private func contextMenuArtist(for track: Song) -> Artist? {
-        guard self.navigationAction.openArtist != nil,
-              let artist = track.artists.first(where: { $0.hasNavigableId }),
-              !PlayerBarCurrentRoute.isArtist(artist, routeArtistID: self.currentRouteArtistID)
-        else { return nil }
-
-        return artist
+    /// Whether the context menu offers the track's artist: not when the player bar can't navigate
+    /// or that artist's page is already showing.
+    private func showsGoToArtist(for track: Song) -> Bool {
+        guard self.navigationAction.openArtist != nil else { return false }
+        guard let artist = track.artists.first(where: { $0.hasNavigableId }) else { return true }
+        return !PlayerBarCurrentRoute.isArtist(artist, routeArtistID: self.currentRouteArtistID)
     }
 
-    /// The track's album, unless the player bar can't navigate or that album's page is already showing.
-    private func contextMenuAlbum(for track: Song) -> Playlist? {
-        guard self.navigationAction.openAlbum != nil,
-              let album = track.album,
-              album.hasNavigableId
-        else { return nil }
-
-        let playlist = self.playlist(from: album, track: track)
-        return PlayerBarCurrentRoute.isAlbum(playlist, in: self.currentRouteAlbumIDs) ? nil : playlist
+    /// Whether the context menu offers the track's album: not when the player bar can't navigate
+    /// or that album's page is already showing.
+    private func showsGoToAlbum(for track: Song) -> Bool {
+        guard self.navigationAction.openAlbum != nil else { return false }
+        guard let album = track.album else { return true }
+        return !PlayerBarCurrentRoute.isAlbum(album.detailPlaylist(), in: self.currentRouteAlbumIDs)
     }
 
     private var hasPersonalAccount: Bool {

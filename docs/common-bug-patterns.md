@@ -305,6 +305,7 @@ the store) — only `refresh()` aborts. When a test encodes the old
 - [ ] Images use `ImageCache` with appropriate `targetSize`
 - [ ] Search input is debounced
 - [ ] ForEach uses stable identity
+- [ ] No SwiftUI `repeatForever` or looping `withAnimation` for indefinite animations; use Core Animation layers ([ADR-0040](adr/0040-core-animation-for-repeating-animations.md))
 
 ### Concurrency Safety
 

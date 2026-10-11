@@ -103,6 +103,8 @@
 "Continue" = "متابعة";
 "Continue Watching" = "متابعة المشاهدة";
 "Control playback with your keyboard" = "تحكم في التشغيل باستخدام لوحة المفاتيح";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "تظهر عناصر التحكم عند تحريك المؤشر فوق الفيديو وتختفي تدريجيًا أثناء تشغيله.";
+"Copy Link" = "نسخ الرابط";
 "Could not create AI session" = "تعذّر إنشاء جلسة الذكاء الاصطناعي";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "تعذر التقاط صوت Kaset (الحالة %d). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام.";
 "Couldn't configure the audio unit (%lld)." = "تعذر تكوين وحدة الصوت (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "جارٍ التنزيل";
 "Drag to reorder" = "اسحب لإعادة الترتيب";
 "E" = "E";
+"Number %lld, %@" = "رقم %1$lld، %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "مثال: أزل الأغاني البطيئة، أعد الترتيب حسب الحيوية...";
 "Edit" = "تعديل";
 "Electronic" = "إلكتروني";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "افتح شريط الأوامر للتحكم في الموسيقى باللغة الطبيعية. جرّب قول \"play something chill\" أو \"add jazz to queue\".";
 "Options…" = "الخيارات…";
 "Output" = "الإخراج";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "تسجيل الدخول بمفتاح المرور غير متاح في هذه النافذة. سيطلب Google كلمة المرور أو طريقة تسجيل دخول أخرى بدلاً من ذلك.";
 "Pause" = "إيقاف مؤقت";
 "Permission needed" = "الإذن مطلوب";
 "Piano" = "بيانو";
 "Picture in Picture" = "صورة داخل صورة";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "وضع عناصر التحكم في التشغيل على الفيديو بدلًا من الشريط أسفل النافذة";
 "Play" = "تشغيل";
 "Play a song to view its lyrics here." = "شغّل أغنية لعرض كلماتها هنا.";
 "Play All" = "تشغيل الكل";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "جودة صوت التشغيل";
 "Playback position" = "موضع التشغيل";
 "Played" = "تم التشغيل";
+"Player Controls" = "عناصر التحكم في المشغّل";
 "Playing" = "قيد التشغيل";
 "Playlist" = "قائمة تشغيل";
 "Playlist not found" = "قائمة التشغيل غير موجودة";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "إزالة التكرارات: احذف الأغاني المكررة من قائمة الانتظار واحتفظ بأول ظهور لكل أغنية.";
 "Remove extension" = "إزالة الإضافة";
 "Remove from Favorites" = "إزالة من المفضلة";
+"Remove from Library" = "إزالة من المكتبة";
 "Remove from Playlist" = "إزالة من قائمة التشغيل";
 "Remove from Queue" = "إزالة من قائمة الانتظار";
 "Remove from Sidebar" = "إزالة من الشريط الجانبي";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "إظهار إشعار عند بدء تشغيل مقطع جديد";
 "Show a soft color glow, drawn from the video, behind the player" = "إظهار توهج لوني ناعم مستمد من الفيديو خلف المشغّل";
 "Show All" = "عرض الكل";
+"Show Controls on Video" = "إظهار عناصر التحكم على الفيديو";
 "Show Large Artwork" = "إظهار العمل الفني الكبير";
 "Show Lyrics" = "إظهار الكلمات";
 "Show more comments" = "إظهار المزيد من التعليقات";

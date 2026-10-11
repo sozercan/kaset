@@ -7,12 +7,18 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
+    /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
-    private static let floatOnTopOptionsWidthIncrement: CGFloat = 28 + 6
+    /// One 28pt option button plus its 6pt spacing.
+    private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
     /// Below this the details block would collide with the transport controls.
     /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
+
+    /// Keeps the progress lane off the capsule's rounded left end once the
+    /// details block is gone, matching the options' visual inset on the right.
+    private static let hiddenDetailsLeadingInset: CGFloat = 16
 
     private struct ChapterProgressSpan {
         let chapter: YouTubeChapter
@@ -65,6 +71,7 @@ struct YouTubePlayerBar: View {
                     }
 
                     self.youtubeProgressSection
+                        .padding(.leading, hidesDetails ? Self.hiddenDetailsLeadingInset : 0)
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
 
@@ -170,8 +177,8 @@ struct YouTubePlayerBar: View {
                 VStack(alignment: .leading, spacing: 4) {
                     PlayerBarMarqueeText(
                         text: self.videoDetailsTitle,
-                        font: .system(size: 13),
-                        color: .primary,
+                        font: .systemFont(ofSize: 13),
+                        color: .labelColor,
                         height: 13,
                         reduceMotion: self.reduceMotion
                     )
@@ -254,14 +261,6 @@ struct YouTubePlayerBar: View {
 
     private func fallbackThumbnailURL(for videoId: String) -> URL? {
         URL(string: "https://i.ytimg.com/vi/\(videoId)/mqdefault.jpg")
-    }
-
-    private func uniqueURLs(_ urls: [URL?]) -> [URL] {
-        var seen = Set<URL>()
-        return urls.compactMap { url in
-            guard let url, seen.insert(url).inserted else { return nil }
-            return url
-        }
     }
 
     private var currentTitleIdentity: String {
@@ -803,11 +802,26 @@ extension YouTubePlayerBar {
 
     static func hiddenVideoDetailsBreakpoint(showsFloatOnTopControl: Bool) -> CGFloat {
         self.baseHiddenVideoDetailsBreakpoint
-            + (showsFloatOnTopControl ? self.floatOnTopOptionsWidthIncrement : 0)
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+    }
+
+    /// Sized to the buttons shown, so no Watch Later leaves no dead gap.
+    static func optionsWidth(showsFloatOnTopControl: Bool, showsWatchLaterControl: Bool) -> CGFloat {
+        self.baseYouTubeOptionsWidth
+            + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
+            - (showsWatchLaterControl ? 0 : self.optionButtonSlotWidth)
     }
 }
 
 private extension YouTubePlayerBar {
+    func uniqueURLs(_ urls: [URL?]) -> [URL] {
+        var seen = Set<URL>()
+        return urls.compactMap { url in
+            guard let url, seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
     static func formatTime(_ seconds: Double) -> String {
         guard seconds.isFinite, seconds >= 0 else { return "0:00" }
         let total = Int(seconds)
@@ -847,8 +861,10 @@ private extension YouTubePlayerBar {
     }
 
     var youtubeOptionsWidth: CGFloat {
-        Self.baseYouTubeOptionsWidth
-            + (self.showsFloatOnTopControl ? Self.floatOnTopOptionsWidthIncrement : 0)
+        Self.optionsWidth(
+            showsFloatOnTopControl: self.showsFloatOnTopControl,
+            showsWatchLaterControl: self.hasPersonalAccount
+        )
     }
 
     var showsFloatOnTopControl: Bool {
@@ -866,22 +882,6 @@ private extension YouTubePlayerBar {
     func toggleYouTubeFloatOnTop() {
         HapticService.toggle()
         self.settings.keepYouTubeVideoOnTop.toggle()
-    }
-}
-
-// MARK: - Per-View Inset
-
-extension View {
-    /// Attaches the YouTube player bar to the bottom of a navigable view.
-    ///
-    /// Applied to EVERY YouTube view (roots and pushed destinations) —
-    /// views pushed onto a `NavigationStack` do not inherit a parent's
-    /// `safeAreaInset`, the same rule the music side follows with
-    /// `PlayerBar` (see docs/architecture.md).
-    func youtubePlayerBarInset() -> some View {
-        safeAreaInset(edge: .bottom, spacing: 0) {
-            YouTubePlayerBar(isDetachedWindow: false)
-        }
     }
 }
 

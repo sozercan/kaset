@@ -802,12 +802,7 @@ struct KasetApp: App {
         switch content {
         case let .song(videoId):
             DiagnosticsLogger.app.info("Playing song from URL: \(videoId)")
-            let song = Song(
-                id: videoId,
-                title: "Loading...",
-                artists: [],
-                videoId: videoId
-            )
+            let song = Song.placeholder(videoId: videoId)
             // Reserve intent synchronously so a later URL in the same batch
             // invalidates this asynchronous playback before it can start.
             let intent = self.playerService.beginMusicPlaybackIntent()

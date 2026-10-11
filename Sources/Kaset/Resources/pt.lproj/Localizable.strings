@@ -103,6 +103,8 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Continuar a ver";
 "Control playback with your keyboard" = "Controle a reprodução com o teclado";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução.";
+"Copy Link" = "Copiar ligação";
 "Could not create AI session" = "Não foi possível criar a sessão de IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Não foi possível capturar o áudio do Kaset (estado %d). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Não foi possível configurar a unidade de áudio (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "A transferir";
 "Drag to reorder" = "Arraste para reordenar";
 "E" = "E";
+"Number %lld, %@" = "Número %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "por exemplo, remover músicas lentas, reordenar por energia…";
 "Edit" = "Editar";
 "Electronic" = "Eletrónica";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Abra a barra de comandos para controlar a música com linguagem natural. Experimente dizer \"play something chill\" ou \"add jazz to queue\".";
 "Options…" = "Opções…";
 "Output" = "Saída";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "O início de sessão com chave de acesso não está disponível nesta janela. A Google irá pedir a sua palavra-passe ou outro método de início de sessão.";
 "Pause" = "Pausar";
 "Permission needed" = "Permissão necessária";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Colocar os controlos de reprodução no vídeo em vez de na barra na parte inferior da janela";
 "Play" = "Reproduzir";
 "Play a song to view its lyrics here." = "Reproduza uma música para ver aqui a letra.";
 "Play All" = "Reproduzir tudo";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Qualidade de áudio da reprodução";
 "Playback position" = "Posição de reprodução";
 "Played" = "Reproduzido";
+"Player Controls" = "Controlos do leitor";
 "Playing" = "A reproduzir";
 "Playlist" = "Lista de reprodução";
 "Playlist not found" = "Lista de reprodução não encontrada";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Remover duplicados: elimine músicas repetidas da fila e mantenha a primeira ocorrência de cada uma.";
 "Remove extension" = "Remover extensão";
 "Remove from Favorites" = "Remover dos Favoritos";
+"Remove from Library" = "Remover da Biblioteca";
 "Remove from Playlist" = "Remover da lista de reprodução";
 "Remove from Queue" = "Remover da fila";
 "Remove from Sidebar" = "Remover da barra lateral";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Mostrar uma notificação quando começa a reproduzir uma nova faixa";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostrar atrás do leitor um brilho suave de cor extraído do vídeo";
 "Show All" = "Mostrar tudo";
+"Show Controls on Video" = "Mostrar controlos no vídeo";
 "Show Large Artwork" = "Mostrar capa grande";
 "Show Lyrics" = "Mostrar letras";
 "Show more comments" = "Mostrar mais comentários";

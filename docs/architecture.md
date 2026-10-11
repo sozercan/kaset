@@ -386,6 +386,7 @@ Manages user preferences persisted via `UserDefaults`:
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 | `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |
+| `showYouTubeControlsOnVideo` | `Bool` | `false` | Overlay the YouTube player bar on the docked watch-page video (auto-hiding while playing) instead of the bottom bar; other YouTube pages except Shorts drop the bottom bar |
 
 **Music LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
 
@@ -497,7 +498,8 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 
 | Command Class | AppleScript Command | Description |
 |---------------|---------------------|-------------|
-| `PlayCommand` | `play` | Resume playback |
+| `PlayCommand` | `play` | Resume playback, or start a queue that has not played yet at its current position |
+| `PlayVideoCommand` | `play video "id"` | Play a video by ID and start a radio queue from it |
 | `PauseCommand` | `pause` | Pause playback |
 | `PlayPauseCommand` | `playpause` | Toggle play/pause |
 | `NextTrackCommand` | `next track` | Skip to next track |
@@ -509,11 +511,17 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 | `LikeTrackCommand` | `like track` | Like current track |
 | `DislikeTrackCommand` | `dislike track` | Dislike current track |
 | `GetPlayerInfoCommand` | `get player info` | Returns player state as JSON |
+| `GetPlayQueueCommand` | `get play queue` | Returns the queue and active index as JSON |
+| `PlayTrackAtIndexCommand` | `play track at index N` | Play a queue entry by 1-based index |
+| `PlayVideosCommand` | `play videos {ids} [starting at N]` | Replace the queue with video IDs and start at a 1-based index |
+| `AddToQueueCommand` | `add to queue {ids} [with next]` | Append video IDs, or insert them after the current track |
+| `RemoveFromQueueCommand` | `remove from queue "id"` | Remove every entry with a video ID, except the playing one |
 
 **Implementation Details**:
 
 - Commands access `PlayerService.shared` via `MainActor.assumeIsolated` (AppleScript runs on main thread)
-- Synchronous methods (shuffle, repeat, like/dislike) execute directly
+- Synchronous methods (shuffle, repeat, like/dislike, add/remove queue entries) execute directly
+- Commands that start playback begin their playback intent before returning, and `play videos` also replaces the queue before returning, so a later command (even one sent without waiting for a reply) supersedes or acts on the result of an earlier one
 - Async methods (play, pause, volume) spawn detached Tasks
 - All commands return AppleScript errors (`-1728`) if `PlayerService.shared` is nil
 - Logging via `DiagnosticsLogger.scripting`

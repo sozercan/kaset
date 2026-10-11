@@ -103,6 +103,8 @@
 "Continue" = "Kontynuuj";
 "Continue Watching" = "Kontynuuj oglądanie";
 "Control playback with your keyboard" = "Steruj odtwarzaniem za pomocą klawiatury";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Elementy sterowania pojawiają się po poruszeniu wskaźnikiem nad filmem i znikają podczas odtwarzania.";
+"Copy Link" = "Kopiuj link";
 "Could not create AI session" = "Nie udało się utworzyć sesji AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Nie udało się przechwycić dźwięku Kaset (stan %d). Sprawdź uprawnienie Nagrywanie ekranu i dźwięku systemowego w Ustawieniach systemowych.";
 "Couldn't configure the audio unit (%lld)." = "Nie udało się skonfigurować jednostki audio (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "Pobieranie";
 "Drag to reorder" = "Przeciągnij, aby zmienić kolejność";
 "E" = "E";
+"Number %lld, %@" = "Numer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "np. usuń wolne utwory, zmień kolejność według energii…";
 "Edit" = "Edytuj";
 "Electronic" = "Elektroniczna";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Otwórz pasek poleceń, aby sterować muzyką językiem naturalnym. Spróbuj powiedzieć \"play something chill\" albo \"add jazz to queue\".";
 "Options…" = "Opcje…";
 "Output" = "Wyjście";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Logowanie kluczem dostępu nie jest dostępne w tym oknie. Google poprosi zamiast tego o hasło lub inną metodę logowania.";
 "Pause" = "Wstrzymaj";
 "Permission needed" = "Wymagane uprawnienie";
 "Piano" = "Piano";
 "Picture in Picture" = "Obraz w obrazie";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Umieść elementy sterowania odtwarzaniem na filmie zamiast na pasku u dołu okna";
 "Play" = "Odtwórz";
 "Play a song to view its lyrics here." = "Odtwórz utwór, aby zobaczyć tutaj jego tekst.";
 "Play All" = "Odtwórz wszystko";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Jakość dźwięku odtwarzania";
 "Playback position" = "Pozycja odtwarzania";
 "Played" = "Odtworzone";
+"Player Controls" = "Sterowanie odtwarzaczem";
 "Playing" = "Odtwarzane";
 "Playlist" = "Playlista";
 "Playlist not found" = "Nie znaleziono playlisty";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Usuń duplikaty: usuń powtarzające się utwory z kolejki i zachowaj pierwsze wystąpienie każdego z nich.";
 "Remove extension" = "Usuń rozszerzenie";
 "Remove from Favorites" = "Usuń z ulubionych";
+"Remove from Library" = "Usuń z biblioteki";
 "Remove from Playlist" = "Usuń z playlisty";
 "Remove from Queue" = "Usuń z kolejki";
 "Remove from Sidebar" = "Usuń z paska bocznego";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Pokaż powiadomienie, gdy zacznie się odtwarzać nowy utwór";
 "Show a soft color glow, drawn from the video, behind the player" = "Pokaż za odtwarzaczem delikatną poświatę kolorów pobraną z filmu";
 "Show All" = "Pokaż wszystko";
+"Show Controls on Video" = "Pokaż sterowanie na filmie";
 "Show Large Artwork" = "Pokaż dużą okładkę";
 "Show Lyrics" = "Pokaż tekst";
 "Show more comments" = "Pokaż więcej komentarzy";

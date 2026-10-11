@@ -76,6 +76,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var contentResetID = UUID()
     @State private var guestRefreshTask: Task<Void, Never>?
     @State private var accountResolutionFailOpenGeneration: UInt64?
+    /// Whether authenticated content has been shown for the current signed-in
+    /// identity. Distinguishes the first account-scope resolution at startup
+    /// (nothing fetched yet) from a real switch away from content that was
+    /// already rendered under the unresolved primary scope.
+    @State private var hasRenderedAuthenticatedContent = false
 
     // MARK: - Cached ViewModels (persist across tab switches)
 
@@ -212,6 +217,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 } else if self.authService.hasPersonalAccount {
                     if self.canRenderAuthenticatedContent {
                         self.mainContent
+                            .onAppear { self.hasRenderedAuthenticatedContent = true }
                     } else {
                         // Give the initial account fetch a bounded chance to restore
                         // the selected primary or brand account before requests start.
@@ -383,8 +389,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     private var accountLifecycleContent: some View {
         self.appLifecycleContent
-            .onChange(of: self.accountService.currentAccountScopeID) { _, newAccountScope in
-                self.handleAccountScopeChange(newAccountScope: newAccountScope)
+            .onChange(of: self.accountService.currentAccountScopeID) { oldAccountScope, newAccountScope in
+                self.handleAccountScopeChange(oldAccountScope: oldAccountScope, newAccountScope: newAccountScope)
             }
             .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
                 // Re-point in-flight playback ONLY once the new session identity is
@@ -395,8 +401,13 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 // History is recorded by the playback WebViews' own stats pings, so a
                 // track/video still loaded under the previous identity must reload to
                 // record to the new account. The shared cookie session covers both.
-                guard self.accountService.verifiedAccountId != nil else { return }
-                self.playerService.reloadCurrentTrackForIdentitySwitch()
+                guard let verifiedAccountId = self.accountService.verifiedAccountId else { return }
+                // Re-verifying the account already in use (every launch re-pins it) keeps
+                // the like scope: an account switch already invalidated like state through
+                // the account-scope change, and other content loaded before verification
+                // is kept too. Bumping it here only made Liked Music drop its pages mid-scroll.
+                let isReverification = self.accountService.currentAccount?.id == verifiedAccountId
+                self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
                 if self.youtubePlayerService.currentVideo != nil {
                     self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
                 }
@@ -423,13 +434,25 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Main Content
 
-    private func handleAccountScopeChange(newAccountScope: String?) {
+    private func handleAccountScopeChange(oldAccountScope: String?, newAccountScope: String?) {
         let currentAccount = self.accountService.currentAccount
         let newAccountId = self.accountService.currentAccount?.id
-        self.client.resetSessionStateForAccountSwitch()
-        self.youtubeClient.resetSessionStateForAccountSwitch()
-        self.likeStatusManager.clearCache()
-        LibraryMutationActions.cancelAllPendingLibraryMutations()
+        // The first resolution after startup/login goes `nil -> scope` before
+        // any authenticated view has rendered, so nothing was fetched under a
+        // wrong scope: wire the scope up below but skip the switch teardown
+        // (cache wipe + refresh of every surface), which otherwise reloads
+        // Home right after its initial page and discards its continuation.
+        // Content rendered under the unresolved scope (fail-open timeout, or a
+        // retried account fetch) is a real switch and still refreshes.
+        let isInitialScopeResolution = oldAccountScope == nil
+            && newAccountScope != nil
+            && !self.hasRenderedAuthenticatedContent
+        if !isInitialScopeResolution {
+            self.client.resetSessionStateForAccountSwitch()
+            self.youtubeClient.resetSessionStateForAccountSwitch()
+            self.likeStatusManager.clearCache()
+            LibraryMutationActions.cancelAllPendingLibraryMutations()
+        }
         self.libraryViewModel?.activateAccountScope(
             newAccountScope,
             isPrimary: currentAccount?.isPrimary == true
@@ -443,8 +466,24 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         if let newAccountId {
             self.podcastsAvailability.activateAccount(newAccountId)
         }
-
         Task { @MainActor in
+            if isInitialScopeResolution {
+                guard self.authService.hasPersonalAccount,
+                      self.accountService.currentAccountScopeID == newAccountScope
+                else { return }
+
+                // These models also supply like and Library status to other views.
+                // Seed them without restarting Home or an already-visible tab.
+                async let likedMusicLoad: Void? = self.likedMusicViewModel?.ensureLoaded()
+                if let libraryViewModel = self.libraryViewModel,
+                   libraryViewModel.loadingState == .idle
+                {
+                    await libraryViewModel.load()
+                }
+                _ = await likedMusicLoad
+                return
+            }
+
             APICache.shared.invalidateAll()
             URLCache.shared.removeAllCachedResponses()
 
@@ -790,6 +829,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // Still checking login status, do nothing
             break
         case .loggedOut:
+            self.hasRenderedAuthenticatedContent = false
             let isReauthTransition = self.authService.needsReauth
             let crossedSignOutBoundary = oldState.isLoggedIn && !isReauthTransition
             let shouldRefreshGuestContent = crossedSignOutBoundary || oldState.isInitializing || isReauthTransition

@@ -57,7 +57,7 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 
 See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, the single-flight load pattern that resolves the `.task`-restart cancellation deadlock, concurrency anti-patterns, and the pre-submit checklist.
 
-> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`.
+> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`. Debug and release builds share one container (UserDefaults and the WebKit cookie jar), so the debug file backend uses its own sign-out tombstone key (`authCookieBackupInvalidated.debugFileStorage`); never let debug-only auth state write the release key, or a debug sign-out will delete the release Keychain archive on its next launch.
 
 ## Continuous Review
 
@@ -93,7 +93,7 @@ These are project-specific rules that differ from standard Swift/SwiftUI convent
 - Throw `YTMusicError.authExpired` on HTTP 401/403
 - Use `.task` instead of `.onAppear { Task { } }`
 
-`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`, `contentMargins`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
 
 ## Task Planning
 

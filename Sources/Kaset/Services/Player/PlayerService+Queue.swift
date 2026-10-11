@@ -36,6 +36,32 @@ extension PlayerService {
         deferringSmartShuffleFill: Bool,
         intent: MusicPlaybackIntent
     ) async -> Int? {
+        guard let installedQueue = self.installQueue(
+            songs,
+            startingAt: index,
+            deferringSmartShuffleFill: deferringSmartShuffleFill,
+            intent: intent
+        ) else { return nil }
+        return await self.startInstalledQueue(installedQueue)
+    }
+
+    /// A queue replaced by ``installQueue(_:startingAt:deferringSmartShuffleFill:intent:)`` that has not
+    /// started playing yet.
+    struct InstalledQueue {
+        let intent: MusicPlaybackIntent
+        let playbackContextGeneration: Int
+        let queueGeneration: Int
+        let loadGeneration: Int?
+    }
+
+    /// Replaces the queue without starting playback, so callers that must not let later commands see the
+    /// old queue can install it synchronously and start it with ``startInstalledQueue(_:)``.
+    func installQueue(
+        _ songs: [Song],
+        startingAt index: Int,
+        deferringSmartShuffleFill: Bool,
+        intent: MusicPlaybackIntent
+    ) -> InstalledQueue? {
         guard self.acceptsMusicPlaybackIntent(intent), !songs.isEmpty else { return nil }
         let playbackContextGeneration = self.beginPlaybackRequest()
         self.invalidateMixContinuationRequest()
@@ -66,12 +92,28 @@ extension PlayerService {
             self.currentIndex = safeIndex
         }
         self.mixContinuationToken = nil
+        return InstalledQueue(
+            intent: intent,
+            playbackContextGeneration: playbackContextGeneration,
+            queueGeneration: queueGeneration,
+            loadGeneration: loadGeneration
+        )
+    }
+
+    /// Starts playing a queue installed by ``installQueue(_:startingAt:deferringSmartShuffleFill:intent:)``.
+    /// Does nothing if newer playback has taken over since the queue was installed.
+    @discardableResult
+    func startInstalledQueue(_ installedQueue: InstalledQueue) async -> Int? {
+        let playbackContextGeneration = installedQueue.playbackContextGeneration
+        let queueGeneration = installedQueue.queueGeneration
+        let loadGeneration = installedQueue.loadGeneration
+        guard self.acceptsMusicPlaybackIntent(installedQueue.intent) else { return loadGeneration }
         if let entry = self.queueEntries[safe: self.currentIndex] {
             await self.play(
                 song: entry.song,
                 webLoadStrategy: .standard,
                 queueEntryID: entry.id,
-                intent: intent
+                intent: installedQueue.intent
             )
         }
         guard self.isCurrentPlaybackRequest(playbackContextGeneration),
@@ -751,14 +793,15 @@ extension PlayerService {
     /// Removes songs from the queue by video ID.
     /// - Parameter videoIds: Set of video IDs to remove.
     func removeFromQueue(videoIds: Set<String>) {
+        let indicesToRemove = self.queueEntries.enumerated()
+            .filter { videoIds.contains($0.element.song.videoId) }
+            .map(\.offset)
+        guard !indicesToRemove.isEmpty else { return }
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
         let previousCount = self.queue.count
         let currentEntryID = self.currentQueueEntryID
         let originalCurrentIndex = self.currentIndex
-        let indicesToRemove = self.queueEntries.enumerated()
-            .filter { videoIds.contains($0.element.song.videoId) }
-            .map(\.offset)
         let remainingEntries = self.queueEntries.filter { !videoIds.contains($0.song.videoId) }
         self.setQueue(entries: remainingEntries)
         self.realignCurrentIndexAfterQueueMutation(

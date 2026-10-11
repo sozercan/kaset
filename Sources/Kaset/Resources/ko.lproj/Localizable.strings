@@ -103,6 +103,8 @@
 "Continue" = "계속";
 "Continue Watching" = "계속 시청";
 "Control playback with your keyboard" = "키보드로 재생을 제어하세요";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다.";
+"Copy Link" = "링크 복사";
 "Could not create AI session" = "AI 세션을 생성할 수 없음";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset의 오디오를 캡처할 수 없습니다(상태 %d). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요.";
 "Couldn't configure the audio unit (%lld)." = "오디오 유닛을 구성할 수 없습니다 (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "다운로드 중";
 "Drag to reorder" = "드래그하여 순서 변경";
 "E" = "E";
+"Number %lld, %@" = "%1$lld위, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
 "Edit" = "편집";
 "Electronic" = "일렉트로닉";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "자연어로 음악을 제어하려면 명령 막대를 여세요. \"play something chill\" 또는 \"add jazz to queue\"라고 말해 보세요.";
 "Options…" = "옵션…";
 "Output" = "출력";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "이 창에서는 패스키 로그인을 사용할 수 없습니다. 대신 Google에서 비밀번호나 다른 로그인 방법을 요청합니다.";
 "Pause" = "일시중지";
 "Permission needed" = "권한 필요";
 "Piano" = "피아노";
 "Picture in Picture" = "화면 속 화면";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "재생 컨트롤을 윈도우 하단 막대 대신 비디오 위에 배치";
 "Play" = "재생";
 "Play a song to view its lyrics here." = "가사를 보려면 노래를 재생하세요.";
 "Play All" = "모두 재생";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "재생 오디오 품질";
 "Playback position" = "재생 위치";
 "Played" = "재생됨";
+"Player Controls" = "플레이어 컨트롤";
 "Playing" = "재생 중";
 "Playlist" = "재생목록";
 "Playlist not found" = "재생목록을 찾을 수 없음";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "중복 제거: 대기열에서 반복된 노래를 삭제하고 각 노래의 첫 번째 항목만 유지합니다.";
 "Remove extension" = "확장 프로그램 제거";
 "Remove from Favorites" = "즐겨찾기에서 삭제";
+"Remove from Library" = "보관함에서 제거";
 "Remove from Playlist" = "재생목록에서 제거";
 "Remove from Queue" = "대기열에서 삭제";
 "Remove from Sidebar" = "사이드바에서 제거";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "새 트랙이 재생되기 시작하면 알림 표시";
 "Show a soft color glow, drawn from the video, behind the player" = "비디오에서 가져온 부드러운 색상 빛을 플레이어 뒤에 표시";
 "Show All" = "모두 표시";
+"Show Controls on Video" = "비디오 위에 컨트롤 표시";
 "Show Large Artwork" = "큰 아트워크 표시";
 "Show Lyrics" = "가사 표시";
 "Show more comments" = "댓글 더 보기";

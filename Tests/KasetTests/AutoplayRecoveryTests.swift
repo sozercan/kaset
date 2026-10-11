@@ -190,9 +190,10 @@ struct AutoplayRecoveryJSTests {
                     }
                 };
                 var button = { click() { video.play(); } };
+                var playerBar = { querySelector: () => button };
                 var document = {
                     querySelector: selector => selector === 'video'
-                        ? video : (\(hasPlayerButton ? "true" : "false") ? button : null)
+                        ? video : (\(hasPlayerButton ? "true" : "false") ? playerBar : null)
                 };
                 \(SingletonPlayerWebView.autoplayRecoveryFunctionJS)
                 window.__kasetAttemptAutoplayRecovery = __kasetAttemptAutoplayRecovery;

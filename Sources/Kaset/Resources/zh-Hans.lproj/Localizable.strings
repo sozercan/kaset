@@ -110,6 +110,8 @@
 "Continue" = "继续";
 "Continue Watching" = "继续观看";
 "Control playback with your keyboard" = "使用键盘控制播放";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "将指针移到视频上时会显示控制，播放时会自动淡出。";
+"Copy Link" = "拷贝链接";
 "Could not create AI session" = "无法创建 AI 会话";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "无法捕获 Kaset 的音频（状态 %d）。请在系统设置中检查“屏幕与系统音频录制”权限。";
 "Couldn't configure the audio unit (%lld)." = "无法配置音频单元（%lld）。";
@@ -218,6 +220,7 @@
 "Kaset can't access its own audio output. Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Kaset 无法访问自身的音频输出。请打开“系统设置 → 隐私与安全性 → 屏幕与系统音频录制”并启用 Kaset，然后重新打开均衡器。";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset 无法移除已保存的登录数据。请在退出前重新尝试退出登录。";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset 无法安全地清除已保存的登录数据。请重试后再登录。";
+"Number %lld, %@" = "第 %1$lld 名，%2$@";
 "Sign-In Temporarily Unavailable" = "暂时无法登录";
 "Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset 无法读取已保存的登录数据。请重试以恢复会话。";
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset 会为每个请求创建全新的 AI 会话。如果 Apple Intelligence 在应用运行期间完成下载或变为可用，请刷新状态。";
@@ -342,11 +345,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "打开命令栏，用自然语言控制音乐。试试说“播放一些舒缓的音乐”或“把爵士加入队列”。";
 "Options…" = "选项…";
 "Output" = "输出";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "此窗口不支持通行密钥登录，Google 会改为要求输入密码或使用其他登录方式。";
 "Pause" = "暂停";
 "Permission needed" = "需要权限";
 "Piano" = "钢琴";
 "Picture in Picture" = "画中画";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "将播放控制放在视频上，而不是窗口底部的栏中";
 "Play" = "播放";
 "Play All" = "播放全部";
 "Play Latest" = "播放最新一集";
@@ -358,6 +361,7 @@
 "Playback Audio Quality" = "播放音频质量";
 "Playback position" = "播放位置";
 "Played" = "已播放";
+"Player Controls" = "播放器控制";
 "Playing" = "正在播放";
 "Playlist" = "播放列表";
 "Playlist not found" = "未找到该播放列表";
@@ -399,6 +403,7 @@
 "Remove Like" = "取消喜欢";
 "Remove extension" = "移除扩展";
 "Remove from Favorites" = "从收藏中移除";
+"Remove from Library" = "从音乐库中移除";
 "Remove from Playlist" = "从播放列表中移除";
 "Remove from Queue" = "从队列中移除";
 "Remove from Sidebar" = "从边栏中移除";
@@ -439,6 +444,7 @@
 "Shorts" = "Shorts";
 "Shorts from your feed appear here." = "你的动态中的 Shorts 会显示在这里。";
 "Show All" = "显示全部";
+"Show Controls on Video" = "在视频上显示控制";
 "Show Large Artwork" = "显示大尺寸封面";
 "Show Lyrics" = "显示歌词";
 "Show Now Playing Notifications" = "显示正在播放通知";

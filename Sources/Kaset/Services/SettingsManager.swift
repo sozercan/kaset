@@ -34,6 +34,7 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let showYouTubeControlsOnVideo = "settings.showYouTubeControlsOnVideo"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -96,6 +97,7 @@ final class SettingsManager {
         case french
         case indonesian
         case italian
+        case japanese
         case korean
         case dutch
         case polish
@@ -121,6 +123,7 @@ final class SettingsManager {
             case .german: "Deutsch"
             case .indonesian: "Bahasa Indonesia"
             case .italian: "Italiano"
+            case .japanese: "日本語"
             case .korean: "한국어"
             case .polish: "Polski"
             case .portuguese: "Português"
@@ -145,6 +148,7 @@ final class SettingsManager {
             case .german: "de"
             case .indonesian: "id"
             case .italian: "it"
+            case .japanese: "ja"
             case .korean: "ko"
             case .polish: "pl"
             case .portuguese: "pt"
@@ -448,6 +452,16 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the YouTube player controls overlay the docked watch-page video,
+    /// auto-hiding like a regular video player, instead of sitting in the bar at
+    /// the bottom of the window. Applies to regular YouTube videos only, not the
+    /// Music experience.
+    var showYouTubeControlsOnVideo: Bool {
+        didSet {
+            UserDefaults.standard.set(self.showYouTubeControlsOnVideo, forKey: Keys.showYouTubeControlsOnVideo)
+        }
+    }
+
     /// The style the YouTube watch page should request: the chosen style when
     /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
     /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
@@ -494,6 +508,10 @@ final class SettingsManager {
         defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
     }
 
+    static func loadShowYouTubeControlsOnVideo(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.showYouTubeControlsOnVideo) as? Bool ?? false
+    }
+
     private init() {
         // Load persisted settings or use defaults
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
@@ -531,6 +549,7 @@ final class SettingsManager {
         )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.showYouTubeControlsOnVideo = Self.loadShowYouTubeControlsOnVideo(from: UserDefaults.standard)
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif

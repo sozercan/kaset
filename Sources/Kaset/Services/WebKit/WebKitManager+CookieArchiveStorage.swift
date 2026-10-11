@@ -183,8 +183,27 @@ enum CookieArchiveRestoreDecision: Equatable, Sendable {
 // MARK: - CookieArchiveRestorePolicy
 
 enum CookieArchiveRestorePolicy {
-    private static let invalidatedKey = "authCookieBackupInvalidated"
     private static let generationState = CookieArchiveRestoreGenerationState()
+
+    /// The tombstone must belong to the same backend as the archive it guards.
+    /// DEBUG file storage shares the app container's UserDefaults with release
+    /// builds, so a shared key would let a debug sign-out delete the release
+    /// Keychain archive on its next launch.
+    static func invalidationTombstoneKey(usesDebugFileStorage: Bool) -> String {
+        usesDebugFileStorage
+            ? "authCookieBackupInvalidated.debugFileStorage"
+            : "authCookieBackupInvalidated"
+    }
+
+    private static var invalidatedKey: String {
+        #if DEBUG
+            self.invalidationTombstoneKey(
+                usesDebugFileStorage: KeychainCookieStorage.usesDebugFileStorage
+            )
+        #else
+            self.invalidationTombstoneKey(usesDebugFileStorage: false)
+        #endif
+    }
 
     static var generation: UInt64 {
         self.generationState.current()

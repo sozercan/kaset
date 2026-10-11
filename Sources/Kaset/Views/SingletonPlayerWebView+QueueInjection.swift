@@ -85,6 +85,7 @@ extension SingletonPlayerWebView {
             let didReport = false;
             let didOpenMenu = false;
             let didDispatchCommand = false;
+            \(Self.playerBarLookupFunctionJS)
 
             if (typeof window.__kasetCancelQueueInjectionAttempt === 'function') {
                 window.__kasetCancelQueueInjectionAttempt();
@@ -390,13 +391,13 @@ extension SingletonPlayerWebView {
             }
 
             function findPlayerBarMenuButton() {
-                const menuRendererButton = document.querySelector(
-                    '.middle-controls-buttons.ytmusic-player-bar ytmusic-menu-renderer button'
-                );
-                if (menuRendererButton) return menuRendererButton;
+                const playerBar = __kasetPlayerBar();
+                if (!playerBar) return null;
+                const menuButton = __kasetPlayerBarElement('menu', playerBar);
+                if (menuButton) return menuButton;
 
                 // Compatibility fallback for the newer player-bar button shape.
-                return Array.from(document.querySelectorAll('ytmusic-player-bar button')).find(button =>
+                return Array.from(playerBar.querySelectorAll('button')).find(button =>
                     (button.getAttribute('aria-label') || '').toLowerCase() === 'action menu'
                 ) || null;
             }

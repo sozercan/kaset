@@ -150,7 +150,9 @@ enum QueueSongMetadata {
             likeStatus: song.likeStatus,
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
-            isExplicit: song.isExplicit
+            isExplicit: song.isExplicit,
+            playlistSetVideoId: song.playlistSetVideoId,
+            audioTrackVideoId: song.audioTrackVideoId
         )
     }
 }

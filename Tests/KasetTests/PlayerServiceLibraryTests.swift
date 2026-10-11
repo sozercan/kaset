@@ -715,6 +715,18 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
         #expect(self.playerService.confirmedLibraryStateByKey.isEmpty)
     }
 
+    @Test("Identity re-verification can keep the like request scope")
+    func identityReverificationCanKeepLikeRequestScope() {
+        let manager = self.playerService.songLikeStatusManager
+        let initialScope = manager.requestScopeGeneration
+
+        self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: false)
+        #expect(manager.requestScopeGeneration == initialScope)
+
+        self.playerService.reloadCurrentTrackForIdentitySwitch()
+        #expect(manager.requestScopeGeneration == initialScope &+ 1)
+    }
+
     @Test("Metadata cannot replace rollback state while a library mutation is pending")
     func metadataCannotReplacePendingLibraryMutationBaseline() async {
         let originalTokens = FeedbackTokens(add: "fresh-add", remove: "fresh-remove")
@@ -1094,6 +1106,36 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
             add: "new-add",
             remove: "new-remove"
         ))
+    }
+
+    @Test("Audio IDs survive metadata refresh and clearing upcoming tracks", arguments: [nil, "fetched-audio"] as [String?])
+    func audioIDsSurviveMetadataRefreshAndQueueClearing(fetchedAudioID: String?) async throws {
+        let suiteName = "AudioIDRefreshTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        self.playerService.queuePersistenceDefaults = defaults
+
+        var song = TestFixtures.makeSong(id: "music-video")
+        song.audioTrackVideoId = "album-audio"
+        var fetchedSong = song
+        fetchedSong.audioTrackVideoId = fetchedAudioID
+        self.mockClient.songResponses[song.videoId] = fetchedSong
+        self.playerService.setQueue([song, TestFixtures.makeSong(id: "next-track")])
+        self.playerService.activePlaybackQueueEntryID = self.playerService.queueEntryIDs.first
+        self.playerService.currentTrack = song
+
+        await self.playerService.fetchSongMetadata(videoId: song.videoId)
+
+        let expectedAudioID = fetchedAudioID ?? "album-audio"
+        #expect(self.playerService.currentTrack?.preferredAudioVideoId == expectedAudioID)
+
+        self.playerService.clearQueue()
+
+        #expect(self.playerService.queue.map(\.videoId) == [song.videoId])
+        #expect(self.playerService.queue.first?.preferredAudioVideoId == expectedAudioID)
+        let savedData = try #require(defaults.data(forKey: "kaset.saved.queue"))
+        let savedQueue = try JSONDecoder().decode([Song].self, from: savedData)
+        #expect(savedQueue.first?.preferredAudioVideoId == expectedAudioID)
     }
 
     @Test("fetchSongMetadata preserves cached like status when API like status is unknown")

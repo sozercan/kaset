@@ -59,7 +59,11 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: swift test -q --skip KasetUITests
+        # Suites share app singletons (playback WebView, UserDefaults.standard);
+        # serialize them like tests.yml. Unlike tests.yml, keep XCTest enabled:
+        # the xctest-helper segfault only affects macOS 15, and this is the
+        # only CI job that runs the XCTest suites in PerformanceTests.
+        run: swift test -q --skip KasetUITests --no-parallel
 
       - name: Determine version from tag
         id: version
@@ -469,8 +473,8 @@ jobs:
 
             app "Kaset.app"
 
-            postflight do
-              system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
+            postflight_steps do
+              run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Kaset.app"], sudo: false
             end
 
             zap trash: [

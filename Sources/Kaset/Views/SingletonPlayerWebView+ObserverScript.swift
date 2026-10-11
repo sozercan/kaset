@@ -207,6 +207,34 @@ extension SingletonPlayerWebView {
         """
     }
 
+    /// Locates YouTube Music's player bar and its parts. The legacy `ytmusic-player-bar`
+    /// and the redesigned `ytmusic-miniplayer` both mount in the app's `player-bar` slot;
+    /// the redesigned player page also renders an unslotted miniplayer, so every lookup
+    /// stays scoped to the slotted bar.
+    nonisolated static var playerBarLookupFunctionJS: String {
+        """
+        const __kasetPlayerBarSelectors = {
+            title: '.ytmusic-player-bar.title, .ytmusicTrackInfoTitle',
+            byline: '.ytmusic-player-bar.byline, .ytmusicTrackInfoByline',
+            thumbnail: '.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image, img.ytmusicTrackInfoThumbnail',
+            playPause: '.play-pause-button.ytmusic-player-bar, .ytmusicPlayerControlsPlayPauseButton button',
+            next: '.next-button.ytmusic-player-bar, .ytmusicPlayerControlsNextButton button',
+            previous: '.previous-button.ytmusic-player-bar, .ytmusicPlayerControlsPreviousButton button',
+            menu: '.middle-controls-buttons.ytmusic-player-bar ytmusic-menu-renderer button, '
+                + '.ytMusicMiniPlayerMenuButton button',
+            likeRenderer: 'ytmusic-like-button-renderer',
+            likeButton: 'like-button-view-model button',
+            dislikeButton: 'dislike-button-view-model button'
+        };
+        function __kasetPlayerBar() {
+            return document.querySelector('[slot="player-bar"]');
+        }
+        function __kasetPlayerBarElement(name, playerBar = __kasetPlayerBar()) {
+            return playerBar ? playerBar.querySelector(__kasetPlayerBarSelectors[name]) : null;
+        }
+        """
+    }
+
     /// Observer script for playback state.
     nonisolated static var observerScript: String {
         """
@@ -226,6 +254,7 @@ extension SingletonPlayerWebView {
             \(mediaIdentityCorrectionWindowFunctionJS)
             \(playbackClockFunctionJS)
             \(playbackOccurrenceFunctionJS)
+            \(playerBarLookupFunctionJS)
             let lastTitle = '';
             let lastArtist = '';
             let lastVideoId = '';
@@ -290,10 +319,9 @@ extension SingletonPlayerWebView {
             }
 
             function waitForPlayerBar() {
-                const playerBar = document.querySelector('ytmusic-player-bar');
+                const playerBar = __kasetPlayerBar();
                 if (playerBar) {
                     setupObserver(playerBar);
-                    setupVideoListeners();
                     return;
                 }
                 setTimeout(waitForPlayerBar, 500);
@@ -417,8 +445,7 @@ extension SingletonPlayerWebView {
                         }
                         // Autoplay recovery: YTM sometimes leaves the video paused
                         // after navigation even with the WebKit autoplay allowance.
-                        const btn = document.querySelector('.play-pause-button.ytmusic-player-bar');
-                        __kasetAttemptAutoplayRecovery(video, btn);
+                        __kasetAttemptAutoplayRecovery(video, __kasetPlayerBarElement('playPause'));
                     }
 
                     video.addEventListener('canplay', recoverAutoplayIfNeeded);
@@ -765,7 +792,7 @@ extension SingletonPlayerWebView {
                 observer.observe(playerBar, {
                     attributes: true, characterData: true,
                     childList: true, subtree: true,
-                    attributeFilter: ['title', 'aria-label', 'like-status', 'value', 'aria-valuemax']
+                    attributeFilter: ['title', 'aria-label', 'like-status', 'aria-pressed', 'value', 'aria-valuemax']
                 });
                 sendUpdate(true);
             }
@@ -866,9 +893,10 @@ extension SingletonPlayerWebView {
                     const mediaTiming = __kasetMediaTiming(video, progressBar);
 
                     // Extract track metadata
-                    const titleEl = document.querySelector('.ytmusic-player-bar.title');
-                    const artistEl = document.querySelector('.ytmusic-player-bar.byline');
-                    const thumbEl = document.querySelector('.ytmusic-player-bar .thumbnail img, ytmusic-player-bar .image');
+                    const playerBar = __kasetPlayerBar();
+                    const titleEl = __kasetPlayerBarElement('title', playerBar);
+                    const artistEl = __kasetPlayerBarElement('byline', playerBar);
+                    const thumbEl = __kasetPlayerBarElement('thumbnail', playerBar);
 
                     const playerData = currentPlayerData();
                     const mediaElement = document.querySelector('video');
@@ -889,7 +917,8 @@ extension SingletonPlayerWebView {
                         ? playerData.author.trim()
                         : '';
 
-                    let title = titleEl ? titleEl.textContent.trim() : '';
+                    const barTitle = titleEl ? titleEl.textContent.trim() : '';
+                    let title = barTitle;
                     const domArtist = artistEl ? artistEl.textContent.trim() : '';
                     const artist = playerArtist || domArtist;
                     const videoId = currentVideoId();
@@ -963,13 +992,28 @@ extension SingletonPlayerWebView {
                         thumbnailUrl = rawThumbSrc ? (thumbEl.src || rawThumbSrc) : '';
                     }
 
-                    // Extract like status from the like button renderer
-                    let likeStatus = 'INDIFFERENT';
-                    const likeRenderer = document.querySelector('ytmusic-like-button-renderer');
-                    if (likeRenderer) {
-                        const status = likeRenderer.getAttribute('like-status');
-                        if (status === 'LIKE') likeStatus = 'LIKE';
-                        else if (status === 'DISLIKE') likeStatus = 'DISLIKE';
+                    // Extract like status from the player bar. The bar re-renders after the
+                    // player switches videos, so its like state is only trusted once it shows
+                    // the title the player reports; until then the status is unknown ('').
+                    let likeStatus = '';
+                    if (barTitle && barTitle === playerTitle) {
+                        const likeRenderer = __kasetPlayerBarElement('likeRenderer', playerBar);
+                        const likeButton = __kasetPlayerBarElement('likeButton', playerBar);
+                        const dislikeButton = __kasetPlayerBarElement('dislikeButton', playerBar);
+                        if (likeRenderer) {
+                            const status = likeRenderer.getAttribute('like-status');
+                            likeStatus = status === 'LIKE' || status === 'DISLIKE' ? status : 'INDIFFERENT';
+                        } else if (likeButton || dislikeButton) {
+                            // Redesigned player: like/dislike are toggle buttons that
+                            // report their state through `aria-pressed`.
+                            if (likeButton && likeButton.getAttribute('aria-pressed') === 'true') {
+                                likeStatus = 'LIKE';
+                            } else if (dislikeButton && dislikeButton.getAttribute('aria-pressed') === 'true') {
+                                likeStatus = 'DISLIKE';
+                            } else {
+                                likeStatus = 'INDIFFERENT';
+                            }
+                        }
                     }
 
                     // Check if track changed
@@ -1028,13 +1072,20 @@ extension SingletonPlayerWebView {
                 } catch (e) {}
             }
 
+            // Playback state comes from the <video> element, so its listeners never
+            // wait for the player bar; the bar observer only adds paused-state updates.
+            function start() {
+                setupVideoListeners();
+                waitForPlayerBar();
+            }
+
             // Report initial state even before YouTube creates its player bar
             // or media element.
             sendAirPlayStatus();
             if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', waitForPlayerBar);
+                document.addEventListener('DOMContentLoaded', start);
             } else {
-                waitForPlayerBar();
+                start();
             }
         })();
         """
