@@ -110,6 +110,7 @@ struct WebKitAuthMaterialTests {
     }
 
     @Test("Rollback-safe clearing fails instead of removing every cookie")
+    @MainActor
     func stickyAuthCookieDeletionWithoutFallbackFails() async throws {
         let authCookie = try #require(HTTPCookie(properties: [
             .name: "SAPISID",
