@@ -101,7 +101,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
     @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
 
-    /// Column visibility state for NavigationSplitView - persisted to fix restoration from dock.
+    /// Column visibility for NavigationSplitView. The main window is hidden rather than closed,
+    /// so this keeps the user's sidebar choice across focus changes and Dock restores.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     init(
@@ -571,12 +572,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { _ in
-                // Ensure the sidebar returns when the app is re-activated from the Dock or app switcher.
-                if self.columnVisibility != .all {
-                    self.columnVisibility = .all
-                }
-            }
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
