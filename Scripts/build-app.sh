@@ -14,7 +14,14 @@ CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
 SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
 APP_NAME="Kaset"
-BUNDLE_ID="com.sertacozercan.Kaset"
+RELEASE_BUNDLE_ID="com.sertacozercan.Kaset"
+# Debug bundles get their own sandbox container, so they never share the release
+# app's WebKit cookie jar, saved sign-in data, or preferences.
+if [[ "$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')" == "debug" ]]; then
+  BUNDLE_ID="${RELEASE_BUNDLE_ID}.debug"
+else
+  BUNDLE_ID="$RELEASE_BUNDLE_ID"
+fi
 DEVELOPMENT_LOCALIZATION="en"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
@@ -580,7 +587,13 @@ if [[ -d "$SPARKLE" ]]; then
 fi
 
 if [[ -f "$ROOT/Kaset.entitlements" ]]; then
-  codesign "${CODESIGN_ARGS[@]}" --entitlements "$ROOT/Kaset.entitlements" "$APP_BUNDLE"
+  ENTITLEMENTS="$ROOT/Kaset.entitlements"
+  if [[ "$BUNDLE_ID" != "$RELEASE_BUNDLE_ID" ]]; then
+    # Sparkle's installer services are named after the bundle identifier.
+    ENTITLEMENTS="$BUILD_DIR/Kaset.entitlements"
+    sed "s/${RELEASE_BUNDLE_ID//./\\.}-sp/${BUNDLE_ID}-sp/g" "$ROOT/Kaset.entitlements" > "$ENTITLEMENTS"
+  fi
+  codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_BUNDLE"
 else
   codesign "${CODESIGN_ARGS[@]}" "$APP_BUNDLE"
 fi
@@ -588,6 +601,7 @@ fi
 echo ""
 echo "✅ Build complete!"
 echo "📍 App location: $APP_BUNDLE"
+echo "   Bundle:  ${BUNDLE_ID}"
 echo "   Version: ${MARKETING_VERSION} (${BUILD_NUMBER})"
 echo "   Commit:  ${GIT_COMMIT}"
 echo "   Arches:  ${ARCH_LIST[*]}"

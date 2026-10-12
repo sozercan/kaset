@@ -334,19 +334,25 @@ func selectedCookieBackupFile(
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    let containerCookieFile = homeDirectory
-        .appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data", isDirectory: true)
-        .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
-        .appendingPathComponent("cookies.dat")
+    // Packaged debug builds export cookies.dat into their own container; older
+    // debug builds shared the release container.
+    let containerCookieFiles = ["com.sertacozercan.Kaset.debug", "com.sertacozercan.Kaset"].map { bundleID in
+        homeDirectory
+            .appendingPathComponent("Library/Containers/\(bundleID)/Data", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
+            .appendingPathComponent("cookies.dat")
+    }
 
     // Once the sandboxed app has created its Application Support directory, its
-    // container export is authoritative. Never resurrect the legacy host archive
-    // after logout, account switching, expiry, corruption, or a cleared export.
-    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
-        return containerCookieFile
-    }
-    if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
-        return nil
+    // container export is authoritative. Never resurrect an older archive after
+    // logout, account switching, expiry, corruption, or a cleared export.
+    for containerCookieFile in containerCookieFiles {
+        if FileManager.default.fileExists(atPath: containerCookieFile.path) {
+            return containerCookieFile
+        }
+        if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
+            return nil
+        }
     }
     return FileManager.default.fileExists(atPath: legacyCookieFile.path) ? legacyCookieFile : nil
 }

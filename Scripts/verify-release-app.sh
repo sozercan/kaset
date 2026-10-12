@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 APP_PATH="$ROOT/.build/app/Kaset.app"
 REQUIRE_DEVELOPER_ID=false
+EXPECTED_BUNDLE_ID="com.sertacozercan.Kaset"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,9 +15,14 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_DEVELOPER_ID=true
       shift
       ;;
+    --bundle-id)
+      [[ $# -ge 2 ]] || { echo "ERROR: --bundle-id requires a value" >&2; exit 1; }
+      EXPECTED_BUNDLE_ID="$2"
+      shift 2
+      ;;
     --help|-h)
       cat <<USAGE
-Usage: Scripts/verify-release-app.sh [--require-developer-id] [path/to/Kaset.app]
+Usage: Scripts/verify-release-app.sh [--require-developer-id] [--bundle-id ID] [path/to/Kaset.app]
 
 Checks:
   - Info.plist contains Sparkle's sandboxed installer launcher key
@@ -54,7 +60,7 @@ codesign -d --entitlements :- "$APP_PATH" >"$ENTITLEMENTS_PLIST" 2>/dev/null || 
 plutil -lint "$ENTITLEMENTS_PLIST" >/dev/null
 codesign -dv --verbose=4 "$APP_PATH" >"$CODESIGN_DETAILS" 2>&1 || fail "Could not read code signature details"
 
-python3 - "$APP_PATH" "$INFO_PLIST" "$ENTITLEMENTS_PLIST" <<'PY'
+python3 - "$APP_PATH" "$INFO_PLIST" "$ENTITLEMENTS_PLIST" "$EXPECTED_BUNDLE_ID" <<'PY'
 import plistlib
 import sys
 from pathlib import Path
@@ -62,6 +68,7 @@ from pathlib import Path
 app_path = Path(sys.argv[1])
 info_path = Path(sys.argv[2])
 entitlements_path = Path(sys.argv[3])
+expected_bundle_id = sys.argv[4]
 
 with info_path.open("rb") as handle:
     info = plistlib.load(handle)
@@ -70,7 +77,6 @@ with entitlements_path.open("rb") as handle:
 
 errors: list[str] = []
 bundle_id = info.get("CFBundleIdentifier")
-expected_bundle_id = "com.sertacozercan.Kaset"
 if bundle_id != expected_bundle_id:
     errors.append(f"CFBundleIdentifier must be {expected_bundle_id}, found {bundle_id!r}")
 

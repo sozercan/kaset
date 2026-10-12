@@ -150,7 +150,7 @@ jobs:
         run: Scripts/build-app.sh debug
 
       - name: Verify packaged app
-        run: Scripts/verify-release-app.sh .build/app/Kaset.app
+        run: Scripts/verify-release-app.sh --bundle-id com.sertacozercan.Kaset.debug .build/app/Kaset.app
 
       - name: Install app for UI tests
         run: |
