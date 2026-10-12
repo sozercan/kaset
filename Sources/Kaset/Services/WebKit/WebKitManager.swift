@@ -526,7 +526,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // verification happens after this final persistence suspension.
         let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
 
-        let didClearLiveCookies = await self.deleteLiveLoginSessionCookies()
+        let didClearLiveCookies = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: true)
         let didClear = didClearLiveCookies && didInvalidatePersistedCookies
         self.initialCookieRestoreResult = didClear ? .ready : .failed
         self.loginCookieBackupSetupRequiresCleanup = !didClear
@@ -536,8 +536,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     /// Deletes live login-session cookies from WebKit without touching the
     /// persisted archive or its restore policy.
-    func deleteLiveLoginSessionCookies() async -> Bool {
+    func deleteLiveLoginSessionCookies(allowsCookieStoreFallback: Bool) async -> Bool {
         let result = await LiveAuthCookieStoreClearer.clear(
+            allowsCookieStoreFallback: allowsCookieStoreFallback,
             operations: LiveAuthCookieStoreClearer.Operations(
                 readCookies: {
                     await self.dataStore.httpCookieStore.allCookies()

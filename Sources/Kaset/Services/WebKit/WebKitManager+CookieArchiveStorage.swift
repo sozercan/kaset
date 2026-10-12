@@ -19,7 +19,6 @@ private struct CookieArchiveRollbackState: Sendable {
 // MARK: - CookieArchiveLiveBaseline
 
 enum CookieArchiveLiveBaseline: Sendable {
-    case empty
     case archive(Data)
     case persistedArchive
 }
@@ -532,8 +531,6 @@ actor CookieArchiveWriteQueue {
         let wasRestoreAllowed = self.storage.restoreDecision() == .allowed
         let persistedArchiveData = self.storage.load()
         let capturedLiveArchiveData: Data? = switch liveBaseline {
-        case .empty:
-            nil
         case let .archive(data):
             data
         case .persistedArchive:

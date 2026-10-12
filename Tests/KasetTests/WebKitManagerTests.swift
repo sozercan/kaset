@@ -486,17 +486,17 @@ struct WebKitManagerTests {
         #expect(await queue.loginTransactionOwnership(transaction) == .none)
     }
 
-    @Test("Empty live login baseline removes stale archive and preserves restore policy")
-    func emptyLiveBaselineRemovesStaleArchiveOnRollback() async throws {
-        let staleArchive = Data([0x44])
+    @Test("Persisted live login baseline restores the retained archive and restore policy")
+    func persistedLiveBaselineRestoresRetainedArchiveOnRollback() async throws {
+        let retainedArchive = Data([0x44])
         let candidateArchive = Data([0x45])
         let storage = InMemoryCookieArchiveStorage(
-            initialData: staleArchive,
+            initialData: retainedArchive,
             restoreAllowed: true
         )
         let queue = CookieArchiveWriteQueue(storage: storage.interface)
         let transaction = try #require(await queue.beginLoginTransaction(
-            liveBaseline: .empty
+            liveBaseline: .persistedArchive
         ))
         let generation = await queue.reserveGeneration()
         #expect(await queue.save(
@@ -509,7 +509,7 @@ struct WebKitManagerTests {
         #expect(await queue.finalizeLoginTransaction(transaction) == false)
         #expect(await queue.claimLoginTransactionRollback(transaction))
         #expect(await queue.rollbackLoginTransaction(transaction))
-        #expect(storage.persistedData == nil)
+        #expect(storage.persistedData == retainedArchive)
         #expect(await queue.isRestoreAllowed())
     }
 

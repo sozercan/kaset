@@ -31,9 +31,13 @@ session keeps the last archive and logs a notice. Explicit sign-out and
 failed-login cleanup remain the only paths that invalidate it.
 
 Reauthentication begins the login transaction first, then clears only live
-login-session cookies within it. The archive is not touched. Cancelling restores
-the captured cookies, archive, and restore policy. A completed login replaces
-them as before.
+login-session cookies within it. The archive is not touched. This clear never
+escalates to removing every WebKit cookie. If it fails, the attempt rolls back.
+Cancelling restores the captured cookies, archive, and restore policy. A
+completed login replaces them as before.
+
+A login that starts without a live primary session rolls back to the persisted
+archive. ADR-0037 rolled it back to an empty baseline, which deleted the archive.
 
 `Scripts/build-app.sh debug` packages `com.sertacozercan.Kaset.debug` with
 matching Sparkle mach-lookup exceptions. API Explorer reads the debug

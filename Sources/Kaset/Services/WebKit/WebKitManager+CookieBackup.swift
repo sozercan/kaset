@@ -356,9 +356,11 @@ extension WebKitManager {
         let loginCookies = allLiveCookies.filter(KeychainCookieStorage.isLoginDomainCookie)
         // A partial Google session cannot form a native API archive, but its
         // complete cookie jar still provides a valid in-memory rollback baseline.
+        // The observer keeps the archive through a missing primary cookie, so
+        // rollback restores that archive rather than deleting it.
         if case .noPrimarySession = KeychainCookieStorage.makeArchiveResult(from: authCookies) {
             return LoginCookieBackupBaseline(
-                liveBaseline: .empty,
+                liveBaseline: .persistedArchive,
                 authSnapshot: nil,
                 loginCookies: loginCookies
             )
@@ -438,7 +440,9 @@ extension WebKitManager {
     func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool {
         guard await self.isLoginCookieBackupActive(transaction), !Task.isCancelled else { return false }
         self.logger.notice("Clearing live login cookies for reauthentication")
-        let didClear = await self.deleteLiveLoginSessionCookies()
+        // Rollback restores only login-domain cookies, so never escalate to a
+        // store-wide removal here; a failed clear rolls the attempt back.
+        let didClear = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: false)
         return didClear && self.isCurrentLoginCookieBackup(transaction)
     }
 
