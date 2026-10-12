@@ -75,3 +75,4 @@ What becomes easier or more difficult because of this change?
 | [0038](0038-native-appkit-home-shelves.md) | Native AppKit cards for Home-style shelves | Accepted |
 | [0039](0039-shared-item-context-menus.md) | Shared context menus per item type | Accepted |
 | [0040](0040-core-animation-for-repeating-animations.md) | Core Animation for repeating animations | Accepted |
+| [0041](0041-non-destructive-session-loss.md) | Non-destructive session loss | Accepted |
