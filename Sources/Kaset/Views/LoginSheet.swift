@@ -232,22 +232,14 @@ struct LoginSheet: View {
 
         guard await self.restoreCookiesBeforeLogin(expectedAttemptID: loginAttemptID) else { return }
 
-        if self.authService.needsReauth {
+        let isReauthenticating = self.authService.needsReauth
+        if isReauthenticating {
             await self.accountService.prepareForReauthentication()
-            guard !Task.isCancelled, self.isActive, self.authService.needsReauth else { return }
-            // Routine reauthentication preserves public WebKit storage; only
-            // rollback/cleanup failures escalate to a full data-store clear.
-            let didClear = await self.webKitManager.clearAuthCookies()
-            guard self.authService.activeLoginAttemptID == loginAttemptID else { return }
-            guard didClear else {
-                _ = await self.authService.clearFailedLoginAfterDraining(
-                    expectedAttemptID: loginAttemptID,
-                    expectedSignOutSequence: self.authService.signOutSequence,
-                    clearCookies: { false }
-                )
-                return
-            }
-            self.authService.setLoginCleanupRequired(false)
+            guard !Task.isCancelled,
+                  self.isActive,
+                  self.authService.needsReauth,
+                  !self.authService.loginCleanupRequired
+            else { return }
         }
 
         guard !Task.isCancelled,
@@ -279,29 +271,49 @@ struct LoginSheet: View {
                 self.cancelAndDismissIfCurrent(loginAttemptID)
                 return
             }
-            let rollbackResult = await self.authService.resolveLoginRollbackAfterDraining(
-                expectedAttemptID: loginAttemptID,
-                prepareRollback: {
-                    await self.webKitManager.prepareLoginCookieBackupRollback(transaction)
-                },
-                rollback: { forceCleanup in
-                    await rollbackLoginCookiesWithFallback(
-                        forceCleanup: forceCleanup,
-                        authService: self.authService,
-                        webKitManager: self.webKitManager,
-                        transaction: transaction,
-                        expectedAttemptID: loginAttemptID
-                    )
-                }
-            )
-            if rollbackResult == .rolledBack || rollbackResult == .cleared {
-                self.dismiss()
-            }
+            await self.rollBackPreparedLogin(transaction, loginAttemptID: loginAttemptID)
             return
+        }
+        // Reauthentication starts from a signed-out WebView, but only the live
+        // jar is cleared, inside the transaction. Cancelling restores the prior
+        // session and archive instead of leaving the user durably signed out.
+        if isReauthenticating {
+            guard await self.webKitManager.clearLiveLoginCookies(for: transaction),
+                  !Task.isCancelled,
+                  self.isActive,
+                  self.authService.activeLoginAttemptID == loginAttemptID
+            else {
+                await self.rollBackPreparedLogin(transaction, loginAttemptID: loginAttemptID)
+                return
+            }
         }
         self.cookieBackupTransaction = transaction
         self.didCaptureInitialLoginState = true
         self.startPollingForLogin()
+    }
+
+    private func rollBackPreparedLogin(
+        _ transaction: CookieBackupTransaction,
+        loginAttemptID: LoginAttemptID
+    ) async {
+        let rollbackResult = await self.authService.resolveLoginRollbackAfterDraining(
+            expectedAttemptID: loginAttemptID,
+            prepareRollback: {
+                await self.webKitManager.prepareLoginCookieBackupRollback(transaction)
+            },
+            rollback: { forceCleanup in
+                await rollbackLoginCookiesWithFallback(
+                    forceCleanup: forceCleanup,
+                    authService: self.authService,
+                    webKitManager: self.webKitManager,
+                    transaction: transaction,
+                    expectedAttemptID: loginAttemptID
+                )
+            }
+        )
+        if rollbackResult == .rolledBack || rollbackResult == .cleared {
+            self.dismiss()
+        }
     }
 
     private func restoreCookiesBeforeLogin(expectedAttemptID: LoginAttemptID) async -> Bool {

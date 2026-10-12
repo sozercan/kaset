@@ -70,7 +70,7 @@ extension WebKitManager {
         case .allowed:
             break
         case .denied:
-            self.logger.info("Cookie backup restoration is disabled after explicit invalidation")
+            self.logger.notice("Cookie restoration is denied after an earlier invalidation; clearing the saved archive and live login cookies")
             let didDeletePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
             guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return .failed }
             let didClearLiveCookies = await self.clearLiveLoginSessionCookies(
@@ -157,7 +157,7 @@ extension WebKitManager {
             await self.cookieArchiveQueue.exportDebugArchiveIfEnabled(archiveData)
         #endif
 
-        self.logger.info("Restoring \(keychainCookies.count) auth cookies from Keychain")
+        self.logger.notice("Replacing live login cookies with \(keychainCookies.count) archived auth cookies")
         for cookie in keychainCookies {
             guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return false }
             await self.dataStore.httpCookieStore.setCookie(cookie)

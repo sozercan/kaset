@@ -985,15 +985,15 @@ struct AccountServiceTests {
         services.auth.sessionExpired()
         let reauthenticationPreparation = Task { @MainActor in
             await services.account.prepareForReauthentication()
-            await mockWebKit.clearAuthCookies()
+            _ = await mockWebKit.beginLoginCookieBackup()
         }
         await Task.yield()
-        #expect(mockWebKit.clearAuthCookiesCalled == false)
+        #expect(mockWebKit.beginLoginCookieBackupCallCount == 0)
 
         await oldPinGate.open()
         await reauthenticationPreparation.value
 
-        #expect(mockWebKit.clearAuthCookiesCalled == true)
+        #expect(mockWebKit.beginLoginCookieBackupCallCount == 1)
     }
 
     @Test @MainActor func newerSwitchCancelsFailedSwitchRollbackNavigation() async throws {

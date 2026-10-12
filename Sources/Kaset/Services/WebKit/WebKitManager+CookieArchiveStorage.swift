@@ -692,25 +692,6 @@ actor CookieArchiveWriteQueue {
         return self.storage.setRestoreAllowed(false)
     }
 
-    func invalidateAndDeleteIfLatest(
-        generation: UInt64
-    ) -> CookieArchiveSaveResult {
-        guard self.generationTracker.isLatest(generation),
-              self.activeTransactionID == nil,
-              self.rollingBackTransactionID == nil
-        else {
-            return .superseded
-        }
-
-        let didInvalidateRestore = self.storage.setRestoreAllowed(false)
-        let didDelete = self.storage.delete()
-        let didDeleteDebugArchive = !self.storage.exportsDebugArchive
-            || self.storage.deleteDebugArchive()
-        return didInvalidateRestore && didDelete && didDeleteDebugArchive
-            ? .saved
-            : .failed
-    }
-
     @discardableResult
     func invalidateAndDelete() -> Bool {
         self.activeTransactionID = nil

@@ -373,27 +373,6 @@ struct WebKitManagerTests {
         #expect(storage.saveCount == 1)
     }
 
-    @Test("Empty auth snapshots invalidate only at the latest generation")
-    func emptyAuthSnapshotsInvalidateOnlyWhenLatest() async {
-        let initialArchive = Data([0x2F])
-        let storage = InMemoryCookieArchiveStorage(initialData: initialArchive)
-        let queue = CookieArchiveWriteQueue(storage: storage.interface)
-        let staleGeneration = await queue.reserveGeneration()
-        let latestGeneration = await queue.reserveGeneration()
-
-        #expect(await queue.invalidateAndDeleteIfLatest(
-            generation: staleGeneration
-        ) == .superseded)
-        #expect(storage.persistedData == initialArchive)
-        #expect(await queue.isRestoreAllowed())
-
-        #expect(await queue.invalidateAndDeleteIfLatest(
-            generation: latestGeneration
-        ) == .saved)
-        #expect(storage.persistedData == nil)
-        #expect(await queue.isRestoreAllowed() == false)
-    }
-
     @Test("Cookie archive invalidation rejects a previously reserved write")
     func cookieArchiveInvalidationRejectsReservedWrite() async {
         let initialArchive = Data([0x30])

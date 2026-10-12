@@ -177,6 +177,14 @@ final class MockWebKitManager: WebKitManagerProtocol {
             && self.loginCookieSnapshotChanged
     }
 
+    func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool {
+        self.callSequence.append("clearLiveLoginCookies")
+        guard self.activeCookieBackupTransaction?.matches(transaction) == true else { return false }
+        self.sapisidValue = nil
+        self.allCookies.removeAll(where: KeychainCookieStorage.isLoginSessionCookie)
+        return true
+    }
+
     func refreshLoginCookieBackup(_: CookieBackupTransaction) async -> Bool {
         self.refreshLoginCookieBackupCallCount += 1
         self.callSequence.append("refreshLoginCookieBackup")

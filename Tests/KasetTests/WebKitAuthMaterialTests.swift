@@ -102,7 +102,11 @@ struct WebKitAuthMaterialTests {
         #expect(!KeychainCookieStorage.isLoginSessionCookie(preferenceCookie))
 
         #expect(KeychainCookieStorage.makeArchiveResult(from: [validCookie]) == .noPrimarySession)
-        #expect(CookieArchiveBackupAction.make(from: .noPrimarySession) == .invalidate)
+    }
+
+    @Test("A live jar without a primary session keeps the last archive")
+    func missingPrimarySessionRetainsArchive() {
+        #expect(CookieArchiveBackupAction.make(from: .noPrimarySession) == .retainWithoutPrimarySession)
     }
 
     @Test("Cookie serialization failures retain the last good archive")
