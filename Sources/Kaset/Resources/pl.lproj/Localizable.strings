@@ -129,6 +129,7 @@
 "Dislike comment" = "Nie lubię komentarza";
 "Disliked" = "Nielubiane";
 "Dismiss" = "Odrzuć";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Zadokuj panele tekstu i kolejki po prawej stronie, aby przesuwały zawartość jak pasek boczny, zamiast wyświetlać je jako pływający panel";
 "Done" = "Gotowe";
 "Double-tap to retry" = "Kliknij dwukrotnie, aby spróbować ponownie";
 "Double-tap to retry loading accounts" = "Kliknij dwukrotnie, aby ponownie spróbować wczytać konta";
@@ -330,6 +331,7 @@
 "One" = "Jeden";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Obsługiwane są tylko rozszerzenia zgodne z WebKit (z prawidłowym plikiem **manifest.json**).";
 "Open Command Bar (⌘K)" = "Otwórz pasek poleceń (⌘K)";
+"Open lyrics & queue as a side drawer" = "Otwieraj tekst i kolejkę w zadokowanym panelu bocznym";
 "Open queue in side panel" = "Otwórz kolejkę w panelu bocznym";
 "Open Settings" = "Otwórz ustawienia";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Otwórz Ustawienia systemowe → Prywatność i ochrona → Ekran i nagrywanie dźwięku systemowego i włącz Kaset, a następnie ponownie włącz korektor.";

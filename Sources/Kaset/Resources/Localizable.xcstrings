@@ -9621,6 +9621,113 @@
         }
       }
     },
+    "Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel": {
+      "comment": "Settings → General → Behavior: help text for the lyrics & queue side drawer toggle. The drawer sits at the trailing edge (left in right-to-left languages)",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تثبيت لوحتي الكلمات وقائمة الانتظار على جانب النافذة لتزيحا المحتوى جانبًا مثل الشريط الجانبي، بدلًا من لوحة عائمة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Songtext und Warteschlange am rechten Rand andocken, sodass sie den Inhalt wie die Seitenleiste zur Seite schieben, statt schwebend darüber zu erscheinen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Acoplar los paneles de letras y cola a la derecha, desplazando el contenido como la barra lateral, en lugar de mostrarlos como un panel flotante"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ancrer les panneaux des paroles et de la file d'attente à droite, en décalant le contenu comme la barre latérale, plutôt que de les afficher dans un panneau flottant"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sematkan panel lirik dan antrean di sisi kanan sehingga menggeser konten ke samping seperti bilah samping, alih-alih sebagai panel mengambang"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aggancia i pannelli di testo e coda al lato destro, spostando il contenuto come la barra laterale, anziché mostrarli in un pannello mobile"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞とキューのパネルを、フローティングパネルではなく、サイドバーのようにコンテンツを押し出す右側の固定パネルとして表示"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가사 및 대기열 패널을 떠 있는 패널 대신 사이드바처럼 콘텐츠를 옆으로 밀어내는 오른쪽 고정 패널로 배치"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "De songtekst- en wachtrijpanelen rechts vastzetten, zodat ze de inhoud opzij schuiven zoals de zijbalk, in plaats van als zwevend paneel"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zadokuj panele tekstu i kolejki po prawej stronie, aby przesuwały zawartość jak pasek boczny, zamiast wyświetlać je jako pływający panel"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fixar os painéis de letras e fila no lado direito, afastando o conteúdo como a barra lateral, em vez de um painel flutuante"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закреплять панели текста и очереди справа, чтобы они сдвигали содержимое, как боковая панель, а не отображались поверх него"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Docka sångtext- och köpanelerna till höger så att de skjuter innehållet åt sidan som sidofältet, i stället för att visas som en flytande panel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şarkı sözleri ve sıra panellerini, kayan bir panel yerine içeriği kenar çubuğu gibi yana iten, sağa sabitlenmiş bir panel olarak yerleştir"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Закріплювати панелі тексту пісні та черги праворуч, щоб вони зсували вміст, як бічна панель, а не показувалися поверх нього"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "将歌词和队列面板停靠在右侧，像边栏一样把内容推到一旁，而不是以浮动面板显示"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "將歌詞和待播清單面板停駐在右側，像側邊欄一樣把內容推到一旁，而非以浮動面板顯示"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "ar": {
@@ -20991,6 +21098,113 @@
           "stringUnit": {
             "state": "translated",
             "value": "單曲"
+          }
+        }
+      }
+    },
+    "Open lyrics & queue as a side drawer": {
+      "comment": "Settings → General → Behavior toggle: dock the lyrics and queue panels as a column at the window's trailing edge that pushes the content aside, instead of the floating overlay",
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "فتح الكلمات وقائمة الانتظار في لوحة جانبية مثبّتة"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Songtext und Warteschlange am rechten Rand angedockt öffnen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir letras y cola en un panel lateral acoplado"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrir les paroles et la file d'attente dans un panneau latéral ancré"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buka lirik & antrean di panel samping tersemat"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apri testo e coda in un pannello laterale ancorato"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "歌詞とキューを固定サイドパネルで開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "가사 및 대기열을 고정 사이드 패널로 열기"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open songteksten en wachtrij in een vastgezet zijpaneel"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Otwieraj tekst i kolejkę w zadokowanym panelu bocznym"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abrir letras e fila num painel lateral fixo"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открывать текст и очередь в закреплённой панели справа"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öppna sångtext och kö i en dockad sidopanel"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Şarkı sözlerini ve sırayı sabit yan panelde aç"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Відкривати текст пісні та чергу на закріпленій панелі праворуч"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在停靠的侧边面板中打开歌词和队列"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在停駐的側邊面板中開啟歌詞和待播清單"
           }
         }
       }

@@ -129,6 +129,7 @@
 "Dislike comment" = "Ogilla kommentar";
 "Disliked" = "Ogillad";
 "Dismiss" = "Stäng";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Docka sångtext- och köpanelerna till höger så att de skjuter innehållet åt sidan som sidofältet, i stället för att visas som en flytande panel";
 "Done" = "Klar";
 "Double-tap to retry" = "Dubbelklicka för att försöka igen";
 "Double-tap to retry loading accounts" = "Dubbelklicka för att försöka läsa in konton igen";
@@ -330,6 +331,7 @@
 "One" = "En";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Endast WebKit-kompatibla tillägg (med en giltig **manifest.json**) stöds.";
 "Open Command Bar (⌘K)" = "Öppna kommandofältet (⌘K)";
+"Open lyrics & queue as a side drawer" = "Öppna sångtext och kö i en dockad sidopanel";
 "Open queue in side panel" = "Öppna kön i sidopanelen";
 "Open Settings" = "Öppna inställningar";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Öppna Systeminställningar → Integritet och säkerhet → Skärminspelning och systemljudinspelning, aktivera Kaset och slå sedan på equalizern igen.";

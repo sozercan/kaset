@@ -383,6 +383,7 @@ Manages user preferences persisted via `UserDefaults`:
 | `defaultLaunchPage` | `LaunchPage` | `.home` | Initial page on app launch |
 | `appSource` | `AppSource` | `.music` | Active source toggle (`.music` for YouTube Music, `.video` for regular YouTube) |
 | `hapticFeedbackEnabled` | `Bool` | `true` | Force Touch feedback |
+| `lyricsQueueDrawerEnabled` | `Bool` | `false` | Dock the lyrics and queue panels as a trailing column that pushes the content aside (like the sidebar) instead of the floating overlay |
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 | `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |

@@ -129,6 +129,7 @@
 "Dislike comment" = "Tidak suka komentar";
 "Disliked" = "Tidak disukai";
 "Dismiss" = "Tutup";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Sematkan panel lirik dan antrean di sisi kanan sehingga menggeser konten ke samping seperti bilah samping, alih-alih sebagai panel mengambang";
 "Done" = "Selesai";
 "Double-tap to retry" = "Ketuk dua kali untuk mencoba lagi";
 "Double-tap to retry loading accounts" = "Ketuk dua kali untuk mencoba lagi memuat akun";
@@ -330,6 +331,7 @@
 "One" = "Satu";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Hanya ekstensi yang kompatibel dengan WebKit (dengan **manifest.json** yang valid) yang didukung.";
 "Open Command Bar (⌘K)" = "Buka Command Bar (⌘K)";
+"Open lyrics & queue as a side drawer" = "Buka lirik & antrean di panel samping tersemat";
 "Open queue in side panel" = "Buka antrean di panel samping";
 "Open Settings" = "Buka Pengaturan";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Buka Pengaturan Sistem → Privasi & Keamanan → Perekaman Layar & Audio Sistem dan aktifkan Kaset, lalu aktifkan kembali equalizer.";

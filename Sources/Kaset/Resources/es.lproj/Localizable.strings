@@ -129,6 +129,7 @@
 "Dislike comment" = "No me gusta el comentario";
 "Disliked" = "Marcado como No me gusta";
 "Dismiss" = "Cerrar";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Acoplar los paneles de letras y cola a la derecha, desplazando el contenido como la barra lateral, en lugar de mostrarlos como un panel flotante";
 "Done" = "Listo";
 "Double-tap to retry" = "Haz doble clic para volver a intentarlo";
 "Double-tap to retry loading accounts" = "Haz doble clic para reintentar cargar las cuentas";
@@ -330,6 +331,7 @@
 "One" = "Uno";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Solo se admiten extensiones compatibles con WebKit (con un **manifest.json** válido).";
 "Open Command Bar (⌘K)" = "Abrir barra de comandos (⌘K)";
+"Open lyrics & queue as a side drawer" = "Abrir letras y cola en un panel lateral acoplado";
 "Open queue in side panel" = "Abrir cola en el panel lateral";
 "Open Settings" = "Abrir Configuración";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Abre Configuración del Sistema → Privacidad y seguridad → Grabación de pantalla y audio del sistema, activa Kaset y vuelve a activar el ecualizador.";

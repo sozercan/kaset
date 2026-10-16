@@ -129,6 +129,7 @@
 "Dislike comment" = "Yorumu beğenme";
 "Disliked" = "Olumsuz oy verildi";
 "Dismiss" = "Kapat";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Şarkı sözleri ve sıra panellerini, kayan bir panel yerine içeriği kenar çubuğu gibi yana iten, sağa sabitlenmiş bir panel olarak yerleştir";
 "Done" = "Bitti";
 "Double-tap to retry" = "Tekrar denemek için çift tıklayın";
 "Double-tap to retry loading accounts" = "Hesapları yeniden yüklemeyi denemek için çift dokunun";
@@ -330,6 +331,7 @@
 "One" = "Bir";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Yalnızca geçerli bir **manifest.json** dosyasına sahip WebKit uyumlu uzantılar desteklenir.";
 "Open Command Bar (⌘K)" = "Komut Çubuğu'nu Aç (⌘K)";
+"Open lyrics & queue as a side drawer" = "Şarkı sözlerini ve sırayı sabit yan panelde aç";
 "Open queue in side panel" = "Sırayı yan panelde aç";
 "Open Settings" = "Ayarları Aç";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Sistem Ayarları → Gizlilik ve Güvenlik → Ekran ve Sistem Sesi Kaydı'nı açıp Kaset'i etkinleştirin, ardından ekolayzırı tekrar açın.";

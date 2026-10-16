@@ -129,6 +129,7 @@
 "Dislike comment" = "댓글 싫어요";
 "Disliked" = "싫어요 표시됨";
 "Dismiss" = "닫기";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "가사 및 대기열 패널을 떠 있는 패널 대신 사이드바처럼 콘텐츠를 옆으로 밀어내는 오른쪽 고정 패널로 배치";
 "Done" = "완료";
 "Double-tap to retry" = "다시 시도하려면 두 번 탭하세요";
 "Double-tap to retry loading accounts" = "계정 로드를 다시 시도하려면 두 번 탭하세요";
@@ -330,6 +331,7 @@
 "One" = "한 곡";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "유효한 **manifest.json**이 있는 WebKit 호환 확장 프로그램만 지원됩니다.";
 "Open Command Bar (⌘K)" = "명령 막대 열기 (⌘K)";
+"Open lyrics & queue as a side drawer" = "가사 및 대기열을 고정 사이드 패널로 열기";
 "Open queue in side panel" = "사이드 패널에서 대기열 열기";
 "Open Settings" = "설정 열기";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "시스템 설정 → 개인정보 보호 및 보안 → 화면 및 시스템 오디오 녹음에서 Kaset을 활성화한 후 이퀄라이저를 다시 켜주세요.";

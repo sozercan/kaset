@@ -133,6 +133,7 @@
 "Dislike comment" = "コメントを低く評価";
 "Disliked" = "低く評価済み";
 "Dismiss" = "閉じる";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "歌詞とキューのパネルを、フローティングパネルではなく、サイドバーのようにコンテンツを押し出す右側の固定パネルとして表示";
 "Done" = "完了";
 "Double-tap to retry" = "ダブルクリックで再試行";
 "Double-tap to retry loading accounts" = "ダブルクリックでアカウントの読み込みを再試行";
@@ -335,6 +336,7 @@
 "One" = "1曲";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "WebKit 対応の拡張機能（有効な **manifest.json** を含む）のみがサポートされます。";
 "Open Command Bar (⌘K)" = "コマンドバーを開く（⌘K）";
+"Open lyrics & queue as a side drawer" = "歌詞とキューを固定サイドパネルで開く";
 "Open Settings" = "設定を開く";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "システム設定 → プライバシーとセキュリティ → 画面とシステムオーディオの録音で Kaset を有効にし、イコライザをオンに戻してください。";
 "Open queue in side panel" = "サイドパネルでキューを開く";

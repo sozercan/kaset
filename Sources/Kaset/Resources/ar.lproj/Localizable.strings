@@ -129,6 +129,7 @@
 "Dislike comment" = "عدم الإعجاب بالتعليق";
 "Disliked" = "لم يعجبني";
 "Dismiss" = "إغلاق";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "تثبيت لوحتي الكلمات وقائمة الانتظار على جانب النافذة لتزيحا المحتوى جانبًا مثل الشريط الجانبي، بدلًا من لوحة عائمة";
 "Done" = "تم";
 "Double-tap to retry" = "انقر مرتين لإعادة المحاولة";
 "Double-tap to retry loading accounts" = "انقر مرتين لإعادة محاولة تحميل الحسابات";
@@ -330,6 +331,7 @@
 "One" = "واحد";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "يتم دعم الإضافات المتوافقة مع WebKit فقط (مع **manifest.json** صالح).";
 "Open Command Bar (⌘K)" = "فتح شريط الأوامر (⌘K)";
+"Open lyrics & queue as a side drawer" = "فتح الكلمات وقائمة الانتظار في لوحة جانبية مثبّتة";
 "Open queue in side panel" = "فتح قائمة الانتظار في اللوحة الجانبية";
 "Open Settings" = "فتح الإعدادات";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "افتح إعدادات النظام ← الخصوصية والأمان ← تسجيل الشاشة وصوت النظام وقم بتفعيل Kaset، ثم أعد تشغيل المعادل.";

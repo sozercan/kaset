@@ -17,6 +17,10 @@ enum MainWindowLayout {
     static let defaultHeight: CGFloat = 760
     /// Shared top inset for the Music command bar and YouTube Ask panel.
     static let aiTaskSurfaceTopPadding: CGFloat = 72
+    /// Width of the docked lyrics/queue drawer (when the side-drawer setting is enabled).
+    /// Equals the docked queue-table column width (342) plus the 18pt scroller gutter reserved in
+    /// `QueueSidePanelView`, so docked rows fill the drawer without clipping under the scroller.
+    static let rightDrawerWidth: CGFloat = 360
 
     static var minimumContentSize: NSSize {
         NSSize(width: minimumWidth, height: minimumHeight)

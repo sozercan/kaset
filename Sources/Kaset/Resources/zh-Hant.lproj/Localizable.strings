@@ -136,6 +136,7 @@
 "Dislike comment" = "不喜歡此留言";
 "Disliked" = "已標記不喜歡";
 "Dismiss" = "略過";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "將歌詞和待播清單面板停駐在右側，像側邊欄一樣把內容推到一旁，而非以浮動面板顯示";
 "Done" = "完成";
 "Double-tap to retry" = "點兩下以重試";
 "Double-tap to retry loading accounts" = "點兩下以重新載入帳號";
@@ -339,6 +340,7 @@
 "One" = "單曲";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "僅支援相容 WebKit 的擴充功能（需包含有效的 **manifest.json**）。";
 "Open Command Bar (⌘K)" = "開啟命令列 (⌘K)";
+"Open lyrics & queue as a side drawer" = "在停駐的側邊面板中開啟歌詞和待播清單";
 "Open Settings" = "開啟設定";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "請開啟「系統設定 → 隱私權與安全性 → 螢幕與系統音訊錄製」並啟用 Kaset，然後重新開啟等化器。";
 "Open queue in side panel" = "在側邊面板中開啟待播清單";

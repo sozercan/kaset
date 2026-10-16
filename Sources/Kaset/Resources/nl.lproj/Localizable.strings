@@ -129,6 +129,7 @@
 "Dislike comment" = "Reactie niet leuk vinden";
 "Disliked" = "Niet leuk gevonden";
 "Dismiss" = "Sluit";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "De songtekst- en wachtrijpanelen rechts vastzetten, zodat ze de inhoud opzij schuiven zoals de zijbalk, in plaats van als zwevend paneel";
 "Done" = "Gereed";
 "Double-tap to retry" = "Dubbelklik om het opnieuw te proberen";
 "Double-tap to retry loading accounts" = "Dubbelklik om het laden van accounts opnieuw te proberen";
@@ -330,6 +331,7 @@
 "One" = "Eén";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Alleen WebKit-compatibele extensies (met een geldige **manifest.json**) worden ondersteund.";
 "Open Command Bar (⌘K)" = "Opdrachtbalk openen (⌘K)";
+"Open lyrics & queue as a side drawer" = "Open songteksten en wachtrij in een vastgezet zijpaneel";
 "Open queue in side panel" = "Open wachtrij in zijpaneel";
 "Open Settings" = "Open instellingen";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Open Systeeminstellingen → Privacy en beveiliging → Scherm- en systeemaudio-opname, schakel Kaset in en zet daarna de equalizer opnieuw aan.";

@@ -136,6 +136,7 @@
 "Dislike comment" = "不喜欢此评论";
 "Disliked" = "已标记不喜欢";
 "Dismiss" = "忽略";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "将歌词和队列面板停靠在右侧，像边栏一样把内容推到一旁，而不是以浮动面板显示";
 "Done" = "完成";
 "Double-tap to retry" = "双击以重试";
 "Double-tap to retry loading accounts" = "双击以重新加载账号";
@@ -339,6 +340,7 @@
 "One" = "单曲";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "仅支持兼容 WebKit 的扩展（需包含有效的 **manifest.json**）。";
 "Open Command Bar (⌘K)" = "打开命令栏 (⌘K)";
+"Open lyrics & queue as a side drawer" = "在停靠的侧边面板中打开歌词和队列";
 "Open Settings" = "打开设置";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "请打开“系统设置 → 隐私与安全性 → 屏幕与系统音频录制”并启用 Kaset，然后重新打开均衡器。";
 "Open queue in side panel" = "在侧边面板中打开队列";
