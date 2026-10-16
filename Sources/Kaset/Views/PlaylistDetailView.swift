@@ -27,6 +27,15 @@ struct PlaylistDetailView: View {
     @State private var isRefining: Bool = false
     /// Error message from refine operation.
     @State private var refineError: String?
+    /// In-playlist search text. Filters which tracks are *shown* only; playing a match
+    /// still starts the queue at that track's original position in the full playlist.
+    /// Non-private so the search UI in `PlaylistDetailView+Search.swift` can bind to it.
+    @State var searchQuery: String = ""
+    /// Whether the header search field is expanded for editing. When false it rests as a
+    /// pill (or, with an active query, a compact chip) among the header action buttons.
+    @State var isSearchActive: Bool = false
+    /// Drives focus of the expanded search field so it collapses when editing ends.
+    @FocusState var searchFieldFocused: Bool
     /// Computed property to check if playlist is in library.
     var isInLibrary: Bool {
         if self.playlist.isAlbum {
@@ -106,6 +115,28 @@ struct PlaylistDetailView: View {
                 guard LikedMusicPlaylist.matches(id: self.playlist.id) else { return }
                 self.viewModel.handleLikeStatusChange(event)
             }
+        }
+        .onChange(of: self.searchQuery) { oldValue, newValue in
+            // While searching, pull in the rest of a still-paginating playlist so the filter
+            // covers every track, not just the pages loaded so far. Re-run on every change of
+            // the effective query, so editing a search also retries a full load that gave up;
+            // concurrent calls coalesce onto the in-flight load. Compare on the normalized
+            // query so a whitespace-only entry (which filters nothing) never triggers a fetch.
+            let query = PlaylistTrackFilter.normalize(newValue)
+            guard !query.isEmpty,
+                  query != PlaylistTrackFilter.normalize(oldValue),
+                  self.viewModel.hasMore else { return }
+            Task { await self.viewModel.loadAllRemaining() }
+        }
+        .onChange(of: self.viewModel.loadingState == .loading) { _, isLoading in
+            // A reload (refresh, account switch, Liked Music scope change) brings back only the
+            // first page while the search text stays; pull in the rest again so it still covers
+            // every track.
+            guard !isLoading,
+                  self.viewModel.loadingState == .loaded,
+                  !PlaylistTrackFilter.normalize(self.searchQuery).isEmpty,
+                  self.viewModel.hasMore else { return }
+            Task { await self.viewModel.loadAllRemaining() }
         }
         .sheet(isPresented: self.$showRefineSheet) {
             if let detail = viewModel.playlistDetail {
@@ -258,63 +289,22 @@ struct PlaylistDetailView: View {
         return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
-    @ViewBuilder
-    private func trackRows(
-        _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
+    /// Renders one track row. `index` is the number shown to the user (the track's original
+    /// playlist position); `onPlay` is resolved by the caller so it can build the right queue.
+    func trackRow(
+        _ track: Song, index: Int, isAlbum: Bool, author: String?,
+        onPlay: @escaping () -> Void
     ) -> some View {
-        ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
-            // Row and divider form one lazy-stack element: as siblings they doubled
-            // the subviews the stack places and re-realizes while scrolling.
-            VStack(spacing: 0) {
-                self.trackRow(
-                    track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-
-                if index < tracks.count - 1 {
-                    Divider()
-                        // For albums: 28 (index) + 12 (spacing)
-                        // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
-                        .padding(.leading, isAlbum ? 40 : 96)
-                }
-            }
-            .onAppear {
-                self.viewModel.loadMoreIfNeeded(appearingAt: index)
-            }
-        }
-
-        // Loading indicator for pagination
-        if self.viewModel.loadingState == .loadingMore {
-            HStack {
-                Spacer()
-                ProgressView()
-                    .controlSize(.small)
-                    .padding()
-                Spacer()
-            }
-        }
-    }
-
-    private func trackRow(
-        _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
-        fallbackAlbum: Album? = nil
-    ) -> some View {
-        let play = {
-            self.playTrackInQueue(
-                tracks: tracks, startingAt: index, fallbackArtist: author,
-                fallbackAlbum: fallbackAlbum
-            )
-        }
-        return PlaylistTrackRow(
+        PlaylistTrackRow(
             track: track,
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
             artists: self.trackArtists(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
-            onPlay: play,
+            onPlay: onPlay,
             menu: {
-                self.trackContextMenu(track, play: play)
+                self.trackContextMenu(track, play: onPlay)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -456,6 +446,35 @@ struct PlaylistDetailView: View {
             initial: cleanedTracks, startingAt: playableIndex,
             fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
         )
+    }
+
+    /// Plays the row at filtered `position`: while a search is active the queue is just the
+    /// matches (starting at the tapped one); with no active search it's the whole playlist
+    /// starting at the track's original position.
+    func playFilteredRow(
+        at position: Int, in rows: [IndexedTrack], fullTracks: [Song],
+        fallbackArtist: String?, fallbackAlbum: Album?
+    ) {
+        let queryActive = !PlaylistTrackFilter.normalize(self.searchQuery).isEmpty
+        let source = PlaylistTrackFilter.queueSource(
+            forFilteredPosition: position,
+            rows: rows,
+            queryActive: queryActive
+        )
+        switch source {
+        case let .fullPlaylist(originalIndex):
+            self.playTrackInQueue(
+                tracks: fullTracks, startingAt: originalIndex,
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+        case let .searchResults(startIndex):
+            self.playSearchResults(
+                rows.map(\.track), startingAt: startIndex,
+                fallbackArtist: fallbackArtist, fallbackAlbum: fallbackAlbum
+            )
+        case nil:
+            break
+        }
     }
 
     func playAll(

@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Номер %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "напр., прибрати повільні пісні, змінити порядок за енергією...";
 "Edit" = "Редагувати";
+"Edit search" = "Редагувати пошук";
 "Electronic" = "Електроніка";
 "Enable %@ Scrobbling" = "Увімкнути Scrobbling %@";
 "Enable AI Features" = "Увімкнути функції ШІ";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Рекомендовані плейлисти";
 "Fetch and display real-time synced lyrics when available" = "Отримувати та показувати синхронізований текст пісні в реальному часі, коли він доступний";
 "Filter" = "Фільтр";
+"Find in playlist" = "Шукати в плейлисті";
 "Find songs, albums, artists, and playlists" = "Знаходьте пісні, альбоми, виконавців і плейлисти";
 "Find videos, channels, and playlists." = "Знаходьте відео, канали й плейлисти.";
 "Flat" = "Рівний";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Немає відео з підписок";
 "No uploaded songs yet" = "Ще немає завантажених пісень";
 "No videos" = "Немає відео";
+"Not all tracks loaded. Results may be incomplete." = "Завантажено не всі треки. Результати можуть бути неповними.";
 "Not connected" = "Не підключено";
 "Not disliked" = "Не позначено як «не подобається»";
 "Not Enabled" = "Не увімкнено";
