@@ -57,8 +57,9 @@ extension SingletonPlayerWebView {
                 window.__kasetUseNextPrev = \(jsBoolean);
                 // Wrap setActionHandler at document start so YouTube registrations cannot
                 // steal remote-command ownership. Seek handlers always stay native-owned;
-                // next/previous stay Kaset-owned in nextPrev mode unless Kaset is installing
-                // its own handlers under the temporary install flag.
+                // play/pause always stay Kaset-owned, and next/previous stay Kaset-owned in
+                // nextPrev mode, unless Kaset is installing its own handlers under the
+                // temporary install flag.
                 try {
                     if (typeof window.__kasetInstallingMediaControlHandlers !== 'boolean') {
                         window.__kasetInstallingMediaControlHandlers = false;
@@ -69,8 +70,12 @@ extension SingletonPlayerWebView {
                         ms.setActionHandler = function(type, handler) {
                             var isSeekSkip = type === 'seekforward' || type === 'seekbackward';
                             var isNextPrevious = type === 'nexttrack' || type === 'previoustrack';
+                            var isPlayPause = type === 'play' || type === 'pause';
                             if (isSeekSkip) {
                                 return orig(type, null);
+                            }
+                            if (isPlayPause && !window.__kasetInstallingMediaControlHandlers) {
+                                return undefined;
                             }
                             if (isNextPrevious) {
                                 if (window.__kasetUseNextPrev) {
@@ -147,12 +152,35 @@ extension SingletonPlayerWebView {
             }
 
             function applyOverride() {
-                if (!window.__kasetUseNextPrev) {
-                    return;
-                }
                 try {
                     var ms = navigator.mediaSession;
                     withKasetMediaControlInstall(function() {
+                        // Play/pause from WebKit's Now Playing card or a media key go through
+                        // the native player, so a play after an in-app pause clears Kaset's
+                        // pause intent instead of being re-paused by the page.
+                        ms.setActionHandler('play', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PLAY',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
+                        });
+                        ms.setActionHandler('pause', function() {
+                            window.webkit.messageHandlers.singletonPlayer
+                                .postMessage({
+                                    type: 'REMOTE_PAUSE',
+                                    documentGeneration: window.__kasetDocumentGeneration,
+                                    commandIssuedAtMilliseconds: __kasetEventTimestampMilliseconds(),
+                                    observerEpoch: observerEpoch,
+                                    documentID: documentID
+                                });
+                        });
+                        if (!window.__kasetUseNextPrev) {
+                            return;
+                        }
                         ms.setActionHandler('seekforward', null);
                         ms.setActionHandler('seekbackward', null);
                         ms.setActionHandler('nexttrack', function() {

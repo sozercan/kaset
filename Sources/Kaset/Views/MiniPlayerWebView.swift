@@ -1419,8 +1419,19 @@ extension SingletonPlayerWebView {
         messageType: String
     ) -> Bool {
         // The coordinator fences media keys by committed generation and command time.
-        messageType == "REMOTE_NEXT" || messageType == "REMOTE_PREVIOUS"
+        self.remoteTransportCommand(forMessageType: messageType) != nil
             || documentID == nil || documentID == expectedDocumentID
+    }
+
+    /// The native transport command for a media-session action the page forwards over the bridge.
+    nonisolated static func remoteTransportCommand(forMessageType messageType: String) -> MusicRemoteTransportCommand? {
+        switch messageType {
+        case "REMOTE_NEXT": .next
+        case "REMOTE_PREVIOUS": .previous
+        case "REMOTE_PLAY": .play
+        case "REMOTE_PAUSE": .pause
+        default: nil
+        }
     }
 
     nonisolated static func isCurrentBridgeWebView(
