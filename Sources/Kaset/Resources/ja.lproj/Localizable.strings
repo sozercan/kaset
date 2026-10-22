@@ -143,6 +143,7 @@
 "Drag to reorder" = "ドラッグして並べ替え";
 "E" = "E";
 "Edit" = "編集";
+"Edit search" = "検索を編集";
 "Electronic" = "エレクトロニック";
 "Enable %@ Scrobbling" = "%@ スクロブリングを有効にする";
 "Enable AI Features" = "AI 機能を有効にする";
@@ -173,6 +174,7 @@
 "Featured playlists" = "注目のプレイリスト";
 "Fetch and display real-time synced lyrics when available" = "利用可能な場合はリアルタイムの同期歌詞を取得して表示";
 "Filter" = "フィルタ";
+"Find in playlist" = "プレイリスト内を検索";
 "Find songs, albums, artists, and playlists" = "曲、アルバム、アーティスト、プレイリストを検索";
 "Find videos, channels, and playlists." = "動画、チャンネル、プレイリストを検索できます。";
 "Flat" = "フラット";
@@ -317,6 +319,7 @@
 "No subscription videos" = "登録動画がありません";
 "No uploaded songs yet" = "アップロードした曲はまだありません";
 "No videos" = "動画がありません";
+"Not all tracks loaded. Results may be incomplete." = "一部のトラックを読み込めませんでした。結果が不完全な可能性があります。";
 "Not Enabled" = "無効";
 "Not Playing" = "再生されていません";
 "Not Supported" = "非対応";

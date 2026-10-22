@@ -171,9 +171,26 @@ final class PlaylistDetailViewModel {
     }
 
     @ObservationIgnored private var loadTask: Task<Void, Never>?
-    @ObservationIgnored private var fullLoadTask: Task<Void, Never>?
+    @ObservationIgnored private var fullLoadTask: Task<Void, Never>? {
+        didSet { self.isLoadingAllRemaining = self.fullLoadTask != nil }
+    }
+
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
     @ObservationIgnored private var trackRemovalWaiters: [CheckedContinuation<Void, Never>] = []
+
+    /// Whether a full load (`loadAllRemaining`) is in flight. Unlike `loadingState`, this stays
+    /// set across the load's between-page retry pauses.
+    private(set) var isLoadingAllRemaining = false
+
+    /// Load generation whose full load gave up — repeated page requests made no progress —
+    /// while tracks remained.
+    private var stalledFullLoadGeneration: Int?
+
+    /// Whether the last full load of the current playlist stopped before every track arrived
+    /// (e.g. after repeated continuation failures). Cleared by a new full load or a reload.
+    var didFullLoadStall: Bool {
+        self.stalledFullLoadGeneration == self.loadGeneration && self.hasMore
+    }
 
     /// Runs the initial load, coalescing concurrent callers onto one in-flight load. A caller
     /// that awaited a load which ended back at `.idle` (e.g. a Liked Music scope change)
@@ -208,6 +225,7 @@ final class PlaylistDetailViewModel {
             return
         }
         let generation = self.loadGeneration
+        self.stalledFullLoadGeneration = nil
         let task = Task { @MainActor in
             var consecutiveStalls = 0
             while self.isCurrentLoadGeneration(generation), self.hasMore, consecutiveStalls < 8 {
@@ -219,6 +237,10 @@ final class PlaylistDetailViewModel {
                     consecutiveStalls += 1
                     try? await Task.sleep(for: .milliseconds(250))
                 }
+            }
+            // Stopped with tracks still remaining: record it so views can offer a retry.
+            if self.isCurrentLoadGeneration(generation), self.hasMore {
+                self.stalledFullLoadGeneration = generation
             }
         }
         self.fullLoadTask = task

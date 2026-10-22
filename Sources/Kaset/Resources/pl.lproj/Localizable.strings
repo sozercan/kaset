@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Numer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "np. usuń wolne utwory, zmień kolejność według energii…";
 "Edit" = "Edytuj";
+"Edit search" = "Edytuj wyszukiwanie";
 "Electronic" = "Elektroniczna";
 "Enable %@ Scrobbling" = "Włącz Scrobbling %@";
 "Enable AI Features" = "Włącz funkcje AI";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Polecane playlisty";
 "Fetch and display real-time synced lyrics when available" = "Pobieraj i wyświetlaj zsynchronizowane teksty w czasie rzeczywistym, gdy są dostępne";
 "Filter" = "Filtr";
+"Find in playlist" = "Szukaj w playliście";
 "Find songs, albums, artists, and playlists" = "Znajdź utwory, albumy, artystów i playlisty";
 "Find videos, channels, and playlists." = "Znajdź filmy, kanały i playlisty.";
 "Flat" = "Płaski";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Brak filmów z subskrypcji";
 "No uploaded songs yet" = "Nie ma jeszcze przesłanych utworów";
 "No videos" = "Brak filmów";
+"Not all tracks loaded. Results may be incomplete." = "Nie wczytano wszystkich utworów. Wyniki mogą być niekompletne.";
 "Not connected" = "Nie połączono";
 "Not disliked" = "Nieoznaczone jako nielubiane";
 "Not Enabled" = "Nie włączono";

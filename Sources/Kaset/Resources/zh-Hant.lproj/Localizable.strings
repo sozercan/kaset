@@ -146,6 +146,7 @@
 "Drag to reorder" = "拖曳以重新排序";
 "E" = "E";
 "Edit" = "編輯";
+"Edit search" = "編輯搜尋內容";
 "Electronic" = "電子";
 "Enable %@ Scrobbling" = "啟用 %@ Scrobbling";
 "Enable AI Features" = "啟用 AI 功能";
@@ -176,6 +177,7 @@
 "Featured playlists" = "精選播放清單";
 "Fetch and display real-time synced lyrics when available" = "在有歌詞時取得並顯示即時同步歌詞";
 "Filter" = "篩選";
+"Find in playlist" = "在播放清單中尋找";
 "Find songs, albums, artists, and playlists" = "尋找歌曲、專輯、藝人和播放清單";
 "Find videos, channels, and playlists." = "尋找影片、頻道和播放清單。";
 "Flat" = "平直";
@@ -322,6 +324,7 @@
 "No subscription videos" = "沒有訂閱影片";
 "No uploaded songs yet" = "尚無上傳的歌曲";
 "No videos" = "沒有影片";
+"Not all tracks loaded. Results may be incomplete." = "未能載入全部曲目，結果可能不完整。";
 "Not Enabled" = "未啟用";
 "Not Playing" = "未在播放";
 "Not Supported" = "不支援";

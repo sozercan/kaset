@@ -13,29 +13,43 @@ extension PlaylistDetailView {
         )
     }
 
+    @ViewBuilder
     func headerButtons(_ detail: PlaylistDetail) -> some View {
-        let fallbackAlbum = self.makeFallbackAlbum(from: detail)
-        let playableTracks = self.playableTracks(
-            detail.tracks,
-            fallbackArtist: detail.author?.name,
-            fallbackAlbum: fallbackAlbum
-        )
-
-        return ViewThatFits(in: .horizontal) {
-            self.headerActionButtons(
-                detail,
-                playableTracks: playableTracks,
-                fallbackAlbum: fallbackAlbum,
-                showsTitles: true
+        if self.isSearchActive {
+            // While editing, the search field takes over the row so it never overflows the pills.
+            self.expandedSearchField
+        } else {
+            let fallbackAlbum = self.makeFallbackAlbum(from: detail)
+            let playableTracks = self.playableTracks(
+                detail.tracks,
+                fallbackArtist: detail.author?.name,
+                fallbackAlbum: fallbackAlbum
             )
-            .fixedSize(horizontal: true, vertical: false)
 
-            self.headerActionButtons(
-                detail,
-                playableTracks: playableTracks,
-                fallbackAlbum: fallbackAlbum,
-                showsTitles: false
-            )
+            HStack(spacing: 16) {
+                ViewThatFits(in: .horizontal) {
+                    self.headerActionButtons(
+                        detail,
+                        playableTracks: playableTracks,
+                        fallbackAlbum: fallbackAlbum,
+                        showsTitles: true
+                    )
+                    .fixedSize(horizontal: true, vertical: false)
+
+                    self.headerActionButtons(
+                        detail,
+                        playableTracks: playableTracks,
+                        fallbackAlbum: fallbackAlbum,
+                        showsTitles: false
+                    )
+                }
+
+                // The search control folds into the pill row (and collapses to an icon in the
+                // narrow "mobile" variant like the other pills).
+                if self.shouldShowSearchField(for: detail) {
+                    self.searchControl
+                }
+            }
         }
     }
 
