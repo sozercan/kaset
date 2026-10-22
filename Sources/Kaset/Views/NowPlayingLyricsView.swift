@@ -80,6 +80,8 @@ struct NowPlayingLyricsView: View {
                 SingletonPlayerWebView.shared.stopLyricsPoll()
             }
         }
+        // The artwork backdrop stays dark regardless of the app appearance.
+        .environment(\.colorScheme, .dark)
         .ignoresSafeArea()
     }
 

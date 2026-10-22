@@ -146,7 +146,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private func presentNowPlayingLyrics() {
-        guard self.playerService.currentTrack != nil else { return }
+        guard #available(macOS 26.0, *), self.playerService.currentTrack != nil else { return }
 
         HapticService.navigation()
         withAnimation(AppAnimation.standard) {
