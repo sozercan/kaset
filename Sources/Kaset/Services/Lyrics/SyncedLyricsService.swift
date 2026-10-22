@@ -16,10 +16,13 @@ final class SyncedLyricsService {
     }
 
     /// Current lyrics result.
-    var currentLyrics: LyricResult = .unavailable
+    private(set) var currentLyrics: LyricResult = .unavailable
+
+    /// Track whose lyrics are displayed or currently being loaded.
+    private(set) var currentVideoId: String?
 
     /// Which provider supplied the current lyrics.
-    var activeProvider: String?
+    private(set) var activeProvider: String?
 
     /// Loading state.
     var isLoading = false
@@ -44,7 +47,20 @@ final class SyncedLyricsService {
         self.observeRomanizationSetting()
     }
 
+    /// Select a track for plain-lyrics loading and invalidate outstanding provider searches.
+    func resetLyrics(for videoId: String) {
+        self.fetchGeneration += 1
+        self.currentVideoId = videoId
+        self.currentLyrics = .unavailable
+        self.currentBaseSyncedLyrics = nil
+        self.activeProvider = nil
+        self.isLoading = false
+    }
+
     func fetchLyrics(for info: LyricsSearchInfo) async {
+        if self.currentVideoId != info.videoId {
+            self.resetLyrics(for: info.videoId)
+        }
         self.fetchGeneration += 1
         let requestID = self.fetchGeneration
         let cached = self.cache[info.videoId]
@@ -55,7 +71,8 @@ final class SyncedLyricsService {
                     result: cached,
                     activeProvider: Self.cachedProviderName(for: cached)
                 ),
-                requestID: requestID
+                requestID: requestID,
+                videoId: info.videoId
             )
             return
         }
@@ -63,12 +80,13 @@ final class SyncedLyricsService {
         if let cached {
             self.currentBaseSyncedLyrics = nil
             self.currentLyrics = cached
+            self.currentVideoId = info.videoId
             self.activeProvider = Self.cachedProviderName(for: cached)
         }
 
         self.isLoading = true
 
-        // Don't clear currentLyrics immediately to prevent flicker, but reset state when done
+        // Keep same-track lyrics visible while retrying; a different track was cleared above.
         var allResults: [ProviderResult] = []
 
         // Fetch concurrently
@@ -104,16 +122,20 @@ final class SyncedLyricsService {
         }
 
         let resolved = self.resolveLyrics(best: best, cached: cached, videoId: info.videoId)
-        self.applyResolvedLyrics(resolved, requestID: requestID)
+        self.applyResolvedLyrics(resolved, requestID: requestID, videoId: info.videoId)
     }
 
     /// Fallback logic
     func fallbackToPlainLyrics(_ lyrics: Lyrics, videoId: String) {
+        // A late fallback must not replace lyrics after the user has switched tracks.
+        guard self.currentVideoId == nil || self.currentVideoId == videoId else { return }
+
         if case .synced = self.currentLyrics {
             // Already synced, don't overwrite with plain
             return
         }
 
+        self.currentVideoId = videoId
         self.currentBaseSyncedLyrics = nil
 
         if lyrics.isAvailable {
@@ -222,9 +244,10 @@ final class SyncedLyricsService {
         return .init(result: .unavailable, activeProvider: nil)
     }
 
-    private func applyResolvedLyrics(_ resolved: ResolvedLyrics, requestID: Int) {
+    private func applyResolvedLyrics(_ resolved: ResolvedLyrics, requestID: Int, videoId: String) {
         guard requestID == self.fetchGeneration else { return }
 
+        self.currentVideoId = videoId
         if case let .synced(synced) = resolved.result {
             self.currentBaseSyncedLyrics = synced
             self.currentLyrics = .synced(self.displayLyrics(from: synced))

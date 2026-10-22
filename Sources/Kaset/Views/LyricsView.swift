@@ -430,8 +430,7 @@ struct LyricsView: View {
         if SettingsManager.shared.syncedLyricsEnabled {
             await self.syncedLyricsService.fetchLyrics(for: info)
         } else {
-            self.syncedLyricsService.currentLyrics = .unavailable
-            self.syncedLyricsService.activeProvider = nil
+            self.syncedLyricsService.resetLyrics(for: videoId)
         }
 
         guard self.lastLoadedVideoId == videoId else { return }
