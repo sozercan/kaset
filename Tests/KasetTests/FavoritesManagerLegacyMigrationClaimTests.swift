@@ -483,15 +483,18 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         diskManager.setActiveAccountScopeID(scopeID, legacyAccountID: "primary")
         #expect(!diskManager.canMutate)
 
-        // Keep storage unavailable through the first retry so bounded backoff
-        // must schedule another full recovery attempt.
-        try await Task.sleep(for: .milliseconds(180))
+        // Keep storage unavailable until the first retry schedules another attempt.
+        let retryKey = FavoritesManager.scopeRecoveryRetryKey(scopeID: scopeID)
+        let firstRetry = try #require(diskManager.recoveryRetryTasks[retryKey])
+        await firstRetry.value
+        let nextRetry = try #require(diskManager.recoveryRetryTasks[retryKey])
         try FileManager.default.removeItem(at: blockedStorageURL)
         try FileManager.default.createDirectory(at: blockedStorageURL, withIntermediateDirectories: true)
         try JSONEncoder().encode([legacyItem])
             .write(to: blockedStorageURL.appendingPathComponent("favorites.json"))
-        try await Task.sleep(for: .milliseconds(500))
+        await nextRetry.value
 
+        #expect(diskManager.recoveryRetryTasks[retryKey] == nil)
         #expect(diskManager.canMutate)
         #expect(diskManager.isPinned(contentId: pendingItem.contentId))
         #expect(diskManager.isPinned(contentId: legacyItem.contentId))
@@ -555,10 +558,14 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
         manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: competingScopeID)
 
         // Let the first retry fail while the directory remains unavailable.
-        try await Task.sleep(for: .milliseconds(180))
+        let retryKey = FavoritesManager.accountRecoveryRetryKey(accountID: accountID, scopeID: originalScopeID)
+        let firstRetry = try #require(manager.recoveryRetryTasks[retryKey])
+        await firstRetry.value
+        let nextRetry = try #require(manager.recoveryRetryTasks[retryKey])
         try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
-        try await Task.sleep(for: .milliseconds(500))
+        await nextRetry.value
 
+        #expect(manager.recoveryRetryTasks[retryKey] == nil)
         #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
         #expect(FileManager.default.fileExists(atPath: originalTargetURL.path))
         #expect(!FileManager.default.fileExists(atPath: competingTargetURL.path))
@@ -641,8 +648,11 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
             intoOwnerID: resolvedOwnerID,
             accountIDs: [accountID]
         ))
-        try await Task.sleep(for: .milliseconds(300))
+        let retryKey = FavoritesManager.scopeRecoveryRetryKey(scopeID: resolvedScopeID)
+        let retry = try #require(manager.recoveryRetryTasks[retryKey])
+        await retry.value
 
+        #expect(manager.recoveryRetryTasks[retryKey] == nil)
         #expect(!FileManager.default.fileExists(atPath: legacyURL.path))
         #expect(!FileManager.default.fileExists(atPath: provisionalTargetURL.path))
         let recoveredItems = try JSONDecoder().decode([FavoriteItem].self, from: Data(contentsOf: resolvedTargetURL))
@@ -670,13 +680,16 @@ struct FavoritesManagerTestsLegacyMigrationClaims {
 
         let manager = FavoritesManager(storageDirectory: directory)
         manager.recoverLegacyAccountFavorites(accountID: accountID, toScopeID: scopeID)
-        try await Task.sleep(for: .milliseconds(60))
+        let retryKey = FavoritesManager.accountRecoveryRetryKey(accountID: accountID, scopeID: scopeID)
+        let retry = try #require(manager.recoveryRetryTasks[retryKey])
         try FileManager.default.setAttributes([.immutable: false], ofItemAtPath: directory.path)
 
         manager.setActiveAccountScopeID(scopeID, legacyAccountID: accountID)
         manager.add(addedItem)
-        try await Task.sleep(for: .milliseconds(80))
+        #expect(retry.isCancelled)
+        await retry.value
 
+        #expect(manager.recoveryRetryTasks[retryKey] == nil)
         #expect(manager.isPinned(contentId: existingItem.contentId))
         #expect(manager.isPinned(contentId: legacyItem.contentId))
         #expect(manager.isPinned(contentId: addedItem.contentId))

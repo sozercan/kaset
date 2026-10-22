@@ -12,10 +12,16 @@ import SwiftUI
 /// path used by `LikeDislikeContextMenu`. Tap events do not propagate to the
 /// surrounding row button (`.buttonStyle(.borderless)` plus `.contentShape`
 /// on a tight frame keeps the hit area local).
+///
+/// Borderless buttons are AppKit-backed, though, and one platform view per row
+/// makes long lazy lists drop frames while scrolling. Callers whose LikeButton
+/// is NOT inside another button's label (so nothing relies on borderless click
+/// isolation) pass `isNestedInButton: false` to get a pure-SwiftUI `.plain` button.
 struct LikeButton: View {
     let song: Song
     let isRowHovered: Bool
     var allowsActions = true
+    var isNestedInButton = true
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
@@ -36,7 +42,7 @@ struct LikeButton: View {
                     .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
-            .buttonStyle(.borderless)
+            .modifier(LikeButtonStyleModifier(isNestedInButton: self.isNestedInButton))
             .disabled(!self.allowsActions)
             .opacity(isLiked || self.isRowHovered ? 1 : 0)
             .animation(.easeInOut(duration: 0.12), value: isLiked)
@@ -55,6 +61,20 @@ struct LikeButton: View {
             Color.clear
                 .frame(width: 22, height: 22)
                 .accessibilityHidden(true)
+        }
+    }
+}
+
+// MARK: - LikeButtonStyleModifier
+
+private struct LikeButtonStyleModifier: ViewModifier {
+    let isNestedInButton: Bool
+
+    func body(content: Content) -> some View {
+        if self.isNestedInButton {
+            content.buttonStyle(.borderless)
+        } else {
+            content.buttonStyle(.plain)
         }
     }
 }

@@ -19,4 +19,13 @@ enum InnerTubeSupport {
             .joined()
         return "\(timestamp)_\(hash)"
     }
+
+    /// The `client.utcOffsetMinutes` value for an InnerTube request: minutes offset
+    /// from UTC, UTC-behind zones NEGATIVE (Los Angeles is `-420`). This matches what
+    /// YouTube's own web client sends — its JS computes `-Date.getTimezoneOffset()`,
+    /// and `TimeZone.secondsFromGMT()` already carries that opposite sign, so no
+    /// negation is needed here.
+    static func utcOffsetMinutes(for timeZone: TimeZone) -> Int {
+        timeZone.secondsFromGMT() / 60
+    }
 }

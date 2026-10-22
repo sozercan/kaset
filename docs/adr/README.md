@@ -67,3 +67,12 @@ What becomes easier or more difficult because of this change?
 | [0030](0030-account-scoped-favorites.md) | Account-Scoped Favorites Persistence | Accepted |
 | [0031](0031-saved-album-library-reconciliation.md) | Saved-Album Library Identity and Reconciliation | Accepted |
 | [0032](0032-youtube-ask-gemini.md) | Watch-Scoped YouTube Ask Gemini | Accepted; fixed WEB profile enabled in production |
+| [0033](0033-login-passkey-suppression.md) | Suppress Passkey Detection in the Login WebView | Accepted |
+| [0034](0034-replace-playback-navigation.md) | Replace Playback Documents Without Growing History | Accepted |
+| [0035](0035-gapless-playback-native-queue.md) | Gapless Playback via YouTube Music Native Queue | Accepted |
+| [0036](0036-music-audio-output-continuity.md) | Music audio output continuity | Accepted |
+| [0037](0037-deferred-cookie-restoration.md) | Deferred cookie restoration | Accepted |
+| [0038](0038-native-appkit-home-shelves.md) | Native AppKit cards for Home-style shelves | Accepted |
+| [0039](0039-shared-item-context-menus.md) | Shared context menus per item type | Accepted |
+| [0040](0040-core-animation-for-repeating-animations.md) | Core Animation for repeating animations | Accepted |
+| [0041](0041-non-destructive-session-loss.md) | Non-destructive session loss | Accepted |

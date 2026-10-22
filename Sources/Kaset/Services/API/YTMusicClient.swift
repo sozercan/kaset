@@ -153,6 +153,13 @@ final class YTMusicClient: YTMusicClientProtocol {
 
             self.logger.info("\(type.displayName.capitalized) continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
             return additionalSections
+        } catch is CancellationError {
+            // A cancelled request says nothing about the server-side page, so
+            // keep the token: the bottom-of-scroll sentinel is torn down (and
+            // its task cancelled) whenever a freshly appended page pushes it
+            // out of the lazy stack, and the next appearance must be able to
+            // retry the same continuation instead of ending pagination.
+            throw CancellationError()
         } catch {
             self.logger.warning("Failed to fetch \(type.displayName) continuation: \(error.localizedDescription)")
             if generation == self.continuationGeneration,
@@ -979,32 +986,26 @@ final class YTMusicClient: YTMusicClientProtocol {
 
     // MARK: - Playlist with Pagination
 
+    /// Maps a playlist, album, or radio ID to the browse ID that loads it.
+    ///
+    /// - VL..., RD..., MPRE..., UC... and uploaded songs load as-is.
+    /// - PL... playlists and OLAK... album playlists need the VL prefix: a bare OLAK browse
+    ///   returns HTTP 400, while VLOLAK... lists the album's tracks without an album header.
+    nonisolated static func playlistBrowseId(for id: String) -> String {
+        let loadsAsIs = id == Playlist.uploadedSongsBrowseID
+            || id.hasPrefix("VL")
+            || id.hasPrefix("RD")
+            || id.hasPrefix("MPRE")
+            || id.hasPrefix("UC")
+        return loadsAsIs ? id : "VL\(id)"
+    }
+
     /// Fetches playlist details including tracks with pagination support.
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.logger.info("Fetching playlist: \(id)")
 
-        // Handle different ID formats:
-        // - VL... = playlist (already has prefix)
-        // - PL... = playlist (needs VL prefix)
-        // - RD... = radio/mix (use as-is)
-        // - OLAK... = album (use as-is)
-        // - MPRE... = album (use as-is)
-        let browseId: String = if id == Playlist.uploadedSongsBrowseID
-            || id.hasPrefix("VL")
-            || id.hasPrefix("RD")
-            || id.hasPrefix("OLAK")
-            || id.hasPrefix("MPRE")
-            || id.hasPrefix("UC")
-        {
-            id
-        } else if id.hasPrefix("PL") {
-            "VL\(id)"
-        } else {
-            "VL\(id)"
-        }
-
         let body: [String: Any] = [
-            "browseId": browseId,
+            "browseId": Self.playlistBrowseId(for: id),
         ]
 
         let data = try await request("browse", body: body, ttl: APICache.TTL.playlist)
@@ -1095,7 +1096,8 @@ final class YTMusicClient: YTMusicClientProtocol {
                             musicVideoType: song.musicVideoType,
                             likeStatus: song.likeStatus,
                             isInLibrary: song.isInLibrary,
-                            feedbackTokens: song.feedbackTokens
+                            feedbackTokens: song.feedbackTokens,
+                            audioTrackVideoId: song.audioTrackVideoId
                         )
                     }
                     return song
@@ -1982,7 +1984,7 @@ final class YTMusicClient: YTMusicClientProtocol {
                 "osVersion": "10_15_7",
                 "platform": "DESKTOP",
                 "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
-                "utcOffsetMinutes": -TimeZone.current.secondsFromGMT() / 60,
+                "utcOffsetMinutes": InnerTubeSupport.utcOffsetMinutes(for: .current),
             ],
             "user": userDict,
         ]

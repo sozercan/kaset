@@ -25,7 +25,8 @@ final class VideoWindowController {
     /// Shows the video window.
     func show(
         playerService: PlayerService,
-        webKitManager: WebKitManager
+        webKitManager: WebKitManager,
+        authService: AuthService
     ) {
         // Store reference to sync state on close
         self.playerService = playerService
@@ -45,6 +46,7 @@ final class VideoWindowController {
         let contentView = VideoPlayerWindow()
             .environment(playerService)
             .environment(webKitManager)
+            .environment(authService)
 
         let hostingView = NSHostingView(rootView: AnyView(contentView))
         self.hostingView = hostingView

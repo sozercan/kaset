@@ -21,9 +21,11 @@ opt_in_rules:
   - redundant_nil_coalescing
   - sorted_first_last
   - toggle_bool
-  - unused_import
   - vertical_whitespace_closing_braces
   - yoda_condition
+
+analyzer_rules:
+  - unused_import
 
 included:
   - Sources
@@ -99,3 +101,12 @@ custom_rules:
     regex: "\\.cornerRadius\\("
     message: "Use .clipShape(.rect(cornerRadius:)) instead of .cornerRadius()"
     severity: warning
+
+  no_content_margins:
+    name: "No contentMargins"
+    regex: "\\.contentMargins\\("
+    message: "On macOS 26 .contentMargins draws scroll content offset from where it hit-tests; use .detailScrollContentInset() inside the ScrollView (see DetailContentLayout)"
+    severity: error
+    excluded_match_kinds:
+      - comment
+      - doccomment

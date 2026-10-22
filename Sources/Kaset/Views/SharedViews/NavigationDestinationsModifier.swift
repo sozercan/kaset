@@ -6,7 +6,6 @@ import SwiftUI
 /// Note: Lyrics sidebar is handled globally in MainWindow, outside the NavigationSplitView.
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
-    let playerBarNavigationAction: PlayerBarNavigationAction
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -28,6 +27,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 client: self.client
                             )
                         )
+                        .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
                         // Fallback - shouldn't happen
                         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
@@ -36,8 +36,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 viewModel: PlaylistDetailViewModel(
                                     playlist: playlist,
                                     client: self.client
-                                ),
-                                playerBarNavigationAction: self.playerBarNavigationAction
+                                )
                             )
                             .environment(\.libraryViewModel, self.libraryViewModel)
                         } else {
@@ -46,8 +45,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                                 viewModel: PlaylistDetailViewModel(
                                     playlist: playlist,
                                     client: self.client
-                                ),
-                                playerBarNavigationAction: self.playerBarNavigationAction
+                                )
                             )
                             .environment(\.libraryViewModel, self.libraryViewModel)
                         }
@@ -59,8 +57,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             viewModel: PlaylistDetailViewModel(
                                 playlist: playlist,
                                 client: self.client
-                            ),
-                            playerBarNavigationAction: self.playerBarNavigationAction
+                            )
                         )
                         .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
@@ -69,8 +66,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                             viewModel: PlaylistDetailViewModel(
                                 playlist: playlist,
                                 client: self.client
-                            ),
-                            playerBarNavigationAction: self.playerBarNavigationAction
+                            )
                         )
                         .environment(\.libraryViewModel, self.libraryViewModel)
                     }
@@ -83,6 +79,7 @@ struct NavigationDestinationsModifier: ViewModifier {
                         client: self.client
                     )
                 )
+                .environment(\.libraryViewModel, self.libraryViewModel)
             }
             .navigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(
@@ -91,9 +88,9 @@ struct NavigationDestinationsModifier: ViewModifier {
                         artist: artist,
                         client: self.client,
                         libraryViewModel: self.libraryViewModel
-                    ),
-                    playerBarNavigationAction: self.playerBarNavigationAction
+                    )
                 )
+                .environment(\.libraryViewModel, self.libraryViewModel)
             }
             .navigationDestination(for: TopSongsDestination.self) { destination in
                 TopSongsView(viewModel: TopSongsViewModel(
@@ -129,13 +126,7 @@ struct NavigationDestinationsModifier: ViewModifier {
 
 extension View {
     /// Adds common navigation destinations for Playlist, Artist, MoodCategory, and TopSongsDestination.
-    func navigationDestinations(
-        client: any YTMusicClientProtocol,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
-    ) -> some View {
-        modifier(NavigationDestinationsModifier(
-            client: client,
-            playerBarNavigationAction: playerBarNavigationAction
-        ))
+    func navigationDestinations(client: any YTMusicClientProtocol) -> some View {
+        modifier(NavigationDestinationsModifier(client: client))
     }
 }

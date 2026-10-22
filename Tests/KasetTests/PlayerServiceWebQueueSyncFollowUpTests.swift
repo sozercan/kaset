@@ -1,11 +1,276 @@
+// swiftlint:disable file_length
+// Both merge sides add independent queue-sync regressions; keep them together in this follow-up suite.
+
 import Foundation
 import Testing
 @testable import Kaset
 
 extension PlayerServiceWebQueueSyncTests {
+    @Test("Explicit pause cancels queue-navigation recovery")
+    func explicitPauseCancelsQueueNavigationRecovery() async {
+        let song = Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.queueNavigationRecoveryVideoId = song.videoId
+        self.playerService.queueNavigationRecoveryLoadTask = Task {}
+        self.playerService.queueNavigationRecoveryTask = Task {}
+        let generation = self.playerService.queueNavigationRecoveryGeneration
+
+        await self.playerService.pause()
+
+        #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
+        #expect(self.playerService.queueNavigationRecoveryLoadTask == nil)
+        #expect(self.playerService.queueNavigationRecoveryTask == nil)
+        #expect(self.playerService.queueNavigationRecoveryGeneration == generation + 1)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Cancelled next discards a delayed radio queue response")
+    func cancelledNextDiscardsDelayedRadioQueue() async {
+        let mockClient = MockYTMusicClient()
+        let radioGate = AsyncGate()
+        let seed = TestFixtures.makeSong(id: "radio-seed", title: "Radio Seed")
+        mockClient.getRadioQueueGate = radioGate
+        mockClient.radioQueueSongs[seed.videoId] = [
+            seed,
+            TestFixtures.makeSong(id: "stale-radio", title: "Stale Radio"),
+        ]
+        self.playerService.setYTMusicClient(mockClient)
+        self.playerService.currentTrack = seed
+        self.playerService.pendingPlayVideoId = seed.videoId
+        self.playerService.state = .playing
+
+        let nextTask = Task { @MainActor in
+            await self.playerService.next()
+        }
+        await Self.waitUntilRadioQueueStarts(mockClient: mockClient)
+        #expect(mockClient.getRadioQueueCalled)
+        nextTask.cancel()
+        await radioGate.open()
+        await nextTask.value
+
+        #expect(self.playerService.queue.isEmpty)
+        #expect(self.playerService.currentTrack?.videoId == seed.videoId)
+    }
+
+    @Test("Plain shuffle exposes the next materialized queue entry for native injection")
+    func plainShuffleHasDeterministicNextEntry() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 4), startingAt: 0)
+        self.playerService.setShuffleMode(.on)
+
+        #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
+    }
+
+    @Test("Smart shuffle exposes the next materialized queue entry for native injection")
+    func smartShuffleHasDeterministicNextEntry() async {
+        await self.playerService.playQueue(TestFixtures.makeSongs(count: 4), startingAt: 0)
+        self.playerService.setShuffleMode(.smart)
+
+        #expect(self.playerService.expectedQueueIndexAfterCurrentTrack() == 1)
+    }
+
+    private static func waitUntilRadioQueueStarts(mockClient: MockYTMusicClient) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if mockClient.getRadioQueueCalled {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private static func waitUntilSongMetadataRefreshStarts(
+        videoId: String,
+        mockClient: MockYTMusicClient
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(1)
+        while clock.now < deadline {
+            if mockClient.getSongVideoIds.contains(videoId) {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Timed out waiting for song metadata refresh for \(videoId)")
+    }
+
+    @Test("Materialized shuffle ends at its last entry when repeat is off")
+    func materializedShuffleEndsAtLastEntry() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 2)
+        self.playerService.shuffleMode = .on
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: songs[2].videoId)
+
+        #expect(self.playerService.currentIndex == 2)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
+    @Test("Empty mix continuation ends playback at the queue boundary")
+    func emptyMixContinuationEndsPlayback() async {
+        let mockClient = MockYTMusicClient()
+        mockClient.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.playerService.setYTMusicClient(mockClient)
+        let song = TestFixtures.makeSong(id: "last-song")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.mixContinuationToken = "empty-continuation"
+        self.playerService.state = .playing
+
+        await self.playerService.handleTrackEnded(observedVideoId: song.videoId)
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
+    @Test("Radio queue replacement preserves the current playback occurrence ID")
+    func radioQueueReplacementPreservesCurrentEntryID() async {
+        let seed = Song(id: "seed", title: "Seed", artists: [], duration: 180, videoId: "seed-video")
+        let suggestion = Song(id: "next", title: "Next", artists: [], duration: 200, videoId: "next-video")
+        let mockClient = MockYTMusicClient()
+        mockClient.radioQueueSongs[seed.videoId] = [seed, suggestion]
+        self.playerService.setYTMusicClient(mockClient)
+        await self.playerService.playQueue([seed], startingAt: 0)
+        let originalEntryID = self.playerService.currentQueueEntryID
+
+        await self.playerService.fetchAndApplyRadioQueue(for: seed.videoId)
+
+        #expect(self.playerService.currentQueueEntryID == originalEntryID)
+        #expect(self.playerService.queue.map(\.videoId) == ["seed-video", "next-video"])
+    }
+
+    @Test("Web queue injection waits for full-page navigation to settle")
+    func webQueueInjectionWaitsForDocumentNavigation() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        let previousNavigationState = SingletonPlayerWebView.shared.isDocumentNavigationInProgress
+        defer { SingletonPlayerWebView.shared.isDocumentNavigationInProgress = previousNavigationState }
+        SingletonPlayerWebView.shared.isDocumentNavigationInProgress = true
+        let generation = self.playerService.webQueueInjectionGeneration
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.webQueueInjectionGeneration == generation)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+    }
+
+    @Test("Consumed injection marker is cleared before a same-video next occurrence")
+    func consumedMarkerClearsBeforeSameVideoNextOccurrence() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], duration: 180, videoId: "va"),
+            Song(id: "b1", title: "B 1", artists: [], duration: 180, videoId: "vb"),
+            Song(id: "b2", title: "B 2", artists: [], duration: 180, videoId: "vb"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 1)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "vb"
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+    }
+
+    @Test("Changing the expected next target invalidates stale confirmed and pending injections")
+    func changedNextTargetInvalidatesStaleInjectionState() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], duration: 180, videoId: "va"),
+            Song(id: "b", title: "B", artists: [], duration: 180, videoId: "vb"),
+            Song(id: "c", title: "C", artists: [], duration: 180, videoId: "vc"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = "vb"
+        self.playerService.pendingWebQueueInjectionVideoId = "vc"
+        let generation = self.playerService.webQueueInjectionGeneration
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.webQueueInjectionGeneration > generation)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+    }
+
+    @Test("Repeat mode changes invalidate and resynchronize the native Web queue")
+    func repeatModeChangeResynchronizesNativeWebQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.cycleRepeatMode()
+        #expect(self.playerService.repeatMode == .all)
+        self.playerService.injectedWebQueueVideoId = "v2"
+        let generation = self.playerService.webQueueInjectionGeneration
+
+        self.playerService.cycleRepeatMode()
+
+        #expect(self.playerService.repeatMode == .one)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+        #expect(self.playerService.webQueueInjectionGeneration > generation)
+    }
+
+    @Test("Native queue injection skips duplicate consecutive video IDs")
+    func nativeQueueInjectionSkipsDuplicateVideoIDs() async {
+        let duplicate = Song(
+            id: "duplicate",
+            title: "Duplicate",
+            artists: [],
+            duration: 180,
+            videoId: "same-video"
+        )
+        await self.playerService.playQueue([duplicate, duplicate], startingAt: 0)
+        self.playerService.state = .playing
+
+        self.playerService.syncWebQueue()
+
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+    }
+
+    @Test("Metadata-only updates keep a confirmed native queue injection")
+    func metadataOnlyUpdateKeepsNativeQueueInjection() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.isKasetInitiatedPlayback = false
+        self.playerService.injectedWebQueueVideoId = "v2"
+
+        self.playerService.updateTrackMetadata(
+            title: "Updated Song 1",
+            artist: "Updated Artist",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.injectedWebQueueVideoId == "v2")
+    }
+
     @Test("Web metadata cannot replace detached playback with a leftover queue")
     func detachedPlaybackIgnoresQueueEnforcement() async {
         let queued = Song(id: "queued", title: "Queued", artists: [], duration: 180, videoId: "queued")
+        let leftoverNext = Song(
+            id: "leftover-next",
+            title: "Leftover Next",
+            artists: [],
+            duration: 180,
+            videoId: "leftover-next"
+        )
         let detached = Song(
             id: "detached",
             title: "Detached",
@@ -14,8 +279,17 @@ extension PlayerServiceWebQueueSyncTests {
             videoId: "detached",
             feedbackTokens: .init(add: nil, remove: nil)
         )
-        await self.playerService.playQueue([queued], startingAt: 0)
+        await self.playerService.playQueue([queued, leftoverNext], startingAt: 0)
         await self.playerService.play(song: detached)
+
+        #expect(self.playerService.observedPlaybackMatchesCurrentTarget(videoId: detached.videoId))
+        #expect(!self.playerService.observedPlaybackMatchesCurrentTarget(videoId: queued.videoId))
+
+        self.playerService.state = .playing
+        self.playerService.injectedWebQueueVideoId = leftoverNext.videoId
+        self.playerService.syncWebQueue()
+        #expect(self.playerService.injectedWebQueueVideoId == nil)
+        #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
 
         self.playerService.updateTrackMetadata(
             title: "Observed Detached",
@@ -27,7 +301,7 @@ extension PlayerServiceWebQueueSyncTests {
             await Task.yield()
         }
 
-        #expect(self.playerService.queue == [queued])
+        #expect(self.playerService.queue == [queued, leftoverNext])
         #expect(self.playerService.currentTrack?.videoId == detached.videoId)
         #expect(self.playerService.activePlaybackQueueEntryID == nil)
     }
@@ -695,6 +969,25 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingPlayVideoId == "v2")
     }
 
+    @Test("Manual seek ends playback when an empty continuation produces no successor")
+    func manualSeekWithEmptyContinuationEndsPlayback() async {
+        let mockClient = MockYTMusicClient()
+        mockClient.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.playerService.setYTMusicClient(mockClient)
+        let song = TestFixtures.makeSong(id: "last-song")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.mixContinuationToken = "empty-continuation"
+        self.playerService.state = .playing
+        self.playerService.duration = song.duration ?? 180
+
+        await self.playerService.seek(to: self.playerService.duration)
+
+        #expect(mockClient.getMixQueueContinuationCallCount == 1)
+        #expect(self.playerService.mixContinuationToken == nil)
+        #expect(self.playerService.state == .ended)
+        #expect(self.playerService.shouldSuppressAutoplayAfterQueueEnd)
+    }
+
     @Test("Manual seek within end-threshold still advances queue")
     func manualSeekWithinEndThresholdAdvancesQueue() async {
         let songs = [
@@ -757,6 +1050,25 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 0)
         #expect(self.playerService.pendingPlayVideoId == "v1")
         #expect(self.playerService.progress == 90)
+    }
+
+    @Test("Paused manual seek-to-end with repeat one restarts paused")
+    func pausedManualSeekToEndWithRepeatOneRestartsPaused() async {
+        let song = Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1")
+        await self.playerService.playQueue([song], startingAt: 0)
+        self.playerService.state = .playing
+        self.playerService.advanceRepeatMode()
+        self.playerService.advanceRepeatMode()
+        await self.playerService.pause()
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.progress == 0)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
     }
 
     @Test("Manual seek to end with repeat one replays the same song")
@@ -823,17 +1135,345 @@ extension PlayerServiceWebQueueSyncTests {
         self.playerService.applyRestoredPlaybackSession(
             queue: songs,
             currentIndex: 0,
+            progress: 180,
+            duration: 180
+        )
+        for _ in 0 ..< 5 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 180)
+    }
+
+    @Test("Deferred unknown-duration retarget advances when duration becomes terminal")
+    func deferredUnknownDurationRetargetAdvancesWhenTerminal() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 20,
+            duration: 0
+        )
+
+        await self.playerService.seek(to: 165)
+        #expect(self.playerService.isPendingRestoredLoadDeferred)
+        #expect(self.playerService.pendingRestoredSeek == 165)
+        #expect(self.playerService.shouldFinishRestoredSeekAtEnd)
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 120,
+            observedVideoId: "v1"
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Deferred restored seek-to-end advances while remaining paused")
+    func deferredRestoredSeekToEndAdvancesPaused() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        #expect(self.playerService.isPendingRestoredLoadDeferred)
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+        #expect(!self.playerService.shouldResumeAfterInterruption)
+    }
+
+    @Test("Unknown-duration restored retarget advances when duration becomes terminal")
+    func unknownDurationRestoredRetargetAdvancesWhenTerminal() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 20,
+                duration: 0,
+                allowsSongDurationFallback: false
+            ),
+            songDuration: songs[0].duration,
+            startsPaused: true
+        )
+
+        await self.playerService.seek(to: 165)
+        #expect(self.playerService.pendingRestoredSeek == 165)
+        #expect(self.playerService.isRestoringExplicitTransportSeek)
+        #expect(self.playerService.shouldFinishRestoredSeekAtEnd)
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 120,
+            observedVideoId: "v1"
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.isExplicitPauseIntentActive)
+    }
+
+    @Test("Seek-to-end during active restoration advances deterministically")
+    func seekToEndDuringActiveRestorationAdvancesQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        self.playerService.beginRestoredPlaybackLoad(autoResumeAfterSeek: true)
+        #expect(self.playerService.isRestoringPlaybackSession)
+        #expect(!self.playerService.isPendingRestoredLoadDeferred)
+
+        await self.playerService.seek(to: 180)
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == "v2")
+        #expect(self.playerService.pendingPlayVideoId == "v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+    }
+
+    @Test("Retargeted terminal restoration cannot advance the current track")
+    func retargetedTerminalRestorationDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 180,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 180,
+            observedVideoId: "v1"
+        )
+        self.playerService.pendingRestoredSeek = 30
+        self.playerService.progress = 30
+        self.playerService.currentTimeMs = 30000
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 30)
+        #expect(self.playerService.progress == 30)
+        #expect(self.playerService.isRestoringPlaybackSession)
+    }
+
+    @Test("Superseded terminal restoration cannot advance the newer restoration")
+    func supersededTerminalRestorationDoesNotAdvanceQueue() async {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], duration: 180, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], duration: 200, videoId: "v2"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 180,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+        let terminalGeneration = self.playerService.restoredPlaybackSessionGeneration
+
+        self.playerService.updatePlaybackState(
+            isPlaying: false,
+            progress: 0,
+            duration: 180,
+            observedVideoId: "v1"
+        )
+        self.playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(
+                progress: 30,
+                duration: 180,
+                isExplicitTransportSeek: true
+            ),
+            songDuration: 180,
+            startsPaused: false
+        )
+        for _ in 0 ..< 10 {
+            await Task.yield()
+        }
+
+        #expect(self.playerService.restoredPlaybackSessionGeneration != terminalGeneration)
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingRestoredSeek == 30)
+        #expect(self.playerService.progress == 30)
+        #expect(self.playerService.isRestoringPlaybackSession)
+    }
+
+    @Test("Deferred restored playback ignores stray playing updates after fallback")
+    func deferredRestoredPlaybackIgnoresStrayPlayingUpdatesAfterFallback() {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        self.playerService.isAwaitingWebRestoredTrack = false
+
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 61, duration: 0)
+
+        #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+        #expect(self.playerService.state == .paused)
+        #expect(self.playerService.pendingRestoredSeek == 60)
+        #expect(self.playerService.progress == 60)
+        #expect(self.playerService.duration == 180)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.hasIssuedAutoplayPauseDuringDeferredRestore == true)
+    }
+
+    @Test("Late web metadata after restored fallback does not replace persisted queue")
+    func lateWebMetadataAfterRestoredFallbackDoesNotReplaceQueue() {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
+
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+        self.playerService.isAwaitingWebRestoredTrack = false
+
+        self.playerService.updateTrackMetadata(
+            title: "Late Web Track",
+            artist: "Web Artist",
+            thumbnailUrl: "",
+            videoId: "web-v1"
+        )
+
+        #expect(self.playerService.queue.map(\.videoId) == ["v1", "v2"])
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == "v1")
+        #expect(self.playerService.pendingPlayVideoId == "v1")
+    }
+
+    @Test("Older restored fallback task cannot replace newer restored session")
+    func olderRestoredFallbackTaskCannotReplaceNewerRestoredSession() {
+        let first = [Song(id: "1", title: "First", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "first")]
+        let second = [Song(id: "2", title: "Second", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "second")]
+
+        self.playerService.applyRestoredPlaybackSession(queue: first, currentIndex: 0, progress: 10, duration: 180)
+        let firstGeneration = self.playerService.restoredPlaybackSessionGeneration
+        self.playerService.applyRestoredPlaybackSession(queue: second, currentIndex: 0, progress: 20, duration: 200)
+
+        #expect(self.playerService.restoredPlaybackSessionGeneration != firstGeneration)
+        #expect(self.playerService.currentTrack?.videoId == "second")
+        #expect(self.playerService.pendingPlayVideoId == "second")
+        #expect(self.playerService.pendingRestoredSeek == 20)
+    }
+
+    @Test("Different server-restored track clears persisted seek")
+    func differentServerRestoredTrackClearsPersistedSeek() {
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+        ]
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
             progress: 60,
             duration: 180
         )
 
+        self.playerService.updateTrackMetadata(
+            title: "Server Song",
+            artist: "Server Artist",
+            thumbnailUrl: "",
+            videoId: "server-v2"
+        )
+
+        #expect(self.playerService.currentTrack?.videoId == "server-v2")
+        #expect(self.playerService.pendingPlayVideoId == "server-v2")
+        #expect(self.playerService.pendingRestoredSeek == nil)
+        #expect(self.playerService.progress == 0)
+        #expect(self.playerService.duration == 0)
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)
+    }
 
-        await self.playerService.seek(to: 180)
+    @Test("Same-track restored metadata still refreshes song metadata")
+    func sameTrackRestoredMetadataRefreshesSongMetadata() async {
+        let mockClient = MockYTMusicClient()
+        self.playerService.setYTMusicClient(mockClient)
+        let songs = [
+            Song(id: "1", title: "Song 1", artists: [], album: nil, duration: 180, thumbnailURL: nil, videoId: "v1"),
+            Song(id: "2", title: "Song 2", artists: [], album: nil, duration: 200, thumbnailURL: nil, videoId: "v2"),
+        ]
 
-        #expect(self.playerService.currentIndex == 0)
-        #expect(self.playerService.pendingPlayVideoId == "v1")
-        #expect(self.playerService.pendingRestoredSeek == 180)
+        self.playerService.applyRestoredPlaybackSession(
+            queue: songs,
+            currentIndex: 0,
+            progress: 60,
+            duration: 180
+        )
+
+        self.playerService.updateTrackMetadata(
+            title: "Song 1",
+            artist: "",
+            thumbnailUrl: "",
+            videoId: "v1"
+        )
+        await Self.waitUntilSongMetadataRefreshStarts(videoId: "v1", mockClient: mockClient)
+
+        #expect(mockClient.getSongVideoIds.contains("v1"))
+        #expect(self.playerService.queue.map(\.videoId) == ["v1", "v2"])
+        #expect(self.playerService.isAwaitingWebRestoredTrack == false)
     }
 
     @Test("Identity-switch reload is skipped while a restored session is deferred")

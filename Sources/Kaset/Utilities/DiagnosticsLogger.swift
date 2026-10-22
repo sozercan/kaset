@@ -39,6 +39,9 @@ enum DiagnosticsLogger {
     /// Logger for AppleScript scripting events.
     static let scripting = Logger(subsystem: "com.sertacozercan.Kaset", category: "Scripting")
 
+    /// Logger for App Intents (Shortcuts, Siri, Spotlight) events.
+    static let appIntents = Logger(subsystem: "com.sertacozercan.Kaset", category: "AppIntents")
+
     /// Logger for AirPlay-related events.
     static let airplay = Logger(subsystem: "com.sertacozercan.Kaset", category: "AirPlay")
 

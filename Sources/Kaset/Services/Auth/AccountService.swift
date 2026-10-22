@@ -98,6 +98,11 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// Whether an account operation is in progress.
     private(set) var isLoading: Bool = false
 
+    /// Whether the first account-list request for the current authenticated
+    /// identity has finished. Personalized views wait for this so a restored
+    /// brand account is selected before they issue requests.
+    private(set) var didCompleteAccountResolution: Bool = false
+
     /// Last error encountered, for toast display.
     private(set) var lastError: Error?
 
@@ -574,6 +579,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
         self.accountsAuthIdentityGeneration = nil
         self.accounts = []
         self.currentAccount = nil
+        self.didCompleteAccountResolution = false
         self.verifiedAccountId = nil
         SongLikeStatusManager.shared.invalidateSession()
         SongLikeStatusManager.shared.clearCache()
@@ -732,6 +738,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
             self.accounts = response.accounts
             self.accountsAuthIdentityGeneration = fetchAuthIdentityGeneration
             self.currentAccount = nextAccount
+            self.didCompleteAccountResolution = true
 
             SongLikeStatusManager.shared.setActiveAccountID(self.currentAccount?.id)
             FavoritesManager.shared.setActiveAccountScopeID(
@@ -750,6 +757,8 @@ final class AccountService { // swiftlint:disable:this type_body_length
             if self.verifiedAccountId != self.currentAccount?.id {
                 self.scheduleRestoredSessionPin()
             }
+        } catch is CancellationError {
+            self.logger.debug("AccountService: Account fetch cancelled")
         } catch {
             guard fetchGeneration == self.accountDataGeneration,
                   fetchAuthIdentityGeneration == self.authService.accountIdentityGeneration,
@@ -765,6 +774,10 @@ final class AccountService { // swiftlint:disable:this type_body_length
             self.lastError = error
             self.lastErrorWasFetch = true
             self.errorSequence += 1
+            // A recoverable fetch failure must not leave the entire app behind
+            // the startup spinner. With no account result, the client retains
+            // its primary-account scope and the existing error UI offers retry.
+            self.didCompleteAccountResolution = true
         }
     }
 
@@ -1526,6 +1539,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
         self.needsAccountFetchAfterManualSwitch = false
         self.accountsAuthIdentityGeneration = nil
         self.currentAccount = nil
+        self.didCompleteAccountResolution = false
         self.verifiedAccountId = nil
         UserDefaults.standard.removeObject(forKey: self.selectedBrandIdKey)
         SongLikeStatusManager.shared.clearCache()

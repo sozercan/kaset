@@ -6,7 +6,6 @@ import SwiftUI
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
@@ -38,12 +37,10 @@ struct PodcastsView: View {
             .navigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
-            .navigationDestinations(
-                client: self.viewModel.client,
-                playerBarNavigationAction: self.playerBarNavigationAction
-            )
+            .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
+        .playerBarMusicNavigation(path: self.$navigationPath)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
                 .playerBarMusicNavigation(path: self.$navigationPath)
@@ -59,13 +56,6 @@ struct PodcastsView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
-    }
-
-    private var playerBarNavigationAction: PlayerBarNavigationAction {
-        PlayerBarNavigationAction(
-            openArtist: { self.navigationPath.append($0) },
-            openAlbum: { self.navigationPath.append($0) }
-        )
     }
 
     // MARK: - Views
@@ -113,12 +103,15 @@ struct PodcastsView: View {
     private func itemCard(_ item: PodcastSectionItem) -> some View {
         switch item {
         case let .show(show):
-            PodcastShowCard(show: show, favoritesManager: self.favoritesManager) {
+            PodcastShowCard(show: show) {
                 self.navigationPath.append(show)
             }
         case let .episode(episode):
             PodcastEpisodeCard(episode: episode) {
                 self.playEpisode(episode)
+            }
+            .contextMenu {
+                EpisodeContextMenu(episode: episode, play: { self.playEpisode(episode) })
             }
         }
     }
@@ -146,7 +139,6 @@ struct PodcastsView: View {
 
 private struct PodcastShowCard: View {
     let show: PodcastShow
-    let favoritesManager: FavoritesManager
     let action: () -> Void
 
     var body: some View {
@@ -156,7 +148,7 @@ private struct PodcastShowCard: View {
                 CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 160, height: 160)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 }
                 .frame(width: 160, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -180,7 +172,7 @@ private struct PodcastShowCard: View {
         }
         .buttonStyle(.plain)
         .contextMenu {
-            FavoritesContextMenu.menuItem(for: self.show, manager: self.favoritesManager)
+            PodcastShowContextMenu(show: self.show)
         }
     }
 }
@@ -199,7 +191,7 @@ private struct PodcastEpisodeCard: View {
                     CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 200, height: 112)) { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
+                            .scaledToFill()
                     }
                     .frame(width: 200, height: 112)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -286,10 +278,10 @@ struct PodcastShowView: View {
                 self.episodesList
             }
             .padding(.vertical, 24)
+            // Inset resting content while the scroll view stays edge-to-edge so the
+            // accent backdrop refracts through the floating glass sidebar.
+            .detailScrollContentInset()
         }
-        // Inset resting content while the scroll view stays edge-to-edge so the
-        // accent backdrop refracts through the floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .accentBackground(from: self.show.thumbnailURL)
         .navigationTitle(self.show.title)
         .navigationDestination(for: AllEpisodesDestination.self) { destination in
@@ -337,7 +329,7 @@ struct PodcastShowView: View {
             CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             }
             .frame(width: 180, height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -437,6 +429,13 @@ struct PodcastShowView: View {
                         PodcastEpisodeRow(episode: episode) {
                             self.playEpisodeInQueue(at: index)
                         }
+                        .contextMenu {
+                            EpisodeContextMenu(
+                                episode: episode,
+                                play: { self.playEpisodeInQueue(at: index) },
+                                showsViewPodcast: false
+                            )
+                        }
                         Divider()
                     }
                 }
@@ -520,7 +519,7 @@ struct PodcastEpisodeRow: View {
                 CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 80, height: 80)) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 }
                 .frame(width: 80, height: 80)
                 .clipShape(RoundedRectangle(cornerRadius: 6))
@@ -613,6 +612,13 @@ struct AllEpisodesView: View {
                     PodcastEpisodeRow(episode: episode) {
                         self.playEpisodeInQueue(at: index)
                     }
+                    .contextMenu {
+                        EpisodeContextMenu(
+                            episode: episode,
+                            play: { self.playEpisodeInQueue(at: index) },
+                            showsViewPodcast: false
+                        )
+                    }
                     Divider()
 
                     // Infinite scroll trigger - load more when near the end
@@ -620,19 +626,19 @@ struct AllEpisodesView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding()
-                            .onAppear {
-                                Task {
-                                    await self.loadMoreEpisodes()
-                                }
+                            // Keyed by token so a page that adds no new episodes
+                            // (all duplicates) still advances to the next page.
+                            .task(id: self.currentContinuationToken) {
+                                await self.loadMoreEpisodes()
                             }
                     }
                 }
             }
             .padding(.vertical, 24)
+            // Inset resting content while the scroll view stays edge-to-edge so the
+            // accent backdrop refracts through the floating glass sidebar.
+            .detailScrollContentInset()
         }
-        // Inset resting content while the scroll view stays edge-to-edge so the
-        // accent backdrop refracts through the floating glass sidebar.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .accentBackground(from: self.show.thumbnailURL)
         .localizedNavigationTitle("All Episodes")
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -654,9 +660,14 @@ struct AllEpisodesView: View {
 
         do {
             let continuation = try await self.client.getPodcastEpisodesContinuation(token: token)
-            self.episodes.append(contentsOf: continuation.episodes)
+            // Skip episodes already shown: the ForEach is keyed by episode ID.
+            var seenIDs = Set(self.episodes.map(\.id))
+            let newEpisodes = continuation.episodes.filter { seenIDs.insert($0.id).inserted }
+            self.episodes.append(contentsOf: newEpisodes)
             self.currentContinuationToken = continuation.continuationToken
-            DiagnosticsLogger.api.info("Loaded \(continuation.episodes.count) more episodes")
+            DiagnosticsLogger.api.info("Loaded \(newEpisodes.count) more episodes")
+        } catch is CancellationError {
+            DiagnosticsLogger.api.debug("Episodes continuation load cancelled")
         } catch {
             DiagnosticsLogger.api.error("Failed to load more episodes: \(error.localizedDescription)")
         }

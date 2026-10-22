@@ -1,3 +1,6 @@
+"Ad" = "Anúncio";
+"Advertisement" = "Anúncio";
+
 // Localizable.strings
 
 "%lld songs" = "%lld músicas";
@@ -100,6 +103,8 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Continuar a ver";
 "Control playback with your keyboard" = "Controle a reprodução com o teclado";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Os controlos aparecem quando move o ponteiro sobre o vídeo e desvanecem-se durante a reprodução.";
+"Copy Link" = "Copiar ligação";
 "Could not create AI session" = "Não foi possível criar a sessão de IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Não foi possível capturar o áudio do Kaset (estado %d). Verifique a permissão Gravação do ecrã e áudio do sistema nas Definições do Sistema.";
 "Couldn't configure the audio unit (%lld)." = "Não foi possível configurar a unidade de áudio (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "A transferir";
 "Drag to reorder" = "Arraste para reordenar";
 "E" = "E";
+"Number %lld, %@" = "Número %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "por exemplo, remover músicas lentas, reordenar por energia…";
 "Edit" = "Editar";
 "Electronic" = "Eletrónica";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "O Kaset funciona sem iniciar sessão para exploração, pesquisa e reprodução públicas. Inicie sessão para aceder a coleções pessoais de música.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "O Kaset funciona sem iniciar sessão para pesquisa, descoberta e reprodução públicas no YouTube. Inicie sessão para aceder a coleções pessoais de vídeos.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "O Kaset não conseguiu limpar em segurança os dados de início de sessão guardados. Tente novamente antes de iniciar sessão outra vez.";
+"Sign-In Temporarily Unavailable" = "Início de sessão temporariamente indisponível";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "O Kaset não conseguiu ler os dados de início de sessão guardados. Tente novamente para restaurar a sua sessão.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "O Kaset não conseguiu remover os dados de início de sessão guardados. Tente terminar sessão novamente antes de sair.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Mantenha um vídeo em reprodução numa janela flutuante quando sair da página. Se estiver desativado, o vídeo para em vez disso.";
 "Keep listening even when the window is closed" = "Continue a ouvir mesmo quando a janela estiver fechada";
@@ -312,7 +320,6 @@
 "Not Playing" = "Nada em reprodução";
 "Not signed in" = "Sessão não iniciada";
 "Not Supported" = "Não suportado";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Nota: se as chaves de acesso não funcionarem, use \"Try another way\" para iniciar sessão com a palavra-passe.";
 "Nothing here right now" = "Não há nada aqui neste momento";
 "Nothing to show" = "Nada para mostrar";
 "Now Playing" = "Em reprodução";
@@ -333,6 +340,7 @@
 "Permission needed" = "Permissão necessária";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Colocar os controlos de reprodução no vídeo em vez de na barra na parte inferior da janela";
 "Play" = "Reproduzir";
 "Play a song to view its lyrics here." = "Reproduza uma música para ver aqui a letra.";
 "Play All" = "Reproduzir tudo";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "Qualidade de áudio da reprodução";
 "Playback position" = "Posição de reprodução";
 "Played" = "Reproduzido";
+"Player Controls" = "Controlos do leitor";
 "Playing" = "A reproduzir";
 "Playlist" = "Lista de reprodução";
 "Playlist not found" = "Lista de reprodução não encontrada";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Remover duplicados: elimine músicas repetidas da fila e mantenha a primeira ocorrência de cada uma.";
 "Remove extension" = "Remover extensão";
 "Remove from Favorites" = "Remover dos Favoritos";
+"Remove from Library" = "Remover da Biblioteca";
 "Remove from Playlist" = "Remover da lista de reprodução";
 "Remove from Queue" = "Remover da fila";
 "Remove from Sidebar" = "Remover da barra lateral";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Mostrar uma notificação quando começa a reproduzir uma nova faixa";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostrar atrás do leitor um brilho suave de cor extraído do vídeo";
 "Show All" = "Mostrar tudo";
+"Show Controls on Video" = "Mostrar controlos no vídeo";
 "Show Large Artwork" = "Mostrar capa grande";
 "Show Lyrics" = "Mostrar letras";
 "Show more comments" = "Mostrar mais comentários";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "Inicie uma nova conversa para continuar.";
 "Ask Gemini response ready" = "Resposta do Perguntar ao Gemini pronta";
 "New Ask Gemini chat ready" = "Nova conversa com o Gemini pronta";
+
+// Appearance
+"Appearance" = "Aspeto";
+"App Appearance" = "Aspeto da app";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Escolha o modo claro ou escuro para o Kaset, ou use a definição do macOS";
+"Match System" = "Igual ao sistema";
+"Light Mode" = "Modo claro";
+"Dark Mode" = "Modo escuro";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Reproduzir música";
+"Play Song" = "Reproduzir uma música";
+"Play Playlist" = "Reproduzir lista de reprodução";
+"Play Album" = "Reproduzir álbum";
+"Play Liked Music" = "Reproduzir Músicas de que gosta";
+"Play or Pause" = "Reproduzir ou pausar";
+"Resume Playback" = "Retomar a reprodução";
+"Next Track" = "Faixa seguinte";
+"Previous Track" = "Faixa anterior";
+"Get Current Song" = "Obter a música atual";
+"Like Current Song" = "Gostar da música atual";
+"Dislike Current Song" = "Não gostar da música atual";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Pesquisa no YouTube Music e reproduz a música mais relevante, seguida da respetiva rádio.";
+"Plays a song in Kaset, followed by its radio." = "Reproduz uma música no Kaset, seguida da respetiva rádio.";
+"Plays a playlist in Kaset." = "Reproduz uma lista de reprodução no Kaset.";
+"Plays an album in Kaset." = "Reproduz um álbum no Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Reproduz a sua lista Músicas de que gosta no Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Pausa o Kaset se estiver a reproduzir; caso contrário, retoma a reprodução.";
+"Pauses playback in Kaset." = "Pausa a reprodução no Kaset.";
+"Resumes playback in Kaset." = "Retoma a reprodução no Kaset.";
+"Skips to the next track in Kaset." = "Avança para a faixa seguinte no Kaset.";
+"Goes back to the previous track in Kaset." = "Volta à faixa anterior no Kaset.";
+"Returns the song playing in Kaset." = "Devolve a música em reprodução no Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Marca a música em reprodução no Kaset com Gosto. Uma música já marcada com Gosto continua marcada.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Marca a música em reprodução no Kaset com Não gosto. Uma música já marcada assim continua marcada.";
+"Resume" = "Retomar";
+"Next Song" = "Música seguinte";
+"Previous Song" = "Música anterior";
+"Like Song" = "Gosto";
+"Title" = "Título";
+"Author" = "Autor";
+"Play ${query}" = "Reproduzir ${query}";
+"Play ${song}" = "Reproduzir ${song}";
+"Play ${target}" = "Reproduzir ${target}";
+"What do you want to play?" = "O que pretende reproduzir?";
+"Playing %@." = "A reproduzir %@.";
+"Playing %@ by %@." = "A reproduzir %1$@ de %2$@.";
+"Now playing %@." = "Em reprodução: %@.";
+"Now playing %@ by %@." = "Em reprodução: %1$@ de %2$@.";
+"Kaset is still starting up. Try again in a moment." = "O Kaset ainda está a iniciar. Tente novamente daqui a pouco.";
+"Nothing is playing in Kaset." = "Não está a ser reproduzido nada no Kaset.";
+"Sign in to YouTube Music in Kaset first." = "Inicie sessão no YouTube Music no Kaset primeiro.";
+"No songs found for “%@”." = "Nenhuma música encontrada para “%@”.";
+"Couldn't play “%@”." = "Não foi possível reproduzir “%@”.";
+"Couldn't rate “%@”." = "Não foi possível avaliar “%@”.";

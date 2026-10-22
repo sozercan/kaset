@@ -20,7 +20,8 @@ struct PlaylistPlaybackActionsTests {
             thumbnailURL: URL(string: "https://example.com/browse.jpg"),
             videoId: "video-1",
             isPlayable: false,
-            isExplicit: true
+            isExplicit: true,
+            audioTrackVideoId: "audio-1"
         )
         let queueTrack = Song(
             id: "track-1",
@@ -41,6 +42,27 @@ struct PlaylistPlaybackActionsTests {
         #expect(tracks.first?.isPlayable == false)
         #expect(tracks.first?.thumbnailURL == queueTrack.thumbnailURL)
         #expect(tracks.first?.isExplicit == true)
+        #expect(tracks.first?.audioTrackVideoId == "audio-1")
+    }
+
+    @Test("Radio playlist tracks retain known audio IDs when playability agrees", arguments: [nil, "queue-audio"] as [String?])
+    func radioPlaylistTracksRetainAudioIDs(queueAudioID: String?) {
+        var browseTrack = TestFixtures.makeSong(id: "music-video")
+        browseTrack.audioTrackVideoId = "browse-audio"
+        let duplicateWithoutAudioID = TestFixtures.makeSong(id: browseTrack.videoId)
+        var queueTrack = TestFixtures.makeSong(id: browseTrack.videoId, title: "Queue title")
+        queueTrack.audioTrackVideoId = queueAudioID
+        let queueOnlyTrack = TestFixtures.makeSong(id: "queue-only")
+
+        let tracks = PlaylistPlaybackActions.tracksForPlaylistPlayback(
+            browseTracks: [browseTrack, duplicateWithoutAudioID],
+            queueTracks: [queueTrack, queueOnlyTrack]
+        )
+
+        #expect(tracks.map(\.videoId) == [queueTrack.videoId, queueOnlyTrack.videoId])
+        #expect(tracks.first?.title == queueTrack.title)
+        #expect(tracks.first?.audioTrackVideoId == queueAudioID ?? "browse-audio")
+        #expect(tracks.last == queueOnlyTrack)
     }
 
     @Test("Playable playlist artwork filters unavailable songs and fills missing thumbnails")
@@ -60,7 +82,8 @@ struct PlaylistPlaybackActionsTests {
             thumbnailURL: nil,
             videoId: "playable",
             isPlayable: true,
-            isExplicit: true
+            isExplicit: true,
+            audioTrackVideoId: "audio-playable"
         )
 
         let songs = PlaylistPlaybackActions.playableSongsWithPlaylistArtwork(
@@ -71,6 +94,7 @@ struct PlaylistPlaybackActionsTests {
         #expect(songs.map(\.videoId) == ["playable"])
         #expect(songs.first?.thumbnailURL == playlist.thumbnailURL)
         #expect(songs.first?.isExplicit == true)
+        #expect(songs.first?.audioTrackVideoId == "audio-playable")
     }
 
     @Test("Remaining playlist tracks tolerate removal from the initially queued prefix")
@@ -290,12 +314,134 @@ struct PlaylistPlaybackActionsTests {
         #expect(playerService.queue.map(\.videoId) == ["initial", "continuation"])
     }
 
+    @Test("A later playlist selection supersedes an earlier pending mix request")
+    func laterPlaylistSupersedesPendingMixRequest() async {
+        let mixGate = AsyncGate()
+        let mixSong = TestFixtures.makeSong(id: "mix-song")
+        let playlistSong = TestFixtures.makeSong(id: "playlist-song")
+        let playlist = TestFixtures.makePlaylist(id: "VL-latest", title: "Latest Playlist")
+        self.mockClient.mixQueueGate = mixGate
+        self.mockClient.mixQueueResult = RadioQueueResult(songs: [mixSong], continuationToken: nil)
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [playlistSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        playerService.setYTMusicClient(self.mockClient)
+
+        let mixTask = Task { @MainActor in
+            await playerService.playWithMix(playlistId: "RDEM-test", startVideoId: nil)
+        }
+        await self.waitUntilMixRequestStarts()
+
+        PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.awaitQueueCount(1, in: playerService)
+        #expect(playerService.currentTrack?.videoId == playlistSong.videoId)
+
+        await mixGate.open()
+        await mixTask.value
+
+        #expect(playerService.queue.map(\.videoId) == [playlistSong.videoId])
+        #expect(playerService.currentTrack?.videoId == playlistSong.videoId)
+    }
+
+    @Test("Manual Next supersedes a pending playlist request")
+    func manualNextSupersedesPendingPlaylistRequest() async {
+        let gate = AsyncGate()
+        let playlist = TestFixtures.makePlaylist(id: "VL-pending-next", title: "Pending")
+        let requestedSong = TestFixtures.makeSong(id: "requested-song")
+        let currentQueue = TestFixtures.makeSongs(count: 3)
+        self.mockClient.getPlaylistGate = gate
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [requestedSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        await playerService.playQueue(currentQueue, startingAt: 0)
+
+        let pendingTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.waitUntilPlaylistRequestStarts(id: playlist.id)
+
+        await playerService.next()
+        await gate.open()
+        await pendingTask.value
+
+        #expect(playerService.queue.map(\.videoId) == currentQueue.map(\.videoId))
+        #expect(playerService.currentIndex == 1)
+        #expect(playerService.currentTrack?.videoId == currentQueue[1].videoId)
+    }
+
+    @Test("Manual Previous supersedes a pending playlist request")
+    func manualPreviousSupersedesPendingPlaylistRequest() async {
+        let gate = AsyncGate()
+        let playlist = TestFixtures.makePlaylist(id: "VL-pending-previous", title: "Pending")
+        let requestedSong = TestFixtures.makeSong(id: "requested-song")
+        let currentQueue = TestFixtures.makeSongs(count: 3)
+        self.mockClient.getPlaylistGate = gate
+        self.mockClient.playlistDetails[playlist.id] = PlaylistDetail(
+            playlist: playlist,
+            tracks: [requestedSong],
+            duration: nil
+        )
+        let playerService = PlayerService()
+        await playerService.playQueue(currentQueue, startingAt: 1)
+
+        let pendingTask = PlaylistPlaybackActions.playPlaylist(
+            playlist,
+            client: self.mockClient,
+            playerService: playerService
+        )
+        await self.waitUntilPlaylistRequestStarts(id: playlist.id)
+
+        await playerService.previous()
+        await gate.open()
+        await pendingTask.value
+
+        #expect(playerService.queue.map(\.videoId) == currentQueue.map(\.videoId))
+        #expect(playerService.currentIndex == 0)
+        #expect(playerService.currentTrack?.videoId == currentQueue[0].videoId)
+    }
+
     private func awaitQueueCount(_ expectedCount: Int, in playerService: PlayerService) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(1))
 
         while playerService.queue.count != expectedCount {
             guard clock.now < deadline else { return }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func waitUntilMixRequestStarts() async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while self.mockClient.getMixQueueCallCount == 0 {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for mix request")
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+    }
+
+    private func waitUntilPlaylistRequestStarts(id: String) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(1))
+        while !self.mockClient.getPlaylistIds.contains(id) {
+            guard clock.now < deadline else {
+                Issue.record("Timed out waiting for playlist request")
+                return
+            }
             try? await Task.sleep(for: .milliseconds(10))
         }
     }

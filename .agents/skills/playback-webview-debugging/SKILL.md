@@ -32,6 +32,10 @@ Use this skill when playback, auth recovery, queue sync, or hidden WebView state
 - `docs/playback.md`
 - `Sources/Kaset/Views/MiniPlayerWebView.swift`
 - `Sources/Kaset/Views/SingletonPlayerWebView+ObserverScript.swift`
+- `Sources/Kaset/Views/SingletonPlayerWebView+NavigationState.swift`
+- `Sources/Kaset/Views/SingletonPlayerWebView+QueueInjection.swift`
 - `Sources/Kaset/Services/Player/PlayerService.swift`
+- `Sources/Kaset/Services/Player/PlayerService+WebPlaybackIdentity.swift`
 - `Sources/Kaset/Services/Player/PlayerService+WebQueueSync.swift`
+- `Sources/Kaset/Services/Player/PlayerService+QueueNavigationRecovery.swift`
 - `Sources/Kaset/Services/WebKit/WebKitManager.swift`

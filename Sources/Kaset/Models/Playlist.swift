@@ -85,6 +85,16 @@ struct Playlist: Identifiable, Codable, Hashable {
         self.id == Self.uploadedSongsBrowseID
     }
 
+    var supportsLibraryToggle: Bool {
+        Self.supportsLibraryToggle(id: self.id)
+    }
+
+    /// Account-generated collections cannot be subscribed to or removed from the library.
+    static func supportsLibraryToggle(id: String) -> Bool {
+        let key = LibraryContentIdentity.playlistKey(for: id)
+        return ![LikedMusicPlaylist.id, "RDPN", "SE", Self.uploadedSongsBrowseID].contains(key)
+    }
+
     /// Whether continuations for this playlist require the user's account.
     var requiresPersonalAccountForContinuations: Bool {
         LikedMusicPlaylist.matches(id: self.id) || self.isUploadedSongs || self.canDelete
@@ -210,6 +220,10 @@ struct PlaylistDetail: Identifiable {
     /// Whether this detail represents the user's uploaded songs browse surface.
     var isUploadedSongs: Bool {
         self.id == Playlist.uploadedSongsBrowseID
+    }
+
+    var supportsLibraryToggle: Bool {
+        Playlist.supportsLibraryToggle(id: self.id)
     }
 
     /// Whether continuations for this detail require the user's account.

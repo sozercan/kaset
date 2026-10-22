@@ -14,10 +14,30 @@ CONF=${1:-release}
 SIGNING_MODE=${KASET_SIGNING:-dev}
 SKIP_MAIN_ASSETS=${KASET_SKIP_MAIN_ASSETS:-0}
 APP_NAME="Kaset"
-BUNDLE_ID="com.sertacozercan.Kaset"
+RELEASE_BUNDLE_ID="com.sertacozercan.Kaset"
+# Debug bundles get their own sandbox container, so they never share the release
+# app's WebKit cookie jar, saved sign-in data, or preferences.
+if [[ "$(printf '%s' "$CONF" | tr '[:upper:]' '[:lower:]')" == "debug" ]]; then
+  BUNDLE_ID="${RELEASE_BUNDLE_ID}.debug"
+else
+  BUNDLE_ID="$RELEASE_BUNDLE_ID"
+fi
 DEVELOPMENT_LOCALIZATION="en"
+MIN_MACOS_VERSION="15.4"
 BUILD_DIR="$ROOT/.build/app"
 APP_BUNDLE="$BUILD_DIR/$APP_NAME.app"
+
+# App Intents: the compiler records the intents, entities, and App Shortcuts it sees as
+# "const values", which appintentsmetadataprocessor turns into Metadata.appintents.
+APP_INTENTS_PROTOCOLS="$ROOT/Scripts/app-intents-const-protocols.json"
+# The protocol list goes to the frontend: Swift 6.2 (Xcode 26) has no driver-level
+# -const-gather-protocols-list, while every supported compiler accepts the frontend flag.
+APP_INTENTS_SWIFT_FLAGS=(
+  -Xswiftc -emit-const-values
+  -Xswiftc -Xfrontend -Xswiftc -const-gather-protocols-file
+  -Xswiftc -Xfrontend -Xswiftc "$APP_INTENTS_PROTOCOLS"
+)
+APP_SHORTCUTS_CATALOG="$ROOT/Sources/Kaset/Resources/AppShortcuts.xcstrings"
 
 # Build for host architecture by default; allow overriding via ARCHES (e.g., "arm64 x86_64" for universal).
 ARCH_LIST=( ${ARCHES:-} )
@@ -108,6 +128,154 @@ stage_arch_product() {
   mkdir -p "$dest_dir"
   cp "$source_path" "$dest_dir/$name"
   chmod +x "$dest_dir/$name"
+}
+
+# Copies the app module's const values for one architecture next to its staged binary.
+# Swift Build (Xcode 27+) writes them under .build/out/Intermediates.noindex; the native
+# SwiftPM build system (Xcode 26) writes them next to the module's objects.
+stage_app_intents_const_values() {
+  local arch="$1"
+  local dest_dir
+  local search_patterns=()
+  local dir_name
+  local file
+  local name
+  local source_names
+  local count=0
+
+  dest_dir="$(arch_staging_dir "$arch")/const-values"
+  rm -rf "$dest_dir"
+  mkdir -p "$dest_dir"
+
+  while IFS= read -r dir_name; do
+    search_patterns+=(-o -path "*/${dir_name}/${APP_NAME}-p.build/Objects-normal/${arch}/*.swiftconstvalues")
+    search_patterns+=(-o -path "*/${arch}-apple-macosx/${dir_name}/${APP_NAME}.build/*.swiftconstvalues")
+  done < <(build_config_dir_names)
+
+  # Debug builds emit one file per source (Foo.swiftconstvalues with Swift Build,
+  # Foo.swift.swiftconstvalues natively); skip leftovers from deleted sources.
+  source_names=" $(find "$ROOT/Sources/$APP_NAME" -name '*.swift' -exec basename {} .swift \; | tr '\n' ' ') "
+
+  while IFS= read -r file; do
+    name=$(basename "$file" .swiftconstvalues)
+    name="${name%.swift}"
+    case "$name" in
+      "$APP_NAME" | "$APP_NAME-primary") ;;
+      *) [[ "$source_names" == *" $name "* ]] || continue ;;
+    esac
+    cp "$file" "$dest_dir/"
+    count=$((count + 1))
+  done < <(find .build \( -false "${search_patterns[@]}" \) -type f 2>/dev/null)
+
+  if [[ $count -eq 0 ]]; then
+    echo "ERROR: No App Intents const values found for ${APP_NAME} (${arch})." >&2
+    echo "       swift build must run with: ${APP_INTENTS_SWIFT_FLAGS[*]}" >&2
+    exit 1
+  fi
+}
+
+# Generates Contents/Resources/Metadata.appintents, which Shortcuts, Siri, and Spotlight
+# read to discover the app's intents. Xcode does this in an "Extract App Intents Metadata"
+# build phase that SwiftPM lacks, so run the same tool with the flags Xcode passes.
+generate_app_intents_metadata() {
+  local arch="${ARCH_LIST[0]}"
+  local work_dir="$BUILD_DIR/app-intents"
+  local const_dir
+  local swiftc_path
+  local toolchain_dir
+  local sdk_root
+  local xcode_build
+
+  if ! xcrun --find appintentsmetadataprocessor &>/dev/null; then
+    echo "ERROR: appintentsmetadataprocessor not found. Select a full Xcode with xcode-select." >&2
+    exit 1
+  fi
+
+  const_dir="$(arch_staging_dir "$arch")/const-values"
+  mkdir -p "$work_dir"
+  find "$const_dir" -name '*.swiftconstvalues' | LC_ALL=C sort > "$work_dir/const-values.list"
+  find "$ROOT/Sources/$APP_NAME" -name '*.swift' | LC_ALL=C sort > "$work_dir/sources.list"
+
+  swiftc_path=$(xcrun --find swiftc)
+  toolchain_dir=$(cd "$(dirname "$swiftc_path")/../.." && pwd)
+  sdk_root=$(xcrun --sdk macosx --show-sdk-path)
+  xcode_build=$(xcodebuild -version | awk '/Build version/ { print $3 }')
+
+  # The staged thin binary matches the const values' architecture.
+  xcrun appintentsmetadataprocessor \
+    --toolchain-dir "$toolchain_dir" \
+    --module-name "$APP_NAME" \
+    --sdk-root "$sdk_root" \
+    --xcode-version "$xcode_build" \
+    --platform-family macOS \
+    --deployment-target "$MIN_MACOS_VERSION" \
+    --bundle-identifier "$BUNDLE_ID" \
+    --output "$APP_BUNDLE/Contents/Resources" \
+    --target-triple "${arch}-apple-macos${MIN_MACOS_VERSION}" \
+    --binary-file "$(build_product_path "$APP_NAME" "$arch")" \
+    --source-file-list "$work_dir/sources.list" \
+    --swift-const-vals-list "$work_dir/const-values.list" \
+    --stringsdata-file "$work_dir/ExtractedAppShortcutsMetadata.stringsdata" \
+    --compile-time-extraction \
+    --deployment-aware-processing \
+    --force
+
+  if [[ ! -f "$APP_BUNDLE/Contents/Resources/Metadata.appintents/extract.actionsdata" ]]; then
+    echo "ERROR: appintentsmetadataprocessor did not write Metadata.appintents." >&2
+    exit 1
+  fi
+
+  # Siri matches App Shortcut phrases through AppShortcuts.strings. Like Xcode's catalog, each
+  # App Shortcut is keyed by its first phrase and lists every phrase per language. Check that
+  # every shortcut in code has an entry in every shipped language and that no translation drops
+  # a placeholder, which would make the phrase unusable.
+  python3 - "$work_dir/ExtractedAppShortcutsMetadata.stringsdata" "$APP_SHORTCUTS_CATALOG" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    extracted = json.load(handle)
+with open(sys.argv[2], encoding="utf-8") as handle:
+    catalog = json.load(handle).get("strings", {})
+languages = {path.stem for path in pathlib.Path(sys.argv[2]).parent.glob("*.lproj")}
+
+shortcuts = {entry["key"]: entry["values"] for entry in extracted.get("tables", {}).get("AppShortcuts", [])}
+if not shortcuts:
+    sys.exit("ERROR: no App Shortcut phrases were extracted")
+
+placeholders = re.compile(r"\$\{[A-Za-z]+\}")
+errors = []
+for key, phrases in sorted(shortcuts.items()):
+    entry = catalog.get(key)
+    if entry is None:
+        errors.append(f"missing catalog entry: {key}")
+        continue
+    expected = set(placeholders.findall(key))
+    for language in sorted(languages - set(entry.get("localizations", {}))):
+        errors.append(f"{language}: no phrases for {key}")
+    for language, localization in sorted(entry.get("localizations", {}).items()):
+        values = localization.get("stringSet", {}).get("values", [])
+        if not values:
+            errors.append(f"{language}: no phrases for {key}")
+        for value in values:
+            if set(placeholders.findall(value)) != expected:
+                errors.append(f"{language}: placeholders differ from the key in {value!r}")
+    english = entry.get("localizations", {}).get("en", {}).get("stringSet", {}).get("values", [])
+    if english != phrases:
+        errors.append(f"en: phrases for {key} do not match the code: {phrases}")
+for key in sorted(set(catalog) - set(shortcuts)):
+    errors.append(f"stale catalog entry: {key}")
+
+if errors:
+    print("ERROR: AppShortcuts.xcstrings is out of sync with KasetShortcuts:", file=sys.stderr)
+    for error in errors:
+        print(f"  {error}", file=sys.stderr)
+    sys.exit(1)
+PY
+
+  echo "   ✓ App Intents metadata written to Contents/Resources/Metadata.appintents"
 }
 
 build_product_path() {
@@ -233,8 +401,9 @@ mkdir -p "$BUILD_DIR"
 # some SwiftPM layouts reuse one products directory for every --arch build.
 for ARCH in "${ARCH_LIST[@]}"; do
   echo "  → Building for $ARCH..."
-  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME"
+  swift build -c "$CONF" --arch "$ARCH" --product "$APP_NAME" "${APP_INTENTS_SWIFT_FLAGS[@]}"
   stage_arch_product "$APP_NAME" "$ARCH"
+  stage_app_intents_const_values "$ARCH"
 done
 
 # Create app bundle structure
@@ -260,6 +429,17 @@ if [[ -f "$SDEF_PATH" ]]; then
   echo "📜 Copying AppleScript definition..."
   cp "$SDEF_PATH" "$APP_BUNDLE/Contents/Resources/Kaset.sdef"
 fi
+
+# ── App Intents (Shortcuts, Siri, Spotlight) ─────────────────────────────────
+
+echo "🎯 Extracting App Intents metadata..."
+generate_app_intents_metadata
+
+# App Shortcut phrases are localized from their own table, AppShortcuts.strings, in the
+# main bundle. The catalog is excluded from SwiftPM resources like Localizable.xcstrings.
+echo "  → Compiling App Shortcuts phrase catalog: $(basename "$APP_SHORTCUTS_CATALOG")"
+xcrun xcstringstool compile "$APP_SHORTCUTS_CATALOG" \
+  --output-directory "$APP_BUNDLE/Contents/Resources"
 
 # ── App icon and main asset catalog ──────────────────────────────────────────
 # AppIcon.icon is an Icon Composer package (macOS 26+). actool consumes it
@@ -580,7 +760,13 @@ if [[ -d "$SPARKLE" ]]; then
 fi
 
 if [[ -f "$ROOT/Kaset.entitlements" ]]; then
-  codesign "${CODESIGN_ARGS[@]}" --entitlements "$ROOT/Kaset.entitlements" "$APP_BUNDLE"
+  ENTITLEMENTS="$ROOT/Kaset.entitlements"
+  if [[ "$BUNDLE_ID" != "$RELEASE_BUNDLE_ID" ]]; then
+    # Sparkle's installer services are named after the bundle identifier.
+    ENTITLEMENTS="$BUILD_DIR/Kaset.entitlements"
+    sed "s/${RELEASE_BUNDLE_ID//./\\.}-sp/${BUNDLE_ID}-sp/g" "$ROOT/Kaset.entitlements" > "$ENTITLEMENTS"
+  fi
+  codesign "${CODESIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$APP_BUNDLE"
 else
   codesign "${CODESIGN_ARGS[@]}" "$APP_BUNDLE"
 fi
@@ -588,6 +774,7 @@ fi
 echo ""
 echo "✅ Build complete!"
 echo "📍 App location: $APP_BUNDLE"
+echo "   Bundle:  ${BUNDLE_ID}"
 echo "   Version: ${MARKETING_VERSION} (${BUILD_NUMBER})"
 echo "   Commit:  ${GIT_COMMIT}"
 echo "   Arches:  ${ARCH_LIST[*]}"

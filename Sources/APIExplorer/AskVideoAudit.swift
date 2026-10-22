@@ -8,11 +8,6 @@ func askParityHasConfirmedSignedInState(_ loggedOut: Bool?) -> Bool {
     loggedOut == false
 }
 
-func askVideoAuditSummary(_ response: [String: Any]) -> String {
-    var auditor = AskVideoResponseAuditor()
-    return auditor.audit(response).rendered()
-}
-
 func wireResponseAuditSummary(data: Data, statusCode: Int, contentType: String?) -> String {
     WireResponseAuditor.summary(data: data, statusCode: statusCode, contentType: contentType)
 }
@@ -399,6 +394,10 @@ private func askParityContext(
         "osVersion": "10_15_7",
         "platform": "DESKTOP",
         "userAgent": askParityUserAgent,
+        // Minutes from UTC, UTC-behind negative — the same value YouTube's web client
+        // sends (its JS `-Date.getTimezoneOffset()`). Mirrors
+        // `InnerTubeSupport.utcOffsetMinutes(for:)`, inlined because APIExplorer cannot
+        // import the Kaset executable target.
         "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
     ]
     if profile.usesVisitorData {
@@ -780,77 +779,6 @@ func auditAskVideoRequestParity(
         cookies: cookies,
         evaluateAllProfiles: true
     )
-}
-
-private func askYouChatPanelContinuationTokens(in root: Any) -> [String] {
-    let maximumDepth = 80
-    let maximumVisitedNodes = 100_000
-    let maximumChildrenPerContainer = 2048
-    var visitedNodes = 0
-    var tokens: [String] = []
-    var seenTokens: Set<String> = []
-
-    func hasDirectYouChatSignal(_ dictionary: [String: Any]) -> Bool {
-        let exactMarkers: Set = [
-            "PAai_companion",
-            "PAyouchat",
-            "engagement-panel-youchat",
-        ]
-        return dictionary.contains { key, value in
-            key.lowercased().contains("youchat")
-                || (value as? String).map(exactMarkers.contains) == true
-        }
-    }
-
-    func walk(
-        _ value: Any,
-        depth: Int,
-        youChatRelevant: Bool,
-        insideSendUserQueryCommand: Bool
-    ) {
-        guard depth <= maximumDepth, visitedNodes < maximumVisitedNodes else { return }
-        visitedNodes += 1
-
-        if let dictionary = value as? [String: Any] {
-            let nestedYouChatRelevant = youChatRelevant || hasDirectYouChatSignal(dictionary)
-            if dictionary["request"] as? String == "CONTINUATION_REQUEST_TYPE_GET_PANEL",
-               let continuationValue = dictionary["token"] as? String,
-               !continuationValue.isEmpty,
-               nestedYouChatRelevant,
-               !insideSendUserQueryCommand,
-               seenTokens.insert(continuationValue).inserted
-            {
-                tokens.append(continuationValue)
-            }
-            for key in dictionary.keys.sorted().prefix(maximumChildrenPerContainer) {
-                guard let nestedValue = dictionary[key] else { continue }
-                walk(
-                    nestedValue,
-                    depth: depth + 1,
-                    youChatRelevant: nestedYouChatRelevant,
-                    insideSendUserQueryCommand: insideSendUserQueryCommand
-                        || key == "sendUserQueryCommand"
-                )
-            }
-        } else if let array = value as? [Any] {
-            for nestedValue in array.prefix(maximumChildrenPerContainer) {
-                walk(
-                    nestedValue,
-                    depth: depth + 1,
-                    youChatRelevant: youChatRelevant,
-                    insideSendUserQueryCommand: insideSendUserQueryCommand
-                )
-            }
-        }
-    }
-
-    walk(
-        root,
-        depth: 0,
-        youChatRelevant: false,
-        insideSendUserQueryCommand: false
-    )
-    return tokens
 }
 
 // MARK: - AskPanelSuggestion

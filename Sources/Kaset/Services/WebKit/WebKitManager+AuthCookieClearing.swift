@@ -32,8 +32,12 @@ enum LiveAuthCookieStoreClearer {
         let removeAllCookies: @MainActor () async -> Void
     }
 
+    /// Deletes login-session cookies, escalating to a store-wide cookie removal
+    /// only when `allowsCookieStoreFallback` is set. Rollback-safe callers must
+    /// disable it, because rollback restores only login-domain cookies.
     static func clear(
         maximumDeletePasses: Int = 3,
+        allowsCookieStoreFallback: Bool = true,
         operations: Operations
     ) async -> LiveAuthCookieClearResult {
         for _ in 0 ..< max(maximumDeletePasses, 0) {
@@ -51,6 +55,9 @@ enum LiveAuthCookieStoreClearer {
             await Task.yield()
         }
 
+        guard allowsCookieStoreFallback else {
+            return LiveAuthCookieClearResult(didClear: false, usedCookieStoreFallback: false)
+        }
         await operations.removeAllCookies()
         let remainingCookies = await operations.readCookies()
         return LiveAuthCookieClearResult(

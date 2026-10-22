@@ -17,7 +17,10 @@ enum RemoteMusicCommandPayload: Equatable {
     case play
     case pause
     case togglePlayPause
+    /// The next/previous media keys, which seek instead when the media control style says so.
     case nextPrevious(direction: RemoteMusicCommandDirection)
+    /// An explicit track change (App Intents), regardless of the media control style.
+    case trackNavigation(direction: RemoteMusicCommandDirection)
     case skip(interval: TimeInterval, direction: RemoteMusicCommandDirection)
     case absoluteSeek(position: TimeInterval)
 }
@@ -455,6 +458,26 @@ final class NowPlayingManager {
         self.logger.info("Remote commands configured")
     }
 
+    /// Admits a transport command from App Intents through the media-key ingress, so Shortcuts
+    /// and Siri control whichever source (music or video) the media keys would.
+    /// Returns false when there is nothing to control: before `configure(playerService:)`, or when
+    /// no video is routed and the music player has no track, pending load, or queue.
+    @discardableResult
+    func handleAppIntentCommand(_ payload: RemoteMusicCommandPayload) -> Bool {
+        guard let player = self.playerService,
+              Self.hasTransportTarget(player: player, routesToYouTubeVideo: self.routesToYouTubeVideo)
+        else { return false }
+        if self.remoteMusicCommandIngress.capture(payload) {
+            self.drainRemoteMusicCommandIngress()
+        }
+        return true
+    }
+
+    static func hasTransportTarget(player: PlayerService, routesToYouTubeVideo: Bool) -> Bool {
+        routesToYouTubeVideo || player.currentTrack != nil || player.currentEpisode != nil
+            || player.pendingPlayVideoId != nil || !player.queueEntries.isEmpty
+    }
+
     private func drainRemoteMusicCommandIngress() {
         while true {
             let commands = self.remoteMusicCommandIngress.takePendingCommands()
@@ -502,6 +525,12 @@ final class NowPlayingManager {
                 capturedCommand: capturedCommand,
                 player: player
             )
+        case let .trackNavigation(direction):
+            self.handleTrackChange(
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
         case let .skip(interval, direction):
             if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
                 guard interval.isFinite else { return }
@@ -543,14 +572,40 @@ final class NowPlayingManager {
         capturedCommand: CapturedRemoteMusicCommand,
         player: PlayerService
     ) {
+        guard self.settings.mediaControlStyle == .skipForwardBackward else {
+            self.handleTrackChange(
+                direction: direction,
+                capturedCommand: capturedCommand,
+                player: player
+            )
+            return
+        }
+
         if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
-            if self.settings.mediaControlStyle == .skipForwardBackward {
-                let delta = direction == .forward ? Self.defaultSkipInterval : -Self.defaultSkipInterval
-                youtube.handleRemoteSeek(
-                    to: max(0, youtube.progress + delta),
-                    issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
-                )
-            } else if direction == .forward {
+            let delta = direction == .forward ? Self.defaultSkipInterval : -Self.defaultSkipInterval
+            youtube.handleRemoteSeek(
+                to: max(0, youtube.progress + delta),
+                issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
+            )
+            return
+        }
+
+        self.handleSkipCommand(
+            interval: Self.defaultSkipInterval,
+            direction: direction,
+            capturedCommand: capturedCommand,
+            player: player
+        )
+    }
+
+    /// Moves to the next or previous item of whichever source the media keys control.
+    private func handleTrackChange(
+        direction: RemoteMusicCommandDirection,
+        capturedCommand: CapturedRemoteMusicCommand,
+        player: PlayerService
+    ) {
+        if self.routesToYouTubeVideo, let youtube = self.youtubePlayerService {
+            if direction == .forward {
                 Task { @MainActor in
                     await youtube.handleRemoteSkipForward(
                         issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
@@ -564,20 +619,11 @@ final class NowPlayingManager {
             return
         }
 
-        if self.settings.mediaControlStyle == .skipForwardBackward {
-            self.handleSkipCommand(
-                interval: Self.defaultSkipInterval,
-                direction: direction,
-                capturedCommand: capturedCommand,
-                player: player
-            )
-        } else {
-            self.handleTrackNavigation(
-                direction: direction,
-                capturedCommand: capturedCommand,
-                player: player
-            )
-        }
+        self.handleTrackNavigation(
+            direction: direction,
+            capturedCommand: capturedCommand,
+            player: player
+        )
     }
 
     private func handleSkipCommand(

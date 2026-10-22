@@ -38,14 +38,4 @@ enum AmbientBackdropStyle: String, CaseIterable, Identifiable {
         case .live: String(localized: "Live (follows video)")
         }
     }
-
-    /// Terse label for the DEBUG developer style picker.
-    var debugLabel: String {
-        switch self {
-        case .off: "Off"
-        case .soft: "Soft"
-        case .glow: "Glow"
-        case .live: "Live (storyboard)"
-        }
-    }
 }

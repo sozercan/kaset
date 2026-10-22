@@ -46,6 +46,10 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// authentication cookies, preserving the previous restorable archive.
     func beginLoginCookieBackup() async -> CookieBackupTransaction?
 
+    /// Clears live login cookies for reauthentication inside an active login
+    /// transaction, leaving the archive for rollback.
+    func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool
+
     /// Persists a fresh stable snapshot for the active login transaction while
     /// keeping startup restoration disabled.
     func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool
@@ -81,9 +85,9 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
         _ transaction: CookieBackupTransaction
     ) async -> CookieBackupRollbackResult
 
-    /// Waits for the startup Keychain-to-WebKit cookie restore to finish.
-    /// Returns whether authentication cookies are safe to evaluate afterward.
-    func waitForInitialCookieRestore() async -> Bool
+    /// Waits for startup restoration, retrying temporary storage failures.
+    /// Only a failed restore requires destructive cleanup; unavailability preserves state.
+    func waitForInitialCookieRestore() async -> CookieRestoreResult
 
     /// Logs all authentication-related cookies for debugging.
     func logAuthCookies() async

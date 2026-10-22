@@ -47,17 +47,18 @@ Default local workflow is CLI-first: use the commands above for day-to-day verif
 
 - When adding localization keys or changing translations, update the catalog first and update the corresponding checked-in `.lproj/Localizable.strings` files in the same change. Never update only one side.
 - Run `swift test --skip KasetUITests --filter LocalizationCatalogParityTests` after localization changes.
+- Siri phrases for App Shortcuts live in `Sources/Kaset/Resources/AppShortcuts.xcstrings` (no `.lproj` mirror). `Scripts/build-app.sh` fails if it drifts from `KasetShortcuts`, so update it whenever a phrase changes.
 - When adding a locale, also register its `.lproj` in `Package.swift`, add the `SettingsManager.ContentLanguage` case, and extend localization tests.
 
 ## Debugging & Measurement
 
 > 🔬 **Measure before you fix — never guess at runtime behavior.** For any bug about *timing, lifecycle, or "why didn't this run/load/update"* (SwiftUI `.task`/state churn, cold-launch ordering, perceived latency), instrument the real code path and observe before changing anything. Reasoning about SwiftUI lifecycle or async ordering from the source alone is unreliable; a 10-line timestamped trace settles in one launch what hours of hypothesizing cannot. Add the trace → reproduce → read the evidence → fix the thing the data points at → re-measure to confirm → remove the instrumentation.
 
-> ⚠️ **The app is sandboxed — most ad-hoc logging silently fails.** `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably surface in `log stream`/`log show`, and a hardcoded `/tmp/...` file write is blocked by the sandbox and fails with no error. For throwaway diagnostics, write to **`NSTemporaryDirectory()`** (the app's container tmp), `synchronize()` after each line, and read it from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/`. Macro-level: window-screenshot automation is also unreliable here, so prefer file traces over visual capture. Always strip diagnostic instrumentation before commit.
+> ⚠️ **The app is sandboxed — most ad-hoc logging silently fails.** `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably surface in `log stream`/`log show`, and a hardcoded `/tmp/...` file write is blocked by the sandbox and fails with no error. For throwaway diagnostics, write to **`NSTemporaryDirectory()`** (the app's container tmp), `synchronize()` after each line, and read it from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/` (`com.sertacozercan.Kaset.debug` for packaged debug builds). Macro-level: window-screenshot automation is also unreliable here, so prefer file traces over visual capture. Always strip diagnostic instrumentation before commit.
 
 See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, the single-flight load pattern that resolves the `.task`-restart cancellation deadlock, concurrency anti-patterns, and the pre-submit checklist.
 
-> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`.
+> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`. Packaged debug builds use the bundle ID `com.sertacozercan.Kaset.debug`, so they get their own container, UserDefaults, and WebKit cookie jar; never package a debug build with the release bundle ID, or each build's startup overwrites the other's session. The Keychain is still shared, so `KASET_DEBUG_COOKIE_STORAGE=keychain` reads and writes the release archive. The debug file backend keeps its own sign-out tombstone key (`authCookieBackupInvalidated.debugFileStorage`); never let debug-only auth state write the release key.
 
 ## Continuous Review
 
@@ -93,7 +94,7 @@ These are project-specific rules that differ from standard Swift/SwiftUI convent
 - Throw `YTMusicError.authExpired` on HTTP 401/403
 - Use `.task` instead of `.onAppear { Task { } }`
 
-`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`, `contentMargins`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
 
 ## Task Planning
 

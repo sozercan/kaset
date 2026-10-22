@@ -37,6 +37,9 @@ let package = Package(
                 // resources. build-app.sh compiles the source catalog for the
                 // packaged app to avoid duplicate .strings outputs in SwiftPM.
                 "Resources/Localizable.xcstrings",
+                // App Shortcut phrases belong in the main bundle, which only
+                // build-app.sh assembles; it compiles this catalog there.
+                "Resources/AppShortcuts.xcstrings",
             ],
             resources: [
                 .process("Resources/Assets.xcassets"),
@@ -47,6 +50,7 @@ let package = Package(
                 .process("Resources/fr.lproj"),
                 .process("Resources/id.lproj"),
                 .process("Resources/it.lproj"),
+                .process("Resources/ja.lproj"),
                 .process("Resources/ko.lproj"),
                 .process("Resources/nl.lproj"),
                 .process("Resources/pl.lproj"),
@@ -72,6 +76,11 @@ let package = Package(
             swiftSettings: [
                 .swiftLanguageMode(.v6),
             ]
+        ),
+        .testTarget(
+            name: "APIExplorerTests",
+            dependencies: ["APIExplorer"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         // Shared Foundation-only YouTube Ask parsing and safety core
         .target(

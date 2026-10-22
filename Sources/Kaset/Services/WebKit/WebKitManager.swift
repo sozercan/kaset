@@ -15,12 +15,14 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Creates an isolated manager for unit tests. The cookie archive queue is private to the
     /// instance and backed by in-memory storage, so parallel suites cannot clear or overwrite
     /// each other's archive through the process-wide `CookieArchiveWriteQueue.shared`.
-    static func makeTestInstance() -> WebKitManager {
+    static func makeTestInstance(
+        cookieArchiveStorage: CookieArchiveStorage = .inMemory()
+    ) -> WebKitManager {
         WebKitManager(
             dataStore: .nonPersistent(),
             restoresCookies: false,
             loadsExtensions: false,
-            cookieArchiveQueue: CookieArchiveWriteQueue(storage: .inMemory())
+            cookieArchiveQueue: CookieArchiveWriteQueue(storage: cookieArchiveStorage)
         )
     }
 
@@ -65,11 +67,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// Records cookie changes delivered while a forced snapshot is being persisted.
     var forcedCookieBackupDirty = false
 
-    /// Task for the one-time startup restore from Keychain into WebKit.
-    private var initialCookieRestoreTask: Task<Bool, Never>?
+    /// Coalesces startup restoration and retries after temporary storage failures.
+    var initialCookieRestoreTask: Task<CookieRestoreResult, Never>?
 
-    /// Whether startup left authentication cookies safe to evaluate.
-    private var initialCookieRestoreAllowsAuthentication = true
+    /// Authentication and archive writes stay blocked until restoration is resolved.
+    var initialCookieRestoreResult: CookieRestoreResult = .ready
 
     /// Invalidates startup restores and backups that began before an auth-cookie clear.
     var authCookieOperationFence = AuthCookieOperationFence()
@@ -122,15 +124,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // Restore auth cookies on startup.
         // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
         if restoresCookies, !UITestConfig.isRunningUnitTests {
-            let restoreGeneration = self.authCookieOperationFence.generation
-            self.initialCookieRestoreTask = Task { @MainActor in
-                let allowsAuthentication = await self.restoreAuthCookiesFromBackup(
-                    expectedGeneration: restoreGeneration
-                )
-                self.initialCookieRestoreAllowsAuthentication = allowsAuthentication
-                self.initialCookieRestoreTask = nil
-                return allowsAuthentication
-            }
+            self.startInitialCookieRestore()
         }
 
         self.logger.info("WebKitManager initialized with persistent data store")
@@ -309,10 +303,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         #endif
     }
 
-    func extensionHostWebViewDidDeactivate(role: WebExtensionHostedWebViewRole) {
+    func unregisterExtensionHostWebView(role: WebExtensionHostedWebViewRole) {
         #if compiler(>=5.9)
             if #available(macOS 15.4, *) {
-                self.webExtensionHost.deactivate(role: role)
+                self.webExtensionHost.unregister(role: role)
             }
         #endif
     }
@@ -333,13 +327,17 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         #endif
     }
 
-    /// Creates the minimal WebView configuration used for hidden account-switch
-    /// navigations. It deliberately shares only the website data store (cookies)
-    /// and does not attach the app's `WKWebExtensionController`, so enabled
-    /// extensions/content scripts cannot observe credential-bearing signin URLs.
+    /// Creates the minimal WebView configuration used for the login sheet and
+    /// hidden account-switch navigations. It deliberately shares only the
+    /// website data store (cookies) and does not attach the app's
+    /// `WKWebExtensionController`, so enabled extensions/content scripts cannot
+    /// observe credential-bearing signin URLs. It also suppresses WebAuthn
+    /// passkey detection so Google's sign-in falls back to flows that can
+    /// succeed in an embedded WebView (ADR-0033).
     func createSessionSwitchWebViewConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = self.dataStore
+        configuration.userContentController.addUserScript(LoginPasskeySuppression.makeUserScript())
         return configuration
     }
 
@@ -412,14 +410,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         let rootURL = baseURL.hasDirectoryPath ? baseURL : baseURL.appendingPathComponent("", isDirectory: true)
         return URL(string: normalizedPath, relativeTo: rootURL)?.absoluteURL
-    }
-
-    /// Waits for the one-time startup cookie restore to finish.
-    func waitForInitialCookieRestore() async -> Bool {
-        if let restoreTask = self.initialCookieRestoreTask {
-            return await restoreTask.value
-        }
-        return self.initialCookieRestoreAllowsAuthentication
     }
 
     /// Retrieves all cookies from the HTTP cookie store.
@@ -525,7 +515,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 
     private func performAuthCookieClear() async -> Bool {
-        self.logger.info("Clearing WebKit auth cookies")
+        self.logger.notice("Clearing WebKit auth cookies and the saved archive")
         self.isClearingAuthCookies = true
         defer { self.isClearingAuthCookies = false }
 
@@ -536,7 +526,19 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // verification happens after this final persistence suspension.
         let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
 
-        let liveClearResult = await LiveAuthCookieStoreClearer.clear(
+        let didClearLiveCookies = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: true)
+        let didClear = didClearLiveCookies && didInvalidatePersistedCookies
+        self.initialCookieRestoreResult = didClear ? .ready : .failed
+        self.loginCookieBackupSetupRequiresCleanup = !didClear
+        self.cookiesDidChange = Date()
+        return didClear
+    }
+
+    /// Deletes live login-session cookies from WebKit without touching the
+    /// persisted archive or its restore policy.
+    func deleteLiveLoginSessionCookies(allowsCookieStoreFallback: Bool) async -> Bool {
+        let result = await LiveAuthCookieStoreClearer.clear(
+            allowsCookieStoreFallback: allowsCookieStoreFallback,
             operations: LiveAuthCookieStoreClearer.Operations(
                 readCookies: {
                     await self.dataStore.httpCookieStore.allCookies()
@@ -552,18 +554,13 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 }
             )
         )
-        if liveClearResult.usedCookieStoreFallback {
+        if result.usedCookieStoreFallback {
             self.logger.warning("Escalated authentication cleanup to the WebKit cookie data store")
         }
-        if !liveClearResult.didClear {
+        if !result.didClear {
             self.logger.error("Could not clear live authentication cookies")
         }
-
-        let didClear = liveClearResult.didClear && didInvalidatePersistedCookies
-        self.initialCookieRestoreAllowsAuthentication = didClear
-        self.loginCookieBackupSetupRequiresCleanup = !didClear
-        self.cookiesDidChange = Date()
-        return didClear
+        return result.didClear
     }
 
     /// Clears all website data (cookies, cache, etc.).
@@ -579,7 +576,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let dateFrom = Date.distantPast
 
-        self.logger.info("Clearing all WebKit data")
+        self.logger.notice("Clearing all WebKit data and the saved archive")
         self.isClearingAuthCookies = true
         defer { self.isClearingAuthCookies = false }
 
@@ -592,7 +589,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let remainingCookies = await self.dataStore.httpCookieStore.allCookies()
         let didClearLiveCookies = !remainingCookies.contains(where: KeychainCookieStorage.isLoginDomainCookie)
         let didClear = didInvalidatePersistedCookies && didClearLiveCookies
-        self.initialCookieRestoreAllowsAuthentication = didClear
+        self.initialCookieRestoreResult = didClear ? .ready : .failed
         self.loginCookieBackupSetupRequiresCleanup = !didClear
         if didClear {
             self.logger.info("WebKit data cleared successfully")

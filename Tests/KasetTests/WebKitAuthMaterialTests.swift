@@ -102,7 +102,38 @@ struct WebKitAuthMaterialTests {
         #expect(!KeychainCookieStorage.isLoginSessionCookie(preferenceCookie))
 
         #expect(KeychainCookieStorage.makeArchiveResult(from: [validCookie]) == .noPrimarySession)
-        #expect(CookieArchiveBackupAction.make(from: .noPrimarySession) == .invalidate)
+    }
+
+    @Test("A live jar without a primary session keeps the last archive")
+    func missingPrimarySessionRetainsArchive() {
+        #expect(CookieArchiveBackupAction.make(from: .noPrimarySession) == .retainWithoutPrimarySession)
+    }
+
+    @Test("Rollback-safe clearing fails instead of removing every cookie")
+    @MainActor
+    func stickyAuthCookieDeletionWithoutFallbackFails() async throws {
+        let authCookie = try #require(HTTPCookie(properties: [
+            .name: "SAPISID",
+            .value: "mock-token",
+            .domain: ".youtube.com",
+            .path: "/",
+        ]))
+        var deleteCount = 0
+        var fallbackCount = 0
+
+        let result = await LiveAuthCookieStoreClearer.clear(
+            allowsCookieStoreFallback: false,
+            operations: LiveAuthCookieStoreClearer.Operations(
+                readCookies: { [authCookie] },
+                deleteCookie: { _ in deleteCount += 1 },
+                removeAllCookies: { fallbackCount += 1 }
+            )
+        )
+
+        #expect(!result.didClear)
+        #expect(!result.usedCookieStoreFallback)
+        #expect(deleteCount == 3)
+        #expect(fallbackCount == 0)
     }
 
     @Test("Cookie serialization failures retain the last good archive")

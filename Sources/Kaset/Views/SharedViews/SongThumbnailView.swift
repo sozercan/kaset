@@ -83,7 +83,7 @@ struct SongThumbnailView: View {
         CachedAsyncImage(url: self.activeURL, targetSize: self.targetSize, onFailure: self.failureHandler) { image in
             image
                 .resizable()
-                .aspectRatio(contentMode: .fill)
+                .scaledToFill()
         } placeholder: {
             Rectangle()
                 .fill(.quaternary)

@@ -43,6 +43,19 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Account"))
             }
 
+            // MARK: - Appearance Section
+
+            Section {
+                Picker(String(localized: "App Appearance"), selection: self.$settings.appearance) {
+                    ForEach(AppAppearance.allCases) { appearance in
+                        Text(appearance.displayName).tag(appearance)
+                    }
+                }
+                .help(String(localized: "Choose light or dark mode for Kaset, or match the macOS setting"))
+            } header: {
+                Text(String(localized: "Appearance"))
+            }
+
             // MARK: - Behavior Section
 
             Section {

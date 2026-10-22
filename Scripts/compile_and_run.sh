@@ -14,7 +14,7 @@ LOCK_PID_FILE="${LOCK_DIR}/pid"
 WAIT_FOR_LOCK=0
 RUN_TESTS=0
 RUN_LINT=0
-BUILD_CONFIG="release"
+BUILD_CONFIG="debug"
 
 log()  { printf '%s\n' "$*"; }
 fail() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -112,8 +112,8 @@ for arg in "$@"; do
       log "  --wait, -w    Wait if another compile is in progress"
       log "  --test, -t    Run tests before packaging"
       log "  --lint, -l    Run swiftformat and swiftlint before building"
-      log "  --debug, -d   Package a debug app bundle (shows DEBUG-only settings)"
-      log "  --release, -r Package a release app bundle (default)"
+      log "  --debug, -d   Package a debug app bundle (default; shows DEBUG-only settings)"
+      log "  --release, -r Package a release app bundle"
       exit 0
       ;;
     *)

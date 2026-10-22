@@ -10,6 +10,12 @@ private let errPlayerNotAvailable: Int = -1728 // errAENoSuchObject
 /// Error message when PlayerService is not available.
 private let playerNotAvailableMessage = "Player service not initialized. Please wait for the app to fully launch."
 
+/// Error message for a direct parameter that is not a video ID.
+private let invalidVideoIdMessage = "Video ID must be a non-empty string of letters, digits, - and _."
+
+/// Error message for a direct parameter that is not a list of video IDs.
+private let invalidVideoIdListMessage = "Video IDs must be a non-empty list of video IDs (letters, digits, - and _)."
+
 /// Shared logger for scripting commands.
 private let logger = DiagnosticsLogger.scripting
 
@@ -19,6 +25,64 @@ private let logger = DiagnosticsLogger.scripting
 @MainActor
 private func getPlayerService() -> PlayerService? {
     PlayerService.shared
+}
+
+/// Characters a YouTube video ID can contain.
+private let videoIdCharacters = CharacterSet(
+    charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+)
+
+/// Reads a scripting value as a YouTube video ID, ignoring surrounding whitespace.
+/// Returns nil for anything that cannot be an ID, such as an empty string or a URL.
+private func scriptVideoId(from value: Any?) -> String? {
+    guard let string = value as? String else { return nil }
+    let videoId = string.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !videoId.isEmpty,
+          videoId.unicodeScalars.allSatisfy(videoIdCharacters.contains)
+    else { return nil }
+    return videoId
+}
+
+/// Reads a scripting parameter as a non-empty list of video IDs.
+/// A single string is accepted as a one-item list.
+private func videoIdList(from parameter: Any?) -> [String]? {
+    let values: [Any]
+    if let videoId = parameter as? String {
+        values = [videoId]
+    } else if let array = parameter as? [Any] {
+        values = array
+    } else {
+        return nil
+    }
+    let videoIds = values.compactMap(scriptVideoId(from:))
+    guard !videoIds.isEmpty, videoIds.count == values.count else { return nil }
+    return videoIds
+}
+
+private extension NSScriptCommand {
+    /// Reads an optional argument: `defaultValue` when it is absent, nil when it has the wrong type.
+    func optionalArgument<T>(_ key: String, default defaultValue: T) -> T? {
+        guard let value = self.evaluatedArguments?[key] else { return defaultValue }
+        return value as? T
+    }
+
+    /// Converts a 1-based AppleScript index into an index of a collection with `count` items, or sets
+    /// an out-of-bounds script error ending with `countDescription` and returns nil.
+    func zeroBasedIndex(
+        fromOneBased index: Int,
+        count: Int,
+        countDescription: String,
+        commandName: String
+    ) -> Int? {
+        let zeroBasedIndex = index - 1
+        guard zeroBasedIndex >= 0, zeroBasedIndex < count else {
+            logger.error("\(commandName) command failed: index \(index) out of bounds (1..\(count))")
+            self.scriptErrorNumber = -1728 // errAENoSuchObject
+            self.scriptErrorString = "Index out of bounds. \(countDescription)"
+            return nil
+        }
+        return zeroBasedIndex
+    }
 }
 
 // MARK: - PlayCommand
@@ -36,7 +100,12 @@ final class PlayCommand: NSScriptCommand {
         }
         logger.info("Executing play command")
         Task { @MainActor in
-            await playerService.resume()
+            // A queue built without playing (e.g. by `add to queue`) starts at its current position.
+            if playerService.hasNoLoadedMusicPlayback, !playerService.queueEntries.isEmpty {
+                await playerService.playFromQueue(at: playerService.currentIndex)
+            } else {
+                await playerService.resume()
+            }
         }
         return nil
     }
@@ -48,10 +117,10 @@ final class PlayCommand: NSScriptCommand {
 @objc(KasetPlayVideoCommand)
 final class PlayVideoCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
-        guard let videoId = self.directParameter as? String, !videoId.isEmpty else {
+        guard let videoId = scriptVideoId(from: self.directParameter) else {
             logger.error("PlayVideo command failed: invalid or empty video ID")
             self.scriptErrorNumber = errAECoercionFail
-            self.scriptErrorString = "Video ID must be a non-empty string."
+            self.scriptErrorString = invalidVideoIdMessage
             return nil
         }
 
@@ -62,14 +131,10 @@ final class PlayVideoCommand: NSScriptCommand {
             return nil
         }
         logger.info("Executing play video command with ID: \(videoId)")
+        // Begin the intent now so a later scripting command supersedes this one, not the reverse.
+        let intent = MainActor.assumeIsolated { playerService.beginMusicPlaybackIntent() }
         Task { @MainActor in
-            let song = Song(
-                id: videoId,
-                title: "Loading...",
-                artists: [],
-                videoId: videoId
-            )
-            await playerService.playWithRadio(song: song)
+            await playerService.playWithRadio(song: .placeholder(videoId: videoId), intent: intent)
         }
         return nil
     }
@@ -382,6 +447,7 @@ final class GetPlayQueueCommand: NSScriptCommand {
                     "album": track.album?.title ?? "",
                     "duration": track.duration ?? 0,
                     "videoId": track.videoId,
+                    "audioVideoId": track.preferredAudioVideoId,
                     "artworkURL": track.thumbnailURL?.absoluteString ?? "",
                 ]
             }
@@ -431,16 +497,12 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         }
 
         let queueCount = MainActor.assumeIsolated { playerService.queueEntries.count }
-
-        // Convert 1-based AppleScript index to 0-based Swift index
-        let zeroBasedIndex = indexValue - 1
-
-        guard zeroBasedIndex >= 0, zeroBasedIndex < queueCount else {
-            logger.error("PlayTrackAtIndex command failed: index \(indexValue) out of bounds (1..\(queueCount))")
-            self.scriptErrorNumber = -1728 // errAENoSuchObject
-            self.scriptErrorString = "Index out of bounds. The queue contains \(queueCount) tracks."
-            return nil
-        }
+        guard let zeroBasedIndex = self.zeroBasedIndex(
+            fromOneBased: indexValue,
+            count: queueCount,
+            countDescription: "The queue contains \(queueCount) tracks.",
+            commandName: "PlayTrackAtIndex"
+        ) else { return nil }
 
         let selection = MainActor.assumeIsolated { () -> (UUID, MusicPlaybackReservation)? in
             guard let entryID = playerService.queueEntries[safe: zeroBasedIndex]?.id else { return nil }
@@ -454,6 +516,165 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
                 queueEntryID: entryID
             ) else { return }
             await playerService.playFromQueue(entryID: entryID, intent: intent)
+        }
+        return nil
+    }
+}
+
+// MARK: - PlayVideosCommand
+
+/// PlayVideos command: replaces the queue with videos by their YouTube video IDs and starts
+/// playback at an optional 1-based index.
+@objc(KasetPlayVideosCommand)
+final class PlayVideosCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let videoIds = videoIdList(from: self.directParameter) else {
+            logger.error("PlayVideos command failed: invalid or empty video ID list")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = invalidVideoIdListMessage
+            return nil
+        }
+
+        guard let startingAt = self.optionalArgument("startingAt", default: 1) else {
+            logger.error("PlayVideos command failed: invalid starting index parameter")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = "Starting index must be an integer."
+            return nil
+        }
+
+        guard let zeroBasedIndex = self.zeroBasedIndex(
+            fromOneBased: startingAt,
+            count: videoIds.count,
+            countDescription: "The list contains \(videoIds.count) videos.",
+            commandName: "PlayVideos"
+        ) else { return nil }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("PlayVideos command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+
+        logger.info("Executing play videos command with \(videoIds.count) videos starting at \(startingAt)")
+        // Replace the queue before returning so later scripting commands act on the new queue,
+        // then start playback.
+        let installedQueue = MainActor.assumeIsolated {
+            playerService.installQueue(
+                videoIds.map(Song.placeholder(videoId:)),
+                startingAt: zeroBasedIndex,
+                deferringSmartShuffleFill: false,
+                intent: playerService.beginMusicPlaybackIntent()
+            )
+        }
+        guard let installedQueue else { return nil }
+        Task { @MainActor in
+            await playerService.startInstalledQueue(installedQueue)
+        }
+        return nil
+    }
+}
+
+// MARK: - AddToQueueCommand
+
+/// AddToQueue command: appends videos by their YouTube video IDs to the queue, or inserts them
+/// after the current track when `next` is true. Never starts playback.
+/// This is a synchronous operation.
+@objc(KasetAddToQueueCommand)
+final class AddToQueueCommand: NSScriptCommand {
+    override func performDefaultImplementation() -> Any? {
+        guard let videoIds = videoIdList(from: self.directParameter) else {
+            logger.error("AddToQueue command failed: invalid or empty video ID list")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = invalidVideoIdListMessage
+            return nil
+        }
+
+        guard let playNext = self.optionalArgument("next", default: false) else {
+            logger.error("AddToQueue command failed: invalid next parameter")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = "The next parameter must be a boolean."
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("AddToQueue command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+
+        logger.info("Executing add to queue command with \(videoIds.count) videos (next: \(playNext))")
+        MainActor.assumeIsolated {
+            let songs = videoIds.map(Song.placeholder(videoId:))
+            if playNext {
+                playerService.insertNextInQueue(songs)
+            } else {
+                playerService.appendToQueue(songs)
+            }
+        }
+        return nil
+    }
+}
+
+// MARK: - RemoveFromQueueCommand
+
+/// RemoveFromQueue command: removes every queue entry whose video or audio recording has the given
+/// YouTube video ID, except the entry that is playing.
+/// This is a synchronous operation.
+@objc(KasetRemoveFromQueueCommand)
+final class RemoveFromQueueCommand: NSScriptCommand {
+    private enum Outcome {
+        case removed
+        case onlyPlaying
+        case notFound
+    }
+
+    override func performDefaultImplementation() -> Any? {
+        guard let videoId = scriptVideoId(from: self.directParameter) else {
+            logger.error("RemoveFromQueue command failed: invalid or empty video ID")
+            self.scriptErrorNumber = errAECoercionFail
+            self.scriptErrorString = invalidVideoIdMessage
+            return nil
+        }
+
+        guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
+            logger.error("RemoveFromQueue command failed: PlayerService.shared is nil")
+            self.scriptErrorNumber = errPlayerNotAvailable
+            self.scriptErrorString = playerNotAvailableMessage
+            return nil
+        }
+
+        let outcome = MainActor.assumeIsolated { () -> Outcome in
+            // Like the queue views, keep the playing entry: removing it detaches playback from the queue.
+            let playingEntryID = playerService.queueEntryIDOwningCurrentPlayback
+            var matchesPlayingEntry = false
+            var entryIDs = Set<UUID>()
+            for entry in playerService.queueEntries
+                where entry.song.videoId == videoId || entry.song.preferredAudioVideoId == videoId
+            {
+                if entry.id == playingEntryID {
+                    matchesPlayingEntry = true
+                } else {
+                    entryIDs.insert(entry.id)
+                }
+            }
+            guard !entryIDs.isEmpty else { return matchesPlayingEntry ? .onlyPlaying : .notFound }
+            playerService.removeFromQueue(entryIDs: entryIDs)
+            return .removed
+        }
+
+        switch outcome {
+        case .removed:
+            logger.info("Executed remove from queue command with ID: \(videoId)")
+        case .onlyPlaying:
+            logger.error("RemoveFromQueue command failed: video \(videoId) is playing")
+            self.scriptErrorNumber = errAEEventFailed
+            self.scriptErrorString = "Cannot remove the video that is playing."
+        case .notFound:
+            logger.error("RemoveFromQueue command failed: video \(videoId) is not in the queue")
+            self.scriptErrorNumber = -1728 // errAENoSuchObject
+            self.scriptErrorString = "The queue does not contain a video with that ID."
         }
         return nil
     }

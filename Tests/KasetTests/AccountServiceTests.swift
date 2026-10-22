@@ -23,7 +23,20 @@ struct AccountServiceTests {
         #expect(services.account.hasBrandAccounts == false)
         #expect(services.account.currentBrandId == nil)
         #expect(services.account.isLoading == false)
+        #expect(services.account.didCompleteAccountResolution == false)
         #expect(services.account.lastError == nil)
+    }
+
+    @Test @MainActor func accountResolutionTracksCurrentAuthenticationIdentity() async {
+        let services = Self.createService()
+
+        await Self.populateAccounts(services, accounts: [MockUserAccountData.primaryAccount])
+        #expect(services.account.didCompleteAccountResolution == true)
+
+        services.auth.sessionExpired()
+        services.account.authenticationIdentityDidChange()
+
+        #expect(services.account.didCompleteAccountResolution == false)
     }
 
     @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() async {
@@ -972,15 +985,15 @@ struct AccountServiceTests {
         services.auth.sessionExpired()
         let reauthenticationPreparation = Task { @MainActor in
             await services.account.prepareForReauthentication()
-            await mockWebKit.clearAuthCookies()
+            _ = await mockWebKit.beginLoginCookieBackup()
         }
         await Task.yield()
-        #expect(mockWebKit.clearAuthCookiesCalled == false)
+        #expect(mockWebKit.beginLoginCookieBackupCallCount == 0)
 
         await oldPinGate.open()
         await reauthenticationPreparation.value
 
-        #expect(mockWebKit.clearAuthCookiesCalled == true)
+        #expect(mockWebKit.beginLoginCookieBackupCallCount == 1)
     }
 
     @Test @MainActor func newerSwitchCancelsFailedSwitchRollbackNavigation() async throws {
@@ -1791,6 +1804,18 @@ struct AccountServiceTests {
 
     // MARK: - Error Handling Tests
 
+    @Test @MainActor func cancelledAccountFetchDoesNotResolveOrPublishError() async {
+        let services = Self.createService()
+
+        services.client.shouldThrowError = CancellationError()
+        services.auth.completeLogin(sapisid: "test-sapisid")
+        await services.account.fetchAccounts()
+
+        #expect(services.account.didCompleteAccountResolution == false)
+        #expect(services.account.lastError == nil)
+        #expect(services.account.isLoading == false)
+    }
+
     @Test @MainActor func clearErrorResetsLastError() async {
         let services = Self.createService()
 
@@ -1800,6 +1825,7 @@ struct AccountServiceTests {
         await services.account.fetchAccounts()
 
         #expect(services.account.lastError != nil)
+        #expect(services.account.didCompleteAccountResolution == true)
 
         // Clear the error
         services.account.clearError()

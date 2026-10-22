@@ -208,7 +208,8 @@ fixes; a timestamped trace settles it in one launch.
 
 Use a throwaway file tracer in the app's **container** tmp
 (`NSTemporaryDirectory()`), `synchronize()` after each line, and read it from
-`~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/`:
+`~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/` (packaged debug builds use
+`com.sertacozercan.Kaset.debug`):
 
 ```swift
 // TEMPORARY DIAGNOSTIC — remove before commit.
@@ -305,6 +306,7 @@ the store) — only `refresh()` aborts. When a test encodes the old
 - [ ] Images use `ImageCache` with appropriate `targetSize`
 - [ ] Search input is debounced
 - [ ] ForEach uses stable identity
+- [ ] No SwiftUI `repeatForever` or looping `withAnimation` for indefinite animations; use Core Animation layers ([ADR-0040](adr/0040-core-animation-for-repeating-animations.md))
 
 ### Concurrency Safety
 
