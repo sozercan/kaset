@@ -359,12 +359,14 @@ struct NowPlayingLyricsView: View {
                 .frame(width: 18)
 
             Slider(value: self.$volumeValue, in: 0 ... 1) { editing in
-                if editing {
-                    self.isAdjustingVolume = true
-                } else {
-                    self.isAdjustingVolume = false
-                    Task { await self.playerService.setVolume(self.volumeValue) }
+                self.isAdjustingVolume = editing
+                if !editing {
+                    self.playerService.setVolumeImmediately(self.volumeValue)
                 }
+            }
+            .onChange(of: self.volumeValue) { _, newValue in
+                guard self.isAdjustingVolume else { return }
+                self.playerService.setVolumeImmediately(newValue)
             }
             .controlSize(.small)
             .tint(.white)
@@ -374,7 +376,9 @@ struct NowPlayingLyricsView: View {
 
     @ViewBuilder
     private func lyricsPane(availableSize: CGSize) -> some View {
-        if self.syncedLyricsService.isLoading || self.isLoadingFallback {
+        if self.syncedLyricsService.isLoading || self.isLoadingFallback,
+           !self.syncedLyricsService.currentLyrics.isAvailable
+        {
             ProgressView()
                 .controlSize(.regular)
                 .tint(.white)

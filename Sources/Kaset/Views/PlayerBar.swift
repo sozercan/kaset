@@ -137,12 +137,23 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    @ViewBuilder
     private func nowPlayingTapTarget(_ content: some View) -> some View {
-        content
-            .contentShape(Rectangle())
-            .onTapGesture {
+        if #available(macOS 26.0, *) {
+            Button {
                 self.presentNowPlayingLyrics()
+            } label: {
+                content
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Lyrics"))
+            .accessibilityValue(Text(verbatim: self.playerService.currentTrack?.title ?? ""))
+            .disabled(self.playerService.currentTrack == nil)
+        } else {
+            content
+        }
     }
 
     private func presentNowPlayingLyrics() {
