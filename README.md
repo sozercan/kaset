@@ -29,7 +29,7 @@
 
 - 🎚️ **Equalizer** — System-wide 6-band parametric EQ with Spotify-style presets, applied to WebKit playback output
 - 📜 **Lyrics** — View plain and synced lyrics with line-by-line highlighting when timing data is available, plus AI-powered explanations and mood analysis on macOS 26+
-- 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue
+- 📃 **Queue Management** — View, reorder, shuffle, and clear your playback queue; show the queue and lyrics as a floating panel or docked as a side drawer next to your content
 - 🔀 **Smart Shuffle** — Beyond plain shuffle: blends suggested tracks into the queue based on what you're playing, with cadence and how many are queued ahead configurable in Settings
 - 🔊 **Background Audio** — Music continues playing when the window is closed; stops on quit
 - 🎶 **Track Notifications** — Get notified when a new track starts playing

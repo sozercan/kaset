@@ -129,6 +129,7 @@
 "Dislike comment" = "Не нравится комментарий";
 "Disliked" = "Не понравилось";
 "Dismiss" = "Закрыть";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Закреплять панели текста и очереди справа, чтобы они сдвигали содержимое, как боковая панель, а не отображались поверх него";
 "Done" = "Готово";
 "Double-tap to retry" = "Дважды нажмите, чтобы повторить";
 "Double-tap to retry loading accounts" = "Дважды нажмите, чтобы повторить загрузку аккаунтов";
@@ -330,6 +331,7 @@
 "One" = "Один";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Поддерживаются только расширения, совместимые с WebKit (с корректным **manifest.json**).";
 "Open Command Bar (⌘K)" = "Открыть панель команд (⌘K)";
+"Open lyrics & queue as a side drawer" = "Открывать текст и очередь в закреплённой панели справа";
 "Open queue in side panel" = "Открыть очередь в боковой панели";
 "Open Settings" = "Открыть настройки";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Откройте Системные настройки → Конфиденциальность и безопасность → Запись экрана и системного аудио и включите Kaset, затем снова включите эквалайзер.";
