@@ -207,7 +207,7 @@ struct SyncedLineView: View {
         case .upcoming:
             .secondary
         case .previous:
-            Color.white.opacity(0.42)
+            Color.primary.opacity(0.42)
         }
     }
 
@@ -218,7 +218,7 @@ struct SyncedLineView: View {
         case .upcoming:
             .secondary
         case .previous:
-            Color.white.opacity(0.28)
+            Color.primary.opacity(0.28)
         }
     }
 
