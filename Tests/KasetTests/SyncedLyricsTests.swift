@@ -227,7 +227,9 @@ struct SyncedLyricsServiceTests {
         let gate = SearchGate()
         let oldLyrics = Self.makeSyncedLyrics(source: "Old Source", lineText: "Old line")
         let provider = MockLyricsProvider(name: "Provider") { info in
-            if info.videoId == "old" { return .synced(oldLyrics) }
+            if info.videoId == "old" {
+                return .synced(oldLyrics)
+            }
             await gate.markStarted()
             await gate.waitUntilReleased()
             return .unavailable
