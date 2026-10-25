@@ -7,6 +7,7 @@ import SwiftUI
 /// (mirrors PlayerBarIconButton's treatment).
 private struct MiniPlayerTransportButtonStyle: ButtonStyle {
     @State private var isHovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -14,10 +15,10 @@ private struct MiniPlayerTransportButtonStyle: ButtonStyle {
                 Circle()
                     .fill(.white.opacity(self.isHovering ? 0.14 : 0))
             }
-            .scaleEffect(configuration.isPressed ? 0.90 : 1)
+            .scaleEffect(configuration.isPressed && !self.reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.80 : 1)
-            .animation(AppAnimation.quick, value: configuration.isPressed)
-            .animation(AppAnimation.quick, value: self.isHovering)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: configuration.isPressed)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: self.isHovering)
             .onHover { hovering in
                 self.isHovering = hovering
             }
@@ -100,7 +101,7 @@ struct MiniPlayerWindow: View {
     private enum Layout {
         static let chromeTopInset: CGFloat = 12
         static let trafficLightSize: CGFloat = 13
-        static let contentChromeGap: CGFloat = 20
+        static let contentChromeGap: CGFloat = 16
         static let headerTopInset = Self.chromeTopInset + Self.trafficLightSize + Self.contentChromeGap
     }
 
@@ -109,6 +110,7 @@ struct MiniPlayerWindow: View {
         case queue
     }
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
 
@@ -128,7 +130,7 @@ struct MiniPlayerWindow: View {
             self.surface.overlay { WindowDragHandle() }
 
             self.panelBody
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             self.hoverChrome
         }
@@ -205,8 +207,7 @@ struct MiniPlayerWindow: View {
             }
     }
 
-    @ViewBuilder
-    private var panelBody: some View {
+    @ViewBuilder private var panelBody: some View {
         switch self.playerService.miniPlayerPanel {
         case .compact:
             self.compactBody
@@ -223,16 +224,16 @@ struct MiniPlayerWindow: View {
             Spacer()
             self.hoverCommandPill
                 .opacity(self.showsCommandPill ? 1 : 0)
-                .blur(radius: self.showsCommandPill ? 0 : 5)
-                .scaleEffect(self.showsCommandPill ? 1 : 0.96, anchor: .topTrailing)
-                .animation(AppAnimation.snappy, value: self.showsCommandPill)
+                .allowsHitTesting(self.showsCommandPill)
+                .accessibilityHidden(!self.showsCommandPill)
+                .animation(self.reduceMotion ? nil : AppAnimation.quick, value: self.showsCommandPill)
         }
         .padding(.top, Self.Layout.chromeTopInset)
         .padding(.horizontal, 16)
     }
 
     private var compactBody: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 12) {
             HStack(spacing: 10) {
                 self.artwork(size: 42, cornerRadius: 6)
                     .overlay { WindowDragHandle() }
@@ -252,8 +253,9 @@ struct MiniPlayerWindow: View {
                 }
             }
 
-            MiniPlayerSeekSection(state: self.seekState)
-            self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
+            MiniPlayerSeekSection(state: self.seekState) {
+                self.transportControls(playSize: 22, sideSize: 13)
+            }
         }
         .padding(.top, Self.Layout.headerTopInset)
         .padding(.horizontal, 16)
@@ -286,20 +288,21 @@ struct MiniPlayerWindow: View {
                     }
                 }
 
-                MiniPlayerSeekSection(state: self.seekState)
-                self.transportControls(playSize: 27, sideSize: 17, spacing: 30)
+                MiniPlayerSeekSection(state: self.seekState) {
+                    self.transportControls(playSize: 22, sideSize: 13)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 16)
             .shadow(color: .black.opacity(0.82), radius: 3, y: 1)
             .opacity(self.isHovering ? 1 : 0)
-            .animation(AppAnimation.quick, value: self.isHovering)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: self.isHovering)
         }
     }
 
     private var lyricsBody: some View {
         VStack(spacing: 0) {
-            VStack(spacing: 7) {
+            VStack(spacing: 12) {
                 HStack(spacing: 10) {
                     self.artwork(size: 42, cornerRadius: 6)
                         .overlay { WindowDragHandle() }
@@ -319,8 +322,9 @@ struct MiniPlayerWindow: View {
                     }
                 }
 
-                MiniPlayerSeekSection(state: self.seekState)
-                self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
+                MiniPlayerSeekSection(state: self.seekState) {
+                    self.transportControls(playSize: 22, sideSize: 13)
+                }
             }
             .padding(.top, Self.Layout.headerTopInset)
             .padding(.horizontal, 16)
@@ -440,9 +444,9 @@ struct MiniPlayerWindow: View {
     private func hoverOnly(@ViewBuilder content: () -> some View) -> some View {
         content()
             .opacity(self.isHovering ? 1 : 0)
-            .blur(radius: self.isHovering ? 0 : 4)
-            .scaleEffect(self.isHovering ? 1 : 0.97)
-            .animation(AppAnimation.snappy, value: self.isHovering)
+            .allowsHitTesting(self.isHovering)
+            .accessibilityHidden(!self.isHovering)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: self.isHovering)
     }
 
     private func trafficButton(color: Color, accessibilityLabel: String, accessibilityID: String, action: @escaping () -> Void) -> some View {
@@ -496,8 +500,7 @@ struct MiniPlayerWindow: View {
         }
     }
 
-    @ViewBuilder
-    private var trackActionButtons: some View {
+    @ViewBuilder private var trackActionButtons: some View {
         if self.hasPersonalAccount {
             HStack(spacing: 5) {
                 self.likeButton
@@ -667,8 +670,8 @@ struct MiniPlayerWindow: View {
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.trackArtist)
     }
 
-    private func transportControls(playSize: CGFloat, sideSize: CGFloat, spacing: CGFloat) -> some View {
-        HStack(spacing: spacing) {
+    private func transportControls(playSize: CGFloat, sideSize: CGFloat) -> some View {
+        HStack(spacing: 0) {
             self.transportButton(
                 systemName: "shuffle",
                 size: sideSize,
@@ -732,10 +735,11 @@ struct MiniPlayerWindow: View {
             Image(systemName: systemName)
                 .font(.system(size: size, weight: .bold))
                 .foregroundStyle(active ? PackageResourceLookup.brandAccent : .white.opacity(0.90))
-                .frame(width: max(21, size + 7), height: max(21, size + 7))
+                .frame(width: 36, height: 36)
                 .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
         }
         .buttonStyle(MiniPlayerTransportButtonStyle())
+        .frame(maxWidth: .infinity)
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)
     }

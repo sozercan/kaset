@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
+
+// Now-playing panel
+"Recommendations" = "Öneriler";
+"Hide Panel" = "Paneli Gizle";
+"Hide Video" = "Videoyu Gizle";
+"Couldn't load recommendations." = "Öneriler yüklenemedi.";

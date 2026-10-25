@@ -55,7 +55,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                         .frame(height: 52)
 
                     self.playbackOptionsSection
-                        .frame(width: 142, height: 52)
                 }
             }
             .frame(maxWidth: .infinity)
@@ -133,8 +132,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    @ViewBuilder
-    private var thumbnailView: some View {
+    @ViewBuilder private var thumbnailView: some View {
         if let track = self.playerService.currentTrack {
             if self.canOpenCurrentAlbum {
                 Button {
@@ -323,8 +321,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         )
     }
 
-    @ViewBuilder
-    private var songActionButtons: some View {
+    @ViewBuilder private var songActionButtons: some View {
         if self.hasPersonalAccount {
             HStack(spacing: 6) {
                 PlayerBarIconButton(
@@ -573,58 +570,30 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
 
-    private var canShowCurrentTrackVideo: Bool {
-        guard let track = self.playerService.currentTrack else { return false }
-        if UITestConfig.isUITestMode,
-           UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) == "true"
-        {
-            return true
-        }
-        return self.playerService.currentTrackHasVideo
-            || track.musicVideoType?.hasVideoContent == true
-            || track.hasVideo == true
-    }
-
     private var currentSeekIdentity: String {
         self.playerService.currentTrack?.videoId ?? "none"
     }
 
     // MARK: - Playback Options
 
-    private var playbackOptionsSection: some View {
-        HStack(spacing: 6) {
-            self.lyricsButton
-            self.queueButton
-            self.pictureButton
-            self.miniPlayerButton
+    /// Playback-options buttons (lyrics, queue, mini player). They move
+    /// into the Up Next panel while the now-playing showcase is open.
+    @ViewBuilder private var playbackOptionsSection: some View {
+        if !self.playerService.showNowPlayingShowcase {
+            HStack(spacing: 6) {
+                self.lyricsButton
+                self.queueButton
+                self.miniPlayerButton
+            }
+            .padding(.trailing, 14)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
+            .frame(width: 108, height: 52)
         }
-        .padding(.trailing, 14)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }
 
     private var lyricsButton: some View {
-        @Bindable var player = self.playerService
-
-        return PlayerBarIconButton(
-            action: {
-                HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
-                    player.showLyrics.toggle()
-                }
-            },
-            isSelected: self.playerService.showLyrics,
-            accessibilityID: AccessibilityID.PlayerBar.lyricsButton,
-            accessibilityLabel: String(localized: "Lyrics"),
-            accessibilityValue: self.playerService.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"),
-            icon: {
-                Image(systemName: self.playerService.showLyrics ? "quote.bubble.fill" : "quote.bubble")
-                    .font(.system(size: 16, weight: .regular))
-                    .frame(width: 10, height: 16)
-                    .foregroundStyle(self.playerService.showLyrics ? Self.brandAccent : .primary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-        )
-        .compatGlassID("lyrics", in: self.playerNamespace)
+        LyricsToggleButton(player: self.playerService)
+            .compatGlassID("lyrics", in: self.playerNamespace)
     }
 
     private var queueButton: some View {
@@ -651,64 +620,9 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .compatGlassID("queue", in: self.playerNamespace)
     }
 
-    private var pictureButton: some View {
-        PlayerBarIconButton(
-            action: {
-                self.toggleVideo()
-            },
-            isSelected: self.playerService.showVideo,
-            accessibilityID: AccessibilityID.PlayerBar.videoButton,
-            accessibilityLabel: String(localized: "Video"),
-            accessibilityValue: self.playerService.showVideo ? String(localized: "Playing") : String(localized: "Off"),
-            icon: {
-                Image(systemName: self.pictureButtonIcon)
-                    .font(.system(size: 15, weight: .regular))
-                    .frame(width: 13, height: 14)
-                    .foregroundStyle(self.playerService.showVideo ? Self.brandAccent : .primary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-        )
-        .compatGlassID("picture", in: self.playerNamespace)
-        .keyboardShortcut("v", modifiers: [.command, .shift])
-        .disabled(!self.canShowCurrentTrackVideo)
-    }
-
     private var miniPlayerButton: some View {
-        @Bindable var player = self.playerService
-
-        return PlayerBarIconButton(
-            action: {
-                HapticService.toggle()
-                _ = player.toggleMiniPlayer(mode: .switchFromMainWindow)
-            },
-            isSelected: self.playerService.isMiniPlayerVisible,
-            accessibilityID: AccessibilityID.PlayerBar.miniPlayerButton,
-            accessibilityLabel: self.playerService.isMiniPlayerVisible ? String(localized: "Return to Kaset") : String(localized: "Switch to Mini Player"),
-            accessibilityValue: self.playerService.isMiniPlayerVisible ? String(localized: "Showing") : String(localized: "Hidden"),
-            icon: {
-                Image(systemName: self.playerService.isMiniPlayerVisible ? "macwindow" : "rectangle.inset.bottomright.filled")
-                    .font(.system(size: 15, weight: .regular))
-                    .frame(width: 15, height: 15)
-                    .foregroundStyle(self.playerService.isMiniPlayerVisible ? Self.brandAccent : .primary)
-                    .contentTransition(.symbolEffect(.replace))
-            }
-        )
-        .compatGlassID("miniPlayer", in: self.playerNamespace)
-    }
-
-    private var pictureButtonIcon: String {
-        self.playerService.showVideo ? "pip.exit" : "pip.enter"
-    }
-
-    private func toggleVideo() {
-        guard self.canShowCurrentTrackVideo else { return }
-        HapticService.toggle()
-        DiagnosticsLogger.player.debug(
-            "Video button clicked, toggling showVideo from \(self.playerService.showVideo)"
-        )
-        withAnimation(AppAnimation.standard) {
-            self.playerService.showVideo.toggle()
-        }
+        MiniPlayerToggleButton(player: self.playerService)
+            .compatGlassID("miniPlayer", in: self.playerNamespace)
     }
 
     // MARK: - Current Song Context Menu
@@ -825,8 +739,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private func openCurrentArtist() {
-        guard self.canOpenCurrentArtist else { return }
-        guard !self.isResolvingArtist else { return }
+        guard self.canOpenCurrentArtist, !self.isResolvingArtist else { return }
         HapticService.toggle()
 
         if let artist = self.currentArtistTarget {
@@ -834,8 +747,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             return
         }
 
-        guard let query = self.currentArtistSearchName else { return }
-        guard let client = self.playerService.ytMusicClient else { return }
+        guard let query = self.currentArtistSearchName, let client = self.playerService.ytMusicClient else { return }
         let identity = self.currentTitleIdentity
 
         self.isResolvingArtist = true
@@ -852,8 +764,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private func openCurrentAlbum() {
-        guard self.canOpenCurrentAlbum else { return }
-        guard !self.isResolvingAlbum else { return }
+        guard self.canOpenCurrentAlbum, !self.isResolvingAlbum else { return }
         HapticService.toggle()
 
         if let album = self.currentAlbumTarget {

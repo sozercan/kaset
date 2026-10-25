@@ -631,3 +631,9 @@
 "No songs found for “%@”." = "「%@」に一致する曲が見つかりませんでした。";
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
+
+// Now-playing panel
+"Recommendations" = "おすすめ";
+"Hide Panel" = "パネルを非表示";
+"Hide Video" = "動画を非表示";
+"Couldn't load recommendations." = "おすすめを読み込めませんでした。";

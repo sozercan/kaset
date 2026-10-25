@@ -52,3 +52,9 @@
 // App Intents (Shortcuts, Siri, Spotlight)
 "Playing %@ by %@." = "Playing %1$@ by %2$@.";
 "Now playing %@ by %@." = "Now playing %1$@ by %2$@.";
+
+// Now-playing panel
+"Recommendations" = "Recommendations";
+"Hide Panel" = "Hide Panel";
+"Hide Video" = "Hide Video";
+"Couldn't load recommendations." = "Couldn't load recommendations.";

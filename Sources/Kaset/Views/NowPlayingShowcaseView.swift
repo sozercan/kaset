@@ -3,113 +3,82 @@ import SwiftUI
 
 // MARK: - NowPlayingShowcaseView
 
-/// Full-window now-playing showcase overlay, modeled on the YouTube Music watch
-/// page and Apple Music's expanded player: ambient glow derived from the
-/// artwork, large rounded artwork with a soft shadow, big track title/artist,
-/// and the "Up Next" queue in a resizable, collapsible trailing column.
-///
-/// Hosted by `MainWindow` over the whole window with the player bar layered
-/// ABOVE it, so the glass bar and the ambient backdrop read as one continuous
-/// surface (no seam) and every bar control stays live while the showcase is
-/// open. The bar is the single transport — play/pause, seek, shuffle/repeat,
-/// volume, like/dislike, lyrics/queue/video toggles; this view deliberately
-/// adds no duplicate transport controls. Tapping the exposed backdrop, the
-/// chevron, the bar's track title, or Esc dismisses it.
+/// Expanded artwork and a persistent detail panel, sharing the main player's transport.
 struct NowPlayingShowcaseView: View {
-    /// Queue column resize bounds, following the lyrics panel's limits.
-    private static let queuePanelMinWidth: CGFloat = 300
-    private static let queuePanelMaxWidth: CGFloat = 560
-    private static let defaultQueuePanelWidth: CGFloat = 340
-
     @Environment(PlayerService.self) private var playerService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var settings = SettingsManager.shared
+    @State private var preferredPanelWidth = SettingsManager.shared.nowPlayingQueueWidth.map { CGFloat($0) } ?? 340
+    @State private var dragStartWidth: CGFloat?
+    @State private var isHoveringResize = false
 
-    @State private var isQueueCollapsed = false
-    @State private var queuePanelWidth = SettingsManager.shared.nowPlayingQueueWidth.map {
-        min(max(CGFloat($0), NowPlayingShowcaseView.queuePanelMinWidth), NowPlayingShowcaseView.queuePanelMaxWidth)
-    } ?? NowPlayingShowcaseView.defaultQueuePanelWidth
-    @State private var queueDragStartWidth: CGFloat?
-    @State private var isHoveringQueueResize = false
+    let client: any YTMusicClientProtocol
 
     var body: some View {
         GeometryReader { proxy in
-            let artworkSize = self.artworkSize(for: proxy.size)
+            let panelWidth = NowPlayingShowcaseLayout.panelWidth(in: proxy.size.width, preferred: self.preferredPanelWidth)
+            let artworkSize = NowPlayingShowcaseLayout.artworkSize(in: proxy.size, panelWidth: self.playerService.nowPlayingPanel == nil ? nil : panelWidth)
 
             ZStack {
                 if let track = self.playerService.currentTrack {
                     self.ambientBackdrop(for: track)
                 }
 
-                // Dismisses on tap. The player bar that MainWindow layers above
-                // this surface is hit first, so none of its controls are blocked.
                 Rectangle()
                     .fill(.clear)
                     .contentShape(Rectangle())
                     .onTapGesture(perform: self.close)
 
-                HStack(alignment: .center, spacing: 32) {
-                    self.mainColumn(artworkSize: artworkSize)
-                        .frame(maxWidth: .infinity)
-
-                    if !self.isQueueCollapsed {
-                        self.queuePanel
-                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                VStack(spacing: 12) {
+                    HStack {
+                        self.closeButton
+                        Spacer()
+                        self.panelControls
+                            .frame(width: panelWidth, alignment: .trailing)
                     }
+                    .frame(height: 36)
+
+                    HStack(spacing: 24) {
+                        self.mainColumn(artworkSize: artworkSize)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        if let panel = self.playerService.nowPlayingPanel {
+                            self.detailPanel(panel, width: panelWidth)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .padding(.leading, 56)
-                .padding(.trailing, 20)
-                // Clears the player bar layered above the showcase's bottom edge.
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
                 .padding(.bottom, 76)
             }
         }
-        .background {
-            ShowcaseEscapeKeyMonitor(onEscape: self.close)
-        }
+        .background { ShowcaseEscapeKeyMonitor(onEscape: self.close) }
     }
 
     // MARK: - Layout
 
+    @ViewBuilder
     private func mainColumn(artworkSize: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            HStack {
-                self.closeButton
-                Spacer()
+        if let track = self.playerService.currentTrack {
+            VStack(spacing: 20) {
+                ShowcaseArtworkView(song: track, size: artworkSize, cornerRadius: 16)
+                    .shadow(color: .black.opacity(0.25), radius: 24, y: 12)
 
-                // Collapse/expand the Up Next column; the artwork column takes the width.
-                self.queueToggleButton
+                VStack(spacing: 6) {
+                    Text(track.title)
+                        .font(.title.weight(.bold))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
+                    Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
+                        .font(.title3)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
-            .padding(.top, 16)
-
-            Spacer()
-
-            if let track = self.playerService.currentTrack {
-                self.trackSection(track, artworkSize: artworkSize)
-            } else {
-                Text("Not Playing")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundStyle(.secondary)
-            }
-
-            Spacer()
-        }
-    }
-
-    private func trackSection(_ track: Song, artworkSize: CGFloat) -> some View {
-        VStack(spacing: 28) {
-            ShowcaseArtworkView(song: track, size: artworkSize, cornerRadius: 16)
-                .shadow(color: .black.opacity(0.35), radius: 32, y: 16)
-
-            VStack(spacing: 6) {
-                Text(track.title)
-                    .font(.system(size: 26, weight: .bold))
-                    .lineLimit(2)
-                    .multilineTextAlignment(.center)
-
-                Text(track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay)
-                    .font(.system(size: 18))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
+        } else {
+            Text("Not Playing")
+                .font(.title3)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -124,97 +93,172 @@ struct NowPlayingShowcaseView: View {
         .ignoresSafeArea()
     }
 
-    /// Caps the artwork so the title fits and the column clears the player bar
-    /// layered above the showcase's bottom edge.
-    private func artworkSize(for size: CGSize) -> CGFloat {
-        let queueAllowance: CGFloat = self.isQueueCollapsed ? 0 : self.queuePanelWidth + 32
-        let heightBudget = size.height - 250 // close row, 2-line title/artist, bar clearance
-        let widthBudget = size.width - 76 - queueAllowance // leading/trailing padding + queue column
-        return max(160, min(400, heightBudget, widthBudget))
+    // MARK: - Panel
+
+    private var panelControls: some View {
+        HStack(spacing: 4) {
+            ForEach(PlayerService.NowPlayingPanel.allCases, id: \.self) { panel in
+                self.tabButton(panel)
+            }
+            Divider().frame(height: 18).padding(.horizontal, 6)
+            MiniPlayerToggleButton(player: self.playerService, size: 36)
+            self.collapseButton
+        }
     }
 
-    // MARK: - Queue Panel
-
-    private var queuePanel: some View {
-        QueueView(width: self.queuePanelWidth)
-            .overlay(alignment: .leading) { self.queueResizeHandle }
+    private func tabButton(_ panel: PlayerService.NowPlayingPanel) -> some View {
+        let isSelected = self.playerService.nowPlayingPanel == panel
+        return Button {
+            HapticService.toggle()
+            // Animate only content changes; opening a collapsed panel must not tween the artwork's size.
+            withAnimation(self.playerService.nowPlayingPanel == nil || self.reduceMotion ? nil : .easeOut(duration: 0.18)) {
+                self.playerService.nowPlayingPanel = panel
+            }
+        } label: {
+            Image(systemName: panel.symbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(isSelected ? PackageResourceLookup.brandAccent : .primary)
+                .frame(width: 36, height: 36)
+                .background(isSelected ? Color.primary.opacity(0.10) : .clear, in: .rect(cornerRadius: 10))
+                .overlay(alignment: .bottom) {
+                    if isSelected {
+                        Capsule().fill(PackageResourceLookup.brandAccent).frame(width: 12, height: 2).padding(.bottom, 3)
+                    }
+                }
+                .contentShape(.rect(cornerRadius: 10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(panel.title) // [VERIFY] confirm tab names in VoiceOver.
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityIdentifier(panel.accessibilityID)
+        .help(panel.title)
     }
 
-    /// Leading-edge drag handle, same interaction as the lyrics panel's. The
-    /// hit area covers the full 32pt column gap so the cursor and grip
-    /// indicator appear right at the gap's edge; the visual grip stays on the
-    /// 10pt strip inside the panel.
-    private var queueResizeHandle: some View {
+    private func detailPanel(_ panel: PlayerService.NowPlayingPanel, width: CGFloat) -> some View {
+        let content = ZStack {
+            switch panel {
+            case .queue:
+                QueueView(width: width, isEmbedded: true)
+            case .lyrics:
+                if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    LyricsView(client: self.client, preferredWidth: nil, isEmbedded: true)
+                } else {
+                    SimpleLyricsView(client: self.client, preferredWidth: nil, isEmbedded: true)
+                }
+            case .recommendations:
+                ShowcaseRecommendationsView(client: self.client)
+            }
+        }
+        .id(panel)
+        .transition(.opacity)
+        .frame(width: width)
+        .frame(maxHeight: .infinity)
+
+        return Group {
+            if panel == .queue {
+                // NSTableView drag-and-drop needs a material surface outside Liquid Glass.
+                content.background(.regularMaterial)
+            } else {
+                content.compatGlass(in: .rect(cornerRadius: 20))
+            }
+        }
+        .clipShape(.rect(cornerRadius: 20))
+        .contentShape(.rect(cornerRadius: 20))
+        .overlay(alignment: .leading) { self.resizeHandle(width: width) }
+    }
+
+    private func resizeHandle(width: CGFloat) -> some View {
         Color.clear
-            .frame(width: 32)
-            .padding(.leading, -22)
+            .frame(width: 16)
             .contentShape(Rectangle())
-            .overlay(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.secondary.opacity(self.isHoveringQueueResize ? 0.6 : 0))
-                    .frame(width: 3, height: 40)
-                    .padding(.leading, 25)
+            .overlay {
+                Capsule()
+                    .fill(Color.secondary.opacity(self.isHoveringResize ? 0.6 : 0))
+                    .frame(width: 3, height: 36)
             }
-            .onHover { hovering in
-                self.isHoveringQueueResize = hovering
-            }
+            .offset(x: -12)
+            .onHover { self.isHoveringResize = $0 }
             .gesture(
                 DragGesture(minimumDistance: 1)
                     .onChanged { value in
-                        if self.queueDragStartWidth == nil {
-                            self.queueDragStartWidth = self.queuePanelWidth
+                        if self.dragStartWidth == nil {
+                            self.dragStartWidth = width
                         }
-                        let start = self.queueDragStartWidth ?? self.queuePanelWidth
-                        // The handle sits on the column's leading edge, so
-                        // dragging left widens it.
-                        self.queuePanelWidth = min(
-                            max(start - value.translation.width, Self.queuePanelMinWidth),
-                            Self.queuePanelMaxWidth
-                        )
+                        self.preferredPanelWidth = min(max((self.dragStartWidth ?? width) - value.translation.width, 300), 560)
                     }
                     .onEnded { _ in
-                        if let start = self.queueDragStartWidth, self.queuePanelWidth != start {
-                            self.settings.nowPlayingQueueWidth = Double(self.queuePanelWidth)
-                        }
-                        self.queueDragStartWidth = nil
+                        self.settings.nowPlayingQueueWidth = Double(self.preferredPanelWidth)
+                        self.dragStartWidth = nil
                     }
             )
     }
 
-    private var queueToggleButton: some View {
+    private var collapseButton: some View {
         PlayerBarIconButton(
             action: {
-                withAnimation(AppAnimation.standard) {
-                    self.isQueueCollapsed.toggle()
-                }
+                self.playerService.nowPlayingPanel = self.playerService.nowPlayingPanel == nil ? .queue : nil
             },
-            accessibilityLabel: self.isQueueCollapsed ? String(localized: "Show Queue") : String(localized: "Hide Queue"),
+            size: 36,
+            accessibilityLabel: self.playerService.nowPlayingPanel == nil ? String(localized: "Show Queue") : String(localized: "Hide Panel"),
             icon: {
-                Image(systemName: self.isQueueCollapsed ? "chevron.left" : "chevron.right")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.primary)
+                Image(systemName: self.playerService.nowPlayingPanel == nil ? "sidebar.right" : "chevron.right")
+                    .font(.system(size: 13, weight: .medium))
             }
         )
     }
-
-    // MARK: - Dismissal
 
     private var closeButton: some View {
         PlayerBarIconButton(
             action: self.close,
+            size: 36,
             accessibilityLabel: String(localized: "Close"),
-            icon: {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-            }
+            icon: { Image(systemName: "chevron.down").font(.system(size: 15, weight: .semibold)) }
         )
     }
 
     private func close() {
-        withAnimation(AppAnimation.standard) {
+        withAnimation(self.reduceMotion ? nil : .easeOut(duration: 0.18)) {
             self.playerService.showNowPlayingShowcase = false
         }
+    }
+}
+
+extension PlayerService.NowPlayingPanel {
+    var title: String {
+        switch self {
+        case .lyrics: String(localized: "Lyrics")
+        case .queue: String(localized: "Up Next")
+        case .recommendations: String(localized: "Recommendations")
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .lyrics: "quote.bubble"
+        case .queue: "list.bullet"
+        case .recommendations: "sparkles"
+        }
+    }
+
+    var accessibilityID: String {
+        switch self {
+        case .lyrics: AccessibilityID.PlayerBar.lyricsButton
+        case .queue: AccessibilityID.PlayerBar.queueButton
+        case .recommendations: "nowPlaying.recommendations"
+        }
+    }
+}
+
+// MARK: - NowPlayingShowcaseLayout
+
+enum NowPlayingShowcaseLayout {
+    static func panelWidth(in windowWidth: CGFloat, preferred: CGFloat) -> CGFloat {
+        min(max(preferred, 300), 560, max(300, windowWidth * 0.46))
+    }
+
+    static func artworkSize(in size: CGSize, panelWidth: CGFloat?) -> CGFloat {
+        let panelAllowance = panelWidth.map { $0 + 24 } ?? 0
+        return max(120, min(400, size.height - 264, size.width - 48 - panelAllowance))
     }
 }
 

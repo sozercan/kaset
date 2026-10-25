@@ -11,6 +11,7 @@ struct LyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    var isEmbedded = false
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -49,93 +50,101 @@ struct LyricsView: View {
     @Namespace private var lyricsNamespace
 
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                if self.showsHeader {
-                    self.headerView
+        self.panelSurface
+            // `@Sendable` keeps the action nonisolated: TranslationSession is not
+            // Sendable, so its calls may not cross into the main actor.
+            // This is the on-device fallback path; the online path lives in
+            // runOnlineTranslation below.
+            .translationTask(self.translationConfiguration) { @Sendable session in
+                // The session is not Sendable: snapshot pending work on the main
+                // actor, then run every session call inside this nonisolated
+                // closure, and write results back with Sendable payloads only.
+                guard let job = await self.translationJob() else { return }
 
-                    Divider()
-                        .opacity(0.3)
-                }
-
-                // Content
-                self.contentView
-            }
-            .frame(width: self.displayWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
-            .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
-            .overlay(alignment: .leading) { self.panelResizeHandle }
-        }
-        .compatGlassTransition(.materialize)
-        // `@Sendable` keeps the action nonisolated: TranslationSession is not
-        // Sendable, so its calls may not cross into the main actor.
-        // This is the on-device fallback path; the online path lives in
-        // runOnlineTranslation below.
-        .translationTask(self.translationConfiguration) { @Sendable session in
-            // The session is not Sendable: snapshot pending work on the main
-            // actor, then run every session call inside this nonisolated
-            // closure, and write results back with Sendable payloads only.
-            guard let job = await self.translationJob() else { return }
-
-            switch job {
-            case let .lines(videoId, lines):
-                let requests = lines.map {
-                    TranslationSession.Request(sourceText: $0.text, clientIdentifier: $0.id.uuidString)
-                }
-                do {
-                    let responses = try await session.translations(from: requests)
-                    await self.applyLineTranslations(responses, for: videoId)
-                } catch {
-                    // Unsupported language pair or throttling: leave lines untranslated.
-                }
-            case let .plain(videoId, text):
-                do {
-                    let response = try await session.translate(text)
-                    await self.applyPlainTranslation(response.targetText, for: videoId)
-                } catch {
-                    // Unsupported language pair or throttling: leave untranslated.
+                switch job {
+                case let .lines(videoId, lines):
+                    let requests = lines.map {
+                        TranslationSession.Request(sourceText: $0.text, clientIdentifier: $0.id.uuidString)
+                    }
+                    do {
+                        let responses = try await session.translations(from: requests)
+                        await self.applyLineTranslations(responses, for: videoId)
+                    } catch {
+                        // Unsupported language pair or throttling: leave lines untranslated.
+                    }
+                case let .plain(videoId, text):
+                    do {
+                        let response = try await session.translate(text)
+                        await self.applyPlainTranslation(response.targetText, for: videoId)
+                    } catch {
+                        // Unsupported language pair or throttling: leave untranslated.
+                    }
                 }
             }
-        }
-        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
-            if let videoId = newVideoId, videoId != lastLoadedVideoId {
-                // Reset explanation when track changes
-                self.lyricsSummary = nil
-                self.partialSummary = nil
-                self.showExplanation = false
-                self.explanationError = nil
-                self.lineTranslations = [:]
-                self.plainTranslation = nil
-                Task {
+            .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+                if let videoId = newVideoId, videoId != lastLoadedVideoId {
+                    // Reset explanation when track changes
+                    self.lyricsSummary = nil
+                    self.partialSummary = nil
+                    self.showExplanation = false
+                    self.explanationError = nil
+                    self.lineTranslations = [:]
+                    self.plainTranslation = nil
+                    Task {
+                        await self.loadLyrics(for: videoId)
+                    }
+                }
+            }
+            .task {
+                if let videoId = playerService.currentTrack?.videoId {
                     await self.loadLyrics(for: videoId)
                 }
             }
-        }
-        .task {
-            if let videoId = playerService.currentTrack?.videoId {
-                await self.loadLyrics(for: videoId)
+            .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
+                self.updateLyricsPolling(for: newLyrics)
+                self.restartTranslation()
             }
+            .onChange(of: self.settings.lyricsTranslationEnabled) { _, _ in
+                self.restartTranslation()
+            }
+            .onChange(of: self.settings.lyricsTranslationTargetLanguage) { _, _ in
+                self.lineTranslations = [:]
+                self.plainTranslation = nil
+                self.restartTranslation()
+            }
+            .onDisappear {
+                self.onlineTranslationTask?.cancel()
+                SingletonPlayerWebView.shared.stopLyricsPoll()
+            }
+            .onAppear {
+                self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+                self.restartTranslation()
+            }
+    }
+
+    @ViewBuilder private var panelSurface: some View {
+        if self.isEmbedded {
+            self.panelContent
+        } else {
+            CompatGlassContainer(spacing: 0) {
+                self.panelContent
+                    .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+                    .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
+                    .overlay(alignment: .leading) { self.panelResizeHandle }
+            }
+            .compatGlassTransition(.materialize)
         }
-        .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
-            self.updateLyricsPolling(for: newLyrics)
-            self.restartTranslation()
+    }
+
+    private var panelContent: some View {
+        VStack(spacing: 0) {
+            if self.showsHeader {
+                self.headerView
+                Divider().opacity(0.3)
+            }
+            self.contentView
         }
-        .onChange(of: self.settings.lyricsTranslationEnabled) { _, _ in
-            self.restartTranslation()
-        }
-        .onChange(of: self.settings.lyricsTranslationTargetLanguage) { _, _ in
-            self.lineTranslations = [:]
-            self.plainTranslation = nil
-            self.restartTranslation()
-        }
-        .onDisappear {
-            self.onlineTranslationTask?.cancel()
-            SingletonPlayerWebView.shared.stopLyricsPoll()
-        }
-        .onAppear {
-            self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
-            self.restartTranslation()
-        }
+        .frame(width: self.displayWidth)
     }
 
     // MARK: - Panel resizing

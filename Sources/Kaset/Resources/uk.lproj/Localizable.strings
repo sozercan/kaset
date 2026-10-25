@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "Не знайдено пісень за запитом «%@».";
 "Couldn't play “%@”." = "Не вдалося відтворити «%@».";
 "Couldn't rate “%@”." = "Не вдалося оцінити «%@».";
+
+// Now-playing panel
+"Recommendations" = "Рекомендації";
+"Hide Panel" = "Приховати панель";
+"Hide Video" = "Приховати відео";
+"Couldn't load recommendations." = "Не вдалося завантажити рекомендації.";

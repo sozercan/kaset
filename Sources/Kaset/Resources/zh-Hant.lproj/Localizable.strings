@@ -634,3 +634,9 @@
 "No songs found for “%@”." = "找不到符合「%@」的歌曲。";
 "Couldn't play “%@”." = "無法播放「%@」。";
 "Couldn't rate “%@”." = "無法評價「%@」。";
+
+// Now-playing panel
+"Recommendations" = "推薦";
+"Hide Panel" = "隱藏面板";
+"Hide Video" = "隱藏影片";
+"Couldn't load recommendations." = "無法載入推薦。";

@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "Nessun brano trovato per “%@”.";
 "Couldn't play “%@”." = "Impossibile riprodurre “%@”.";
 "Couldn't rate “%@”." = "Impossibile valutare “%@”.";
+
+// Now-playing panel
+"Recommendations" = "Consigli";
+"Hide Panel" = "Nascondi pannello";
+"Hide Video" = "Nascondi video";
+"Couldn't load recommendations." = "Impossibile caricare i consigli.";

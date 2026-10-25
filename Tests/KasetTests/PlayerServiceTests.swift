@@ -480,7 +480,7 @@ struct PlayerServiceTests {
         #expect(self.playerService.showNowPlayingShowcase == false)
     }
 
-    @Test("Opening showcase closes side panels and vice versa")
+    @Test("Showcase routes sidebar requests into its existing panel")
     func showcaseAndSidePanelsAreMutuallyExclusive() {
         self.playerService.showLyrics = true
         #expect(self.playerService.showLyrics == true)
@@ -490,8 +490,17 @@ struct PlayerServiceTests {
         #expect(self.playerService.showLyrics == false, "Opening the showcase should close lyrics")
 
         self.playerService.showQueue = true
-        #expect(self.playerService.showQueue == true)
-        #expect(self.playerService.showNowPlayingShowcase == false, "Opening the queue should close the showcase")
+        #expect(self.playerService.showQueue == false)
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        #expect(self.playerService.nowPlayingPanel == .queue)
+
+        self.playerService.nowPlayingPanel = nil
+        self.playerService.showLyrics = true
+        #expect(self.playerService.showLyrics == false)
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        #expect(self.playerService.nowPlayingPanel == .lyrics)
+        #expect(self.playerService.showVideo == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
     }
 
     // MARK: - Clear Queue Tests

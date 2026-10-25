@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "Tidak ada lagu yang ditemukan untuk “%@”.";
 "Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
 "Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";
+
+// Now-playing panel
+"Recommendations" = "Rekomendasi";
+"Hide Panel" = "Sembunyikan panel";
+"Hide Video" = "Sembunyikan video";
+"Couldn't load recommendations." = "Rekomendasi tidak dapat dimuat.";

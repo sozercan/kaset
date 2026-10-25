@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "لم يتم العثور على أغانٍ لـ “%@”.";
 "Couldn't play “%@”." = "تعذّر تشغيل “%@”.";
 "Couldn't rate “%@”." = "تعذّر تقييم “%@”.";
+
+// Now-playing panel
+"Recommendations" = "التوصيات";
+"Hide Panel" = "إخفاء اللوحة";
+"Hide Video" = "إخفاء الفيديو";
+"Couldn't load recommendations." = "تعذر تحميل التوصيات.";

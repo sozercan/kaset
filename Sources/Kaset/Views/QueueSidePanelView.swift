@@ -9,11 +9,14 @@ struct QueueSidePanelView: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
+    var width: CGFloat? = 400
+    var onDone: (() -> Void)?
+
     var body: some View {
         // Use regular material: GlassEffectContainer breaks NSTableView drag-and-drop
         // (drop target gap and acceptDrop never fire when the table is inside glass).
         VStack(spacing: 0) {
-            QueueSidePanelHeader()
+            QueueSidePanelHeader(onDone: self.onDone)
 
             Divider()
                 .opacity(0.3)
@@ -60,7 +63,7 @@ struct QueueSidePanelView: View {
 
             QueueFooterActions()
         }
-        .frame(width: 400)
+        .frame(width: self.width)
         // The material background is not reliably hit-testable; claim the
         // panel shape so hover never reaches content underneath.
         .contentShape(.interaction, RoundedRectangle(cornerRadius: 20))
@@ -726,6 +729,8 @@ class DraggableTableView: NSTableView {
 private struct QueueSidePanelHeader: View {
     @Environment(PlayerService.self) private var playerService
 
+    var onDone: (() -> Void)?
+
     var body: some View {
         HStack {
             Text(String(localized: "Up Next"))
@@ -757,7 +762,11 @@ private struct QueueSidePanelHeader: View {
             .accessibilityIdentifier(AccessibilityID.Queue.removeDuplicatesButton)
 
             Button {
-                self.playerService.toggleQueueDisplayMode()
+                if let onDone = self.onDone {
+                    onDone()
+                } else {
+                    self.playerService.toggleQueueDisplayMode()
+                }
             } label: {
                 Label(String(localized: "Done"), systemImage: "checkmark")
                     .font(.system(size: 12))

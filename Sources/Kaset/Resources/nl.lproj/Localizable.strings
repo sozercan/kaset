@@ -636,3 +636,9 @@
 "No songs found for “%@”." = "Geen nummers gevonden voor ‘%@’.";
 "Couldn't play “%@”." = "Kon ‘%@’ niet afspelen.";
 "Couldn't rate “%@”." = "Kon ‘%@’ niet beoordelen.";
+
+// Now-playing panel
+"Recommendations" = "Aanbevelingen";
+"Hide Panel" = "Paneel verbergen";
+"Hide Video" = "Video verbergen";
+"Couldn't load recommendations." = "Aanbevelingen konden niet worden geladen.";

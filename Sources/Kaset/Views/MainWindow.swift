@@ -6,6 +6,7 @@ import SwiftUI
 
 /// Main application window with sidebar navigation and player bar.
 struct MainWindow: View { // swiftlint:disable:this type_body_length
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let accountResolutionGateTimeout: Duration = .seconds(2)
 
     private struct PresentedWhatsNew: Identifiable {
@@ -594,6 +595,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.libraryViewModel, self.libraryViewModel)
+            .accessibilityHidden(self.playerService.showNowPlayingShowcase)
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
@@ -607,7 +609,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // showcase.
             if self.playerService.showNowPlayingShowcase {
                 ZStack(alignment: .bottom) {
-                    NowPlayingShowcaseView()
+                    NowPlayingShowcaseView(client: self.client)
                     PlayerBar()
                 }
                 .transition(.opacity)
@@ -616,7 +618,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
-        .animation(AppAnimation.standard, value: self.playerService.showNowPlayingShowcase)
+        .animation(self.reduceMotion ? nil : .easeOut(duration: 0.18), value: self.playerService.showNowPlayingShowcase)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
             if self.supportsCommandBarUI {
@@ -702,8 +704,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var commandBar: some View {
+    @ViewBuilder private var commandBar: some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             CommandBarView(
                 client: self.client,
