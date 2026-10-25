@@ -1,6 +1,29 @@
 import AppKit
 import SwiftUI
 
+// MARK: - MiniPlayerTransportButtonStyle
+
+/// Hover lift + press feedback for the mini player's transport icons
+/// (mirrors PlayerBarIconButton's treatment).
+private struct MiniPlayerTransportButtonStyle: ButtonStyle {
+    @State private var isHovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background {
+                Circle()
+                    .fill(.white.opacity(self.isHovering ? 0.14 : 0))
+            }
+            .scaleEffect(configuration.isPressed ? 0.90 : 1)
+            .opacity(configuration.isPressed ? 0.80 : 1)
+            .animation(AppAnimation.quick, value: configuration.isPressed)
+            .animation(AppAnimation.quick, value: self.isHovering)
+            .onHover { hovering in
+                self.isHovering = hovering
+            }
+    }
+}
+
 // MARK: - PersistentPlayerView
 
 /// A SwiftUI anchor for the singleton WebView.
@@ -441,7 +464,7 @@ struct MiniPlayerWindow: View {
         Button(action: action) {
             MiniPlayerGlassIconLabel(systemName: systemName, isActive: isActive, size: 22)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .accessibilityIdentifier(accessibilityID)
@@ -497,7 +520,7 @@ struct MiniPlayerWindow: View {
         } label: {
             MiniPlayerGlassIconLabel(systemName: isLiked ? "hand.thumbsup.fill" : "hand.thumbsup", isActive: isLiked, size: 23, fontSize: 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressable)
         .compatGlass(interactive: true, in: .circle)
         .shadow(color: .black.opacity(0.46), radius: 7, y: 2)
         .disabled(self.playerService.currentTrack == nil)
@@ -712,7 +735,7 @@ struct MiniPlayerWindow: View {
                 .frame(width: max(21, size + 7), height: max(21, size + 7))
                 .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(MiniPlayerTransportButtonStyle())
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)
     }

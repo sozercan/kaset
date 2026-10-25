@@ -273,9 +273,10 @@ struct PlaylistDetailView: View {
 
                 if index < tracks.count - 1 {
                     Divider()
-                        // For albums: 28 (index) + 12 (spacing)
-                        // For playlists: 28 (index) + 12 (spacing) + 40 (thumbnail) + 16 (spacing)
-                        .padding(.leading, isAlbum ? 40 : 96)
+                        // Aligns with the track row content: 4 (row inset)
+                        // + 28 (index) + 12 (spacing)
+                        // For playlists, plus 40 (thumbnail) + 12 (spacing).
+                        .padding(.leading, isAlbum ? 44 : 96)
                 }
             }
             .onAppear {
