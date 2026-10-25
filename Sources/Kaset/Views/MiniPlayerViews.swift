@@ -6,6 +6,7 @@ import SwiftUI
 /// Hover lift + press feedback for the mini player's transport icons
 /// (mirrors PlayerBarIconButton's treatment).
 private struct MiniPlayerTransportButtonStyle: ButtonStyle {
+    var isPrimary = false
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -13,8 +14,13 @@ private struct MiniPlayerTransportButtonStyle: ButtonStyle {
         configuration.label
             .background {
                 Circle()
-                    .fill(.white.opacity(self.isHovering ? 0.14 : 0))
+                    .fill(.white.opacity(self.isHovering ? 0.18 : self.isPrimary ? 0.10 : 0))
+                    .overlay {
+                        Circle()
+                            .stroke(.white.opacity(self.isPrimary ? 0.26 : 0), lineWidth: 1)
+                    }
             }
+            .contentShape(.circle)
             .scaleEffect(configuration.isPressed && !self.reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.80 : 1)
             .animation(self.reduceMotion ? nil : AppAnimation.quick, value: configuration.isPressed)
@@ -695,6 +701,7 @@ struct MiniPlayerWindow: View {
             self.transportButton(
                 systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill",
                 size: playSize,
+                isPrimary: true,
                 accessibilityID: AccessibilityID.MiniPlayer.playPauseButton,
                 label: self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play")
             ) {
@@ -727,6 +734,7 @@ struct MiniPlayerWindow: View {
         systemName: String,
         size: CGFloat,
         active: Bool = false,
+        isPrimary: Bool = false,
         accessibilityID: String,
         label: String,
         action: @escaping () -> Void
@@ -738,7 +746,7 @@ struct MiniPlayerWindow: View {
                 .frame(width: 36, height: 36)
                 .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
         }
-        .buttonStyle(MiniPlayerTransportButtonStyle())
+        .buttonStyle(MiniPlayerTransportButtonStyle(isPrimary: isPrimary))
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)
