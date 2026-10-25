@@ -172,11 +172,31 @@ final class SyncedLyricsService {
         }
     }
 
+    /// Synced-lyrics pick-the-best ranking (checked in order):
+    ///   1. Granularity: any line with word/syllable timings beats line-level.
+    ///   2. Completeness: more non-empty lyric lines wins.
+    ///   3. Deterministic tie-break: registered provider order (lower index wins).
     private func isBetter(_ candidate: ProviderResult, than currentBest: ProviderResult) -> Bool {
         let candidateRank = self.resultRank(candidate.result)
         let currentRank = self.resultRank(currentBest.result)
         if candidateRank != currentRank {
             return candidateRank > currentRank
+        }
+
+        if case let .synced(candidateLyrics) = candidate.result,
+           case let .synced(bestLyrics) = currentBest.result
+        {
+            let candidateWords = candidateLyrics.lines.contains { $0.words?.isEmpty == false }
+            let bestWords = bestLyrics.lines.contains { $0.words?.isEmpty == false }
+            if candidateWords != bestWords {
+                return candidateWords
+            }
+
+            let candidateScore = candidateLyrics.lines.filter { !$0.text.isEmpty }.count
+            let bestScore = bestLyrics.lines.filter { !$0.text.isEmpty }.count
+            if candidateScore != bestScore {
+                return candidateScore > bestScore
+            }
         }
 
         if case .plain = candidate.result,

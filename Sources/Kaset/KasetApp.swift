@@ -185,8 +185,7 @@ struct KasetApp: App {
         _sharedClient = State(initialValue: client)
         _sharedYouTubeClient = State(initialValue: youtubeClient)
         _syncedLyricsService = State(initialValue: SyncedLyricsService(providers: [
-            YTMusicSyncedProvider(client: client),
-            LRCLibProvider(),
+            YTMusicSyncedProvider(client: client), LRCLibProvider(), NetEaseProvider(), KuGouProvider(),
         ]))
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)

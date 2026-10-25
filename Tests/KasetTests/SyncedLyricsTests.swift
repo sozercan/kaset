@@ -288,6 +288,102 @@ struct SyncedLyricsServiceTests {
         guard case let .synced(lyrics) = result else { return nil }
         return lyrics
     }
+
+    @Test("fetchLyrics prefers word-level synced lyrics over line-level regardless of provider order")
+    func fetchLyricsPrefersWordLevelSyncedLyrics() async {
+        let lineLevel = Self.makeSyncedLyrics(source: "LineProvider", lineText: "Line 1")
+        let wordLevel = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(
+                    timeInMs: 0,
+                    duration: 5000,
+                    text: "Hello world",
+                    words: [
+                        TimedWord(timeInMs: 0, word: "Hello "),
+                        TimedWord(timeInMs: 500, word: "world"),
+                    ]
+                ),
+            ],
+            source: "WordProvider"
+        )
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "LineProvider", result: .synced(lineLevel)),
+            MockLyricsProvider(name: "WordProvider", result: .synced(wordLevel)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-word-level"))
+
+        #expect(service.currentLyrics == .synced(wordLevel))
+        #expect(service.activeProvider == "WordProvider")
+    }
+
+    @Test("fetchLyrics prefers the more complete line-level lyrics on granularity ties")
+    func fetchLyricsPrefersMoreCompleteSyncedLyrics() async {
+        let sparse = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(timeInMs: 0, duration: 5000, text: "One", words: nil),
+            ],
+            source: "Sparse"
+        )
+        let complete = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(timeInMs: 0, duration: 3000, text: "One", words: nil),
+                SyncedLyricLine(timeInMs: 3000, duration: 3000, text: "Two", words: nil),
+            ],
+            source: "Complete"
+        )
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "Sparse", result: .synced(sparse)),
+            MockLyricsProvider(name: "Complete", result: .synced(complete)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-completeness"))
+
+        #expect(service.currentLyrics == .synced(complete))
+        #expect(service.activeProvider == "Complete")
+    }
+
+    @Test("NetEase yrc parser builds word timings from the bracket format")
+    func netEaseYRCParsing() throws {
+        let raw = """
+        {"t":-1000,"c":[{"tx":"作词: 某人"}]}
+        [27410,5060](27410,260,0)也(27670,500,0)许(28170,600,0)已
+        [33920,2100](33920,210,0)面(34130,120,0)对
+        """
+
+        let lines = try #require(NetEaseProvider.parseYRC(raw))
+        #expect(lines.count == 2)
+        #expect(lines[0].timeInMs == 27410)
+        #expect(lines[0].text == "也许已")
+        #expect(lines[0].words?.count == 3)
+        #expect(lines[0].words?[0] == TimedWord(timeInMs: 27410, word: "也"))
+        #expect(lines[0].words?[1] == TimedWord(timeInMs: 27670, word: "许"))
+        #expect(lines[1].text == "面对")
+    }
+
+    @Test("NetEase JSON-shape lyrics parse into timed lines")
+    func netEaseJSONLyricsParsing() throws {
+        let raw = """
+        {"t":0,"c":[{"tx":"作词: "},{"tx":"某人"}]}
+        {"t":1500,"c":[{"tx":"第一行"}]}
+        {"t":4000,"c":[{"tx":"第二行"}]}
+        """
+
+        let lines = try #require(NetEaseProvider.parseLyricBody(raw))
+        #expect(lines.count == 3)
+        #expect(lines[0].text == "作词: 某人")
+        #expect(lines[1].timeInMs == 1500)
+        #expect(lines[1].duration == 2500)
+        #expect(lines[2].duration == 5000)
+    }
+
+    @Test("Google translate target codes map script suffixes")
+    func googleTranslateTargetCodes() {
+        #expect(GoogleTranslateService.targetCode(for: "zh-Hans") == "zh-CN")
+        #expect(GoogleTranslateService.targetCode(for: "zh-Hant") == "zh-TW")
+        #expect(GoogleTranslateService.targetCode(for: "ja") == "ja")
+        #expect(GoogleTranslateService.targetCode(for: nil) == "en")
+    }
 }
 
 // MARK: - MockLyricsProvider
