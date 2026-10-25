@@ -61,6 +61,9 @@ struct QueueSidePanelView: View {
             QueueFooterActions()
         }
         .frame(width: 400)
+        // The material background is not reliably hit-testable; claim the
+        // panel shape so hover never reaches content underneath.
+        .contentShape(.interaction, RoundedRectangle(cornerRadius: 20))
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .accessibilityIdentifier(AccessibilityID.Queue.container)
@@ -259,11 +262,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
         func removeRowWithAnimation(row: Int, slideDirection: CGFloat) {
             guard let entryID = self.entries[safe: row]?.id else { return }
-            guard let tableView = self.viewController?.tableView else {
-                self.onRemove(entryID)
-                return
-            }
-            guard let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
+            guard let tableView = self.viewController?.tableView, let rowView = tableView.rowView(atRow: row, makeIfNecessary: false) else {
                 self.onRemove(entryID)
                 return
             }
@@ -308,8 +307,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
                     onPlay: { [weak self] in self?.onSelect(entry.id) },
                     onRemove: { [weak self] in self?.onRemove(entry.id) },
                     onToggleLike: { [weak self] in
-                        guard let self else { return }
-                        guard self.allowsLikeActions else { return }
+                        guard let self, self.allowsLikeActions else { return }
                         if self.likeStatusManager.isLiked(song) {
                             SongActionsHelper.unlikeSong(song, likeStatusManager: self.likeStatusManager)
                         } else {
@@ -705,9 +703,8 @@ class DraggableTableView: NSTableView {
             return false
         }
         guard abs(accH) >= Self.swipeRemoveDeltaThreshold,
-              abs(accH) > abs(accV)
-        else { return false }
-        guard let coord = coordinator else { return false }
+              abs(accH) > abs(accV),
+              let coord = coordinator else { return false }
         let row = self.swipeRemoveTargetRow >= 0 ? self.swipeRemoveTargetRow : rowAtEnd
         self.swipeRemoveTargetRow = -1
         if row < 0 {
@@ -751,7 +748,7 @@ private struct QueueSidePanelHeader: View {
                         .foregroundStyle(.secondary)
                         .frame(width: 20, height: 20)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressable)
                 .opacity(self.playerService.queueHasDuplicateEntries ? 1 : 0.45)
                 .allowsHitTesting(self.playerService.queueHasDuplicateEntries)
             }
@@ -766,7 +763,7 @@ private struct QueueSidePanelHeader: View {
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressable)
             .help(String(localized: "Close side panel"))
             .accessibilityLabel(String(localized: "Close side panel"))
         }
