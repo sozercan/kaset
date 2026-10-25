@@ -456,6 +456,10 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             if self.showLyrics, self.showQueue {
                 self.showQueue = false
             }
+            // And the full-window showcase (it covers the side panels).
+            if self.showLyrics, self.showNowPlayingShowcase {
+                self.showNowPlayingShowcase = false
+            }
         }
     }
 
@@ -468,6 +472,22 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             // Mutual exclusivity: opening queue closes lyrics
             if self.showQueue, self.showLyrics {
                 self.showLyrics = false
+            }
+            // And the full-window showcase (it covers the side panels).
+            if self.showQueue, self.showNowPlayingShowcase {
+                self.showNowPlayingShowcase = false
+            }
+        }
+    }
+
+    /// Whether the full-window now-playing showcase overlay is visible.
+    /// Not persisted; opening it closes the lyrics/queue side panels.
+    var showNowPlayingShowcase: Bool = false {
+        didSet {
+            // The showcase covers the side panels, so they are closed with it.
+            if self.showNowPlayingShowcase {
+                self.showLyrics = false
+                self.showQueue = false
             }
         }
     }

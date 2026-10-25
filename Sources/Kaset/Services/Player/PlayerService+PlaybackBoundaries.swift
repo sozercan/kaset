@@ -70,6 +70,7 @@ extension PlayerService {
         self.isMiniPlayerVisible = false
         self.showLyrics = false
         self.showQueue = false
+        self.showNowPlayingShowcase = false
         self.showVideo = false
         self.currentTrackHasVideo = false
         self.mixContinuationToken = nil

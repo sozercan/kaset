@@ -222,6 +222,20 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             )
         }
         .frame(height: 29, alignment: .leading)
+        // Clicking the song name (or a non-navigable artist label) toggles the
+        // full-window now-playing showcase. When the artist is navigable, its
+        // own tap gesture wins and opens the artist page instead.
+        .contentShape(.rect)
+        .onTapGesture(perform: self.toggleNowPlayingShowcase)
+        .playerBarTitleHoverAffordance()
+    }
+
+    private func toggleNowPlayingShowcase() {
+        guard self.playerService.currentTrack != nil else { return }
+        HapticService.toggle()
+        withAnimation(AppAnimation.standard) {
+            self.playerService.showNowPlayingShowcase.toggle()
+        }
     }
 
     private var currentTitleIdentity: String {
@@ -584,7 +598,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             self.pictureButton
             self.miniPlayerButton
         }
-        .padding(.trailing, 12)
+        .padding(.trailing, 14)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .trailing)
     }
 
@@ -741,12 +755,12 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             } label: {
                 Text("Retry", comment: "Button to retry failed playback")
                     .font(.system(size: 11, weight: .medium))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(.quaternary)
+                    .clipShape(.capsule)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(.quaternary)
-            .clipShape(.capsule)
+            .buttonStyle(.pressable)
         }
     }
 

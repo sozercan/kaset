@@ -11,6 +11,10 @@ struct QueueView: View {
     /// Namespace for glass effect morphing.
     @Namespace private var queueNamespace
 
+    /// Fixed panel width; `nil` uses the default sidebar panel width. The
+    /// now-playing showcase passes its resizable column width.
+    var width: CGFloat?
+
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
@@ -23,7 +27,7 @@ struct QueueView: View {
                 // Content
                 self.contentView
             }
-            .frame(width: 280)
+            .frame(width: self.width ?? 280)
             .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
             .compatGlassID("queuePanel", in: self.queueNamespace)
         }
@@ -49,8 +53,10 @@ struct QueueView: View {
                     Text(String(localized: "Clear"))
                         .font(.subheadline)
                         .foregroundStyle(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.interactiveRow(cornerRadius: 6))
                 .accessibilityIdentifier(AccessibilityID.Queue.clearButton)
             }
 
@@ -60,13 +66,15 @@ struct QueueView: View {
                 Label(String(localized: "Edit"), systemImage: "square.and.pencil")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.interactiveRow(cornerRadius: 6))
             .help(String(localized: "Open queue in side panel"))
             .accessibilityLabel(String(localized: "Open queue in side panel"))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Content

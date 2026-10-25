@@ -473,6 +473,27 @@ struct PlayerServiceTests {
         #expect(self.playerService.showLyrics == false)
     }
 
+    // MARK: - Now-Playing Showcase Mutual Exclusivity Tests
+
+    @Test("showNowPlayingShowcase initially false")
+    func showNowPlayingShowcaseInitiallyFalse() {
+        #expect(self.playerService.showNowPlayingShowcase == false)
+    }
+
+    @Test("Opening showcase closes side panels and vice versa")
+    func showcaseAndSidePanelsAreMutuallyExclusive() {
+        self.playerService.showLyrics = true
+        #expect(self.playerService.showLyrics == true)
+
+        self.playerService.showNowPlayingShowcase = true
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        #expect(self.playerService.showLyrics == false, "Opening the showcase should close lyrics")
+
+        self.playerService.showQueue = true
+        #expect(self.playerService.showQueue == true)
+        #expect(self.playerService.showNowPlayingShowcase == false, "Opening the queue should close the showcase")
+    }
+
     // MARK: - Clear Queue Tests
 
     @Test("Clear queue with no current track")
