@@ -492,7 +492,9 @@ struct PlayerServiceTests {
         self.playerService.showQueue = true
         #expect(self.playerService.showQueue == false)
         #expect(self.playerService.showNowPlayingShowcase == true)
-        #expect(self.playerService.nowPlayingPanel == .queue)
+        // The bar's queue button toggles the showcase panel: the showcase opens
+        // with the queue as its default panel, so this press collapses it.
+        #expect(self.playerService.nowPlayingPanel == nil)
 
         self.playerService.nowPlayingPanel = nil
         self.playerService.showLyrics = true

@@ -71,6 +71,10 @@ extension PlayerService {
         self.showLyrics = false
         self.showQueue = false
         self.showNowPlayingShowcase = false
+        // Clear the swap synchronously: the spawned dismissal Task must never
+        // call play() after tearDown() (playback restarting after sign-out).
+        self.showNowPlayingVideo = false
+        self.showcaseVideoSourceSwap = nil
         self.showVideo = false
         self.currentTrackHasVideo = false
         self.mixContinuationToken = nil

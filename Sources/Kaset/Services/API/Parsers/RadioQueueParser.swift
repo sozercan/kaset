@@ -112,6 +112,8 @@ enum RadioQueueParser {
             // stay unset: they gate the single-track metadata fetch and queue enrichment.
             let likeStatus = SongMetadataParser.parseLikeStatus(from: panelVideoRenderer)
 
+            let counterpartIds = Self.counterpartVersionIds(primary: panelVideoRenderer, wrapper: item["playlistPanelVideoWrapperRenderer"] as? [String: Any])
+
             let song = Song(
                 id: videoId,
                 title: title,
@@ -120,13 +122,42 @@ enum RadioQueueParser {
                 duration: duration,
                 thumbnailURL: thumbnailURL,
                 videoId: videoId,
+                musicVideoType: SongMetadataParser.parseMusicVideoType(from: panelVideoRenderer),
                 likeStatus: likeStatus,
-                isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
+                isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer),
+                audioTrackVideoId: counterpartIds.audio,
+                companionMusicVideoId: counterpartIds.companion
             )
             songs.append(song)
         }
 
         return songs
+    }
+
+    /// Classifies a wrapped row's av-switch counterpart against its primary row:
+    /// an OMV row carries the audio recording (`audio`), an audio row carries the
+    /// official music video (`companion`).
+    private static func counterpartVersionIds(
+        primary: [String: Any],
+        wrapper: [String: Any]?
+    ) -> (audio: String?, companion: String?) {
+        guard let counterparts = wrapper?["counterpart"] as? [[String: Any]],
+              let counterpartEntry = counterparts.first,
+              let counterpartRenderer = counterpartEntry["counterpartRenderer"] as? [String: Any],
+              let counterpart = counterpartRenderer["playlistPanelVideoRenderer"] as? [String: Any],
+              let counterpartVideoId = counterpart["videoId"] as? String,
+              counterpartVideoId != primary["videoId"] as? String
+        else { return (nil, nil) }
+
+        let primaryType = SongMetadataParser.parseMusicVideoType(from: primary)
+        let counterpartType = SongMetadataParser.parseMusicVideoType(from: counterpart)
+        if primaryType == .omv, counterpartType != .omv {
+            return (counterpartVideoId, nil)
+        }
+        if primaryType != .omv, counterpartType == .omv {
+            return (nil, counterpartVideoId)
+        }
+        return (nil, nil)
     }
 
     /// Parses the song title from the panel video renderer.

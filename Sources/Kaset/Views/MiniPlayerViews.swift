@@ -6,7 +6,6 @@ import SwiftUI
 /// Hover lift + press feedback for the mini player's transport icons
 /// (mirrors PlayerBarIconButton's treatment).
 private struct MiniPlayerTransportButtonStyle: ButtonStyle {
-    var isPrimary = false
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -14,13 +13,8 @@ private struct MiniPlayerTransportButtonStyle: ButtonStyle {
         configuration.label
             .background {
                 Circle()
-                    .fill(.white.opacity(self.isHovering ? 0.18 : self.isPrimary ? 0.10 : 0))
-                    .overlay {
-                        Circle()
-                            .stroke(.white.opacity(self.isPrimary ? 0.26 : 0), lineWidth: 1)
-                    }
+                    .fill(.white.opacity(self.isHovering ? 0.14 : 0))
             }
-            .contentShape(.circle)
             .scaleEffect(configuration.isPressed && !self.reduceMotion ? 0.96 : 1)
             .opacity(configuration.isPressed ? 0.80 : 1)
             .animation(self.reduceMotion ? nil : AppAnimation.quick, value: configuration.isPressed)
@@ -43,6 +37,7 @@ struct PersistentPlayerView: NSViewRepresentable {
 
     let videoId: String?
     let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
+    var isMiniPlayer = false
 
     private let logger = DiagnosticsLogger.player
 
@@ -51,6 +46,7 @@ struct PersistentPlayerView: NSViewRepresentable {
 
         let container = NSView(frame: .zero)
         container.wantsLayer = true
+        guard self.playerService.playbackViewHost == (self.isMiniPlayer ? .miniPlayer : .mainWindow) else { return container }
 
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
@@ -58,6 +54,7 @@ struct PersistentPlayerView: NSViewRepresentable {
             usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
+        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
         webView.removeFromSuperview()
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
@@ -76,12 +73,14 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 
     func updateNSView(_ container: NSView, context _: Context) {
+        guard self.playerService.playbackViewHost == (self.isMiniPlayer ? .miniPlayer : .mainWindow) else { return }
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
             playerService: self.playerService,
             usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
+        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
         if webView.superview !== container {
             self.logger.info("Re-parenting WebView to current container")
             webView.removeFromSuperview()
@@ -144,7 +143,7 @@ struct MiniPlayerWindow: View {
             // The picker needs the playback WebView in a visible window. Move
             // the same WebView here while the main window is hidden.
             if self.playerService.shouldHostPlaybackInMiniPlayer {
-                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
+                PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false, isMiniPlayer: true)
                     .frame(width: 1, height: 1)
                     .opacity(0)
                     .allowsHitTesting(false)
@@ -701,7 +700,6 @@ struct MiniPlayerWindow: View {
             self.transportButton(
                 systemName: self.playerService.isPlaying ? "pause.fill" : "play.fill",
                 size: playSize,
-                isPrimary: true,
                 accessibilityID: AccessibilityID.MiniPlayer.playPauseButton,
                 label: self.playerService.isPlaying ? String(localized: "Pause") : String(localized: "Play")
             ) {
@@ -734,7 +732,6 @@ struct MiniPlayerWindow: View {
         systemName: String,
         size: CGFloat,
         active: Bool = false,
-        isPrimary: Bool = false,
         accessibilityID: String,
         label: String,
         action: @escaping () -> Void
@@ -746,7 +743,7 @@ struct MiniPlayerWindow: View {
                 .frame(width: 36, height: 36)
                 .shadow(color: .black.opacity(0.62), radius: 2, y: 1)
         }
-        .buttonStyle(MiniPlayerTransportButtonStyle(isPrimary: isPrimary))
+        .buttonStyle(MiniPlayerTransportButtonStyle())
         .frame(maxWidth: .infinity)
         .accessibilityIdentifier(accessibilityID)
         .accessibilityLabel(label)

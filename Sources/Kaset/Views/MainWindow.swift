@@ -267,6 +267,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             // Let the video or mini-player window own the WebView while visible.
             if !self.authService.isCookieRestoreUnavailable,
                !self.playerService.shouldHostPlaybackInMiniPlayer,
+               !self.playerService.shouldHostPlaybackInShowcase,
                Self.shouldMountPersistentPlayer(
                    isLoggedIn: self.authService.state.isLoggedIn,
                    pendingVideoId: self.playerService.pendingPlayVideoId,
@@ -547,10 +548,21 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    private var effectiveColumnVisibility: Binding<NavigationSplitViewVisibility> {
+        Binding {
+            self.playerService.showNowPlayingShowcase ? .detailOnly : self.columnVisibility
+        } set: { visibility in
+            // The showcase covers the sidebar; keep its native title aligned to a collapsed sidebar.
+            if !self.playerService.showNowPlayingShowcase {
+                self.columnVisibility = visibility
+            }
+        }
+    }
+
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
             // Main navigation content — sidebar and detail swap with the active source.
-            NavigationSplitView(columnVisibility: self.$columnVisibility) {
+            NavigationSplitView(columnVisibility: self.effectiveColumnVisibility) {
                 if self.settings.appSource == .music {
                     Sidebar(
                         selection: self.$navigationSelection,

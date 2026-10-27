@@ -3,29 +3,44 @@ import SwiftUI
 // MARK: - LyricsToggleButton
 
 // Shared by the player bar and the now-playing showcase panel, which host
-// the same controls (the bar hides its copy while the showcase is open).
+// the same controls. While the showcase is open, the bar's copies morph the
+// showcase's panel in place.
 // Callers add their own chrome (glass IDs) around these.
 
 struct LyricsToggleButton: View {
     let player: PlayerService
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// While the showcase is open the lyrics surface lives in the morphing
+    /// panel, so the button reflects panel state — the showcase didSets reset
+    /// the side-panel flag the moment it opens.
+    private var isLyricsShowing: Bool {
+        if self.player.showNowPlayingShowcase {
+            return self.player.nowPlayingPanel == .lyrics
+        }
+        return self.player.showLyrics
+    }
 
     var body: some View {
         PlayerBarIconButton(
             action: {
                 HapticService.toggle()
-                withAnimation(AppAnimation.standard) {
+                // Mirrors the showcase tab path: no tween when opening from a
+                // collapsed panel or under reduce motion.
+                let swapsPanel = self.player.showNowPlayingShowcase && self.player.nowPlayingPanel != nil
+                withAnimation(swapsPanel && !self.reduceMotion ? AppAnimation.quick : nil) {
                     self.player.showLyrics.toggle()
                 }
             },
-            isSelected: self.player.showLyrics,
+            isSelected: self.isLyricsShowing,
             accessibilityID: AccessibilityID.PlayerBar.lyricsButton,
             accessibilityLabel: String(localized: "Lyrics"),
-            accessibilityValue: self.player.showLyrics ? String(localized: "Showing") : String(localized: "Hidden"),
+            accessibilityValue: self.isLyricsShowing ? String(localized: "Showing") : String(localized: "Hidden"),
             icon: {
-                Image(systemName: self.player.showLyrics ? "quote.bubble.fill" : "quote.bubble")
+                Image(systemName: self.isLyricsShowing ? "quote.bubble.fill" : "quote.bubble")
                     .font(.system(size: 16, weight: .regular))
                     .frame(width: 10, height: 16)
-                    .foregroundStyle(self.player.showLyrics ? PackageResourceLookup.brandAccent : .primary)
+                    .foregroundStyle(self.isLyricsShowing ? PackageResourceLookup.brandAccent : .primary)
                     .contentTransition(.symbolEffect(.replace))
             }
         )

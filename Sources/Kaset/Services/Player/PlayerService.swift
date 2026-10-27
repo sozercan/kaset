@@ -139,6 +139,49 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Currently playing track.
     var currentTrack: Song? {
         didSet {
+            let videoIdChanged = oldValue?.videoId != self.currentTrack?.videoId
+            if videoIdChanged, let swap = self.showcaseVideoSourceSwap,
+               self.currentTrack?.videoId != swap.videoSong.videoId
+            {
+                // Playback advanced to a different track while a showcase video
+                // swap was active: restore the queue row's audio identity without
+                // reloading anything.
+                self.revertShowcaseVideoSwapEntry()
+            }
+            if videoIdChanged,
+               self.showNowPlayingVideo,
+               let track = self.currentTrack,
+               self.showcaseVideoSourceSwap?.videoSong.videoId != track.videoId,
+               !(SingletonPlayerWebView.shared.currentVideoId == track.videoId
+                   && track.musicVideoType?.hasVideoContent == true)
+            {
+                // Advance with the video surface up: video mode persists. The
+                // advance pipeline is about to load this track's own version;
+                // once that load settles, the continuation force-loads the
+                // track's MV version (companion pairing → search fallback) and
+                // falls back to artwork when no MV resolves. Audio-only row
+                // metadata must not dismiss here — the MV attempt happens after
+                // the advance's load settles.
+                self.continueShowcaseVideoAfterAdvance(for: track)
+            } else if !videoIdChanged || self.currentTrack == nil {
+                let videoMetadataChanged = videoIdChanged
+                    || oldValue?.musicVideoType != self.currentTrack?.musicVideoType
+                    || oldValue?.hasVideo != self.currentTrack?.hasVideo
+                // Same-track metadata updates (enrichment, late metadata) and
+                // playback stop: only EXPLICIT audio-only metadata dismisses
+                // the surface. Unknown metadata (nil/nil) must keep it:
+                // enrichment lands later and the explicitly-false branch
+                // dismisses then (tested: late metadata and
+                // transient-availability flows depend on this).
+                if videoMetadataChanged,
+                   self.currentTrack?.musicVideoType?.hasVideoContent != true,
+                   self.currentTrack?.hasVideo != true,
+                   self.currentTrack == nil || self.currentTrack?.musicVideoType?.hasVideoContent == false || self.currentTrack?.hasVideo == false
+                {
+                    self.dismissShowcaseVideoSurfaceIfNeeded()
+                    self.showNowPlayingVideo = false
+                }
+            }
             self.driveNowPlayingTracklistProvider()
         }
     }
@@ -462,7 +505,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var showLyrics: Bool = false {
         didSet {
             if self.showLyrics, self.showNowPlayingShowcase {
-                self.nowPlayingPanel = .lyrics
+                // The bar's lyrics button morphs the showcase's panel in place;
+                // pressing it again collapses the panel.
+                self.nowPlayingPanel = self.nowPlayingPanel == .lyrics ? nil : .lyrics
                 self.showLyrics = false
                 return
             }
@@ -480,7 +525,9 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var showQueue: Bool = false {
         didSet {
             if self.showQueue, self.showNowPlayingShowcase {
-                self.nowPlayingPanel = .queue
+                // The bar's queue button morphs the showcase's panel in place;
+                // pressing it again collapses the panel.
+                self.nowPlayingPanel = self.nowPlayingPanel == .queue ? nil : .queue
                 self.showQueue = false
                 return
             }
@@ -499,8 +546,80 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
             if self.showNowPlayingShowcase {
                 self.showLyrics = false
                 self.showQueue = false
+            } else {
+                self.dismissShowcaseVideoSurfaceIfNeeded()
+                self.showNowPlayingVideo = false
             }
         }
+    }
+
+    /// Replaces showcase artwork with the same persistent music playback WebView.
+    var showNowPlayingVideo = false {
+        didSet {
+            if !self.showNowPlayingVideo, !self.showVideo {
+                self.videoWindowDidClose()
+            }
+        }
+    }
+
+    /// Bookkeeping for the showcase's in-place audio↔video source swap.
+    /// Mirrors YouTube Music's own `playlistPanelVideoWrapperRenderer` pairing:
+    /// one playing occurrence, two interchangeable versions of the same song.
+    struct ShowcaseVideoSourceSwap: Equatable {
+        /// Queue entry whose song is swapped while the video version plays.
+        let entryID: UUID?
+        /// The audio recording to restore when video mode ends.
+        let audioSong: Song
+        /// The music-video variant swapped in.
+        let videoSong: Song
+    }
+
+    @ObservationIgnored var showcaseVideoSourceSwap: ShowcaseVideoSourceSwap?
+
+    /// Single-flight guard: dismissal paths (track-change didSet, showcase
+    /// close, rapid tab clicks) must not interleave at the `await play` points.
+    @ObservationIgnored var isDismissingShowcaseVideoSurface = false
+
+    /// Continuation that re-establishes the showcase video surface after an
+    /// automatic track advance (kept so a newer advance cancels the stale one).
+    @ObservationIgnored var showcaseVideoAdvanceContinuation: Task<Void, Never>?
+
+    /// Replaces a queue entry's song in place, preserving the entry identity.
+    /// The showcase source swap uses this so the queue's playing row matches the
+    /// stream actually loaded, keeping every playback-identity gate coherent.
+    func replaceQueueEntrySong(entryID: UUID, with song: Song) {
+        guard let index = self.queueStorage.firstIndex(where: { $0.id == entryID }), self.queueStorage[index].song.videoId != song.videoId else { return }
+        self.queueStorage[index] = QueueEntry(
+            id: entryID,
+            song: song,
+            source: self.queueStorage[index].source
+        )
+        self.synchronizeCurrentQueueEntryID()
+    }
+
+    enum PlaybackViewHost {
+        case mainWindow
+        case miniPlayer
+        case videoWindow
+        case showcase
+    }
+
+    /// Only this owner may attach the singleton, including during queued SwiftUI updates.
+    var playbackViewHost: PlaybackViewHost {
+        if self.showVideo {
+            return .videoWindow
+        }
+        if self.shouldHostPlaybackInMiniPlayer {
+            return .miniPlayer
+        }
+        if self.showNowPlayingShowcase, self.showNowPlayingVideo, self.currentTrack != nil {
+            return .showcase
+        }
+        return .mainWindow
+    }
+
+    var shouldHostPlaybackInShowcase: Bool {
+        self.playbackViewHost == .showcase
     }
 
     /// Whether the current track has video available.
@@ -509,7 +628,16 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether video mode is active (user has opened video window).
     /// Note: We don't auto-close based on currentTrackHasVideo here because
     /// the detection can be unreliable when video mode CSS is active.
-    var showVideo: Bool = false
+    var showVideo: Bool = false {
+        didSet {
+            // The native video window keeps hosting the swapped-in video version,
+            // so the swap state survives the takeover and restores the audio
+            // recording when the window closes.
+            if self.showVideo {
+                self.showNowPlayingVideo = false
+            }
+        }
+    }
 
     /// Whether the video toggle should be enabled for the current track.
     /// Shared by the player bar and the now-playing showcase panel.
@@ -523,6 +651,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         return self.currentTrackHasVideo
             || track.musicVideoType?.hasVideoContent == true
             || track.hasVideo == true
+            || track.companionMusicVideoId != nil
     }
 
     /// Whether AirPlay is currently connected (playing to a wireless target).

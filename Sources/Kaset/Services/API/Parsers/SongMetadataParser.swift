@@ -18,7 +18,8 @@ enum SongMetadataParser {
     /// - Returns: A fully parsed Song object
     /// - Throws: `YTMusicError.parseError` if the structure cannot be parsed
     static func parse(_ data: [String: Any], videoId: String) throws -> Song {
-        let panelVideoRenderer = try extractPanelVideoRenderer(from: data, videoId: videoId)
+        let renderers = try extractWrapperRenderers(from: data, videoId: videoId)
+        let panelVideoRenderer = renderers.primary
 
         let title = self.parseTitle(from: panelVideoRenderer)
         let artists = self.parseArtists(from: panelVideoRenderer)
@@ -26,6 +27,23 @@ enum SongMetadataParser {
         let duration = self.parseDuration(from: panelVideoRenderer)
         let menuData = self.parseMenuData(from: panelVideoRenderer)
         let musicVideoType = self.parseMusicVideoType(from: panelVideoRenderer)
+
+        // The counterpart is the sibling version YouTube Music pairs with this row:
+        // an audio row carries the official music video, an OMV row carries the
+        // audio recording. Both feed the showcase's in-place audio↔video swap.
+        var audioTrackVideoId: String?
+        var companionMusicVideoId: String?
+        if let counterpart = renderers.counterpart,
+           let counterpartVideoId = counterpart["videoId"] as? String,
+           counterpartVideoId != videoId
+        {
+            let counterpartType = self.parseMusicVideoType(from: counterpart)
+            if musicVideoType == .omv, counterpartType != .omv {
+                audioTrackVideoId = counterpartVideoId
+            } else if musicVideoType != .omv, counterpartType == .omv {
+                companionMusicVideoId = counterpartVideoId
+            }
+        }
 
         return Song(
             id: videoId,
@@ -39,13 +57,28 @@ enum SongMetadataParser {
             likeStatus: menuData.likeStatus,
             isInLibrary: menuData.isInLibrary,
             feedbackTokens: menuData.feedbackTokens,
-            isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
+            isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer),
+            audioTrackVideoId: audioTrackVideoId,
+            companionMusicVideoId: companionMusicVideoId
         )
     }
 
     /// Extracts the playlistPanelVideoRenderer from the next endpoint response.
     /// Handles both direct and wrapped renderer structures.
     static func extractPanelVideoRenderer(from data: [String: Any], videoId: String) throws -> [String: Any] {
+        try self.extractWrapperRenderers(from: data, videoId: videoId).primary
+    }
+
+    /// The primary queue-row renderer plus its av-switch counterpart, when the
+    /// response wraps the row in a `playlistPanelVideoWrapperRenderer`. The
+    /// counterpart carries the sibling audio/video version YouTube Music pairs
+    /// with this row.
+    struct PanelVideoRenderers {
+        let primary: [String: Any]
+        let counterpart: [String: Any]?
+    }
+
+    static func extractWrapperRenderers(from data: [String: Any], videoId: String) throws -> PanelVideoRenderers {
         guard let contents = data["contents"] as? [String: Any],
               let watchNextRenderer = contents["singleColumnMusicWatchNextResultsRenderer"] as? [String: Any],
               let tabbedRenderer = watchNextRenderer["tabbedRenderer"] as? [String: Any],
@@ -63,16 +96,22 @@ enum SongMetadataParser {
             throw YTMusicError.parseError(message: "Failed to parse song metadata for \(videoId)")
         }
 
-        // Handle both direct and wrapped renderer structures
-        // Direct: firstItem.playlistPanelVideoRenderer
-        // Wrapped: firstItem.playlistPanelVideoWrapperRenderer.primaryRenderer.playlistPanelVideoRenderer
+        // Direct: firstItem.playlistPanelVideoRenderer (no counterpart surface)
         if let direct = firstItem["playlistPanelVideoRenderer"] as? [String: Any] {
-            return direct
-        } else if let wrapper = firstItem["playlistPanelVideoWrapperRenderer"] as? [String: Any],
-                  let primary = wrapper["primaryRenderer"] as? [String: Any],
-                  let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
+            return PanelVideoRenderers(primary: direct, counterpart: nil)
+        }
+
+        // Wrapped: firstItem.playlistPanelVideoWrapperRenderer with the sibling
+        // version in counterpart[0].counterpartRenderer.
+        if let wrapper = firstItem["playlistPanelVideoWrapperRenderer"] as? [String: Any],
+           let primary = wrapper["primaryRenderer"] as? [String: Any],
+           let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
         {
-            return wrapped
+            let counterpart = (wrapper["counterpart"] as? [[String: Any]])?.first.flatMap { entry in
+                (entry["counterpartRenderer"] as? [String: Any])
+                    .flatMap { $0["playlistPanelVideoRenderer"] as? [String: Any] }
+            }
+            return PanelVideoRenderers(primary: wrapped, counterpart: counterpart)
         }
 
         throw YTMusicError.parseError(message: "Failed to parse song metadata for \(videoId)")
