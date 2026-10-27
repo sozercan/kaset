@@ -45,7 +45,7 @@ extension PlaylistDetailView {
         fallbackAlbum: Album,
         showsTitles: Bool
     ) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 12) {
             self.playbackButtons(
                 detail,
                 playableTracks: playableTracks,
@@ -57,6 +57,7 @@ extension PlaylistDetailView {
             self.libraryButton(detail, showsTitles: showsTitles)
             self.playlistManagementButtons(detail, showsTitles: showsTitles)
         }
+        .buttonBorderShape(.capsule)
     }
 
     @ViewBuilder

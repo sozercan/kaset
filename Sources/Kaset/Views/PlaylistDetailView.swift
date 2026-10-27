@@ -168,9 +168,9 @@ struct PlaylistDetailView: View {
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
-        HStack(alignment: .top, spacing: 20) {
+        HStack(alignment: .center, spacing: 20) {
             // Thumbnail
-            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
+            CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 160, height: 160)) { image in
                 image
                     .resizable()
                     .scaledToFill()
@@ -185,11 +185,11 @@ struct PlaylistDetailView: View {
             }
             // No `.fadeIn`: the header lives in the lazy stack, so it would replay on
             // every scroll back to the top. CachedAsyncImage already fades in a fresh load.
-            .frame(width: 180, height: 180)
+            .frame(width: 160, height: 160)
             .clipShape(.rect(cornerRadius: 8))
 
             // Info
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(self.contentKindText(for: detail))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -204,11 +204,9 @@ struct PlaylistDetailView: View {
                 Text(self.metadataText(for: detail))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                    .padding(.top, 4)
-
-                Spacer(minLength: 24)
 
                 self.headerButtons(detail)
+                    .padding(.top, 8)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
