@@ -482,10 +482,7 @@ final class SongLikeStatusManager {
         }
         do {
             try await request.value.get()
-            guard self.sessionGeneration == mutation.sessionGeneration else {
-                return self.status(for: song.videoId, accountID: mutation.accountID) ?? status
-            }
-            guard self.isCurrentRatingOperation(
+            guard self.sessionGeneration == mutation.sessionGeneration, self.isCurrentRatingOperation(
                 mutation.revision,
                 videoId: song.videoId,
                 accountID: mutation.accountID

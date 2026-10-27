@@ -63,8 +63,7 @@ enum PackageResourceLookup {
         candidateURLs.append(contentsOf: Self.bundleCandidatesInBuildDirectory())
 
         for url in candidateURLs {
-            guard seenPaths.insert(url.path).inserted else { continue }
-            guard let bundle = Bundle(url: url) else { continue }
+            guard seenPaths.insert(url.path).inserted, let bundle = Bundle(url: url) else { continue }
             bundles.append(bundle)
         }
 

@@ -30,11 +30,9 @@ struct MusicSearchTool: Tool {
     /// The arguments this tool accepts.
     @Generable
     struct Arguments {
-        @Guide(description: "The search query (song title, artist name, album, etc.)")
-        let query: String
+        @Guide(description: "The search query (song title, artist name, album, etc.)") let query: String
 
-        @Guide(description: "Optional filter: 'songs', 'albums', 'artists', 'playlists', or 'all' for no filter")
-        let filter: String
+        @Guide(description: "Optional filter: 'songs', 'albums', 'artists', 'playlists', or 'all' for no filter") let filter: String
     }
 
     /// Output type for the tool

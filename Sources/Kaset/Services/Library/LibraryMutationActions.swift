@@ -97,8 +97,7 @@ enum LibraryMutationActions {
             + Array(self.pendingAccountBoundaryMutations.values)
         let nonthrowingTasks = self.artistReconciliationTasks.values.map(\.task)
         self.cancelAllPendingLibraryMutations()
-        guard self.accountBoundaryDrainTask == nil else { return }
-        guard !throwingTasks.isEmpty || !nonthrowingTasks.isEmpty else { return }
+        guard self.accountBoundaryDrainTask == nil, !throwingTasks.isEmpty || !nonthrowingTasks.isEmpty else { return }
         let drainTask = Task { @MainActor in
             for task in throwingTasks {
                 _ = try? await task.value

@@ -81,10 +81,8 @@ final class NowPlayingTracklistProvider {
 
         guard self.tracklist == nil,
               self.attemptedVideoId != track.videoId,
-              duration > Self.minMixDuration
-        else { return }
-
-        guard let parser else { return }
+              duration > Self.minMixDuration,
+              let parser else { return }
 
         self.attemptedVideoId = track.videoId
         let videoId = track.videoId
@@ -92,8 +90,7 @@ final class NowPlayingTracklistProvider {
         let generation = self.parseGeneration
         self.parseTask = Task { [weak self] in
             let parsed = await parser.parseTracklist(videoId: videoId)
-            guard let self else { return }
-            guard self.currentVideoId == videoId, self.parseGeneration == generation else { return }
+            guard let self, self.currentVideoId == videoId, self.parseGeneration == generation else { return }
             self.parseTask = nil
             guard !Task.isCancelled else { return }
             if let parsed, parsed.isMix {

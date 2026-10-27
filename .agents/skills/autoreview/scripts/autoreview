@@ -147,11 +147,28 @@ REVIEW_BUNDLE_REDACTIONS = [
 ]
 UNRESOLVED_SECRET_RE = re.compile(
     r"(?ix)(?:(?<!const\ )(?<!let\ )(?<!var\ )"
-    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*"
-    r"(?!(?:re\.compile\())|"
+    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*"
+    r"(?:"
+    # Colon context (Swift labels, dict keys, type annotations): an unquoted
+    # value is exempt only when the WHOLE value is a member chain ending at a
+    # delimiter, or a bare optional type defaulting to nil. The equals path
+    # keeps full original detection, so env-style `key=value` credentials
+    # (JWTs included) never reach these shields; real JWTs are also redacted
+    # earlier by REVIEW_BUNDLE_REDACTIONS.
+    r":[^\S\r\n]*"
+    r"(?!(?:re\.compile\())"
+    r"(?!(?:[A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
+    r"(?![A-Z][A-Za-z]*\?\s*=\s*nil\b)"
+    r"|"
+    r"[^\S\r\n]*=[^\S\r\n]*"
+    r"(?!(?:re\.compile\())"
+    r")"
+    r"|"
     r"(?:(?<=const\ )|(?<=let\ )|(?<=var\ ))"
-    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*[:=][^\S\r\n]*"
-    r"(?!/)(?!(?:re\.compile\()))"
+    r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
+    r"(?!/)(?!(?:re\.compile\())"
+    r"(?!(?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
+    r")"
     r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
     r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
     r"(?!(?:(?:try|await)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\.)*"

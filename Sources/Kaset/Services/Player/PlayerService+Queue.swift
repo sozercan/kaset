@@ -568,8 +568,7 @@ extension PlayerService {
     }
 
     func playFromQueue(at index: Int, intent: MusicPlaybackIntent) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        guard index >= 0, index < self.queueEntries.count else { return }
+        guard self.acceptsMusicPlaybackIntent(intent), index >= 0, index < self.queueEntries.count else { return }
         let queueGeneration = self.queueLoadGeneration
         self.clearForwardSkipNavigationStack()
         self.currentIndex = index

@@ -102,8 +102,7 @@ struct IntelligenceSettingsView: View {
         self.aiService.availability == .available
     }
 
-    @ViewBuilder
-    private var availabilityIcon: some View {
+    @ViewBuilder private var availabilityIcon: some View {
         switch self.aiService.availability {
         case .available:
             Image(systemName: "sparkles")

@@ -40,8 +40,7 @@ extension YouTubeWatchWebView {
         target: Double? = nil,
         videoId: String? = nil
     ) -> Bool {
-        guard let currentTarget = self.pendingSeeksByGeneration[generation] else { return false }
-        guard self.pendingSeekAttemptIDsByGeneration[generation] == attemptID else { return false }
+        guard let currentTarget = self.pendingSeeksByGeneration[generation], self.pendingSeekAttemptIDsByGeneration[generation] == attemptID else { return false }
         if let target,
            currentTarget != target
         {

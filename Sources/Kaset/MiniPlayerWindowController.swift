@@ -90,8 +90,7 @@ final class MiniPlayerWindowController {
     }
 
     func close() {
-        guard !self.isClosing else { return }
-        guard let window = self.window else { return }
+        guard !self.isClosing, let window = self.window else { return }
 
         self.isClosing = true
         NotificationCenter.default.removeObserver(self, name: nil, object: window)

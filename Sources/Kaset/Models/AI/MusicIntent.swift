@@ -9,42 +9,33 @@ import FoundationModels
 @Generable
 struct MusicIntent: Equatable {
     /// The type of action the user wants to perform.
-    @Guide(description: "The action to perform: play, queue, shuffle, like, dislike, skip, previous, pause, resume, search")
-    let action: MusicAction
+    @Guide(description: "The action to perform: play, queue, shuffle, like, dislike, skip, previous, pause, resume, search") let action: MusicAction
 
     /// Search query or song/artist name (for play, queue, search actions).
-    @Guide(description: "The search query, song title, or artist name. Empty for actions like skip, pause, resume.")
-    let query: String
+    @Guide(description: "The search query, song title, or artist name. Empty for actions like skip, pause, resume.") let query: String
 
     /// Scope for shuffle action (e.g., "library", "playlist", "artist").
-    @Guide(description: "The scope for shuffle: all, library, likes, or empty for single song actions.")
-    let shuffleScope: String
+    @Guide(description: "The scope for shuffle: all, library, likes, or empty for single song actions.") let shuffleScope: String
 
     // MARK: - Parsed Query Components (for rich search queries)
 
     /// Artist name if explicitly mentioned.
-    @Guide(description: "Artist name if mentioned (e.g., 'Rolling Stones'). Empty if not specified.")
-    let artist: String
+    @Guide(description: "Artist name if mentioned (e.g., 'Rolling Stones'). Empty if not specified.") let artist: String
 
     /// Genre or music style.
-    @Guide(description: "Genre if mentioned (rock, jazz, hip-hop, classical, electronic, pop, country, r&b, indie, metal, folk, latin, k-pop). Empty if not specified.")
-    let genre: String
+    @Guide(description: "Genre if mentioned (rock, jazz, hip-hop, classical, electronic, pop, country, r&b, indie, metal, folk, latin, k-pop). Empty if not specified.") let genre: String
 
     /// Mood or energy level.
-    @Guide(description: "Mood if mentioned (upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy, dark). Empty if not specified.")
-    let mood: String
+    @Guide(description: "Mood if mentioned (upbeat, chill, sad, happy, energetic, relaxing, melancholic, romantic, aggressive, peaceful, groovy, dark). Empty if not specified.") let mood: String
 
     /// Time period or decade.
-    @Guide(description: "Era if mentioned. Use decade format: '1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'. Or 'classic' for oldies. Empty if not specified.")
-    let era: String
+    @Guide(description: "Era if mentioned. Use decade format: '1960s', '1970s', '1980s', '1990s', '2000s', '2010s', '2020s'. Or 'classic' for oldies. Empty if not specified.") let era: String
 
     /// Music type/version.
-    @Guide(description: "Version type if mentioned (acoustic, live, remix, instrumental, cover, unplugged). Empty if not specified.")
-    let version: String
+    @Guide(description: "Version type if mentioned (acoustic, live, remix, instrumental, cover, unplugged). Empty if not specified.") let version: String
 
     /// Activity context.
-    @Guide(description: "Activity if mentioned (workout, study, sleep, party, driving, cooking, focus, running, yoga). Empty if not specified.")
-    let activity: String
+    @Guide(description: "Activity if mentioned (workout, study, sleep, party, driving, cooking, focus, running, yoga). Empty if not specified.") let activity: String
 
     // MARK: - Query Building
 

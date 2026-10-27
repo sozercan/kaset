@@ -279,8 +279,7 @@ final class HistoryViewModel {
         guard !Task.isCancelled else { return }
 
         let changed = await self.refresh()
-        guard !Task.isCancelled else { return }
-        guard !changed else { return }
+        guard !Task.isCancelled, !changed else { return }
 
         do {
             try await Task.sleep(for: Self.playbackRefreshRetryDelay)
