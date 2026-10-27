@@ -732,11 +732,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         tracks.reserveCapacity(items.count)
 
         for itemData in items {
-            guard let responsiveRenderer = itemData["musicResponsiveListItemRenderer"] as? [String: Any] else {
-                continue
-            }
-
-            guard let videoId = ParsingHelpers.extractVideoId(from: responsiveRenderer) else {
+            guard let responsiveRenderer = itemData["musicResponsiveListItemRenderer"] as? [String: Any], let videoId = ParsingHelpers.extractVideoId(from: responsiveRenderer) else {
                 continue
             }
 

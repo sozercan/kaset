@@ -419,6 +419,10 @@
 "Return to Kaset" = "返回 Kaset";
 "Rock" = "摇滚";
 "Romanize Lyrics" = "歌词罗马音";
+"Pronunciation" = "发音";
+"Translation" = "翻译";
+"Translate To" = "翻译为";
+"Lyrics Display Options" = "歌词显示选项";
 "Save albums on YouTube Music to see them here." = "在 YouTube Music 上保存专辑后，即可在此查看。";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上保存播放列表并订阅播客后，即可在此查看。";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上保存播放列表、关注艺人并订阅播客后，即可在此查看。";
@@ -480,6 +484,7 @@
 "Songs" = "歌曲";
 "Songs you like will appear here" = "你喜欢的歌曲会显示在这里";
 "Songs you play next will appear here." = "接下来播放的歌曲会显示在这里。";
+"Source" = "来源";
 "Spoken Word" = "口语";
 "Sports" = "体育";
 "Start Radio" = "开始播放电台";
@@ -630,3 +635,16 @@
 "No songs found for “%@”." = "未找到与“%@”匹配的歌曲。";
 "Couldn't play “%@”." = "无法播放“%@”。";
 "Couldn't rate “%@”." = "无法评价“%@”。";
+
+// Now-playing panel
+"Recommendations" = "推荐";
+"Hide Panel" = "隐藏面板";
+"Show Panel" = "显示面板";
+"Hide Video" = "隐藏视频";
+"Couldn't load recommendations." = "无法加载推荐。";
+
+// Showcase presentation
+"Open Now Playing" = "打开正在播放";
+"Close Now Playing" = "关闭正在播放";
+"Show Music Video" = "显示音乐视频";
+"Show Album Artwork" = "显示专辑封面";

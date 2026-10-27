@@ -433,6 +433,9 @@ extension PlayerService {
     func videoWindowDidClose() {
         self.videoWindowOpenedAt = nil
         self.logger.debug("videoWindowDidClose: grace period cleared")
+        // The native window closing ends its takeover; a pending showcase video
+        // swap must revert to the audio recording (artwork UI, video stream gone).
+        self.dismissShowcaseVideoSurfaceIfNeeded()
     }
 
     /// Returns true if video window was recently opened (within grace period)

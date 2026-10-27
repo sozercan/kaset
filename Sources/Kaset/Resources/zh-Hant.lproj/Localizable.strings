@@ -419,6 +419,10 @@
 "Return to Kaset" = "返回 Kaset";
 "Rock" = "搖滾";
 "Romanize Lyrics" = "歌詞羅馬拼音";
+"Pronunciation" = "發音";
+"Translation" = "翻譯";
+"Translate To" = "翻譯為";
+"Lyrics Display Options" = "歌詞顯示選項";
 "Save albums on YouTube Music to see them here." = "在 YouTube Music 上儲存專輯後，即可在此查看。";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上儲存播放清單並訂閱 Podcast 後，即可在此查看。";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上儲存播放清單、追蹤藝人並訂閱 Podcast 後，即可在此查看。";
@@ -480,6 +484,7 @@
 "Songs" = "歌曲";
 "Songs you like will appear here" = "你喜歡的歌曲會顯示在這裡";
 "Songs you play next will appear here." = "接著播放的歌曲會顯示在這裡。";
+"Source" = "來源";
 "Spoken Word" = "口語";
 "Sports" = "運動";
 "Start Radio" = "開始播放電台";
@@ -630,3 +635,16 @@
 "No songs found for “%@”." = "找不到符合「%@」的歌曲。";
 "Couldn't play “%@”." = "無法播放「%@」。";
 "Couldn't rate “%@”." = "無法評價「%@」。";
+
+// Now-playing panel
+"Recommendations" = "推薦";
+"Hide Panel" = "隱藏面板";
+"Show Panel" = "顯示面板";
+"Hide Video" = "隱藏影片";
+"Couldn't load recommendations." = "無法載入推薦。";
+
+// Showcase presentation
+"Open Now Playing" = "打開播放中";
+"Close Now Playing" = "關閉播放中";
+"Show Music Video" = "顯示音樂影片";
+"Show Album Artwork" = "顯示專輯封面";

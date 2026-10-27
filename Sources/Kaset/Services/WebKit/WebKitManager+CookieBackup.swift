@@ -463,11 +463,8 @@ extension WebKitManager {
         for _ in 0 ..< 5 {
             guard self.isCurrentLoginCookieBackup(transaction),
                   !transaction.isCommitRevoked,
-                  !Task.isCancelled
-            else {
-                return nil
-            }
-            guard let attempt = await self.makeCurrentCookieArchiveWriteAttempt(),
+                  !Task.isCancelled,
+                  let attempt = await self.makeCurrentCookieArchiveWriteAttempt(),
                   let committedSessionValue = attempt.snapshot.primarySessionValue
             else {
                 return nil
@@ -504,7 +501,7 @@ extension WebKitManager {
         guard self.isCurrentLoginCookieBackup(transaction),
               !Task.isCancelled,
               await self.cookieArchiveQueue
-              .disableLoginTransactionRestore(transaction),
+                  .disableLoginTransactionRestore(transaction),
               await self.commitLoginCookieBackup(transaction) != nil
         else {
             return nil

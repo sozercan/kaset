@@ -115,8 +115,7 @@ struct SongContextMenu: View {
         self.goToItems
     }
 
-    @ViewBuilder
-    private var libraryButton: some View {
+    @ViewBuilder private var libraryButton: some View {
         if let libraryToggle {
             Button(action: libraryToggle.toggle) {
                 Label(
@@ -133,8 +132,7 @@ struct SongContextMenu: View {
         }
     }
 
-    @ViewBuilder
-    private var goToItems: some View {
+    @ViewBuilder private var goToItems: some View {
         let artist = self.showsGoToArtist ? self.song.artists.first { $0.hasNavigableId } : nil
         let album = self.showsGoToAlbum ? self.song.album.flatMap { $0.hasNavigableId ? $0 : nil } : nil
 

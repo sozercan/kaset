@@ -215,7 +215,7 @@ enum YouTubeAskJSONDuplicateKeyValidator {
             let literalBytes = Array(String(describing: literal).utf8)
             guard literalBytes.count <= self.bytes.count - self.index,
                   self.bytes[self.index ..< self.index + literalBytes.count]
-                  .elementsEqual(literalBytes)
+                      .elementsEqual(literalBytes)
             else {
                 throw YouTubeAskCoreError.malformedWireResponse
             }

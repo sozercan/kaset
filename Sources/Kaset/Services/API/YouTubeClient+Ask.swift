@@ -33,14 +33,12 @@ extension YouTubeClient {
         guard !parsed.suggestions.isEmpty
             || !bootstrap.suggestions.isEmpty
             || parsed.freeTextCommand != nil
-            || bootstrap.hasFreeTextCommand
+            || bootstrap.hasFreeTextCommand,
+            let conversation = YouTubeAskConversation.materialized(
+                from: bootstrap,
+                parsed: parsed
+            )
         else {
-            throw YouTubeAskClientError.invalidResponse
-        }
-        guard let conversation = YouTubeAskConversation.materialized(
-            from: bootstrap,
-            parsed: parsed
-        ) else {
             throw YouTubeAskClientError.invalidResponse
         }
         return conversation
@@ -59,11 +57,7 @@ extension YouTubeClient {
             authenticationGeneration: snapshot.authenticationGeneration,
             accountBinding: snapshot.accountBinding,
             clientGeneration: snapshot.clientGeneration
-        ), let command = conversation.command(for: suggestionID)
-        else {
-            throw CancellationError()
-        }
-        guard self.consumeAskRevision(
+        ), let command = conversation.command(for: suggestionID), self.consumeAskRevision(
             conversationID: conversation.id,
             revision: conversation.revision
         ) else {

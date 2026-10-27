@@ -557,8 +557,8 @@ final class MixTracklistParser {
         else { return nil }
 
         if components.count == 3 {
-            guard components[1] < 60 else { return nil }
-            guard let hours = self.checkedProduct(components[0], 3600),
+            guard components[1] < 60,
+                  let hours = self.checkedProduct(components[0], 3600),
                   let minutes = self.checkedProduct(components[1], 60),
                   let subtotal = self.checkedSum(hours, minutes),
                   let total = self.checkedSum(subtotal, components[2])

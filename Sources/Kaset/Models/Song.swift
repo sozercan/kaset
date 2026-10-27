@@ -47,6 +47,15 @@ struct Song: Identifiable, Codable, Hashable {
     /// to resolve either case.
     var audioTrackVideoId: String?
 
+    /// Video ID of the official music video YouTube Music pairs with this track.
+    ///
+    /// The `next` endpoint wraps each av-switchable queue row in a
+    /// `playlistPanelVideoWrapperRenderer` whose `counterpart` holds the sibling
+    /// version of the row. When this row is the audio recording, that counterpart
+    /// is the row's official music video (`MUSIC_VIDEO_TYPE_OMV`). `nil` when the
+    /// response carried no paired video.
+    var companionMusicVideoId: String?
+
     /// The audio recording to prefer for this track, falling back to `videoId`.
     var preferredAudioVideoId: String {
         self.audioTrackVideoId ?? self.videoId
@@ -69,6 +78,7 @@ struct Song: Identifiable, Codable, Hashable {
         case isExplicit
         case playlistSetVideoId
         case audioTrackVideoId
+        case companionMusicVideoId
     }
 
     /// Memberwise initializer with default values for mutable properties.
@@ -88,7 +98,8 @@ struct Song: Identifiable, Codable, Hashable {
         feedbackTokens: FeedbackTokens? = nil,
         isExplicit: Bool? = nil,
         playlistSetVideoId: String? = nil,
-        audioTrackVideoId: String? = nil
+        audioTrackVideoId: String? = nil,
+        companionMusicVideoId: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -106,6 +117,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.isExplicit = isExplicit
         self.playlistSetVideoId = playlistSetVideoId
         self.audioTrackVideoId = audioTrackVideoId
+        self.companionMusicVideoId = companionMusicVideoId
     }
 
     init(from decoder: any Decoder) throws {
@@ -126,6 +138,7 @@ struct Song: Identifiable, Codable, Hashable {
         self.isExplicit = try container.decodeIfPresent(Bool.self, forKey: .isExplicit)
         self.playlistSetVideoId = try container.decodeIfPresent(String.self, forKey: .playlistSetVideoId)
         self.audioTrackVideoId = try container.decodeIfPresent(String.self, forKey: .audioTrackVideoId)
+        self.companionMusicVideoId = try container.decodeIfPresent(String.self, forKey: .companionMusicVideoId)
     }
 
     func encode(to encoder: any Encoder) throws {
@@ -146,6 +159,7 @@ struct Song: Identifiable, Codable, Hashable {
         try container.encodeIfPresent(self.isExplicit, forKey: .isExplicit)
         try container.encodeIfPresent(self.playlistSetVideoId, forKey: .playlistSetVideoId)
         try container.encodeIfPresent(self.audioTrackVideoId, forKey: .audioTrackVideoId)
+        try container.encodeIfPresent(self.companionMusicVideoId, forKey: .companionMusicVideoId)
     }
 
     func replacingDisplayMetadata(title: String, artists: [Artist], thumbnailURL: URL?) -> Song {
@@ -165,7 +179,8 @@ struct Song: Identifiable, Codable, Hashable {
             feedbackTokens: self.feedbackTokens,
             isExplicit: self.isExplicit,
             playlistSetVideoId: self.playlistSetVideoId,
-            audioTrackVideoId: self.audioTrackVideoId
+            audioTrackVideoId: self.audioTrackVideoId,
+            companionMusicVideoId: self.companionMusicVideoId
         )
     }
 

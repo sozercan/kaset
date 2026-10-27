@@ -587,20 +587,17 @@ actor CookieArchiveWriteQueue {
     func finalizeLoginTransaction(_ transaction: CookieBackupTransaction) -> Bool {
         guard self.activeTransactionID == transaction.id,
               !Task.isCancelled,
-              transaction.restorePolicyGeneration == CookieArchiveRestorePolicy.generation
+              transaction.restorePolicyGeneration == CookieArchiveRestorePolicy.generation,
+              transaction.restoreIfCommitActive({
+                  CookieArchiveRestorePolicy.setRestoreAllowed(
+                      true,
+                      ifGenerationMatches: transaction.restorePolicyGeneration,
+                      operation: {
+                          self.storage.setRestoreAllowed(true)
+                      }
+                  )
+              })
         else {
-            _ = self.storage.setRestoreAllowed(false)
-            return false
-        }
-        guard transaction.restoreIfCommitActive({
-            CookieArchiveRestorePolicy.setRestoreAllowed(
-                true,
-                ifGenerationMatches: transaction.restorePolicyGeneration,
-                operation: {
-                    self.storage.setRestoreAllowed(true)
-                }
-            )
-        }) else {
             _ = self.storage.setRestoreAllowed(false)
             return false
         }

@@ -153,8 +153,7 @@ final class AuthService: AuthServiceProtocol {
 
     /// Temporarily uses public guest mode while preserving the signed-in session.
     func enterGuestMode() async {
-        guard self.state.isLoggedIn else { return }
-        guard !self.isGuestModeEnabled else { return }
+        guard self.state.isLoggedIn, !self.isGuestModeEnabled else { return }
         self.guestModeTransitionGeneration &+= 1
         let transitionGeneration = self.guestModeTransitionGeneration
         self.accountBoundaryWillBegin?()

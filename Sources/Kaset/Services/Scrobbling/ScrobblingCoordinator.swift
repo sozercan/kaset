@@ -457,8 +457,7 @@ final class ScrobblingCoordinator {
 
             // A track change may have cancelled this request and started another. Only the task
             // owning the current generation may clear the in-flight slot or publish its result.
-            guard self.mixParseGeneration == generation else { return }
-            guard !Task.isCancelled, self.currentTrackVideoId == videoId else { return }
+            guard self.mixParseGeneration == generation, !Task.isCancelled, self.currentTrackVideoId == videoId else { return }
             self.mixParseTimeoutTask?.cancel()
             self.mixParseTimeoutTask = nil
             guard let playerTrack = self.playerService.currentTrack else { return }
@@ -599,11 +598,10 @@ final class ScrobblingCoordinator {
         // Final threshold check before discarding accumulated play time (single-track mode only)
         if case .notMix = self.mixDetectionState,
            self.trackTracker?.hasScrobbled == false,
-           let song = self.trackedSong
+           let song = self.trackedSong,
+           let duration = self.trackedVideoDuration
         {
-            if let duration = self.trackedVideoDuration {
-                self.checkScrobbleThreshold(track: song, duration: duration)
-            }
+            self.checkScrobbleThreshold(track: song, duration: duration)
         }
 
         self.logger.debug("Finalized track (accumulated: \(String(format: "%.1f", self.trackTracker?.accumulatedPlayTime ?? 0))s, scrobbled: \(self.trackTracker?.hasScrobbled ?? false))")
@@ -677,10 +675,10 @@ final class ScrobblingCoordinator {
         if entry?.id != self.currentMixEntry?.id {
             if let prevEntry = self.currentMixEntry {
                 if let endTime = tracklist.effectiveEndTime(
-                    for: prevEntry,
-                    videoDuration: self.videoDuration(for: track)
-                ),
-                    let tracker = self.mixEntryTracker
+                       for: prevEntry,
+                       videoDuration: self.videoDuration(for: track)
+                   ),
+                   let tracker = self.mixEntryTracker
                 {
                     let progressDelta = progress - tracker.lastProgress
                     if progress >= endTime, progressDelta > 0, progressDelta < 2 {
@@ -846,8 +844,7 @@ final class ScrobblingCoordinator {
     /// Flushes pending scrobbles from the queue to all enabled services.
     /// Services deduplicate naturally (e.g., Last.fm ignores duplicate artist+track+timestamp).
     func flushQueue() async {
-        guard self.hasAnyEnabledConnectedService else { return }
-        guard !self.queue.isEmpty else { return }
+        guard self.hasAnyEnabledConnectedService, !self.queue.isEmpty else { return }
 
         // Prune expired entries first
         self.queue.pruneExpired()

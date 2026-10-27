@@ -473,6 +473,38 @@ struct PlayerServiceTests {
         #expect(self.playerService.showLyrics == false)
     }
 
+    // MARK: - Now-Playing Showcase Mutual Exclusivity Tests
+
+    @Test("showNowPlayingShowcase initially false")
+    func showNowPlayingShowcaseInitiallyFalse() {
+        #expect(self.playerService.showNowPlayingShowcase == false)
+    }
+
+    @Test("Showcase routes sidebar requests into its existing panel")
+    func showcaseAndSidePanelsAreMutuallyExclusive() {
+        self.playerService.showLyrics = true
+        #expect(self.playerService.showLyrics == true)
+
+        self.playerService.showNowPlayingShowcase = true
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        #expect(self.playerService.showLyrics == false, "Opening the showcase should close lyrics")
+
+        self.playerService.showQueue = true
+        #expect(self.playerService.showQueue == false)
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        // The bar's queue button toggles the showcase panel: the showcase opens
+        // with the queue as its default panel, so this press collapses it.
+        #expect(self.playerService.nowPlayingPanel == nil)
+
+        self.playerService.nowPlayingPanel = nil
+        self.playerService.showLyrics = true
+        #expect(self.playerService.showLyrics == false)
+        #expect(self.playerService.showNowPlayingShowcase == true)
+        #expect(self.playerService.nowPlayingPanel == .lyrics)
+        #expect(self.playerService.showVideo == false)
+        #expect(self.playerService.isMiniPlayerVisible == false)
+    }
+
     // MARK: - Clear Queue Tests
 
     @Test("Clear queue with no current track")

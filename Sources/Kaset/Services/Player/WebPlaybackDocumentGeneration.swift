@@ -381,12 +381,11 @@ struct WebPlaybackDocumentGeneration: Equatable {
         let mainDocumentGeneration = Self.generation(from: request.mainDocumentURL)
         guard requestGeneration == nil
             || mainDocumentGeneration == nil
-            || requestGeneration == mainDocumentGeneration
-        else { return false }
-        guard Self.isAllowedPlaybackNavigationURL(
-            request.url,
-            playbackHost: playbackHost
-        ) else { return false }
+            || requestGeneration == mainDocumentGeneration,
+            Self.isAllowedPlaybackNavigationURL(
+                request.url,
+                playbackHost: playbackHost
+            ) else { return false }
         if let explicitGeneration = requestGeneration ?? mainDocumentGeneration {
             return explicitGeneration == generation
         }
@@ -452,11 +451,11 @@ struct WebPlaybackDocumentGeneration: Equatable {
 
     static func isFragmentOnlyNavigation(from currentURL: URL?, to proposedURL: URL?) -> Bool {
         guard var current = currentURL.flatMap({
-            URLComponents(url: $0, resolvingAgainstBaseURL: false)
-        }),
-            var proposed = proposedURL.flatMap({
-                URLComponents(url: $0, resolvingAgainstBaseURL: false)
-            })
+                  URLComponents(url: $0, resolvingAgainstBaseURL: false)
+              }),
+              var proposed = proposedURL.flatMap({
+                  URLComponents(url: $0, resolvingAgainstBaseURL: false)
+              })
         else { return false }
         let currentFragment = current.fragment
         let proposedFragment = proposed.fragment
@@ -505,7 +504,7 @@ struct WebPlaybackDocumentGeneration: Equatable {
         guard self.isInternalBlankNavigation(url),
               let fragment = self.internalBlankFragment(from: url),
               let rawGeneration = URLComponents(string: "?\(fragment)")?.queryItems?
-              .first(where: { $0.name == Self.blankURLFragmentKey })?.value
+                  .first(where: { $0.name == Self.blankURLFragmentKey })?.value
         else { return nil }
         return UInt64(rawGeneration)
     }
@@ -537,12 +536,12 @@ struct WebPlaybackDocumentGeneration: Equatable {
             return allowsInternalBlank
         }
         guard self.isAllowedPlaybackNavigationURL(
-            response.url,
-            playbackHost: expectedHost
-        ),
-            let httpResponse = response as? HTTPURLResponse,
-            (200 ..< 300).contains(httpResponse.statusCode),
-            let responseHost = response.url?.host?.lowercased()
+                  response.url,
+                  playbackHost: expectedHost
+              ),
+              let httpResponse = response as? HTTPURLResponse,
+              (200 ..< 300).contains(httpResponse.statusCode),
+              let responseHost = response.url?.host?.lowercased()
         else { return false }
         if responseHost == expectedHost.lowercased() {
             guard let expectedVideoID else { return false }

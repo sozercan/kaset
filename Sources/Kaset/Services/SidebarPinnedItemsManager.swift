@@ -56,8 +56,15 @@ final class SidebarPinnedItemsManager {
 
             let data = try Data(contentsOf: self.fileURL)
             let decoded = try JSONDecoder().decode([SidebarPinnedItem].self, from: data)
-            self.items = decoded
-            DiagnosticsLogger.ui.info("Loaded \(decoded.count) sidebar pinned items")
+            // Playlist pins are superseded by the auto-synced library playlist
+            // list in the sidebar; only album pins remain meaningful.
+            self.items = decoded.filter {
+                if case .album = $0.itemType {
+                    return true
+                }
+                return false
+            }
+            DiagnosticsLogger.ui.info("Loaded \(decoded.count) decoded, \(self.items.count) kept sidebar pinned items")
         } catch {
             DiagnosticsLogger.ui.error("Failed to load sidebar pinned items: \(error.localizedDescription)")
             self.items = []

@@ -1,5 +1,8 @@
 import FoundationModels
 import SwiftUI
+import Translation
+
+// MARK: - LyricsView
 
 /// Right sidebar panel displaying lyrics for the current track.
 @available(macOS 26.0, *)
@@ -10,9 +13,32 @@ struct LyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    var isEmbedded = false
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
+    @State private var lastRecordingRefetchKey: String?
+
+    // Translation state. Online (Google gtx) first; the Apple Translation
+    // framework session is the on-device fallback when the online path fails.
+    @State private var settings = SettingsManager.shared
+    @State private var lineTranslations: [UUID: String] = [:]
+    @State private var plainTranslation: String?
+    @State private var translationConfiguration: TranslationSession.Configuration?
+    /// Set when the online translation path failed entirely (e.g. offline);
+    /// switches translation over to the on-device Apple session.
+    @State private var onlineTranslationFailed = false
+    @State private var onlineTranslationTask: Task<Void, Never>?
+
+    // Resizable panel width (only used when the caller allows a fixed panel,
+    // i.e. not the mini player, which sizes the panel itself).
+    static let defaultPanelWidth: CGFloat = 280
+    static let minimumPanelWidth: CGFloat = 280
+    static let maximumPanelWidth: CGFloat = 640
+    @State private var expandedWidth = SettingsManager.shared.lyricsPanelWidth.map { CGFloat($0) }
+        ?? LyricsView.defaultPanelWidth
+    @State private var dragStartWidth: CGFloat?
+    @State private var hoveringResizeZone = false
 
     // AI explanation state
     @State private var lyricsSummary: LyricsSummary?
@@ -27,48 +53,165 @@ struct LyricsView: View {
     @Namespace private var lyricsNamespace
 
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                if self.showsHeader {
-                    self.headerView
+        self.panelSurface
+            // `@Sendable` keeps the action nonisolated: TranslationSession is not
+            // Sendable, so its calls may not cross into the main actor.
+            // This is the on-device fallback path; the online path lives in
+            // runOnlineTranslation below.
+            .translationTask(self.translationConfiguration) { @Sendable session in
+                // The session is not Sendable: snapshot pending work on the main
+                // actor, then run every session call inside this nonisolated
+                // closure, and write results back with Sendable payloads only.
+                guard let job = await self.translationJob() else { return }
 
-                    Divider()
-                        .opacity(0.3)
+                switch job {
+                case let .lines(videoId, lines):
+                    let requests = lines.map {
+                        TranslationSession.Request(sourceText: $0.text, clientIdentifier: $0.id.uuidString)
+                    }
+                    do {
+                        let responses = try await session.translations(from: requests)
+                        await self.applyLineTranslations(responses, for: videoId)
+                    } catch {
+                        // Unsupported language pair or throttling: leave lines untranslated.
+                    }
+                case let .plain(videoId, text):
+                    do {
+                        let response = try await session.translate(text)
+                        await self.applyPlainTranslation(response.targetText, for: videoId)
+                    } catch {
+                        // Unsupported language pair or throttling: leave untranslated.
+                    }
                 }
-
-                // Content
-                self.contentView
             }
-            .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
-            .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
-        }
-        .compatGlassTransition(.materialize)
-        .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
-            if let videoId = newVideoId, videoId != lastLoadedVideoId {
-                // Reset explanation when track changes
-                self.lyricsSummary = nil
-                self.partialSummary = nil
-                self.showExplanation = false
-                self.explanationError = nil
-                Task {
+            .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
+                if let videoId = newVideoId, videoId != lastLoadedVideoId {
+                    // Reset explanation when track changes
+                    self.lyricsSummary = nil
+                    self.partialSummary = nil
+                    self.showExplanation = false
+                    self.explanationError = nil
+                    self.lineTranslations = [:]
+                    self.plainTranslation = nil
+                    // A new track is a new recording; the MV refetch dedupe key
+                    // must not suppress a fresh mismatch correction.
+                    self.lastRecordingRefetchKey = nil
+                    Task {
+                        await self.loadLyrics(for: videoId)
+                    }
+                }
+            }
+            .onChange(of: self.playerService.duration) { _, streamDuration in
+                self.reloadLyricsIfVideoRecordingDiffers(streamDuration: streamDuration)
+            }
+            .task {
+                if let videoId = playerService.currentTrack?.videoId {
                     await self.loadLyrics(for: videoId)
                 }
             }
-        }
-        .task {
-            if let videoId = playerService.currentTrack?.videoId {
-                await self.loadLyrics(for: videoId)
+            .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
+                self.updateLyricsPolling(for: newLyrics)
+                self.restartTranslation()
             }
+            .onChange(of: self.settings.pinnedLyricsProvider) { _, newProvider in
+                self.syncedLyricsService.setPinnedProvider(newProvider)
+                Task {
+                    if let videoId = self.playerService.currentTrack?.videoId {
+                        await self.loadLyrics(for: videoId)
+                    }
+                }
+            }
+            .onChange(of: self.settings.lyricsTranslationEnabled) { _, _ in
+                self.restartTranslation()
+            }
+            .onChange(of: self.settings.lyricsTranslationTargetLanguage) { _, _ in
+                self.lineTranslations = [:]
+                self.plainTranslation = nil
+                self.restartTranslation()
+            }
+            .onDisappear {
+                self.onlineTranslationTask?.cancel()
+                SingletonPlayerWebView.shared.stopLyricsPoll()
+            }
+            .onAppear {
+                self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+                self.restartTranslation()
+            }
+    }
+
+    @ViewBuilder private var panelSurface: some View {
+        if self.isEmbedded {
+            self.panelContent
+        } else {
+            CompatGlassContainer(spacing: 0) {
+                self.panelContent
+                    .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+                    .compatGlassID("lyricsPanel", in: self.lyricsNamespace)
+                    .overlay(alignment: .leading) { self.panelResizeHandle }
+            }
+            .compatGlassTransition(.materialize)
         }
-        .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
-            self.updateLyricsPolling(for: newLyrics)
+    }
+
+    private var panelContent: some View {
+        VStack(spacing: 0) {
+            if self.showsHeader {
+                self.headerView
+                Divider().opacity(0.3)
+            }
+            self.contentView
         }
-        .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
-        }
-        .onAppear {
-            self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
+        .frame(width: self.displayWidth)
+    }
+
+    // MARK: - Panel resizing
+
+    /// Width the panel renders at. The mini player (`preferredWidth == nil`)
+    /// keeps caller-controlled sizing; the main window panel is resizable.
+    private var displayWidth: CGFloat? {
+        guard self.preferredWidth != nil else { return nil }
+        return min(max(self.expandedWidth, Self.minimumPanelWidth), Self.maximumPanelWidth)
+    }
+
+    /// Fonts grow with the panel width, capped so extreme widths stay readable.
+    private var fontSizeScale: CGFloat {
+        let width = self.displayWidth ?? Self.defaultPanelWidth
+        return min(max(width / Self.defaultPanelWidth, 1.0), 2.0)
+    }
+
+    @ViewBuilder private var panelResizeHandle: some View {
+        if self.preferredWidth != nil {
+            Color.clear
+                .frame(width: 10)
+                .contentShape(Rectangle())
+                .overlay(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Color.secondary.opacity(self.hoveringResizeZone ? 0.6 : 0))
+                        .frame(width: 3, height: 40)
+                        .padding(.leading, 3)
+                }
+                .onHover { hovering in
+                    self.hoveringResizeZone = hovering
+                }
+                .gesture(
+                    DragGesture(minimumDistance: 1)
+                        .onChanged { value in
+                            if self.dragStartWidth == nil {
+                                self.dragStartWidth = self.expandedWidth
+                            }
+                            let start = self.dragStartWidth ?? self.expandedWidth
+                            // The handle sits on the panel's leading edge, so
+                            // dragging left widens the panel.
+                            self.expandedWidth = min(
+                                max(start - value.translation.width, Self.minimumPanelWidth),
+                                Self.maximumPanelWidth
+                            )
+                        }
+                        .onEnded { _ in
+                            self.dragStartWidth = nil
+                            self.settings.lyricsPanelWidth = Double(self.expandedWidth)
+                        }
+                )
         }
     }
 
@@ -84,7 +227,166 @@ struct LyricsView: View {
         }
     }
 
+    // MARK: - Translation
+
+    private var targetTranslationLanguage: Locale.Language {
+        if let identifier = self.settings.lyricsTranslationTargetLanguage {
+            return Locale.Language(identifier: identifier)
+        }
+        return Locale.current.language
+    }
+
+    /// BCP-47 identifier of the translation target, or the system language.
+    private var targetTranslationIdentifier: String {
+        self.settings.lyricsTranslationTargetLanguage ?? Locale.current.language.languageCode?.identifier ?? "en"
+    }
+
+    /// Restarts translation: cancels any online attempt, then runs the online
+    /// path, falling back to the on-device Apple session when it fails.
+    private func restartTranslation() {
+        self.onlineTranslationTask?.cancel()
+        self.onlineTranslationFailed = false
+        self.rebuildTranslationConfiguration()
+
+        guard self.settings.lyricsTranslationEnabled,
+              self.syncedLyricsService.currentLyrics.isAvailable
+        else { return }
+
+        self.onlineTranslationTask = Task {
+            await self.runOnlineTranslation()
+        }
+    }
+
+    /// Runs the keyless online translation for all pending lines (or the plain
+    /// lyrics block). On total failure, marks the fallback so the Apple
+    /// Translation session takes over.
+    private func runOnlineTranslation() async {
+        guard let job = self.translationJob() else { return }
+
+        let target = GoogleTranslateService.targetCode(for: self.targetTranslationIdentifier)
+        do {
+            switch job {
+            case let .lines(videoId, pending):
+                let responses = try await GoogleTranslateService.translateLines(
+                    pending.map(\.text), target: target
+                )
+                // A track change during the request would otherwise stamp the
+                // old track's translation onto the new track's lyrics.
+                guard !Task.isCancelled,
+                      self.playerService.currentTrack?.videoId == videoId
+                else { return }
+                for (index, line) in pending.enumerated() where !responses[index].isEmpty {
+                    self.lineTranslations[line.id] = responses[index]
+                }
+            case let .plain(videoId, text):
+                let translated = try await GoogleTranslateService.translate(text, target: target)
+                guard !Task.isCancelled,
+                      self.playerService.currentTrack?.videoId == videoId
+                else { return }
+                self.plainTranslation = translated
+            }
+        } catch {
+            guard !Task.isCancelled else { return }
+            DiagnosticsLogger.api.warning("Online lyrics translation failed; falling back to on-device: \(error.localizedDescription)")
+            self.onlineTranslationFailed = true
+            // Start the on-device Apple Translation session.
+            self.rebuildTranslationConfiguration()
+        }
+    }
+
+    /// (Re)starts the on-device translation session whenever the lyrics, the
+    /// toggle, or the target language change. Only used as the offline fallback
+    /// (online translation runs first).
+    private func rebuildTranslationConfiguration() {
+        guard self.settings.lyricsTranslationEnabled,
+              self.onlineTranslationFailed,
+              self.syncedLyricsService.currentLyrics.isAvailable
+        else {
+            self.translationConfiguration = nil
+            return
+        }
+
+        var configuration = TranslationSession.Configuration(target: self.targetTranslationLanguage)
+        // Forces translationTask to rerun even when the languages did not change.
+        configuration.invalidate()
+        self.translationConfiguration = configuration
+    }
+
+    /// The remaining translation work for the current lyrics, or nil when
+    /// everything is translated or translation is off. The job carries the
+    /// videoId it was built from so stale results can be dropped on track
+    /// change.
+    private enum TranslationJob: Sendable {
+        case lines(videoId: String?, lines: [(id: UUID, text: String)])
+        case plain(videoId: String?, text: String)
+    }
+
+    private func translationJob() -> TranslationJob? {
+        guard self.settings.lyricsTranslationEnabled else { return nil }
+        let videoId = self.playerService.currentTrack?.videoId
+
+        switch self.syncedLyricsService.currentLyrics {
+        case let .synced(synced):
+            let pending = synced.lines.filter { !$0.text.isEmpty && self.lineTranslations[$0.id] == nil }
+            guard !pending.isEmpty else { return nil }
+            return .lines(videoId: videoId, lines: pending.map { (id: $0.id, text: $0.text) })
+        case let .plain(lyrics):
+            guard lyrics.isAvailable, self.plainTranslation == nil else { return nil }
+            return .plain(videoId: videoId, text: lyrics.text)
+        case .unavailable:
+            return nil
+        }
+    }
+
+    private func applyLineTranslations(_ responses: [TranslationSession.Response], for videoId: String?) {
+        guard self.playerService.currentTrack?.videoId == videoId else { return }
+        for response in responses {
+            guard let identifier = response.clientIdentifier,
+                  let lineID = UUID(uuidString: identifier)
+            else { continue }
+            self.lineTranslations[lineID] = response.targetText
+        }
+    }
+
+    private func applyPlainTranslation(_ text: String, for videoId: String?) {
+        guard self.playerService.currentTrack?.videoId == videoId else { return }
+        self.plainTranslation = text
+    }
+
     // MARK: - Header
+
+    /// Selectable lyrics sources for the display-options menu, in the
+    /// service's provider-priority order. Brand names, shown as-is.
+    private static let lyricsSourceOptions = ["YTMusic", "BetterLyrics", "LRCLib", "NetEase", "KuGou"]
+
+    private var translationOptionsMenu: some View {
+        Menu {
+            Toggle(String(localized: "Pronunciation"), isOn: self.$settings.romanizationEnabled)
+            Toggle(String(localized: "Translation"), isOn: self.$settings.lyricsTranslationEnabled)
+
+            if self.settings.lyricsTranslationEnabled {
+                Picker(String(localized: "Translate To"), selection: self.$settings.lyricsTranslationTargetLanguage) {
+                    ForEach(SettingsManager.ContentLanguage.allCases) { language in
+                        Text(language.displayName).tag(language.languageCode)
+                    }
+                }
+            }
+
+            Divider()
+
+            Picker(String(localized: "Source"), selection: self.$settings.pinnedLyricsProvider) {
+                Text(String(localized: "Auto")).tag(String?.none)
+                ForEach(Self.lyricsSourceOptions, id: \.self) { source in
+                    Text(source).tag(Optional(source))
+                }
+            }
+        } label: {
+            Image(systemName: "character.bubble")
+        }
+        .fixedSize()
+        .help(String(localized: "Lyrics Display Options"))
+        .accessibilityLabel(String(localized: "Lyrics Display Options"))
+    }
 
     private var headerView: some View {
         HStack {
@@ -92,6 +394,11 @@ struct LyricsView: View {
                 .font(.headline)
                 .foregroundStyle(.primary)
             Spacer()
+
+            // Display options: pronunciation and translation
+            if self.syncedLyricsService.currentLyrics.isAvailable {
+                self.translationOptionsMenu
+            }
 
             // Explain button (AI-powered)
             if self.syncedLyricsService.currentLyrics.isAvailable {
@@ -129,8 +436,7 @@ struct LyricsView: View {
 
     // MARK: - Content
 
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         if self.playerService.currentTrack == nil {
             self.noTrackPlayingView
         } else if self.syncedLyricsService.isLoading || self.isLoadingFallback {
@@ -184,7 +490,10 @@ struct LyricsView: View {
                 displayTimeMs: self.playerService.currentLyricsDisplayTimeMs,
                 onSeek: { timeMs in
                     Task { await self.playerService.seek(to: Double(timeMs) / 1000.0) }
-                }
+                },
+                lineTranslations: self.settings.lyricsTranslationEnabled ? self.lineTranslations : [:],
+                fontSizeScale: self.fontSizeScale,
+                isPlaying: self.playerService.isPlaying
             )
             .background(Color.clear)
         }
@@ -216,6 +525,17 @@ struct LyricsView: View {
                     .textSelection(.enabled)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 20)
+
+                // Translation of the plain lyrics block
+                if self.settings.lyricsTranslationEnabled, let plainTranslation = self.plainTranslation {
+                    Text(plainTranslation)
+                        .font(.system(size: 15, weight: .regular))
+                        .lineSpacing(8)
+                        .foregroundStyle(.secondary)
+                        .textSelection(.enabled)
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 20)
+                }
 
                 // Source attribution
                 if let source = lyrics.source {
@@ -392,8 +712,12 @@ struct LyricsView: View {
 
     // MARK: - Data Loading
 
+    /// Difference between the loaded stream's duration and the song's metadata
+    /// duration beyond which the loaded recording is a different cut of the
+    /// song (a live version). Metadata noise for the same recording stays
+    /// within seconds between sources.
     @MainActor
-    private func loadLyrics(for videoId: String) async {
+    private func loadLyrics(for videoId: String, recordingDuration: TimeInterval? = nil) async {
         self.lastLoadedVideoId = videoId
         self.isLoadingFallback = false
 
@@ -402,13 +726,34 @@ struct LyricsView: View {
         // Don't search if it's not the current track anymore
         guard track.videoId == videoId else { return }
 
+        // Initial load while the MV surface is up: the stream may already be a
+        // different recording (the duration settled before this fetch). Apply
+        // the recording override here too, not just on later duration changes.
+        let effectiveRecordingDuration = recordingDuration ?? self.recordingOverrideDuration(for: track)
+        if effectiveRecordingDuration != recordingDuration {
+            // The override changed the fetch key; keep the dedupe key in sync
+            // so the duration-observer path does not refetch redundantly.
+            self.lastRecordingRefetchKey = "\(track.videoId)|\(Int(effectiveRecordingDuration ?? 0))"
+        }
+
         let info = LyricsSearchInfo(
             title: track.title,
             artist: track.artistsDisplay,
             album: track.album?.title,
-            duration: track.duration,
-            videoId: track.videoId
+            duration: effectiveRecordingDuration ?? track.duration,
+            videoId: track.videoId,
+            // While the MV surface is up, the loaded stream may be a different
+            // recording of the song: only a close duration match may claim
+            // synced display, otherwise the highlighting drifts.
+            requiresCloseDurationMatch: self.playerService.showNowPlayingVideo
         )
+
+        // Fetch YouTube Music's own lyrics early so they're available both as a
+        // validation reference for synced results and as the plain fallback
+        // (better-lyrics: show YouTube's lyrics while waiting for synced ones).
+        let ytLyricsTask = Task {
+            try? await self.client.getLyrics(videoId: videoId)
+        }
 
         if SettingsManager.shared.syncedLyricsEnabled {
             await self.syncedLyricsService.fetchLyrics(for: info)
@@ -417,10 +762,36 @@ struct LyricsView: View {
             self.syncedLyricsService.activeProvider = nil
         }
 
-        guard self.lastLoadedVideoId == videoId else { return }
-        guard self.playerService.currentTrack?.videoId == videoId else { return }
+        guard self.lastLoadedVideoId == videoId, self.playerService.currentTrack?.videoId == videoId else { return }
 
-        // As a fallback to provide plain lyrics
+        // Collect the YouTube Music lyrics fetched in parallel.
+        var ytPlain: Lyrics?
+        if let result = try? await ytLyricsTask.value {
+            ytPlain = result
+        }
+
+        // Validate a synced result against YouTube Music's own lyrics. A large
+        // mismatch means the loaded recording differs (e.g. a live version) or
+        // the provider matched the wrong song: reject the synced result rather
+        // than show wrong highlighting (better-lyrics string-similarity check).
+        if case let .synced(synced) = self.syncedLyricsService.currentLyrics,
+           let ytPlain, !ytPlain.text.isEmpty
+        {
+            let syncedText = synced.lines.map(\.text).joined(separator: "\n")
+            let similarity = LyricsSimilarity.similarity(syncedText, ytPlain.text)
+            if similarity < Self.lyricsSimilarityThreshold {
+                DiagnosticsLogger.api.warning(
+                    "Rejecting synced lyrics from \(synced.source): similarity \(String(format: "%.2f", similarity)) below threshold"
+                )
+                // Invalidate the bad cached result so it is not re-served, then
+                // fall back to YouTube Music's own plain lyrics.
+                self.syncedLyricsService.invalidateCachedLyrics(for: videoId)
+                self.syncedLyricsService.currentLyrics = .plain(ytPlain)
+                self.syncedLyricsService.activeProvider = ytPlain.source ?? "Source: YouTube Music"
+            }
+        }
+
+        // As a fallback to provide plain lyrics when nothing synced is available.
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true
             defer {
@@ -429,18 +800,26 @@ struct LyricsView: View {
                 }
             }
 
-            do {
-                let fetchedLyrics = try await client.getLyrics(videoId: videoId)
-                if self.lastLoadedVideoId == videoId,
-                   self.playerService.currentTrack?.videoId == videoId
-                {
-                    self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+            if let ytPlain {
+                self.syncedLyricsService.fallbackToPlainLyrics(ytPlain, videoId: videoId)
+            } else {
+                do {
+                    let fetchedLyrics = try await self.client.getLyrics(videoId: videoId)
+                    if self.lastLoadedVideoId == videoId,
+                       self.playerService.currentTrack?.videoId == videoId
+                    {
+                        self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+                    }
+                } catch {
+                    DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
                 }
-            } catch {
-                DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
             }
         }
     }
+
+    /// Below this similarity to YouTube Music's own lyrics, a synced result is
+    /// rejected as a wrong-recording or bad match (better-lyrics uses 0.5).
+    static let lyricsSimilarityThreshold: Double = 0.5
 
     private func explainLyrics() async {
         guard self.syncedLyricsService.currentLyrics.isAvailable,
@@ -530,6 +909,47 @@ struct LyricsView: View {
 
         self.partialSummary = nil
         self.isExplaining = false
+    }
+}
+
+// MARK: - Recording-aware lyrics
+
+/// MV-mode lyrics handling when the loaded music video is a different recording
+/// of the song (e.g. a live version): the studio recording's synced timings do
+/// not apply to the recording actually playing.
+@available(macOS 26.0, *)
+extension LyricsView {
+    /// Duration gap beyond which the loaded stream is a different recording.
+    /// Metadata noise for the same recording stays within seconds between sources.
+    static let recordingDurationTolerance: TimeInterval = 5
+
+    /// The loaded stream's duration when it differs from the track's metadata
+    /// duration while the MV surface is up; nil when the recording matches.
+    func recordingOverrideDuration(for track: Song) -> TimeInterval? {
+        guard self.playerService.showNowPlayingVideo,
+              let songDuration = track.duration, songDuration > 0,
+              self.playerService.duration > 0,
+              abs(self.playerService.duration - songDuration) > Self.recordingDurationTolerance
+        else { return nil }
+        return self.playerService.duration
+    }
+
+    @MainActor
+    func reloadLyricsIfVideoRecordingDiffers(streamDuration: TimeInterval) {
+        guard self.playerService.showNowPlayingVideo,
+              let track = self.playerService.currentTrack,
+              let songDuration = track.duration,
+              songDuration > 0,
+              streamDuration > 0,
+              abs(streamDuration - songDuration) > Self.recordingDurationTolerance else { return }
+        let refetchKey = "\(track.videoId)|\(Int(streamDuration))"
+        guard self.lastRecordingRefetchKey != refetchKey else { return }
+        self.lastRecordingRefetchKey = refetchKey
+        // The cached studio-recording match must not short-circuit the recording-keyed search.
+        self.syncedLyricsService.invalidateCachedLyrics(for: track.videoId)
+        Task {
+            await self.loadLyrics(for: track.videoId, recordingDuration: streamDuration)
+        }
     }
 }
 

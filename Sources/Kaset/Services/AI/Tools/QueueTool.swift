@@ -31,8 +31,7 @@ struct QueueTool: Tool {
     /// The arguments this tool accepts.
     @Generable
     struct Arguments {
-        @Guide(description: "Maximum number of tracks to return (default 20)")
-        let limit: Int
+        @Guide(description: "Maximum number of tracks to return (default 20)") let limit: Int
     }
 
     /// Output type for the tool.

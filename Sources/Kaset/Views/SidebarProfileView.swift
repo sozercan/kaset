@@ -33,8 +33,7 @@ struct SidebarProfileView: View {
 
     // MARK: - Logged In Content
 
-    @ViewBuilder
-    private var loggedInContent: some View {
+    @ViewBuilder private var loggedInContent: some View {
         if let account = accountService.currentAccount {
             Button {
                 self.showingAccountSwitcher = true

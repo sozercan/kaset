@@ -12,8 +12,7 @@ struct PlayMusicIntent: AudioPlaybackIntent {
     static let description = IntentDescription("Searches YouTube Music and plays the best matching song, followed by its radio.")
     static let openAppWhenRun = true
 
-    @Parameter(title: "Search", requestValueDialog: "What do you want to play?")
-    var query: String
+    @Parameter(title: "Search", requestValueDialog: "What do you want to play?") var query: String
 
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$query)")
@@ -37,8 +36,7 @@ struct PlaySongIntent: AudioPlaybackIntent {
     static let description = IntentDescription("Plays a song in Kaset, followed by its radio.")
     static let openAppWhenRun = true
 
-    @Parameter(title: "Song")
-    var song: SongEntity
+    @Parameter(title: "Song") var song: SongEntity
 
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$song)")
@@ -59,8 +57,7 @@ struct PlayPlaylistIntent: AudioPlaybackIntent, OpenIntent {
     static let description = IntentDescription("Plays a playlist in Kaset.")
     static let openAppWhenRun = true
 
-    @Parameter(title: "Playlist")
-    var target: PlaylistEntity
+    @Parameter(title: "Playlist") var target: PlaylistEntity
 
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$target)")
@@ -81,8 +78,7 @@ struct PlayAlbumIntent: AudioPlaybackIntent, OpenIntent {
     static let description = IntentDescription("Plays an album in Kaset.")
     static let openAppWhenRun = true
 
-    @Parameter(title: "Album")
-    var target: AlbumEntity
+    @Parameter(title: "Album") var target: AlbumEntity
 
     static var parameterSummary: some ParameterSummary {
         Summary("Play \(\.$target)")

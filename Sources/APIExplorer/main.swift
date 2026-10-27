@@ -22,6 +22,9 @@
 //    search-audit <query>          - Audit live YouTube Music search shapes and filters
 //    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
+//    lyrics-probe <mode> [args]    - Read-only probes: musixmatch-token, musixmatch,
+//                                    netease, translate (keyless word-synced
+//                                    lyrics + translation endpoint shapes)
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
@@ -765,25 +768,24 @@ func buildHeaders(authenticated: Bool = false, authUserIndex: Int? = nil, cookie
         "Origin": activeOrigin,
         "Referer": "\(activeOrigin)/",
     ]
-    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup() {
-        if let authorization = buildSIDAuthorizationHeader(
-            from: cookies,
-            includeAllAvailableProofs: false
-        ),
-            let cookieHeader = buildCookieHeader(from: cookies)
-        {
-            headers["Cookie"] = cookieHeader
-            headers["Authorization"] = authorization
-            headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
-            headers["X-Origin"] = activeOrigin
-            // Brand/delegated channel selection on the wire: real-world clients
-            // (yt-dlp, YouTube.js, playlet) send the brand pageId as an
-            // `X-Goog-PageId` header in addition to `context.user.onBehalfOfUser`.
-            // Some endpoints (notably `player`) reject body-only brand identity, so
-            // expose the header here to probe brand attribution accurately.
-            if let brandId = globalBrandAccountId {
-                headers["X-Goog-PageId"] = brandId
-            }
+    if authenticated, let cookies = cookieSnapshot ?? loadCookiesFromAppBackup(),
+       let authorization = buildSIDAuthorizationHeader(
+           from: cookies,
+           includeAllAvailableProofs: false
+       ),
+       let cookieHeader = buildCookieHeader(from: cookies)
+    {
+        headers["Cookie"] = cookieHeader
+        headers["Authorization"] = authorization
+        headers["X-Goog-AuthUser"] = "\(authUserIndex ?? globalAuthUserIndex)"
+        headers["X-Origin"] = activeOrigin
+        // Brand/delegated channel selection on the wire: real-world clients
+        // (yt-dlp, YouTube.js, playlet) send the brand pageId as an
+        // `X-Goog-PageId` header in addition to `context.user.onBehalfOfUser`.
+        // Some endpoints (notably `player`) reject body-only brand identity, so
+        // expose the header here to probe brand attribution accurately.
+        if let brandId = globalBrandAccountId {
+            headers["X-Goog-PageId"] = brandId
         }
     }
 
@@ -983,11 +985,11 @@ private func findFirstRenderer(named key: String, in value: Any) -> [String: Any
 
 private func extractPlaylistTrackCount(from text: String) -> Int? {
     guard let regex = try? NSRegularExpression(
-        pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
-        options: .caseInsensitive
-    ),
-        let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-        let countRange = Range(match.range(at: 1), in: text)
+              pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
+              options: .caseInsensitive
+          ),
+          let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+          let countRange = Range(match.range(at: 1), in: text)
     else {
         return nil
     }
@@ -2123,21 +2125,19 @@ func exploreBrowse(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ),
-                let prettyString = String(data: prettyData, encoding: .utf8)
+                   withJSONObject: data, options: .prettyPrinted
+               ),
+               let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
-        if let outputFile {
-            if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ) {
-                try writePrivateOutput(prettyData, to: outputFile)
-                print("\n💾 Saved with owner-only permissions: \(outputFile)")
-            }
+        if let outputFile, let prettyData = try? JSONSerialization.data(
+            withJSONObject: data, options: .prettyPrinted
+        ) {
+            try writePrivateOutput(prettyData, to: outputFile)
+            print("\n💾 Saved with owner-only permissions: \(outputFile)")
         }
     } catch {
         print("❌ Error: \(error.localizedDescription)")
@@ -2215,21 +2215,19 @@ func exploreAction(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ),
-                let prettyString = String(data: prettyData, encoding: .utf8)
+                   withJSONObject: data, options: .prettyPrinted
+               ),
+               let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
-        if let outputFile {
-            if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ) {
-                try writePrivateOutput(prettyData, to: outputFile)
-                print("\n💾 Saved with owner-only permissions: \(outputFile)")
-            }
+        if let outputFile, let prettyData = try? JSONSerialization.data(
+            withJSONObject: data, options: .prettyPrinted
+        ) {
+            try writePrivateOutput(prettyData, to: outputFile)
+            print("\n💾 Saved with owner-only permissions: \(outputFile)")
         }
     } catch {
         print("❌ Error: \(error.localizedDescription)")
@@ -2942,21 +2940,19 @@ func exploreContinuation(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ),
-                let prettyString = String(data: prettyData, encoding: .utf8)
+                   withJSONObject: data, options: .prettyPrinted
+               ),
+               let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
         }
 
-        if let outputFile {
-            if let prettyData = try? JSONSerialization.data(
-                withJSONObject: data, options: .prettyPrinted
-            ) {
-                try writePrivateOutput(prettyData, to: outputFile)
-                print("\n💾 Saved with owner-only permissions: \(outputFile)")
-            }
+        if let outputFile, let prettyData = try? JSONSerialization.data(
+            withJSONObject: data, options: .prettyPrinted
+        ) {
+            try writePrivateOutput(prettyData, to: outputFile)
+            print("\n💾 Saved with owner-only permissions: \(outputFile)")
         }
     } catch {
         print("❌ Error: \(error.localizedDescription)")
@@ -3586,9 +3582,9 @@ func discoverBrandAccounts(verbose: Bool) async {
             if verbose {
                 print("\nResponse structure:")
                 if let prettyData = try? JSONSerialization.data(
-                    withJSONObject: data, options: .prettyPrinted
-                ),
-                    let prettyString = String(data: prettyData, encoding: .utf8)
+                       withJSONObject: data, options: .prettyPrinted
+                   ),
+                   let prettyString = String(data: prettyData, encoding: .utf8)
                 {
                     print(prettyString)
                 }
@@ -4534,8 +4530,18 @@ func runMain() async {
         let realNext = filteredArgs.count >= 2 ? filteredArgs[1] : "\(activeOrigin)/"
         await probeSigninSwitchReal(nextURLString: realNext)
 
+    case "lyrics-probe":
+        await runLyricsProbe(Array(filteredArgs.dropFirst()))
+
     case "help", "-h", "--help":
         showHelp()
+
+    case "videomode-diff":
+        guard filteredArgs.count == 3 else {
+            print("❌ Usage: videomode-diff <audioVideoId> <omvVideoId> [--verbose]")
+            return
+        }
+        await runVideoModeDiff(audioVideoId: filteredArgs[1], omvVideoId: filteredArgs[2], verbose: verbose)
 
     default:
         print("❌ Unknown command: \(command)")
@@ -4551,3 +4557,204 @@ Task.detached {
 }
 
 semaphore.wait()
+
+// MARK: - Video Mode Source-Swap Probe
+
+/// Reads scalar leaf paths out of a JSON tree so two responses can be diffed.
+private func collectScalarLeaves(
+    _ value: Any,
+    path: String = "",
+    into out: inout [String: String]
+) {
+    if let dict = value as? [String: Any] {
+        for (key, child) in dict {
+            collectScalarLeaves(child, path: path.isEmpty ? key : "\(path).\(key)", into: &out)
+        }
+    } else if let array = value as? [Any] {
+        for (index, child) in array.enumerated() {
+            collectScalarLeaves(child, path: "\(path)[\(index)]", into: &out)
+        }
+    } else if !(value is NSNull) {
+        out[path] = "\(value)"
+    }
+}
+
+private func isVolatilePath(_ path: String) -> Bool {
+    let lowered = path.lowercased()
+    return lowered.contains("trackingparam")
+        || lowered.contains("token")
+        || lowered.contains("curl")
+        || lowered.contains("url")
+        || lowered.contains("signature")
+        || lowered.contains("clicktracking")
+        || lowered.contains("loggingurls")
+        || lowered.contains("playbacktracking")
+        || lowered.contains("videoplayback")
+        || lowered.contains("playercaptions")
+        || lowered.contains("storyboard")
+        || lowered.contains("thumbnail")
+        || lowered.hasSuffix(".id")
+        || lowered.contains("playlistid")
+        || lowered.contains("browseid")
+}
+
+private func nextAvValue(_ data: [String: Any], path: String) -> String {
+    var current: Any = data
+    var cursor = path[...]
+    while !cursor.isEmpty {
+        let dot = cursor.firstIndex(of: ".")
+        let bracket = cursor.firstIndex(of: "[")
+
+        // Whichever separator comes first wins: in `tabs[0].tabRenderer.title`
+        // the subscript must index, not become the literal key `tabs[0]`.
+        if let bracket, dot.map({ bracket < $0 }) ?? true {
+            let key = String(cursor[..<bracket])
+            guard let close = cursor.firstIndex(of: "]"),
+                  let index = Int(cursor[cursor.index(after: bracket) ..< close])
+            else { return "<absent>" }
+            cursor = cursor[cursor.index(after: close)...]
+            guard let dict = current as? [String: Any], let next = dict[key], let array = next as? [Any], array.indices.contains(index) else { return "<absent>" }
+            current = array[index]
+            if cursor.first == "." {
+                cursor = cursor[cursor.index(after: cursor.startIndex)...]
+            }
+        } else if let dot {
+            let key = String(cursor[..<dot])
+            cursor = cursor[cursor.index(after: dot)...]
+            guard let dict = current as? [String: Any], let next = dict[key] else { return "<absent>" }
+            current = next
+        } else {
+            guard let dict = current as? [String: Any], let next = dict[String(cursor)] else { return "<absent>" }
+            return "\(next)"
+        }
+    }
+    return "<absent>"
+}
+
+/// Diffs the InnerTube `player` and `next` responses for the audio recording and
+/// the official music video of the same song, and reports the request/response
+/// surface that distinguishes the two modes. Read-only; no account mutation.
+func runVideoModeDiff(audioVideoId: String, omvVideoId: String, verbose: Bool) async {
+    let authenticated = loadCookiesFromAppBackup() != nil && !forceUnauthenticatedRequests
+    print("🎬 Video-mode source-swap diff (read-only)")
+    print("   audio: \(audioVideoId)  omv: \(omvVideoId)")
+    print("   auth: \(authenticated ? "cookies" : "guest")")
+    print()
+
+    func fetch(_ endpoint: String, _ body: [String: Any]) async throws -> [String: Any] {
+        let (data, status) = try await makeRequest(endpoint: endpoint, body: body, authenticated: authenticated)
+        guard status == 200 else {
+            throw NSError(
+                domain: "APIExplorer", code: status,
+                userInfo: [NSLocalizedDescriptionKey: "HTTP \(status) on \(endpoint)"]
+            )
+        }
+        return data
+    }
+
+    do {
+        let playerAudio = try await fetch("player", ["videoId": audioVideoId])
+        let playerOmv = try await fetch("player", ["videoId": omvVideoId])
+
+        var audioLeaves: [String: String] = [:]
+        var omvLeaves: [String: String] = [:]
+        collectScalarLeaves(playerAudio, into: &audioLeaves)
+        collectScalarLeaves(playerOmv, into: &omvLeaves)
+
+        print("── player: audio vs omv (\(audioLeaves.count) vs \(omvLeaves.count) leaves) ──")
+        let differingPaths = Set(audioLeaves.keys).union(omvLeaves.keys).filter { path in
+            audioLeaves[path] != omvLeaves[path] && !isVolatilePath(path)
+        }
+        let grouped = Dictionary(grouping: differingPaths) { path in
+            path.split(separator: ".").first.map(String.init) ?? path
+        }
+        for section in grouped.keys.sorted() {
+            let paths = grouped[section]!.sorted()
+            print("  [\(section)] \(paths.count) differing paths")
+            for path in paths.prefix(verbose ? .max : 24) {
+                let audioValue = audioLeaves[path] ?? "<absent>"
+                let omvValue = omvLeaves[path] ?? "<absent>"
+                let clippedAudio = audioValue.count > 70 ? String(audioValue.prefix(70)) + "…" : audioValue
+                let clippedOmv = omvValue.count > 70 ? String(omvValue.prefix(70)) + "…" : omvValue
+                print("    \(path)\n      audio: \(clippedAudio)\n      omv:   \(clippedOmv)")
+            }
+            if !verbose, paths.count > 24 {
+                print("    … \(paths.count - 24) more (use --verbose)")
+            }
+        }
+
+        for (label, data) in [("audio", playerAudio), ("omv", playerOmv)] {
+            guard let streaming = data["streamingData"] as? [String: Any] else { continue }
+            let adaptive = streaming["adaptiveFormats"] as? [[String: Any]] ?? []
+            let formats = streaming["formats"] as? [[String: Any]] ?? []
+            let adaptiveSummary = adaptive.compactMap { format -> String? in
+                guard let itag = format["itag"] as? Int, let mime = format["mimeType"] as? String else { return nil }
+                let kind = mime.split(separator: ";").first.map(String.init) ?? mime
+                let hasVideo = (format["width"] as? Int) != nil
+                return "\(itag)\(hasVideo ? "V" : "A"):\(kind)"
+            }
+            let formatSummary = formats.compactMap { format -> String? in
+                guard let itag = format["itag"] as? Int, let mime = format["mimeType"] as? String else { return nil }
+                let kind = mime.split(separator: ";").first.map(String.init) ?? mime
+                return "\(itag):\(kind)"
+            }
+            print("  streamingData[\(label)]: adaptive=\(adaptive.count) [\(adaptiveSummary.joined(separator: ", "))]")
+            print("                     formats=\(formats.count) [\(formatSummary.joined(separator: ", "))]")
+        }
+
+        let nextAudio = try await fetch("next", [
+            "videoId": audioVideoId,
+            "playlistId": "RDAMVM\(audioVideoId)",
+            "enablePersistentPlaylistPanel": true,
+            "isAudioOnly": true,
+            "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+        ])
+        let nextOmv = try await fetch("next", [
+            "videoId": omvVideoId,
+            "playlistId": "RDAMVM\(omvVideoId)",
+            "enablePersistentPlaylistPanel": true,
+            "isAudioOnly": true,
+            "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
+        ])
+
+        func avSwitchPaths(in data: [String: Any]) -> [String] {
+            var leaves: [String: String] = [:]
+            collectScalarLeaves(data, into: &leaves)
+            return leaves.keys.filter { path in
+                let lowered = path.lowercased()
+                return lowered.contains("avswitch") || lowered.contains("av-switch")
+                    || lowered.contains("videomode") || lowered.contains("musicvideotype")
+                    || lowered.contains("switchable") || lowered.contains("videoversion")
+            }.sorted()
+        }
+
+        print()
+        print("── next: AV-switch related paths ──")
+        for (label, data) in [("audio-mode", nextAudio), ("omv-mode", nextOmv)] {
+            let paths = avSwitchPaths(in: data)
+            print("  \(label) (\(paths.count)):")
+            for path in paths {
+                print("    \(path) = \(nextAvValue(data, path: path))")
+            }
+        }
+
+        var nextAudioLeaves: [String: String] = [:]
+        var nextOmvLeaves: [String: String] = [:]
+        collectScalarLeaves(nextAudio, into: &nextAudioLeaves)
+        collectScalarLeaves(nextOmv, into: &nextOmvLeaves)
+        let nextDiff = Set(nextAudioLeaves.keys).union(nextOmvLeaves.keys).filter { path in
+            let lowered = path.lowercased()
+            return nextAudioLeaves[path] != nextOmvLeaves[path]
+                && !isVolatilePath(path)
+                && (lowered.contains("playlistpanel") || lowered.contains("automix")
+                    || lowered.contains("musicvideotype") || lowered.contains("avswitch"))
+        }.sorted()
+        print()
+        print("── next: panel diffs (\(nextDiff.count)) ──")
+        for path in nextDiff {
+            print("    \(path)\n      audio: \(nextAudioLeaves[path] ?? "<absent>")\n      omv:   \(nextOmvLeaves[path] ?? "<absent>")")
+        }
+    } catch {
+        print("❌ \(error.localizedDescription)")
+    }
+}

@@ -54,10 +54,8 @@ enum HomeResponseParser {
             }
 
             // Try musicShelfContinuation
-            if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any] {
-                if let section = parseMusicShelf(shelfContinuation) {
-                    sections.append(section)
-                }
+            if let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any], let section = parseMusicShelf(shelfContinuation) {
+                sections.append(section)
             }
         }
 
@@ -383,11 +381,7 @@ enum HomeResponseParser {
     private static func parseTwoRowItem(_ data: [String: Any]) -> HomeSectionItem? {
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
-        guard let title = ParsingHelpers.extractTitle(from: data) else {
-            return nil
-        }
-
-        guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any] else {
+        guard let title = ParsingHelpers.extractTitle(from: data), let navigationEndpoint = data["navigationEndpoint"] as? [String: Any] else {
             return nil
         }
 

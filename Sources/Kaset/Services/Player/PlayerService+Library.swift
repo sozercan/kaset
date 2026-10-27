@@ -210,8 +210,7 @@ extension PlayerService {
             }
             do {
                 try await request.value.get()
-                guard self.accountSessionGeneration == accountSessionGeneration else { return }
-                guard self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision) else { return }
+                guard self.accountSessionGeneration == accountSessionGeneration, self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision) else { return }
                 let action = expectedInLibrary ? "added to" : "removed from"
                 self.logger.info("Successfully \(action) library")
                 let expectedFeedbackTokens = self.confirmedLibraryStateByKey[mutationKey]?.feedbackTokens
@@ -260,9 +259,8 @@ extension PlayerService {
                 self.logger.error("Failed to toggle library status: \(error.localizedDescription)")
                 // Revert the exact optimistic queue entry when this mutation is still latest.
                 guard self.accountSessionGeneration == accountSessionGeneration,
-                      self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision)
-                else { return }
-                guard let confirmedState = self.confirmedLibraryStateByKey[mutationKey] else { return }
+                      self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision),
+                      let confirmedState = self.confirmedLibraryStateByKey[mutationKey] else { return }
                 self.applyLibraryState(
                     videoId: track.videoId,
                     isInLibrary: confirmedState.isInLibrary,
@@ -566,7 +564,8 @@ extension PlayerService {
                         ? songData.feedbackTokens
                         : self.currentTrack?.feedbackTokens,
                     isExplicit: songData.isExplicit ?? self.currentTrack?.isExplicit,
-                    audioTrackVideoId: songData.audioTrackVideoId ?? self.currentTrack?.audioTrackVideoId
+                    audioTrackVideoId: songData.audioTrackVideoId ?? self.currentTrack?.audioTrackVideoId,
+                    companionMusicVideoId: songData.companionMusicVideoId ?? self.currentTrack?.companionMusicVideoId
                 )
 
                 // Update service state and sync with SongLikeStatusManager.
@@ -581,13 +580,11 @@ extension PlayerService {
                         isInLibrary: songData.isInLibrary ?? false,
                         feedbackTokens: songData.feedbackTokens
                     )
-                    if updatesConfirmedLibraryState {
-                        if self.confirmedLibraryStateByKey[mutationKey] != nil {
-                            self.confirmedLibraryStateByKey[mutationKey] = MusicLibraryConfirmedState(
-                                isInLibrary: self.currentTrackInLibrary,
-                                feedbackTokens: self.currentTrackFeedbackTokens
-                            )
-                        }
+                    if updatesConfirmedLibraryState, self.confirmedLibraryStateByKey[mutationKey] != nil {
+                        self.confirmedLibraryStateByKey[mutationKey] = MusicLibraryConfirmedState(
+                            isInLibrary: self.currentTrackInLibrary,
+                            feedbackTokens: self.currentTrackFeedbackTokens
+                        )
                     }
                 }
 

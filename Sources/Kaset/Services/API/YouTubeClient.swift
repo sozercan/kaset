@@ -1132,9 +1132,9 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         var context = snapshot.context
         if let clickTrackingContextData {
             guard let clickTrackingContext = try JSONSerialization.jsonObject(
-                with: clickTrackingContextData
-            ) as? [String: Any],
-                let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any]
+                      with: clickTrackingContextData
+                  ) as? [String: Any],
+                  let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any]
             else {
                 throw YouTubeAskClientError.invalidResponse
             }

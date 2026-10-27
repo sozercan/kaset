@@ -260,7 +260,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             guard let src = mutableInput[channelIndex].mData?
                 .bindMemory(to: Float.self, capacity: frames),
                 let dst = mutableOutput[channelIndex].mData?
-                .bindMemory(to: Float.self, capacity: frames)
+                    .bindMemory(to: Float.self, capacity: frames)
             else {
                 continue
             }
@@ -291,11 +291,11 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             guard let leftPtr = mutableOutput[0].mData?
                 .bindMemory(to: Float.self, capacity: frames),
                 let rightPtr = mutableOutput[1].mData?
-                .bindMemory(to: Float.self, capacity: frames),
-                let dryLeft = mutableInput[0].mData?
-                .bindMemory(to: Float.self, capacity: frames),
-                let dryRight = mutableInput[1].mData?
-                .bindMemory(to: Float.self, capacity: frames)
+                    .bindMemory(to: Float.self, capacity: frames),
+                  let dryLeft = mutableInput[0].mData?
+                      .bindMemory(to: Float.self, capacity: frames),
+                  let dryRight = mutableInput[1].mData?
+                      .bindMemory(to: Float.self, capacity: frames)
             else {
                 return
             }
@@ -324,7 +324,7 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             guard let ptr = mutableOutput[0].mData?
                 .bindMemory(to: Float.self, capacity: frames),
                 let dry = mutableInput[0].mData?
-                .bindMemory(to: Float.self, capacity: frames)
+                    .bindMemory(to: Float.self, capacity: frames)
             else {
                 return
             }

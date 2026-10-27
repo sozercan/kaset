@@ -80,8 +80,7 @@ extension YouTubeWatchWebView {
             Task { @MainActor in
                 guard YouTubeWatchWebView.shared.documentGeneration.accepts(
                     generation: documentGeneration
-                ) else { return }
-                guard self.playerService.acceptsPlaybackOccurrence(
+                ), self.playerService.acceptsPlaybackOccurrence(
                     update.playbackOccurrence
                 ) else { return }
                 var validatedUpdate = update

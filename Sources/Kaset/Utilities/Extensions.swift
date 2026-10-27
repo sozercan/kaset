@@ -69,6 +69,33 @@ extension URL {
 
         return URL(string: urlString)
     }
+
+    /// Returns a very large square YouTube thumbnail URL for full-window
+    /// artwork (now-playing showcase). `highQualityThumbnailURL` caps at
+    /// 226px, which turns blurry above roughly 113pt.
+    var largeThumbnailURL: URL? {
+        guard host?.contains("ytimg.com") == true || host?.contains("googleusercontent.com") == true else {
+            return self
+        }
+
+        var urlString = self.absoluteString.replacingOccurrences(
+            of: "w\\d+-h\\d+",
+            with: "w800-h800",
+            options: .regularExpression
+        )
+
+        // Standard `/vi/{id}/<name>.jpg` paths carry no size segment, so the
+        // regex above misses them and they would render low-res. Upgrade the
+        // filename to the largest variant (1280x720); the caller's failure
+        // fallback still applies when maxresdefault does not exist for a video.
+        urlString = urlString.replacingOccurrences(
+            of: "/(default|mqdefault|hqdefault|sddefault|hq720)\\.jpg$",
+            with: "/maxresdefault.jpg",
+            options: .regularExpression
+        )
+
+        return URL(string: urlString)
+    }
 }
 
 // MARK: - String Extensions

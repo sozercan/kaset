@@ -408,6 +408,10 @@
 "Return to Kaset" = "Kembali ke Kaset";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Romanisasi Lirik";
+"Pronunciation" = "Pengucapan";
+"Translation" = "Terjemahan";
+"Translate To" = "Terjemahkan ke";
+"Lyrics Display Options" = "Opsi Tampilan Lirik";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Simpan daftar putar, ikuti artis, dan berlangganan podcast di YouTube Music untuk melihatnya di sini.";
 "Save albums on YouTube Music to see them here." = "Simpan album di YouTube Music untuk melihatnya di sini.";
@@ -467,6 +471,7 @@
 "songs" = "lagu";
 "Songs you like will appear here" = "Lagu yang Anda sukai akan muncul di sini";
 "Songs you play next will appear here." = "Lagu yang akan Anda putar berikutnya akan muncul di sini.";
+"Source" = "Sumber";
 "Spoken Word" = "Kata Diucapkan";
 "Sports" = "Olahraga";
 "Start Radio" = "Mulai Radio";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "Tidak ada lagu yang ditemukan untuk “%@”.";
 "Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
 "Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";
+
+// Now-playing panel
+"Recommendations" = "Rekomendasi";
+"Hide Panel" = "Sembunyikan panel";
+"Show Panel" = "Tampilkan panel";
+"Hide Video" = "Sembunyikan video";
+"Couldn't load recommendations." = "Rekomendasi tidak dapat dimuat.";
+
+// Showcase presentation
+"Open Now Playing" = "Buka Sedang Diputar";
+"Close Now Playing" = "Tutup Sedang Diputar";
+"Show Music Video" = "Tampilkan video musik";
+"Show Album Artwork" = "Tampilkan sampul album";

@@ -30,8 +30,12 @@ final class SyncedLyricsService {
     /// Romanization service for transliterating non-Latin lyrics.
     private let romanizationService = RomanizationService()
 
-    /// In-memory cache keyed by videoId.
-    private var cache: [String: LyricResult] = [:]
+    /// The user's pinned lyrics provider, if any; preferred when ranking results.
+    /// Set through `setPinnedProvider(_:)` so the cache stays consistent.
+    private var pinnedProvider: String?
+
+    /// In-memory cache keyed by videoId, with timestamps for TTL expiry.
+    private var cache: [String: CacheEntry] = [:]
 
     /// Base synced lyrics before romanization is applied for display.
     private var currentBaseSyncedLyrics: SyncedLyrics?
@@ -39,15 +43,50 @@ final class SyncedLyricsService {
     /// Monotonic identifier used to ignore stale in-flight searches.
     private var fetchGeneration = 0
 
-    init(providers: [LyricsProvider] = [LRCLibProvider()]) {
+    /// How long a successful lyrics result stays valid in the cache.
+    private static let cacheTTL: TimeInterval = 7 * 24 * 60 * 60 // 7 days
+    /// How long an unavailable result stays cached before a re-search.
+    private static let negativeCacheTTL: TimeInterval = 30 * 60 // 30 minutes
+
+    init(providers: [LyricsProvider] = [LRCLibProvider()], pinnedProvider: String? = nil) {
         self.providers = providers
+        self.pinnedProvider = pinnedProvider
         self.observeRomanizationSetting()
+    }
+
+    /// Changes the pinned provider. Resolved cache entries are dropped so the
+    /// next fetch re-ranks providers under the new pin instead of serving the
+    /// result the old pin produced.
+    func setPinnedProvider(_ provider: String?) {
+        guard provider != self.pinnedProvider else { return }
+        self.pinnedProvider = provider
+        self.cache.removeAll()
+    }
+
+    /// A cached lyrics result with the time it was stored.
+    private struct CacheEntry {
+        let result: LyricResult
+        let timestamp: Date
+    }
+
+    /// Returns the cached entry for `videoId` if it is still within its TTL.
+    private func cachedEntry(for videoId: String) -> CacheEntry? {
+        guard let entry = self.cache[videoId] else { return nil }
+        let ttl: TimeInterval = switch entry.result {
+        case .unavailable: Self.negativeCacheTTL
+        default: Self.cacheTTL
+        }
+        guard Date().timeIntervalSince(entry.timestamp) < ttl else {
+            self.cache.removeValue(forKey: videoId)
+            return nil
+        }
+        return entry
     }
 
     func fetchLyrics(for info: LyricsSearchInfo) async {
         self.fetchGeneration += 1
         let requestID = self.fetchGeneration
-        let cached = self.cache[info.videoId]
+        let cached = self.cachedEntry(for: info.videoId)?.result
 
         if let cached, case .synced = cached {
             self.applyResolvedLyrics(
@@ -107,6 +146,13 @@ final class SyncedLyricsService {
         self.applyResolvedLyrics(resolved, requestID: requestID)
     }
 
+    /// Drops the cached result for `videoId` so the next fetch re-searches the
+    /// providers. The MV-recording mismatch refetch needs this: the cached
+    /// studio-recording match must not short-circuit the recording-keyed search.
+    func invalidateCachedLyrics(for videoId: String) {
+        self.cache.removeValue(forKey: videoId)
+    }
+
     /// Fallback logic
     func fallbackToPlainLyrics(_ lyrics: Lyrics, videoId: String) {
         if case .synced = self.currentLyrics {
@@ -119,11 +165,11 @@ final class SyncedLyricsService {
         if lyrics.isAvailable {
             self.currentLyrics = .plain(lyrics)
             self.activeProvider = lyrics.source
-            self.cache[videoId] = .plain(lyrics)
+            self.cache[videoId] = CacheEntry(result: .plain(lyrics), timestamp: Date())
         } else {
             self.currentLyrics = .unavailable
             self.activeProvider = nil
-            self.cache[videoId] = .unavailable
+            self.cache[videoId] = CacheEntry(result: .unavailable, timestamp: Date())
         }
     }
 
@@ -172,11 +218,31 @@ final class SyncedLyricsService {
         }
     }
 
+    /// Synced-lyrics pick-the-best ranking (checked in order):
+    ///   1. Granularity: any line with word/syllable timings beats line-level.
+    ///   2. Completeness: more non-empty lyric lines wins.
+    ///   3. Deterministic tie-break: registered provider order (lower index wins).
     private func isBetter(_ candidate: ProviderResult, than currentBest: ProviderResult) -> Bool {
         let candidateRank = self.resultRank(candidate.result)
         let currentRank = self.resultRank(currentBest.result)
         if candidateRank != currentRank {
             return candidateRank > currentRank
+        }
+
+        if case let .synced(candidateLyrics) = candidate.result,
+           case let .synced(bestLyrics) = currentBest.result
+        {
+            let candidateWords = candidateLyrics.lines.contains { $0.words?.isEmpty == false }
+            let bestWords = bestLyrics.lines.contains { $0.words?.isEmpty == false }
+            if candidateWords != bestWords {
+                return candidateWords
+            }
+
+            let candidateScore = candidateLyrics.lines.filter { !$0.text.isEmpty }.count
+            let bestScore = bestLyrics.lines.filter { !$0.text.isEmpty }.count
+            if candidateScore != bestScore {
+                return candidateScore > bestScore
+            }
         }
 
         if case .plain = candidate.result,
@@ -187,6 +253,14 @@ final class SyncedLyricsService {
             if candidateIsYTMusic != currentIsYTMusic {
                 return candidateIsYTMusic
             }
+        }
+
+        // Provider pinning (better-lyrics): within the same quality tier, the
+        // user's pinned provider wins over an unpinned one.
+        let candidateIsPinned = candidate.provider == self.pinnedProvider
+        let currentIsPinned = currentBest.provider == self.pinnedProvider
+        if candidateIsPinned != currentIsPinned {
+            return candidateIsPinned
         }
 
         return candidate.providerIndex < currentBest.providerIndex
@@ -200,14 +274,14 @@ final class SyncedLyricsService {
         if let best {
             switch best.result {
             case .synced:
-                self.cache[videoId] = best.result
+                self.cache[videoId] = CacheEntry(result: best.result, timestamp: Date())
                 return .init(result: best.result, activeProvider: best.provider)
             case .plain:
                 if case let .plain(cachedPlain)? = cached {
                     return .init(result: .plain(cachedPlain), activeProvider: cachedPlain.source)
                 }
 
-                self.cache[videoId] = best.result
+                self.cache[videoId] = CacheEntry(result: best.result, timestamp: Date())
                 return .init(result: best.result, activeProvider: best.provider)
             case .unavailable:
                 break
@@ -218,7 +292,7 @@ final class SyncedLyricsService {
             return .init(result: .plain(cachedPlain), activeProvider: cachedPlain.source)
         }
 
-        self.cache[videoId] = .unavailable
+        self.cache[videoId] = CacheEntry(result: .unavailable, timestamp: Date())
         return .init(result: .unavailable, activeProvider: nil)
     }
 

@@ -25,6 +25,13 @@ final class SettingsManager {
         static let playbackAudioQuality = "settings.playbackAudioQuality"
         static let syncedLyricsEnabled = "settings.syncedLyricsEnabled"
         static let romanizationEnabled = "settings.romanizationEnabled"
+        static let lyricsTranslationEnabled = "settings.lyricsTranslationEnabled"
+        static let lyricsTranslationTargetLanguage = "settings.lyricsTranslationTargetLanguage"
+        /// The user's pinned lyrics provider, if any. When set, this provider is
+        /// preferred when ranking lyrics results (better-lyrics provider pinning).
+        static let pinnedLyricsProvider = "settings.pinnedLyricsProvider"
+        static let lyricsPanelWidth = "settings.lyricsPanelWidth"
+        static let nowPlayingQueueWidth = "settings.nowPlayingQueueWidth"
         static let contentLanguage = "settings.contentLanguage"
         static let keepMiniPlayerOnTop = "settings.keepMiniPlayerOnTop"
         static let keepYouTubeVideoOnTop = "settings.keepYouTubeVideoOnTop"
@@ -364,6 +371,60 @@ final class SettingsManager {
         }
     }
 
+    /// Whether lyrics are translated into the target language.
+    var lyricsTranslationEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(self.lyricsTranslationEnabled, forKey: Keys.lyricsTranslationEnabled)
+        }
+    }
+
+    /// BCP-47 identifier of the lyrics translation target; `nil` follows the system language.
+    var lyricsTranslationTargetLanguage: String? {
+        didSet {
+            if let language = self.lyricsTranslationTargetLanguage {
+                UserDefaults.standard.set(language, forKey: Keys.lyricsTranslationTargetLanguage)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.lyricsTranslationTargetLanguage)
+            }
+        }
+    }
+
+    /// The user's pinned lyrics provider name, if any. When set, this provider is
+    /// preferred when ranking lyrics results. `nil` means no pin (provider order
+    /// and quality determine the winner).
+    var pinnedLyricsProvider: String? {
+        didSet {
+            if let provider = self.pinnedLyricsProvider {
+                UserDefaults.standard.set(provider, forKey: Keys.pinnedLyricsProvider)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.pinnedLyricsProvider)
+            }
+        }
+    }
+
+    /// Persisted width of the resizable lyrics panel; `nil` uses the default width.
+    var lyricsPanelWidth: Double? {
+        didSet {
+            if let width = self.lyricsPanelWidth {
+                UserDefaults.standard.set(width, forKey: Keys.lyricsPanelWidth)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.lyricsPanelWidth)
+            }
+        }
+    }
+
+    /// Persisted width of the resizable Up Next column in the now-playing
+    /// showcase; `nil` uses the default width.
+    var nowPlayingQueueWidth: Double? {
+        didSet {
+            if let width = self.nowPlayingQueueWidth {
+                UserDefaults.standard.set(width, forKey: Keys.nowPlayingQueueWidth)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.nowPlayingQueueWidth)
+            }
+        }
+    }
+
     /// Whether the mini player floats above other windows.
     var keepMiniPlayerOnTop: Bool {
         didSet {
@@ -546,6 +607,11 @@ final class SettingsManager {
         self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
         self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        self.lyricsTranslationEnabled = UserDefaults.standard.object(forKey: Keys.lyricsTranslationEnabled) as? Bool ?? false
+        self.lyricsTranslationTargetLanguage = UserDefaults.standard.string(forKey: Keys.lyricsTranslationTargetLanguage)
+        self.pinnedLyricsProvider = UserDefaults.standard.string(forKey: Keys.pinnedLyricsProvider)
+        self.lyricsPanelWidth = UserDefaults.standard.object(forKey: Keys.lyricsPanelWidth) as? Double
+        self.nowPlayingQueueWidth = UserDefaults.standard.object(forKey: Keys.nowPlayingQueueWidth) as? Double
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
         self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: UserDefaults.standard)
         self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true

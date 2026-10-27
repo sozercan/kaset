@@ -2,9 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
+@MainActor
 extension YouTubeAskClientTests {
     @Test("Free text sends the browser-validated get_panel body and click context")
-    @MainActor
     func freeTextRequestShape() async throws {
         let requestCount = LockedCounter()
         let session = MockURLProtocol.makeMockSession { request in

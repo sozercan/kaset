@@ -202,12 +202,12 @@ enum WhatsNewProvider {
 
     private static func extractSection(from lines: [String], preferredHeadings: Set<String>) -> [String]? {
         guard let startIndex = lines.firstIndex(where: { line in
-            guard let heading = Self.markdownHeading(in: line) else {
-                return false
-            }
-            return preferredHeadings.contains(heading.text)
-        }),
-            let startHeading = markdownHeading(in: lines[startIndex])
+                  guard let heading = Self.markdownHeading(in: line) else {
+                      return false
+                  }
+                  return preferredHeadings.contains(heading.text)
+              }),
+              let startHeading = markdownHeading(in: lines[startIndex])
         else {
             return nil
         }

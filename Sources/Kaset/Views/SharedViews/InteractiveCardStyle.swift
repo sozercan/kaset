@@ -128,7 +128,9 @@ struct PressableButtonStyle: ButtonStyle {
 
 // MARK: - ChipButtonStyle
 
-/// A button style for filter chips with scale and background animation.
+/// A button style for filter chips: subtle background lift on hover, quick
+/// press feedback (scale + opacity dip). The chip label supplies its own
+/// resting capsule fill.
 struct ChipButtonStyle: ButtonStyle {
     var isSelected: Bool
 
@@ -136,9 +138,14 @@ struct ChipButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : (self.isHovering ? 1.03 : 1.0))
-            .animation(AppAnimation.spring, value: configuration.isPressed)
-            .animation(AppAnimation.spring, value: self.isHovering)
+            .background {
+                Capsule()
+                    .fill(.primary.opacity(self.isHovering ? 0.08 : 0))
+            }
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.80 : 1.0)
+            .animation(AppAnimation.quick, value: configuration.isPressed)
+            .animation(AppAnimation.quick, value: self.isHovering)
             .onHover { hovering in
                 self.isHovering = hovering
             }
