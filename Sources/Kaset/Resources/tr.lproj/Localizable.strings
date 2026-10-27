@@ -471,6 +471,7 @@
 "songs" = "şarkı";
 "Songs you like will appear here" = "Beğendiğiniz şarkılar burada görünecek";
 "Songs you play next will appear here." = "Sonraki çalacağınız şarkılar burada görünür.";
+"Source" = "Kaynak";
 "Spoken Word" = "Sözel";
 "Sports" = "Spor";
 "Start Radio" = "Radyoyu Başlat";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Öneriler";
 "Hide Panel" = "Paneli Gizle";
+"Show Panel" = "Paneli Göster";
 "Hide Video" = "Videoyu Gizle";
 "Couldn't load recommendations." = "Öneriler yüklenemedi.";
+
+// Showcase presentation
+"Open Now Playing" = "Şu An Çalanı Aç";
+"Close Now Playing" = "Şu An Çalanı Kapat";
+"Show Music Video" = "Müzik Videosunu Göster";
+"Show Album Artwork" = "Albüm Kapağını Göster";

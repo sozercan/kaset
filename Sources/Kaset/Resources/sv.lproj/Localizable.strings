@@ -471,6 +471,7 @@
 "songs" = "låtar";
 "Songs you like will appear here" = "Låtar du gillar visas här";
 "Songs you play next will appear here." = "Låtar som du spelar härnäst visas här.";
+"Source" = "Källa";
 "Spoken Word" = "Tal";
 "Sports" = "Sport";
 "Start Radio" = "Starta radio";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Rekommendationer";
 "Hide Panel" = "Dölj panel";
+"Show Panel" = "Visa panel";
 "Hide Video" = "Dölj video";
 "Couldn't load recommendations." = "Kunde inte läsa in rekommendationer.";
+
+// Showcase presentation
+"Open Now Playing" = "Öppna Spelas nu";
+"Close Now Playing" = "Stäng Spelas nu";
+"Show Music Video" = "Visa musikvideo";
+"Show Album Artwork" = "Visa albumomslag";

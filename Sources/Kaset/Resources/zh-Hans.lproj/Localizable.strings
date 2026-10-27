@@ -484,6 +484,7 @@
 "Songs" = "歌曲";
 "Songs you like will appear here" = "你喜欢的歌曲会显示在这里";
 "Songs you play next will appear here." = "接下来播放的歌曲会显示在这里。";
+"Source" = "来源";
 "Spoken Word" = "口语";
 "Sports" = "体育";
 "Start Radio" = "开始播放电台";
@@ -638,5 +639,12 @@
 // Now-playing panel
 "Recommendations" = "推荐";
 "Hide Panel" = "隐藏面板";
+"Show Panel" = "显示面板";
 "Hide Video" = "隐藏视频";
 "Couldn't load recommendations." = "无法加载推荐。";
+
+// Showcase presentation
+"Open Now Playing" = "打开正在播放";
+"Close Now Playing" = "关闭正在播放";
+"Show Music Video" = "显示音乐视频";
+"Show Album Artwork" = "显示专辑封面";

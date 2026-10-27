@@ -471,6 +471,7 @@
 "songs" = "треков";
 "Songs you like will appear here" = "Треки, которые вам нравятся, появятся здесь";
 "Songs you play next will appear here." = "Песни, которые вы включите следующими, появятся здесь.";
+"Source" = "Источник";
 "Spoken Word" = "Разговорный жанр";
 "Sports" = "Спорт";
 "Start Radio" = "Запустить радио";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Рекомендации";
 "Hide Panel" = "Скрыть панель";
+"Show Panel" = "Показать панель";
 "Hide Video" = "Скрыть видео";
 "Couldn't load recommendations." = "Не удалось загрузить рекомендации.";
+
+// Showcase presentation
+"Open Now Playing" = "Открыть «Сейчас играет»";
+"Close Now Playing" = "Закрыть «Сейчас играет»";
+"Show Music Video" = "Показать музыкальное видео";
+"Show Album Artwork" = "Показать обложку альбома";

@@ -471,6 +471,7 @@
 "songs" = "nummers";
 "Songs you like will appear here" = "Nummers die je leuk vindt verschijnen hier";
 "Songs you play next will appear here." = "Nummers die je hierna afspeelt verschijnen hier.";
+"Source" = "Bron";
 "Spoken Word" = "Gesproken woord";
 "Sports" = "Sport";
 "Start Radio" = "Start radio";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Aanbevelingen";
 "Hide Panel" = "Paneel verbergen";
+"Show Panel" = "Paneel tonen";
 "Hide Video" = "Video verbergen";
 "Couldn't load recommendations." = "Aanbevelingen konden niet worden geladen.";
+
+// Showcase presentation
+"Open Now Playing" = "Nu afgespeeld openen";
+"Close Now Playing" = "Nu afgespeeld sluiten";
+"Show Music Video" = "Muziekvideo tonen";
+"Show Album Artwork" = "Albumhoes tonen";

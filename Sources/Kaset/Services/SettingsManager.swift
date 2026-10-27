@@ -27,6 +27,9 @@ final class SettingsManager {
         static let romanizationEnabled = "settings.romanizationEnabled"
         static let lyricsTranslationEnabled = "settings.lyricsTranslationEnabled"
         static let lyricsTranslationTargetLanguage = "settings.lyricsTranslationTargetLanguage"
+        /// The user's pinned lyrics provider, if any. When set, this provider is
+        /// preferred when ranking lyrics results (better-lyrics provider pinning).
+        static let pinnedLyricsProvider = "settings.pinnedLyricsProvider"
         static let lyricsPanelWidth = "settings.lyricsPanelWidth"
         static let nowPlayingQueueWidth = "settings.nowPlayingQueueWidth"
         static let contentLanguage = "settings.contentLanguage"
@@ -386,6 +389,19 @@ final class SettingsManager {
         }
     }
 
+    /// The user's pinned lyrics provider name, if any. When set, this provider is
+    /// preferred when ranking lyrics results. `nil` means no pin (provider order
+    /// and quality determine the winner).
+    var pinnedLyricsProvider: String? {
+        didSet {
+            if let provider = self.pinnedLyricsProvider {
+                UserDefaults.standard.set(provider, forKey: Keys.pinnedLyricsProvider)
+            } else {
+                UserDefaults.standard.removeObject(forKey: Keys.pinnedLyricsProvider)
+            }
+        }
+    }
+
     /// Persisted width of the resizable lyrics panel; `nil` uses the default width.
     var lyricsPanelWidth: Double? {
         didSet {
@@ -593,6 +609,7 @@ final class SettingsManager {
         self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
         self.lyricsTranslationEnabled = UserDefaults.standard.object(forKey: Keys.lyricsTranslationEnabled) as? Bool ?? false
         self.lyricsTranslationTargetLanguage = UserDefaults.standard.string(forKey: Keys.lyricsTranslationTargetLanguage)
+        self.pinnedLyricsProvider = UserDefaults.standard.string(forKey: Keys.pinnedLyricsProvider)
         self.lyricsPanelWidth = UserDefaults.standard.object(forKey: Keys.lyricsPanelWidth) as? Double
         self.nowPlayingQueueWidth = UserDefaults.standard.object(forKey: Keys.nowPlayingQueueWidth) as? Double
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false

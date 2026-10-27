@@ -481,6 +481,7 @@
 "Songs" = "曲";
 "Songs you like will appear here" = "高く評価した曲がここに表示されます";
 "Songs you play next will appear here." = "次に再生する曲がここに表示されます。";
+"Source" = "ソース";
 "Spoken Word" = "スポークンワード";
 "Sports" = "スポーツ";
 "Start Radio" = "ラジオを開始";
@@ -635,5 +636,12 @@
 // Now-playing panel
 "Recommendations" = "おすすめ";
 "Hide Panel" = "パネルを非表示";
+"Show Panel" = "パネルを表示";
 "Hide Video" = "動画を非表示";
 "Couldn't load recommendations." = "おすすめを読み込めませんでした。";
+
+// Showcase presentation
+"Open Now Playing" = "再生中を開く";
+"Close Now Playing" = "再生中を閉じる";
+"Show Music Video" = "ミュージックビデオを表示";
+"Show Album Artwork" = "アルバムアートワークを表示";

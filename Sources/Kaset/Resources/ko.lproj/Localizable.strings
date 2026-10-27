@@ -471,6 +471,7 @@
 "songs" = "곡";
 "Songs you like will appear here" = "좋아요 표시한 노래가 여기에 표시됩니다";
 "Songs you play next will appear here." = "다음에 재생할 노래가 여기에 표시됩니다.";
+"Source" = "소스";
 "Spoken Word" = "스포큰 워드";
 "Sports" = "스포츠";
 "Start Radio" = "라디오 시작";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "추천";
 "Hide Panel" = "패널 가리기";
+"Show Panel" = "패널 표시";
 "Hide Video" = "동영상 가리기";
 "Couldn't load recommendations." = "추천을 불러올 수 없습니다.";
+
+// Showcase presentation
+"Open Now Playing" = "지금 재생 중 열기";
+"Close Now Playing" = "지금 재생 중 닫기";
+"Show Music Video" = "뮤직비디오 보기";
+"Show Album Artwork" = "앨범 표지 보기";

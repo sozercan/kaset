@@ -471,6 +471,7 @@
 "songs" = "пісень";
 "Songs you like will appear here" = "Пісні, які вам подобаються, з’являться тут";
 "Songs you play next will appear here." = "Пісні, які ви відтворите далі, з’являться тут.";
+"Source" = "Джерело";
 "Spoken Word" = "Мовлення";
 "Sports" = "Спорт";
 "Start Radio" = "Запустити радіо";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Рекомендації";
 "Hide Panel" = "Приховати панель";
+"Show Panel" = "Показати панель";
 "Hide Video" = "Приховати відео";
 "Couldn't load recommendations." = "Не вдалося завантажити рекомендації.";
+
+// Showcase presentation
+"Open Now Playing" = "Відкрити «Зараз грає»";
+"Close Now Playing" = "Закрити «Зараз грає»";
+"Show Music Video" = "Показати музичне відео";
+"Show Album Artwork" = "Показати обкладинку альбому";

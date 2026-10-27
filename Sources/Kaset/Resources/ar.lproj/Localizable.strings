@@ -471,6 +471,7 @@
 "songs" = "أغانٍ";
 "Songs you like will appear here" = "الأغاني التي تعجبك ستظهر هنا";
 "Songs you play next will appear here." = "ستظهر هنا الأغاني التي ستشغّلها بعد ذلك.";
+"Source" = "المصدر";
 "Spoken Word" = "كلمة منطوقة";
 "Sports" = "الرياضة";
 "Start Radio" = "بدء الراديو";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "التوصيات";
 "Hide Panel" = "إخفاء اللوحة";
+"Show Panel" = "إظهار اللوحة";
 "Hide Video" = "إخفاء الفيديو";
 "Couldn't load recommendations." = "تعذر تحميل التوصيات.";
+
+// Showcase presentation
+"Open Now Playing" = "فتح «قيد التشغيل»";
+"Close Now Playing" = "إغلاق «قيد التشغيل»";
+"Show Music Video" = "عرض الفيديو الموسيقي";
+"Show Album Artwork" = "عرض غلاف الألبوم";

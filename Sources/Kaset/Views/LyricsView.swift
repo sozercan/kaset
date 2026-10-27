@@ -2,6 +2,8 @@ import FoundationModels
 import SwiftUI
 import Translation
 
+// MARK: - LyricsView
+
 /// Right sidebar panel displaying lyrics for the current track.
 @available(macOS 26.0, *)
 struct LyricsView: View {
@@ -15,6 +17,7 @@ struct LyricsView: View {
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
+    @State private var lastRecordingRefetchKey: String?
 
     // Translation state. Online (Google gtx) first; the Apple Translation
     // framework session is the on-device fallback when the online path fails.
@@ -90,10 +93,16 @@ struct LyricsView: View {
                     self.explanationError = nil
                     self.lineTranslations = [:]
                     self.plainTranslation = nil
+                    // A new track is a new recording; the MV refetch dedupe key
+                    // must not suppress a fresh mismatch correction.
+                    self.lastRecordingRefetchKey = nil
                     Task {
                         await self.loadLyrics(for: videoId)
                     }
                 }
+            }
+            .onChange(of: self.playerService.duration) { _, streamDuration in
+                self.reloadLyricsIfVideoRecordingDiffers(streamDuration: streamDuration)
             }
             .task {
                 if let videoId = playerService.currentTrack?.videoId {
@@ -103,6 +112,14 @@ struct LyricsView: View {
             .onChange(of: self.syncedLyricsService.currentLyrics) { _, newLyrics in
                 self.updateLyricsPolling(for: newLyrics)
                 self.restartTranslation()
+            }
+            .onChange(of: self.settings.pinnedLyricsProvider) { _, newProvider in
+                self.syncedLyricsService.setPinnedProvider(newProvider)
+                Task {
+                    if let videoId = self.playerService.currentTrack?.videoId {
+                        await self.loadLyrics(for: videoId)
+                    }
+                }
             }
             .onChange(of: self.settings.lyricsTranslationEnabled) { _, _ in
                 self.restartTranslation()
@@ -338,6 +355,10 @@ struct LyricsView: View {
 
     // MARK: - Header
 
+    /// Selectable lyrics sources for the display-options menu, in the
+    /// service's provider-priority order. Brand names, shown as-is.
+    private static let lyricsSourceOptions = ["YTMusic", "BetterLyrics", "LRCLib", "NetEase", "KuGou"]
+
     private var translationOptionsMenu: some View {
         Menu {
             Toggle(String(localized: "Pronunciation"), isOn: self.$settings.romanizationEnabled)
@@ -348,6 +369,15 @@ struct LyricsView: View {
                     ForEach(SettingsManager.ContentLanguage.allCases) { language in
                         Text(language.displayName).tag(language.languageCode)
                     }
+                }
+            }
+
+            Divider()
+
+            Picker(String(localized: "Source"), selection: self.$settings.pinnedLyricsProvider) {
+                Text(String(localized: "Auto")).tag(String?.none)
+                ForEach(Self.lyricsSourceOptions, id: \.self) { source in
+                    Text(source).tag(Optional(source))
                 }
             }
         } label: {
@@ -682,8 +712,12 @@ struct LyricsView: View {
 
     // MARK: - Data Loading
 
+    /// Difference between the loaded stream's duration and the song's metadata
+    /// duration beyond which the loaded recording is a different cut of the
+    /// song (a live version). Metadata noise for the same recording stays
+    /// within seconds between sources.
     @MainActor
-    private func loadLyrics(for videoId: String) async {
+    private func loadLyrics(for videoId: String, recordingDuration: TimeInterval? = nil) async {
         self.lastLoadedVideoId = videoId
         self.isLoadingFallback = false
 
@@ -692,13 +726,34 @@ struct LyricsView: View {
         // Don't search if it's not the current track anymore
         guard track.videoId == videoId else { return }
 
+        // Initial load while the MV surface is up: the stream may already be a
+        // different recording (the duration settled before this fetch). Apply
+        // the recording override here too, not just on later duration changes.
+        let effectiveRecordingDuration = recordingDuration ?? self.recordingOverrideDuration(for: track)
+        if effectiveRecordingDuration != recordingDuration {
+            // The override changed the fetch key; keep the dedupe key in sync
+            // so the duration-observer path does not refetch redundantly.
+            self.lastRecordingRefetchKey = "\(track.videoId)|\(Int(effectiveRecordingDuration ?? 0))"
+        }
+
         let info = LyricsSearchInfo(
             title: track.title,
             artist: track.artistsDisplay,
             album: track.album?.title,
-            duration: track.duration,
-            videoId: track.videoId
+            duration: effectiveRecordingDuration ?? track.duration,
+            videoId: track.videoId,
+            // While the MV surface is up, the loaded stream may be a different
+            // recording of the song: only a close duration match may claim
+            // synced display, otherwise the highlighting drifts.
+            requiresCloseDurationMatch: self.playerService.showNowPlayingVideo
         )
+
+        // Fetch YouTube Music's own lyrics early so they're available both as a
+        // validation reference for synced results and as the plain fallback
+        // (better-lyrics: show YouTube's lyrics while waiting for synced ones).
+        let ytLyricsTask = Task {
+            try? await self.client.getLyrics(videoId: videoId)
+        }
 
         if SettingsManager.shared.syncedLyricsEnabled {
             await self.syncedLyricsService.fetchLyrics(for: info)
@@ -709,7 +764,34 @@ struct LyricsView: View {
 
         guard self.lastLoadedVideoId == videoId, self.playerService.currentTrack?.videoId == videoId else { return }
 
-        // As a fallback to provide plain lyrics
+        // Collect the YouTube Music lyrics fetched in parallel.
+        var ytPlain: Lyrics?
+        if let result = try? await ytLyricsTask.value {
+            ytPlain = result
+        }
+
+        // Validate a synced result against YouTube Music's own lyrics. A large
+        // mismatch means the loaded recording differs (e.g. a live version) or
+        // the provider matched the wrong song: reject the synced result rather
+        // than show wrong highlighting (better-lyrics string-similarity check).
+        if case let .synced(synced) = self.syncedLyricsService.currentLyrics,
+           let ytPlain, !ytPlain.text.isEmpty
+        {
+            let syncedText = synced.lines.map(\.text).joined(separator: "\n")
+            let similarity = LyricsSimilarity.similarity(syncedText, ytPlain.text)
+            if similarity < Self.lyricsSimilarityThreshold {
+                DiagnosticsLogger.api.warning(
+                    "Rejecting synced lyrics from \(synced.source): similarity \(String(format: "%.2f", similarity)) below threshold"
+                )
+                // Invalidate the bad cached result so it is not re-served, then
+                // fall back to YouTube Music's own plain lyrics.
+                self.syncedLyricsService.invalidateCachedLyrics(for: videoId)
+                self.syncedLyricsService.currentLyrics = .plain(ytPlain)
+                self.syncedLyricsService.activeProvider = ytPlain.source ?? "Source: YouTube Music"
+            }
+        }
+
+        // As a fallback to provide plain lyrics when nothing synced is available.
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true
             defer {
@@ -718,18 +800,26 @@ struct LyricsView: View {
                 }
             }
 
-            do {
-                let fetchedLyrics = try await client.getLyrics(videoId: videoId)
-                if self.lastLoadedVideoId == videoId,
-                   self.playerService.currentTrack?.videoId == videoId
-                {
-                    self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+            if let ytPlain {
+                self.syncedLyricsService.fallbackToPlainLyrics(ytPlain, videoId: videoId)
+            } else {
+                do {
+                    let fetchedLyrics = try await self.client.getLyrics(videoId: videoId)
+                    if self.lastLoadedVideoId == videoId,
+                       self.playerService.currentTrack?.videoId == videoId
+                    {
+                        self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
+                    }
+                } catch {
+                    DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
                 }
-            } catch {
-                DiagnosticsLogger.api.error("Failed to load plain lyrics fallback: \(error.localizedDescription)")
             }
         }
     }
+
+    /// Below this similarity to YouTube Music's own lyrics, a synced result is
+    /// rejected as a wrong-recording or bad match (better-lyrics uses 0.5).
+    static let lyricsSimilarityThreshold: Double = 0.5
 
     private func explainLyrics() async {
         guard self.syncedLyricsService.currentLyrics.isAvailable,
@@ -819,6 +909,47 @@ struct LyricsView: View {
 
         self.partialSummary = nil
         self.isExplaining = false
+    }
+}
+
+// MARK: - Recording-aware lyrics
+
+/// MV-mode lyrics handling when the loaded music video is a different recording
+/// of the song (e.g. a live version): the studio recording's synced timings do
+/// not apply to the recording actually playing.
+@available(macOS 26.0, *)
+extension LyricsView {
+    /// Duration gap beyond which the loaded stream is a different recording.
+    /// Metadata noise for the same recording stays within seconds between sources.
+    static let recordingDurationTolerance: TimeInterval = 5
+
+    /// The loaded stream's duration when it differs from the track's metadata
+    /// duration while the MV surface is up; nil when the recording matches.
+    func recordingOverrideDuration(for track: Song) -> TimeInterval? {
+        guard self.playerService.showNowPlayingVideo,
+              let songDuration = track.duration, songDuration > 0,
+              self.playerService.duration > 0,
+              abs(self.playerService.duration - songDuration) > Self.recordingDurationTolerance
+        else { return nil }
+        return self.playerService.duration
+    }
+
+    @MainActor
+    func reloadLyricsIfVideoRecordingDiffers(streamDuration: TimeInterval) {
+        guard self.playerService.showNowPlayingVideo,
+              let track = self.playerService.currentTrack,
+              let songDuration = track.duration,
+              songDuration > 0,
+              streamDuration > 0,
+              abs(streamDuration - songDuration) > Self.recordingDurationTolerance else { return }
+        let refetchKey = "\(track.videoId)|\(Int(streamDuration))"
+        guard self.lastRecordingRefetchKey != refetchKey else { return }
+        self.lastRecordingRefetchKey = refetchKey
+        // The cached studio-recording match must not short-circuit the recording-keyed search.
+        self.syncedLyricsService.invalidateCachedLyrics(for: track.videoId)
+        Task {
+            await self.loadLyrics(for: track.videoId, recordingDuration: streamDuration)
+        }
     }
 }
 

@@ -471,6 +471,7 @@
 "songs" = "lagu";
 "Songs you like will appear here" = "Lagu yang Anda sukai akan muncul di sini";
 "Songs you play next will appear here." = "Lagu yang akan Anda putar berikutnya akan muncul di sini.";
+"Source" = "Sumber";
 "Spoken Word" = "Kata Diucapkan";
 "Sports" = "Olahraga";
 "Start Radio" = "Mulai Radio";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Rekomendasi";
 "Hide Panel" = "Sembunyikan panel";
+"Show Panel" = "Tampilkan panel";
 "Hide Video" = "Sembunyikan video";
 "Couldn't load recommendations." = "Rekomendasi tidak dapat dimuat.";
+
+// Showcase presentation
+"Open Now Playing" = "Buka Sedang Diputar";
+"Close Now Playing" = "Tutup Sedang Diputar";
+"Show Music Video" = "Tampilkan video musik";
+"Show Album Artwork" = "Tampilkan sampul album";

@@ -471,6 +471,7 @@
 "songs" = "Titeln";
 "Songs you like will appear here" = "Titel, die dir gefallen, werden hier angezeigt";
 "Songs you play next will appear here." = "Titel, die du als Nächstes abspielst, erscheinen hier.";
+"Source" = "Quelle";
 "Spoken Word" = "Gesprochenes Wort";
 "Sports" = "Sport";
 "Start Radio" = "Radio starten";
@@ -640,5 +641,12 @@
 // Now-playing panel
 "Recommendations" = "Empfehlungen";
 "Hide Panel" = "Panel ausblenden";
+"Show Panel" = "Panel einblenden";
 "Hide Video" = "Video ausblenden";
 "Couldn't load recommendations." = "Empfehlungen konnten nicht geladen werden.";
+
+// Showcase presentation
+"Open Now Playing" = "„Jetzt läuft“ öffnen";
+"Close Now Playing" = "„Jetzt läuft“ schließen";
+"Show Music Video" = "Musikvideo anzeigen";
+"Show Album Artwork" = "Albumcover anzeigen";

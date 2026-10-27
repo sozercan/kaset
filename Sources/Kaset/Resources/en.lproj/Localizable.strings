@@ -56,5 +56,13 @@
 // Now-playing panel
 "Recommendations" = "Recommendations";
 "Hide Panel" = "Hide Panel";
+"Show Panel" = "Show Panel";
 "Hide Video" = "Hide Video";
 "Couldn't load recommendations." = "Couldn't load recommendations.";
+
+// Showcase presentation
+"Open Now Playing" = "Open Now Playing";
+"Close Now Playing" = "Close Now Playing";
+"Show Music Video" = "Show Music Video";
+"Show Album Artwork" = "Show Album Artwork";
+"Source" = "Source";
