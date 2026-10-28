@@ -103,6 +103,8 @@
 "Continue" = "Продолжить";
 "Continue Watching" = "Продолжить просмотр";
 "Control playback with your keyboard" = "Управляйте воспроизведением с помощью клавиатуры";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Элементы управления появляются при движении указателя над видео и скрываются во время воспроизведения.";
+"Copy Link" = "Скопировать ссылку";
 "Could not create AI session" = "Не удалось создать сеанс AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Не удалось захватить звук Kaset (статус %d). Проверьте разрешение на запись экрана и системного звука в Системных настройках.";
 "Couldn't configure the audio unit (%lld)." = "Не удалось настроить аудиомодуль (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "Загрузка";
 "Drag to reorder" = "Перетащите, чтобы изменить порядок";
 "E" = "E";
+"Number %lld, %@" = "Номер %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "например, убрать медленные треки, перестроить по энергии…";
 "Edit" = "Правка";
 "Electronic" = "Электроника";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Откройте панель команд, чтобы управлять музыкой естественным языком. Попробуйте сказать \"play something chill\" или \"add jazz to queue\".";
 "Options…" = "Параметры…";
 "Output" = "Выход";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Вход с ключом доступа недоступен в этом окне. Вместо этого Google запросит пароль или другой способ входа.";
 "Pause" = "Пауза";
 "Permission needed" = "Требуется разрешение";
 "Piano" = "Piano";
 "Picture in Picture" = "Картинка в картинке";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Размещать элементы управления воспроизведением на видео, а не на панели внизу окна";
 "Play" = "Воспроизвести";
 "Play a song to view its lyrics here." = "Воспроизведите трек, чтобы увидеть здесь его текст.";
 "Play All" = "Воспроизвести все";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Качество звука при воспроизведении";
 "Playback position" = "Позиция воспроизведения";
 "Played" = "Воспроизведено";
+"Player Controls" = "Элементы управления проигрывателем";
 "Playing" = "Воспроизводится";
 "Playlist" = "Плейлист";
 "Playlist not found" = "Плейлист не найден";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Удалить дубликаты: удаляет повторяющиеся песни из очереди и оставляет первое вхождение каждой.";
 "Remove extension" = "Удалить расширение";
 "Remove from Favorites" = "Удалить из избранного";
+"Remove from Library" = "Удалить из медиатеки";
 "Remove from Playlist" = "Удалить из плейлиста";
 "Remove from Queue" = "Удалить из очереди";
 "Remove from Sidebar" = "Убрать с боковой панели";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Показывать уведомление, когда начинает играть новый трек";
 "Show a soft color glow, drawn from the video, behind the player" = "Показывать за проигрывателем мягкое цветное свечение из видео";
 "Show All" = "Показать все";
+"Show Controls on Video" = "Показывать элементы управления на видео";
 "Show Large Artwork" = "Показывать крупную обложку";
 "Show Lyrics" = "Показать текст";
 "Show more comments" = "Показать больше комментариев";
@@ -571,3 +577,58 @@
 "Start a new chat to continue." = "Начните новый чат, чтобы продолжить.";
 "Ask Gemini response ready" = "Ответ «Спросить Gemini» готов";
 "New Ask Gemini chat ready" = "Новый чат «Спросить Gemini» готов";
+
+// Appearance
+"Appearance" = "Оформление";
+"App Appearance" = "Оформление приложения";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Выберите светлый или тёмный режим для Kaset либо используйте настройку macOS";
+"Match System" = "Как в системе";
+"Light Mode" = "Светлый режим";
+"Dark Mode" = "Тёмный режим";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Включить музыку";
+"Play Song" = "Воспроизвести трек";
+"Play Playlist" = "Воспроизвести плейлист";
+"Play Album" = "Воспроизвести альбом";
+"Play Liked Music" = "Воспроизвести понравившуюся музыку";
+"Play or Pause" = "Воспроизведение или пауза";
+"Resume Playback" = "Продолжить воспроизведение";
+"Next Track" = "Следующий трек";
+"Previous Track" = "Предыдущий трек";
+"Get Current Song" = "Получить текущий трек";
+"Like Current Song" = "Отметить текущий трек как понравившийся";
+"Dislike Current Song" = "Отметить текущий трек как непонравившийся";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Ищет в YouTube Music и воспроизводит наиболее подходящий трек, а затем его радио.";
+"Plays a song in Kaset, followed by its radio." = "Воспроизводит трек в Kaset, а затем его радио.";
+"Plays a playlist in Kaset." = "Воспроизводит плейлист в Kaset.";
+"Plays an album in Kaset." = "Воспроизводит альбом в Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Воспроизводит ваш плейлист «Понравившаяся музыка» в Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Ставит Kaset на паузу, если идёт воспроизведение, иначе продолжает его.";
+"Pauses playback in Kaset." = "Ставит воспроизведение в Kaset на паузу.";
+"Resumes playback in Kaset." = "Продолжает воспроизведение в Kaset.";
+"Skips to the next track in Kaset." = "Переходит к следующему треку в Kaset.";
+"Goes back to the previous track in Kaset." = "Возвращается к предыдущему треку в Kaset.";
+"Returns the song playing in Kaset." = "Возвращает трек, который играет в Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Отмечает трек, который играет в Kaset, как понравившийся. Уже понравившийся трек таким и останется.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Отмечает трек, который играет в Kaset, как непонравившийся. Уже отмеченный так трек таким и останется.";
+"Resume" = "Продолжить";
+"Next Song" = "Следующий трек";
+"Previous Song" = "Предыдущий трек";
+"Like Song" = "Нравится";
+"Title" = "Название";
+"Author" = "Автор";
+"Play ${query}" = "Воспроизвести ${query}";
+"Play ${song}" = "Воспроизвести ${song}";
+"Play ${target}" = "Воспроизвести ${target}";
+"What do you want to play?" = "Что вы хотите послушать?";
+"Playing %@." = "Воспроизводится %@.";
+"Playing %@ by %@." = "Воспроизводится %1$@ — %2$@.";
+"Now playing %@." = "Сейчас играет %@.";
+"Now playing %@ by %@." = "Сейчас играет %1$@ — %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset ещё запускается. Повторите попытку чуть позже.";
+"Nothing is playing in Kaset." = "В Kaset ничего не воспроизводится.";
+"Sign in to YouTube Music in Kaset first." = "Сначала войдите в YouTube Music в Kaset.";
+"No songs found for “%@”." = "Не найдено треков по запросу «%@».";
+"Couldn't play “%@”." = "Не удалось воспроизвести «%@».";
+"Couldn't rate “%@”." = "Не удалось оценить «%@».";

@@ -7,6 +7,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 APP_PATH="$ROOT/.build/app/Kaset.app"
 REQUIRE_DEVELOPER_ID=false
+EXPECTED_BUNDLE_ID="com.sertacozercan.Kaset"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -14,14 +15,20 @@ while [[ $# -gt 0 ]]; do
       REQUIRE_DEVELOPER_ID=true
       shift
       ;;
+    --bundle-id)
+      [[ $# -ge 2 ]] || { echo "ERROR: --bundle-id requires a value" >&2; exit 1; }
+      EXPECTED_BUNDLE_ID="$2"
+      shift 2
+      ;;
     --help|-h)
       cat <<USAGE
-Usage: Scripts/verify-release-app.sh [--require-developer-id] [path/to/Kaset.app]
+Usage: Scripts/verify-release-app.sh [--require-developer-id] [--bundle-id ID] [path/to/Kaset.app]
 
 Checks:
   - Info.plist contains Sparkle's sandboxed installer launcher key
   - sandbox entitlements include Sparkle's installer/status mach lookups
   - Sparkle Installer.xpc is embedded
+  - App Intents metadata and App Shortcut phrases are embedded
   - codesign verification succeeds
   - optional Developer ID Application signing identity is used
 USAGE
@@ -54,7 +61,8 @@ codesign -d --entitlements :- "$APP_PATH" >"$ENTITLEMENTS_PLIST" 2>/dev/null || 
 plutil -lint "$ENTITLEMENTS_PLIST" >/dev/null
 codesign -dv --verbose=4 "$APP_PATH" >"$CODESIGN_DETAILS" 2>&1 || fail "Could not read code signature details"
 
-python3 - "$APP_PATH" "$INFO_PLIST" "$ENTITLEMENTS_PLIST" <<'PY'
+python3 - "$APP_PATH" "$INFO_PLIST" "$ENTITLEMENTS_PLIST" "$EXPECTED_BUNDLE_ID" <<'PY'
+import json
 import plistlib
 import sys
 from pathlib import Path
@@ -62,6 +70,7 @@ from pathlib import Path
 app_path = Path(sys.argv[1])
 info_path = Path(sys.argv[2])
 entitlements_path = Path(sys.argv[3])
+expected_bundle_id = sys.argv[4]
 
 with info_path.open("rb") as handle:
     info = plistlib.load(handle)
@@ -70,7 +79,6 @@ with entitlements_path.open("rb") as handle:
 
 errors: list[str] = []
 bundle_id = info.get("CFBundleIdentifier")
-expected_bundle_id = "com.sertacozercan.Kaset"
 if bundle_id != expected_bundle_id:
     errors.append(f"CFBundleIdentifier must be {expected_bundle_id}, found {bundle_id!r}")
 
@@ -80,6 +88,16 @@ if info.get("SUEnableInstallerLauncherService") is not True:
 installer_xpc = app_path / "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
 if not installer_xpc.exists():
     errors.append(f"Sparkle Installer.xpc is missing at {installer_xpc}")
+
+# Shortcuts, Siri, and Spotlight discover App Intents only from this generated metadata.
+app_intents_metadata = app_path / "Contents/Resources/Metadata.appintents/extract.actionsdata"
+if not app_intents_metadata.exists():
+    errors.append(f"App Intents metadata is missing at {app_intents_metadata}")
+elif not json.loads(app_intents_metadata.read_text(encoding="utf-8")).get("actions"):
+    errors.append("App Intents metadata declares no actions")
+app_shortcut_phrases = app_path / "Contents/Resources/en.lproj/AppShortcuts.strings"
+if not app_shortcut_phrases.exists():
+    errors.append(f"App Shortcut phrases are missing at {app_shortcut_phrases}")
 
 if entitlements.get("com.apple.security.app-sandbox") is True:
     expected_mach_services = {

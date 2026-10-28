@@ -334,19 +334,25 @@ func selectedCookieBackupFile(
             .appendingPathComponent("Kaset", isDirectory: true)
             .appendingPathComponent("cookies.dat")
 
-    let containerCookieFile = homeDirectory
-        .appendingPathComponent("Library/Containers/com.sertacozercan.Kaset/Data", isDirectory: true)
-        .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
-        .appendingPathComponent("cookies.dat")
+    // Packaged debug builds export cookies.dat into their own container; older
+    // debug builds shared the release container.
+    let containerCookieFiles = ["com.sertacozercan.Kaset.debug", "com.sertacozercan.Kaset"].map { bundleID in
+        homeDirectory
+            .appendingPathComponent("Library/Containers/\(bundleID)/Data", isDirectory: true)
+            .appendingPathComponent("Library/Application Support/Kaset", isDirectory: true)
+            .appendingPathComponent("cookies.dat")
+    }
 
     // Once the sandboxed app has created its Application Support directory, its
-    // container export is authoritative. Never resurrect the legacy host archive
-    // after logout, account switching, expiry, corruption, or a cleared export.
-    if FileManager.default.fileExists(atPath: containerCookieFile.path) {
-        return containerCookieFile
-    }
-    if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
-        return nil
+    // container export is authoritative. Never resurrect an older archive after
+    // logout, account switching, expiry, corruption, or a cleared export.
+    for containerCookieFile in containerCookieFiles {
+        if FileManager.default.fileExists(atPath: containerCookieFile.path) {
+            return containerCookieFile
+        }
+        if FileManager.default.fileExists(atPath: containerCookieFile.deletingLastPathComponent().path) {
+            return nil
+        }
     }
     return FileManager.default.fileExists(atPath: legacyCookieFile.path) ? legacyCookieFile : nil
 }
@@ -433,21 +439,6 @@ func buildCookieHeader(from cookies: [HTTPCookie]) -> String? {
     // Use HTTPCookie's built-in method for proper formatting
     let headerFields = HTTPCookie.requestHeaderFields(with: matchingCookies)
     return headerFields["Cookie"]
-}
-
-/// Computes SAPISIDHASH for YouTube API authentication.
-func computeSAPISIDHASH(sapisid: String) -> String {
-    let timestamp = Int(Date().timeIntervalSince1970)
-    let input = "\(timestamp) \(sapisid) \(activeOrigin)"
-
-    let data = Data(input.utf8)
-    var hash = [UInt8](repeating: 0, count: Int(CC_SHA1_DIGEST_LENGTH))
-    data.withUnsafeBytes { buffer in
-        _ = CC_SHA1(buffer.baseAddress, CC_LONG(buffer.count), &hash)
-    }
-    let hashHex = hash.map { String(format: "%02x", $0) }.joined()
-
-    return "\(timestamp)_\(hashHex)"
 }
 
 func buildSIDAuthorizationHeader(
@@ -1601,6 +1592,128 @@ private func albumLibraryTargetSummary(_ data: [String: Any]) -> String {
     return "\n💾 Album library target:\n  • Found \(targets.count) unique OLAK playlist target(s) for album mutations\n"
 }
 
+// MARK: - QueueRatingAudit
+
+private struct QueueRatingAudit {
+    var rowCount = 0
+    var rowsWithDirectStatus = 0
+    var ratingToggleCount = 0
+    var toggleShapes: [String: Int] = [:]
+}
+
+// MARK: - QueueRatingEndpointAudit
+
+private struct QueueRatingEndpointAudit {
+    let status: String
+    let target: String
+}
+
+private func queueRatingEndpointAudit(
+    _ rawEndpoint: Any?,
+    rowVideoId: String?
+) -> QueueRatingEndpointAudit? {
+    guard let endpoint = rawEndpoint as? [String: Any],
+          let rawLikeEndpoint = endpoint["likeEndpoint"]
+    else { return nil }
+    guard let likeEndpoint = rawLikeEndpoint as? [String: Any] else {
+        return QueueRatingEndpointAudit(status: "malformed", target: "invalid")
+    }
+
+    let status = switch likeEndpoint["status"] as? String {
+    case "LIKE": "LIKE"
+    case "DISLIKE": "DISLIKE"
+    case "INDIFFERENT": "INDIFFERENT"
+    case nil: "missing"
+    default: "other"
+    }
+    let targetVideoId = (likeEndpoint["target"] as? [String: Any])?["videoId"] as? String
+    let target = if let rowVideoId, let targetVideoId {
+        rowVideoId == targetVideoId ? "match" : "mismatch"
+    } else {
+        "missing"
+    }
+    return QueueRatingEndpointAudit(status: status, target: target)
+}
+
+private func auditQueueRatingRow(_ row: [String: Any], audit: inout QueueRatingAudit) {
+    audit.rowCount += 1
+    let menuRenderer = ((row["menu"] as? [String: Any])?["menuRenderer"] as? [String: Any])
+    let directButtons = menuRenderer?["topLevelButtons"] as? [[String: Any]] ?? []
+    if directButtons.contains(where: { $0["likeButtonRenderer"] != nil }) {
+        audit.rowsWithDirectStatus += 1
+    }
+
+    let rowVideoId = row["videoId"] as? String
+    let items = menuRenderer?["items"] as? [[String: Any]] ?? []
+    for item in items {
+        guard let toggle = item["toggleMenuServiceItemRenderer"] as? [String: Any] else {
+            continue
+        }
+        let defaultEndpoint = queueRatingEndpointAudit(
+            toggle["defaultServiceEndpoint"],
+            rowVideoId: rowVideoId
+        )
+        let toggledEndpoint = queueRatingEndpointAudit(
+            toggle["toggledServiceEndpoint"],
+            rowVideoId: rowVideoId
+        )
+        guard defaultEndpoint != nil || toggledEndpoint != nil else { continue }
+
+        audit.ratingToggleCount += 1
+        let toggleState = switch toggle["isToggled"] {
+        case let value as Bool: value ? "true" : "false"
+        case nil: "absent"
+        default: "invalid"
+        }
+        let targets = [defaultEndpoint?.target, toggledEndpoint?.target]
+            .compactMap(\.self)
+        let targetSummary = if targets.isEmpty {
+            "missing"
+        } else if targets.allSatisfy({ $0 == "match" }) {
+            "match"
+        } else if targets.contains("mismatch") {
+            "mismatch"
+        } else {
+            "invalid"
+        }
+        let shape = "isToggled=\(toggleState) default=\(defaultEndpoint?.status ?? "none") "
+            + "toggled=\(toggledEndpoint?.status ?? "none") targets=\(targetSummary)"
+        audit.toggleShapes[shape, default: 0] += 1
+    }
+}
+
+private func collectQueueRatingAudit(in value: Any, audit: inout QueueRatingAudit) {
+    if let dictionary = value as? [String: Any] {
+        if let row = dictionary["playlistPanelVideoRenderer"] as? [String: Any] {
+            auditQueueRatingRow(row, audit: &audit)
+        }
+        for child in dictionary.values {
+            collectQueueRatingAudit(in: child, audit: &audit)
+        }
+    } else if let array = value as? [Any] {
+        for child in array {
+            collectQueueRatingAudit(in: child, audit: &audit)
+        }
+    }
+}
+
+private func queueRatingAuditSummary(data: Data) -> String {
+    guard let response = try? JSONSerialization.jsonObject(with: data) else {
+        return "\n👍 Queue rating audit (redacted): unavailable (non-JSON response)"
+    }
+
+    var audit = QueueRatingAudit()
+    collectQueueRatingAudit(in: response, audit: &audit)
+    var output = "\n👍 Queue rating audit (redacted):\n"
+    output += "  • Queue rows: \(audit.rowCount)\n"
+    output += "  • Rows with direct like status: \(audit.rowsWithDirectStatus)\n"
+    output += "  • Rating toggles: \(audit.ratingToggleCount)\n"
+    for (shape, count) in audit.toggleShapes.sorted(by: { $0.key < $1.key }) {
+        output += "  • \(count)× \(shape)\n"
+    }
+    return output
+}
+
 func analyzeResponse(
     _ data: [String: Any],
     verbose: Bool = false,
@@ -2590,6 +2703,9 @@ func exploreWireAction(
             statusCode: response.statusCode,
             contentType: response.contentType
         ))
+        if endpoint == "next" {
+            print(queueRatingAuditSummary(data: response.data))
+        }
 
         if let outputFile {
             try writePrivateOutput(response.data, to: outputFile)

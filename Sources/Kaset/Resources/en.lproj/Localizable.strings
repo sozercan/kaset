@@ -40,3 +40,15 @@
 "Start a new chat to continue." = "Start a new chat to continue.";
 "Ask Gemini response ready" = "Ask Gemini response ready";
 "New Ask Gemini chat ready" = "New Ask Gemini chat ready";
+
+// Appearance
+"Appearance" = "Appearance";
+"App Appearance" = "App Appearance";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Choose light or dark mode for Kaset, or match the macOS setting";
+"Match System" = "Match System";
+"Light Mode" = "Light Mode";
+"Dark Mode" = "Dark Mode";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Playing %@ by %@." = "Playing %1$@ by %2$@.";
+"Now playing %@ by %@." = "Now playing %1$@ by %2$@.";

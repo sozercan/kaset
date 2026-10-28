@@ -364,6 +364,12 @@ enum LibraryMutationActions {
         }
     }
 
+    /// Menu hosts are recreated on reopening, so pending state belongs to the mutation service.
+    static func isPlaylistMutationPending(playlistId: String) -> Bool {
+        let key = PlaylistMutationKey(identity: LibraryContentIdentity.playlistKey(for: playlistId))
+        return self.latestPlaylistMutationIDs[key] != nil
+    }
+
     /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,

@@ -35,3 +35,12 @@ Navigation shortcuts route to the active source's equivalent destination:
 in YouTube mode, `⌘1`/`⌘2`/`⌘F` go to the YouTube Home/Explore/Search
 surfaces and `⌘3` goes to Playlists.
 `⇧⌘R` refreshes the active source's Home feed and bypasses its cached suggestions.
+
+With macOS Keyboard navigation enabled, `Tab` moves between shelf cards and each
+song's Like/Unlike control. `⇧Tab` moves in reverse. `Return` or `Space` activates
+the focused card or toggles the focused Like/Unlike control.
+
+With **Show Controls on Video** on (Settings → YouTube), any key press outside a
+text field reveals the watch page's on-video controls for a few seconds. With
+Keyboard navigation enabled, `Tab` keeps them up so focus can move into them,
+until the pointer moves over the video again.

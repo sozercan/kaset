@@ -103,6 +103,8 @@
 "Continue" = "Continuar";
 "Continue Watching" = "Seguir viendo";
 "Control playback with your keyboard" = "Controla la reproducción con el teclado";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Los controles aparecen al mover el puntero sobre el video y se desvanecen durante la reproducción.";
+"Copy Link" = "Copiar enlace";
 "Could not create AI session" = "No se pudo crear la sesión de la IA";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "No se pudo capturar el audio de Kaset (estado %d). Revisa el permiso de Grabación de Pantalla y Audio del Sistema en Ajustes del Sistema.";
 "Couldn't configure the audio unit (%lld)." = "No se pudo configurar la unidad de audio (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "Descargando";
 "Drag to reorder" = "Arrastra para reordenar";
 "E" = "E";
+"Number %lld, %@" = "Número %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "p. ej., quitar canciones lentas, reordenar por energía…";
 "Edit" = "Editar";
 "Electronic" = "Electrónica";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Abre la barra de comandos para controlar la música con lenguaje natural. Prueba a decir \"play something chill\" o \"add jazz to queue\".";
 "Options…" = "Opciones…";
 "Output" = "Salida";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "El inicio de sesión con passkeys no está disponible en esta ventana. Google te pedirá la contraseña u otro método de inicio de sesión en su lugar.";
 "Pause" = "Pausar";
 "Permission needed" = "Se necesita permiso";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Colocar los controles de reproducción sobre el video en lugar de en la barra de la parte inferior de la ventana";
 "Play" = "Reproducir";
 "Play a song to view its lyrics here." = "Reproduce una canción para ver aquí su letra.";
 "Play All" = "Reproducir todo";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Calidad de audio de reproducción";
 "Playback position" = "Posición de reproducción";
 "Played" = "Reproducido";
+"Player Controls" = "Controles del reproductor";
 "Playing" = "Reproduciendo";
 "Playlist" = "Playlist";
 "Playlist not found" = "Playlist no encontrada";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Eliminar duplicados: elimina las canciones repetidas de la cola y conserva la primera aparición de cada una.";
 "Remove extension" = "Eliminar extensión";
 "Remove from Favorites" = "Quitar de Favoritos";
+"Remove from Library" = "Quitar de la biblioteca";
 "Remove from Playlist" = "Quitar de la playlist";
 "Remove from Queue" = "Quitar de la cola";
 "Remove from Sidebar" = "Quitar de la barra lateral";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Mostrar una notificación cuando empiece a reproducirse una nueva pista";
 "Show a soft color glow, drawn from the video, behind the player" = "Mostrar detrás del reproductor un suave resplandor de color extraído del video";
 "Show All" = "Mostrar todo";
+"Show Controls on Video" = "Mostrar controles sobre el video";
 "Show Large Artwork" = "Mostrar ilustración grande";
 "Show Lyrics" = "Mostrar letras";
 "Show more comments" = "Mostrar más comentarios";
@@ -571,3 +577,58 @@
 "Start a new chat to continue." = "Inicia una nueva conversación para continuar.";
 "Ask Gemini response ready" = "Respuesta de Preguntar a Gemini lista";
 "New Ask Gemini chat ready" = "Nueva conversación de Preguntar a Gemini lista";
+
+// Appearance
+"Appearance" = "Aspecto";
+"App Appearance" = "Aspecto de la app";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Elige el modo claro u oscuro para Kaset, o usa el ajuste de macOS";
+"Match System" = "Igual que el sistema";
+"Light Mode" = "Modo claro";
+"Dark Mode" = "Modo oscuro";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Reproducir música";
+"Play Song" = "Reproducir canción";
+"Play Playlist" = "Reproducir playlist";
+"Play Album" = "Reproducir álbum";
+"Play Liked Music" = "Reproducir Música que te gusta";
+"Play or Pause" = "Reproducir o pausar";
+"Resume Playback" = "Reanudar reproducción";
+"Next Track" = "Pista siguiente";
+"Previous Track" = "Pista anterior";
+"Get Current Song" = "Obtener canción actual";
+"Like Current Song" = "Marcar canción actual con Me gusta";
+"Dislike Current Song" = "Marcar canción actual con No me gusta";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Busca en YouTube Music y reproduce la canción que mejor coincida, seguida de su radio.";
+"Plays a song in Kaset, followed by its radio." = "Reproduce una canción en Kaset, seguida de su radio.";
+"Plays a playlist in Kaset." = "Reproduce una playlist en Kaset.";
+"Plays an album in Kaset." = "Reproduce un álbum en Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Reproduce tu playlist Música que te gusta en Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Pausa Kaset si está reproduciendo; si no, reanuda la reproducción.";
+"Pauses playback in Kaset." = "Pausa la reproducción en Kaset.";
+"Resumes playback in Kaset." = "Reanuda la reproducción en Kaset.";
+"Skips to the next track in Kaset." = "Salta a la pista siguiente en Kaset.";
+"Goes back to the previous track in Kaset." = "Vuelve a la pista anterior en Kaset.";
+"Returns the song playing in Kaset." = "Devuelve la canción que se está reproduciendo en Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Marca con Me gusta la canción que se está reproduciendo en Kaset. Una canción que ya tiene Me gusta lo conserva.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Marca con No me gusta la canción que se está reproduciendo en Kaset. Una canción que ya tiene No me gusta lo conserva.";
+"Resume" = "Reanudar";
+"Next Song" = "Siguiente canción";
+"Previous Song" = "Canción anterior";
+"Like Song" = "Me gusta";
+"Title" = "Título";
+"Author" = "Autor";
+"Play ${query}" = "Reproducir ${query}";
+"Play ${song}" = "Reproducir ${song}";
+"Play ${target}" = "Reproducir ${target}";
+"What do you want to play?" = "¿Qué quieres escuchar?";
+"Playing %@." = "Reproduciendo %@.";
+"Playing %@ by %@." = "Reproduciendo %1$@ de %2$@.";
+"Now playing %@." = "Ahora suena %@.";
+"Now playing %@ by %@." = "Ahora suena %1$@ de %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset todavía se está iniciando. Inténtalo de nuevo en un momento.";
+"Nothing is playing in Kaset." = "No se está reproduciendo nada en Kaset.";
+"Sign in to YouTube Music in Kaset first." = "Primero inicia sesión en YouTube Music en Kaset.";
+"No songs found for “%@”." = "No se encontraron canciones para “%@”.";
+"Couldn't play “%@”." = "No se pudo reproducir “%@”.";
+"Couldn't rate “%@”." = "No se pudo valorar “%@”.";

@@ -110,6 +110,8 @@
 "Continue" = "继续";
 "Continue Watching" = "继续观看";
 "Control playback with your keyboard" = "使用键盘控制播放";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "将指针移到视频上时会显示控制，播放时会自动淡出。";
+"Copy Link" = "拷贝链接";
 "Could not create AI session" = "无法创建 AI 会话";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "无法捕获 Kaset 的音频（状态 %d）。请在系统设置中检查“屏幕与系统音频录制”权限。";
 "Couldn't configure the audio unit (%lld)." = "无法配置音频单元（%lld）。";
@@ -218,6 +220,7 @@
 "Kaset can't access its own audio output. Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Kaset 无法访问自身的音频输出。请打开“系统设置 → 隐私与安全性 → 屏幕与系统音频录制”并启用 Kaset，然后重新打开均衡器。";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset 无法移除已保存的登录数据。请在退出前重新尝试退出登录。";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset 无法安全地清除已保存的登录数据。请重试后再登录。";
+"Number %lld, %@" = "第 %1$lld 名，%2$@";
 "Sign-In Temporarily Unavailable" = "暂时无法登录";
 "Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset 无法读取已保存的登录数据。请重试以恢复会话。";
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset 会为每个请求创建全新的 AI 会话。如果 Apple Intelligence 在应用运行期间完成下载或变为可用，请刷新状态。";
@@ -342,11 +345,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "打开命令栏，用自然语言控制音乐。试试说“播放一些舒缓的音乐”或“把爵士加入队列”。";
 "Options…" = "选项…";
 "Output" = "输出";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "此窗口不支持通行密钥登录，Google 会改为要求输入密码或使用其他登录方式。";
 "Pause" = "暂停";
 "Permission needed" = "需要权限";
 "Piano" = "钢琴";
 "Picture in Picture" = "画中画";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "将播放控制放在视频上，而不是窗口底部的栏中";
 "Play" = "播放";
 "Play All" = "播放全部";
 "Play Latest" = "播放最新一集";
@@ -358,6 +361,7 @@
 "Playback Audio Quality" = "播放音频质量";
 "Playback position" = "播放位置";
 "Played" = "已播放";
+"Player Controls" = "播放器控制";
 "Playing" = "正在播放";
 "Playlist" = "播放列表";
 "Playlist not found" = "未找到该播放列表";
@@ -399,6 +403,7 @@
 "Remove Like" = "取消喜欢";
 "Remove extension" = "移除扩展";
 "Remove from Favorites" = "从收藏中移除";
+"Remove from Library" = "从音乐库中移除";
 "Remove from Playlist" = "从播放列表中移除";
 "Remove from Queue" = "从队列中移除";
 "Remove from Sidebar" = "从边栏中移除";
@@ -439,6 +444,7 @@
 "Shorts" = "Shorts";
 "Shorts from your feed appear here." = "你的动态中的 Shorts 会显示在这里。";
 "Show All" = "显示全部";
+"Show Controls on Video" = "在视频上显示控制";
 "Show Large Artwork" = "显示大尺寸封面";
 "Show Lyrics" = "显示歌词";
 "Show Now Playing Notifications" = "显示正在播放通知";
@@ -569,3 +575,58 @@
 "e.g., Remove slow songs, reorder by energy..." = "例如：移除慢歌、按能量重新排序…";
 "songs" = "首歌曲";
 "tracks" = "首曲目";
+
+// Appearance
+"Appearance" = "外观";
+"App Appearance" = "应用外观";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "为 Kaset 选择浅色或深色模式，或跟随 macOS 设置";
+"Match System" = "跟随系统";
+"Light Mode" = "浅色模式";
+"Dark Mode" = "深色模式";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "播放音乐";
+"Play Song" = "播放歌曲";
+"Play Playlist" = "播放播放列表";
+"Play Album" = "播放专辑";
+"Play Liked Music" = "播放喜欢的音乐";
+"Play or Pause" = "播放或暂停";
+"Resume Playback" = "继续播放";
+"Next Track" = "下一首";
+"Previous Track" = "上一首";
+"Get Current Song" = "获取当前歌曲";
+"Like Current Song" = "喜欢当前歌曲";
+"Dislike Current Song" = "不喜欢当前歌曲";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "搜索 YouTube Music 并播放最匹配的歌曲，然后播放该歌曲的电台。";
+"Plays a song in Kaset, followed by its radio." = "在 Kaset 中播放歌曲，然后播放该歌曲的电台。";
+"Plays a playlist in Kaset." = "在 Kaset 中播放播放列表。";
+"Plays an album in Kaset." = "在 Kaset 中播放专辑。";
+"Plays your Liked Music playlist in Kaset." = "在 Kaset 中播放你的“喜欢的音乐”播放列表。";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "如果 Kaset 正在播放则暂停，否则继续播放。";
+"Pauses playback in Kaset." = "暂停 Kaset 中的播放。";
+"Resumes playback in Kaset." = "继续 Kaset 中的播放。";
+"Skips to the next track in Kaset." = "在 Kaset 中跳到下一首。";
+"Goes back to the previous track in Kaset." = "在 Kaset 中返回上一首。";
+"Returns the song playing in Kaset." = "返回 Kaset 中正在播放的歌曲。";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "将 Kaset 中正在播放的歌曲标记为喜欢。已标记为喜欢的歌曲保持不变。";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "将 Kaset 中正在播放的歌曲标记为不喜欢。已标记为不喜欢的歌曲保持不变。";
+"Resume" = "继续";
+"Next Song" = "下一首歌曲";
+"Previous Song" = "上一首歌曲";
+"Like Song" = "喜欢歌曲";
+"Title" = "标题";
+"Author" = "作者";
+"Play ${query}" = "播放 ${query}";
+"Play ${song}" = "播放 ${song}";
+"Play ${target}" = "播放 ${target}";
+"What do you want to play?" = "你想播放什么？";
+"Playing %@." = "正在播放 %@。";
+"Playing %@ by %@." = "正在播放 %2$@ 的 %1$@。";
+"Now playing %@." = "当前播放：%@。";
+"Now playing %@ by %@." = "当前播放：%2$@ 的 %1$@。";
+"Kaset is still starting up. Try again in a moment." = "Kaset 仍在启动。请稍后再试。";
+"Nothing is playing in Kaset." = "Kaset 中没有正在播放的内容。";
+"Sign in to YouTube Music in Kaset first." = "请先在 Kaset 中登录 YouTube Music。";
+"No songs found for “%@”." = "未找到与“%@”匹配的歌曲。";
+"Couldn't play “%@”." = "无法播放“%@”。";
+"Couldn't rate “%@”." = "无法评价“%@”。";

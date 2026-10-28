@@ -780,6 +780,13 @@ extension DiscoveryAuditTests {
         #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == container)
         try FileManager.default.removeItem(at: container)
         #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == nil)
+
+        #expect(FileManager.default.createFile(atPath: container.path, contents: Data("test-cookie".utf8)))
+        let debugContainer = directory.appendingPathComponent("Library/Containers/com.sertacozercan.Kaset.debug/Data/Library/Application Support/Kaset/cookies.dat")
+        try FileManager.default.createDirectory(at: debugContainer.deletingLastPathComponent(), withIntermediateDirectories: true)
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == nil)
+        #expect(FileManager.default.createFile(atPath: debugContainer.path, contents: Data("test-cookie".utf8)))
+        #expect(selectedCookieBackupFile(appSupport: appSupport, homeDirectory: directory) == debugContainer)
     }
 
     @Test("Configuration requests use the supplied cookie snapshot, including an empty guest snapshot")

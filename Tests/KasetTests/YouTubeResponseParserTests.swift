@@ -96,6 +96,33 @@ struct YouTubeFeedParserTests {
         #expect(feed.videos.allSatisfy { !$0.videoId.isEmpty && !$0.title.isEmpty })
     }
 
+    @Test("Collects grid and card videos from a captured gaming destination")
+    func collectsFromGamingDestination() throws {
+        let data = try loadYouTubeFixture("youtube_destination_gaming")
+
+        let feed = YouTubeFeedParser.parse(data)
+
+        let expectedVideoIDs: Set = [
+            "XaIPf-LpCI0", "f6LrgQwZs6g", "inPJQCqgyPU", "4SKpQjTTWDU",
+            "3ynmamX5lYU", "2VpLwb5-4ZU", "e-0H7KmxYcs", "Wu3pEWQzbgM",
+            "ibY5qR4CYU8", "fEkFkFZyx5w", "kJ04Npj6MpE", "m6ucCFhSY5k",
+        ]
+        #expect(Set(feed.videos.map(\.videoId)) == expectedVideoIDs)
+        #expect(feed.videos.count == expectedVideoIDs.count)
+        #expect(feed.shorts.isEmpty)
+
+        let gridVideo = try #require(feed.videos.first { $0.videoId == "XaIPf-LpCI0" })
+        #expect(gridVideo.channelName == "ESL Counter-Strike")
+        #expect(gridVideo.channelId == "UCPq2ETz4aAGo2Z-8JisDPIA")
+        #expect(gridVideo.viewCountText == "2.7M views")
+        #expect(gridVideo.thumbnailURL != nil)
+
+        let cardVideo = try #require(feed.videos.first { $0.videoId == "ibY5qR4CYU8" })
+        #expect(!cardVideo.title.isEmpty)
+        #expect(cardVideo.lengthText == "1:26")
+        #expect(cardVideo.thumbnailURL != nil)
+    }
+
     @Test("Deduplicates repeated videos while preserving order")
     func deduplicates() {
         let video1 = MockYouTubeClient.makeVideo(videoId: "a")

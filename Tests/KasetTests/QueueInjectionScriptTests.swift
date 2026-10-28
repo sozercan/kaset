@@ -50,6 +50,26 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "delayed-target")
     }
 
+    @Test("Queue injection opens the redesigned miniplayer's action menu")
+    func opensRedesignedMiniplayerMenu() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            menuSelector: ".ytMusicMiniPlayerMenuButton button"
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context)
+
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == true)
+        #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "target-video")
+    }
+
     @Test("Queue injection uses the native click path without global payload rewriting")
     func usesNativeClickPath() {
         let script = SingletonPlayerWebView.queueInjectionScript(
@@ -471,6 +491,7 @@ struct QueueInjectionScriptTests {
     // swiftlint:disable:next function_body_length
     private func makeContext(
         menuAvailableAfterLookup: Int,
+        menuSelector: String = ".middle-controls-buttons.ytmusic-player-bar",
         clickMode: String = "insertTarget",
         itemLabel: String = "Play next",
         originalVideoId: String = "source-video",
@@ -483,6 +504,7 @@ struct QueueInjectionScriptTests {
     ) -> JSContext? {
         guard let context = JSContext() else { return nil }
         let clickModeLiteral = SingletonPlayerWebView.javaScriptStringLiteral(clickMode)
+        let menuSelectorLiteral = SingletonPlayerWebView.javaScriptStringLiteral(menuSelector)
         let itemLabelLiteral = SingletonPlayerWebView.javaScriptStringLiteral(itemLabel)
         let originalVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(originalVideoId)
         let currentVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(currentVideoId ?? originalVideoId)
@@ -651,6 +673,17 @@ struct QueueInjectionScriptTests {
                     };
                 });
             }
+            var playerBar = {
+                querySelector: function(selector) {
+                    if (selector.indexOf(\(menuSelectorLiteral)) < 0) return null;
+                    menuLookupCount += 1;
+                    return menuLookupCount >= \(menuAvailableAfterLookup) ? menuButton : null;
+                },
+                querySelectorAll: function(selector) {
+                    return selector === 'button' && menuLookupCount >= \(menuAvailableAfterLookup)
+                        ? [menuButton] : [];
+                }
+            };
             var document = {
                 body: { click: function() { bodyClickCount += 1; } },
                 querySelector: function(selector) {
@@ -658,18 +691,12 @@ struct QueueInjectionScriptTests {
                     if (selector === 'ytmusic-player-queue') {
                         return { data: { contents: queueItems().map(function(item) { return item.data; }) } };
                     }
-                    if (selector.indexOf('.middle-controls-buttons.ytmusic-player-bar') === 0) {
-                        menuLookupCount += 1;
-                        return menuLookupCount >= \(menuAvailableAfterLookup) ? menuButton : null;
-                    }
+                    if (selector === '[slot="player-bar"]') return playerBar;
                     return null;
                 },
                 querySelectorAll: function(selector) {
                     if (selector === 'ytmusic-menu-popup-renderer ytmusic-menu-service-item-renderer') {
                         return [playNextItem];
-                    }
-                    if (selector === 'ytmusic-player-bar button') {
-                        return menuLookupCount >= \(menuAvailableAfterLookup) ? [menuButton] : [];
                     }
                     if (selector.indexOf('ytmusic-player-queue-item') >= 0) {
                         return queueItems();

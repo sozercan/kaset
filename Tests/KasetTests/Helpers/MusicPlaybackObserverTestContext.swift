@@ -5,6 +5,7 @@ import Testing
 // MARK: - MusicPlaybackObserverTestContext
 
 enum MusicPlaybackObserverTestContext {
+    // swiftlint:disable:next function_body_length
     static func make(setup: String = "") throws -> JSContext {
         let context = try #require(JSContext())
         context.evaluateScript(
@@ -67,12 +68,20 @@ enum MusicPlaybackObserverTestContext {
                 getVideoData: function() { return { video_id: currentDataVideoId }; },
                 setVolume: function() {}
             };
-            var playerBar = {};
             var progressBar = {
                 getAttribute: function(name) { return name === 'value' ? '179' : '180'; }
             };
             var titleElement = { textContent: 'v1' };
             var artistElement = { textContent: 'Artist' };
+            var likeRenderer = null;
+            var playerBar = {
+                querySelector: function(selector) {
+                    if (selector.indexOf('.ytmusic-player-bar.title') >= 0) return titleElement;
+                    if (selector.indexOf('.ytmusic-player-bar.byline') >= 0) return artistElement;
+                    if (selector === 'ytmusic-like-button-renderer') return likeRenderer;
+                    return null;
+                }
+            };
             var document = {
                 readyState: 'complete',
                 body: {},
@@ -82,10 +91,8 @@ enum MusicPlaybackObserverTestContext {
                 querySelector: function(selector) {
                     if (selector === 'video') return video;
                     if (selector === 'ytmusic-player') return player;
-                    if (selector === 'ytmusic-player-bar') return playerBar;
+                    if (selector === '[slot="player-bar"]') return playerBar;
                     if (selector === '#progress-bar') return progressBar;
-                    if (selector === '.ytmusic-player-bar.title') return titleElement;
-                    if (selector === '.ytmusic-player-bar.byline') return artistElement;
                     return null;
                 }
             };

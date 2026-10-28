@@ -39,6 +39,7 @@ extension PlayerService {
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
         self.accountSessionGeneration &+= 1
         self.songLikeStatusManager.invalidateSession()
+        self.libraryMutationStates.removeAll()
         self.confirmedLibraryStateByKey.removeAll()
         self.invalidatePendingPlaybackRequests()
         self.cancelDeferredQueueWork()

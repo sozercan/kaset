@@ -48,15 +48,24 @@ enum AlbumPlaybackActions {
     }
 
     /// Plays an album immediately, replacing the current queue.
+    /// - Parameter onStart: Called once with whether the album started playing. False when it failed
+    ///   to load, had nothing playable, or newer playback replaced it.
     @discardableResult
     @MainActor
     static func playAlbum(
         _ album: Album,
         client: any YTMusicClientProtocol,
-        playerService: PlayerService
+        playerService: PlayerService,
+        onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
+            var didStart = false
+            defer {
+                if !didStart {
+                    onStart(false)
+                }
+            }
             do {
                 let response = try await client.getPlaylist(id: album.id)
                 guard playerService.acceptsMusicPlaybackIntent(intent) else {
@@ -68,13 +77,16 @@ enum AlbumPlaybackActions {
                     album: album,
                     purpose: .playback(trackCount: response.detail.tracks.count)
                 )
-                guard !songs.isEmpty else { return }
+                // Unavailable tracks stay in the album queue, but playback starts at the first playable one.
+                guard let startIndex = songs.firstIndex(where: \.isPlayable) else { return }
                 await playerService.playQueue(
                     songs,
-                    startingAt: 0,
+                    startingAt: startIndex,
                     deferringSmartShuffleFill: false,
                     intent: intent
                 )
+                didStart = true
+                onStart(true)
                 DiagnosticsLogger.ui.info("Playing album '\(album.title)' (\(songs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play album: \(error.localizedDescription)")

@@ -285,6 +285,7 @@ Remote command center integration for media key support:
 - Registers `MPRemoteCommandCenter` handlers
 - Handles media keys (play/pause, next, previous, seek)
 - Routes commands to `PlayerService` / `YouTubePlayerService` based on the active source
+- Admits App Intents transport commands through the same ingress (`handleAppIntentCommand`)
 
 **Note**: Now Playing display (track/video info, artwork) is handled natively by WKWebView's Media Session API. This provides better integration with YouTube Music artwork and regular YouTube video metadata.
 
@@ -386,6 +387,7 @@ Manages user preferences persisted via `UserDefaults`:
 | `rememberPlaybackSettings` | `Bool` | `false` | Persist shuffle/repeat state |
 | `syncedLyricsEnabled` | `Bool` | `true` | Enable synced lyrics provider lookup before plain lyrics fallback |
 | `popOutVideoOnNavigateAway` | `Bool` | `true` | Pop a playing YouTube video into the floating window when navigating away; when off, playback stops |
+| `showYouTubeControlsOnVideo` | `Bool` | `false` | Overlay the YouTube player bar on the docked watch-page video (auto-hiding while playing) instead of the bottom bar; other YouTube pages except Shorts drop the bottom bar |
 
 **Music LaunchPage Options**: Home, Explore, Charts, Moods & Genres, New Releases, Liked Music, Playlists, Last Used
 
@@ -497,7 +499,8 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 
 | Command Class | AppleScript Command | Description |
 |---------------|---------------------|-------------|
-| `PlayCommand` | `play` | Resume playback |
+| `PlayCommand` | `play` | Resume playback, or start a queue that has not played yet at its current position |
+| `PlayVideoCommand` | `play video "id"` | Play a video by ID and start a radio queue from it |
 | `PauseCommand` | `pause` | Pause playback |
 | `PlayPauseCommand` | `playpause` | Toggle play/pause |
 | `NextTrackCommand` | `next track` | Skip to next track |
@@ -509,11 +512,17 @@ Provides AppleScript support for external automation via NSScriptCommand subclas
 | `LikeTrackCommand` | `like track` | Like current track |
 | `DislikeTrackCommand` | `dislike track` | Dislike current track |
 | `GetPlayerInfoCommand` | `get player info` | Returns player state as JSON |
+| `GetPlayQueueCommand` | `get play queue` | Returns the queue and active index as JSON |
+| `PlayTrackAtIndexCommand` | `play track at index N` | Play a queue entry by 1-based index |
+| `PlayVideosCommand` | `play videos {ids} [starting at N]` | Replace the queue with video IDs and start at a 1-based index |
+| `AddToQueueCommand` | `add to queue {ids} [with next]` | Append video IDs, or insert them after the current track |
+| `RemoveFromQueueCommand` | `remove from queue "id"` | Remove every entry with a video ID, except the playing one |
 
 **Implementation Details**:
 
 - Commands access `PlayerService.shared` via `MainActor.assumeIsolated` (AppleScript runs on main thread)
-- Synchronous methods (shuffle, repeat, like/dislike) execute directly
+- Synchronous methods (shuffle, repeat, like/dislike, add/remove queue entries) execute directly
+- Commands that start playback begin their playback intent before returning, and `play videos` also replaces the queue before returning, so a later command (even one sent without waiting for a reply) supersedes or acts on the result of an earlier one
 - Async methods (play, pause, volume) spawn detached Tasks
 - All commands return AppleScript errors (`-1728`) if `PlayerService.shared` is nil
 - Logging via `DiagnosticsLogger.scripting`
@@ -530,6 +539,26 @@ tell application "Kaset"
     get player info  -- Returns JSON string
 end tell
 ```
+
+### App Intents (Shortcuts, Siri, Spotlight)
+
+**Directory**: `Sources/Kaset/Services/AppIntents/` · Decision record: [ADR-0033](adr/0033-app-intents.md) · User docs: [shortcuts.md](shortcuts.md)
+
+| File | Role |
+|------|------|
+| `AppIntentsBridge.swift` | `@MainActor` singleton configured in `KasetApp.init`: services, the deep-link readiness gate, the Library snapshot, and the operations intents call |
+| `PlaybackControlIntents.swift` | Play/pause, pause, resume, next/previous (via `NowPlayingManager.handleAppIntentCommand`), get current song, like/dislike |
+| `PlayContentIntents.swift` | Play music (search), song, playlist, album, Liked Music; playlist and album intents are also the entities' `OpenIntent`s |
+| `MusicEntities.swift` | `SongEntity`, `PlaylistEntity`, `AlbumEntity` (the latter two `IndexedEntity`) and their string queries |
+| `KasetShortcuts.swift` | `AppShortcutsProvider` with Siri phrases, localized from `Resources/AppShortcuts.xcstrings` |
+| `SpotlightLibraryIndexer.swift` | Replaces the Spotlight index with the signed-in Library's playlists and albums |
+
+**Implementation Details**:
+
+- `MainWindow` publishes the Library to the bridge once it has loaded (empty when signed out); the bridge reindexes Spotlight and refreshes App Shortcut parameters.
+- Playback intents set `openAppWhenRun`, wait for `AppIntentsBridge.isReady` (the same gate as `kaset://` deep links), and show the main window before playing.
+- `Scripts/build-app.sh` generates `Metadata.appintents` with `appintentsmetadataprocessor`, since SwiftPM has no App Intents build phase, and fails if `AppShortcuts.xcstrings` is out of sync with the phrases in code.
+- Intents only run in team-signed builds and from `/Applications` or `~/Applications`.
 
 ### UpdaterService
 
@@ -912,23 +941,27 @@ ForEach(Array(chartItems.enumerated()), id: \.element.id) { index, item in
 }
 ```
 
-#### Throttled UI Updates
+#### Isolating Playback Progress Updates
 
-For frequently changing values (e.g., playback progress at 60Hz), cache formatted strings:
+Playback progress changes on every bridge tick. Observation invalidates exactly the views that read a property, and `.onChange(of:)` counts as a read, so keep progress reads in small leaf views instead of in a player bar or window body:
 
 ```swift
-// In PlayerBar
-@State private var formattedProgress: String = "0:00"
-@State private var lastProgressSecond: Int = -1
+// In PlayerBar: owns the seek state but never reads progress or the
+// controller's properties in body, so ticks skip song info, artwork, and buttons.
+@State private var seekController = PlayerBarSeekController()
 
+PlayerBarTimelineLane(seekController: seekController, segments: segments, accent: accent)
+
+// In PlayerBarTimelineLane: the only player bar view that reads progress
 .onChange(of: playerService.progress) { _, newValue in
-    let currentSecond = Int(newValue)
-    if currentSecond != lastProgressSecond {
-        lastProgressSecond = currentSecond
-        formattedProgress = formatTime(newValue)  // Only 1x per second
-    }
+    seekController.progressDidChange(newValue, duration: playerService.duration)
 }
 ```
+
+- `PlayerBarTimelineLane`, `MiniPlayerSeekSection`, and `YouTubePlayerBarTimelineLane` are the only player views that read progress. Don't add progress reads to `PlayerBar`, `MiniPlayerWindow`, or `YouTubePlayerBar`.
+- Compute values that don't depend on progress, such as mix segments, in the parent and pass them in.
+- Cache formatted time strings and rebuild them only when the displayed second changes (`PlayerBarSeekController.progressDidChange`).
+- On an `@Observable` class, calling a mutating method on a stored struct notifies observers even when nothing changes. On per-tick paths, mutate a copy and assign it back only if it differs (see `PlayerBarSeekController.reconcileHold`).
 
 #### Task Cancellation
 

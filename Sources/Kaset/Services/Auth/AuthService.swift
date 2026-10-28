@@ -203,7 +203,7 @@ final class AuthService: AuthServiceProtocol {
 
     /// Starts the login flow by presenting the login sheet.
     func startLogin() {
-        self.logger.info("Starting login flow")
+        self.logger.notice("Starting login flow")
         guard self.signOutTask == nil else {
             self.logger.info("Ignoring login request while sign-out is in progress")
             return
@@ -262,7 +262,7 @@ final class AuthService: AuthServiceProtocol {
         self.cancellingLoginAttemptID = nil
         self.state = self.stateBeforeLogin ?? .loggedOut
         self.stateBeforeLogin = nil
-        self.logger.info("Login flow cancelled")
+        self.logger.notice("Login flow cancelled")
         if self.state.isInitializing {
             // The early attempt cancelled startup's only status probe. Resume it
             // unless another login or sign-out has already changed the state.
@@ -377,7 +377,7 @@ final class AuthService: AuthServiceProtocol {
         if let signOutTask = self.signOutTask {
             return await signOutTask.value
         }
-        self.logger.info("Signing out user")
+        self.logger.notice("Signing out user")
         // Keep pending recovery from publishing login if sign-out intent cannot be saved.
         self.invalidateLoginCheck()
         guard self.webKitManager.invalidateAuthCookieRestoration() else {

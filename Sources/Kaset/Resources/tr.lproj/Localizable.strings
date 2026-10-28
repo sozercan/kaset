@@ -103,6 +103,8 @@
 "Continue" = "Devam Et";
 "Continue Watching" = "İzlemeye devam et";
 "Control playback with your keyboard" = "Oynatmayı klavyenizle denetleyin";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Kontroller, işaretçiyi videonun üzerinde hareket ettirdiğinizde görünür ve video oynatılırken kaybolur.";
+"Copy Link" = "Bağlantıyı Kopyala";
 "Could not create AI session" = "Yapay zeka oturumu oluşturulamadı";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset'in sesi yakalanamadı (durum %d). Sistem Ayarları'nda Ekran ve Sistem Sesi Kaydı iznini denetleyin.";
 "Couldn't configure the audio unit (%lld)." = "Ses birimi yapılandırılamadı (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "İndiriliyor";
 "Drag to reorder" = "Yeniden sıralamak için sürükleyin";
 "E" = "E";
+"Number %lld, %@" = "%1$lld numara, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "örn. Yavaş şarkıları kaldır, enerjiye göre yeniden sırala...";
 "Edit" = "Düzenle";
 "Electronic" = "Elektronik";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Müziği doğal dille kontrol etmek için Komut Çubuğu'nu açın. \"play something chill\" veya \"add jazz to queue\" demeyi deneyin.";
 "Options…" = "Seçenekler…";
 "Output" = "Çıkış";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Bu pencerede geçiş anahtarıyla oturum açılamaz. Google bunun yerine parolanızı veya başka bir oturum açma yöntemini isteyecektir.";
 "Pause" = "Duraklat";
 "Permission needed" = "İzin gerekli";
 "Piano" = "Piyano";
 "Picture in Picture" = "Resim İçinde Resim";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Oynatma kontrollerini pencerenin altındaki çubuk yerine videonun üzerine yerleştir";
 "Play" = "Çal";
 "Play a song to view its lyrics here." = "Şarkı sözlerini burada görmek için bir şarkı çalın.";
 "Play All" = "Tümünü Çal";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Oynatma Ses Kalitesi";
 "Playback position" = "Oynatma konumu";
 "Played" = "Oynatıldı";
+"Player Controls" = "Oynatıcı Kontrolleri";
 "Playing" = "Çalıyor";
 "Playlist" = "Çalma Listesi";
 "Playlist not found" = "Çalma listesi bulunamadı";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Yinelenenleri kaldır: kuyruktaki tekrar eden şarkıları siler ve her birinin ilk örneğini korur.";
 "Remove extension" = "Uzantıyı kaldır";
 "Remove from Favorites" = "Favorilerden Kaldır";
+"Remove from Library" = "Kitaplıktan Kaldır";
 "Remove from Playlist" = "Çalma listesinden kaldır";
 "Remove from Queue" = "Sıradan Kaldır";
 "Remove from Sidebar" = "Kenar Çubuğundan Kaldır";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Yeni bir parça çalmaya başladığında bildirim göster";
 "Show a soft color glow, drawn from the video, behind the player" = "Oynatıcının arkasında videodan alınan yumuşak bir renk parıltısı göster";
 "Show All" = "Tümünü Göster";
+"Show Controls on Video" = "Kontrolleri Videonun Üzerinde Göster";
 "Show Large Artwork" = "Büyük kapak görselini göster";
 "Show Lyrics" = "Şarkı Sözlerini Göster";
 "Show more comments" = "Daha fazla yorum göster";
@@ -571,3 +577,58 @@
 "Start a new chat to continue." = "Devam etmek için yeni bir sohbet başlatın.";
 "Ask Gemini response ready" = "Gemini'ye Sor yanıtı hazır";
 "New Ask Gemini chat ready" = "Yeni Gemini sohbeti hazır";
+
+// Appearance
+"Appearance" = "Görünüm";
+"App Appearance" = "Uygulama Görünümü";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Kaset için açık veya koyu modu seçin ya da macOS ayarını kullanın";
+"Match System" = "Sistemle Aynı";
+"Light Mode" = "Açık Mod";
+"Dark Mode" = "Koyu Mod";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Müzik Çal";
+"Play Song" = "Şarkı Çal";
+"Play Playlist" = "Çalma Listesi Çal";
+"Play Album" = "Albüm Çal";
+"Play Liked Music" = "Beğenilen Müzikleri Çal";
+"Play or Pause" = "Çal veya Duraklat";
+"Resume Playback" = "Çalmaya Devam Et";
+"Next Track" = "Sonraki Parça";
+"Previous Track" = "Önceki Parça";
+"Get Current Song" = "Geçerli Şarkıyı Al";
+"Like Current Song" = "Geçerli Şarkıyı Beğen";
+"Dislike Current Song" = "Geçerli Şarkıya Olumsuz Oy Ver";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "YouTube Music'te arama yapar ve en iyi eşleşen şarkıyı, ardından da şarkının radyosunu çalar.";
+"Plays a song in Kaset, followed by its radio." = "Kaset'te bir şarkıyı, ardından da şarkının radyosunu çalar.";
+"Plays a playlist in Kaset." = "Kaset'te bir çalma listesini çalar.";
+"Plays an album in Kaset." = "Kaset'te bir albümü çalar.";
+"Plays your Liked Music playlist in Kaset." = "Kaset'te Beğenilen Müzikler çalma listenizi çalar.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Kaset çalıyorsa duraklatır, aksi takdirde çalmaya devam eder.";
+"Pauses playback in Kaset." = "Kaset'te çalmayı duraklatır.";
+"Resumes playback in Kaset." = "Kaset'te çalmaya devam eder.";
+"Skips to the next track in Kaset." = "Kaset'te sonraki parçaya geçer.";
+"Goes back to the previous track in Kaset." = "Kaset'te önceki parçaya döner.";
+"Returns the song playing in Kaset." = "Kaset'te çalan şarkıyı döndürür.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Kaset'te çalan şarkıyı beğenir. Zaten beğenilmiş bir şarkı beğenilmiş olarak kalır.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Kaset'te çalan şarkıya olumsuz oy verir. Zaten olumsuz oy verilmiş bir şarkı öyle kalır.";
+"Resume" = "Devam Et";
+"Next Song" = "Sonraki Şarkı";
+"Previous Song" = "Önceki Şarkı";
+"Like Song" = "Şarkıyı Beğen";
+"Title" = "Başlık";
+"Author" = "Oluşturan";
+"Play ${query}" = "${query} çal";
+"Play ${song}" = "${song} çal";
+"Play ${target}" = "${target} çal";
+"What do you want to play?" = "Ne çalmak istersiniz?";
+"Playing %@." = "%@ çalınıyor.";
+"Playing %@ by %@." = "%2$@ - %1$@ çalınıyor.";
+"Now playing %@." = "Şimdi çalıyor: %@.";
+"Now playing %@ by %@." = "Şimdi çalıyor: %2$@ - %1$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset hâlâ başlatılıyor. Birazdan tekrar deneyin.";
+"Nothing is playing in Kaset." = "Kaset'te hiçbir şey çalmıyor.";
+"Sign in to YouTube Music in Kaset first." = "Önce Kaset'te YouTube Music'te oturum açın.";
+"No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
+"Couldn't play “%@”." = "“%@” çalınamadı.";
+"Couldn't rate “%@”." = "“%@” derecelendirilemedi.";

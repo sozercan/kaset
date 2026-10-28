@@ -52,6 +52,7 @@ struct APIExplorerActionRoutingTests {
         )
 
         #expect(inspector.contains("wireResponseAuditSummary("))
+        #expect(inspector.contains("queueRatingAuditSummary(data: response.data)"))
         #expect(inspector.contains("Raw response values stay hidden"))
         #expect(!inspector.contains("analyzeResponse("))
         #expect(!inspector.contains("Raw response (pretty-printed)"))

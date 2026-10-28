@@ -103,6 +103,8 @@
 "Continue" = "Продовжити";
 "Continue Watching" = "Продовжити перегляд";
 "Control playback with your keyboard" = "Керуйте відтворенням за допомогою клавіатури";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Елементи керування з’являються, коли ви рухаєте вказівник над відео, і зникають під час відтворення.";
+"Copy Link" = "Копіювати посилання";
 "Could not create AI session" = "Не вдалося створити сеанс ШІ";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Не вдалося захопити звук Kaset (стан %d). Перевірте дозвіл на запис екрана й системного аудіо в Системних параметрах.";
 "Couldn't configure the audio unit (%lld)." = "Не вдалося налаштувати аудіомодуль (%lld).";
@@ -136,6 +138,7 @@
 "Downloading" = "Завантаження";
 "Drag to reorder" = "Перетягніть, щоб змінити порядок";
 "E" = "E";
+"Number %lld, %@" = "Номер %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "напр., прибрати повільні пісні, змінити порядок за енергією...";
 "Edit" = "Редагувати";
 "Electronic" = "Електроніка";
@@ -333,11 +336,11 @@
 "Open the command bar to control music with natural language. Try saying \"play something chill\" or \"add jazz to queue\"." = "Відкрийте панель команд, щоб керувати музикою природною мовою. Спробуйте сказати \"play something chill\" або \"add jazz to queue\".";
 "Options…" = "Параметри…";
 "Output" = "Вихід";
-"Passkey sign-in is not available in this window. Google will ask for your password or another sign-in method instead." = "Вхід із ключем доступу недоступний у цьому вікні. Натомість Google запитає пароль або інший спосіб входу.";
 "Pause" = "Пауза";
 "Permission needed" = "Потрібен дозвіл";
 "Piano" = "Фортепіано";
 "Picture in Picture" = "Картинка в картинці";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Розміщувати елементи керування відтворенням на відео, а не на панелі внизу вікна";
 "Play" = "Грати";
 "Play a song to view its lyrics here." = "Увімкніть пісню, щоб побачити її текст тут.";
 "Play All" = "Грати все";
@@ -349,6 +352,7 @@
 "Playback Audio Quality" = "Якість звуку відтворення";
 "Playback position" = "Позиція відтворення";
 "Played" = "Відтворено";
+"Player Controls" = "Елементи керування програвачем";
 "Playing" = "Грає";
 "Playlist" = "Плейлист";
 "Playlist not found" = "Плейлист не знайдено";
@@ -388,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Видалити дублікати: видаляє повторювані пісні з черги й залишає перше входження кожної.";
 "Remove extension" = "Видалити розширення";
 "Remove from Favorites" = "Вилучити з обраного";
+"Remove from Library" = "Видалити з бібліотеки";
 "Remove from Playlist" = "Видалити з плейлиста";
 "Remove from Queue" = "Вилучити з черги";
 "Remove from Sidebar" = "Прибрати з бічної панелі";
@@ -428,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Показувати сповіщення, коли починає грати новий трек";
 "Show a soft color glow, drawn from the video, behind the player" = "Показувати за програвачем м’яке кольорове сяйво з відео";
 "Show All" = "Показати все";
+"Show Controls on Video" = "Показувати елементи керування на відео";
 "Show Large Artwork" = "Показувати велику обкладинку";
 "Show Lyrics" = "Показати текст пісні";
 "Show more comments" = "Показати більше коментарів";
@@ -571,3 +577,58 @@
 "Start a new chat to continue." = "Почніть новий чат, щоб продовжити.";
 "Ask Gemini response ready" = "Відповідь «Запитати Gemini» готова";
 "New Ask Gemini chat ready" = "Новий чат «Запитати Gemini» готовий";
+
+// Appearance
+"Appearance" = "Вигляд";
+"App Appearance" = "Вигляд застосунку";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Виберіть світлий або темний режим для Kaset чи використовуйте налаштування macOS";
+"Match System" = "Як у системі";
+"Light Mode" = "Світлий режим";
+"Dark Mode" = "Темний режим";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Увімкнути музику";
+"Play Song" = "Відтворити пісню";
+"Play Playlist" = "Відтворити плейлист";
+"Play Album" = "Відтворити альбом";
+"Play Liked Music" = "Відтворити вподобану музику";
+"Play or Pause" = "Відтворити або призупинити";
+"Resume Playback" = "Продовжити відтворення";
+"Next Track" = "Наступний трек";
+"Previous Track" = "Попередній трек";
+"Get Current Song" = "Отримати поточну пісню";
+"Like Current Song" = "Вподобати поточну пісню";
+"Dislike Current Song" = "Позначити поточну пісню як невподобану";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Шукає в YouTube Music і відтворює пісню, що найкраще відповідає запиту, а потім її радіо.";
+"Plays a song in Kaset, followed by its radio." = "Відтворює пісню в Kaset, а потім її радіо.";
+"Plays a playlist in Kaset." = "Відтворює плейлист у Kaset.";
+"Plays an album in Kaset." = "Відтворює альбом у Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Відтворює ваш плейлист «Вподобана музика» в Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Призупиняє Kaset, якщо щось відтворюється, інакше продовжує відтворення.";
+"Pauses playback in Kaset." = "Призупиняє відтворення в Kaset.";
+"Resumes playback in Kaset." = "Продовжує відтворення в Kaset.";
+"Skips to the next track in Kaset." = "Переходить до наступного треку в Kaset.";
+"Goes back to the previous track in Kaset." = "Повертається до попереднього треку в Kaset.";
+"Returns the song playing in Kaset." = "Повертає пісню, що відтворюється в Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Вподобує пісню, що відтворюється в Kaset. Уже вподобана пісня такою й залишається.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Позначає пісню, що відтворюється в Kaset, як невподобану. Уже так позначена пісня такою й залишається.";
+"Resume" = "Продовжити";
+"Next Song" = "Наступна пісня";
+"Previous Song" = "Попередня пісня";
+"Like Song" = "Вподобати пісню";
+"Title" = "Назва";
+"Author" = "Автор";
+"Play ${query}" = "Відтворити ${query}";
+"Play ${song}" = "Відтворити ${song}";
+"Play ${target}" = "Відтворити ${target}";
+"What do you want to play?" = "Що ви хочете послухати?";
+"Playing %@." = "Відтворюється %@.";
+"Playing %@ by %@." = "Відтворюється %1$@ — %2$@.";
+"Now playing %@." = "Зараз грає %@.";
+"Now playing %@ by %@." = "Зараз грає %1$@ — %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset ще запускається. Повторіть спробу трохи згодом.";
+"Nothing is playing in Kaset." = "У Kaset нічого не відтворюється.";
+"Sign in to YouTube Music in Kaset first." = "Спершу увійдіть у YouTube Music у Kaset.";
+"No songs found for “%@”." = "Не знайдено пісень за запитом «%@».";
+"Couldn't play “%@”." = "Не вдалося відтворити «%@».";
+"Couldn't rate “%@”." = "Не вдалося оцінити «%@».";

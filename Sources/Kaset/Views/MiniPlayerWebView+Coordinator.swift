@@ -123,6 +123,7 @@ extension SingletonPlayerWebView {
         private var lastAcceptedQueueEntryID: UUID?
         private var hasAcceptedQueueEntryBaseline = false
         private var lastAcceptedObservedVideoId: String?
+        private var pendingLikeStatusVideoId: String?
         private var lastHandledEndedObserverEpoch: Double?
         private var lastHandledEndedMediaGeneration: Int?
         private let playbackBridgeEvents = PlaybackBridgeEventQueue()
@@ -478,14 +479,17 @@ extension SingletonPlayerWebView {
             }
         }
 
-        private static func likeStatus(from rawValue: String?) -> LikeStatus {
+        /// Returns `nil` when the page cannot tell the like state yet.
+        private static func likeStatus(from rawValue: String?) -> LikeStatus? {
             switch rawValue {
             case "LIKE":
                 .like
             case "DISLIKE":
                 .dislike
-            default:
+            case "INDIFFERENT":
                 .indifferent
+            default:
+                nil
             }
         }
 
@@ -1137,7 +1141,13 @@ extension SingletonPlayerWebView.Coordinator {
 
         self.playerService.updateVideoAvailability(hasVideo: hasVideo)
         let logicalMatchesMedia = observedVideoId != nil && observedVideoId == playbackVideoId
+        // The page's like state can lag a track change, so apply the first update after
+        // the change that reports one rather than the track-change update itself.
         if logicalMatchesMedia, acceptedObservedVideoIdChanged || trackChanged {
+            self.pendingLikeStatusVideoId = observedVideoId
+        }
+        if logicalMatchesMedia, let likeStatus, self.pendingLikeStatusVideoId == observedVideoId {
+            self.pendingLikeStatusVideoId = nil
             self.playerService.updateLikeStatus(likeStatus)
         }
 

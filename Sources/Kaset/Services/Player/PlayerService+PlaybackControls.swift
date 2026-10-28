@@ -113,12 +113,7 @@ extension PlayerService {
             self.currentEpisode = nil
             if self.currentTrack?.videoId != videoId {
                 self.resetTrackStatus()
-                self.currentTrack = Song(
-                    id: videoId,
-                    title: "Loading...",
-                    artists: [],
-                    videoId: videoId
-                )
+                self.currentTrack = Song.placeholder(videoId: videoId)
             }
             self.logger.debug("Video \(videoId) already loaded; resuming existing playback")
             await self.resume(intent: intent)
@@ -146,15 +141,7 @@ extension PlayerService {
         self.shouldSuppressAutoplayAfterQueueEnd = false
 
         // Create a minimal Song object for now
-        self.currentTrack = Song(
-            id: videoId,
-            title: "Loading...",
-            artists: [],
-            album: nil,
-            duration: nil,
-            thumbnailURL: nil,
-            videoId: videoId
-        )
+        self.currentTrack = Song.placeholder(videoId: videoId)
 
         self.pendingPlayVideoId = videoId
 
@@ -379,14 +366,9 @@ extension PlayerService {
         if let tokens = song.feedbackTokens {
             self.currentTrackFeedbackTokens = tokens
             self.currentTrackInLibrary = song.isInLibrary ?? false
-            if let likeStatus = song.likeStatus {
-                self.currentTrackLikeStatus = likeStatus
-            }
         }
 
-        if let cachedStatus = self.songLikeStatusManager.status(for: song.videoId) {
-            self.currentTrackLikeStatus = cachedStatus
-        }
+        self.currentTrackLikeStatus = self.songLikeStatusManager.status(for: song) ?? .indifferent
     }
 
     /// Records that the WebView observer has confirmed playback actually started.

@@ -475,6 +475,33 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.status(for: "new-video") == nil)
     }
 
+    @Test("A failed rating does not seed another account from the song snapshot")
+    func failedRatingDoesNotSeedAnotherAccountFromSongSnapshot() async {
+        let videoID = "cross-account-song-snapshot"
+        let originalAccountID = "original-song-snapshot-account"
+        let switchedAccountID = "switched-song-snapshot-account"
+        let song = Song(
+            id: videoID,
+            title: "Known Liked Song",
+            artists: [],
+            videoId: videoID,
+            likeStatus: .like
+        )
+        self.manager.setActiveAccountID(originalAccountID)
+        self.manager.setStatus(.like, for: videoID)
+        self.manager.setActiveAccountID(switchedAccountID)
+        self.mockClient.shouldThrowError = YTMusicError.networkError(
+            underlying: URLError(.notConnectedToInternet)
+        )
+
+        let finalStatus = await self.manager.dislike(song, client: self.mockClient)
+
+        #expect(finalStatus == .indifferent)
+        #expect(self.manager.status(for: videoID, accountID: switchedAccountID) == nil)
+        #expect(self.manager.status(for: videoID, accountID: originalAccountID) == .like)
+        #expect(self.manager.lastLikeEvent?.status == .indifferent)
+    }
+
     @Test("Optimistic cache observers cannot replace the confirmed rollback baseline")
     func optimisticCacheWritePreservesConfirmedRollback() async {
         let song = TestFixtures.makeSong(id: "optimistic-observer-rollback")

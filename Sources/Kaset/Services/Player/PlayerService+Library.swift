@@ -1,9 +1,17 @@
 import Foundation
 
+// MARK: - MusicLibraryMutationState
+
+struct MusicLibraryMutationState {
+    let generation: UInt64
+    var confirmedState: MusicLibraryConfirmedState?
+}
+
 // MARK: - LibraryMutationRequest
 
 private struct LibraryMutationRequest {
-    let token: String
+    /// Nil resolves the add token from metadata within the serialized request.
+    let token: String?
     let videoId: String
     let accountID: String
     let mutationRevision: UInt64
@@ -11,56 +19,43 @@ private struct LibraryMutationRequest {
     let expectedState: MusicLibraryConfirmedState
 }
 
+// MARK: - CurrentTrackLikeStatusEvidence
+
+private struct CurrentTrackLikeStatusEvidence {
+    let cached: LikeStatus?
+    let webView: LikeStatus?
+    let song: LikeStatus?
+    let queue: LikeStatus?
+    let visible: LikeStatus
+}
+
 @MainActor
 extension PlayerService {
-    /// Likes the current track (thumbs up).
-    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// Likes the current track (thumbs up), or removes the like if it is already liked.
     func likeCurrentTrack() {
-        guard self.canPerformAccountMutation else {
-            self.logger.info("Ignoring like request while signed out")
-            return
-        }
-        guard let track = currentTrack else { return }
-        self.logger.info("Liking current track: \(track.videoId)")
-        let activeAccountID = self.songLikeStatusManager.activeAccountID
-        let client = self.ytMusicClient
-        let previousStatus = self.currentTrackLikeStatus
-        // Toggle: if already liked, remove the like
-        let newStatus: LikeStatus = previousStatus == .like ? .indifferent : .like
-        let request = self.songLikeStatusManager.enqueueRating(
-            track,
-            status: newStatus,
-            accountID: activeAccountID,
-            client: client,
-            visibleBaseline: previousStatus
-        )
-        // Optimistic UI update for PlayerBar
-        self.currentTrackLikeStatus = newStatus
-
-        Task {
-            let finalStatus = await request.value
-            self.reconcileCurrentTrackLikeStatusAfterRating(
-                track: track,
-                requestedAccountID: activeAccountID,
-                finalStatus: finalStatus
-            )
-        }
+        self.rateCurrentTrack(self.currentTrackLikeStatus == .like ? .indifferent : .like)
     }
 
-    /// Dislikes the current track (thumbs down).
-    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// Dislikes the current track (thumbs down), or removes the dislike if it is already disliked.
     func dislikeCurrentTrack() {
+        self.rateCurrentTrack(self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike)
+    }
+
+    /// Sets the current track's rating.
+    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// - Returns: A task resolving to the rating once the request settles (the previous rating if it
+    ///   failed), or nil when there is no track or account to rate with.
+    @discardableResult
+    func rateCurrentTrack(_ newStatus: LikeStatus) -> Task<LikeStatus, Never>? {
         guard self.canPerformAccountMutation else {
-            self.logger.info("Ignoring dislike request while signed out")
-            return
+            self.logger.info("Ignoring rating request while signed out")
+            return nil
         }
-        guard let track = currentTrack else { return }
-        self.logger.info("Disliking current track: \(track.videoId)")
+        guard let track = currentTrack else { return nil }
+        self.logger.info("Rating current track \(track.videoId) as \(String(describing: newStatus))")
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
         let previousStatus = self.currentTrackLikeStatus
-        // Toggle: if already disliked, remove the dislike
-        let newStatus: LikeStatus = previousStatus == .dislike ? .indifferent : .dislike
         let request = self.songLikeStatusManager.enqueueRating(
             track,
             status: newStatus,
@@ -71,13 +66,14 @@ extension PlayerService {
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        Task {
+        return Task {
             let finalStatus = await request.value
             self.reconcileCurrentTrackLikeStatusAfterRating(
                 track: track,
                 requestedAccountID: activeAccountID,
                 finalStatus: finalStatus
             )
+            return finalStatus
         }
     }
 
@@ -98,7 +94,31 @@ extension PlayerService {
         self.currentTrackLikeStatus = finalStatus
     }
 
-    // swiftlint:disable function_body_length
+    /// Saves an arbitrary song through the same serialized mutations as the player bar.
+    @discardableResult
+    func addToLibrary(song: Song) -> Task<Void, Never> {
+        guard self.canPerformAccountMutation, self.ytMusicClient != nil else { return Task {} }
+        let queuedSong = self.queueEntries.first {
+            $0.song.videoId == song.videoId && ($0.song.isInLibrary != nil || $0.song.feedbackTokens != nil)
+        }?.song
+        let key = self.songLikeStatusManager.activeAccountID + "\u{0}" + song.videoId
+        let confirmedState = self.libraryMutationStates[key]?.confirmedState
+        let baseline = self.currentTrack?.videoId == song.videoId
+            ? MusicLibraryConfirmedState(
+                isInLibrary: self.currentTrackInLibrary,
+                feedbackTokens: self.currentTrackFeedbackTokens
+            )
+            : MusicLibraryConfirmedState(
+                isInLibrary: queuedSong?.isInLibrary ?? confirmedState?.isInLibrary ?? song.isInLibrary ?? false,
+                feedbackTokens: queuedSong?.feedbackTokens ?? confirmedState?.feedbackTokens ?? song.feedbackTokens
+            )
+        return self.setLibraryStatus(
+            for: song,
+            baseline: baseline,
+            expectedInLibrary: true,
+            token: nil
+        )
+    }
 
     /// Toggles the library status of the current track.
     func toggleLibraryStatus() {
@@ -108,8 +128,6 @@ extension PlayerService {
         }
         guard let track = currentTrack else { return }
         self.logger.info("Toggling library status for current track: \(track.videoId)")
-        let activeAccountID = self.songLikeStatusManager.activeAccountID
-
         // Determine which token to use based on current state
         let isCurrentlyInLibrary = self.currentTrackInLibrary
         let tokenToUse = isCurrentlyInLibrary
@@ -120,16 +138,35 @@ extension PlayerService {
             self.logger.warning("No feedback token available for library toggle")
             return
         }
-        self.libraryMutationGeneration &+= 1
+        self.setLibraryStatus(
+            for: track,
+            baseline: MusicLibraryConfirmedState(
+                isInLibrary: isCurrentlyInLibrary,
+                feedbackTokens: self.currentTrackFeedbackTokens
+            ),
+            expectedInLibrary: !isCurrentlyInLibrary,
+            token: token
+        )
+    }
+
+    @discardableResult
+    private func setLibraryStatus(
+        for track: Song,
+        baseline: MusicLibraryConfirmedState,
+        expectedInLibrary: Bool,
+        token: String?
+    ) -> Task<Void, Never> {
+        let activeAccountID = self.songLikeStatusManager.activeAccountID
         self.libraryMutationRevisionCounter &+= 1
         let mutationKey = activeAccountID + "\u{0}" + track.videoId
         let mutationRevision = self.libraryMutationRevisionCounter
+        self.libraryMutationStates[mutationKey] = MusicLibraryMutationState(
+            generation: mutationRevision,
+            confirmedState: self.libraryMutationStates[mutationKey]?.confirmedState
+        )
         self.libraryMutationRevisions[mutationKey] = mutationRevision
         if self.confirmedLibraryStateByKey[mutationKey] == nil {
-            self.confirmedLibraryStateByKey[mutationKey] = MusicLibraryConfirmedState(
-                isInLibrary: self.currentTrackInLibrary,
-                feedbackTokens: self.currentTrackFeedbackTokens
-            )
+            self.confirmedLibraryStateByKey[mutationKey] = baseline
         }
         let accountSessionGeneration = self.accountSessionGeneration
         let pendingMutationKey = self.pendingLibraryMutationKey(
@@ -140,11 +177,9 @@ extension PlayerService {
         self.pendingLibraryMutationCountsByKey[pendingMutationKey, default: 0] += 1
 
         // Optimistic update
-        let currentTokens = self.currentTrackFeedbackTokens
-        let expectedInLibrary = !isCurrentlyInLibrary
         // Feedback tokens are action-specific. Keep the known add/remove pair
         // stable until an authoritative metadata refresh rotates it.
-        let expectedFeedbackTokens = currentTokens
+        let expectedFeedbackTokens = baseline.feedbackTokens
         self.applyLibraryState(
             videoId: track.videoId,
             isInLibrary: expectedInLibrary,
@@ -165,7 +200,7 @@ extension PlayerService {
         let request = self.enqueueSerializedLibraryMutation(mutation)
 
         // Use API call for reliable library management
-        Task {
+        return Task {
             defer {
                 self.finishLibraryMutationTracking(
                     key: mutationKey,
@@ -177,8 +212,15 @@ extension PlayerService {
                 try await request.value.get()
                 guard self.accountSessionGeneration == accountSessionGeneration else { return }
                 guard self.isCurrentLibraryMutation(key: mutationKey, revision: mutationRevision) else { return }
-                let action = isCurrentlyInLibrary ? "removed from" : "added to"
+                let action = expectedInLibrary ? "added to" : "removed from"
                 self.logger.info("Successfully \(action) library")
+                let expectedFeedbackTokens = self.confirmedLibraryStateByKey[mutationKey]?.feedbackTokens
+                    ?? expectedFeedbackTokens
+                self.applyLibraryState(
+                    videoId: track.videoId,
+                    isInLibrary: expectedInLibrary,
+                    feedbackTokens: expectedFeedbackTokens
+                )
 
                 // The browse metadata can lag briefly, so delay the refresh and keep
                 // the optimistic library state if the response is still stale.
@@ -230,8 +272,6 @@ extension PlayerService {
         }
     }
 
-    // swiftlint:enable function_body_length
-
     private func enqueueSerializedLibraryMutation(
         _ mutation: LibraryMutationRequest
     ) -> Task<Result<Void, any Error>, Never> {
@@ -261,11 +301,38 @@ extension PlayerService {
                 return .failure(CancellationError())
             }
             do {
-                try await client.editSongLibraryStatus(feedbackTokens: [mutation.token])
-                guard self.accountSessionGeneration == mutation.accountSessionGeneration else {
+                let confirmedState: MusicLibraryConfirmedState
+                if let token = mutation.token {
+                    try await client.editSongLibraryStatus(feedbackTokens: [token])
+                    confirmedState = mutation.expectedState
+                } else {
+                    let predecessorState = self.libraryMutationStates[key]?.confirmedState
+                    let song = try await client.getSong(videoId: mutation.videoId)
+                    guard self.songLikeStatusManager.activeAccountID == mutation.accountID,
+                          self.accountSessionGeneration == mutation.accountSessionGeneration,
+                          self.canPerformAccountMutation
+                    else { return .failure(CancellationError()) }
+                    // A cached saved state cannot undo a confirmed removal, even after request cleanup.
+                    // An API-reported removal still permits saving after an external library change.
+                    let isInLibrary = song.isInLibrary == true && predecessorState?.isInLibrary != false
+                    if !isInLibrary {
+                        guard let token = song.feedbackTokens?.add ?? predecessorState?.feedbackTokens?.add else {
+                            throw YTMusicError.parseError(message: "Song library token is unavailable")
+                        }
+                        try await client.editSongLibraryStatus(feedbackTokens: [token])
+                    }
+                    confirmedState = MusicLibraryConfirmedState(
+                        isInLibrary: true,
+                        feedbackTokens: song.feedbackTokens ?? predecessorState?.feedbackTokens
+                    )
+                }
+                guard self.songLikeStatusManager.activeAccountID == mutation.accountID,
+                      self.accountSessionGeneration == mutation.accountSessionGeneration
+                else {
                     return .failure(CancellationError())
                 }
-                self.confirmedLibraryStateByKey[key] = mutation.expectedState
+                self.confirmedLibraryStateByKey[key] = confirmedState
+                self.libraryMutationStates[key]?.confirmedState = confirmedState
                 return .success(())
             } catch {
                 return .failure(error)
@@ -327,15 +394,14 @@ extension PlayerService {
 
     /// Updates the like status from WebView observation.
     /// Only updates PlayerService state for UI; does NOT overwrite SongLikeStatusManager cache
-    /// because WebView often reports INDIFFERENT as a default when the actual status is unknown.
+    /// because the API/cache is more authoritative. The observation is tracked separately so a
+    /// concrete WebView value can replace an older Song snapshot without promoting bridge absence.
     func updateLikeStatus(_ status: LikeStatus) {
-        // Only accept WebView status if SongLikeStatusManager has no cached value
-        // (cache is more authoritative than WebView's observation)
-        if let videoId = self.currentTrack?.videoId,
-           let cachedStatus = self.songLikeStatusManager.status(for: videoId)
-        {
-            self.currentTrackLikeStatus = cachedStatus
+        if let videoId = self.currentTrack?.videoId {
+            self.currentTrackWebViewLikeStatusEvidence = (videoId, status)
+            self.currentTrackLikeStatus = self.songLikeStatusManager.status(for: videoId) ?? status
         } else {
+            self.currentTrackWebViewLikeStatusEvidence = nil
             self.currentTrackLikeStatus = status
         }
     }
@@ -343,6 +409,7 @@ extension PlayerService {
     /// Resets like/library status when track changes.
     func resetTrackStatus() {
         self.currentTrackLikeStatus = .indifferent
+        self.currentTrackWebViewLikeStatusEvidence = nil
         self.currentTrackInLibrary = false
         self.currentTrackFeedbackTokens = nil
     }
@@ -352,11 +419,10 @@ extension PlayerService {
     /// current track may have already resolved to `.indifferent` — its `getSong` fetch
     /// returns no rating, and the cache can be empty at play time. Without this, the
     /// player bar / Now Playing surfaces (and the boring.notch mirror) keep showing
-    /// "not liked" for a track that is actually liked. Only fills an unknown status;
-    /// never overrides a known `.like` / `.dislike`.
+    /// "not liked" for a track that is actually liked. The active-account cache is
+    /// authoritative and therefore replaces lower-precedence Song/WebView evidence.
     func refreshCurrentTrackLikeStatusFromCache() {
-        guard self.currentTrackLikeStatus == .indifferent,
-              let videoId = self.currentTrack?.videoId,
+        guard let videoId = self.currentTrack?.videoId,
               let cached = self.songLikeStatusManager.status(for: videoId)
         else { return }
         self.currentTrackLikeStatus = cached
@@ -433,11 +499,11 @@ extension PlayerService {
             for: videoId,
             accountID: activeAccountID
         )
-        let libraryMutationGeneration = self.libraryMutationGeneration
+        let mutationKey = activeAccountID + "\u{0}" + videoId
+        let libraryMutationGeneration = self.libraryMutationStates[mutationKey]?.generation
         let accountSessionGeneration = self.accountSessionGeneration
         let pendingMutationKey = self.pendingLibraryMutationKey(
-            accountID: activeAccountID,
-            videoId: videoId,
+            accountID: activeAccountID, videoId: videoId,
             sessionGeneration: accountSessionGeneration
         )
         let libraryMutationWasPending = self.pendingLibraryMutationCountsByKey[pendingMutationKey, default: 0] > 0
@@ -454,19 +520,19 @@ extension PlayerService {
             else { return }
             let queueOwnerIsCurrent = self.activePlaybackQueueEntryID == queueEntryID
 
-            let cachedLikeStatus = self.songLikeStatusManager.status(for: videoId)
+            let likeStatusEvidence = self.currentLikeStatusEvidence(for: videoId)
             let ratingRevisionIsCurrent = self.songLikeStatusManager.ratingRevision(
                 for: videoId,
                 accountID: activeAccountID
             ) == ratingRevision
-            let libraryMutationIsCurrent = self.libraryMutationGeneration == libraryMutationGeneration
+            let libraryMutationIsCurrent = self.libraryMutationStates[mutationKey]?.generation == libraryMutationGeneration
                 && self.accountSessionGeneration == accountSessionGeneration
                 && !libraryMutationWasPending
                 && self.pendingLibraryMutationCountsByKey[pendingMutationKey, default: 0] == 0
             let resolvedLikeStatus = self.resolveFetchedLikeStatus(
                 videoId: videoId,
                 apiLikeStatus: songData.likeStatus,
-                cachedLikeStatus: cachedLikeStatus,
+                evidence: likeStatusEvidence,
                 ratingRevisionIsCurrent: ratingRevisionIsCurrent
             )
 
@@ -499,7 +565,8 @@ extension PlayerService {
                     feedbackTokens: libraryMutationIsCurrent
                         ? songData.feedbackTokens
                         : self.currentTrack?.feedbackTokens,
-                    isExplicit: songData.isExplicit ?? self.currentTrack?.isExplicit
+                    isExplicit: songData.isExplicit ?? self.currentTrack?.isExplicit,
+                    audioTrackVideoId: songData.audioTrackVideoId ?? self.currentTrack?.audioTrackVideoId
                 )
 
                 // Update service state and sync with SongLikeStatusManager.
@@ -515,9 +582,8 @@ extension PlayerService {
                         feedbackTokens: songData.feedbackTokens
                     )
                     if updatesConfirmedLibraryState {
-                        let key = activeAccountID + "\u{0}" + videoId
-                        if self.confirmedLibraryStateByKey[key] != nil {
-                            self.confirmedLibraryStateByKey[key] = MusicLibraryConfirmedState(
+                        if self.confirmedLibraryStateByKey[mutationKey] != nil {
+                            self.confirmedLibraryStateByKey[mutationKey] = MusicLibraryConfirmedState(
                                 isInLibrary: self.currentTrackInLibrary,
                                 feedbackTokens: self.currentTrackFeedbackTokens
                             )
@@ -561,16 +627,42 @@ extension PlayerService {
     private func resolveFetchedLikeStatus(
         videoId: String,
         apiLikeStatus: LikeStatus?,
-        cachedLikeStatus: LikeStatus?,
+        evidence: CurrentTrackLikeStatusEvidence,
         ratingRevisionIsCurrent: Bool
     ) -> LikeStatus? {
         guard ratingRevisionIsCurrent, let apiLikeStatus else {
-            return cachedLikeStatus ?? self.currentTrackLikeStatus
+            return evidence.cached
+                ?? evidence.webView
+                ?? evidence.song
+                ?? evidence.queue
+                ?? evidence.visible
         }
         let accepted = self.songLikeStatusManager.setStatus(apiLikeStatus, for: videoId)
         return accepted
             ? apiLikeStatus
-            : (self.songLikeStatusManager.status(for: videoId) ?? self.currentTrackLikeStatus)
+            : (self.songLikeStatusManager.status(for: videoId)
+                ?? evidence.webView
+                ?? evidence.song
+                ?? evidence.queue
+                ?? evidence.visible)
+    }
+
+    private func currentLikeStatusEvidence(for videoId: String) -> CurrentTrackLikeStatusEvidence {
+        let queueLikeStatus = self.activePlaybackQueueEntryID.flatMap { entryID in
+            self.queueEntries.first {
+                $0.id == entryID && $0.song.videoId == videoId
+            }?.song.likeStatus
+        }
+        let webViewLikeStatus = self.currentTrackWebViewLikeStatusEvidence.flatMap { evidence in
+            evidence.videoId == videoId ? evidence.status : nil
+        }
+        return CurrentTrackLikeStatusEvidence(
+            cached: self.songLikeStatusManager.status(for: videoId),
+            webView: webViewLikeStatus,
+            song: self.currentTrack?.likeStatus,
+            queue: queueLikeStatus,
+            visible: self.currentTrackLikeStatus
+        )
     }
 
     private func applyFetchedMetadataToQueue(
@@ -598,7 +690,9 @@ extension PlayerService {
                 thumbnailURL: enrichedQueueSong.thumbnailURL
             )
         }
-        enrichedQueueSong.likeStatus = resolvedLikeStatus
+        if let resolvedLikeStatus {
+            enrichedQueueSong.likeStatus = resolvedLikeStatus
+        }
         if entryID == self.activePlaybackQueueEntryID {
             enrichedQueueSong.isInLibrary = self.currentTrackInLibrary
             enrichedQueueSong.feedbackTokens = self.currentTrackFeedbackTokens

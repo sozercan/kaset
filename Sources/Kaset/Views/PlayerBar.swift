@@ -12,22 +12,19 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     @Environment(AuthService.self) private var authService
     @Environment(PlayerService.self) private var playerService
-    @Environment(FavoritesManager.self) private var favoritesManager
-    @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.playerBarNavigationAction) private var navigationAction
-    @Environment(\.playerBarCurrentAlbumID) private var currentRouteAlbumID
+    @Environment(\.playerBarCurrentAlbumIDs) private var currentRouteAlbumIDs
     @Environment(\.playerBarCurrentArtistID) private var currentRouteArtistID
     @Environment(NowPlayingTracklistProvider.self) private var tracklistProvider: NowPlayingTracklistProvider?
 
     /// Namespace for glass effect morphing and unioning.
     @Namespace private var playerNamespace
 
-    /// Local normalized seek fraction (0...1) for smooth dragging; `performSeek` converts to seconds.
-    @State private var seekValue: Double = 0
-    @State private var isSeeking = false
-    @State private var seekHold = PlayerBarSeekHold()
+    /// Seek state for the progress-dependent leaf views. `body` must not read its
+    /// properties, or every playback progress tick re-evaluates the whole bar.
+    @State private var seekController = PlayerBarSeekController()
 
     /// Local volume value for smooth slider dragging.
     @State private var volumeValue: Double = 1.0
@@ -37,13 +34,9 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     @State private var resolvedAlbum: Playlist?
     @State private var isResolvingArtist = false
     @State private var isResolvingAlbum = false
+    @State private var artistResolutionTask: Task<Void, Never>?
+    @State private var albumResolutionTask: Task<Void, Never>?
     @State private var airPlayAnchor = AirPlayPickerAnchor()
-
-    /// Cached formatted progress string to avoid repeated formatting.
-    @State private var formattedProgress: String = "0:00"
-    @State private var formattedRemaining: String = "-0:00"
-    /// Last integer second of progress to reduce string formatting frequency.
-    @State private var lastProgressSecond: Int = -1
 
     var body: some View {
         CompatGlassContainer(spacing: 0) {
@@ -79,34 +72,12 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .task(id: self.currentTitleIdentity) {
             await self.prepareCurrentNavigationTargets()
         }
-        .onChange(of: self.playerService.progress) { _, newValue in
-            self.seekHold.reconcile(observedProgress: newValue)
-            let displayProgress = self.displayProgress(observedProgress: newValue)
-
-            if !self.isSeeking, !self.seekHold.isActive, self.playerService.duration > 0 {
-                self.seekValue = displayProgress / self.playerService.duration
-            }
-
-            let currentSecond = Int(displayProgress)
-            if currentSecond != self.lastProgressSecond {
-                self.lastProgressSecond = currentSecond
-                self.updateFormattedTimes(progress: displayProgress, duration: self.playerService.duration)
-            }
-        }
-        .onChange(of: self.playerService.duration) { _, newValue in
-            self.seekHold.reconcile(observedProgress: self.playerService.progress)
-            let displayProgress = self.displayedPlaybackProgress
-            if !self.isSeeking, !self.seekHold.isActive, newValue > 0 {
-                self.seekValue = displayProgress / newValue
-            }
-            self.updateFormattedTimes(progress: displayProgress, duration: newValue)
-        }
         .onChange(of: self.currentSeekIdentity) { _, _ in
-            self.clearSeekHold()
+            self.seekController.clearHold(playerService: self.playerService)
         }
         .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
             if isShowingAd {
-                self.clearSeekHold()
+                self.seekController.clearHold(playerService: self.playerService)
             }
         }
         .onChange(of: self.playerService.volume) { _, newValue in
@@ -116,9 +87,10 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
         .onAppear {
             self.volumeValue = self.playerService.volume
-            if self.playerService.duration > 0 {
-                self.seekValue = self.playerService.progress / self.playerService.duration
-            }
+        }
+        .onDisappear {
+            // A lookup that finishes after the user left would push onto a stack they no longer see.
+            self.cancelNavigationResolution()
         }
     }
 
@@ -233,8 +205,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         VStack(alignment: .leading, spacing: 4) {
             PlayerBarMarqueeText(
                 text: self.playerService.currentTrack?.title ?? String(localized: "Not Playing"),
-                font: .system(size: 13),
-                color: .primary,
+                font: .systemFont(ofSize: 13),
+                color: .labelColor,
                 height: 13,
                 reduceMotion: self.reduceMotion
             )
@@ -283,11 +255,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private var isCurrentAlbumTarget: Bool {
-        guard let currentRouteAlbumID,
-              let album = self.currentAlbumTarget
-        else { return false }
-
-        return album.id == currentRouteAlbumID
+        guard let album = self.currentAlbumTarget else { return false }
+        return PlayerBarCurrentRoute.isAlbum(album, in: self.currentRouteAlbumIDs)
     }
 
     private var showsCurrentAlbumHoverOnly: Bool {
@@ -295,15 +264,12 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     private var isResolvingCurrentRouteAlbum: Bool {
-        self.currentRouteAlbumID != nil && self.currentAlbumTarget == nil
+        !self.currentRouteAlbumIDs.isEmpty && self.currentAlbumTarget == nil
     }
 
     private var isCurrentArtistTarget: Bool {
-        guard let currentRouteArtistID,
-              let artist = self.currentArtistTarget
-        else { return false }
-
-        return artist.id == currentRouteArtistID || artist.publicChannelId == currentRouteArtistID
+        guard let artist = self.currentArtistTarget else { return false }
+        return PlayerBarCurrentRoute.isArtist(artist, routeArtistID: self.currentRouteArtistID)
     }
 
     private var currentAlbumPlaylist: Playlist? {
@@ -338,7 +304,8 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             description: nil,
             thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
             trackCount: album.trackCount,
-            author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
+            author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist"),
+            libraryTargetId: album.libraryTargetId
         )
     }
 
@@ -392,26 +359,10 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
                 PlayerBarAdIndicator()
                     .padding(.top, 18)
             } else {
-                PlayerBarProgressLane(
-                    fraction: self.displayFraction,
-                    accent: Self.brandAccent,
-                    elapsedText: self.isSeeking
-                        ? self.formatTime(self.seekValue * self.playerService.duration)
-                        : self.formattedProgress,
-                    remainingText: self.isSeeking
-                        ? "-\(self.formatTime(max(0, self.playerService.duration - self.seekValue * self.playerService.duration)))"
-                        : self.formattedRemaining,
+                PlayerBarTimelineLane(
+                    seekController: self.seekController,
                     segments: self.progressSegments,
-                    isLive: self.playerService.isCurrentItemLive,
-                    canSeek: self.canSeek,
-                    isLoading: self.isProgressLoading,
-                    onScrub: { fraction in
-                        self.isSeeking = true
-                        self.seekValue = fraction
-                    },
-                    onCommit: {
-                        self.performSeek()
-                    }
+                    accent: Self.brandAccent
                 )
                 .padding(.top, 18)
                 // Keeps the segment tooltip above the transport buttons; the tooltip
@@ -425,36 +376,20 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    /// Sub-track segments for the seek bar, derived from the now-playing tracklist.
-    /// Empty for regular songs and live streams, which renders the standard single-track lane.
+    /// Sub-track segments for the seek bar. Depends on duration, never on progress.
     private var progressSegments: [PlayerBarProgressSegment] {
-        guard let tracklist = self.tracklistProvider?.tracklist,
-              self.playerService.duration > 0,
-              !self.playerService.isCurrentItemLive
-        else { return [] }
-
-        let duration = self.playerService.duration
-        let entries = tracklist.entries
-        let count = entries.count
-        return entries.enumerated().map { index, entry in
-            let end = entry.endTime ?? duration
-            return PlayerBarProgressSegment(
-                id: entry.id.uuidString,
-                start: entry.startTime / duration,
-                end: end / duration,
-                index: index,
-                count: count,
-                title: entry.title,
-                subtitle: entry.artist,
-                rangeText: "\(self.formatTime(entry.startTime)) – \(self.formatTime(end))"
-            )
-        }
+        PlayerBarSeekController.progressSegments(
+            tracklist: self.tracklistProvider?.tracklist,
+            duration: self.playerService.duration,
+            isLive: self.playerService.isCurrentItemLive
+        )
     }
 
     private var progressActionButtons: some View {
         HStack(spacing: 6) {
-            if !self.progressSegments.isEmpty {
-                self.mixTracksMenu
+            let segments = self.progressSegments
+            if !segments.isEmpty {
+                PlayerBarMixTracksMenu(seekController: self.seekController, segments: segments)
             }
 
             PlayerBarIconButton(
@@ -571,31 +506,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    private var mixTracksMenu: some View {
-        PlayerBarIconMenu(
-            accessibilityID: AccessibilityID.PlayerBar.mixTracksButton,
-            accessibilityLabel: String(localized: "Mix tracks")
-        ) {
-            ForEach(self.progressSegments) { segment in
-                Button {
-                    self.seek(to: segment)
-                } label: {
-                    if segment.id == self.currentProgressSegment?.id {
-                        Label(segment.accessibilityDescription, systemImage: "checkmark")
-                    } else {
-                        Text(segment.accessibilityDescription)
-                    }
-                }
-                .disabled(!self.canSeek)
-            }
-        } icon: {
-            Image(systemName: "list.number")
-                .font(.system(size: 16, weight: .regular))
-                .frame(width: 16, height: 16)
-                .foregroundStyle(.primary)
-        }
-    }
-
     private var volumeOverlay: some View {
         CompatGlassContainer(spacing: 0) {
             VStack(spacing: 10) {
@@ -649,22 +559,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
 
-    private var canSeek: Bool {
-        self.playerService.currentTrack != nil
-            && self.playerService.duration > 0
-            && !self.playerService.isCurrentItemLive
-            && !self.playerService.isShowingAd
-    }
-
-    private var isProgressLoading: Bool {
-        switch self.playerService.state {
-        case .loading, .buffering:
-            self.playerService.currentTrack != nil
-        case .idle, .playing, .paused, .ended, .error:
-            false
-        }
-    }
-
     private var canShowCurrentTrackVideo: Bool {
         guard let track = self.playerService.currentTrack else { return false }
         if UITestConfig.isUITestMode,
@@ -675,27 +569,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         return self.playerService.currentTrackHasVideo
             || track.musicVideoType?.hasVideoContent == true
             || track.hasVideo == true
-    }
-
-    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
-    private var displayFraction: Double {
-        if self.isSeeking {
-            return min(max(0, self.seekValue), 1)
-        }
-        guard self.playerService.duration > 0 else { return 0 }
-        return min(max(0, self.displayedPlaybackProgress / self.playerService.duration), 1)
-    }
-
-    private var currentProgressSegment: PlayerBarProgressSegment? {
-        PlayerBarProgressLane.segment(at: self.displayFraction, in: self.progressSegments)
-    }
-
-    private var displayedPlaybackProgress: TimeInterval {
-        self.displayProgress(observedProgress: self.playerService.progress)
-    }
-
-    private func displayProgress(observedProgress: TimeInterval) -> TimeInterval {
-        self.seekHold.displayProgress(observedProgress: observedProgress)
     }
 
     private var currentSeekIdentity: String {
@@ -826,68 +699,24 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Current Song Context Menu
 
-    @ViewBuilder
     private func currentSongContextMenu(for track: Song) -> some View {
-        FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-        }
-
-        Divider()
-
-        StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount {
-            Divider()
-
-            Button {
-                self.playerService.toggleLibraryStatus()
-            } label: {
-                Label(
-                    self.playerService.currentTrackInLibrary ? "Remove from Library" : "Add to Library",
-                    systemImage: self.playerService.currentTrackInLibrary ? "minus.circle" : "plus.circle"
-                )
+        SongContextMenu(
+            song: track,
+            client: self.playerService.ytMusicClient,
+            libraryToggle: SongLibraryToggle(
+                isInLibrary: self.playerService.currentTrackInLibrary,
+                toggle: { self.playerService.toggleLibraryStatus() }
+            ),
+            showsGoToArtist: self.showsGoToArtist(for: track),
+            showsGoToAlbum: self.showsGoToAlbum(for: track),
+            navigate: { destination in
+                if let artist = destination as? Artist {
+                    self.openArtist(artist)
+                } else if let album = destination as? Playlist {
+                    self.openAlbum(album)
+                }
             }
-        }
-
-        Divider()
-
-        ShareContextMenu.menuItem(for: track)
-
-        Divider()
-
-        AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-        if self.hasPersonalAccount, let client = self.playerService.ytMusicClient {
-            Divider()
-
-            AddToPlaylistContextMenu(song: track, client: client)
-        }
-
-        let artist = track.artists.first(where: { $0.hasNavigableId })
-        let album = track.album
-        if artist != nil || album?.hasNavigableId == true {
-            Divider()
-        }
-
-        if let artist, self.navigationAction.openArtist != nil {
-            Button {
-                self.openArtist(artist)
-            } label: {
-                Label(String(localized: "Go to Artist"), systemImage: "person")
-            }
-        }
-
-        if let album, album.hasNavigableId, self.navigationAction.openAlbum != nil {
-            Button {
-                self.openAlbum(self.playlist(from: album, track: track))
-            } label: {
-                Label(String(localized: "Go to Album"), systemImage: "square.stack")
-            }
-        }
+        )
     }
 
     // MARK: - Error View
@@ -922,6 +751,22 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
     }
 
     // MARK: - Actions
+
+    /// Whether the context menu offers the track's artist: not when the player bar can't navigate
+    /// or that artist's page is already showing.
+    private func showsGoToArtist(for track: Song) -> Bool {
+        guard self.navigationAction.openArtist != nil else { return false }
+        guard let artist = track.artists.first(where: { $0.hasNavigableId }) else { return true }
+        return !PlayerBarCurrentRoute.isArtist(artist, routeArtistID: self.currentRouteArtistID)
+    }
+
+    /// Whether the context menu offers the track's album: not when the player bar can't navigate
+    /// or that album's page is already showing.
+    private func showsGoToAlbum(for track: Song) -> Bool {
+        guard self.navigationAction.openAlbum != nil else { return false }
+        guard let album = track.album else { return true }
+        return !PlayerBarCurrentRoute.isAlbum(album.detailPlaylist(), in: self.currentRouteAlbumIDs)
+    }
 
     private var hasPersonalAccount: Bool {
         self.authService.hasPersonalAccount
@@ -981,7 +826,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
         self.isResolvingArtist = true
 
-        Task {
+        self.artistResolutionTask = Task {
             let artist = await self.resolveArtist(named: query, client: client)
             guard !Task.isCancelled, self.currentTitleIdentity == identity else { return }
             self.resolvedArtist = artist
@@ -1009,7 +854,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         let identity = self.currentTitleIdentity
         self.isResolvingAlbum = true
 
-        Task {
+        self.albumResolutionTask = Task {
             let album = await self.resolveAlbum(for: track, client: client)
             guard !Task.isCancelled, self.currentTitleIdentity == identity else { return }
             self.resolvedAlbum = album
@@ -1018,6 +863,15 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             guard let album else { return }
             self.openAlbum(album, playsHaptic: false)
         }
+    }
+
+    private func cancelNavigationResolution() {
+        self.artistResolutionTask?.cancel()
+        self.albumResolutionTask?.cancel()
+        self.artistResolutionTask = nil
+        self.albumResolutionTask = nil
+        self.isResolvingArtist = false
+        self.isResolvingAlbum = false
     }
 
     private func openArtist(_ artist: Artist, playsHaptic: Bool = true) {
@@ -1192,74 +1046,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         HapticService.toggle()
         withAnimation(AppAnimation.quick) {
             self.showsVolumeOverlay.toggle()
-        }
-    }
-
-    /// Performs the actual seek operation after slider interaction ends.
-    private func performSeek() {
-        guard self.isSeeking, self.canSeek else { return }
-        let seekTime = self.seekValue * self.playerService.duration
-        let holdID = self.seekHold.begin(target: seekTime)
-        self.updateFormattedTimes(progress: seekTime, duration: self.playerService.duration)
-        self.isSeeking = false
-
-        Task {
-            await self.playerService.seek(to: seekTime)
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdID) {
-                self.syncSeekValueFromDisplayedProgress()
-                self.updateFormattedTimes(
-                    progress: self.displayedPlaybackProgress,
-                    duration: self.playerService.duration
-                )
-            }
-        }
-    }
-
-    private func seek(to segment: PlayerBarProgressSegment) {
-        guard self.canSeek else { return }
-        self.isSeeking = true
-        // Segment boundaries and `seekValue` use the same normalized 0...1 coordinate space.
-        self.seekValue = segment.start
-        self.performSeek()
-    }
-
-    private func clearSeekHold() {
-        self.seekHold.clear()
-        self.isSeeking = false
-        self.syncSeekValueFromDisplayedProgress()
-        self.updateFormattedTimes(
-            progress: self.displayedPlaybackProgress,
-            duration: self.playerService.duration
-        )
-    }
-
-    private func syncSeekValueFromDisplayedProgress() {
-        if self.playerService.duration > 0 {
-            self.seekValue = self.displayedPlaybackProgress / self.playerService.duration
-        } else {
-            self.seekValue = 0
-        }
-    }
-
-    private func updateFormattedTimes(progress: TimeInterval, duration: TimeInterval) {
-        self.formattedProgress = self.formatTime(progress)
-        self.formattedRemaining = "-\(self.formatTime(max(0, duration - progress)))"
-    }
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let mins = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, mins, secs)
-        } else {
-            return String(format: "%d:%02d", mins, secs)
         }
     }
 

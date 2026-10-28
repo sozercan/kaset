@@ -515,7 +515,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 
     private func performAuthCookieClear() async -> Bool {
-        self.logger.info("Clearing WebKit auth cookies")
+        self.logger.notice("Clearing WebKit auth cookies and the saved archive")
         self.isClearingAuthCookies = true
         defer { self.isClearingAuthCookies = false }
 
@@ -526,7 +526,19 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         // verification happens after this final persistence suspension.
         let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
 
-        let liveClearResult = await LiveAuthCookieStoreClearer.clear(
+        let didClearLiveCookies = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: true)
+        let didClear = didClearLiveCookies && didInvalidatePersistedCookies
+        self.initialCookieRestoreResult = didClear ? .ready : .failed
+        self.loginCookieBackupSetupRequiresCleanup = !didClear
+        self.cookiesDidChange = Date()
+        return didClear
+    }
+
+    /// Deletes live login-session cookies from WebKit without touching the
+    /// persisted archive or its restore policy.
+    func deleteLiveLoginSessionCookies(allowsCookieStoreFallback: Bool) async -> Bool {
+        let result = await LiveAuthCookieStoreClearer.clear(
+            allowsCookieStoreFallback: allowsCookieStoreFallback,
             operations: LiveAuthCookieStoreClearer.Operations(
                 readCookies: {
                     await self.dataStore.httpCookieStore.allCookies()
@@ -542,18 +554,13 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 }
             )
         )
-        if liveClearResult.usedCookieStoreFallback {
+        if result.usedCookieStoreFallback {
             self.logger.warning("Escalated authentication cleanup to the WebKit cookie data store")
         }
-        if !liveClearResult.didClear {
+        if !result.didClear {
             self.logger.error("Could not clear live authentication cookies")
         }
-
-        let didClear = liveClearResult.didClear && didInvalidatePersistedCookies
-        self.initialCookieRestoreResult = didClear ? .ready : .failed
-        self.loginCookieBackupSetupRequiresCleanup = !didClear
-        self.cookiesDidChange = Date()
-        return didClear
+        return result.didClear
     }
 
     /// Clears all website data (cookies, cache, etc.).
@@ -569,7 +576,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         let allTypes = WKWebsiteDataStore.allWebsiteDataTypes()
         let dateFrom = Date.distantPast
 
-        self.logger.info("Clearing all WebKit data")
+        self.logger.notice("Clearing all WebKit data and the saved archive")
         self.isClearingAuthCookies = true
         defer { self.isClearingAuthCookies = false }
 

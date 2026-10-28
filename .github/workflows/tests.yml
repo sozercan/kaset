@@ -150,7 +150,7 @@ jobs:
         run: Scripts/build-app.sh debug
 
       - name: Verify packaged app
-        run: Scripts/verify-release-app.sh .build/app/Kaset.app
+        run: Scripts/verify-release-app.sh --bundle-id com.sertacozercan.Kaset.debug .build/app/Kaset.app
 
       - name: Install app for UI tests
         run: |
@@ -173,8 +173,8 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4
         with:
           name: macOS-UITestResults-${{ matrix.os }}
-          path: ./build/*.xcresult
+          path: ./build/Logs/Test/*.xcresult
           retention-days: 7

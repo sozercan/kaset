@@ -59,7 +59,11 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        run: swift test -q --skip KasetUITests
+        # Suites share app singletons (playback WebView, UserDefaults.standard);
+        # serialize them like tests.yml. Unlike tests.yml, keep XCTest enabled:
+        # the xctest-helper segfault only affects macOS 15, and this is the
+        # only CI job that runs the XCTest suites in PerformanceTests.
+        run: swift test -q --skip KasetUITests --no-parallel
 
       - name: Determine version from tag
         id: version
@@ -99,6 +103,7 @@ jobs:
 
             echo "WARN: $reason" >&2
             echo "WARN: Falling back to ad-hoc signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "::warning::Ad-hoc signed release: Shortcuts, Siri, and Spotlight actions (App Intents) will not run without a team-signed build."
             echo "identity=" >> "$GITHUB_OUTPUT"
             echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
           }
@@ -314,7 +319,7 @@ jobs:
           spctl --assess --type open --verbose=4 "$FILE"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4
         with:
           name: ${{ steps.artifact.outputs.filename }}
           path: ${{ steps.artifact.outputs.filename }}
@@ -469,8 +474,8 @@ jobs:
 
             app "Kaset.app"
 
-            postflight do
-              system_command "/usr/bin/xattr", args: ["-cr", "#{appdir}/Kaset.app"], sudo: false
+            postflight_steps do
+              run "/usr/bin/xattr", args: ["-cr", "{{appdir}}/Kaset.app"], sudo: false
             end
 
             zap trash: [

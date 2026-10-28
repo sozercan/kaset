@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en" data-side="a">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kaset — YouTube Music and YouTube for Mac</title>
+  <meta name="description" content="Kaset is a free, open source, native macOS app for YouTube Music and YouTube. Side A plays YouTube Music. Side B plays YouTube. Built in Swift with Liquid Glass, media keys, Control Center, lyrics, an equalizer, and AppleScript.">
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="canonical" href="https://sozercan.github.io/kaset/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Kaset — YouTube Music and YouTube for Mac">
+  <meta property="og:description" content="Two sides. One Mac app. Side A plays YouTube Music. Side B plays YouTube.">
+  <meta property="og:image" content="https://sozercan.github.io/kaset/assets/og.jpg">
+  <meta property="og:url" content="https://sozercan.github.io/kaset/">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="nav">
+  <div class="nav-inner">
+    <a class="brand" href="#top" aria-label="Kaset home">
+      <svg viewBox="0 0 40 26" aria-hidden="true">
+        <rect width="40" height="26" rx="6"/>
+        <rect class="w" x="5" y="5" width="30" height="11" rx="3"/>
+        <circle class="h" cx="12" cy="10.5" r="3"/>
+        <circle class="h" cx="28" cy="10.5" r="3"/>
+        <rect class="w" x="12" y="19" width="16" height="3" rx="1.5"/>
+      </svg>
+      Kaset
+    </a>
+    <nav class="nav-links" aria-label="Page">
+      <a href="#side-a">Music</a>
+      <a href="#side-b">YouTube</a>
+      <a href="#mac">Mac</a>
+      <a href="https://github.com/sozercan/kaset" rel="noopener">GitHub</a>
+    </nav>
+    <a class="nav-cta" href="https://github.com/sozercan/kaset/releases/latest" data-download>Download</a>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ====================== HERO ====================== -->
+  <section class="hero">
+    <p class="eyebrow">Kaset</p>
+    <h1>Two sides.<br>One Mac app.</h1>
+    <p class="subhead">
+      YouTube Music on Side A. YouTube on Side B.<br class="wide">
+      A native macOS app for both. Free and open source.
+    </p>
+    <div class="cta-row">
+      <a class="button" href="https://github.com/sozercan/kaset/releases/latest" data-download>Download <span data-version-short></span></a>
+      <a class="link" href="https://github.com/sozercan/kaset/releases" rel="noopener">Release notes<span aria-hidden="true"> ›</span></a>
+    </div>
+    <div class="cmds">
+      <div class="cmd glass">
+        <span class="cmd-label">Downloaded by hand? Clear quarantine first</span>
+        <code>xattr -cr /Applications/Kaset.app</code>
+        <button class="copy" type="button" data-copy="xattr -cr /Applications/Kaset.app" aria-label="Copy xattr command">Copy</button>
+      </div>
+      <div class="cmd glass">
+        <span class="cmd-label">Homebrew</span>
+        <code>brew install sozercan/repo/kaset</code>
+        <button class="copy" type="button" data-copy="brew install sozercan/repo/kaset" aria-label="Copy Homebrew command">Copy</button>
+      </div>
+    </div>
+    <p class="fine">Requires macOS 15.4 or later. Kaset isn't signed with an Apple Developer ID yet. Homebrew clears the quarantine flag for you.</p>
+    <p class="visually-hidden" role="status" id="copy-status"></p>
+
+    <div class="stage">
+      <div class="glow" aria-hidden="true"></div>
+      <div class="cassette-scene">
+        <div class="cassette" id="cassette" aria-hidden="true">
+          <div class="face face-a">
+            <div class="shell">
+              <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+              <svg class="window" viewBox="0 0 328 112" aria-hidden="true">
+                <defs>
+                  <radialGradient id="spool-a" cx="50%" cy="50%" r="50%">
+                    <stop offset="0" stop-color="#4a1c28"/>
+                    <stop offset="1" stop-color="#1e0d13"/>
+                  </radialGradient>
+                </defs>
+                <!-- tape spools: left carries more tape, mid-play -->
+                <circle class="spool" cx="85" cy="56" r="46" fill="url(#spool-a)"/>
+                <circle class="spool" cx="243" cy="56" r="32" fill="url(#spool-a)"/>
+                <circle class="ring" cx="85" cy="56" r="38"/><circle class="ring" cx="85" cy="56" r="31"/>
+                <circle class="ring" cx="243" cy="56" r="27"/>
+                <!-- tape leaves both spools along their shared lower tangent -->
+                <path class="tape" d="M89 102 L246 88"/>
+                <!-- reels -->
+                <g class="hub" style="transform-origin: 85px 56px">
+                  <circle cx="85" cy="56" r="24" fill="#fff"/>
+                  <g class="teeth">
+                    <rect x="81" y="30" width="8" height="10" rx="2"/><rect x="81" y="72" width="8" height="10" rx="2"/>
+                    <rect x="59" y="52" width="10" height="8" rx="2"/><rect x="101" y="52" width="10" height="8" rx="2"/>
+                    <g transform="rotate(45 85 56)"><rect x="81" y="30" width="8" height="10" rx="2"/><rect x="81" y="72" width="8" height="10" rx="2"/><rect x="59" y="52" width="10" height="8" rx="2"/><rect x="101" y="52" width="10" height="8" rx="2"/></g>
+                  </g>
+                  <circle cx="85" cy="56" r="10" fill="#3a0d1a"/>
+                </g>
+                <g class="hub" style="transform-origin: 243px 56px">
+                  <circle cx="243" cy="56" r="24" fill="#fff"/>
+                  <g class="teeth">
+                    <rect x="239" y="30" width="8" height="10" rx="2"/><rect x="239" y="72" width="8" height="10" rx="2"/>
+                    <rect x="217" y="52" width="10" height="8" rx="2"/><rect x="259" y="52" width="10" height="8" rx="2"/>
+                    <g transform="rotate(45 243 56)"><rect x="239" y="30" width="8" height="10" rx="2"/><rect x="239" y="72" width="8" height="10" rx="2"/><rect x="217" y="52" width="10" height="8" rx="2"/><rect x="259" y="52" width="10" height="8" rx="2"/></g>
+                  </g>
+                  <circle cx="243" cy="56" r="10" fill="#3a0d1a"/>
+                </g>
+                <rect class="glare" x="0" y="0" width="328" height="112"/>
+              </svg>
+              <div class="label label-a">
+                <span class="label-side">Side A</span>
+                <span class="label-name">YouTube Music</span>
+                <span class="label-glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M9 18.5a3 3 0 1 1-2-2.83V6l11-2.5v11a3 3 0 1 1-2-2.83V7.3L9 8.9z"/></svg>
+                </span>
+              </div>
+              <div class="mouth"></div>
+            </div>
+          </div>
+          <div class="face face-b">
+            <div class="shell">
+              <div class="screw tl"></div><div class="screw tr"></div><div class="screw bl"></div><div class="screw br"></div>
+              <svg class="window" viewBox="0 0 328 112" aria-hidden="true">
+                <defs>
+                  <radialGradient id="spool-b" cx="50%" cy="50%" r="50%">
+                    <stop offset="0" stop-color="#4a1c28"/>
+                    <stop offset="1" stop-color="#1e0d13"/>
+                  </radialGradient>
+                </defs>
+                <!-- tape spools: left carries more tape, mid-play -->
+                <circle class="spool" cx="85" cy="56" r="46" fill="url(#spool-b)"/>
+                <circle class="spool" cx="243" cy="56" r="32" fill="url(#spool-b)"/>
+                <circle class="ring" cx="85" cy="56" r="38"/><circle class="ring" cx="85" cy="56" r="31"/>
+                <circle class="ring" cx="243" cy="56" r="27"/>
+                <!-- tape leaves both spools along their shared lower tangent -->
+                <path class="tape" d="M89 102 L246 88"/>
+                <!-- reels -->
+                <g class="hub" style="transform-origin: 85px 56px">
+                  <circle cx="85" cy="56" r="24" fill="#fff"/>
+                  <g class="teeth">
+                    <rect x="81" y="30" width="8" height="10" rx="2"/><rect x="81" y="72" width="8" height="10" rx="2"/>
+                    <rect x="59" y="52" width="10" height="8" rx="2"/><rect x="101" y="52" width="10" height="8" rx="2"/>
+                    <g transform="rotate(45 85 56)"><rect x="81" y="30" width="8" height="10" rx="2"/><rect x="81" y="72" width="8" height="10" rx="2"/><rect x="59" y="52" width="10" height="8" rx="2"/><rect x="101" y="52" width="10" height="8" rx="2"/></g>
+                  </g>
+                  <circle cx="85" cy="56" r="10" fill="#3a1206"/>
+                </g>
+                <g class="hub" style="transform-origin: 243px 56px">
+                  <circle cx="243" cy="56" r="24" fill="#fff"/>
+                  <g class="teeth">
+                    <rect x="239" y="30" width="8" height="10" rx="2"/><rect x="239" y="72" width="8" height="10" rx="2"/>
+                    <rect x="217" y="52" width="10" height="8" rx="2"/><rect x="259" y="52" width="10" height="8" rx="2"/>
+                    <g transform="rotate(45 243 56)"><rect x="239" y="30" width="8" height="10" rx="2"/><rect x="239" y="72" width="8" height="10" rx="2"/><rect x="217" y="52" width="10" height="8" rx="2"/><rect x="259" y="52" width="10" height="8" rx="2"/></g>
+                  </g>
+                  <circle cx="243" cy="56" r="10" fill="#3a1206"/>
+                </g>
+                <rect class="glare" x="0" y="0" width="328" height="112"/>
+              </svg>
+              <div class="label label-b">
+                <span class="label-side">Side B</span>
+                <span class="label-name">YouTube</span>
+                <span class="label-glyph" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 17.5zM10 8.5v7l6-3.5z"/></svg>
+                </span>
+              </div>
+              <div class="mouth"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="segmented glass" role="group" aria-label="Choose a side">
+        <button class="seg" type="button" aria-pressed="true" data-side="a">YouTube Music</button>
+        <button class="seg" type="button" aria-pressed="false" data-side="b">YouTube</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================== SCREENSHOT ====================== -->
+  <section class="shot">
+    <div class="shot-frame">
+      <img id="shot-a" src="assets/screenshot-music.webp" width="2000" height="1431" alt="Kaset on Side A: the YouTube Music home screen with charts, community playlists, and a Liquid Glass player bar" fetchpriority="high">
+      <img id="shot-b" src="assets/screenshot-youtube.webp" width="2000" height="1431" alt="Kaset on Side B: the YouTube home screen with live streams, gaming videos, and podcasts" hidden loading="lazy">
+    </div>
+    <p class="caption">Flip the tape above. The same switch sits at the bottom of Kaset's sidebar.</p>
+  </section>
+
+  <!-- ====================== SIDE A ====================== -->
+  <section id="side-a" class="feature side-a">
+    <div class="head">
+      <p class="eyebrow eyebrow-a">Side A</p>
+      <h2>YouTube Music, with everything a browser tab leaves out.</h2>
+      <p class="subhead">Your library, your mixes, your Premium playback. In a real window, with real controls.</p>
+    </div>
+    <div class="tiles">
+      <article class="tile glass">
+        <h3>Lyrics that keep time.</h3>
+        <p>Synced lyrics light up line by line as the song plays.</p>
+        <div class="demo lyrics" aria-hidden="true">
+          <span>Is this the real life?</span>
+          <span class="now">Is this just fantasy?</span>
+          <span>Caught in a landslide</span>
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>A real equalizer.</h3>
+        <p>Six bands with presets, applied to the audio output itself.</p>
+        <div class="demo eq" aria-hidden="true">
+          <i style="--v:.62"></i><i style="--v:.74"></i><i style="--v:.5"></i><i style="--v:.42"></i><i style="--v:.58"></i><i style="--v:.8"></i>
+          <div class="eq-labels"><span>60</span><span>150</span><span>400</span><span>1k</span><span>2.4k</span><span>15k</span></div>
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>Queue and smart shuffle.</h3>
+        <p>Reorder what plays next, or let Kaset blend in suggestions based on what's playing.</p>
+        <div class="demo queue" aria-hidden="true">
+          <span class="q-now">Bohemian Rhapsody</span>
+          <span>Under Pressure</span>
+          <span>Radio Ga Ga <em>Suggested</em></span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ====================== SIDE B ====================== -->
+  <section id="side-b" class="feature side-b">
+    <div class="head">
+      <p class="eyebrow eyebrow-b">Side B</p>
+      <h2>YouTube, with native controls and none of the clutter.</h2>
+      <p class="subhead">Flip the switch and the same sidebar becomes subscriptions, Shorts, Watch Later, and history.</p>
+    </div>
+    <div class="tiles">
+      <article class="tile glass">
+        <h3>Native player bar.</h3>
+        <p>Captions, quality, picture in picture, and AirPlay from Kaset's own Liquid Glass bar.</p>
+        <div class="demo playerbar glass" aria-hidden="true">
+          <span class="pb-btn">&#9664;&#9664;</span><span class="pb-btn pb-play">&#9654;</span><span class="pb-btn">&#9654;&#9654;</span>
+          <span class="pb-track"><i></i></span>
+          <span class="pb-btn">CC</span><span class="pb-btn">PiP</span>
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>Extensions on both sides.</h3>
+        <p>Load WebKit extensions like uBlock Origin Lite and SponsorBlock. Nothing is bundled. You choose.</p>
+        <div class="demo chips" aria-hidden="true"><span>uBlock Origin Lite</span><span>SponsorBlock</span></div>
+      </article>
+      <article class="tile glass">
+        <h3>Links land here.</h3>
+        <p>Hand a youtube.com or youtu.be link to Kaset, from Shortcuts or <code>open -a Kaset</code>, and it opens on Side&nbsp;B.</p>
+        <div class="demo chips" aria-hidden="true"><span>youtube.com/…</span><span>youtu.be/…</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ====================== MAC ====================== -->
+  <section id="mac" class="feature mac">
+    <div class="head">
+      <h2>Built for the Mac.<br>Not wrapped for it.</h2>
+      <p class="subhead">Swift, SwiftUI, Liquid Glass, and 18 languages. Kaset shows up everywhere a Mac app should.</p>
+    </div>
+    <div class="tiles four">
+      <article class="tile glass">
+        <h3>Now Playing, everywhere.</h3>
+        <p>Control Center, media keys, the Dock menu, and a mini player. Keeps playing when the window closes.</p>
+        <div class="demo nowplaying" aria-hidden="true">
+          <div class="np-art"></div>
+          <div class="np-meta"><strong>Bohemian Rhapsody</strong><span>Queen</span></div>
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>Keyboard first.</h3>
+        <p>Full control from the keys. Standard macOS shortcuts are left alone.</p>
+        <div class="demo keys" aria-hidden="true">
+          <kbd>Space</kbd><kbd>⌘K</kbd><kbd>⌘→</kbd><kbd>⇧⌘Y</kbd>
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>Apple Intelligence.</h3>
+        <p>On macOS 26, ask for music in plain words and get lyrics explained, on device.</p>
+        <div class="demo ai" aria-hidden="true">
+          <span class="ai-spark">✦</span> Something upbeat for a rainy afternoon
+        </div>
+      </article>
+      <article class="tile glass">
+        <h3>Scriptable.</h3>
+        <p>AppleScript for Raycast, Alfred, and Shortcuts.</p>
+<pre class="demo"><code>tell app "Kaset"
+  playpause
+end tell</code></pre>
+      </article>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <p>Made by <a href="https://github.com/sozercan" rel="noopener">Sertaç Özercan</a> and contributors under the MIT license.</p>
+  <p class="footer-links">
+    <a href="https://github.com/sozercan/kaset" rel="noopener">Source</a>
+    <a href="https://github.com/sozercan/kaset/blob/main/docs/keyboard-shortcuts.md" rel="noopener">Shortcuts</a>
+    <a href="https://github.com/sozercan/kaset/blob/main/docs/extensions.md" rel="noopener">Extensions</a>
+    <a href="https://github.com/sozercan/kaset/blob/main/docs/applescript.md" rel="noopener">AppleScript</a>
+    <a href="https://github.com/sozercan/kaset/blob/main/CONTRIBUTING.md" rel="noopener">Contributing</a>
+  </p>
+  <p class="disclaimer">Kaset is an unofficial application and is not affiliated with YouTube or Google. YouTube, YouTube Music, and the YouTube logo are trademarks of Google LLC.</p>
+</footer>
+
+<script src="script.js" defer></script>
+</body>
+</html>

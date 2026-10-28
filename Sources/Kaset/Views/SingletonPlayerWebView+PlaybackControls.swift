@@ -106,7 +106,8 @@ extension SingletonPlayerWebView {
     nonisolated static var playPauseCommandScript: String {
         """
         (function() {
-            const playBtn = document.querySelector('.play-pause-button.ytmusic-player-bar');
+            \(playerBarLookupFunctionJS)
+            const playBtn = __kasetPlayerBarElement('playPause');
             if (playBtn) {
                 const video = document.querySelector('video');
                 const wantsPlay = !video || video.paused;
@@ -262,7 +263,8 @@ extension SingletonPlayerWebView {
 
         let script = """
             (function() {
-                const nextBtn = document.querySelector('.next-button.ytmusic-player-bar');
+                \(Self.playerBarLookupFunctionJS)
+                const nextBtn = __kasetPlayerBarElement('next');
                 if (nextBtn) { nextBtn.click(); return 'clicked'; }
                 return 'no-button';
             })();
@@ -280,7 +282,8 @@ extension SingletonPlayerWebView {
 
         let script = """
             (function() {
-                const prevBtn = document.querySelector('.previous-button.ytmusic-player-bar');
+                \(Self.playerBarLookupFunctionJS)
+                const prevBtn = __kasetPlayerBarElement('previous');
                 if (prevBtn) { prevBtn.click(); return 'clicked'; }
                 return 'no-button';
             })();

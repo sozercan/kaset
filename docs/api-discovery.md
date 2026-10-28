@@ -288,6 +288,8 @@ let body = ["browseId": "FEmusic_liked_albums"]
 
 **Library mutations**: Album detail navigation uses an `MPRE...` browse ID, but `like/like` and `like/removelike` must target the album's `OLAK...` playlist ID. Album browse responses expose that playlist ID through play/queue endpoints even when the personalized Save button is unavailable.
 
+**Album playlist (`OLAK...`) browse**: A bare `OLAK...` browse ID returns HTTP 400; browse `VLOLAK...` instead. That page is a plain `musicPlaylistShelfRenderer` with no album header (no title, artwork, or artist), and each track's album column links the album's `MPRE...` browse ID. `YTMusicClient.playlistBrowseId(for:)` adds the prefix, and `PlaylistDetailViewModel` fills the missing header from the route.
+
 ---
 
 #### Liked Songs (`VLLM`)
@@ -712,6 +714,25 @@ let body: [String: Any] = [
 - Related tracks / autoplay queue
 - Feedback tokens for library actions
 - Continuation token for infinite mix (in `playlistPanelRenderer.continuations`)
+
+**Queue rating evidence (revalidated 2026-08-07)**:
+- A signed-out radio `next` probe returned HTTP 200 with 34 queue rows, zero
+  `topLevelButtons` like statuses, and zero rating toggles. Signed-out responses
+  therefore cannot validate personalized row ratings.
+- Upstream `ytmusicapi` documents that watch queues can distinguish `LIKE` from
+  “not liked,” but cannot distinguish `INDIFFERENT` from `DISLIKE` when only the
+  menu toggle is available.
+- `SongMetadataParser.parseLikeStatus` (used by `RadioQueueParser` and `getSong`)
+  accepts an explicit row-local `likeStatus` first. Otherwise it inverts the
+  rating toggle in `menu.items`, like ytmusicapi: the active endpoint
+  (`defaultServiceEndpoint`, or `toggledServiceEndpoint` when `isToggled` is
+  true) is what a click would request. A pending `INDIFFERENT` means the row
+  holds the rating the other endpoint restores (`LIKE` when that endpoint is
+  absent). A pending `LIKE`/`DISLIKE` stays unknown, and a target `videoId`
+  that does not match the row is ignored.
+- `swift run api-explorer action next '{...}'` prints a redacted queue rating
+  audit containing only counts and normalized endpoint shapes. Use it signed
+  in to confirm the toggle shape; add `--guest` for a signed-out probe.
 
 **Used for**:
 - `getLyrics(videoId:)` - Extracts lyrics browse ID

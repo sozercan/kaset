@@ -5,7 +5,10 @@ import WebKit
 
 enum CookieArchiveBackupAction: Equatable, Sendable {
     case persist(data: Data, cookieCount: Int)
-    case invalidate
+    /// The live jar has no primary session. Explicit sign-out and failed-login
+    /// cleanup invalidate the archive themselves, so a missing cookie here is
+    /// not proof of a sign-out and must not become a durable one.
+    case retainWithoutPrimarySession
     case retainExisting
 
     static func make(from result: CookieArchiveEncodingResult) -> CookieArchiveBackupAction {
@@ -13,7 +16,7 @@ enum CookieArchiveBackupAction: Equatable, Sendable {
         case let .archive(data, cookieCount):
             .persist(data: data, cookieCount: cookieCount)
         case .noPrimarySession:
-            .invalidate
+            .retainWithoutPrimarySession
         case .failure:
             .retainExisting
         }
@@ -353,9 +356,11 @@ extension WebKitManager {
         let loginCookies = allLiveCookies.filter(KeychainCookieStorage.isLoginDomainCookie)
         // A partial Google session cannot form a native API archive, but its
         // complete cookie jar still provides a valid in-memory rollback baseline.
+        // The observer keeps the archive through a missing primary cookie, so
+        // rollback restores that archive rather than deleting it.
         if case .noPrimarySession = KeychainCookieStorage.makeArchiveResult(from: authCookies) {
             return LoginCookieBackupBaseline(
-                liveBaseline: .empty,
+                liveBaseline: .persistedArchive,
                 authSnapshot: nil,
                 loginCookies: loginCookies
             )
@@ -427,6 +432,18 @@ extension WebKitManager {
               let snapshot = await self.currentCookieArchiveSnapshot()
         else { return false }
         return transaction.hasChangedFromPreviousLiveSnapshot(snapshot)
+    }
+
+    /// Clears the live login session for a reauthentication attempt. The archive
+    /// and restore policy stay untouched, so cancelling the attempt rolls back to
+    /// the previous session instead of leaving the user durably signed out.
+    func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool {
+        guard await self.isLoginCookieBackupActive(transaction), !Task.isCancelled else { return false }
+        self.logger.notice("Clearing live login cookies for reauthentication")
+        // Rollback restores only login-domain cookies, so never escalate to a
+        // store-wide removal here; a failed clear rolls the attempt back.
+        let didClear = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: false)
+        return didClear && self.isCurrentLoginCookieBackup(transaction)
     }
 
     /// Captures and persists a fresh stable snapshot while the transaction keeps
@@ -810,13 +827,8 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             from: KeychainCookieStorage.makeArchiveResult(from: authCookies)
         )
         switch action {
-        case .invalidate:
-            let result = await self.cookieArchiveQueue.invalidateAndDeleteIfLatest(
-                generation: generation
-            )
-            if result == .failed {
-                self.logger.error("Could not invalidate an empty authentication-cookie snapshot")
-            }
+        case .retainWithoutPrimarySession:
+            self.logger.notice("Live cookies have no primary YouTube session; keeping the last authentication-cookie archive")
         case .retainExisting:
             self.logger.error("Retaining the last authentication-cookie archive after serialization failure")
         case let .persist(data, cookieCount):

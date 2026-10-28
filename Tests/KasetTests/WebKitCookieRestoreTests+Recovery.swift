@@ -255,6 +255,92 @@ extension WebKitCookieRestoreTests {
         _ = await manager.clearAllData()
     }
 
+    @Test("Cancelled reauthentication restores the prior session and archive")
+    func cancelledReauthenticationRestoresPriorSession() async throws {
+        let storage = CookieRecoveryStorage()
+        let manager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage.interface)
+        let primaryCookie = try Self.makeRecoveryCookie(name: "SAPISID", domain: ".youtube.com")
+        let gaiaCookie = try Self.makeRecoveryCookie(name: "LSID", domain: "accounts.google.com")
+        await manager.dataStore.httpCookieStore.setCookie(primaryCookie)
+        await manager.dataStore.httpCookieStore.setCookie(gaiaCookie)
+        let authService = AuthService(webKitManager: manager)
+        manager.startInitialCookieRestore()
+        await authService.checkLoginStatus()
+        #expect(authService.state.isLoggedIn)
+        #expect(await manager.forceBackupCookies())
+        let originalArchive = try #require(storage.snapshot.archive)
+
+        authService.sessionExpired()
+        authService.startLogin()
+        let attemptID = try #require(authService.activeLoginAttemptID)
+        let transaction = try #require(await manager.beginLoginCookieBackup())
+
+        #expect(await manager.clearLiveLoginCookies(for: transaction))
+        #expect(await manager.getSAPISID() == nil)
+        #expect(await !(manager.getAllCookies()).contains(where: KeychainCookieStorage.isLoginSessionCookie))
+        #expect(storage.snapshot.archive == originalArchive)
+        #expect(storage.snapshot.deleteCount == 0)
+
+        let rollback = await authService.resolveLoginRollbackAfterDraining(
+            expectedAttemptID: attemptID,
+            prepareRollback: { await manager.prepareLoginCookieBackupRollback(transaction) },
+            rollback: { _ in await manager.rollbackLoginCookieBackup(transaction) }
+        )
+        #expect(rollback == .rolledBack)
+        #expect(!authService.loginCleanupRequired)
+        #expect(storage.snapshot.policy == .allowed)
+        let restoredArchive = try #require(storage.snapshot.archive)
+        #expect(Self.archivedCookieKeys(restoredArchive) == Self.archivedCookieKeys(originalArchive))
+        #expect(storage.snapshot.deleteCount == 0)
+        #expect(await manager.getSAPISID() == primaryCookie.value)
+        let restoredNames = await Set(manager.getAllCookies().map(\.name))
+        #expect(restoredNames == [primaryCookie.name, gaiaCookie.name])
+        _ = await manager.clearAllData()
+    }
+
+    @Test("Cancelled reauthentication after losing the primary cookie keeps the archive")
+    func cancelledReauthenticationWithoutPrimaryKeepsArchive() async throws {
+        let storage = CookieRecoveryStorage()
+        let manager = WebKitManager.makeTestInstance(cookieArchiveStorage: storage.interface)
+        let primaryCookie = try Self.makeRecoveryCookie(name: "SAPISID", domain: ".youtube.com")
+        let googleCookie = try Self.makeRecoveryCookie(name: "SID", domain: ".google.com")
+        await manager.dataStore.httpCookieStore.setCookie(primaryCookie)
+        await manager.dataStore.httpCookieStore.setCookie(googleCookie)
+        let authService = AuthService(webKitManager: manager)
+        manager.startInitialCookieRestore()
+        await authService.checkLoginStatus()
+        #expect(await manager.forceBackupCookies())
+        let originalArchive = try #require(storage.snapshot.archive)
+
+        await manager.dataStore.httpCookieStore.deleteCookie(primaryCookie)
+        authService.sessionExpired()
+        authService.startLogin()
+        let attemptID = try #require(authService.activeLoginAttemptID)
+        let transaction = try #require(await manager.beginLoginCookieBackup())
+        #expect(await manager.clearLiveLoginCookies(for: transaction))
+
+        let rollback = await authService.resolveLoginRollbackAfterDraining(
+            expectedAttemptID: attemptID,
+            prepareRollback: { await manager.prepareLoginCookieBackupRollback(transaction) },
+            rollback: { _ in await manager.rollbackLoginCookieBackup(transaction) }
+        )
+        #expect(rollback == .rolledBack)
+        #expect(storage.snapshot.policy == .allowed)
+        #expect(storage.snapshot.deleteCount == 0)
+        let restoredArchive = try #require(storage.snapshot.archive)
+        #expect(Self.archivedCookieKeys(restoredArchive) == Self.archivedCookieKeys(originalArchive))
+        let restoredNames = await Set(manager.getAllCookies().map(\.name))
+        #expect(restoredNames == [googleCookie.name])
+        _ = await manager.clearAllData()
+    }
+
+    /// Archive bytes are not stable across re-encoding, so compare decoded cookies.
+    private static func archivedCookieKeys(_ archive: Data) -> [String] {
+        KeychainCookieStorage.decodeCookies(from: archive)
+            .map { "\($0.domain)|\($0.name)|\($0.value)" }
+            .sorted()
+    }
+
     private static func makeRecoveryCookie(
         name: String,
         domain: String,
