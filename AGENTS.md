@@ -2,7 +2,7 @@
 
 Guidance for AI coding agents working in this repository.
 
-Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6 and SwiftUI for macOS 26+. Write idiomatic SwiftUI and Swift Concurrency code that follows Apple's Human Interface Guidelines.
+Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6 and SwiftUI. The deployment target is macOS 15.4, with macOS 26 features such as Liquid Glass layered on top. Write idiomatic SwiftUI and Swift Concurrency code that follows Apple's Human Interface Guidelines.
 
 ## Rules
 
@@ -39,7 +39,7 @@ Project rules that differ from standard Swift/SwiftUI conventions and aren't mec
 
 | Avoid | Use | Why |
 |-------|-----|-----|
-| `.background(.ultraThinMaterial)` | `.glassEffect()` | macOS 26 Liquid Glass |
+| `.background(.ultraThinMaterial)` | `compatGlass(...)` helpers in `LiquidGlassCompat.swift`, or `.glassEffect()` behind `#available(macOS 26.0, *)` | Liquid Glass on macOS 26 with a macOS 15 fallback |
 | Force unwraps (`!`) | Optional handling or `guard` | Project policy |
 
 - Mark `@Observable` classes with `@MainActor`.
@@ -90,17 +90,20 @@ Run the `autoreview` skill by default after committing non-trivial code changes 
 Use these Kaset settings with the skill, from the repository root:
 
 ```bash
-base=$(gh pr view --json baseRefName --jq .baseRefName 2>/dev/null || echo main)
-python3 .agents/skills/autoreview/scripts/autoreview --mode branch --base "origin/$base" --max-priority P3 --source-context-file AGENTS.md
+python3 .agents/skills/autoreview/scripts/autoreview --mode branch --base origin/<base> --max-priority P3 \
+  --source-context-file AGENTS.md \
+  --prompt "Also report changes that violate the repository rules in the AGENTS.md source context, such as credential handling, API-over-WebView, localization parity, and the Coding Rules table."
 ```
 
+`<base>` is the PR's base branch (`gh pr view --json baseRefName --jq .baseRefName`), or `main` when there is no PR yet. If that lookup fails for any other reason, such as auth or network, fix it or ask; don't assume `main`.
+
 - `--max-priority P3` accepts findings at every priority (P0 through P3); the helper's default of P0 hides the rest in audit output.
-- `--source-context-file AGENTS.md` gives the reviewer these repo rules. It only works in `branch` and `commit` modes; drop it when asked to review uncommitted work with `--mode local`.
+- `--source-context-file AGENTS.md` gives the reviewer these repo rules as evidence, and `--prompt` asks it to check them; the helper treats source files as evidence, not instructions. `--source-context-file` only works in `branch` and `commit` modes; drop it when asked to review uncommitted work with `--mode local`.
 - `branch` mode excludes uncommitted work, so format and commit your own changes first. For review-only requests, leave the checkout as it is.
 
 Review findings are advisory, including P2 and P3: check each one against the real code path, fix the ones that hold up, and reject the rest only with a reason. After review-driven code changes, rerun the focused tests and the review once. When you report back, include the review command, the tests you ran, which findings you accepted or rejected and why, and the result of the final run.
 
-`.agents/skills/autoreview/` is an unmodified copy of [`sozercan/skills`](https://github.com/sozercan/skills/tree/main/skills/autoreview) (commit `1b8ef21`). Don't edit it in place: change the source repository, then replace the whole directory with the new version.
+`.agents/skills/autoreview/` is an unmodified copy of [`sozercan/skills`](https://github.com/sozercan/skills/tree/main/skills/autoreview) (commit `1b8ef21`), without that directory's own `AGENTS.md`/`CLAUDE.md`, which only govern maintenance of the source repository. Don't edit it in place: change the source repository, then replace the whole directory with the new version, again leaving out those two files.
 
 ## Skills
 

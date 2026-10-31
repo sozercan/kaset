@@ -12,9 +12,9 @@ Typical symptoms: playback starts, stops, or advances unexpectedly; API calls re
 ## Runtime Workflow
 
 1. Reproduce with the packaged app or `Scripts/compile_and_run.sh` (see the `dev-loop-packaging` skill).
-2. Watch runtime logs in the Xcode Console with the filters `subsystem:Kaset category:player` and `subsystem:Kaset category:auth`. `.info`/`.debug` lines don't reliably surface from the sandbox, so for timing or ordering questions use a file trace as described under Debugging & Measurement in `AGENTS.md`.
+2. Watch runtime logs in the Xcode Console with the filters `subsystem:com.sertacozercan.Kaset category:Player` and `subsystem:com.sertacozercan.Kaset category:Auth` (see `DiagnosticsLogger`). `.info`/`.debug` lines don't reliably surface from the sandbox, so for timing or ordering questions use a file trace as described under Debugging & Measurement in `AGENTS.md`.
 3. In debug builds, confirm `webView.isInspectable = true`, then inspect the player WebView with Safari Web Inspector.
-4. To simulate auth expiry, delete `__Secure-3PAPISID` with Safari Web Inspector's storage tools and trigger an authenticated API call.
+4. To simulate auth expiry, delete both `__Secure-3PAPISID` and `SAPISID` with Safari Web Inspector's storage tools, then trigger an authenticated API call. `WebKitManager.getSAPISID()` falls back to `SAPISID`, so deleting only one keeps the session alive.
 5. If auth cookies or headers look wrong, run `swift run api-explorer auth` and compare against the exported cookie state.
 
 ## Landmarks
