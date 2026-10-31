@@ -85,7 +85,9 @@ Sandboxed builds without a valid Developer ID or provisioning profile (local deb
 
 ## Code Review
 
-When the human asks for a review, or before committing a risky or wide-reaching change, run the `autoreview` skill. Its findings are advisory: check each one against the real code path, fix the ones that hold up, and rerun focused tests and the review once after review-driven code changes.
+Run the `autoreview` skill by default after committing non-trivial code changes and before pushing them. Skip it for docs-only or trivial changes, or when the human opts out. Finish the focused tests first, and don't run the review at the same time as tests: the CPU contention makes timing-sensitive tests flaky.
+
+Review findings are advisory: check each one against the real code path, fix the ones that hold up, and rerun focused tests and the review once after review-driven code changes.
 
 ## Skills
 
