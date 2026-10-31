@@ -30,6 +30,7 @@ enum AccessibilityID {
     // MARK: - PlayerBar
 
     enum PlayerBar {
+        static let nowPlayingButton = "playerBar.nowPlayingButton"
         static let playPauseButton = "playerBar.playPause"
         static let previousButton = "playerBar.previous"
         static let nextButton = "playerBar.next"

@@ -30,31 +30,30 @@ final class MiniPlayerSeekState {
 /// This is the only mini player view that observes `PlayerService.progress`, so each
 /// playback tick re-evaluates just this section instead of the whole mini player window.
 struct MiniPlayerSeekSection: View {
+    /// `.nowPlaying` swaps the system slider for the Now Playing view's thin capsule bar.
+    enum Style {
+        case mini
+        case nowPlaying
+    }
+
     @Bindable var state: MiniPlayerSeekState
+    var style: Style = .mini
 
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
-        VStack(spacing: 8) {
-            Slider(value: self.$state.seekValue, in: 0 ... 1) { editing in
-                self.state.isSeeking = editing
-                if !editing {
-                    self.performSeek()
-                }
-            }
-            .controlSize(.small)
-            .tint(PackageResourceLookup.brandAccent)
-            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
-            .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
+        VStack(spacing: self.style == .mini ? 8 : 4) {
+            self.slider
+                .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
             HStack {
                 Text(PlayerBarSeekController.formatTime(self.state.isSeeking ? self.state.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
                 Spacer()
                 Text(self.playerService.isCurrentItemLive ? String(localized: "LIVE") : self.remainingTimeText)
             }
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: self.style == .mini ? 9 : 11, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(.white.opacity(0.76))
-            .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
+            .foregroundStyle(.white.opacity(self.style == .mini ? 0.76 : 0.55))
+            .shadow(color: .black.opacity(self.style == .mini ? 0.56 : 0), radius: 2, y: 1)
             .overlay { WindowDragHandle() }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
@@ -83,6 +82,31 @@ struct MiniPlayerSeekSection: View {
         .onDisappear {
             // A panel switch mid-drag can remove the slider before it reports the end of editing.
             self.state.isSeeking = false
+        }
+    }
+
+    @ViewBuilder
+    private var slider: some View {
+        switch self.style {
+        case .mini:
+            Slider(value: self.$state.seekValue, in: 0 ... 1, onEditingChanged: self.seekEditingChanged)
+                .controlSize(.small)
+                .tint(PackageResourceLookup.brandAccent)
+                .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
+        case .nowPlaying:
+            NowPlayingCapsuleSlider(
+                value: self.$state.seekValue,
+                accessibilityLabel: String(localized: "Playback position"),
+                accessibilityValue: PlayerBarSeekController.formatTime(self.state.seekValue * self.playerService.duration),
+                onEditingChanged: self.seekEditingChanged
+            )
+        }
+    }
+
+    private func seekEditingChanged(_ editing: Bool) {
+        self.state.isSeeking = editing
+        if !editing {
+            self.performSeek()
         }
     }
 

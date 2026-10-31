@@ -31,6 +31,8 @@ swiftlint --strict && swiftformat .      # Lint & format
 
 A code change is done when these pass for the code you touched. Stay CLI-first; use Xcode or `xcodebuild` only for UI tests, runtime debugging, screenshots, or scheme-specific investigation.
 
+CI pins the SwiftFormat version in `.github/workflows/lint.yml`; format with that version, since newer releases can rewrite unrelated files.
+
 `.swiftformat` uses `--self insert`: in static methods call other static methods as `Self.methodName()`, and in instance methods write `self.property` explicitly.
 
 ## Coding Rules

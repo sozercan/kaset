@@ -54,18 +54,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
 
-      - name: Cache Homebrew
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            /usr/local/Homebrew
-            ~/Library/Caches/Homebrew
-          key: ${{ runner.os }}-homebrew-swiftformat
-
+      # Pinned: an unpinned Homebrew install picks up new rules the codebase isn't formatted for.
       - name: Install SwiftFormat
+        env:
+          SWIFTFORMAT_VERSION: "0.63.1"
+          SWIFTFORMAT_SHA256: "385ef1a263ba28685157b98c5536b9c9105e124518f28b7ef8a2bee4b167eaeb"
         run: |
-          brew install swiftformat
-          swiftformat --version
+          curl -fsSL -o "$RUNNER_TEMP/swiftformat.zip" \
+            "https://github.com/nicklockwood/SwiftFormat/releases/download/${SWIFTFORMAT_VERSION}/swiftformat.zip"
+          echo "${SWIFTFORMAT_SHA256}  $RUNNER_TEMP/swiftformat.zip" | shasum -a 256 -c -
+          unzip -q -o "$RUNNER_TEMP/swiftformat.zip" -d "$RUNNER_TEMP/swiftformat"
+          echo "$RUNNER_TEMP/swiftformat" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/swiftformat/swiftformat" --version
 
       - name: Check formatting
         run: |
