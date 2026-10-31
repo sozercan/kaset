@@ -129,6 +129,7 @@
 "Dislike comment" = "Ne pas aimer le commentaire";
 "Disliked" = "Non aimé";
 "Dismiss" = "Fermer";
+"Dock the lyrics and queue panels as a right-hand drawer that pushes the content aside, like the sidebar, instead of a floating panel" = "Ancrer les panneaux des paroles et de la file d'attente à droite, en décalant le contenu comme la barre latérale, plutôt que de les afficher dans un panneau flottant";
 "Done" = "Terminé";
 "Double-tap to retry" = "Appuyez deux fois pour réessayer";
 "Double-tap to retry loading accounts" = "Double-cliquez pour réessayer de charger les comptes";
@@ -330,6 +331,7 @@
 "One" = "Un";
 "Only WebKit-compatible extensions (with a valid **manifest.json**) are supported." = "Seules les extensions compatibles WebKit (avec un **manifest.json** valide) sont prises en charge.";
 "Open Command Bar (⌘K)" = "Ouvrir la barre de commandes (⌘K)";
+"Open lyrics & queue as a side drawer" = "Ouvrir les paroles et la file d'attente dans un panneau latéral ancré";
 "Open queue in side panel" = "Ouvrir la file d'attente dans le panneau latéral";
 "Open Settings" = "Ouvrir les Réglages";
 "Open System Settings → Privacy & Security → Screen & System Audio Recording and enable Kaset, then toggle the equalizer on again." = "Ouvrez Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran et de l'audio système, activez Kaset, puis réactivez l'égaliseur.";
