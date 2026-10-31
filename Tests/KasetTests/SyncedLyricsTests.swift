@@ -222,6 +222,93 @@ struct SyncedLyricsServiceTests {
         #expect(await provider.callCount() == 2)
     }
 
+    @Test("A different track clears visible lyrics before its search completes")
+    func differentTrackClearsLyricsWhileLoading() async {
+        let gate = SearchGate()
+        let oldLyrics = Self.makeSyncedLyrics(source: "Old Source", lineText: "Old line")
+        let provider = MockLyricsProvider(name: "Provider") { info in
+            if info.videoId == "old" {
+                return .synced(oldLyrics)
+            }
+            await gate.markStarted()
+            await gate.waitUntilReleased()
+            return .unavailable
+        }
+        let service = SyncedLyricsService(providers: [provider])
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "old"))
+
+        let task = Task { await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "new")) }
+        await gate.waitUntilStarted()
+        #expect(service.isLoading)
+        #expect(service.currentLyrics == .unavailable)
+        #expect(service.currentVideoId == "new")
+        #expect(service.activeProvider == nil)
+        service.fallbackToPlainLyrics(Lyrics(text: "Old fallback", source: "Old Source"), videoId: "old")
+        #expect(service.currentLyrics == .unavailable)
+        await gate.release()
+        await task.value
+    }
+
+    @Test("Same-track reload preserves plain lyrics and rejects another track's fallback")
+    func sameTrackReloadPreservesLyrics() async {
+        let gate = SearchGate()
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "Provider", result: .unavailable, gate: gate),
+        ])
+        let lyrics = Lyrics(text: "Current lyrics", source: "Current Source")
+        service.fallbackToPlainLyrics(lyrics, videoId: "current")
+        #expect(service.currentVideoId == "current")
+        let task = Task { await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "current")) }
+        await gate.waitUntilStarted()
+        #expect(service.isLoading)
+        #expect(service.currentLyrics == .plain(lyrics))
+        service.fallbackToPlainLyrics(Lyrics(text: "Stale lyrics", source: "Stale Source"), videoId: "old")
+        #expect(service.currentLyrics == .plain(lyrics))
+        #expect(service.activeProvider == "Current Source")
+        await gate.release()
+        await task.value
+        #expect(service.currentLyrics == .plain(lyrics))
+    }
+
+    @Test("Selecting plain-only lyrics invalidates an older provider search")
+    func plainOnlyTrackInvalidatesOlderSearch() async {
+        let gate = SearchGate()
+        let oldLyrics = Self.makeSyncedLyrics(source: "Old Source", lineText: "Old line")
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "Provider", result: .synced(oldLyrics), gate: gate),
+        ])
+        let task = Task { await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "old")) }
+        await gate.waitUntilStarted()
+
+        service.resetLyrics(for: "new")
+        #expect(service.currentVideoId == "new")
+        #expect(service.currentLyrics == .unavailable)
+        #expect(!service.isLoading)
+        let lyrics = Lyrics(text: "New plain lyrics", source: "New Source")
+        service.fallbackToPlainLyrics(lyrics, videoId: "new")
+        await gate.release()
+        await task.value
+        #expect(service.currentVideoId == "new")
+        #expect(service.currentLyrics == .plain(lyrics))
+        #expect(service.activeProvider == "New Source")
+    }
+
+    @Test("Cached synced lyrics restore their track identity after a track switch")
+    func cachedLyricsRestoreTrackIdentity() async {
+        let synced = Self.makeSyncedLyrics(source: "Cached Source", lineText: "Cached line")
+        let provider = MockLyricsProvider(name: "Provider", result: .synced(synced))
+        let service = SyncedLyricsService(providers: [provider])
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "cached"))
+        service.resetLyrics(for: "other")
+        service.fallbackToPlainLyrics(Lyrics(text: "Other lyrics", source: "Other Source"), videoId: "other")
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "cached"))
+        #expect(service.currentVideoId == "cached")
+        #expect(service.currentLyrics == .synced(synced))
+        #expect(service.activeProvider == "Cached Source")
+        #expect(!service.isLoading)
+        #expect(await provider.callCount() == 1)
+    }
+
     @Test("fallbackToPlainLyrics does not overwrite synced lyrics")
     func fallbackToPlainLyricsDoesNotOverwriteSyncedLyrics() async {
         let synced = Self.makeSyncedLyrics(source: "Primary Synced Source", lineText: "Primary line")

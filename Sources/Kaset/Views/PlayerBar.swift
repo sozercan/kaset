@@ -114,7 +114,11 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     private func songInfoSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
-            self.thumbnailView
+            if self.canOpenCurrentAlbum {
+                self.thumbnailView
+            } else {
+                self.nowPlayingTapTarget(self.thumbnailView)
+            }
 
             if !usesCompactDetails {
                 self.songDetailsView
@@ -130,6 +134,34 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             if let track = self.playerService.currentTrack {
                 self.currentSongContextMenu(for: track)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func nowPlayingTapTarget(_ content: some View) -> some View {
+        if #available(macOS 26.0, *) {
+            Button {
+                self.presentNowPlayingLyrics()
+            } label: {
+                content
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(Text("Lyrics"))
+            .accessibilityValue(Text(verbatim: self.playerService.currentTrack?.title ?? ""))
+            .disabled(self.playerService.currentTrack == nil)
+        } else {
+            content
+        }
+    }
+
+    private func presentNowPlayingLyrics() {
+        guard #available(macOS 26.0, *), self.playerService.currentTrack != nil else { return }
+
+        HapticService.navigation()
+        withAnimation(AppAnimation.standard) {
+            self.playerService.showNowPlayingLyrics = true
         }
     }
 
@@ -203,15 +235,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     private var songDetailsView: some View {
         VStack(alignment: .leading, spacing: 4) {
-            PlayerBarMarqueeText(
-                text: self.playerService.currentTrack?.title ?? String(localized: "Not Playing"),
-                font: .systemFont(ofSize: 13),
-                color: .labelColor,
-                height: 13,
-                reduceMotion: self.reduceMotion
-            )
-            .id(self.currentTitleIdentity)
-            .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
+            self.nowPlayingTapTarget(self.songTitleView)
 
             PlayerBarMetadataButton(
                 text: self.artistName,
@@ -222,6 +246,18 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             )
         }
         .frame(height: 29, alignment: .leading)
+    }
+
+    private var songTitleView: some View {
+        PlayerBarMarqueeText(
+            text: self.playerService.currentTrack?.title ?? String(localized: "Not Playing"),
+            font: .systemFont(ofSize: 13),
+            color: .labelColor,
+            height: 13,
+            reduceMotion: self.reduceMotion
+        )
+        .id(self.currentTitleIdentity)
+        .accessibilityIdentifier(AccessibilityID.PlayerBar.trackTitle)
     }
 
     private var currentTitleIdentity: String {
