@@ -26,6 +26,6 @@ python3 "$AUTOREVIEW" --mode branch --base origin/main --max-priority P1 --sourc
 
 - `--max-priority P1` accepts P0 and P1 findings. P2 and P3 stay in the audit output; fix them only when they're cheap and clearly correct.
 - `--source-context-file AGENTS.md` gives the reviewer the repo rules (credential handling, API-over-WebView, coding rules). It only works in `branch` and `commit` modes. For uncommitted work use `--mode local`, and for an open PR use its real base (`gh pr view --json baseRefName --jq .baseRefName`).
-- Run `swiftformat .` before reviewing so line numbers in findings stay valid.
+- When reviewing your own changes, format and commit them first so findings point at stable lines; `branch` mode excludes uncommitted work. For review-only requests, leave the checkout as it is.
 
 Findings are advisory. Check each one against the real code path, fix the ones that hold up, and rerun the focused tests and the review once after review-driven code changes. When you report back, include the review command, the tests you ran, which findings you accepted or rejected and why, and the result of the final run.
