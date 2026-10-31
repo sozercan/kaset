@@ -79,4 +79,24 @@ struct YouTubeWatchRegressionTests {
 
         #expect(continuedConversation.canSubmitFreeText)
     }
+
+    @Test("STATE_UPDATE parsing turns non-finite clocks into zero", arguments: [Double.nan, .infinity, -.infinity])
+    func stateUpdateParsingRejectsNonFiniteClocks(value: Double) {
+        let update = YouTubeWatchWebView.Coordinator.playbackUpdate(
+            from: ["isPlaying": true, "progress": value, "duration": value, "videoId": "video"],
+            documentGeneration: 1
+        )
+        #expect(update.progress == 0)
+        #expect(update.duration == 0)
+    }
+
+    @Test("STATE_UPDATE parsing keeps finite clocks")
+    func stateUpdateParsingKeepsFiniteClocks() {
+        let update = YouTubeWatchWebView.Coordinator.playbackUpdate(
+            from: ["isPlaying": true, "progress": 12.5, "duration": 180, "videoId": "video"],
+            documentGeneration: 1
+        )
+        #expect(update.progress == 12.5)
+        #expect(update.duration == 180)
+    }
 }

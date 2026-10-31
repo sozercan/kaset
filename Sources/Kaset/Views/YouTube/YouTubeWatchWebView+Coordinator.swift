@@ -46,33 +46,7 @@ extension YouTubeWatchWebView {
             _ body: [String: Any],
             documentGeneration: UInt64
         ) {
-            let update = YouTubePlayerService.PlaybackUpdate(
-                isPlaying: body["isPlaying"] as? Bool ?? false,
-                progress: body["progress"] as? Double ?? 0,
-                duration: body["duration"] as? Double ?? 0,
-                hasReadyMedia: body["hasReadyMedia"] as? Bool ?? false,
-                hasMediaError: body["hasMediaError"] as? Bool ?? false,
-                videoId: (body["videoId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
-                boundVideoId: (body["boundVideoId"] as? String)
-                    .flatMap { $0.isEmpty ? nil : $0 },
-                title: body["title"] as? String,
-                isAd: body["isAd"] as? Bool ?? false,
-                isLive: body["isLive"] as? Bool ?? false,
-                didApplyPendingSeek: body["pendingSeekApplied"] as? Bool ?? false,
-                didFailPendingSeek: body["pendingSeekFailed"] as? Bool ?? false,
-                pendingSeekTarget: body["pendingSeekTarget"] as? Double,
-                pendingSeekVideoId: (body["pendingSeekVideoId"] as? String)
-                    .flatMap { $0.isEmpty ? nil : $0 },
-                pendingSeekAttempt: WebPlaybackDocumentGeneration.decode(
-                    body["pendingSeekAttempt"]
-                ),
-                nativePausePending: body["nativePausePending"] as? Bool ?? false,
-                eventIssuedAtMilliseconds: body["eventIssuedAtMilliseconds"] as? Double,
-                playbackOccurrence: Self.playbackOccurrence(
-                    from: body,
-                    documentGeneration: documentGeneration
-                )
-            )
+            let update = Self.playbackUpdate(from: body, documentGeneration: documentGeneration)
             // WebKit has already admitted this main-frame message for the active
             // document. Persist the recovery-only marker synchronously so a
             // process-termination callback cannot invalidate the generation first.
@@ -168,6 +142,41 @@ extension YouTubeWatchWebView {
                     attemptID: endedSeekAttempt
                 )
             }
+        }
+
+        /// Builds a `PlaybackUpdate` from a watch-page `STATE_UPDATE` body.
+        static func playbackUpdate(
+            from body: [String: Any],
+            documentGeneration: UInt64
+        ) -> YouTubePlayerService.PlaybackUpdate {
+            YouTubePlayerService.PlaybackUpdate(
+                isPlaying: body["isPlaying"] as? Bool ?? false,
+                // Non-finite values would make `get player info` JSON serialization fail.
+                progress: SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["progress"]) ?? 0,
+                duration: SingletonPlayerWebView.finitePlaybackBridgeDouble(from: body["duration"]) ?? 0,
+                hasReadyMedia: body["hasReadyMedia"] as? Bool ?? false,
+                hasMediaError: body["hasMediaError"] as? Bool ?? false,
+                videoId: (body["videoId"] as? String).flatMap { $0.isEmpty ? nil : $0 },
+                boundVideoId: (body["boundVideoId"] as? String)
+                    .flatMap { $0.isEmpty ? nil : $0 },
+                title: body["title"] as? String,
+                isAd: body["isAd"] as? Bool ?? false,
+                isLive: body["isLive"] as? Bool ?? false,
+                didApplyPendingSeek: body["pendingSeekApplied"] as? Bool ?? false,
+                didFailPendingSeek: body["pendingSeekFailed"] as? Bool ?? false,
+                pendingSeekTarget: body["pendingSeekTarget"] as? Double,
+                pendingSeekVideoId: (body["pendingSeekVideoId"] as? String)
+                    .flatMap { $0.isEmpty ? nil : $0 },
+                pendingSeekAttempt: WebPlaybackDocumentGeneration.decode(
+                    body["pendingSeekAttempt"]
+                ),
+                nativePausePending: body["nativePausePending"] as? Bool ?? false,
+                eventIssuedAtMilliseconds: body["eventIssuedAtMilliseconds"] as? Double,
+                playbackOccurrence: self.playbackOccurrence(
+                    from: body,
+                    documentGeneration: documentGeneration
+                )
+            )
         }
 
         private static func playbackOccurrence(
