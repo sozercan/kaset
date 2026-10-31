@@ -162,7 +162,7 @@ struct LibraryView: View {
                 // Combined grid with filtered content
                 self.libraryGrid
             }
-            .padding(.vertical, 20)
+            .padding(.vertical, 24)
             // Inset the resting content while the scroll view stays edge-to-edge,
             // so the grid extends under the floating glass sidebar.
             .detailScrollContentInset()
@@ -196,7 +196,7 @@ struct LibraryView: View {
                 }
                 .foregroundStyle(isSelected ? .white : .primary)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.chip(isSelected: isSelected))
     }
 
     /// All library items combined and filtered.

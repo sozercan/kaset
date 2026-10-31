@@ -88,7 +88,7 @@ extension PlaylistDetailView {
         } label: {
             self.headerActionLabel(localized: "Play Next", systemImage: "text.insert", showsTitle: showsTitles)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.glass)
         .controlSize(.large)
         .disabled(playableTracks.isEmpty)
 
@@ -102,14 +102,17 @@ extension PlaylistDetailView {
         } label: {
             self.headerActionLabel(localized: "Add to Queue", systemImage: "text.append", showsTitle: showsTitles)
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.glass)
         .controlSize(.large)
         .disabled(playableTracks.isEmpty)
     }
 
     @ViewBuilder
     private func sidebarButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
-        if self.hasPersonalAccount, let sidebarItem = SidebarPinnedItem.from(detail) {
+        // Playlists are auto-listed from the library in the sidebar; only
+        // albums remain pinnable (SidebarPinnedItemsManager drops playlist
+        // pins on load).
+        if self.hasPersonalAccount, detail.isAlbum, let sidebarItem = SidebarPinnedItem.from(detail) {
             let isPinnedToSidebar = self.sidebarPinnedItemsManager?.isPinned(sidebarItem) ?? false
             Button {
                 self.sidebarPinnedItemsManager?.toggle(sidebarItem)
@@ -120,7 +123,7 @@ extension PlaylistDetailView {
                     showsTitle: showsTitles
                 )
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.glass)
             .controlSize(.large)
             .help(
                 isPinnedToSidebar
@@ -146,7 +149,7 @@ extension PlaylistDetailView {
                     showsTitle: showsTitles
                 )
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.glass)
             .controlSize(.large)
             .disabled(self.isUpdatingLibrary || (detail.isAlbum && detail.libraryTargetId == nil))
         }
@@ -160,7 +163,7 @@ extension PlaylistDetailView {
             } label: {
                 self.headerActionLabel(localized: "Refine", systemImage: "sparkles", showsTitle: showsTitles)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.glass)
             .controlSize(.large)
             .requiresIntelligence()
 
@@ -199,7 +202,7 @@ extension PlaylistDetailView {
                     showsTitle: showsTitles
                 )
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.glass)
             .controlSize(.large)
             .tint(.red)
         }

@@ -22,6 +22,9 @@
 //    search-audit <query>          - Audit live YouTube Music search shapes and filters
 //    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
+//    lyrics-probe <mode> [args]    - Read-only probes: musixmatch-token, musixmatch,
+//                                    netease, translate (keyless word-synced
+//                                    lyrics + translation endpoint shapes)
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message
@@ -4533,6 +4536,9 @@ func runMain() async {
         // switch a browser would perform. Still ephemeral; mutates nothing.
         let realNext = filteredArgs.count >= 2 ? filteredArgs[1] : "\(activeOrigin)/"
         await probeSigninSwitchReal(nextURLString: realNext)
+
+    case "lyrics-probe":
+        await runLyricsProbe(Array(filteredArgs.dropFirst()))
 
     case "help", "-h", "--help":
         showHelp()

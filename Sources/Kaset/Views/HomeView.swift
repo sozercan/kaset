@@ -90,7 +90,7 @@ struct HomeView: View {
             // scroll under the floating glass sidebar; each shelf restores a
             // resting inset via `contentInset`. Only the vertical inset stays
             // on the stack.
-            .padding(.vertical, 20)
+            .padding(.vertical, 24)
         }
         .accessibilityIdentifier(AccessibilityID.Home.scrollView)
         .pullToRefresh {

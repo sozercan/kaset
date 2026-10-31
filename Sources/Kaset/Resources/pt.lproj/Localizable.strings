@@ -408,6 +408,10 @@
 "Return to Kaset" = "Voltar ao Kaset";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Romanizar letras";
+"Pronunciation" = "Pronúncia";
+"Translation" = "Tradução";
+"Translate To" = "Traduzir para";
+"Lyrics Display Options" = "Opções de exibição das letras";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Guarde listas de reprodução e subscreva podcasts no YouTube Music para os ver aqui.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Guarde listas de reprodução, siga artistas e subscreva podcasts no YouTube Music para os ver aqui.";
 "Save albums on YouTube Music to see them here." = "Guarde álbuns no YouTube Music para os ver aqui.";
@@ -632,3 +636,9 @@
 "No songs found for “%@”." = "Nenhuma música encontrada para “%@”.";
 "Couldn't play “%@”." = "Não foi possível reproduzir “%@”.";
 "Couldn't rate “%@”." = "Não foi possível avaliar “%@”.";
+
+// Now-playing panel
+"Recommendations" = "Recomendações";
+"Hide Panel" = "Ocultar painel";
+"Hide Video" = "Ocultar vídeo";
+"Couldn't load recommendations." = "Não foi possível carregar as recomendações.";

@@ -107,6 +107,15 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         case switchFromMainWindow
     }
 
+    /// Content shown inside the now-playing showcase's trailing panel.
+    enum NowPlayingPanel: CaseIterable {
+        case lyrics
+        case queue
+        case recommendations
+    }
+
+    var nowPlayingPanel: NowPlayingPanel? = .queue
+
     /// Visible mini player content size.
     enum MiniPlayerPanel: Equatable {
         case compact
@@ -452,6 +461,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether the lyrics panel is visible.
     var showLyrics: Bool = false {
         didSet {
+            if self.showLyrics, self.showNowPlayingShowcase {
+                self.nowPlayingPanel = .lyrics
+                self.showLyrics = false
+                return
+            }
             // Mutual exclusivity: opening lyrics closes queue
             if self.showLyrics, self.showQueue {
                 self.showQueue = false
@@ -465,9 +479,26 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether the queue panel is visible.
     var showQueue: Bool = false {
         didSet {
+            if self.showQueue, self.showNowPlayingShowcase {
+                self.nowPlayingPanel = .queue
+                self.showQueue = false
+                return
+            }
             // Mutual exclusivity: opening queue closes lyrics
             if self.showQueue, self.showLyrics {
                 self.showLyrics = false
+            }
+        }
+    }
+
+    /// Whether the full-window now-playing showcase overlay is visible.
+    /// Not persisted; opening it closes the lyrics/queue side panels.
+    var showNowPlayingShowcase: Bool = false {
+        didSet {
+            // The showcase covers the side panels, so they are closed with it.
+            if self.showNowPlayingShowcase {
+                self.showLyrics = false
+                self.showQueue = false
             }
         }
     }
@@ -479,6 +510,20 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Note: We don't auto-close based on currentTrackHasVideo here because
     /// the detection can be unreliable when video mode CSS is active.
     var showVideo: Bool = false
+
+    /// Whether the video toggle should be enabled for the current track.
+    /// Shared by the player bar and the now-playing showcase panel.
+    var canShowCurrentTrackVideo: Bool {
+        guard let track = self.currentTrack else { return false }
+        if UITestConfig.isUITestMode,
+           UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) == "true"
+        {
+            return true
+        }
+        return self.currentTrackHasVideo
+            || track.musicVideoType?.hasVideoContent == true
+            || track.hasVideo == true
+    }
 
     /// Whether AirPlay is currently connected (playing to a wireless target).
     var isAirPlayConnected: Bool = false

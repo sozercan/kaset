@@ -408,6 +408,10 @@
 "Return to Kaset" = "Kaset으로 돌아가기";
 "Rock" = "록";
 "Romanize Lyrics" = "가사 로마자 표시";
+"Pronunciation" = "발음";
+"Translation" = "번역";
+"Translate To" = "번역 대상";
+"Lyrics Display Options" = "가사 표시 옵션";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고 팟캐스트를 구독하세요.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 재생목록을 저장하고, 아티스트를 구독하고, 팟캐스트를 구독하세요.";
 "Save albums on YouTube Music to see them here." = "여기에서 보려면 YouTube Music에서 앨범을 저장하세요.";
@@ -632,3 +636,9 @@
 "No songs found for “%@”." = "“%@”에 대한 노래를 찾을 수 없습니다.";
 "Couldn't play “%@”." = "“%@”을(를) 재생할 수 없습니다.";
 "Couldn't rate “%@”." = "“%@”을(를) 평가할 수 없습니다.";
+
+// Now-playing panel
+"Recommendations" = "추천";
+"Hide Panel" = "패널 가리기";
+"Hide Video" = "동영상 가리기";
+"Couldn't load recommendations." = "추천을 불러올 수 없습니다.";

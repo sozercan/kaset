@@ -408,6 +408,10 @@
 "Return to Kaset" = "العودة إلى Kaset";
 "Rock" = "روك";
 "Romanize Lyrics" = "رومنة كلمات الأغاني";
+"Pronunciation" = "النطق";
+"Translation" = "الترجمة";
+"Translate To" = "ترجمة إلى";
+"Lyrics Display Options" = "خيارات عرض كلمات الأغاني";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا.";
 "Save albums on YouTube Music to see them here." = "احفظ الألبومات على YouTube Music لتراها هنا.";
@@ -632,3 +636,9 @@
 "No songs found for “%@”." = "لم يتم العثور على أغانٍ لـ “%@”.";
 "Couldn't play “%@”." = "تعذّر تشغيل “%@”.";
 "Couldn't rate “%@”." = "تعذّر تقييم “%@”.";
+
+// Now-playing panel
+"Recommendations" = "التوصيات";
+"Hide Panel" = "إخفاء اللوحة";
+"Hide Video" = "إخفاء الفيديو";
+"Couldn't load recommendations." = "تعذر تحميل التوصيات.";

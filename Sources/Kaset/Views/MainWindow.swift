@@ -6,6 +6,7 @@ import SwiftUI
 
 /// Main application window with sidebar navigation and player bar.
 struct MainWindow: View { // swiftlint:disable:this type_body_length
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private static let accountResolutionGateTimeout: Duration = .seconds(2)
 
     private struct PresentedWhatsNew: Identifiable {
@@ -593,12 +594,31 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .environment(\.libraryViewModel, self.libraryViewModel)
+            .accessibilityHidden(self.playerService.showNowPlayingShowcase)
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
+
+            // Full-window now-playing showcase. Covers the entire window so the
+            // ambient backdrop is continuous with the player bar (no seam);
+            // while it is open a PlayerBar instance is layered above it, so the
+            // glass bar reads as part of the same surface and every bar control
+            // stays live. The bar inside the covered detail content is simply
+            // hidden underneath. Clicking the bar's track title toggles the
+            // showcase.
+            if self.playerService.showNowPlayingShowcase {
+                ZStack(alignment: .bottom) {
+                    NowPlayingShowcaseView(client: self.client)
+                    PlayerBar()
+                }
+                .transition(.opacity)
+                .zIndex(2)
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
+        .animation(self.reduceMotion ? nil : .easeOut(duration: 0.18), value: self.playerService.showNowPlayingShowcase)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
             if self.supportsCommandBarUI {
@@ -684,8 +704,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var commandBar: some View {
+    @ViewBuilder private var commandBar: some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             CommandBarView(
                 client: self.client,

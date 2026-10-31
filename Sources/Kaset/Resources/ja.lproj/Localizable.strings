@@ -415,6 +415,10 @@
 "Return to Kaset" = "Kaset に戻る";
 "Rock" = "ロック";
 "Romanize Lyrics" = "歌詞をローマ字表記";
+"Pronunciation" = "発音";
+"Translation" = "翻訳";
+"Translate To" = "翻訳先";
+"Lyrics Display Options" = "歌詞表示オプション";
 "Save albums on YouTube Music to see them here." = "ここに表示するには、YouTube Music でアルバムを保存してください。";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "ここに表示するには、YouTube Music でプレイリストを保存し、ポッドキャストを登録してください。";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "ここに表示するには、YouTube Music でプレイリストを保存し、アーティストをフォローして、ポッドキャストを登録してください。";
@@ -627,3 +631,9 @@
 "No songs found for “%@”." = "「%@」に一致する曲が見つかりませんでした。";
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
+
+// Now-playing panel
+"Recommendations" = "おすすめ";
+"Hide Panel" = "パネルを非表示";
+"Hide Video" = "動画を非表示";
+"Couldn't load recommendations." = "おすすめを読み込めませんでした。";

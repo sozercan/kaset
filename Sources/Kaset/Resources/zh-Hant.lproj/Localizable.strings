@@ -419,6 +419,10 @@
 "Return to Kaset" = "返回 Kaset";
 "Rock" = "搖滾";
 "Romanize Lyrics" = "歌詞羅馬拼音";
+"Pronunciation" = "發音";
+"Translation" = "翻譯";
+"Translate To" = "翻譯為";
+"Lyrics Display Options" = "歌詞顯示選項";
 "Save albums on YouTube Music to see them here." = "在 YouTube Music 上儲存專輯後，即可在此查看。";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上儲存播放清單並訂閱 Podcast 後，即可在此查看。";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上儲存播放清單、追蹤藝人並訂閱 Podcast 後，即可在此查看。";
@@ -630,3 +634,9 @@
 "No songs found for “%@”." = "找不到符合「%@」的歌曲。";
 "Couldn't play “%@”." = "無法播放「%@」。";
 "Couldn't rate “%@”." = "無法評價「%@」。";
+
+// Now-playing panel
+"Recommendations" = "推薦";
+"Hide Panel" = "隱藏面板";
+"Hide Video" = "隱藏影片";
+"Couldn't load recommendations." = "無法載入推薦。";

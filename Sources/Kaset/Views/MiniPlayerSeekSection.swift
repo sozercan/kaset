@@ -29,13 +29,14 @@ final class MiniPlayerSeekState {
 ///
 /// This is the only mini player view that observes `PlayerService.progress`, so each
 /// playback tick re-evaluates just this section instead of the whole mini player window.
-struct MiniPlayerSeekSection: View {
+struct MiniPlayerSeekSection<Transport: View>: View {
     @Bindable var state: MiniPlayerSeekState
+    @ViewBuilder var transport: () -> Transport
 
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 2) {
             Slider(value: self.$state.seekValue, in: 0 ... 1) { editing in
                 self.state.isSeeking = editing
                 if !editing {
@@ -46,16 +47,19 @@ struct MiniPlayerSeekSection: View {
             .tint(PackageResourceLookup.brandAccent)
             .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
-            HStack {
+            .accessibilityLabel(String(localized: "Playback position")) // [VERIFY] confirm seek control label.
+            HStack(spacing: 6) {
                 Text(PlayerBarSeekController.formatTime(self.state.isSeeking ? self.state.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
-                Spacer()
+                    .frame(minWidth: 30, alignment: .leading)
+                self.transport()
+                    .frame(maxWidth: .infinity)
                 Text(self.playerService.isCurrentItemLive ? String(localized: "LIVE") : self.remainingTimeText)
+                    .frame(minWidth: 30, alignment: .trailing)
             }
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 9, weight: .medium))
             .monospacedDigit()
             .foregroundStyle(.white.opacity(0.76))
             .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
-            .overlay { WindowDragHandle() }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
             self.state.reconcileHold(observedProgress: newValue)

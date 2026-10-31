@@ -419,6 +419,10 @@
 "Return to Kaset" = "返回 Kaset";
 "Rock" = "摇滚";
 "Romanize Lyrics" = "歌词罗马音";
+"Pronunciation" = "发音";
+"Translation" = "翻译";
+"Translate To" = "翻译为";
+"Lyrics Display Options" = "歌词显示选项";
 "Save albums on YouTube Music to see them here." = "在 YouTube Music 上保存专辑后，即可在此查看。";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上保存播放列表并订阅播客后，即可在此查看。";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "在 YouTube Music 上保存播放列表、关注艺人并订阅播客后，即可在此查看。";
@@ -630,3 +634,9 @@
 "No songs found for “%@”." = "未找到与“%@”匹配的歌曲。";
 "Couldn't play “%@”." = "无法播放“%@”。";
 "Couldn't rate “%@”." = "无法评价“%@”。";
+
+// Now-playing panel
+"Recommendations" = "推荐";
+"Hide Panel" = "隐藏面板";
+"Hide Video" = "隐藏视频";
+"Couldn't load recommendations." = "无法加载推荐。";
