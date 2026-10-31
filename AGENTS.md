@@ -8,7 +8,7 @@ Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6
 
 - **Keep real credentials out of everything.** Cookies, SAPISID values, auth tokens, and API keys must not appear in code, comments, logs, docs, test fixtures, or your output. Use placeholders such as `"REDACTED"`, `"mock-token"`, or `"test-cookie"`. The repo is public and the app holds signed-in Google sessions, so a leaked value compromises a real account.
 - **Ask before running UI tests.** They launch the app and take over the desktop.
-- **Ask before adding a third-party dependency.** The project ships with none.
+- **Ask before adding a third-party dependency.** The project keeps them minimal; Sparkle, for app updates, is currently the only one.
 - **Prefer the API clients over WebView.** Use `YTMusicClient` (YouTube Music) or `YouTubeClient` (YouTube) whenever the endpoint exists. WebView is only for DRM playback and sign-in.
 - **Extend the API explorer instead of writing one-off scripts.** API exploration and debugging tooling belongs in `Sources/APIExplorer/main.swift` so the next person can reuse it.
 - **Keep standard macOS shortcuts.** Don't rebind `⌘M`, `⌘W`, `⌘Q`, `⌘H`, or `⌘,` unless the human asks. For media shortcuts, follow macOS and Apple Music conventions and update `docs/keyboard-shortcuts.md`.
