@@ -87,7 +87,20 @@ Sandboxed builds without a valid Developer ID or provisioning profile (local deb
 
 Run the `autoreview` skill by default after committing non-trivial code changes and before pushing them. Skip it for docs-only or trivial changes, or when the human opts out. Finish the focused tests first, and don't run the review at the same time as tests: the CPU contention makes timing-sensitive tests flaky.
 
-Review findings are advisory: check each one against the real code path, fix the ones that hold up, and rerun focused tests and the review once after review-driven code changes.
+Use these Kaset settings with the skill, from the repository root:
+
+```bash
+base=$(gh pr view --json baseRefName --jq .baseRefName 2>/dev/null || echo main)
+python3 .agents/skills/autoreview/scripts/autoreview --mode branch --base "origin/$base" --max-priority P3 --source-context-file AGENTS.md
+```
+
+- `--max-priority P3` accepts findings at every priority (P0 through P3); the helper's default of P0 hides the rest in audit output.
+- `--source-context-file AGENTS.md` gives the reviewer these repo rules. It only works in `branch` and `commit` modes; drop it when asked to review uncommitted work with `--mode local`.
+- `branch` mode excludes uncommitted work, so format and commit your own changes first. For review-only requests, leave the checkout as it is.
+
+Review findings are advisory, including P2 and P3: check each one against the real code path, fix the ones that hold up, and reject the rest only with a reason. After review-driven code changes, rerun the focused tests and the review once. When you report back, include the review command, the tests you ran, which findings you accepted or rejected and why, and the result of the final run.
+
+`.agents/skills/autoreview/` is an unmodified copy of [`sozercan/skills`](https://github.com/sozercan/skills/tree/main/skills/autoreview) (commit `1b8ef21`). Don't edit it in place: change the source repository, then replace the whole directory with the new version.
 
 ## Skills
 
