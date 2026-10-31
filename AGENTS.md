@@ -1,101 +1,92 @@
 # AGENTS.md
 
-Guidance for AI coding assistants working on this repository.
+Guidance for AI coding agents working in this repository.
 
-## Role
+Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6 and SwiftUI for macOS 26+. Write idiomatic SwiftUI and Swift Concurrency code that follows Apple's Human Interface Guidelines.
 
-You are a Senior Swift Engineer specializing in SwiftUI, Swift Concurrency, and macOS development. Your code must adhere to Apple's Human Interface Guidelines. Target **Swift 6.0+** and **macOS 26.0+**.
+## Rules
 
-Kaset is a native macOS client for YouTube Music and YouTube (Swift/SwiftUI).
+- **Keep real credentials out of everything.** Cookies, SAPISID values, auth tokens, and API keys must not appear in code, comments, logs, docs, test fixtures, or your output. Use placeholders such as `"REDACTED"`, `"mock-token"`, or `"test-cookie"`. The repo is public and the app holds signed-in Google sessions, so a leaked value compromises a real account.
+- **Ask before running UI tests.** They launch the app and take over the desktop.
+- **Ask before adding a third-party dependency.** The project ships with none.
+- **Prefer the API clients over WebView.** Use `YTMusicClient` (YouTube Music) or `YouTubeClient` (YouTube) whenever the endpoint exists. WebView is only for DRM playback and sign-in.
+- **Extend the API explorer instead of writing one-off scripts.** API exploration and debugging tooling belongs in `Sources/APIExplorer/main.swift` so the next person can reuse it.
+- **Keep standard macOS shortcuts.** Don't rebind `⌘M`, `⌘W`, `⌘Q`, `⌘H`, or `⌘,` unless the human asks. For media shortcuts, follow macOS and Apple Music conventions and update `docs/keyboard-shortcuts.md`.
+- **Record significant design changes** as an ADR in `docs/adr/`.
 
-## Critical Rules
+## Working Style
 
-> 🚨 **NEVER leak secrets, cookies, API keys, or tokens** — Under NO circumstances include real cookies, authentication tokens, API keys, SAPISID values, or any sensitive credentials in code, comments, logs, documentation, test fixtures, or any output. Always use placeholder values like `"REDACTED"`, `"mock-token"`, or `"test-cookie"`. **Violation of this rule is a critical security incident.**
-
-> ⚠️ **ALWAYS confirm before running UI tests** — UI tests launch the app and can be disruptive. Ask the human for permission before executing any UI test.
-
-> ⚠️ **No Third-Party Frameworks** — Do not introduce third-party dependencies without asking first.
-
-> ⚠️ **Prefer API over WebView** — Always use `YTMusicClient` (YouTube Music) or `YouTubeClient` (YouTube) API calls when functionality exists. Only use WebView for playback (DRM-protected media) and authentication.
-
-> 🔧 **Improve API Explorer, Don't Write One-Off Scripts** — When exploring or debugging API-related functionality, **always enhance `Sources/APIExplorer/main.swift`** instead of writing temporary scripts.
-
-> 📝 **Document Architectural Decisions** — For significant design changes, create an ADR in `docs/adr/`.
-
-> ⌨️ **Preserve Standard macOS Shortcuts** — Do not override standard app/window shortcuts such as `⌘M`, `⌘W`, `⌘Q`, `⌘H`, or `⌘,` unless the human explicitly asks for it. When adding media shortcuts, prefer native macOS and Apple Music conventions, and update `docs/keyboard-shortcuts.md`.
+- Deliver what was asked, at the scope intended. Make routine judgment calls yourself, and check in only when different readings of the request would lead to materially different work.
+- Match existing implementations: a new detail view follows the existing detail views, a new parser follows `Sources/Kaset/Services/API/Parsers/`.
+- Adapt new code to existing public signatures, protocols, and model types instead of changing them, unless the task calls for it.
+- If an approach goes wrong, revert and re-scope rather than layering patches on it.
 
 ## Build & Code Quality
 
 ```bash
-# Build
-swift build
-
-# Unit Tests (never combine with UI tests)
-swift test --skip KasetUITests
-
-# Lint & Format
-swiftlint --strict && swiftformat .
+swift build                              # Build
+swift test --skip KasetUITests           # Unit tests (UI tests live in a separate Xcode project)
+swiftlint --strict && swiftformat .      # Lint & format
 ```
 
-Default local workflow is CLI-first: use the commands above for day-to-day verification, and escalate to Xcode/`xcodebuild` only for simulator, UI, or runtime debugging, screenshots, or scheme-specific investigation.
+A code change is done when these pass for the code you touched. Stay CLI-first; use Xcode or `xcodebuild` only for UI tests, runtime debugging, screenshots, or scheme-specific investigation.
 
-> ⚠️ **SwiftFormat `--self insert` rule**: The project uses `--self insert` in `.swiftformat`. In static methods, call other static methods with `Self.methodName()` (not bare `methodName()`); in instance methods, use `self.property` explicitly.
-
-## Localization
-
-> 🌐 **`Sources/Kaset/Resources/Localizable.xcstrings` is the localization source of truth.** Packaged builds compile the catalog directly, but SwiftPM/Xcode runtime builds use the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` mirrors.
-
-- When adding localization keys or changing translations, update the catalog first and update the corresponding checked-in `.lproj/Localizable.strings` files in the same change. Never update only one side.
-- Run `swift test --skip KasetUITests --filter LocalizationCatalogParityTests` after localization changes.
-- Siri phrases for App Shortcuts live in `Sources/Kaset/Resources/AppShortcuts.xcstrings` (no `.lproj` mirror). `Scripts/build-app.sh` fails if it drifts from `KasetShortcuts`, so update it whenever a phrase changes.
-- When adding a locale, also register its `.lproj` in `Package.swift`, add the `SettingsManager.ContentLanguage` case, and extend localization tests.
-
-## Debugging & Measurement
-
-> 🔬 **Measure before you fix — never guess at runtime behavior.** For any bug about *timing, lifecycle, or "why didn't this run/load/update"* (SwiftUI `.task`/state churn, cold-launch ordering, perceived latency), instrument the real code path and observe before changing anything. Reasoning about SwiftUI lifecycle or async ordering from the source alone is unreliable; a 10-line timestamped trace settles in one launch what hours of hypothesizing cannot. Add the trace → reproduce → read the evidence → fix the thing the data points at → re-measure to confirm → remove the instrumentation.
-
-> ⚠️ **The app is sandboxed — most ad-hoc logging silently fails.** `Logger`/`os_log` `.info`/`.debug` lines do **not** reliably surface in `log stream`/`log show`, and a hardcoded `/tmp/...` file write is blocked by the sandbox and fails with no error. For throwaway diagnostics, write to **`NSTemporaryDirectory()`** (the app's container tmp), `synchronize()` after each line, and read it from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/` (`com.sertacozercan.Kaset.debug` for packaged debug builds). Macro-level: window-screenshot automation is also unreliable here, so prefer file traces over visual capture. Always strip diagnostic instrumentation before commit.
-
-See `docs/common-bug-patterns.md` for the timestamped-trace template, the sandbox tmp path, the single-flight load pattern that resolves the `.task`-restart cancellation deadlock, concurrency anti-patterns, and the pre-submit checklist.
-
-> 🔐 **Keychain vs. File-based Cookie Storage**: Sandboxed macOS apps without a valid Developer ID or provisioning profile (such as local debug or ad-hoc builds) will hang inside `SecItemCopyMatching` when querying the Keychain. To bypass this, `#if DEBUG` builds store cookies in the sandboxed Application Support folder under `Kaset/cookies.dat` and completely bypass Keychain API calls by default. To test the production Keychain path locally, launch with `KASET_DEBUG_COOKIE_STORAGE=keychain`. Packaged debug builds use the bundle ID `com.sertacozercan.Kaset.debug`, so they get their own container, UserDefaults, and WebKit cookie jar; never package a debug build with the release bundle ID, or each build's startup overwrites the other's session. The Keychain is still shared, so `KASET_DEBUG_COOKIE_STORAGE=keychain` reads and writes the release archive. The debug file backend keeps its own sign-out tombstone key (`authCookieBackupInvalidated.debugFileStorage`); never let debug-only auth state write the release key.
-
-## Continuous Review
-
-For non-trivial code changes, run `$autoreview` (`.agents/skills/autoreview/SKILL.md`) before final/commit/ship and keep going until there are no accepted/actionable findings, unless the change is trivial/docs-only, equivalent manual review already happened, or the human opts out.
-
-- Treat review output as advisory: verify every finding against the real code path before changing code.
-- If review-triggered fixes change code, rerun focused tests and rerun `$autoreview`.
-- Format before review when formatting can move line locations; focused tests and review may run in parallel only after formatting is stable.
-
-## API Discovery
-
-> ⚠️ **Explore endpoints before writing code against them.** YouTube's response shapes are undocumented and change without notice, so a plausible-looking parser written from inference will compile and silently return nothing. Verify the real request and response with `swift run api-explorer` before adding or modifying an API call, request shape, or response parser. Prefer read-only probes; for mutations, prefer sanitized captured responses or disposable resources, and get explicit human approval before sending a live action that changes account data.
-
-```bash
-swift run api-explorer auth          # Check auth status
-swift run api-explorer list          # List known endpoints
-swift run api-explorer browse FEmusic_home -v  # Explore with verbose output
-```
-
-Put repeatable, repo-specific workflows in `.agents/skills/` so `AGENTS.md` stays focused on repo-wide rules.
+`.swiftformat` uses `--self insert`: in static methods call other static methods as `Self.methodName()`, and in instance methods write `self.property` explicitly.
 
 ## Coding Rules
 
-These are project-specific rules that differ from standard Swift/SwiftUI conventions and are not mechanically checked:
+Project rules that differ from standard Swift/SwiftUI conventions and aren't mechanically checked:
 
-| ❌ Avoid | ✅ Use | Why |
-|----------|--------|-----|
-| `.background(.ultraThinMaterial)` | `.glassEffect()` | macOS 26+ Liquid Glass |
+| Avoid | Use | Why |
+|-------|-----|-----|
+| `.background(.ultraThinMaterial)` | `.glassEffect()` | macOS 26 Liquid Glass |
 | Force unwraps (`!`) | Optional handling or `guard` | Project policy |
 
-- Mark `@Observable` classes with `@MainActor`
-- Use Swift Testing (`@Test`, `#expect`) for all new unit tests
-- Throw `YTMusicError.authExpired` on HTTP 401/403
-- Use `.task` instead of `.onAppear { Task { } }`
+- Mark `@Observable` classes with `@MainActor`.
+- Write new unit tests with Swift Testing (`@Test`, `#expect`).
+- Throw `YTMusicError.authExpired` on HTTP 401/403.
+- Use `.task` instead of `.onAppear { Task { } }`.
 
-`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`, `contentMargins`) with the substitution named in each message — read `.swiftlint.yml` rather than memorizing them.
+`swiftlint --strict` enforces the mechanically checkable bans (`print()`, `DispatchQueue`, `NavigationView`, `foregroundColor`, `cornerRadius`, `contentMargins`) and names the replacement in each message; see `.swiftlint.yml`.
 
-## Task Planning
+## Localization
 
-For non-trivial tasks: **Research → Plan → Get approval → Implement → QA**. Run `swift build` continuously during implementation. If things go wrong, revert and re-scope rather than patching.
+`Sources/Kaset/Resources/Localizable.xcstrings` is the source of truth. Packaged builds compile the catalog, but SwiftPM/Xcode runtime builds read the checked-in `Sources/Kaset/Resources/*.lproj/Localizable.strings` mirrors, so the two must change together or the build types diverge.
+
+- When adding keys or changing translations, update the catalog first, then the matching `.lproj/Localizable.strings` files in the same change.
+- Run `swift test --skip KasetUITests --filter LocalizationCatalogParityTests` after localization changes.
+- Siri phrases for App Shortcuts live in `Sources/Kaset/Resources/AppShortcuts.xcstrings` (no `.lproj` mirror). `Scripts/build-app.sh` fails if it drifts from `KasetShortcuts`, so update it whenever a phrase changes.
+- When adding a locale, also register its `.lproj` in `Package.swift`, add the `SettingsManager.ContentLanguage` case, and extend the localization tests.
+
+## API Discovery
+
+YouTube's response shapes are undocumented and change without notice, so a parser written from inference compiles and then silently returns nothing. Before adding or changing an API call, request shape, or response parser, verify the real request and response with `swift run api-explorer` (see the `api-exploration` skill). Prefer read-only probes. Get explicit approval from the human before sending a live request that changes account data.
+
+## Debugging & Measurement
+
+For bugs about timing, lifecycle, or "why didn't this run/load/update" (SwiftUI `.task` or state churn, cold-launch ordering, perceived latency), measure before fixing. Reasoning about SwiftUI lifecycle or async ordering from source alone is unreliable, and a short timestamped trace settles in one launch what hypothesizing cannot. Add the trace, reproduce, fix what the data points at, re-measure, then remove the instrumentation before committing.
+
+The app is sandboxed, which breaks most ad-hoc logging without any error:
+
+- `Logger`/`os_log` `.info` and `.debug` lines don't reliably appear in `log stream` or `log show`.
+- Writes to a hardcoded `/tmp/...` path are blocked.
+- Window-screenshot automation is unreliable.
+
+Write throwaway traces to `NSTemporaryDirectory()`, `synchronize()` after each line, and read them from `~/Library/Containers/com.sertacozercan.Kaset/Data/tmp/` (`com.sertacozercan.Kaset.debug` for packaged debug builds). `docs/common-bug-patterns.md` has the trace template, the single-flight load pattern for the `.task`-restart cancellation deadlock, concurrency anti-patterns, and a pre-submit checklist.
+
+### Cookie storage in debug builds
+
+Sandboxed builds without a valid Developer ID or provisioning profile (local debug and ad-hoc builds) hang inside `SecItemCopyMatching` when they query the Keychain.
+
+- `#if DEBUG` builds therefore store cookies in Application Support at `Kaset/cookies.dat` and skip the Keychain. Launch with `KASET_DEBUG_COOKIE_STORAGE=keychain` to test the production Keychain path.
+- Packaged debug builds use the bundle ID `com.sertacozercan.Kaset.debug`, which gives them their own container, UserDefaults, and WebKit cookie jar. Don't package a debug build with the release bundle ID: each build's startup would overwrite the other's session.
+- The Keychain is shared, so `KASET_DEBUG_COOKIE_STORAGE=keychain` reads and writes the release archive.
+- The debug file backend has its own sign-out tombstone key (`authCookieBackupInvalidated.debugFileStorage`). Debug-only auth state must not write the release key.
+
+## Code Review
+
+When the human asks for a review, or before committing a risky or wide-reaching change, run the `autoreview` skill. Its findings are advisory: check each one against the real code path, fix the ones that hold up, and rerun focused tests and the review once after review-driven code changes.
+
+## Skills
+
+Repeatable, repo-specific workflows live in `.agents/skills/` (also exposed as `.claude/skills/`). Add new workflows there so this file stays focused on repo-wide rules.

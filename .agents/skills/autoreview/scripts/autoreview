@@ -846,8 +846,7 @@ def build_prompt(repo: Path, target: str, target_ref: str | None, bundle: str, e
         - You may use read-only tools and web search to inspect the sanitized review workspace, dependency contracts, upstream docs, current behavior, and security implications.
         - The real checkout path is intentionally not provided. Treat the change bundle below as authoritative; do not look for another local checkout.
         - Shell commands, if available, must be read-only inspection commands. Do not run tests, formatters, package installs, generators, network mutation commands, git mutation commands, or commands that write files.
-        - Report only actionable defects introduced or exposed by this change.
-        - Prefer high-signal findings over style feedback.
+        - Report every real defect introduced or exposed by this change, including lower-priority ones; give each an honest priority and confidence, and the caller will filter. Skip pure style preferences.
         - Include security findings: injection, secret leaks, authz/authn bypass, path traversal, unsafe deserialization, unsafe filesystem or shell use, privacy leaks, and credential handling.
         - Do not reject legitimate functionality merely because it touches shell, filesystem, network, auth, or sensitive data. Report a security finding only when the patch creates a concrete exploitable risk, removes an important safety check, or lacks validation at a trust boundary.
         - For each finding, use the smallest file/line location that demonstrates the issue.
