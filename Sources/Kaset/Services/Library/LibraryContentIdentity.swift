@@ -118,6 +118,7 @@ enum LibraryContentIdentity {
             || (key.hasPrefix("RD") && !key.hasPrefix("RDCLAK"))
     }
 
+    /// Removes every stored alias of a playlist using its canonical library identity.
     static func removingPlaylist(_ playlistID: String, from libraryPlaylistIDs: Set<String>) -> Set<String> {
         let playlistKey = self.playlistKey(for: playlistID)
         return libraryPlaylistIDs.filter { self.playlistKey(for: $0) != playlistKey }

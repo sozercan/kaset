@@ -60,6 +60,7 @@ extension PlaylistDetailView {
         .buttonBorderShape(.capsule)
     }
 
+    /// Builds playlist playback and queue actions, adapting labels to available width.
     @ViewBuilder
     private func playbackButtons(
         _ detail: PlaylistDetail,
@@ -108,6 +109,7 @@ extension PlaylistDetailView {
         .disabled(playableTracks.isEmpty)
     }
 
+    /// Toggles a persistent sidebar shortcut for the current playlist or album.
     @ViewBuilder
     private func sidebarButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
         if self.hasPersonalAccount, let sidebarItem = SidebarPinnedItem.from(detail) {
@@ -131,6 +133,7 @@ extension PlaylistDetailView {
         }
     }
 
+    /// Builds the library membership action with current mutation feedback.
     @ViewBuilder
     private func libraryButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
         if detail.supportsLibraryToggle, self.hasPersonalAccount {
@@ -153,6 +156,7 @@ extension PlaylistDetailView {
         }
     }
 
+    /// Provides management actions appropriate to the current playlist’s capabilities.
     @ViewBuilder
     private func playlistManagementButtons(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
         if !detail.isAlbum, !detail.isUploadedSongs {
@@ -169,6 +173,7 @@ extension PlaylistDetailView {
         }
     }
 
+    /// Requests confirmation before deleting an owned playlist.
     @ViewBuilder
     private func deletePlaylistButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
         if detail.canDelete {

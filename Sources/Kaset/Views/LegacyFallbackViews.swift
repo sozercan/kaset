@@ -400,6 +400,7 @@ struct SimpleLyricsView: View {
         }
     }
 
+    /// Loads lyrics for the current track without publishing an obsolete track response.
     @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId

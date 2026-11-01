@@ -291,6 +291,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             self.entries.count
         }
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_ tableView: NSTableView, viewFor _: NSTableColumn?, row: Int) -> NSView? {
             let cellView = (tableView.makeView(withIdentifier: Self.cellIdentifier, owner: nil) as? QueueTableCellView) ?? {
                 let view = QueueTableCellView()
@@ -324,6 +325,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             return cellView
         }
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_: NSTableView, heightOfRow _: Int) -> CGFloat {
             56
         }
@@ -346,10 +348,12 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             return item
         }
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_: NSTableView, draggingSession _: NSDraggingSession, willBeginAt _: NSPoint, forRowIndexes _: IndexSet) {
             // Dragging session began
         }
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_ tableView: NSTableView, draggingSession _: NSDraggingSession, endedAt _: NSPoint, operation _: NSDragOperation) {
             self.isDragging = false
             self.applyPendingSnapshot()
@@ -370,6 +374,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             return .move
         }
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_: NSTableView, acceptDrop info: NSDraggingInfo, row: Int, dropOperation _: NSTableView.DropOperation) -> Bool {
             guard let sourceEntryID = self.draggedEntryID(from: info),
                   sourceEntryID != self.currentEntryID,
@@ -410,6 +415,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
         // MARK: - Context Menu
 
+        /// Handles queue table presentation and drag/drop using stable entry identities.
         func tableView(_: NSTableView, menuForRow row: Int, event _: NSEvent) -> NSMenu? {
             guard row >= 0, let entry = entries[safe: row] else { return nil }
             let song = entry.song

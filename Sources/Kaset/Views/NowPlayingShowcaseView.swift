@@ -74,6 +74,7 @@ struct NowPlayingShowcaseView: View {
 
     // MARK: - Layout
 
+    /// Centers the active artwork or video surface with the current track metadata.
     @ViewBuilder
     private func mainColumn(artworkSize: CGFloat, videoSize: CGSize) -> some View {
         if let track = self.playerService.currentTrack {
@@ -180,6 +181,7 @@ struct NowPlayingShowcaseView: View {
         .help(isSelected ? String(localized: "Show Album Artwork") : String(localized: "Show Music Video"))
     }
 
+    /// Selects detail content in place without replacing the playback surface.
     private func tabButton(_ panel: PlayerService.NowPlayingPanel) -> some View {
         let isSelected = self.playerService.nowPlayingPanel == panel
         return Button {
@@ -207,6 +209,7 @@ struct NowPlayingShowcaseView: View {
         .help(panel.title)
     }
 
+    /// Hosts selected detail content at the shared resizable panel width.
     private func detailPanel(_ panel: PlayerService.NowPlayingPanel, width: CGFloat) -> some View {
         let content = ZStack {
             switch panel {
@@ -240,6 +243,7 @@ struct NowPlayingShowcaseView: View {
         .overlay(alignment: .leading) { self.resizeHandle(width: width) }
     }
 
+    /// Resizes the trailing panel using a stable global drag coordinate space.
     private func resizeHandle(width: CGFloat) -> some View {
         Color.clear
             .frame(width: 16)
@@ -347,6 +351,7 @@ struct NowPlayingShowcaseView: View {
         )
     }
 
+    /// Dismisses the showcase using the user’s motion preference.
     private func close() {
         withAnimation(self.reduceMotion ? nil : AppAnimation.quick) {
             self.playerService.showNowPlayingShowcase = false
@@ -383,6 +388,7 @@ extension PlayerService.NowPlayingPanel {
 // MARK: - NowPlayingShowcaseLayout
 
 enum NowPlayingShowcaseLayout {
+    /// Clamps the preferred panel width while reserving room for the media surface.
     static func panelWidth(in windowWidth: CGFloat, preferred: CGFloat) -> CGFloat {
         min(max(preferred, 300), 560, max(300, windowWidth * 0.46))
     }
@@ -397,6 +403,7 @@ enum NowPlayingShowcaseLayout {
         return CGSize(width: height * 16 / 9, height: height)
     }
 
+    /// Fits square artwork within the remaining window width and metadata height budget.
     static func artworkSize(in size: CGSize, panelWidth: CGFloat?) -> CGFloat {
         let panelAllowance = panelWidth.map { $0 + 24 } ?? 0
         return max(120, min(400, size.height - 264, size.width - 48 - panelAllowance))
@@ -501,6 +508,7 @@ private struct PlayerBarTitleHoverAffordance: ViewModifier {
     @State private var isHovered = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Highlights the clickable track title without changing its size or position.
     func body(content: Content) -> some View {
         content
             .opacity(self.isHovered ? 1.0 : 0.88)
@@ -532,10 +540,12 @@ private struct PlayerBarTitleHoverAffordance: ViewModifier {
 private struct ShowcaseEscapeKeyMonitor: NSViewRepresentable {
     let onEscape: @MainActor () -> Void
 
+    /// Creates the window-scoped Escape-key monitor owner.
     func makeCoordinator() -> Coordinator {
         Coordinator(onEscape: self.onEscape)
     }
 
+    /// Installs the Escape monitor when its hidden host attaches to a window.
     func makeNSView(context: Context) -> NSView {
         let view = ShowcaseEscapeHostView(frame: .zero)
         view.isHidden = true
@@ -546,11 +556,13 @@ private struct ShowcaseEscapeKeyMonitor: NSViewRepresentable {
         return view
     }
 
+    /// Keeps the Escape monitor synchronized with the host’s current window.
     func updateNSView(_ view: NSView, context: Context) {
         context.coordinator.onEscape = self.onEscape
         context.coordinator.install(window: view.window)
     }
 
+    /// Removes the local event monitor when the showcase host is destroyed.
     static func dismantleNSView(_ view: NSView, coordinator: Coordinator) {
         _ = view
         coordinator.uninstall()
@@ -578,6 +590,7 @@ private struct ShowcaseEscapeKeyMonitor: NSViewRepresentable {
             self.onEscape = onEscape
         }
 
+        /// Intercepts Escape only for the showcase’s own key window.
         func install(window: NSWindow?) {
             self.window = window
             guard self.monitor == nil, window != nil else { return }
@@ -594,6 +607,7 @@ private struct ShowcaseEscapeKeyMonitor: NSViewRepresentable {
             }
         }
 
+        /// Removes the event monitor and releases its window association.
         func uninstall() {
             if let monitor = self.monitor {
                 NSEvent.removeMonitor(monitor)

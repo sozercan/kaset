@@ -73,6 +73,7 @@ final class SidebarPinnedItemsManager {
         }
     }
 
+    /// Persists a shortcut only when its canonical content is not already pinned.
     func add(_ item: SidebarPinnedItem) {
         guard !self.isPinned(item) else {
             DiagnosticsLogger.ui.debug("Item already pinned to sidebar: \(item.contentId)")
@@ -166,21 +167,25 @@ final class SidebarPinnedItemsManager {
         self.save()
     }
 
-    func moveUp(contentId: String) {
+    /// Moves a pin before the preceding visible shortcut, leaving hidden duplicates in place.
+    func moveUp(contentId: String, visibleContentIds: Set<String>? = nil) {
         guard let index = self.items.firstIndex(where: { $0.contentId == contentId }),
-              index > self.items.startIndex
-        else { return }
-
-        self.items.swapAt(index, self.items.index(before: index))
+              index > self.items.startIndex,
+              let neighbor = self.items.indices.prefix(upTo: index).last(where: {
+                  visibleContentIds?.contains(self.items[$0].contentId) ?? true
+              }) else { return }
+        self.items.swapAt(index, neighbor)
         self.save()
     }
 
-    func moveDown(contentId: String) {
+    /// Moves a pin after the following visible shortcut, leaving hidden duplicates in place.
+    func moveDown(contentId: String, visibleContentIds: Set<String>? = nil) {
         guard let index = self.items.firstIndex(where: { $0.contentId == contentId }),
-              index < self.items.index(before: self.items.endIndex)
-        else { return }
-
-        self.items.swapAt(index, self.items.index(after: index))
+              index < self.items.index(before: self.items.endIndex),
+              let neighbor = self.items.indices.suffix(from: index + 1).first(where: {
+                  visibleContentIds?.contains(self.items[$0].contentId) ?? true
+              }) else { return }
+        self.items.swapAt(index, neighbor)
         self.save()
     }
 

@@ -175,6 +175,7 @@ struct Sidebar: View {
         return false
     }
 
+    /// Selects the pinned route or reselects its existing navigation destination.
     private func selectPinnedItem(_ item: SidebarPinnedItem) {
         if self.isPinnedSelected(item) {
             self.onReselectPinnedItem?(item)
@@ -217,6 +218,7 @@ struct Sidebar: View {
         }
     }
 
+    /// Requests a playlist name before creating and selecting the playlist.
     private func presentCreatePlaylistDialog() {
         guard !self.isCreatingPlaylist else { return }
         let owner = self.playerService.currentAccountMutationOwner
@@ -250,6 +252,7 @@ struct Sidebar: View {
         )
     }
 
+    /// Displays a saved playlist using canonical selection identity and its cover art.
     private func libraryPlaylistRow(_ playlist: Playlist) -> some View {
         // Reuses the pinned-item selection route so the detail column opens the
         // same PlaylistDetailView a pinned row would.
@@ -264,6 +267,7 @@ struct Sidebar: View {
         }
     }
 
+    /// Displays a preserved shortcut with movement actions relative to visible pins.
     private func sidebarPinnedRow(_ item: SidebarPinnedItem) -> some View {
         KasetSidebarRow(
             title: item.title,
@@ -274,13 +278,13 @@ struct Sidebar: View {
         }
         .contextMenu {
             Button {
-                self.sidebarPinnedItemsManager.moveUp(contentId: item.contentId)
+                self.sidebarPinnedItemsManager.moveUp(contentId: item.contentId, visibleContentIds: Set(self.visiblePinnedItems.map(\.contentId)))
             } label: {
                 Label(String(localized: "Move Up"), systemImage: "chevron.up")
             }
 
             Button {
-                self.sidebarPinnedItemsManager.moveDown(contentId: item.contentId)
+                self.sidebarPinnedItemsManager.moveDown(contentId: item.contentId, visibleContentIds: Set(self.visiblePinnedItems.map(\.contentId)))
             } label: {
                 Label(String(localized: "Move Down"), systemImage: "chevron.down")
             }

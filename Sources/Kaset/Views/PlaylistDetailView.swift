@@ -256,6 +256,7 @@ struct PlaylistDetailView: View {
         return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
+    /// Builds ordered playlist rows with stable playback and removal actions.
     @ViewBuilder
     private func trackRows(
         _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil

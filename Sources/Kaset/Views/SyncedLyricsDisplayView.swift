@@ -92,12 +92,14 @@ struct SyncedLyricsDisplayView: View {
         }
     }
 
+    /// Reanchors interpolation to the latest observed playback time.
     private func updateKaraokeAnchor() {
         guard let displayTimeMs else { return }
         self.anchorMs = displayTimeMs
         self.anchorDate = Date()
     }
 
+    /// Classifies each lyric line relative to the currently active line.
     private func currentStatus(for line: SyncedLyricLine, at lineIndex: Int) -> SyncedLyrics.LineStatus {
         if let currentLineIndex, self.lyrics.lines.indices.contains(currentLineIndex) {
             if lineIndex < currentLineIndex {

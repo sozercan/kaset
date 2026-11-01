@@ -10,6 +10,7 @@ final class ShowcaseRecommendationsModel {
     private(set) var hasError = false
     private var generation = 0
 
+    /// Loads radio suggestions while ignoring results superseded by a newer track.
     func load(videoId: String?, client: any YTMusicClientProtocol) async {
         self.generation += 1
         let request = self.generation
@@ -79,6 +80,7 @@ struct ShowcaseRecommendationsView: View {
         }
     }
 
+    /// Provides playback and add-to-queue actions for one recommended song.
     private func songRow(_ song: Song) -> some View {
         HStack(spacing: 8) {
             Button {
