@@ -11,7 +11,15 @@ extension SingletonPlayerWebView {
             const previousRetry = window.__kasetAirPlayNavigationRetry;
             previousRetry?.cancel();
             const app = document.querySelector('ytmusic-app');
-            if (!app || typeof app.resolveCommand !== 'function') return false;
+            // YouTube Music moved `resolveCommand` off the element; the polymer controller's
+            // navigation handler drives the same in-document navigator.
+            const controller = app && (app.polymerController || app.inst);
+            const resolveCommand = app && typeof app.resolveCommand === 'function'
+                ? command => app.resolveCommand(command)
+                : controller && typeof controller.handleNavigationEndpoint === 'function'
+                    ? command => controller.handleNavigationEndpoint(command)
+                    : null;
+            if (!resolveCommand) return false;
 
             const videoId = \(videoIdLiteral);
             const video = document.querySelector('video');
@@ -99,7 +107,7 @@ extension SingletonPlayerWebView {
                         // Keep ownership until media confirmation so a rapid skip
                         // can inherit the handoff while the wireless flag is false.
                         try {
-                            app.resolveCommand({ watchEndpoint: { videoId: videoId } });
+                            resolveCommand({ watchEndpoint: { videoId: videoId } });
                         } catch (_) {
                             cancelRetry();
                         }
@@ -129,10 +137,64 @@ extension SingletonPlayerWebView {
                 observationTimer = setTimeout(observeTarget, 250);
             }
 
+            // Bluetooth outputs drop the opening of a freshly loaded track. Start the
+            // target muted and, once its audio is flowing, rewind to 0 and unmute: a seek
+            // inside running playback starts cleanly, like restarting a track.
+            window.__kasetCleanStart?.finish();
+            const mutedDescriptor = typeof HTMLMediaElement === 'function'
+                && Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
+            if (video && mutedDescriptor && !video.muted
+                && typeof video.addEventListener === 'function') {
+                const cleanStart = { finish: finishCleanStart };
+                window.__kasetCleanStart = cleanStart;
+                const cleanStartDeadline = setTimeout(finishCleanStart, 4000);
+                // YouTube re-applies its own mute state while loading the track. Hold the
+                // element muted and report the requested state back, so its UI is unaffected.
+                let requestedMuted = false;
+                Object.defineProperty(video, 'muted', {
+                    configurable: true,
+                    get: () => requestedMuted,
+                    set: value => { requestedMuted = !!value; }
+                });
+                mutedDescriptor.set.call(video, true);
+
+                function rewindOnceAudible() {
+                    if (window.__kasetCleanStart !== cleanStart) return;
+                    let currentId = null;
+                    try {
+                        const data = api && api.getVideoData();
+                        currentId = data && (data.video_id || data.videoId);
+                    } catch (_) {}
+                    if (currentId !== videoId || isAdShowing() || video.currentTime < 0.25) return;
+                    // A later position means playback was moved on purpose (e.g. restored).
+                    if (video.currentTime > 1.5) {
+                        finishCleanStart();
+                        return;
+                    }
+                    video.removeEventListener('timeupdate', rewindOnceAudible);
+                    // Unmute only once the seek lands, or the pre-seek position leaks through.
+                    video.addEventListener('seeked', finishCleanStart, { once: true });
+                    video.currentTime = 0;
+                }
+
+                function finishCleanStart() {
+                    clearTimeout(cleanStartDeadline);
+                    video.removeEventListener('timeupdate', rewindOnceAudible);
+                    video.removeEventListener('seeked', finishCleanStart);
+                    if (window.__kasetCleanStart !== cleanStart) return;
+                    window.__kasetCleanStart = null;
+                    delete video.muted;
+                    mutedDescriptor.set.call(video, requestedMuted);
+                }
+
+                video.addEventListener('timeupdate', rewindOnceAudible);
+            }
+
             try {
-                app.resolveCommand({ watchEndpoint: { videoId: videoId } });
+                resolveCommand({ watchEndpoint: { videoId: videoId } });
                 return true;
             } catch (_) {
+                window.__kasetCleanStart?.finish();
                 cancelRetry();
                 return false;
             }
