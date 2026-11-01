@@ -194,6 +194,21 @@ extension PlayerService {
         }
     }
 
+    private func scheduleWebQueueInjectionRetry(videoId: String) {
+        let remaining = self.webQueueInjectionRetries.flatMap { $0.videoId == videoId ? $0.remaining : nil } ?? 5
+        guard remaining > 0 else { return }
+        self.webQueueInjectionRetries = (videoId, remaining - 1)
+        Task {
+            try? await Task.sleep(for: .seconds(2))
+            guard self.injectedWebQueueVideoId == nil,
+                  self.pendingWebQueueInjectionVideoId == nil,
+                  let nextIndex = self.expectedQueueIndexAfterCurrentTrack(),
+                  self.queue[safe: nextIndex]?.videoId == videoId
+            else { return }
+            self.syncWebQueue()
+        }
+    }
+
     private func scheduleWebQueueInjectionTimeout(videoId: String, generation: Int) {
         Task {
             try? await Task.sleep(for: Self.webQueueInjectionTimeout)
@@ -231,6 +246,11 @@ extension PlayerService {
                 self.injectedWebQueueVideoId = nil
             }
             self.logger.warning("Web queue injection failed for \(videoId): \(reason ?? "unknown")")
+            // Right after a track change YouTube Music's queue may not list the new source yet.
+            // Without a retry the target stays unprepared and Next falls back to a fresh load.
+            if reason == "queue-source-not-ready" {
+                self.scheduleWebQueueInjectionRetry(videoId: videoId)
+            }
             return
         }
 

@@ -130,6 +130,31 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
     }
 
+    @Test("A stale selected row is disambiguated by the playing row")
+    func staleSelectedRowResolvedByPlayingRow() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            initialQueueVideoIds: ["source-video", "stale-selected", "target-video"],
+            queueCurrentIndex: 0,
+            additionalQueueCurrentIndices: [1],
+            playingQueueIndex: 0
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context, limit: 200)
+
+        #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
+        #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "target-video")
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == true)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-confirmed")
+    }
+
     @Test("An unhydrated selected row keeps queue readback ambiguous")
     func unhydratedSelectedRowDoesNotConfirm() throws {
         let context = try #require(self.makeContext(
@@ -500,7 +525,8 @@ struct QueueInjectionScriptTests {
         initialQueueVideoIds: [String]? = nil,
         queueCurrentIndex: Int? = 0,
         additionalQueueCurrentIndices: [Int] = [],
-        unhydratedQueueIndices: [Int] = []
+        unhydratedQueueIndices: [Int] = [],
+        playingQueueIndex: Int? = nil
     ) -> JSContext? {
         guard let context = JSContext() else { return nil }
         let clickModeLiteral = SingletonPlayerWebView.javaScriptStringLiteral(clickMode)
@@ -513,6 +539,7 @@ struct QueueInjectionScriptTests {
             .map(SingletonPlayerWebView.javaScriptStringLiteral)
             .joined(separator: ",") + "]"
         let queueCurrentIndexLiteral = queueCurrentIndex.map(String.init) ?? "null"
+        let playingQueueIndexLiteral = playingQueueIndex.map(String.init) ?? "null"
         let additionalQueueCurrentIndicesLiteral = "[" + additionalQueueCurrentIndices
             .map(String.init)
             .joined(separator: ",") + "]"
@@ -540,6 +567,7 @@ struct QueueInjectionScriptTests {
             var queueCurrentIndexValue = \(queueCurrentIndexLiteral);
             var additionalQueueCurrentIndices = \(additionalQueueCurrentIndicesLiteral);
             var unhydratedQueueIndices = \(unhydratedQueueIndicesLiteral);
+            var playingQueueIndex = \(playingQueueIndexLiteral);
             Date.now = function() { return fakeNow; };
             function setTimeout(callback, delay) {
                 timerID += 1;
@@ -608,7 +636,8 @@ struct QueueInjectionScriptTests {
                         clickTrackingParams: 'tracking',
                         queueAddEndpoint: {
                             queueTarget: originalQueueTarget,
-                            queueInsertPosition: 'INSERT_AFTER_CURRENT_VIDEO',
+                            queueInsertPosition: \(itemLabelLiteral).toLowerCase().includes('next')
+                                ? 'INSERT_AFTER_CURRENT_VIDEO' : 'INSERT_AT_END',
                             commands: []
                         }
                     }
@@ -667,6 +696,9 @@ struct QueueInjectionScriptTests {
                             return this.__kasetIsCurrent && name === 'selected';
                         },
                         getAttribute: function(name) {
+                            if (name === 'play-button-state' && playingQueueIndex !== null) {
+                                return playingQueueIndex === index ? 'playing' : 'default';
+                            }
                             return this.__kasetIsCurrent && name === 'aria-current' ? 'true' : null;
                         },
                         classList: { contains: function() { return false; } }
