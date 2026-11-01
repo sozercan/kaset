@@ -286,7 +286,7 @@ extension PlayerService {
             self.dismissShowcaseVideoSurfaceIfNeeded()
             return
         }
-        let entered = await self.beginShowcaseVideoSource(for: track)
+        let entered = await self.beginShowcaseVideoSource(for: self.currentTrack ?? track)
         if !entered, self.currentTrack?.videoId == track.videoId {
             // No resolvable MV for the new track: back to artwork while the
             // advance's audio version keeps playing.

@@ -21,10 +21,18 @@ enum LyricsSimilarity {
 
     /// Normalized set of words from a lyric text.
     private static func wordSet(_ text: String) -> Set<String> {
-        text.lowercased()
-            .components(separatedBy: CharacterSet.alphanumerics.inverted)
-            .filter { !$0.isEmpty }
-            .reduce(into: Set()) { $0.insert($1) }
+        let normalized = text.precomposedStringWithCompatibilityMapping.lowercased()
+        let tokens = normalized.components(separatedBy: CharacterSet.alphanumerics.inverted).filter { !$0.isEmpty }
+        var result = Set<String>()
+        for token in tokens {
+            if token.unicodeScalars.contains(where: { $0.properties.isIdeographic || (0x3040 ... 0x30FF).contains($0.value) || (0xAC00 ... 0xD7AF).contains($0.value) }) {
+                // Character tokens survive source differences in line breaks and spacing.
+                result.formUnion(token.map(String.init))
+            } else {
+                result.insert(token)
+            }
+        }
+        return result
     }
 
     /// Whether the lyric text is solely an "[instrumental only]" marker, which

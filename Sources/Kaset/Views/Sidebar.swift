@@ -67,11 +67,19 @@ struct Sidebar: View {
 
             if self.hasPersonalAccount {
                 Section {
-                    ForEach(self.sidebarPinnedItemsManager.items) { item in
+                    ForEach(self.visiblePinnedItems) { item in
                         self.sidebarPinnedRow(item)
                     }
                     .onMove { source, destination in
-                        self.sidebarPinnedItemsManager.move(from: source, to: destination)
+                        let visible = self.visiblePinnedItems
+                        let items = self.sidebarPinnedItemsManager.items
+                        let indices = IndexSet(source.compactMap { index in
+                            items.firstIndex { $0.id == visible[index].id }
+                        })
+                        let target = destination < visible.count
+                            ? items.firstIndex { $0.id == visible[destination].id } ?? items.count
+                            : items.count
+                        self.sidebarPinnedItemsManager.move(from: indices, to: target)
                     }
 
                     ForEach(self.libraryPlaylists) { playlist in
@@ -106,6 +114,10 @@ struct Sidebar: View {
 
     private var hasPersonalAccount: Bool {
         self.authService.hasPersonalAccount
+    }
+
+    private var visiblePinnedItems: [SidebarPinnedItem] {
+        self.sidebarPinnedItemsManager.visibleItems(libraryPlaylistIDs: Set(self.libraryPlaylists.map(\.id)))
     }
 
     private var libraryPlaylists: [Playlist] {
@@ -152,6 +164,12 @@ struct Sidebar: View {
     /// drop the highlight (and the reselect gesture) on already-selected rows.
     private func isPinnedSelected(_ item: SidebarPinnedItem) -> Bool {
         if case let .pinned(selected) = self.currentSidebarSelection {
+            if case let .playlist(selectedPlaylist) = selected.itemType,
+               case let .playlist(playlist) = item.itemType
+            {
+                return LibraryContentIdentity.playlistKey(for: selectedPlaylist.id)
+                    == LibraryContentIdentity.playlistKey(for: playlist.id)
+            }
             return selected.contentId == item.contentId
         }
         return false

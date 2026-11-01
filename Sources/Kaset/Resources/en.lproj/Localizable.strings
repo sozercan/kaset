@@ -66,3 +66,9 @@
 "Show Music Video" = "Show Music Video";
 "Show Album Artwork" = "Show Album Artwork";
 "Source" = "Source";
+
+// Lyrics display options
+"Pronunciation" = "Pronunciation";
+"Translation" = "Translation";
+"Translate To" = "Translate To";
+"Lyrics Display Options" = "Lyrics Display Options";

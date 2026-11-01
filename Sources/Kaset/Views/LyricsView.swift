@@ -238,7 +238,7 @@ struct LyricsView: View {
 
     /// BCP-47 identifier of the translation target, or the system language.
     private var targetTranslationIdentifier: String {
-        self.settings.lyricsTranslationTargetLanguage ?? Locale.current.language.languageCode?.identifier ?? "en"
+        self.settings.lyricsTranslationTargetLanguage ?? SettingsManager.ContentLanguage.system.apiLanguageCode
     }
 
     /// Restarts translation: cancels any online attempt, then runs the online
@@ -321,6 +321,7 @@ struct LyricsView: View {
         case plain(videoId: String?, text: String)
     }
 
+    /// Snapshots only untranslated content and its track identity before entering a translation session.
     private func translationJob() -> TranslationJob? {
         guard self.settings.lyricsTranslationEnabled else { return nil }
         let videoId = self.playerService.currentTrack?.videoId
@@ -338,6 +339,7 @@ struct LyricsView: View {
         }
     }
 
+    /// Applies translated lines only while their originating track is still selected.
     private func applyLineTranslations(_ responses: [TranslationSession.Response], for videoId: String?) {
         guard self.playerService.currentTrack?.videoId == videoId else { return }
         for response in responses {
@@ -348,6 +350,7 @@ struct LyricsView: View {
         }
     }
 
+    /// Publishes a plain translation only if playback still owns the source track.
     private func applyPlainTranslation(_ text: String, for videoId: String?) {
         guard self.playerService.currentTrack?.videoId == videoId else { return }
         self.plainTranslation = text
@@ -465,6 +468,7 @@ struct LyricsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Presents timed lyrics with the active translations and caller-controlled font sizing.
     private func syncedLyricsContentView(_ synced: SyncedLyrics) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             // AI Explanation section (streaming or complete)
@@ -499,6 +503,7 @@ struct LyricsView: View {
         }
     }
 
+    /// Presents unsynced lyrics, their translation and source attribution.
     private func plainLyricsContentView(_ lyrics: Lyrics) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 0) {
@@ -734,6 +739,7 @@ struct LyricsView: View {
             // The override changed the fetch key; keep the dedupe key in sync
             // so the duration-observer path does not refetch redundantly.
             self.lastRecordingRefetchKey = "\(track.videoId)|\(Int(effectiveRecordingDuration ?? 0))"
+            self.syncedLyricsService.invalidateCachedLyrics(for: track.videoId)
         }
 
         let info = LyricsSearchInfo(
@@ -785,9 +791,7 @@ struct LyricsView: View {
                 )
                 // Invalidate the bad cached result so it is not re-served, then
                 // fall back to YouTube Music's own plain lyrics.
-                self.syncedLyricsService.invalidateCachedLyrics(for: videoId)
-                self.syncedLyricsService.currentLyrics = .plain(ytPlain)
-                self.syncedLyricsService.activeProvider = ytPlain.source ?? "Source: YouTube Music"
+                self.syncedLyricsService.rejectSyncedLyrics(replacingWith: ytPlain, videoId: videoId)
             }
         }
 
@@ -934,6 +938,7 @@ extension LyricsView {
         return self.playerService.duration
     }
 
+    /// Re-searches once per materially different MV duration instead of reusing studio timings.
     @MainActor
     func reloadLyricsIfVideoRecordingDiffers(streamDuration: TimeInterval) {
         guard self.playerService.showNowPlayingVideo,

@@ -47,7 +47,8 @@ struct SyncedLyricsDisplayView: View {
                             onTap: { self.onSeek(line.timeInMs) },
                             translation: self.lineTranslations[line.id],
                             fontSizeScale: self.fontSizeScale,
-                            displayTimeProvider: self.karaokeTimeMs
+                            displayTimeProvider: self.karaokeTimeMs,
+                            isPlaying: self.isPlaying
                         )
                         .id(line.id)
                     }
@@ -125,6 +126,9 @@ struct SyncedLineView: View {
     /// Live playback time for karaoke highlighting; nil when no time source.
     var displayTimeProvider: (() -> Int)?
 
+    /// Pauses display-link work while transport is stopped.
+    var isPlaying = true
+
     /// Base font sizes at scale 1. Every line is laid out at the same size
     /// regardless of status, so text never re-wraps when a line becomes
     /// current; inactive lines are visually scaled down instead.
@@ -148,7 +152,7 @@ struct SyncedLineView: View {
             if self.isKaraokeActive, let displayTimeProvider = self.displayTimeProvider {
                 // One TimelineView drives both the original line and its
                 // romanization so the sweep fronts stay in lockstep.
-                TimelineView(.animation) { _ in
+                TimelineView(.animation(paused: !self.isPlaying)) { _ in
                     let timeMs = displayTimeProvider()
                     VStack(alignment: .leading, spacing: 4) {
                         Text(self.sweptOriginal(at: timeMs))

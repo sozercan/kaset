@@ -28,22 +28,7 @@ enum SongMetadataParser {
         let menuData = self.parseMenuData(from: panelVideoRenderer)
         let musicVideoType = self.parseMusicVideoType(from: panelVideoRenderer)
 
-        // The counterpart is the sibling version YouTube Music pairs with this row:
-        // an audio row carries the official music video, an OMV row carries the
-        // audio recording. Both feed the showcase's in-place audio↔video swap.
-        var audioTrackVideoId: String?
-        var companionMusicVideoId: String?
-        if let counterpart = renderers.counterpart,
-           let counterpartVideoId = counterpart["videoId"] as? String,
-           counterpartVideoId != videoId
-        {
-            let counterpartType = self.parseMusicVideoType(from: counterpart)
-            if musicVideoType == .omv, counterpartType != .omv {
-                audioTrackVideoId = counterpartVideoId
-            } else if musicVideoType != .omv, counterpartType == .omv {
-                companionMusicVideoId = counterpartVideoId
-            }
-        }
+        let counterpartIds = Self.counterpartIds(primary: panelVideoRenderer, counterpart: renderers.counterpart)
 
         return Song(
             id: videoId,
@@ -58,8 +43,8 @@ enum SongMetadataParser {
             isInLibrary: menuData.isInLibrary,
             feedbackTokens: menuData.feedbackTokens,
             isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer),
-            audioTrackVideoId: audioTrackVideoId,
-            companionMusicVideoId: companionMusicVideoId
+            audioTrackVideoId: counterpartIds.audio,
+            companionMusicVideoId: counterpartIds.companion
         )
     }
 
@@ -107,14 +92,34 @@ enum SongMetadataParser {
            let primary = wrapper["primaryRenderer"] as? [String: Any],
            let wrapped = primary["playlistPanelVideoRenderer"] as? [String: Any]
         {
-            let counterpart = (wrapper["counterpart"] as? [[String: Any]])?.first.flatMap { entry in
-                (entry["counterpartRenderer"] as? [String: Any])
-                    .flatMap { $0["playlistPanelVideoRenderer"] as? [String: Any] }
-            }
+            let counterpart = Self.counterpartRenderer(in: wrapper)
             return PanelVideoRenderers(primary: wrapped, counterpart: counterpart)
         }
 
         throw YTMusicError.parseError(message: "Failed to parse song metadata for \(videoId)")
+    }
+
+    /// Extracts the sibling audio/video renderer without changing the primary row.
+    static func counterpartRenderer(in wrapper: [String: Any]?) -> [String: Any]? {
+        (wrapper?["counterpart"] as? [[String: Any]])?.first
+            .flatMap { $0["counterpartRenderer"] as? [String: Any] }
+            .flatMap { $0["playlistPanelVideoRenderer"] as? [String: Any] }
+    }
+
+    /// Classifies a distinct sibling as audio for an OMV, or as an OMV companion for audio.
+    static func counterpartIds(primary: [String: Any], counterpart: [String: Any]?) -> (audio: String?, companion: String?) {
+        guard let counterpart, let id = counterpart["videoId"] as? String,
+              id != primary["videoId"] as? String
+        else { return (nil, nil) }
+        let primaryType = Self.parseMusicVideoType(from: primary)
+        let counterpartType = Self.parseMusicVideoType(from: counterpart)
+        if primaryType == .omv, counterpartType != .omv {
+            return (id, nil)
+        }
+        if primaryType != .omv, counterpartType == .omv {
+            return (nil, id)
+        }
+        return (nil, nil)
     }
 
     /// Parses the song title from the panel video renderer.

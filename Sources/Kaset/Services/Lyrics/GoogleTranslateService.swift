@@ -13,7 +13,7 @@ import Foundation
 /// and split back. If the split count ever mismatches, callers fall back to
 /// per-line requests.
 enum GoogleTranslateService {
-    private static let endpoint = URL(string: "https://translate.googleapis.com/translate_a/single")!
+    private static let endpoint = "https://translate.googleapis.com/translate_a/single"
     /// The gtx endpoint is GET-only; keep each request's query under the URL
     /// length limits servers apply.
     private static let maxQueryLength = 3500
@@ -24,16 +24,20 @@ enum GoogleTranslateService {
         var results: [String] = []
         var index = 0
         while index < texts.count {
-            var chunk: [String] = []
-            var length = 0
-            while index < texts.count, length + texts[index].count < self.maxQueryLength {
-                chunk.append(texts[index])
-                length += texts[index].count + 1
+            if try self.requestURL(text: texts[index], target: target).absoluteString.utf8.count > self.maxQueryLength {
+                var translated = ""
+                for fragment in try self.fragments(for: texts[index], target: target) {
+                    translated += try await self.request(text: fragment, target: target)
+                }
+                results.append(translated)
                 index += 1
+                continue
             }
-            if chunk.isEmpty {
-                // Single line longer than the cap: send it alone.
-                chunk = [texts[index]]
+            var chunk: [String] = []
+            while index < texts.count {
+                let candidate = (chunk + [texts[index]]).joined(separator: "\n")
+                guard try self.requestURL(text: candidate, target: target).absoluteString.utf8.count <= self.maxQueryLength else { break }
+                chunk.append(texts[index])
                 index += 1
             }
             try await results.append(contentsOf: self.translateBatch(chunk, target: target))
@@ -41,6 +45,7 @@ enum GoogleTranslateService {
         return results
     }
 
+    /// Keeps batch responses aligned with source lines, retrying individual lines if necessary.
     private static func translateBatch(_ texts: [String], target: String) async throws -> [String] {
         let joined = texts.joined(separator: "\n")
         let translated = try await self.request(text: joined, target: target)
@@ -69,15 +74,17 @@ enum GoogleTranslateService {
     /// language code the gtx endpoint accepts.
     static func targetCode(for identifier: String?) -> String {
         switch identifier {
-        case "zh-Hans": "zh-CN"
-        case "zh-Hant": "zh-TW"
-        case nil, ""?: "en"
-        default: Locale.Language(identifier: identifier!).languageCode?.identifier ?? "en"
+        case "zh-Hans", "zh-CN": "zh-CN"
+        case "zh-Hant", "zh-TW": "zh-TW"
+        case let identifier? where !identifier.isEmpty:
+            Locale.Language(identifier: identifier).languageCode?.identifier ?? "en"
+        default: "en"
         }
     }
 
-    private static func request(text: String, target: String) async throws -> String {
-        var components = URLComponents(url: endpoint, resolvingAgainstBaseURL: false)!
+    /// Constructs the same encoded URL used for measuring batches and sending requests.
+    static func requestURL(text: String, target: String) throws -> URL {
+        guard var components = URLComponents(string: self.endpoint) else { throw URLError(.badURL) }
         components.queryItems = [
             URLQueryItem(name: "client", value: "gtx"),
             URLQueryItem(name: "sl", value: "auto"),
@@ -85,8 +92,37 @@ enum GoogleTranslateService {
             URLQueryItem(name: "dt", value: "t"),
             URLQueryItem(name: "q", value: text),
         ]
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+        guard let url = components.url else { throw URLError(.badURL) }
+        return url
+    }
 
-        var request = URLRequest(url: components.url!)
+    /// Splits a long lyric line at character boundaries without exceeding the full encoded URL budget.
+    static func fragments(for text: String, target: String) throws -> [String] {
+        guard try self.requestURL(text: "", target: target).absoluteString.utf8.count < self.maxQueryLength else { throw URLError(.badURL) }
+        var fragments: [String] = []
+        var fragment = ""
+        for character in text {
+            let candidate = fragment + String(character)
+            if try self.requestURL(text: candidate, target: target).absoluteString.utf8.count > self.maxQueryLength {
+                guard !fragment.isEmpty else { throw URLError(.badURL) }
+                fragments.append(fragment)
+                fragment = String(character)
+            } else {
+                fragment = candidate
+            }
+        }
+        if !fragment.isEmpty {
+            fragments.append(fragment)
+        }
+        return fragments
+    }
+
+    /// Sends one bounded translation request and extracts translated segments.
+    private static func request(text: String, target: String) async throws -> String {
+        let url = try self.requestURL(text: text, target: target)
+        guard url.absoluteString.utf8.count <= self.maxQueryLength else { throw URLError(.badURL) }
+        var request = URLRequest(url: url)
         request.setValue(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             forHTTPHeaderField: "User-Agent"

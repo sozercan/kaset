@@ -15,11 +15,13 @@ final class KuGouProvider: LyricsProvider {
     private static let userAgent = "python-requests/2.32.3"
     private static let durationToleranceSeconds = 8
 
+    /// Downloads lyrics after validating the requested recording duration.
     func search(info: LyricsSearchInfo) async -> LyricResult {
         guard let candidate = await Self.searchCandidate(
                   title: info.title,
                   artist: info.artist,
-                  duration: info.duration
+                  duration: info.duration,
+                  requiresCloseDurationMatch: info.requiresCloseDurationMatch
               ),
               let lrc = await Self.downloadLRC(id: candidate.id, accessKey: candidate.accessKey),
               let parsed = LRCParser.parse(lrc)
@@ -71,7 +73,8 @@ final class KuGouProvider: LyricsProvider {
     private static func searchCandidate(
         title: String,
         artist: String,
-        duration: TimeInterval?
+        duration: TimeInterval?,
+        requiresCloseDurationMatch: Bool
     ) async -> LyricCandidate? {
         var components = URLComponents(url: searchURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [
@@ -87,7 +90,7 @@ final class KuGouProvider: LyricsProvider {
                 if let hash = song.hash,
                    let duration,
                    let songDuration = song.duration,
-                   abs(songDuration - Int(duration)) <= durationToleranceSeconds,
+                   Self.durationMatches(songDuration, target: duration, requiresCloseDurationMatch: requiresCloseDurationMatch),
                    let candidate = await candidateByHash(hash)
                 {
                     return candidate
@@ -95,7 +98,8 @@ final class KuGouProvider: LyricsProvider {
             }
         }
 
-        guard let duration else { return nil }
+        // Keyword lyric results do not expose a verified recording duration.
+        guard !requiresCloseDurationMatch, let duration else { return nil }
         var lyricComponents = URLComponents(url: lyricSearchURL, resolvingAgainstBaseURL: false)!
         lyricComponents.queryItems = [
             URLQueryItem(name: "ver", value: "1"),
@@ -112,6 +116,7 @@ final class KuGouProvider: LyricsProvider {
         return nil
     }
 
+    /// Finds a downloadable lyric entry for an already matched recording hash.
     private static func candidateByHash(_ hash: String) async -> LyricCandidate? {
         var components = URLComponents(url: lyricSearchURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [
@@ -128,6 +133,7 @@ final class KuGouProvider: LyricsProvider {
         return nil
     }
 
+    /// Decodes the provider’s base64 LRC payload and removes metadata credits.
     private static func downloadLRC(id: String, accessKey: String) async -> String? {
         var components = URLComponents(url: downloadURL, resolvingAgainstBaseURL: false)!
         components.queryItems = [
@@ -160,6 +166,7 @@ final class KuGouProvider: LyricsProvider {
         let creditPattern = try? NSRegularExpression(pattern: #"(作词|作曲|编曲|填词)\s*[:：]|(?i)lyrics\s*[:：]"#)
         guard let timedPattern else { return lrc }
 
+        // Distinguishes lyric rows from metadata before trimming the response boundaries.
         func isTimed(_ line: String) -> Bool {
             timedPattern.firstMatch(
                 in: line, options: [],
@@ -191,8 +198,16 @@ final class KuGouProvider: LyricsProvider {
         return lines.joined(separator: "\n")
     }
 
+    /// Checks the recording tolerance before any lyric download is accepted.
+    static func durationMatches(_ seconds: Int, target: TimeInterval, requiresCloseDurationMatch: Bool) -> Bool {
+        let tolerance = requiresCloseDurationMatch ? LRCLibProvider.closeDurationTolerance : Double(self.durationToleranceSeconds)
+        return target.isFinite && abs(Double(seconds) - target) <= tolerance
+    }
+
+    /// Downloads one provider response with a bounded timeout so other providers are not delayed.
     private static func fetchJSON<T: Decodable>(_: T.Type, url: URL) async -> T? {
         var request = URLRequest(url: url)
+        request.timeoutInterval = 8
         request.setValue(self.userAgent, forHTTPHeaderField: "User-Agent")
 
         guard let (data, response) = try? await URLSession.shared.data(for: request),

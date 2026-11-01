@@ -646,7 +646,7 @@
 "Couldn't load recommendations." = "No se pudieron cargar las recomendaciones.";
 
 // Showcase presentation
-"Open Now Playing" = "Abrir Ahora suena";
-"Close Now Playing" = "Cerrar Ahora suena";
+"Open Now Playing" = "Abrir En reproducción";
+"Close Now Playing" = "Cerrar En reproducción";
 "Show Music Video" = "Mostrar vídeo musical";
 "Show Album Artwork" = "Mostrar portada del álbum";

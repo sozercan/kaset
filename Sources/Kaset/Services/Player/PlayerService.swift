@@ -639,9 +639,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
-    /// Whether the video toggle should be enabled for the current track.
-    /// Shared by the player bar and the now-playing showcase panel.
-    var canShowCurrentTrackVideo: Bool {
+    /// Whether the loaded recording can be displayed without swapping to a companion video.
+    var canShowLoadedTrackVideo: Bool {
         guard let track = self.currentTrack else { return false }
         if UITestConfig.isUITestMode,
            UITestConfig.environmentValue(for: UITestConfig.mockHasVideoKey) == "true"
@@ -651,7 +650,11 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         return self.currentTrackHasVideo
             || track.musicVideoType?.hasVideoContent == true
             || track.hasVideo == true
-            || track.companionMusicVideoId != nil
+    }
+
+    /// The showcase can also load a separate companion music-video recording.
+    var canShowCurrentTrackVideo: Bool {
+        self.canShowLoadedTrackVideo || self.currentTrack?.companionMusicVideoId != nil
     }
 
     /// Whether AirPlay is currently connected (playing to a wireless target).

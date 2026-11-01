@@ -194,9 +194,9 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
             let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("QueueColumn"))
             column.title = ""
-            column.minWidth = 350
-            column.maxWidth = 400
-            column.width = 350 // Matches container width minus scroll bar space
+            column.minWidth = 100
+            column.maxWidth = .greatestFiniteMagnitude
+            column.resizingMask = .autoresizingMask
             tableView.addTableColumn(column)
 
             let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")

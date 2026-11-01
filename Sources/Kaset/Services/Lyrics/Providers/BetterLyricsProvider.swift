@@ -31,6 +31,7 @@ final class BetterLyricsProvider: LyricsProvider {
     private static let baseURL = URL(string: "https://unison.betterlyrics.org")!
     private static let durationToleranceSeconds: TimeInterval = 2
 
+    /// Prefers an exact video match, or a duration-filtered recording match in MV mode.
     func search(info: LyricsSearchInfo) async -> LyricResult {
         // MV mode (different recording possible): ask Unison to match by
         // duration server-side so we get the recording actually playing.
@@ -63,6 +64,7 @@ final class BetterLyricsProvider: LyricsProvider {
 
     // MARK: - Endpoints
 
+    /// Looks up the highest-ranked lyrics explicitly associated with a YouTube video.
     private static func searchByVideoId(_ videoId: String) async -> LyricResult? {
         var components = URLComponents(url: baseURL.appendingPathComponent("lyrics"), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "v", value: videoId)]
@@ -71,6 +73,7 @@ final class BetterLyricsProvider: LyricsProvider {
         return Self.lyricResult(from: result)
     }
 
+    /// Uses metadata and optional recording duration when an exact video lookup is unsuitable.
     private static func searchByMetadata(
         title: String,
         artist: String,
@@ -101,6 +104,7 @@ final class BetterLyricsProvider: LyricsProvider {
         return Self.lyricResult(from: result)
     }
 
+    /// Decodes the single-result Unison envelope, rejecting unsuccessful or empty responses.
     private static func fetchEntry(url: URL?) async -> BetterLyricsEntry? {
         guard let url else { return nil }
         var request = URLRequest(url: url)
@@ -116,6 +120,7 @@ final class BetterLyricsProvider: LyricsProvider {
 
     // MARK: - Result conversion
 
+    /// Converts supported timed formats and degrades other lyric formats to plain text.
     static func lyricResult(from entry: BetterLyricsEntry) -> LyricResult {
         let lyricsText = entry.lyrics
         guard !lyricsText.isEmpty else { return .unavailable }
@@ -193,6 +198,7 @@ final class BetterLyricsProvider: LyricsProvider {
 
     /// Decodes the XML entities that appear in TTML lyric text. `&` is
     /// decoded last so an escaped reference (`&lt;`) decodes only once.
+    /// Restores escaped lyric text after TTML markup has been removed.
     private static func decodeXMLEntities(_ text: String) -> String {
         var decoded = text
         let named: [(entity: String, replacement: String)] = [

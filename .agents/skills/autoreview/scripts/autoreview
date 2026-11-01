@@ -122,7 +122,7 @@ REVIEW_BUNDLE_REDACTIONS = [
             r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[\"']?"
             r"[^\S\r\n]*:[^\S\r\n]*"
             r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
-            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
             r"(?![\"'`])(?!(?:REDACTED|mock-token|test-cookie|true|false|null|nil|none|test)\b)"
             r"(?=[A-Za-z0-9_+=:-]{1,7}(?=$|[\s,}\]]))"
             r"(?=[A-Za-z0-9_+=:-]*[A-Za-z])(?=[A-Za-z0-9_+=:-]*\d)[A-Za-z0-9_+=:-]+",
@@ -144,20 +144,39 @@ REVIEW_BUNDLE_REDACTIONS = [
         ),
         "[REDACTED_ENV_SECRET]",
     ),
+    (
+        re.compile(
+            r"(?<![A-Za-z0-9_])[\"']?"
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[\"']?"
+            r"[^\S\r\n]*:[^\S\r\n]*"
+            r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
+            r"[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z0-9_.+=:-]+(?=$|[\s,)\]\};])",
+            re.IGNORECASE,
+        ),
+        "[REDACTED_FIELD_SECRET]",
+    ),
+    (
+        # Member-call assignments can contain sensitive arguments. Redact the
+        # complete line rather than exempting the expression or only its prefix.
+        re.compile(
+            r"^[^\r\n]*\b(?:let|var|const)[^\S\r\n]+"
+            r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*"
+            r"[^\S\r\n]*=[^\S\r\n]*(?:[A-Za-z_][A-Za-z0-9_]*\.)+"
+            r"[A-Za-z_][A-Za-z0-9_]*\([^\r\n]*$",
+            re.IGNORECASE | re.MULTILINE,
+        ),
+        "[REDACTED_CODE_SECRET_ASSIGNMENT]",
+    ),
 ]
 UNRESOLVED_SECRET_RE = re.compile(
     r"(?ix)(?:(?<!const\ )(?<!let\ )(?<!var\ )"
     r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*"
     r"(?:"
-    # Colon context (Swift labels, dict keys, type annotations): an unquoted
-    # value is exempt only when the WHOLE value is a member chain ending at a
-    # delimiter, or a bare optional type defaulting to nil. The equals path
-    # keeps full original detection, so env-style `key=value` credentials
-    # (JWTs included) never reach these shields; real JWTs are also redacted
-    # earlier by REVIEW_BUNDLE_REDACTIONS.
+    # Only recognized source references and optional nil type annotations are
+    # exempt; a dotted string or bare identifier alone may be a credential.
     r":[^\S\r\n]*"
     r"(?!(?:re\.compile\())"
-    r"(?!(?:[A-Za-z_][A-Za-z0-9_]*\.)+[A-Za-z_][A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
     r"(?![A-Z][A-Za-z]*\?\s*=\s*nil\b)"
     r"|"
     r"[^\S\r\n]*=[^\S\r\n]*"
@@ -167,10 +186,9 @@ UNRESOLVED_SECRET_RE = re.compile(
     r"(?:(?<=const\ )|(?<=let\ )|(?<=var\ ))"
     r"\b[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential)[A-Za-z0-9_]*[^\S\r\n]*=[^\S\r\n]*"
     r"(?!/)(?!(?:re\.compile\())"
-    r"(?!(?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
     r")"
     r"(?!(?:user|config|self|this|options|request|response|account|profile|credential|credentials)\."
-    r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*\b)"
+    r"[A-Za-z0-9_]*(?:api[_-]?key|token|secret|password|credential|key|hash)[A-Za-z0-9_]*(?=$|[\s,)\]\};]))"
     r"(?!(?:(?:try|await)\s+)*(?:[A-Za-z_][A-Za-z0-9_]*\.)*"
     r"(?:get|load|read|fetch|build|make|create|resolve|retrieve)"
     r"(?:password|token|secret|credentials?|api[_-]?key|key|hash)?\s*"

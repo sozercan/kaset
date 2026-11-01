@@ -23,8 +23,8 @@
 //    continuation <token> [ep]     - Explore a continuation (ep: browse, search, or next)
 //    analyze-file <path>           - Safely summarize a saved JSON response
 //    lyrics-probe <mode> [args]    - Read-only probes: musixmatch-token, musixmatch,
-//                                    netease, translate (keyless word-synced
-//                                    lyrics + translation endpoint shapes)
+//                                    musixmatch-web, netease, netease-eapi, kugou,
+//                                    translate (GET/read-only POST lyrics probes)
 //    list                          - List all known endpoints
 //    auth                          - Check authentication status
 //    help                          - Show this help message

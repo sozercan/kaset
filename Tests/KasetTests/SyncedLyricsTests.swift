@@ -324,6 +324,50 @@ struct SyncedLyricsServiceTests {
         #expect(await provider.callCount() == 1)
     }
 
+    @Test("Recording duration and strict matching never share cached synced results")
+    func cacheSeparatesRecordings() async {
+        let provider = MockLyricsProvider(name: "Recording", searchHandler: { info in
+            .synced(Self.makeSyncedLyrics(source: "Recording", lineText: "\(info.duration ?? 0):\(info.requiresCloseDurationMatch)"))
+        })
+        let service = SyncedLyricsService(providers: [provider])
+        let audio = Self.makeSearchInfo(videoId: "same-video")
+        var strict = audio
+        strict.requiresCloseDurationMatch = true
+        let live = LyricsSearchInfo(title: audio.title, artist: audio.artist, album: audio.album, duration: 240, videoId: audio.videoId, requiresCloseDurationMatch: true)
+        let unknownDuration = LyricsSearchInfo(title: audio.title, artist: audio.artist, album: audio.album, duration: nil, videoId: audio.videoId)
+        for info in [unknownDuration, audio, strict, live, audio] {
+            await service.fetchLyrics(for: info)
+        }
+        #expect(await provider.callCount() == 4)
+        #expect(Self.syncedLyrics(from: service.currentLyrics)?.lines.first?.text == "180.0:false")
+    }
+
+    @Test("Pinned provider wins despite fewer lines and lower timing granularity")
+    func pinnedProviderOutranksCompleteness() async {
+        let pinned = Self.makeSyncedLyrics(source: "Pinned", lineText: "Chosen")
+        let words = SyncedLyrics(lines: [
+            SyncedLyricLine(timeInMs: 0, duration: 1000, text: "More", words: [TimedWord(timeInMs: 0, word: "More")]),
+            SyncedLyricLine(timeInMs: 1000, duration: 1000, text: "Lines", words: nil),
+        ], source: "Other")
+        let service = SyncedLyricsService(providers: [MockLyricsProvider(name: "Other", result: .synced(words)), MockLyricsProvider(name: "Pinned", result: .synced(pinned))], pinnedProvider: "Pinned")
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "pinned"))
+        #expect(service.activeProvider == "Pinned")
+    }
+
+    @Test("Rejected lyrics cannot be revived by changing pronunciation")
+    func rejectionClearsRomanizationBase() async {
+        let originalSetting = SettingsManager.shared.romanizationEnabled
+        defer { SettingsManager.shared.romanizationEnabled = originalSetting }
+        let service = SyncedLyricsService(providers: [MockLyricsProvider(name: "Wrong", result: .synced(Self.makeSyncedLyrics(source: "Wrong", lineText: "안녕하세요")))])
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "rejected"))
+        let plain = Lyrics(text: "Correct lyrics", source: "YouTube Music")
+        service.rejectSyncedLyrics(replacingWith: plain, videoId: "rejected")
+        SettingsManager.shared.romanizationEnabled.toggle()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(service.currentLyrics == .plain(plain))
+        #expect(service.activeProvider == "YouTube Music")
+    }
+
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
         LyricsSearchInfo(
             title: "Test Song",

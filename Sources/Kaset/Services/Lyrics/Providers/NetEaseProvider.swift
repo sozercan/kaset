@@ -27,6 +27,7 @@ final class NetEaseProvider: LyricsProvider {
     /// NetEase requires a recognizable client cookie set, not real session
     /// data; synthesized values are generated once per provider lifetime.
     private static let clientCookie: String = {
+        /// Synthesizes anonymous client identifiers without accessing saved account cookies.
         func hex(_ count: Int) -> String {
             (0 ..< count).map { _ in String(format: "%x", Int.random(in: 0 ..< 16)) }.joined()
         }
@@ -49,11 +50,13 @@ final class NetEaseProvider: LyricsProvider {
         "requestId": "1700000000000_0001",
     ]
 
+    /// Downloads timed lyrics only after title, artist and recording validation succeeds.
     func search(info: LyricsSearchInfo) async -> LyricResult {
         guard let songID = await Self.searchSongID(
             title: info.title,
             artist: info.artist,
-            duration: info.duration
+            duration: info.duration,
+            requiresCloseDurationMatch: info.requiresCloseDurationMatch
         ), let sections = await Self.fetchLyricSections(songID: songID) else {
             return .unavailable
         }
@@ -70,7 +73,7 @@ final class NetEaseProvider: LyricsProvider {
 
     // MARK: - Search
 
-    private struct SearchResponse: Decodable {
+    struct SearchResponse: Decodable {
         let result: SearchResult?
 
         struct SearchResult: Decodable {
@@ -81,6 +84,11 @@ final class NetEaseProvider: LyricsProvider {
             let id: Int
             let name: String
             let duration: Int?
+            let artists: [Artist]?
+
+            struct Artist: Decodable {
+                let name: String
+            }
         }
     }
 
@@ -89,7 +97,8 @@ final class NetEaseProvider: LyricsProvider {
     private static func searchSongID(
         title: String,
         artist: String,
-        duration: TimeInterval?
+        duration: TimeInterval?,
+        requiresCloseDurationMatch: Bool
     ) async -> Int? {
         var components = URLComponents(string: searchURLString)!
         components.queryItems = [
@@ -99,6 +108,7 @@ final class NetEaseProvider: LyricsProvider {
         ]
 
         var request = URLRequest(url: components.url!)
+        request.timeoutInterval = 8
         request.setValue("python-requests/2.32.3", forHTTPHeaderField: "User-Agent")
         request.setValue(self.clientCookie, forHTTPHeaderField: "Cookie")
         request.httpShouldHandleCookies = false
@@ -112,22 +122,48 @@ final class NetEaseProvider: LyricsProvider {
             return nil
         }
 
-        let candidates = songs.filter { song in
-            self.titleContains(song.name, query: title)
-        }
-        let pool = candidates.isEmpty ? songs : candidates
+        return self.matchSongID(songs, title: title, artist: artist, duration: duration, requiresCloseDurationMatch: requiresCloseDurationMatch)
+    }
 
-        guard let duration else {
-            return pool.first?.id
+    /// Rejects unrelated titles and recordings rather than falling back to arbitrary search hits.
+    static func matchSongID(
+        _ songs: [SearchResponse.Song],
+        title: String,
+        artist: String,
+        duration: TimeInterval?,
+        requiresCloseDurationMatch: Bool
+    ) -> Int? {
+        let requestedArtist = self.normalizedArtist(artist)
+        let candidates = songs.filter { song in
+            self.titleContains(song.name, query: title) && (requestedArtist.isEmpty || (song.artists ?? []).contains { candidate in
+                let name = self.normalizedArtist(candidate.name)
+                return !name.isEmpty && (requestedArtist.contains(name) || name.contains(requestedArtist))
+            })
         }
-        return pool.min {
-            abs(($0.duration ?? 0) - Int(duration * 1000)) < abs(($1.duration ?? 0) - Int(duration * 1000))
+        guard !candidates.isEmpty else { return nil }
+        guard let duration, duration.isFinite, duration > 0 else {
+            return requiresCloseDurationMatch ? nil : candidates.first?.id
+        }
+        let tolerance = requiresCloseDurationMatch ? LRCLibProvider.closeDurationTolerance : 8
+        let matchingDurations: [SearchResponse.Song] = candidates.filter { song in
+            guard let candidateDuration = song.duration else { return false }
+            return abs(Double(candidateDuration) / 1000 - duration) <= tolerance
+        }
+        return matchingDurations.min {
+            abs(Double($0.duration ?? 0) / 1000 - duration) < abs(Double($1.duration ?? 0) / 1000 - duration)
         }?.id
+    }
+
+    /// Compares artist names independently of case, width, accents and punctuation.
+    private static func normalizedArtist(_ artist: String) -> String {
+        artist.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+            .filter { $0.isLetter || $0.isNumber }
     }
 
     /// Case-insensitive containment check with whitespace removed, so
     /// "(深情版)" style suffixes and spacing variants still match.
     private static func titleContains(_ songName: String, query: String) -> Bool {
+        /// Removes spacing differences while retaining title suffixes used for containment matching.
         func squash(_ value: String) -> String {
             value.lowercased().components(separatedBy: .whitespaces).joined()
         }
@@ -141,6 +177,7 @@ final class NetEaseProvider: LyricsProvider {
         let yrc: String?
     }
 
+    /// Fetches both lyric formats using the existing public mobile eapi request.
     private static func fetchLyricSections(songID: Int) async -> LyricSections? {
         let body: [String: Any] = [
             "id": "\(songID)",
@@ -165,6 +202,7 @@ final class NetEaseProvider: LyricsProvider {
         guard let params = aesEapiEncryptHex(Data(eapiData.utf8)) else { return nil }
 
         var request = URLRequest(url: eapiURL)
+        request.timeoutInterval = 8
         request.httpMethod = "POST"
         request.httpShouldHandleCookies = false
         request.setValue(
@@ -186,6 +224,7 @@ final class NetEaseProvider: LyricsProvider {
             return nil
         }
 
+        // Skips absent lyric formats so the next supported format can be tried.
         func lyricString(_ key: String) -> String? {
             guard let section = json[key] as? [String: Any],
                   let lyric = section["lyric"] as? String,
@@ -272,6 +311,7 @@ final class NetEaseProvider: LyricsProvider {
 
         var syllables: [YRCSyllable] = []
         for (index, match) in markers.enumerated() {
+            /// Converts a matched timing capture to its source text.
             func group(_ index: Int) -> String {
                 let range = Range(match.range(at: index), in: remainder)!
                 return String(remainder[range])
@@ -327,6 +367,7 @@ final class NetEaseProvider: LyricsProvider {
         }
     }
 
+    /// Decodes JSON lyric lines and derives each line duration from its successor.
     private static func parseNetEaseJSONLyrics(_ raw: String) -> [SyncedLyricLine]? {
         let decoder = JSONDecoder()
         var lines: [SyncedLyricLine] = []

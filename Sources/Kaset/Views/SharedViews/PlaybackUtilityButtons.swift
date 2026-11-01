@@ -75,7 +75,7 @@ struct MiniPlayerToggleButton: View {
         )
         .contextMenu {
             Button(self.player.showVideo ? String(localized: "Hide Video") : String(localized: "Video"), action: self.toggleVideo)
-                .disabled(!self.player.canShowCurrentTrackVideo)
+                .disabled(!self.player.showVideo && !self.player.canShowLoadedTrackVideo)
         }
         .background {
             // A default macOS Button draws a bezel even with an empty label.
@@ -85,12 +85,13 @@ struct MiniPlayerToggleButton: View {
                 .accessibilityHidden(true)
                 .allowsHitTesting(false)
                 .keyboardShortcut("v", modifiers: [.command, .shift])
-                .disabled(!self.player.canShowCurrentTrackVideo)
+                .disabled(!self.player.showVideo && !self.player.canShowLoadedTrackVideo)
         }
     }
 
+    /// Closing stays available even when extraction temporarily hides video-availability evidence.
     private func toggleVideo() {
-        guard self.player.canShowCurrentTrackVideo else { return }
+        guard self.player.showVideo || self.player.canShowLoadedTrackVideo else { return }
         self.player.showVideo.toggle()
     }
 }

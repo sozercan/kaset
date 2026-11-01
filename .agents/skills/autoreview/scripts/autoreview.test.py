@@ -58,6 +58,42 @@ class AutoReviewHelperTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             autoreview.redact_review_text(prefixed_secret_identifier_call)
 
+    def test_rejects_unquoted_dotted_credential_values(self) -> None:
+        for field in ("password", "token", "apiKey", "credential"):
+            with self.subTest(field=field):
+                output = autoreview.redact_review_text(f"{field}: Mock.Secret1234")
+                self.assertNotIn("Mock.Secret1234", output)
+                self.assertIn("[REDACTED_FIELD_SECRET]", output)
+
+    def test_rejects_bare_credential_declaration_values(self) -> None:
+        for declaration in ("let", "var", "const"):
+            for field in ("password", "token", "apiKey", "credential"):
+                text = f"{declaration} {field} = MockSecret1234"
+                with self.subTest(text=text), self.assertRaises(SystemExit):
+                    autoreview.redact_review_text(text)
+
+    def test_rejects_credential_values_that_only_start_like_references(self) -> None:
+        for value in ("user.passwordHash.MockSecret1234", "config.apiKey+MockSecret1234"):
+            with self.subTest(value=value):
+                self.assertNotIn(value, autoreview.redact_review_text(f"password: {value}"))
+
+    def test_redacts_unknown_member_references_instead_of_exempting_them(self) -> None:
+        output = autoreview.redact_review_text("feedbackTokens: menuData.feedbackTokens,")
+        self.assertIn("[REDACTED_FIELD_SECRET]", output)
+        self.assertNotIn("menuData.feedbackTokens", output)
+
+    def test_redacts_complete_member_call_assignment_including_arguments(self) -> None:
+        text = 'let tokens = normalized.components(separatedBy: "mock-secret-argument")\nnext line'
+        output = autoreview.redact_review_text(text)
+        self.assertNotIn("mock-secret-argument", output)
+        self.assertNotIn("normalized.components", output)
+        self.assertIn("[REDACTED_CODE_SECRET_ASSIGNMENT]", output)
+        self.assertIn("next line", output)
+
+    def test_keeps_known_member_references_and_optional_nil_types(self) -> None:
+        text = "return { password: user.passwordHash, apiKey: config.apiKey };\nvar token: String? = nil"
+        self.assertEqual(autoreview.redact_review_text(text), text)
+
     def test_redacts_colon_style_quoted_secret_values_with_spaces(self) -> None:
         output = autoreview.redact_review_text('password: "mock secret phrase value"\n{"api_key": "mock api key value"}')
 
