@@ -54,6 +54,7 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
     var tint: Color?
     let shape: S
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         // The glass surface is rendered by glassEffect/GlassEffectContainer in
         // its own layer and is not hit-testable, so hover would leak through
@@ -94,6 +95,7 @@ private struct CompatGlassIDModifier: ViewModifier {
     let id: String
     let namespace: Namespace.ID
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             content.glassEffectID(self.id, in: self.namespace)
@@ -110,6 +112,7 @@ private struct CompatGlassTransitionModifier: ViewModifier {
 
     let transition: CompatGlassTransition
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             switch self.transition {
@@ -127,6 +130,7 @@ private struct CompatGlassTransitionModifier: ViewModifier {
 private struct CompatGlassProminentButtonModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             content.buttonStyle(.glassProminent)
@@ -158,6 +162,7 @@ struct CompatGlassContainer<Content: View>: View {
 private struct CompatTranslucentSidebarModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             // macOS 26: reveal the system floating Liquid Glass.

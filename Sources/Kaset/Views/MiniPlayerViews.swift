@@ -10,6 +10,7 @@ private struct MiniPlayerTransportButtonStyle: ButtonStyle {
     @State private var isHovering = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    /// Provides bounded hover and press feedback that respects Reduce Motion.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {
@@ -447,6 +448,7 @@ struct MiniPlayerWindow: View {
         .shadow(color: .black.opacity(0.36), radius: 16, y: 6)
     }
 
+    /// Reveals auxiliary controls without changing their layout allocation.
     private func hoverOnly(@ViewBuilder content: () -> some View) -> some View {
         content()
             .opacity(self.isHovering ? 1 : 0)
@@ -470,6 +472,7 @@ struct MiniPlayerWindow: View {
         .accessibilityLabel(accessibilityLabel)
     }
 
+    /// Builds a labeled mini-player utility action with track-availability gating.
     private func hoverIconButton(systemName: String, accessibilityID: String, label: String, isActive: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             MiniPlayerGlassIconLabel(systemName: systemName, isActive: isActive, size: 22)
@@ -676,6 +679,7 @@ struct MiniPlayerWindow: View {
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.trackArtist)
     }
 
+    /// Groups playback transport actions in a consistently sized mini-player row.
     private func transportControls(playSize: CGFloat, sideSize: CGFloat) -> some View {
         HStack(spacing: 0) {
             self.transportButton(
@@ -730,6 +734,7 @@ struct MiniPlayerWindow: View {
         }
     }
 
+    /// Builds one labeled transport action with a fixed hit target.
     private func transportButton(
         systemName: String,
         size: CGFloat,

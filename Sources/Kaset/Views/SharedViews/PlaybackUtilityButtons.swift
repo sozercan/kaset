@@ -74,6 +74,7 @@ struct MiniPlayerToggleButton: View {
         }
     }
 
+    /// Closes an active video even if availability changes, gating only entry into video.
     private func toggleVideo() {
         guard self.player.canShowCurrentTrackVideo else { return }
         self.player.showVideo.toggle()

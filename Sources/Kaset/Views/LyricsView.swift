@@ -687,6 +687,7 @@ struct LyricsView: View {
 
     // MARK: - Data Loading
 
+    /// Loads recording-specific timed lyrics and falls back to the current track’s plain lyrics.
     @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId

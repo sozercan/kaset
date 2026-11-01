@@ -27,6 +27,7 @@ struct InteractiveCardStyle: ButtonStyle {
         self.showShadow || self.hoverScale != 1
     }
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         let label = configuration.label
@@ -74,6 +75,7 @@ struct InteractiveRowStyle: ButtonStyle {
 
     @State private var isHovering = false
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         if self.isHovered == nil {
@@ -115,6 +117,7 @@ struct PressableButtonStyle: ButtonStyle {
     /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && !self.reduceMotion ? self.pressScale : 1.0)
@@ -138,6 +141,7 @@ struct ChipButtonStyle: ButtonStyle {
 
     @State private var isHovering = false
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .background {

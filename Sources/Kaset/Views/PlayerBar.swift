@@ -228,6 +228,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .playerBarTitleHoverAffordance()
     }
 
+    /// Toggles the expanded player only when a current track is available.
     private func toggleNowPlayingShowcase() {
         guard self.playerService.currentTrack != nil else { return }
         HapticService.toggle()
@@ -649,6 +650,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
 
     // MARK: - Error View
 
+    /// Presents a playback error within the transport lane.
     private func errorView(message: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -738,6 +740,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    /// Navigates to the resolved artist without applying stale lookup results.
     private func openCurrentArtist() {
         guard self.canOpenCurrentArtist, !self.isResolvingArtist else { return }
         HapticService.toggle()
@@ -763,6 +766,7 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    /// Navigates to the resolved album without applying stale lookup results.
     private func openCurrentAlbum() {
         guard self.canOpenCurrentAlbum, !self.isResolvingAlbum else { return }
         HapticService.toggle()

@@ -178,6 +178,7 @@ struct LibraryView: View {
         }
     }
 
+    /// Builds a library-category filter with the selected state reflected in its appearance.
     private func filterChip(_ filter: LibraryFilter) -> some View {
         let isSelected = self.selectedFilter == filter
 
@@ -232,8 +233,7 @@ struct LibraryView: View {
         return [.uploadedSongs(uploadedSongsPlaylist)]
     }
 
-    @ViewBuilder
-    private var libraryGrid: some View {
+    @ViewBuilder private var libraryGrid: some View {
         if self.filteredItems.isEmpty {
             self.emptyStateView
         } else {

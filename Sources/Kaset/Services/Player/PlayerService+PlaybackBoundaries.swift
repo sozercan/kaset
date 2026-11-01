@@ -36,6 +36,7 @@ extension PlayerService {
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
+    /// Clears playback and account-owned queue state before crossing an authentication boundary.
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
         self.accountSessionGeneration &+= 1
         self.songLikeStatusManager.invalidateSession()

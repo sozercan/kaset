@@ -4,6 +4,20 @@ import Testing
 
 @MainActor
 struct CodeRabbitPresentationTests {
+    @Test("Pin movement skips shortcuts hidden by library deduplication")
+    func moveVisiblePins() {
+        let manager = SidebarPinnedItemsManager(skipLoad: true)
+        let first = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "first"))
+        let hidden = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "hidden"))
+        let last = SidebarPinnedItem.from(TestFixtures.makePlaylist(id: "last"))
+        manager.reset(with: [first, hidden, last])
+        let visible: Set<String> = [first.contentId, last.contentId]
+        manager.moveUp(contentId: last.contentId, visibleContentIds: visible)
+        #expect(manager.items == [last, hidden, first])
+        manager.moveDown(contentId: last.contentId, visibleContentIds: visible)
+        #expect(manager.items == [first, hidden, last])
+    }
+
     @Test("Library duplicates hide a pin without deleting external shortcuts")
     func visiblePinsPreserveSavedItems() {
         let manager = SidebarPinnedItemsManager(skipLoad: true)
