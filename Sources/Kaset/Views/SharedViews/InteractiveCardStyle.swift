@@ -107,6 +107,8 @@ struct InteractiveRowStyle: ButtonStyle {
 
 /// A button style that provides subtle press feedback for icon buttons.
 struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Scale factor when pressed.
     var pressScale: CGFloat = 0.9
 
@@ -115,9 +117,9 @@ struct PressableButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? self.pressScale : 1.0)
+            .scaleEffect(configuration.isPressed && !self.reduceMotion ? self.pressScale : 1.0)
             .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .animation(AppAnimation.quick, value: configuration.isPressed)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed, let feedback = hapticFeedback {
                     HapticService.perform(feedback)

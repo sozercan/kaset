@@ -179,7 +179,7 @@ struct NowPlayingShowcaseView: View {
             .offset(x: -12)
             .onHover { self.isHoveringResize = $0 }
             .gesture(
-                DragGesture(minimumDistance: 1)
+                DragGesture(minimumDistance: 1, coordinateSpace: .global)
                     .onChanged { value in
                         if self.dragStartWidth == nil {
                             self.dragStartWidth = width
@@ -344,11 +344,18 @@ private struct PlayerBarTitleHoverAffordance: ViewModifier {
             .opacity(self.isHovered ? 1.0 : 0.88)
             .animation(AppAnimation.quick, value: self.isHovered)
             .onHover { hovering in
+                guard hovering != self.isHovered else { return }
                 self.isHovered = hovering
                 if hovering {
                     NSCursor.pointingHand.push()
                 } else {
                     NSCursor.pop()
+                }
+            }
+            .onDisappear {
+                if self.isHovered {
+                    NSCursor.pop()
+                    self.isHovered = false
                 }
             }
     }

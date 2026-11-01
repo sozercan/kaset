@@ -47,6 +47,7 @@ final class SidebarPinnedItemsManager {
         }
     }
 
+    /// Restores every persisted pin; library duplicate suppression belongs to the sidebar presentation.
     func load() {
         do {
             guard FileManager.default.fileExists(atPath: self.fileURL.path) else {
@@ -56,18 +57,19 @@ final class SidebarPinnedItemsManager {
 
             let data = try Data(contentsOf: self.fileURL)
             let decoded = try JSONDecoder().decode([SidebarPinnedItem].self, from: data)
-            // Playlist pins are superseded by the auto-synced library playlist
-            // list in the sidebar; only album pins remain meaningful.
-            self.items = decoded.filter {
-                if case .album = $0.itemType {
-                    return true
-                }
-                return false
-            }
+            self.items = decoded
             DiagnosticsLogger.ui.info("Loaded \(decoded.count) decoded, \(self.items.count) kept sidebar pinned items")
         } catch {
             DiagnosticsLogger.ui.error("Failed to load sidebar pinned items: \(error.localizedDescription)")
             self.items = []
+        }
+    }
+
+    /// Keeps saved external shortcuts visible, suppressing only playlists already shown by the library.
+    func visibleItems(libraryPlaylistIDs: Set<String>) -> [SidebarPinnedItem] {
+        self.items.filter { item in
+            guard case let .playlist(playlist) = item.itemType else { return true }
+            return !LibraryContentIdentity.containsPlaylist(playlist.id, in: libraryPlaylistIDs)
         }
     }
 

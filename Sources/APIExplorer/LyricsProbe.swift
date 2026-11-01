@@ -10,11 +10,29 @@ import Foundation
 // Commands:
 //   lyrics-probe musixmatch-token    - Fetch a keyless Musixmatch usertoken
 //   lyrics-probe musixmatch <query>  - Search Musixmatch and dump richsync shape
+//   lyrics-probe musixmatch-web <track> <artist> - Probe the signed web search
 //   lyrics-probe netease <query>     - Search NetEase and dump yrc/klyric/lrc shape
+//   lyrics-probe netease-eapi <songID> - Probe encrypted word-timing requests
+//   lyrics-probe kugou <query>       - Search KuGou and inspect timed lyrics
 //   lyrics-probe translate <text> [targetLang]
 //
-// All requests are GET-only and never mutate account data. Tokens are printed
-// REDACTED.
+// Probes use GET and read-only POST requests and never mutate account data.
+// Tokens are printed REDACTED.
+
+/// Encodes each query component independently, including literal query separators and plus signs.
+func lyricsProbeEncodedQuery(_ items: [URLQueryItem]) -> String {
+    let unreserved = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+    return items.map { item in
+        let name = item.name.addingPercentEncoding(withAllowedCharacters: unreserved) ?? ""
+        let value = (item.value ?? "").addingPercentEncoding(withAllowedCharacters: unreserved) ?? ""
+        return "\(name)=\(value)"
+    }.joined(separator: "&")
+}
+
+/// Serializes synthetic client-cookie fields as deterministic HTTP name/value pairs.
+func lyricsProbeCookieHeader(_ fields: [String: String]) -> String {
+    fields.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
+}
 
 private let musixmatchBaseURL = "https://apic-desktop.musixmatch.com/ws/1.1/"
 private let musixmatchAppID = "web-desktop-app-v1.0"
@@ -264,22 +282,20 @@ private func probeMusixmatch(query: [String]) async {
         // Mirrors pear-desktop's provider shape exactly: plain query params, no
         // signature, Chrome UA, x-mxm-user-id= cookie.
         var macroQuery = [
-            "app_id=\(musixmatchAppID)",
-            "format=json",
-            "usertoken=\(token)",
-            "q_track=\(track)",
-            "q_artist=\(artist)",
-            "q_duration=\(query.count >= 5 ? query[4] : "0")",
-            "user_language=en",
-            "namespace=lyrics_richsynched",
-            "subtitle_format=lrc",
+            URLQueryItem(name: "app_id", value: musixmatchAppID),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "usertoken", value: token),
+            URLQueryItem(name: "q_track", value: track),
+            URLQueryItem(name: "q_artist", value: artist),
+            URLQueryItem(name: "q_duration", value: query.count >= 5 ? query[4] : "0"),
+            URLQueryItem(name: "user_language", value: "en"),
+            URLQueryItem(name: "namespace", value: "lyrics_richsynched"),
+            URLQueryItem(name: "subtitle_format", value: "lrc"),
         ]
         if let album = query.count >= 4 ? query[3] : nil {
-            macroQuery.insert("q_album=\(album)", at: 5)
+            macroQuery.insert(URLQueryItem(name: "q_album", value: album), at: 5)
         }
-        let macroQueryEncoded = macroQuery
-            .map { $0.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? $0 }
-            .joined(separator: "&")
+        let macroQueryEncoded = lyricsProbeEncodedQuery(macroQuery)
         guard let macroURL = URL(string: musixmatchBaseURL + "macro.subtitles.get?" + macroQueryEncoded) else {
             print("❌ Could not build request")
             return
@@ -388,6 +404,8 @@ private func probeNetEase(query: [String]) async {
         }
 
         print("first song: id=\(songID), name=\(first["name"] ?? "<nil>")")
+        let artists = first["artists"] as? [[String: Any]] ?? []
+        print("artist schema: artists=[object], names=\(artists.compactMap { $0["name"] as? String }), durationMs=\(first["duration"] ?? "<nil>")")
 
         // Also probe the canonical track when provided (covers often shadow the original).
         if let overrideID = query.count >= 3 ? Int(query[2]) : nil {
@@ -556,7 +574,7 @@ private func probeNetEaseEapi(_ args: [String]) async {
         forHTTPHeaderField: "User-Agent"
     )
     request.setValue(
-        headerObject.map { "\($0)=\($0.1)" }.joined(separator: "; "),
+        lyricsProbeCookieHeader(headerObject),
         forHTTPHeaderField: "Cookie"
     )
     request.setValue(
@@ -692,9 +710,10 @@ private func probeKuGou(_ args: [String]) async {
     }
 }
 
+/// Dispatches all read-only lyric probes without writing account state.
 func runLyricsProbe(_ args: [String]) async {
     guard let mode = args.first else {
-        print("❌ Usage: lyrics-probe <musixmatch-token|musixmatch|netease|translate> [args]")
+        print("❌ Usage: lyrics-probe <musixmatch-token|musixmatch|musixmatch-web|netease|netease-eapi|kugou|translate> [args]")
         return
     }
 
@@ -707,9 +726,13 @@ func runLyricsProbe(_ args: [String]) async {
         // Signed web flow: track.richsync.get with track_id from track.search
         let track = args.count >= 2 ? args[1] : "Shape of You"
         let artist = args.count >= 3 ? args[2] : "Ed Sheeran"
-        let q = "app_id=web-desktop-app-v1.0&format=json&q_track=\(track)&q_artist=\(artist)"
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed)!
-        await musixmatchWebRequest(method: "track.search", query: q.replacingOccurrences(of: "%20", with: "+"))
+        let q = lyricsProbeEncodedQuery([
+            URLQueryItem(name: "app_id", value: musixmatchAppID),
+            URLQueryItem(name: "format", value: "json"),
+            URLQueryItem(name: "q_track", value: track),
+            URLQueryItem(name: "q_artist", value: artist),
+        ])
+        await musixmatchWebRequest(method: "track.search", query: q)
     case "netease":
         await probeNetEase(query: args)
     case "netease-eapi":

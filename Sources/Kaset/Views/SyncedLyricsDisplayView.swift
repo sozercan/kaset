@@ -47,7 +47,8 @@ struct SyncedLyricsDisplayView: View {
                             onTap: { self.onSeek(line.timeInMs) },
                             translation: self.lineTranslations[line.id],
                             fontSizeScale: self.fontSizeScale,
-                            displayTimeProvider: self.karaokeTimeMs
+                            displayTimeProvider: self.karaokeTimeMs,
+                            isPlaying: self.isPlaying
                         )
                         .id(line.id)
                     }
@@ -125,6 +126,9 @@ struct SyncedLineView: View {
     /// Live playback time for karaoke highlighting; nil when no time source.
     var displayTimeProvider: (() -> Int)?
 
+    /// Suspends display-link redraws while playback is paused.
+    var isPlaying = true
+
     /// Base font sizes at scale 1. Every line is laid out at the same size
     /// regardless of status, so text never re-wraps when a line becomes
     /// current; inactive lines are visually scaled down instead.
@@ -188,10 +192,11 @@ struct SyncedLineView: View {
         if self.status == .current,
            let words = self.line.words,
            !words.isEmpty,
-           let displayTimeProvider = self.displayTimeProvider
+           let displayTimeProvider = self.displayTimeProvider,
+           let spans = self.wordSpans()
         {
-            TimelineView(.animation) { _ in
-                let attributed = self.karaokeAttributedString(at: displayTimeProvider())
+            TimelineView(.animation(paused: !self.isPlaying)) { _ in
+                let attributed = self.karaokeAttributedString(at: displayTimeProvider(), spans: spans)
                 Text(attributed)
                     .font(.system(size: self.originalFontSize, weight: .semibold, design: .default))
             }
@@ -230,11 +235,7 @@ struct SyncedLineView: View {
 
     /// Karaoke styling: unsung text dimmed, sung text bright, the currently
     /// sung syllable additionally underlined. Layout never changes.
-    private func karaokeAttributedString(at timeMs: Int) -> AttributedString {
-        guard let spans = self.wordSpans() else {
-            return AttributedString(self.line.text)
-        }
-
+    private func karaokeAttributedString(at timeMs: Int, spans: [WordSpan]) -> AttributedString {
         var activeIndex: Int?
         for (index, span) in spans.enumerated() where span.word.timeInMs <= timeMs {
             activeIndex = index

@@ -58,3 +58,9 @@
 "Hide Panel" = "Hide Panel";
 "Hide Video" = "Hide Video";
 "Couldn't load recommendations." = "Couldn't load recommendations.";
+
+// Catalog parity
+"Pronunciation" = "Pronunciation";
+"Translation" = "Translation";
+"Translate To" = "Translate To";
+"Lyrics Display Options" = "Lyrics Display Options";

@@ -109,10 +109,7 @@ extension PlaylistDetailView {
 
     @ViewBuilder
     private func sidebarButton(_ detail: PlaylistDetail, showsTitles: Bool) -> some View {
-        // Playlists are auto-listed from the library in the sidebar; only
-        // albums remain pinnable (SidebarPinnedItemsManager drops playlist
-        // pins on load).
-        if self.hasPersonalAccount, detail.isAlbum, let sidebarItem = SidebarPinnedItem.from(detail) {
+        if self.hasPersonalAccount, let sidebarItem = SidebarPinnedItem.from(detail) {
             let isPinnedToSidebar = self.sidebarPinnedItemsManager?.isPinned(sidebarItem) ?? false
             Button {
                 self.sidebarPinnedItemsManager?.toggle(sidebarItem)

@@ -66689,6 +66689,12 @@
             "state": "translated",
             "value": "發音"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pronunciation"
+          }
         }
       }
     },
@@ -66795,6 +66801,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "翻譯"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translation"
           }
         }
       }
@@ -66903,6 +66915,12 @@
             "state": "translated",
             "value": "翻譯為"
           }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Translate To"
+          }
         }
       }
     },
@@ -67009,6 +67027,12 @@
           "stringUnit": {
             "state": "translated",
             "value": "歌詞顯示選項"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lyrics Display Options"
           }
         }
       }
