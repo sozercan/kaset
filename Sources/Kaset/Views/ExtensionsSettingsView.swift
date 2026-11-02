@@ -296,32 +296,42 @@ private struct ExtensionPermissionReviewView: View {
         VStack(spacing: 0) {
             self.header
 
-            ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
-                    Text(String(localized: "When turned on, it can:"))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
+            ViewThatFits(in: .vertical) {
+                self.reviewContent
+                    .fixedSize(horizontal: false, vertical: true)
 
-                    self.accessSummary
-
-                    Text(self.privacyNotice)
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    self.technicalDetails
+                ScrollView {
+                    self.reviewContent
                 }
-                .padding(.horizontal, 24)
-                .padding(.bottom, 20)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .scrollBounceBehavior(.basedOnSize)
             }
-            .scrollBounceBehavior(.basedOnSize)
+            .frame(maxHeight: .infinity, alignment: .top)
 
             Divider()
             self.footer
         }
         .frame(width: 480, height: 540)
         .interactiveDismissDisabled(self.isApproving)
+    }
+
+    private var reviewContent: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(String(localized: "When turned on, it can:"))
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            self.accessSummary
+
+            Text(self.privacyNotice)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            self.technicalDetails
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var header: some View {
@@ -345,7 +355,8 @@ private struct ExtensionPermissionReviewView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(24)
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
     }
 
     private var privacyNotice: String {
@@ -478,6 +489,6 @@ private struct ExtensionPermissionReviewView: View {
             .disabled(self.isApproving)
         }
         .padding(.horizontal, 24)
-        .padding(.vertical, 20)
+        .padding(.vertical, 16)
     }
 }
