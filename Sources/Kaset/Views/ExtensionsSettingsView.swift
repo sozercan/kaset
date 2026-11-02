@@ -10,6 +10,9 @@ struct ExtensionsSettingsView: View {
     @State private var showRestartAlert = false
     @State private var pendingChangeDescription = ""
     @State private var configuringExtensionPage: WebKitManager.ExtensionPage?
+    @State private var permissionReview: ExtensionPermissionReview?
+    @State private var isReviewingPermissions = false
+    @State private var extensionError: String?
 
     var body: some View {
         ScrollView {
@@ -52,7 +55,7 @@ struct ExtensionsSettingsView: View {
 
                         Button {
                             Task { @MainActor in
-                                self.presentOpenPanel()
+                                await self.presentOpenPanel()
                             }
                         } label: {
                             Label(String(localized: "Add Extension…"), systemImage: "plus.circle")
@@ -90,6 +93,19 @@ struct ExtensionsSettingsView: View {
         }
         .frame(minWidth: 460, minHeight: 400)
         .navigationTitle(String(localized: "Extensions"))
+        .disabled(self.isReviewingPermissions)
+        .alert(String(localized: "Extension Error"), isPresented: Binding(
+            get: { self.extensionError != nil },
+            set: {
+                if !$0 {
+                    self.extensionError = nil
+                }
+            }
+        )) {
+            Button(String(localized: "OK")) { self.extensionError = nil }
+        } message: {
+            Text(self.extensionError ?? "")
+        }
         .alert("Restart Required", isPresented: self.$showRestartAlert) {
             Button(String(localized: "Later")) {}
             Button(String(localized: "Restart Now")) {
@@ -112,6 +128,25 @@ struct ExtensionsSettingsView: View {
                     }
             }
         }
+        .sheet(item: self.$permissionReview) { review in
+            ExtensionPermissionReviewView(review: review, isApproving: self.isReviewingPermissions) {
+                self.permissionReview = nil
+            } approve: {
+                Task { @MainActor in
+                    self.isReviewingPermissions = true
+                    defer { self.isReviewingPermissions = false }
+                    do {
+                        try await self.manager.approveExtension(review)
+                        self.permissionReview = nil
+                        self.pendingChangeDescription = "\"\(review.name)\""
+                        self.showRestartAlert = true
+                    } catch {
+                        self.permissionReview = nil
+                        self.extensionError = error.localizedDescription
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - Extension Row
@@ -126,19 +161,25 @@ struct ExtensionsSettingsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(ext.name)
                     .font(.body)
-                Text(ext.isEnabled ? "Enabled" : "Disabled")
+                Text(ext.approvedPermissions == nil ? String(localized: "Review Required") : String(localized: ext.isEnabled ? "Enabled" : "Disabled"))
                     .font(.caption)
                     .foregroundStyle(ext.isEnabled ? .green : .secondary)
             }
 
             Spacer()
 
-            Toggle("", isOn: Binding(
+            Toggle(ext.name, isOn: Binding(
                 get: { ext.isEnabled },
                 set: { _ in
-                    self.manager.toggleExtension(id: ext.id)
-                    self.pendingChangeDescription = "\"\(ext.name)\""
-                    self.showRestartAlert = true
+                    if ext.isEnabled {
+                        self.manager.disableExtension(id: ext.id)
+                        self.pendingChangeDescription = "\"\(ext.name)\""
+                        self.showRestartAlert = true
+                    } else {
+                        Task { @MainActor in
+                            await self.reviewPermissions(id: ext.id)
+                        }
+                    }
                 }
             ))
             .labelsHidden()
@@ -173,7 +214,7 @@ struct ExtensionsSettingsView: View {
     /// Shows an NSOpenPanel to pick an extension directory.
     /// `beginSheetModal` silently fails on SwiftUI Settings TabView windows,
     /// so we use `runModal()` with explicit panel activation.
-    private func presentOpenPanel() {
+    private func presentOpenPanel() async {
         DiagnosticsLogger.extensions.info("presentOpenPanel() called")
 
         let panel = NSOpenPanel()
@@ -189,12 +230,22 @@ struct ExtensionsSettingsView: View {
         guard response == .OK, let url = panel.url else { return }
 
         do {
-            try self.manager.addExtension(at: url)
-            self.pendingChangeDescription = "The new extension"
-            self.showRestartAlert = true
+            let id = try self.manager.addExtension(at: url)
+            await self.reviewPermissions(id: id)
         } catch {
             let errorDesc = error.localizedDescription
             DiagnosticsLogger.extensions.error("Failed to add extension: \(errorDesc, privacy: .public)")
+            self.extensionError = errorDesc
+        }
+    }
+
+    private func reviewPermissions(id: String) async {
+        self.isReviewingPermissions = true
+        defer { self.isReviewingPermissions = false }
+        do {
+            self.permissionReview = try await self.manager.permissionReview(id: id)
+        } catch {
+            self.extensionError = error.localizedDescription
         }
     }
 
@@ -219,5 +270,64 @@ struct ExtensionsSettingsView: View {
             try? fallbackTask.run()
             NSApplication.shared.terminate(nil)
         }
+    }
+}
+
+// MARK: - ExtensionPermissionReviewView
+
+private struct ExtensionPermissionReviewView: View {
+    let review: ExtensionPermissionReview
+    let isApproving: Bool
+    let cancel: () -> Void
+    let approve: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(String(localized: "Review Extension Access"))
+                .font(.title2.bold())
+            Text(self.review.name)
+                .font(.headline)
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(String(localized: "Extensions can read signed-in page data and send data to other services. Only enable code you trust."))
+                    if self.review.permissions.permissions.contains("cookies") {
+                        Label(String(localized: "Cookie access can expose your Google session."), systemImage: "exclamationmark.shield")
+                    }
+                    if !self.review.permissions.websitePatterns.isEmpty {
+                        Text(String(localized: "Read and change pages on these websites:"))
+                            .font(.headline)
+                        ForEach(self.review.permissions.websitePatterns, id: \.self) { pattern in
+                            Text(verbatim: pattern)
+                                .font(.body.monospaced())
+                                .textSelection(.enabled)
+                        }
+                    }
+                    if !self.review.permissions.permissions.isEmpty {
+                        Text(String(localized: "Required API permissions:"))
+                            .font(.headline)
+                        ForEach(self.review.permissions.permissions, id: \.self) { permission in
+                            Text(verbatim: permission)
+                                .font(.body.monospaced())
+                        }
+                    }
+                    Text(String(localized: "Optional permissions are not granted. Changes to required access need another review."))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            HStack {
+                Spacer()
+                Button(String(localized: "Cancel"), action: self.cancel)
+                    .keyboardShortcut(.cancelAction)
+                Button(String(localized: "Allow and Enable"), action: self.approve)
+                    .buttonStyle(.borderedProminent)
+            }
+            .disabled(self.isApproving)
+        }
+        .padding(24)
+        .frame(width: 500, height: 480)
+        .interactiveDismissDisabled(self.isApproving)
     }
 }

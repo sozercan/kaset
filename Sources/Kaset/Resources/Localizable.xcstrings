@@ -66584,6 +66584,116 @@
           }
         }
       }
+    },
+    "The extension could not be read. Remove it and add it again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The extension could not be read. Remove it and add it again."
+          }
+        }
+      }
+    },
+    "The extension's access changed. Review it again before enabling it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The extension's access changed. Review it again before enabling it."
+          }
+        }
+      }
+    },
+    "Extension Error": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extension Error"
+          }
+        }
+      }
+    },
+    "Review Required": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review Required"
+          }
+        }
+      }
+    },
+    "Review Extension Access": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Review Extension Access"
+          }
+        }
+      }
+    },
+    "Extensions can read signed-in page data and send data to other services. Only enable code you trust.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Extensions can read signed-in page data and send data to other services. Only enable code you trust."
+          }
+        }
+      }
+    },
+    "Cookie access can expose your Google session.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cookie access can expose your Google session."
+          }
+        }
+      }
+    },
+    "Read and change pages on these websites:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read and change pages on these websites:"
+          }
+        }
+      }
+    },
+    "Required API permissions:": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Required API permissions:"
+          }
+        }
+      }
+    },
+    "Optional permissions are not granted. Changes to required access need another review.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Optional permissions are not granted. Changes to required access need another review."
+          }
+        }
+      }
+    },
+    "Allow and Enable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allow and Enable"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

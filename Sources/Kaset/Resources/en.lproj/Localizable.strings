@@ -52,3 +52,15 @@
 // App Intents (Shortcuts, Siri, Spotlight)
 "Playing %@ by %@." = "Playing %1$@ by %2$@.";
 "Now playing %@ by %@." = "Now playing %1$@ by %2$@.";
+
+"The extension could not be read. Remove it and add it again." = "The extension could not be read. Remove it and add it again.";
+"The extension's access changed. Review it again before enabling it." = "The extension's access changed. Review it again before enabling it.";
+"Extension Error" = "Extension Error";
+"Review Required" = "Review Required";
+"Review Extension Access" = "Review Extension Access";
+"Extensions can read signed-in page data and send data to other services. Only enable code you trust." = "Extensions can read signed-in page data and send data to other services. Only enable code you trust.";
+"Cookie access can expose your Google session." = "Cookie access can expose your Google session.";
+"Read and change pages on these websites:" = "Read and change pages on these websites:";
+"Required API permissions:" = "Required API permissions:";
+"Optional permissions are not granted. Changes to required access need another review." = "Optional permissions are not granted. Changes to required access need another review.";
+"Allow and Enable" = "Allow and Enable";
