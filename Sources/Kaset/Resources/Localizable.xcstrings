@@ -66625,36 +66625,6 @@
         }
       }
     },
-    "Review Extension Access": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Review Extension Access"
-          }
-        }
-      }
-    },
-    "Extensions can read signed-in page data and send data to other services. Only enable code you trust.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Extensions can read signed-in page data and send data to other services. Only enable code you trust."
-          }
-        }
-      }
-    },
-    "Cookie access can expose your Google session.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Cookie access can expose your Google session."
-          }
-        }
-      }
-    },
     "Read and change pages on these websites:": {
       "localizations": {
         "en": {
@@ -66685,32 +66655,482 @@
         }
       }
     },
-    "Allow and Enable": {
+    "When turned on, it can:": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Allow and Enable"
+            "value": "When turned on, it can:"
           }
         }
       }
     },
-    "Read and change cookies": {
+    "An extension can share the information it can access. Only turn it on if you trust it.": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Read and change cookies"
+            "value": "An extension can share the information it can access. Only turn it on if you trust it."
           }
         }
       }
     },
-    "Store extension data": {
+    "Turn on this extension?": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Store extension data"
+            "value": "Turn on this extension?"
+          }
+        }
+      }
+    },
+    "Read and change pages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read and change pages"
+          }
+        }
+      }
+    },
+    "Other access requested": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other access requested"
+          }
+        }
+      }
+    },
+    "Kaset can’t explain this request. Check Technical details before turning it on.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset can’t explain this request. Check Technical details before turning it on."
+          }
+        }
+      }
+    },
+    "No extra access requested": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No extra access requested"
+          }
+        }
+      }
+    },
+    "No webpage or sign-in access has been requested.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No webpage or sign-in access has been requested."
+          }
+        }
+      }
+    },
+    "Technical details": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Technical details"
+          }
+        }
+      }
+    },
+    "Takes effect after restarting Kaset.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Takes effect after restarting Kaset."
+          }
+        }
+      }
+    },
+    "Not Now": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Now"
+          }
+        }
+      }
+    },
+    "Turning On…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turning On…"
+          }
+        }
+      }
+    },
+    "Turn On": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Turn On"
+          }
+        }
+      }
+    },
+    "All websites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All websites"
+          }
+        }
+      }
+    },
+    "Webpages opened from files": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Webpages opened from files"
+          }
+        }
+      }
+    },
+    "YouTube Music": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music"
+          }
+        }
+      }
+    },
+    "All YouTube websites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All YouTube websites"
+          }
+        }
+      }
+    },
+    "Google sign-in": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google sign-in"
+          }
+        }
+      }
+    },
+    "All %@ websites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All %@ websites"
+          }
+        }
+      }
+    },
+    "Access your sign-in data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access your sign-in data"
+          }
+        }
+      }
+    },
+    "This could let it act as you on websites where you’re signed in.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This could let it act as you on websites where you’re signed in."
+          }
+        }
+      }
+    },
+    "Save information": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save information"
+          }
+        }
+      }
+    },
+    "Remember its settings and other data.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remember its settings and other data."
+          }
+        }
+      }
+    },
+    "Use more storage": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use more storage"
+          }
+        }
+      }
+    },
+    "Save data without the usual storage limit.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save data without the usual storage limit."
+          }
+        }
+      }
+    },
+    "Access the page you’re using": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access the page you’re using"
+          }
+        }
+      }
+    },
+    "Access a page after you interact with the extension.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Access a page after you interact with the extension."
+          }
+        }
+      }
+    },
+    "Run tasks later": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run tasks later"
+          }
+        }
+      }
+    },
+    "Schedule its own background tasks.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Schedule its own background tasks."
+          }
+        }
+      }
+    },
+    "Copy information": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy information"
+          }
+        }
+      }
+    },
+    "Replace what you last copied.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Replace what you last copied."
+          }
+        }
+      }
+    },
+    "Add menu options": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add menu options"
+          }
+        }
+      }
+    },
+    "Add its own actions to right-click menus.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add its own actions to right-click menus."
+          }
+        }
+      }
+    },
+    "See what’s open in Kaset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See what’s open in Kaset"
+          }
+        }
+      }
+    },
+    "Read the names and addresses of its webpages.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read the names and addresses of its webpages."
+          }
+        }
+      }
+    },
+    "Follow page changes": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Follow page changes"
+          }
+        }
+      }
+    },
+    "See when pages open or change in Kaset.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See when pages open or change in Kaset."
+          }
+        }
+      }
+    },
+    "See website connections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See website connections"
+          }
+        }
+      }
+    },
+    "See how pages connect to websites it can access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See how pages connect to websites it can access."
+          }
+        }
+      }
+    },
+    "Change website connections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change website connections"
+          }
+        }
+      }
+    },
+    "Block connections or send them to another website.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Block connections or send them to another website."
+          }
+        }
+      }
+    },
+    "See details of website connections": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See details of website connections"
+          }
+        }
+      }
+    },
+    "Check which connections matched its rules.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check which connections matched its rules."
+          }
+        }
+      }
+    },
+    "Change webpages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change webpages"
+          }
+        }
+      }
+    },
+    "Run its own code on websites it can access.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Run its own code on websites it can access."
+          }
+        }
+      }
+    },
+    "Talk to a companion app": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Talk to a companion app"
+          }
+        }
+      }
+    },
+    "Request a connection to its companion app.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request a connection to its companion app."
+          }
+        }
+      }
+    },
+    "It could read and share information shown while you’re signed in. Only turn it on if you trust it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "It could read and share information shown while you’re signed in. Only turn it on if you trust it."
           }
         }
       }

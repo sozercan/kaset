@@ -354,6 +354,29 @@ struct ExtensionsManagerTests {
         #expect(persisted.first?.isEnabled == false)
     }
 
+    @Test("Page access needs a sign-in notice even without cookie permission", arguments: ["content_scripts", "activeTab", "scripting", "none"])
+    func pageAccessNoticeDoesNotDependOnCookies(request: String) async throws {
+        let rootDirectory = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(rootDirectory) }
+        var manifest: [String: Any] = ["name": "Page Access", "manifest_version": 3]
+        if request == "content_scripts" {
+            manifest[request] = [["matches": ["https://music.youtube.com/*"], "js": ["content.js"]]]
+        } else if request != "none" {
+            manifest["permissions"] = [request]
+        }
+        let sourceURL = try self.makeExtensionSource(
+            in: rootDirectory,
+            folderName: "PageAccess",
+            manifest: manifest,
+            extraFiles: ["content.js": "// Test fixture"]
+        )
+        let manager = self.makeManager(in: rootDirectory)
+        let id = try manager.addExtension(at: sourceURL)
+        let review = try await manager.permissionReview(id: id)
+        #expect(!review.permissions.permissions.contains("cookies"))
+        #expect(review.permissions.requestsPageAccess == (request != "none"))
+    }
+
     @Test("A changed extension cannot load or reuse a stale approval", arguments: ["permissions", "host_permissions", "content_scripts", "legacy_hosts"])
     func changedPermissionsRequireReview(change: String) async throws {
         let rootDirectory = try self.makeTemporaryDirectory()
