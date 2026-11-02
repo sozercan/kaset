@@ -64,3 +64,5 @@
 "Required API permissions:" = "Required API permissions:";
 "Optional permissions are not granted. Changes to required access need another review." = "Optional permissions are not granted. Changes to required access need another review.";
 "Allow and Enable" = "Allow and Enable";
+"Read and change cookies" = "Read and change cookies";
+"Store extension data" = "Store extension data";

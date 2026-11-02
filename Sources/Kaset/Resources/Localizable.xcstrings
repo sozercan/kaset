@@ -66694,6 +66694,26 @@
           }
         }
       }
+    },
+    "Read and change cookies": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read and change cookies"
+          }
+        }
+      }
+    },
+    "Store extension data": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Store extension data"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

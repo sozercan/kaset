@@ -282,52 +282,184 @@ private struct ExtensionPermissionReviewView: View {
     let approve: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(String(localized: "Review Extension Access"))
-                .font(.title2.bold())
-            Text(self.review.name)
-                .font(.headline)
+        VStack(spacing: 0) {
+            self.header
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 20) {
                     Text(String(localized: "Extensions can read signed-in page data and send data to other services. Only enable code you trust."))
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
                     if self.review.permissions.permissions.contains("cookies") {
-                        Label(String(localized: "Cookie access can expose your Google session."), systemImage: "exclamationmark.shield")
-                    }
-                    if !self.review.permissions.websitePatterns.isEmpty {
-                        Text(String(localized: "Read and change pages on these websites:"))
-                            .font(.headline)
-                        ForEach(self.review.permissions.websitePatterns, id: \.self) { pattern in
-                            Text(verbatim: pattern)
-                                .font(.body.monospaced())
-                                .textSelection(.enabled)
+                        HStack(alignment: .top, spacing: 10) {
+                            Image(systemName: "exclamationmark.shield")
+                                .foregroundStyle(.orange)
+                                .accessibilityHidden(true)
+                            Text(String(localized: "Cookie access can expose your Google session."))
+                                .fixedSize(horizontal: false, vertical: true)
+                            Spacer(minLength: 0)
                         }
+                        .font(.callout)
+                        .padding(12)
+                        .background(Color.orange.opacity(0.08), in: .rect(cornerRadius: 12))
+                    }
+
+                    if !self.review.permissions.websitePatterns.isEmpty {
+                        self.websiteAccess
                     }
                     if !self.review.permissions.permissions.isEmpty {
-                        Text(String(localized: "Required API permissions:"))
-                            .font(.headline)
-                        ForEach(self.review.permissions.permissions, id: \.self) { permission in
-                            Text(verbatim: permission)
-                                .font(.body.monospaced())
-                        }
+                        self.apiAccess
                     }
-                    Text(String(localized: "Optional permissions are not granted. Changes to required access need another review."))
-                        .foregroundStyle(.secondary)
                 }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .scrollBounceBehavior(.basedOnSize)
 
-            HStack {
-                Spacer()
-                Button(String(localized: "Cancel"), action: self.cancel)
-                    .keyboardShortcut(.cancelAction)
-                Button(String(localized: "Allow and Enable"), action: self.approve)
-                    .buttonStyle(.borderedProminent)
+            Divider()
+            self.footer
+        }
+        .frame(width: 480, height: 600)
+        .interactiveDismissDisabled(self.isApproving)
+    }
+
+    private var header: some View {
+        HStack(spacing: 14) {
+            Image(systemName: "puzzlepiece.extension.fill")
+                .font(.system(size: 26, weight: .medium))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(.tint)
+                .frame(width: 52, height: 52)
+                .background(Color.accentColor.opacity(0.1), in: .rect(cornerRadius: 14))
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(String(localized: "Review Extension Access"))
+                    .font(.title3.weight(.semibold))
+                Text(self.review.name)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+                    .help(self.review.name)
             }
-            .disabled(self.isApproving)
+            Spacer(minLength: 0)
         }
         .padding(24)
-        .frame(width: 500, height: 480)
-        .interactiveDismissDisabled(self.isApproving)
+    }
+
+    private var websiteAccess: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "Read and change pages on these websites:"))
+                .font(.subheadline.weight(.semibold))
+
+            VStack(spacing: 0) {
+                ForEach(self.review.permissions.websitePatterns, id: \.self) { pattern in
+                    HStack(alignment: .top, spacing: 12) {
+                        Image(systemName: "globe")
+                            .foregroundStyle(.secondary)
+                            .frame(width: 20)
+                            .accessibilityHidden(true)
+                        Text(verbatim: pattern)
+                            .font(.system(.callout, design: .monospaced))
+                            .textSelection(.enabled)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(12)
+                    if pattern != self.review.permissions.websitePatterns.last {
+                        Divider().padding(.leading, 44)
+                    }
+                }
+            }
+            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+            }
+        }
+    }
+
+    private var apiAccess: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "Required API permissions:"))
+                .font(.subheadline.weight(.semibold))
+
+            VStack(spacing: 0) {
+                ForEach(self.review.permissions.permissions, id: \.self) { permission in
+                    self.permissionRow(permission)
+                    if permission != self.review.permissions.permissions.last {
+                        Divider().padding(.leading, 44)
+                    }
+                }
+            }
+            .background(Color(nsColor: .controlBackgroundColor), in: .rect(cornerRadius: 12))
+            .overlay {
+                RoundedRectangle(cornerRadius: 12)
+                    .strokeBorder(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+            }
+        }
+    }
+
+    private func permissionRow(_ permission: String) -> some View {
+        let presentation: (symbol: String, title: String) = switch permission {
+        case "cookies":
+            ("key.horizontal", String(localized: "Read and change cookies"))
+        case "storage":
+            ("internaldrive", String(localized: "Store extension data"))
+        default:
+            ("gearshape", permission)
+        }
+
+        return HStack(alignment: .top, spacing: 12) {
+            Image(systemName: presentation.symbol)
+                .foregroundStyle(permission == "cookies" ? Color.orange : Color.secondary)
+                .frame(width: 20, height: 18)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(verbatim: presentation.title)
+                    .font(.callout.weight(.medium))
+                if presentation.title != permission {
+                    Text(verbatim: permission)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(12)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(String(localized: "Optional permissions are not granted. Changes to required access need another review."))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                Spacer()
+                Button(String(localized: "Cancel"), action: self.cancel)
+                    .buttonStyle(.bordered)
+                    .keyboardShortcut(.cancelAction)
+                Button(action: self.approve) {
+                    HStack(spacing: 6) {
+                        if self.isApproving {
+                            ProgressView().controlSize(.small)
+                        }
+                        Text(String(localized: "Allow and Enable"))
+                    }
+                }
+                .compatGlassProminentButton()
+            }
+            .controlSize(.large)
+            .buttonBorderShape(.capsule)
+            .disabled(self.isApproving)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 20)
     }
 }
