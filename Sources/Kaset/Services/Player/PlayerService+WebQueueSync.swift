@@ -197,10 +197,10 @@ extension PlayerService {
     private func scheduleWebQueueInjectionRetry(videoId: String) {
         let sourceVideoId = self.expectedPlaybackVideoId
         let remaining = self.webQueueInjectionRetries.flatMap {
-            $0.videoId == videoId && $0.sourceVideoId == sourceVideoId ? $0.remaining : nil
+            $0.pair == (videoId, sourceVideoId) ? $0.remaining : nil
         } ?? 5
         guard remaining > 0 else { return }
-        self.webQueueInjectionRetries = (videoId, sourceVideoId, remaining - 1)
+        self.webQueueInjectionRetries = ((videoId, sourceVideoId), remaining - 1)
         Task {
             try? await Task.sleep(for: .seconds(2))
             guard self.injectedWebQueueVideoId == nil,

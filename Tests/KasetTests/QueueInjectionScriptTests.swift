@@ -434,21 +434,9 @@ struct QueueInjectionScriptTests {
         ("INSERT_AT_END", "play-next-item-not-found"),
     ])
     func identifiesPlayNextByEndpoint(insertPosition: String, expectedReason: String) throws {
-        let context = try #require(self.makeContext(
-            menuAvailableAfterLookup: 1,
-            itemLabel: "Riproduci a seguire",
-            insertPosition: insertPosition
-        ))
-
-        self.evaluate(
-            SingletonPlayerWebView.queueInjectionScript(
-                videoId: "target-video",
-                afterVideoId: "source-video"
-            ),
-            in: context
-        )
+        let context = try #require(self.makeContext(menuAvailableAfterLookup: 1, itemLabel: "Riproduci a seguire", insertPosition: insertPosition))
+        self.evaluate(SingletonPlayerWebView.queueInjectionScript(videoId: "target-video", afterVideoId: "source-video"), in: context)
         self.runTimersUntilMessage(in: context)
-
         #expect(context.evaluateScript("lastMessage.reason")?.toString() == expectedReason)
     }
 
