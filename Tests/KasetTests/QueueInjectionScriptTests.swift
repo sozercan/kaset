@@ -429,6 +429,29 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("bodyClickCount")?.toInt32() == 1)
     }
 
+    @Test("Play Next is identified by its endpoint when neither label nor icon matches", arguments: [
+        ("INSERT_AFTER_CURRENT_VIDEO", "queue-readback-confirmed"),
+        ("INSERT_AT_END", "play-next-item-not-found"),
+    ])
+    func identifiesPlayNextByEndpoint(insertPosition: String, expectedReason: String) throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            itemLabel: "Riproduci a seguire",
+            insertPosition: insertPosition
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context)
+
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == expectedReason)
+    }
+
     @Test("Delayed queue injection does not click after the source video changes")
     func rejectsChangedSourceVideo() throws {
         let context = try #require(self.makeContext(
@@ -519,6 +542,7 @@ struct QueueInjectionScriptTests {
         menuSelector: String = ".middle-controls-buttons.ytmusic-player-bar",
         clickMode: String = "insertTarget",
         itemLabel: String = "Play next",
+        insertPosition: String? = nil,
         originalVideoId: String = "source-video",
         currentVideoId: String? = nil,
         refreshMenuSourceOnTimer: Bool = false,
@@ -532,6 +556,8 @@ struct QueueInjectionScriptTests {
         let clickModeLiteral = SingletonPlayerWebView.javaScriptStringLiteral(clickMode)
         let menuSelectorLiteral = SingletonPlayerWebView.javaScriptStringLiteral(menuSelector)
         let itemLabelLiteral = SingletonPlayerWebView.javaScriptStringLiteral(itemLabel)
+        let insertPositionLiteral = insertPosition.map(SingletonPlayerWebView.javaScriptStringLiteral)
+            ?? "(\(itemLabelLiteral).toLowerCase().includes('next') ? 'INSERT_AFTER_CURRENT_VIDEO' : 'INSERT_AT_END')"
         let originalVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(originalVideoId)
         let currentVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(currentVideoId ?? originalVideoId)
         let initialQueueVideoIds = initialQueueVideoIds ?? [originalVideoId, "autoplay-video"]
@@ -636,8 +662,7 @@ struct QueueInjectionScriptTests {
                         clickTrackingParams: 'tracking',
                         queueAddEndpoint: {
                             queueTarget: originalQueueTarget,
-                            queueInsertPosition: \(itemLabelLiteral).toLowerCase().includes('next')
-                                ? 'INSERT_AFTER_CURRENT_VIDEO' : 'INSERT_AT_END',
+                            queueInsertPosition: \(insertPositionLiteral),
                             commands: []
                         }
                     }
