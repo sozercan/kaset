@@ -7,21 +7,15 @@ metadata:
 
 # API Exploration
 
-Use this skill when a task needs a new or modified YouTube Music API call, response parser validation, authenticated endpoint investigation, or fixture capture.
-
-## Guardrails
-
-- Always enhance `Sources/APIExplorer/main.swift`; do not write one-off scripts for endpoint exploration.
-- Never commit real cookies, SAPISID values, tokens, or account identifiers. Redact anything sensitive in notes, fixtures, and examples.
-- Prefer API endpoints over WebView whenever the functionality already exists in `YTMusicClient`.
-
 ## Workflow
 
-1. Start with `swift run api-explorer auth` if the task touches sign-in-backed endpoints.
+1. Run `swift run api-explorer auth` if the task touches sign-in-backed endpoints.
 2. Check what already exists with `swift run api-explorer list`.
-3. Probe the endpoint with `browse`, `action`, or `continuation` before touching production code.
-4. Save representative payloads with `-o` when parser work or regression tests need fixtures.
-5. Update `docs/api-discovery.md` if you confirm a new endpoint, parameter, or auth constraint.
+3. Probe the endpoint with `browse`, `action`, or `continuation` before touching production code. If the explorer can't express the request you need, add that capability to `Sources/APIExplorer/main.swift`.
+4. Save representative payloads with `-o` when parser work or regression tests need fixtures. `-o` and `-v` emit the raw response, which can include account names, emails, and channel IDs: write captures outside the repo, and redact them before they go into `Tests/KasetTests/Fixtures/` or get quoted in your output.
+5. Update `docs/api-discovery.md` when you confirm a new endpoint, parameter, or auth constraint.
+
+`action` sends a real request as the signed-in user. Read-only actions such as `search` are fine; for anything that changes account data (likes, playlist edits, subscriptions), prefer a captured, sanitized response or a disposable resource, and get explicit approval from the human before sending it live.
 
 ## Common Commands
 
