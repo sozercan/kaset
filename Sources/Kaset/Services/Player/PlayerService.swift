@@ -903,8 +903,8 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// or a new playback context supersedes it.
     var webQueueInjectionGeneration: Int = 0
 
-    /// Retries left for injecting a target whose source was not yet in YouTube Music's queue.
-    @ObservationIgnored var webQueueInjectionRetries: (videoId: String, remaining: Int)?
+    /// Retries left for injecting a target after a source that was not yet in YouTube Music's queue.
+    @ObservationIgnored var webQueueInjectionRetries: (videoId: String, sourceVideoId: String?, remaining: Int)?
 
     /// Video ID that Kaset just selected through deterministic queue navigation.
     /// WebView metadata can arrive out of order around manual/media-key skips; keep

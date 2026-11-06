@@ -195,9 +195,12 @@ extension PlayerService {
     }
 
     private func scheduleWebQueueInjectionRetry(videoId: String) {
-        let remaining = self.webQueueInjectionRetries.flatMap { $0.videoId == videoId ? $0.remaining : nil } ?? 5
+        let sourceVideoId = self.expectedPlaybackVideoId
+        let remaining = self.webQueueInjectionRetries.flatMap {
+            $0.videoId == videoId && $0.sourceVideoId == sourceVideoId ? $0.remaining : nil
+        } ?? 5
         guard remaining > 0 else { return }
-        self.webQueueInjectionRetries = (videoId, remaining - 1)
+        self.webQueueInjectionRetries = (videoId, sourceVideoId, remaining - 1)
         Task {
             try? await Task.sleep(for: .seconds(2))
             guard self.injectedWebQueueVideoId == nil,
@@ -265,6 +268,7 @@ extension PlayerService {
         }
 
         self.injectedWebQueueVideoId = videoId
+        self.webQueueInjectionRetries = nil
         self.logger.info("Synced web queue: confirmed \(videoId) to play next natively")
     }
 
