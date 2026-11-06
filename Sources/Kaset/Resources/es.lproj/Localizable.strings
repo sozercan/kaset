@@ -216,6 +216,7 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset funciona sin iniciar sesión para explorar, buscar y reproducir contenido público. Inicia sesión para acceder a tus colecciones personales de música.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset funciona sin iniciar sesión para la búsqueda pública, el descubrimiento y la reproducción en YouTube. Inicia sesión para acceder a tus colecciones personales de videos.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset no pudo borrar de forma segura los datos de inicio de sesión guardados. Reinténtalo antes de volver a iniciar sesión.";
+"Playback speed" = "Velocidad de reproducción";
 "Sign-In Temporarily Unavailable" = "Inicio de sesión no disponible temporalmente";
 "Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset no pudo leer los datos de inicio de sesión guardados. Reinténtalo para restaurar tu sesión.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset no pudo eliminar los datos de inicio de sesión guardados. Intenta cerrar sesión de nuevo antes de salir.";
