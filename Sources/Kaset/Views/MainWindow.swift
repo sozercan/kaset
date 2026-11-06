@@ -596,9 +596,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
+
+            if self.playerService.showFullScreenPlayer, self.settings.appSource == .music {
+                FullScreenPlayerView()
+                    .ignoresSafeArea()
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(1)
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
+        .toolbar(self.isShowingFullScreenPlayer ? .hidden : .automatic, for: .windowToolbar)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
         .toolbar {
             if self.supportsCommandBarUI {
@@ -616,6 +624,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
+    }
+
+    private var isShowingFullScreenPlayer: Bool {
+        self.playerService.showFullScreenPlayer && self.settings.appSource == .music
     }
 
     private func presentCommandBarIfAvailable() {
