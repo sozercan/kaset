@@ -607,7 +607,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .environment(\.libraryViewModel, self.libraryViewModel)
-            .accessibilityHidden(self.playerService.showNowPlayingShowcase)
+            .accessibilityHidden(self.playerService.showNowPlayingShowcase || self.isShowingFullScreenPlayer)
 
             // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
@@ -627,7 +627,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 .transition(.opacity)
                 .zIndex(2)
             }
+            if self.isShowingFullScreenPlayer {
+                FullScreenPlayerView()
+                    .ignoresSafeArea()
+                    .transition(self.reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                    .zIndex(3)
+            }
         }
+        .toolbar(self.isShowingFullScreenPlayer ? .hidden : .automatic, for: .windowToolbar)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showLyrics)
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .animation(self.reduceMotion ? nil : .easeOut(duration: 0.18), value: self.playerService.showNowPlayingShowcase)
@@ -648,6 +655,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
         }
+    }
+
+    private var isShowingFullScreenPlayer: Bool {
+        self.playerService.showFullScreenPlayer && self.settings.appSource == .music
     }
 
     private func presentCommandBarIfAvailable() {

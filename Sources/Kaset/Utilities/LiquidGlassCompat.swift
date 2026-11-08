@@ -15,8 +15,8 @@ enum CompatGlassTransition {
 }
 
 extension View {
-    func compatGlass(interactive: Bool = false, tint: Color? = nil, in shape: some Shape) -> some View {
-        self.modifier(CompatGlassModifier(interactive: interactive, tint: tint, shape: shape))
+    func compatGlass(interactive: Bool = false, tint: Color? = nil, in shape: some Shape, isEnabled: Bool = true) -> some View {
+        self.modifier(CompatGlassModifier(interactive: interactive, tint: tint, shape: shape, isEnabled: isEnabled))
     }
 
     func compatGlassID(_ id: String, in namespace: Namespace.ID) -> some View {
@@ -53,6 +53,7 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
     let interactive: Bool
     var tint: Color?
     let shape: S
+    var isEnabled = true
 
     /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
@@ -64,7 +65,9 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
         let surface = content
             .contentShape(.interaction, self.shape)
 
-        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+        if !self.isEnabled {
+            content
+        } else if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             surface.glassEffect(self.glass, in: self.shape)
         } else if let tint {
             surface

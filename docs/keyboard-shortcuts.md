@@ -15,6 +15,7 @@ Kaset provides keyboard control for playback and navigation while preserving sta
 | `⌘R`     | Cycle repeat mode (Off → All → One) |
 | `⇧⌘V`    | Toggle video (also in Mini Player button’s context menu) |
 | `⇧⌘M`    | Switch to Mini Player               |
+| `Esc`    | Close the full screen Now Playing view |
 
 Mute is still available from the Playback menu and AppleScript, but Kaset intentionally does not assign a default mute shortcut so the native macOS minimize shortcut (`⌘M`) continues to work.
 

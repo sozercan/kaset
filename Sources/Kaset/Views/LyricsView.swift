@@ -2,6 +2,27 @@ import FoundationModels
 import SwiftUI
 import Translation
 
+// MARK: - LyricsPollLease
+
+/// Lyrics views can be on screen at the same time (main window sidebar, Now Playing, mini
+/// player) and share the playback WebView's lyrics poll, so only the last one to disappear
+/// stops it.
+@MainActor
+enum LyricsPollLease {
+    private static var holders = 0
+
+    static func acquire() {
+        self.holders += 1
+    }
+
+    static func release() {
+        self.holders = max(0, self.holders - 1)
+        if self.holders == 0 {
+            SingletonPlayerWebView.shared.stopLyricsPoll()
+        }
+    }
+}
+
 // MARK: - LyricsView
 
 /// Right sidebar panel displaying lyrics for the current track.
@@ -14,6 +35,8 @@ struct LyricsView: View {
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
     var isEmbedded = false
+    /// Full-screen lyrics omit the sidebar glass surface.
+    var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -131,16 +154,17 @@ struct LyricsView: View {
             }
             .onDisappear {
                 self.onlineTranslationTask?.cancel()
-                SingletonPlayerWebView.shared.stopLyricsPoll()
+                LyricsPollLease.release()
             }
             .onAppear {
+                LyricsPollLease.acquire()
                 self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
                 self.restartTranslation()
             }
     }
 
     @ViewBuilder private var panelSurface: some View {
-        if self.isEmbedded {
+        if self.isEmbedded || !self.showsPanel {
             self.panelContent
         } else {
             CompatGlassContainer(spacing: 0) {
@@ -522,13 +546,16 @@ struct LyricsView: View {
                         .padding(.vertical, 12)
                 }
 
-                // Lyrics text
+                // Lyrics text. Without the panel (Now Playing), match the synced lyrics'
+                // centered type; plain lyrics have no timing, so no line is highlighted.
                 Text(lyrics.text)
-                    .font(.system(size: 15, weight: .medium))
-                    .lineSpacing(8)
-                    .foregroundStyle(.primary)
+                    .font(.system(size: self.showsPanel ? 15 : 20, weight: self.showsPanel ? .medium : .semibold))
+                    .lineSpacing(self.showsPanel ? 8 : 12)
+                    .foregroundStyle(self.showsPanel ? .primary : .secondary)
+                    .multilineTextAlignment(self.showsPanel ? .leading : .center)
+                    .frame(maxWidth: .infinity, alignment: self.showsPanel ? .leading : .center)
                     .textSelection(.enabled)
-                    .padding(.horizontal, 16)
+                    .padding(.horizontal, self.showsPanel ? 16 : 24)
                     .padding(.vertical, 20)
 
                 // Translation of the plain lyrics block

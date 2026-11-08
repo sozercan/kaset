@@ -531,4 +531,50 @@ struct PlayerServiceTests {
         #expect(self.playerService.queue.first?.videoId == "v2")
         #expect(self.playerService.currentIndex == 0)
     }
+
+    // MARK: - Full Screen Player Tests
+
+    @Test("Full screen player replaces the showcase and closes sidebar panels")
+    func fullScreenPlayerReplacesShowcase() {
+        self.playerService.showNowPlayingShowcase = true
+        self.playerService.showFullScreenPlayer = true
+        #expect(!self.playerService.showNowPlayingShowcase)
+        #expect(self.playerService.showFullScreenPlayer)
+        #expect(!self.playerService.showLyrics)
+        #expect(!self.playerService.showQueue)
+    }
+
+    @Test("Showcase replaces the full screen player")
+    func showcaseReplacesFullScreenPlayer() {
+        self.playerService.showFullScreenPlayer = true
+        self.playerService.showNowPlayingShowcase = true
+        #expect(!self.playerService.showFullScreenPlayer)
+        #expect(self.playerService.showNowPlayingShowcase)
+    }
+
+    @Test("Full screen player starts hidden")
+    func fullScreenPlayerStartsHidden() {
+        #expect(self.playerService.showFullScreenPlayer == false)
+        #expect(self.playerService.artistNavigationRequest == nil)
+    }
+
+    @Test("An artist navigation request is consumed only once")
+    func artistNavigationRequestConsumedOnce() throws {
+        self.playerService.requestArtistNavigation()
+        let request = try #require(self.playerService.artistNavigationRequest)
+
+        #expect(self.playerService.consumeArtistNavigationRequest(request))
+        #expect(self.playerService.artistNavigationRequest == nil)
+        #expect(!self.playerService.consumeArtistNavigationRequest(request))
+    }
+
+    @Test("A superseded artist navigation request cannot be consumed")
+    func supersededArtistNavigationRequestIsIgnored() throws {
+        self.playerService.requestArtistNavigation()
+        let first = try #require(self.playerService.artistNavigationRequest)
+        self.playerService.requestArtistNavigation()
+
+        #expect(!self.playerService.consumeArtistNavigationRequest(first))
+        #expect(self.playerService.artistNavigationRequest != nil)
+    }
 }

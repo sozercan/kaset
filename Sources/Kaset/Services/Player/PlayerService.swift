@@ -518,6 +518,31 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         }
     }
 
+    /// Whether the full screen now-playing view covers the main window.
+    var showFullScreenPlayer: Bool = false {
+        didSet {
+            if self.showFullScreenPlayer {
+                self.showNowPlayingShowcase = false
+                self.showLyrics = false
+                self.showQueue = false
+            }
+        }
+    }
+
+    /// Asks the visible player bar to open the current artist (the full screen view has no
+    /// navigation stack of its own). Several bars may observe it; the first to consume wins.
+    private(set) var artistNavigationRequest: UUID?
+
+    func requestArtistNavigation() {
+        self.artistNavigationRequest = UUID()
+    }
+
+    func consumeArtistNavigationRequest(_ request: UUID) -> Bool {
+        guard self.artistNavigationRequest == request else { return false }
+        self.artistNavigationRequest = nil
+        return true
+    }
+
     /// Display mode for the queue panel (popup vs side panel).
     var queueDisplayMode: QueueDisplayMode = .popup
 
@@ -544,6 +569,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         didSet {
             // The showcase covers the side panels, so they are closed with it.
             if self.showNowPlayingShowcase {
+                self.showFullScreenPlayer = false
                 self.showLyrics = false
                 self.showQueue = false
             } else {

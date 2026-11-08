@@ -238,13 +238,15 @@ struct SimpleLyricsView: View {
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
     var isEmbedded = false
+    /// Full-screen lyrics omit the sidebar glass surface.
+    var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
 
     var body: some View {
         Group {
-            if self.isEmbedded {
+            if self.isEmbedded || !self.showsPanel {
                 self.panelContent
             } else {
                 CompatGlassContainer(spacing: 0) {
@@ -267,9 +269,10 @@ struct SimpleLyricsView: View {
             self.updateLyricsPolling(for: newLyrics)
         }
         .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
+            LyricsPollLease.release()
         }
         .onAppear {
+            LyricsPollLease.acquire()
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)
