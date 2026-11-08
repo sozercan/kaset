@@ -28,7 +28,7 @@ import Foundation
 final class BetterLyricsProvider: LyricsProvider {
     let name = "BetterLyrics"
 
-    private static let baseURL = URL(string: "https://unison.betterlyrics.org")!
+    private static let lyricsURL = "https://unison.betterlyrics.org/lyrics"
     private static let durationToleranceSeconds: TimeInterval = 2
 
     /// Prefers an exact video match, or a duration-filtered recording match in MV mode.
@@ -66,7 +66,7 @@ final class BetterLyricsProvider: LyricsProvider {
 
     /// Looks up the highest-ranked lyrics explicitly associated with a YouTube video.
     private static func searchByVideoId(_ videoId: String) async -> LyricResult? {
-        var components = URLComponents(url: baseURL.appendingPathComponent("lyrics"), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(string: self.lyricsURL) else { return nil }
         components.queryItems = [URLQueryItem(name: "v", value: videoId)]
 
         guard let result = await Self.fetchEntry(url: components.url) else { return nil }
@@ -85,7 +85,7 @@ final class BetterLyricsProvider: LyricsProvider {
         // route answers with a collection (`data: [...]`) while fetchEntry
         // decodes the single-entry envelope (`data: {...}`) that `/lyrics`
         // and `?v=` share. Verified against the unison API contract.
-        var components = URLComponents(url: baseURL.appendingPathComponent("lyrics"), resolvingAgainstBaseURL: false)!
+        guard var components = URLComponents(string: self.lyricsURL) else { return .unavailable }
         var items: [URLQueryItem] = [
             URLQueryItem(name: "song", value: title),
             URLQueryItem(name: "artist", value: artist),

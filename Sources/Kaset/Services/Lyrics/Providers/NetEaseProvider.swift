@@ -21,7 +21,7 @@ final class NetEaseProvider: LyricsProvider {
     /// Public NetEase app key used by every eapi request.
     private static let eapiKey = Array("e82ckenh8dichen8".utf8)
     private static let eapiPath = "/api/song/lyric/v1"
-    private static let eapiURL = URL(string: "https://interface3.music.163.com/eapi/song/lyric/v1")!
+    private static let eapiURL = URL(string: "https://interface3.music.163.com/eapi/song/lyric/v1")
     private static let searchURLString = "https://music.163.com/api/search/pc"
 
     /// NetEase requires a recognizable client cookie set, not real session
@@ -100,14 +100,15 @@ final class NetEaseProvider: LyricsProvider {
         duration: TimeInterval?,
         requiresCloseDurationMatch: Bool
     ) async -> Int? {
-        var components = URLComponents(string: searchURLString)!
+        guard var components = URLComponents(string: self.searchURLString) else { return nil }
         components.queryItems = [
             URLQueryItem(name: "s", value: "\(title) \(artist)"),
             URLQueryItem(name: "type", value: "1"),
             URLQueryItem(name: "limit", value: "10"),
         ]
 
-        var request = URLRequest(url: components.url!)
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.setValue("python-requests/2.32.3", forHTTPHeaderField: "User-Agent")
         request.setValue(self.clientCookie, forHTTPHeaderField: "Cookie")
@@ -201,7 +202,8 @@ final class NetEaseProvider: LyricsProvider {
 
         guard let params = aesEapiEncryptHex(Data(eapiData.utf8)) else { return nil }
 
-        var request = URLRequest(url: eapiURL)
+        guard let url = self.eapiURL else { return nil }
+        var request = URLRequest(url: url)
         request.timeoutInterval = 8
         request.httpMethod = "POST"
         request.httpShouldHandleCookies = false
@@ -312,11 +314,12 @@ final class NetEaseProvider: LyricsProvider {
         var syllables: [YRCSyllable] = []
         for (index, match) in markers.enumerated() {
             /// Converts a matched timing capture to its source text.
-            func group(_ index: Int) -> String {
-                let range = Range(match.range(at: index), in: remainder)!
+            func group(_ index: Int) -> String? {
+                guard let range = Range(match.range(at: index), in: remainder) else { return nil }
                 return String(remainder[range])
             }
-            guard let start = Int(group(1)), let duration = Int(group(2)) else { continue }
+            guard let startText = group(1), let durationText = group(2),
+                  let start = Int(startText), let duration = Int(durationText) else { continue }
             // Syllable text runs from this marker's end to the next marker;
             // internal spaces are meaningful, so no trimming.
             let textStart = match.range.upperBound
@@ -335,18 +338,14 @@ final class NetEaseProvider: LyricsProvider {
     /// Parses the two `lrc` shapes NetEase returns: classic LRC text, or the
     /// new JSON-per-line shape `{"t":ms,"c":[{"tx":"…"}]}`.
     static func parseLyricBody(_ raw: String) -> [SyncedLyricLine]? {
-        if raw.trimmingCharacters(in: .whitespaces).hasPrefix("{"),
-           // JSON shape; fall through to the classic LRC parser when the JSON
-           // path yields nothing, so a body mixing JSON metadata with LRC
-           // lines still parses.
-           let jsonLines = self.parseNetEaseJSONLyrics(raw), !jsonLines.isEmpty
-        {
-            return jsonLines
+        // The endpoint prefixes timed LRC with JSON credit rows. Prefer the
+        // timed body, retaining JSON-only support when no LRC rows exist.
+        let lrcBody = raw.split(separator: "\n")
+            .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("{") }
+            .joined(separator: "\n")
+        guard let parsed = LRCParser.parse(lrcBody), !parsed.lines.isEmpty else {
+            return self.parseNetEaseJSONLyrics(raw)
         }
-        // Classic LRC: reuse the shared parser (it fills durations and merges
-        // multi-timestamp lines), then drop the credit header lines NetEase
-        // includes ("作词 : …", "Lyrics by: …").
-        guard let parsed = LRCParser.parse(raw), !parsed.lines.isEmpty else { return nil }
         let creditPattern = try? NSRegularExpression(pattern: #"(作词|作曲|编曲|填词)\s*[:：]|(?i)lyrics\s*[:：]"#)
         let lines = parsed.lines.filter { line in
             guard let creditPattern else { return true }

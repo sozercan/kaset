@@ -1550,11 +1550,11 @@ private func makeRuntimeAskFreeTextWireRequest(
     var context = snapshotContext
     if let clickTrackingContextData {
         guard let clickTrackingContext = try JSONSerialization.jsonObject(
-                  with: clickTrackingContextData
-              ) as? [String: Any],
-              Set(clickTrackingContext.keys) == ["clickTracking"],
-              let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any],
-              Set(clickTracking.keys) == ["clickTrackingParams"]
+            with: clickTrackingContextData
+        ) as? [String: Any],
+            Set(clickTrackingContext.keys) == ["clickTracking"],
+            let clickTracking = clickTrackingContext["clickTracking"] as? [String: Any],
+            Set(clickTracking.keys) == ["clickTrackingParams"]
         else {
             throw AskFreeTextValidationError.requestEncodingFailed
         }

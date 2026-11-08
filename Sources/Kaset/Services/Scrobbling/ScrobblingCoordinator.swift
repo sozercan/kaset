@@ -675,10 +675,10 @@ final class ScrobblingCoordinator {
         if entry?.id != self.currentMixEntry?.id {
             if let prevEntry = self.currentMixEntry {
                 if let endTime = tracklist.effectiveEndTime(
-                       for: prevEntry,
-                       videoDuration: self.videoDuration(for: track)
-                   ),
-                   let tracker = self.mixEntryTracker
+                    for: prevEntry,
+                    videoDuration: self.videoDuration(for: track)
+                ),
+                    let tracker = self.mixEntryTracker
                 {
                     let progressDelta = progress - tracker.lastProgress
                     if progress >= endTime, progressDelta > 0, progressDelta < 2 {

@@ -501,7 +501,7 @@ extension WebKitManager {
         guard self.isCurrentLoginCookieBackup(transaction),
               !Task.isCancelled,
               await self.cookieArchiveQueue
-                  .disableLoginTransactionRestore(transaction),
+              .disableLoginTransactionRestore(transaction),
               await self.commitLoginCookieBackup(transaction) != nil
         else {
             return nil

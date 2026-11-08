@@ -578,14 +578,14 @@ struct LoginCompletionGate {
             persistBeforeCommit: {
                 guard !Task.isCancelled,
                       let committedSessionValue = await self.webKitManager
-                          .commitLoginCookieBackup(transaction)
+                      .commitLoginCookieBackup(transaction)
                 else { return nil }
                 return committedSessionValue
             },
             persistFinalSession: {
                 guard !Task.isCancelled,
                       let finalSessionValue = await self.webKitManager
-                          .finalizeLoginCookieBackup(transaction)
+                      .finalizeLoginCookieBackup(transaction)
                 else { return nil }
                 return finalSessionValue
             },

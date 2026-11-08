@@ -149,8 +149,8 @@ private func musixmatchWebRequest(method: String, query: String) async {
     var message = [UInt8]((url + day).utf8)
     CCHmac(CCHmacAlgorithm(kCCHmacAlgSHA256), &key, key.count, &message, message.count, &hmacData)
 
-    let signature = Data(hmacData).base64EncodedString()
-        .addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_.")))!
+    guard let signature = Data(hmacData).base64EncodedString()
+        .addingPercentEncoding(withAllowedCharacters: .alphanumerics.union(CharacterSet(charactersIn: "-_."))) else { return }
 
     guard let requestURL = URL(string: url + "&signature=\(signature)&signature_protocol=sha256") else { return }
     var request = URLRequest(url: requestURL)
@@ -170,7 +170,8 @@ private func musixmatchWebRequest(method: String, query: String) async {
 private nonisolated(unsafe) var musixmatchSessionToken: String?
 
 private func redacted(_ value: String?) -> String {
-    value == nil || value!.isEmpty ? "<nil>" : "REDACTED"
+    guard let value, !value.isEmpty else { return "<nil>" }
+    return "REDACTED"
 }
 
 private func prettyJSON(_ data: Data) -> String {
@@ -189,13 +190,15 @@ private func fetchMusixmatchToken() async -> String? {
         return musixmatchSessionToken
     }
 
-    var components = URLComponents(string: musixmatchBaseURL + "token.get")!
+    guard var components = URLComponents(string: musixmatchBaseURL + "token.get") else { return nil }
     components.queryItems = [
         URLQueryItem(name: "user_language", value: "en"),
         URLQueryItem(name: "app_id", value: musixmatchAppID),
     ]
 
-    var request = URLRequest(url: components.url!)
+    guard let requestURL = components.url else { return nil }
+
+    var request = URLRequest(url: requestURL)
     request.setValue(musixmatchUserAgent, forHTTPHeaderField: "User-Agent")
     request.setValue("x-mxm-user-id=", forHTTPHeaderField: "Cookie")
 
@@ -241,7 +244,7 @@ private func probeMusixmatch(query: [String]) async {
     let track = query.count >= 2 ? query[1] : "Shape of You"
     let artist = query.count >= 3 ? query[2] : "Ed Sheeran"
 
-    var components = URLComponents(string: musixmatchBaseURL + "track.search")!
+    guard var components = URLComponents(string: musixmatchBaseURL + "track.search") else { return }
     components.queryItems = [
         URLQueryItem(name: "app_id", value: musixmatchAppID),
         URLQueryItem(name: "usertoken", value: token),
@@ -252,7 +255,9 @@ private func probeMusixmatch(query: [String]) async {
         URLQueryItem(name: "s_track_rating", value: "asc"),
     ]
 
-    var request = URLRequest(url: components.url!)
+    guard let requestURL = components.url else { return }
+
+    var request = URLRequest(url: requestURL)
     request.setValue(musixmatchUserAgent, forHTTPHeaderField: "User-Agent")
 
     do {
@@ -377,13 +382,14 @@ private func probeMusixmatch(query: [String]) async {
 private func probeNetEase(query: [String]) async {
     let keywords = query.count >= 2 ? query[1] : "晴天 周杰伦"
 
-    var searchComponents = URLComponents(string: "https://music.163.com/api/search/pc")!
+    guard var searchComponents = URLComponents(string: "https://music.163.com/api/search/pc") else { return }
     searchComponents.queryItems = [
         URLQueryItem(name: "s", value: keywords),
         URLQueryItem(name: "type", value: "1"),
         URLQueryItem(name: "limit", value: "5"),
     ]
-    var searchRequest = URLRequest(url: searchComponents.url!)
+    guard let requestURL = searchComponents.url else { return }
+    var searchRequest = URLRequest(url: requestURL)
     searchRequest.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
     searchRequest.setValue(neteaseCookie, forHTTPHeaderField: "Cookie")
     searchRequest.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
@@ -412,7 +418,7 @@ private func probeNetEase(query: [String]) async {
             songID = overrideID
         }
 
-        var lyricComponents = URLComponents(string: "https://music.163.com/api/song/lyric")!
+        guard var lyricComponents = URLComponents(string: "https://music.163.com/api/song/lyric") else { return }
         lyricComponents.queryItems = [
             URLQueryItem(name: "id", value: String(songID)),
             URLQueryItem(name: "lv", value: "-1"),
@@ -420,7 +426,8 @@ private func probeNetEase(query: [String]) async {
             URLQueryItem(name: "tv", value: "-1"),
             URLQueryItem(name: "yv", value: "-1"),
         ]
-        var lyricRequest = URLRequest(url: lyricComponents.url!)
+        guard let requestURL = lyricComponents.url else { return }
+        var lyricRequest = URLRequest(url: requestURL)
         lyricRequest.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
         lyricRequest.setValue(neteaseCookie, forHTTPHeaderField: "Cookie")
         lyricRequest.setValue("https://music.163.com", forHTTPHeaderField: "Referer")
@@ -453,7 +460,7 @@ private func probeTranslate(_ args: [String]) async {
     let text = args.count >= 2 ? args[1] : "Hello, world!\nThis is a second line."
     let target = args.count >= 3 ? args[2] : "de"
 
-    var components = URLComponents(string: "https://translate.googleapis.com/translate_a/single")!
+    guard var components = URLComponents(string: "https://translate.googleapis.com/translate_a/single") else { return }
     components.queryItems = [
         URLQueryItem(name: "client", value: "gtx"),
         URLQueryItem(name: "sl", value: "auto"),
@@ -462,7 +469,9 @@ private func probeTranslate(_ args: [String]) async {
         URLQueryItem(name: "q", value: text),
     ]
 
-    var request = URLRequest(url: components.url!)
+    guard let requestURL = components.url else { return }
+
+    var request = URLRequest(url: requestURL)
     request.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
 
     do {
@@ -620,7 +629,7 @@ private func probeKuGou(_ args: [String]) async {
     let title = args.count >= 2 ? args[1] : "晴天"
     let artist = args.count >= 3 ? args[2] : "周杰伦"
 
-    var searchComponents = URLComponents(string: "https://mobileservice.kugou.com/api/v3/search/song")!
+    guard var searchComponents = URLComponents(string: "https://mobileservice.kugou.com/api/v3/search/song") else { return }
     searchComponents.queryItems = [
         URLQueryItem(name: "version", value: "9108"),
         URLQueryItem(name: "plat", value: "0"),
@@ -628,7 +637,8 @@ private func probeKuGou(_ args: [String]) async {
         URLQueryItem(name: "showtype", value: "0"),
         URLQueryItem(name: "keyword", value: "\(title) - \(artist)"),
     ]
-    var searchRequest = URLRequest(url: searchComponents.url!)
+    guard let requestURL = searchComponents.url else { return }
+    var searchRequest = URLRequest(url: requestURL)
     searchRequest.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
 
     do {
@@ -646,14 +656,15 @@ private func probeKuGou(_ args: [String]) async {
         }
         print("first: \(first["songname"] ?? "<nil>"), hash=\(hash), duration=\(first["duration"] ?? "<nil>")")
 
-        var lyricSearchComponents = URLComponents(string: "https://lyrics.kugou.com/search")!
+        guard var lyricSearchComponents = URLComponents(string: "https://lyrics.kugou.com/search") else { return }
         lyricSearchComponents.queryItems = [
             URLQueryItem(name: "ver", value: "1"),
             URLQueryItem(name: "man", value: "yes"),
             URLQueryItem(name: "client", value: "pc"),
             URLQueryItem(name: "hash", value: hash),
         ]
-        var lyricSearchRequest = URLRequest(url: lyricSearchComponents.url!)
+        guard let requestURL = lyricSearchComponents.url else { return }
+        var lyricSearchRequest = URLRequest(url: requestURL)
         lyricSearchRequest.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
 
         let (lyricSearchData, lyricSearchResponse) = try await URLSession.shared.data(for: lyricSearchRequest)
@@ -668,7 +679,7 @@ private func probeKuGou(_ args: [String]) async {
             print("candidates empty; keys: \(lyricJSON.keys.sorted())")
             return
         }
-        let candidate = candidates.first!
+        guard let candidate = candidates.first else { return }
         guard let candidateID = candidate["id"] as? String,
               let accessKey = candidate["accesskey"] as? String
         else {
@@ -677,7 +688,7 @@ private func probeKuGou(_ args: [String]) async {
         }
         print("candidate: id=\(candidateID), duration=\(candidate["duration"] ?? "<nil>")")
 
-        var downloadComponents = URLComponents(string: "https://lyrics.kugou.com/download")!
+        guard var downloadComponents = URLComponents(string: "https://lyrics.kugou.com/download") else { return }
         downloadComponents.queryItems = [
             URLQueryItem(name: "fmt", value: "lrc"),
             URLQueryItem(name: "charset", value: "utf8"),
@@ -686,7 +697,8 @@ private func probeKuGou(_ args: [String]) async {
             URLQueryItem(name: "id", value: String(candidateID)),
             URLQueryItem(name: "accesskey", value: accessKey),
         ]
-        var downloadRequest = URLRequest(url: downloadComponents.url!)
+        guard let requestURL = downloadComponents.url else { return }
+        var downloadRequest = URLRequest(url: requestURL)
         downloadRequest.setValue(neteaseUserAgent, forHTTPHeaderField: "User-Agent")
 
         let (downloadData, downloadResponse) = try await URLSession.shared.data(for: downloadRequest)

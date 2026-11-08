@@ -581,6 +581,21 @@ struct SyncedLyricsServiceTests {
         #expect(lines[1].text == "面对")
     }
 
+    @Test("NetEase mixed credit JSON and LRC preserves timed lyrics")
+    func netEaseMixedCreditLyricsParsing() throws {
+        let raw = """
+        {"t":0,"c":[{"tx":"Credit one"}]}
+        {"t":1000,"c":[{"tx":"Credit two"}]}
+        [00:02.000]First lyric
+        [00:04.500]Second lyric
+        """
+        let lines = try #require(NetEaseProvider.parseLyricBody(raw))
+            .filter { !$0.text.isEmpty }
+        #expect(lines.map(\.text) == ["First lyric", "Second lyric"])
+        #expect(lines.map(\.timeInMs) == [2000, 4500])
+        #expect(lines[0].duration == 2500)
+    }
+
     @Test("NetEase JSON-shape lyrics parse into timed lines")
     func netEaseJSONLyricsParsing() throws {
         let raw = """

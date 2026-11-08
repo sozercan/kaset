@@ -985,11 +985,11 @@ private func findFirstRenderer(named key: String, in value: Any) -> [String: Any
 
 private func extractPlaylistTrackCount(from text: String) -> Int? {
     guard let regex = try? NSRegularExpression(
-              pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
-              options: .caseInsensitive
-          ),
-          let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
-          let countRange = Range(match.range(at: 1), in: text)
+        pattern: #"([\d,]+)\s+(?:songs?|tracks?)"#,
+        options: .caseInsensitive
+    ),
+        let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+        let countRange = Range(match.range(at: 1), in: text)
     else {
         return nil
     }
@@ -2125,9 +2125,9 @@ func exploreBrowse(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                   withJSONObject: data, options: .prettyPrinted
-               ),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
@@ -2215,9 +2215,9 @@ func exploreAction(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                   withJSONObject: data, options: .prettyPrinted
-               ),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
@@ -2940,9 +2940,9 @@ func exploreContinuation(
         if verbose {
             print("\n📄 Raw response (pretty-printed):")
             if let prettyData = try? JSONSerialization.data(
-                   withJSONObject: data, options: .prettyPrinted
-               ),
-               let prettyString = String(data: prettyData, encoding: .utf8)
+                withJSONObject: data, options: .prettyPrinted
+            ),
+                let prettyString = String(data: prettyData, encoding: .utf8)
             {
                 print(prettyString)
             }
@@ -3582,9 +3582,9 @@ func discoverBrandAccounts(verbose: Bool) async {
             if verbose {
                 print("\nResponse structure:")
                 if let prettyData = try? JSONSerialization.data(
-                       withJSONObject: data, options: .prettyPrinted
-                   ),
-                   let prettyString = String(data: prettyData, encoding: .utf8)
+                    withJSONObject: data, options: .prettyPrinted
+                ),
+                    let prettyString = String(data: prettyData, encoding: .utf8)
                 {
                     print(prettyString)
                 }

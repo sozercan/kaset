@@ -39,6 +39,7 @@ struct LyricsView: View {
     var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
+    @State private var lyricsLoadGeneration = UUID()
     @State private var isLoadingFallback = false
     @State private var lastRecordingRefetchKey: String?
 
@@ -153,6 +154,7 @@ struct LyricsView: View {
                 self.restartTranslation()
             }
             .onDisappear {
+                self.lyricsLoadGeneration = UUID()
                 self.onlineTranslationTask?.cancel()
                 LyricsPollLease.release()
             }
@@ -750,13 +752,11 @@ struct LyricsView: View {
     /// within seconds between sources.
     @MainActor
     private func loadLyrics(for videoId: String, recordingDuration: TimeInterval? = nil) async {
+        guard let track = self.playerService.currentTrack, track.videoId == videoId else { return }
+        let generation = UUID()
+        self.lyricsLoadGeneration = generation
         self.lastLoadedVideoId = videoId
         self.isLoadingFallback = false
-
-        guard let track = playerService.currentTrack else { return }
-
-        // Don't search if it's not the current track anymore
-        guard track.videoId == videoId else { return }
 
         // Initial load while the MV surface is up: the stream may already be a
         // different recording (the duration settled before this fetch). Apply
@@ -795,13 +795,15 @@ struct LyricsView: View {
             self.syncedLyricsService.activeProvider = nil
         }
 
-        guard self.lastLoadedVideoId == videoId, self.playerService.currentTrack?.videoId == videoId else { return }
+        guard self.lyricsLoadGeneration == generation, self.playerService.currentTrack?.videoId == videoId else { return }
 
         // Collect the YouTube Music lyrics fetched in parallel.
         var ytPlain: Lyrics?
         if let result = try? await ytLyricsTask.value {
             ytPlain = result
         }
+        guard self.lyricsLoadGeneration == generation,
+              self.playerService.currentTrack?.videoId == videoId else { return }
 
         // Validate a synced result against YouTube Music's own lyrics. A large
         // mismatch means the loaded recording differs (e.g. a live version) or
@@ -826,7 +828,7 @@ struct LyricsView: View {
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true
             defer {
-                if self.lastLoadedVideoId == videoId {
+                if self.lyricsLoadGeneration == generation {
                     self.isLoadingFallback = false
                 }
             }
@@ -836,7 +838,7 @@ struct LyricsView: View {
             } else {
                 do {
                     let fetchedLyrics = try await self.client.getLyrics(videoId: videoId)
-                    if self.lastLoadedVideoId == videoId,
+                    if self.lyricsLoadGeneration == generation,
                        self.playerService.currentTrack?.videoId == videoId
                     {
                         self.syncedLyricsService.fallbackToPlainLyrics(fetchedLyrics, videoId: videoId)
