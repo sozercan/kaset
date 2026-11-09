@@ -85,6 +85,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     // MARK: - Cached ViewModels (persist across tab switches)
 
     @State private var homeViewModel: HomeViewModel?
+    /// Whether Music Home reports that it's on its root page (see `MusicHomeAtRootPreferenceKey`).
+    @State private var isMusicHomeAtRoot = false
     @State private var exploreViewModel: ExploreViewModel?
     @State private var searchViewModel: SearchViewModel?
     @State private var chartsViewModel: ChartsViewModel?
@@ -608,7 +610,24 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .animation(.easeInOut(duration: 0.25), value: self.playerService.showQueue)
         .toolbar(self.isShowingFullScreenPlayer ? .hidden : .automatic, for: .windowToolbar)
         .frame(minWidth: MainWindowLayout.minimumWidth, minHeight: MainWindowLayout.minimumHeight)
+        .onPreferenceChange(MusicHomeAtRootPreferenceKey.self) { isAtRoot in
+            self.isMusicHomeAtRoot = isAtRoot
+        }
         .toolbar {
+            // Declared before the command bar button so Refresh sits to its left;
+            // items contributed by the Home views themselves would land after it.
+            if self.showsHomeRefreshButton {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        self.homeRefreshRequestID += 1
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
+                    .help(String(localized: "Refresh"))
+                    .accessibilityLabel(String(localized: "Refresh"))
+                    .disabled(self.isActiveHomeLoading)
+                }
+            }
             if self.supportsCommandBarUI {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
@@ -623,6 +642,28 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
                 }
             }
+        }
+    }
+
+    /// Shows the toolbar refresh button while the active source's Home is on its root page.
+    private var showsHomeRefreshButton: Bool {
+        switch self.settings.appSource {
+        case .music:
+            self.navigationSelection == .home
+                && self.selectedSidebarPinnedItem == nil
+                && self.isMusicHomeAtRoot
+        case .video:
+            self.youtubeNavigationSelection == .home
+                && self.youtubeStore.navigationPath.isEmpty
+        }
+    }
+
+    private var isActiveHomeLoading: Bool {
+        switch self.settings.appSource {
+        case .music:
+            self.homeViewModel?.loadingState == .loading
+        case .video:
+            self.youtubeStore.home.loadingState == .loading
         }
     }
 

@@ -5,6 +5,7 @@ import SwiftUI
 /// The YouTube home (recommended) feed: an adaptive grid of video cards.
 struct YouTubeHomeView: View {
     let viewModel: YouTubeHomeViewModel
+    @State private var networkMonitor = NetworkMonitor.shared
 
     private static let columns = [
         GridItem(.adaptive(minimum: 210, maximum: 320), spacing: 16),
@@ -55,8 +56,22 @@ struct YouTubeHomeView: View {
         // a navigation changed the view identity. Re-keying reloads the new model
         // immediately. (Same shape as YouTubeExploreView.)
         .task(id: ObjectIdentifier(self.viewModel)) {
-            await self.viewModel.load()
+            if self.viewModel.loadingState == .loaded {
+                await self.refreshIfStale()
+            } else {
+                await self.viewModel.load()
+            }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await self.refreshIfStale() }
+        }
+    }
+
+    /// Skips the automatic refresh while offline (for example right after the
+    /// Mac wakes), so the loaded feed isn't replaced by an error.
+    private func refreshIfStale() async {
+        guard self.networkMonitor.isConnected else { return }
+        await self.viewModel.refreshIfStale()
     }
 
     /// Personalized rails (Continue Watching, shelves, topics) stacked above

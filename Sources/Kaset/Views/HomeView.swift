@@ -1,5 +1,7 @@
 import SwiftUI
 
+// MARK: - HomeView
+
 /// Home view displaying personalized content sections.
 struct HomeView: View {
     @State var viewModel: HomeViewModel
@@ -38,18 +40,32 @@ struct HomeView: View {
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .playerBarMusicNavigation(path: self.$navigationPath)
+        // The window toolbar shows its Home refresh button only on Home's root page.
+        .preference(key: MusicHomeAtRootPreferenceKey.self, value: self.navigationPath.isEmpty)
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()
                 .playerBarMusicNavigation(path: self.$navigationPath)
         }
         .onAppear {
-            if self.viewModel.loadingState == .idle {
-                Task {
+            Task {
+                if self.viewModel.loadingState == .idle {
                     await self.viewModel.load()
+                } else {
+                    await self.refreshIfStale()
                 }
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            Task { await self.refreshIfStale() }
+        }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
+    }
+
+    /// Skips the automatic refresh while offline (for example right after the
+    /// Mac wakes), so the loaded content isn't replaced by an error.
+    private func refreshIfStale() async {
+        guard self.networkMonitor.isConnected else { return }
+        await self.viewModel.refreshIfStale()
     }
 
     // MARK: - Views
@@ -216,4 +232,16 @@ struct HomeView: View {
         .environment(PlayerService())
         .environment(authService)
         .environment(FavoritesManager.shared)
+}
+
+// MARK: - MusicHomeAtRootPreferenceKey
+
+/// Whether Music Home is visible on its root page (no album, playlist, or
+/// artist pushed), so `MainWindow` can show its toolbar refresh button.
+struct MusicHomeAtRootPreferenceKey: PreferenceKey {
+    static let defaultValue = false
+
+    static func reduce(value: inout Bool, nextValue: () -> Bool) {
+        value = value || nextValue()
+    }
 }

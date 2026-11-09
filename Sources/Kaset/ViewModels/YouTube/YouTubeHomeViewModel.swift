@@ -61,6 +61,13 @@ final class YouTubeHomeViewModel {
         .learning,
     ]
 
+    /// How old the home feed may get before `refreshIfStale()` reloads it, so
+    /// recommendations rotate in long-running sessions without a relaunch.
+    static let staleContentInterval: TimeInterval = 4 * 60 * 60
+
+    /// When the home feed was last fetched successfully.
+    @ObservationIgnored private(set) var lastLoadedAt: Date?
+
     /// Backstop on how many fully-filtered continuation pages `loadMore()` will
     /// walk in one call before giving up, so a pathological feed (every page's
     /// videos already shown) can't spin indefinitely.
@@ -205,6 +212,7 @@ final class YouTubeHomeViewModel {
             // empty placeholder.
             self.videos = gridVideos
             self.hasMoreVideos = self.client.hasMoreHomeFeed
+            self.lastLoadedAt = Date()
             let gridReady = !gridVideos.isEmpty
             if gridReady {
                 self.loadingState = .loaded
@@ -541,6 +549,16 @@ final class YouTubeHomeViewModel {
         self.hasMoreTopicRails = false
         self.isLoadingTopicRails = false
         await self.load(forceRefresh: true)
+    }
+
+    /// Refreshes the home feed when its loaded content is older than
+    /// `staleContentInterval`. Does nothing while idle, loading, or showing an error.
+    func refreshIfStale(now: Date = Date()) async {
+        guard self.loadingState == .loaded,
+              let lastLoadedAt,
+              now.timeIntervalSince(lastLoadedAt) >= Self.staleContentInterval
+        else { return }
+        await self.refresh()
     }
 
     /// Cancels any in-flight load when this view model is being discarded (e.g.

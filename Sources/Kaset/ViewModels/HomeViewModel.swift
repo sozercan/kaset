@@ -46,6 +46,13 @@ final class HomeViewModel {
     /// Monotonic token used to discard stale continuation loads after refreshes.
     private var loadGeneration = 0
 
+    /// How old Home content may get before `refreshIfStale()` reloads it, so
+    /// recommendations rotate in long-running sessions without a relaunch.
+    static let staleContentInterval: TimeInterval = 4 * 60 * 60
+
+    /// When Home content was last fetched successfully.
+    @ObservationIgnored private(set) var lastLoadedAt: Date?
+
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
@@ -73,6 +80,7 @@ final class HomeViewModel {
             self.sections = response.sections
             self.hasMoreSections = self.client.hasMoreHomeSections
             self.loadingState = .loaded
+            self.lastLoadedAt = Date()
             let sectionCount = self.sections.count
             self.logger.info("Home content loaded: \(sectionCount) sections")
             let sectionSummary = self.sections
@@ -143,6 +151,17 @@ final class HomeViewModel {
         }
         self.refreshTask = refreshTask
         await refreshTask.value
+    }
+
+    /// Refreshes Home when its loaded content is older than `staleContentInterval`.
+    /// Does nothing while Home is idle, loading, or showing an error.
+    func refreshIfStale(now: Date = Date()) async {
+        guard self.loadingState == .loaded,
+              let lastLoadedAt,
+              now.timeIntervalSince(lastLoadedAt) >= Self.staleContentInterval
+        else { return }
+        self.logger.info("Home content is stale; refreshing")
+        await self.refresh()
     }
 
     private func runRefreshLoop() async {
