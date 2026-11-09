@@ -480,6 +480,7 @@ struct YouTubePlayerBar: View {
         .disabled(self.youtubePlayer.currentVideo == nil)
     }
 
+    /// Speed menu next to captions and quality, accented when the rate is not 1×.
     private var compactPlaybackRateMenu: some View {
         PlayerBarIconMenu(
             isSelected: self.youtubePlayer.playbackRate != 1,

@@ -1,10 +1,13 @@
 import Foundation
 
 extension YouTubeWatchWebView {
+    /// Clamps a rate to the 0.25×–2× range supported by YouTube, falling back to 1× for non-finite values.
     nonisolated static func clampedPlaybackRate(_ rate: Double) -> Double {
         rate.isFinite ? min(max(rate, 0.25), 2) : 1
     }
 
+    /// Builds the script that stores the target rate and applies it through `movie_player`
+    /// and every media element, re-applying it on `loadedmetadata`, `play`, `playing` and `ratechange`.
     nonisolated static func playbackRateScript(rate: Double) -> String {
         let clamped = Self.clampedPlaybackRate(rate)
         return """
@@ -56,6 +59,7 @@ extension YouTubeWatchWebView {
         """
     }
 
+    /// Applies the playback rate to the currently loaded watch page.
     func setPlaybackRate(_ rate: Double) {
         self.webView?.evaluateJavaScript(Self.playbackRateScript(rate: rate), completionHandler: nil)
     }

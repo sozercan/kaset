@@ -29,6 +29,7 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func cancelPendingRecoverySeek()
     func markCurrentPlaybackOccurrenceEnded()
     func setVolume(_ volume: Double)
+    /// Applies the given playback rate to the YouTube watch player.
     func setPlaybackRate(_ rate: Double)
     func showAirPlayPicker(at screenPoint: CGPoint?)
     func availableCaptionTracks() async -> [YouTubeCaptionTrack]
@@ -210,6 +211,7 @@ final class YouTubePlayerService {
         }
     }
 
+    /// Current video playback rate, forwarded to the watch player whenever it changes.
     var playbackRate: Double = 1.0 {
         didSet {
             guard oldValue != self.playbackRate else { return }
