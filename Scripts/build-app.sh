@@ -391,6 +391,28 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
+# Record the SDK the app was compiled against in its LC_BUILD_VERSION.
+#
+# Swift Build, the default SwiftPM build system since Xcode 27, runs the link
+# step without SDKROOT in its environment. The linker driver then records the
+# deployment target (15.4) as the SDK version, even though everything was
+# compiled against the current SDK. macOS uses that field for linked-on-or-after
+# checks, so an app claiming SDK 15.4 runs in compatibility mode: no Liquid Glass
+# toolbar, sidebar, or window styling on macOS 26 and later. The native build
+# system and Xcode 26 toolchains record the real SDK, so this is a no-op there.
+fix_linked_sdk_version() {
+  local binary="$1"
+  local sdk_version recorded
+  sdk_version=$(xcrun --sdk macosx --show-sdk-version)
+  recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" && !found { print $2; found = 1 }')
+  if [[ "$recorded" == "$sdk_version" ]]; then
+    return
+  fi
+  echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
+  xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
+    -output "$binary" "$binary"
+}
+
 echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
 
 # Clean previous build
@@ -415,6 +437,7 @@ mkdir -p "$APP_BUNDLE/Contents/Frameworks"
 # ── Executable ───────────────────────────────────────────────────────────────
 
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
