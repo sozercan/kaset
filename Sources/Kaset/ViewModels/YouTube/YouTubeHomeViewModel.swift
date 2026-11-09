@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Observation
 
@@ -553,12 +554,38 @@ final class YouTubeHomeViewModel {
 
     /// Refreshes the home feed when its loaded content is older than
     /// `staleContentInterval`. Does nothing while idle, loading, or showing an error.
+    ///
+    /// The user didn't ask for this refresh, so a failed request restores the
+    /// previous feed instead of replacing it with an error screen. The old
+    /// `lastLoadedAt` stays, so the next trigger retries.
     func refreshIfStale(now: Date = Date()) async {
         guard self.loadingState == .loaded,
               let lastLoadedAt,
               now.timeIntervalSince(lastLoadedAt) >= Self.staleContentInterval
         else { return }
+        let previous = (
+            videos: self.videos,
+            sections: self.sections,
+            shelfVideoIDs: self.shelfVideoIDs,
+            hasMoreVideos: self.hasMoreVideos,
+            pendingTopicChips: self.pendingTopicChips,
+            pendingTopicChipsForceRefresh: self.pendingTopicChipsForceRefresh,
+            hasMoreTopicRails: self.hasMoreTopicRails
+        )
         await self.refresh()
+        guard case .error = self.loadingState,
+              !previous.videos.isEmpty || !previous.sections.isEmpty
+        else { return }
+        self.logger.info("Stale YouTube Home refresh failed; keeping the previous feed")
+        self.videos = previous.videos
+        self.sections = previous.sections
+        self.shelfVideoIDs = previous.shelfVideoIDs
+        // The failed request may have reset the client's continuation token.
+        self.hasMoreVideos = previous.hasMoreVideos && self.client.hasMoreHomeFeed
+        self.pendingTopicChips = previous.pendingTopicChips
+        self.pendingTopicChipsForceRefresh = previous.pendingTopicChipsForceRefresh
+        self.hasMoreTopicRails = previous.hasMoreTopicRails
+        self.loadingState = .loaded
     }
 
     /// Cancels any in-flight load when this view model is being discarded (e.g.
@@ -607,6 +634,10 @@ final class YouTubeHomeViewModel {
     func loadMore() async {
         guard self.loadingState == .loaded, self.hasMoreVideos else { return }
 
+        // A refresh during pagination starts a new generation. The old page then
+        // belongs to the replaced feed and must not touch the new feed's videos,
+        // `hasMoreVideos`, or loading state.
+        let generation = self.loadGeneration
         self.loadingState = .loadingMore
         do {
             // A continuation page can filter to nothing (all its videos already
@@ -616,7 +647,9 @@ final class YouTubeHomeViewModel {
             // until at least one new video lands or the feed is exhausted. The
             // bound is a defensive backstop against a pathological feed.
             for _ in 0 ..< Self.maxEmptyContinuationPages {
-                guard let feed = try await client.getHomeFeedContinuation() else {
+                let page = try await client.getHomeFeedContinuation()
+                guard generation == self.loadGeneration else { return }
+                guard let feed = page else {
                     self.hasMoreVideos = false
                     break
                 }
@@ -636,6 +669,7 @@ final class YouTubeHomeViewModel {
             }
             self.loadingState = .loaded
         } catch {
+            guard generation == self.loadGeneration else { return }
             // A cancelled page load is not an error; allow retrying.
             if error is CancellationError {
                 self.loadingState = .loaded

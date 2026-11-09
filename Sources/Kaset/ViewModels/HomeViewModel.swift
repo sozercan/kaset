@@ -155,13 +155,25 @@ final class HomeViewModel {
 
     /// Refreshes Home when its loaded content is older than `staleContentInterval`.
     /// Does nothing while Home is idle, loading, or showing an error.
+    ///
+    /// The user didn't ask for this refresh, so a failed request restores the
+    /// previous content instead of replacing it with an error screen. The old
+    /// `lastLoadedAt` stays, so the next trigger retries.
     func refreshIfStale(now: Date = Date()) async {
         guard self.loadingState == .loaded,
               let lastLoadedAt,
               now.timeIntervalSince(lastLoadedAt) >= Self.staleContentInterval
         else { return }
         self.logger.info("Home content is stale; refreshing")
+        let previousSections = self.sections
+        let previousHasMoreSections = self.hasMoreSections
         await self.refresh()
+        guard case .error = self.loadingState, !previousSections.isEmpty else { return }
+        self.logger.info("Stale Home refresh failed; keeping the previous content")
+        self.sections = previousSections
+        // The failed request may have reset the client's continuation token.
+        self.hasMoreSections = previousHasMoreSections && self.client.hasMoreHomeSections
+        self.loadingState = .loaded
     }
 
     private func runRefreshLoop() async {
