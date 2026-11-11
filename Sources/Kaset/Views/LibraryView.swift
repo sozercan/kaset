@@ -148,7 +148,7 @@ struct LibraryView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .library)
     }
 
     // MARK: - Views

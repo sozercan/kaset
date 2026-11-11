@@ -73,7 +73,7 @@ struct HistoryView: View {
         .refreshable {
             await self.performRefresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .history)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .history)
     }
 
     /// Refreshes with visual feedback: spinning icon → data swap.

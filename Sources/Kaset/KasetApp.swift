@@ -7,6 +7,7 @@ extension EnvironmentValues {
 
 extension EnvironmentValues {
     @Entry var sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:])
+    @Entry var sidebarNavigationBackGenerations: Binding<[NavigationItem: Int]> = .constant([:])
 }
 
 extension EnvironmentValues {
@@ -77,6 +78,9 @@ struct KasetApp: App {
 
     /// Monotonic command request consumed by `MainWindow` to refresh the active Home feed.
     @State private var homeRefreshRequestID = 0
+
+    /// Monotonic command request consumed by `MainWindow` to go back one page.
+    @State private var navigateBackRequestID = 0
 
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
@@ -233,6 +237,7 @@ struct KasetApp: App {
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
                     homeRefreshRequestID: self.$homeRefreshRequestID,
+                    navigateBackRequestID: self.$navigateBackRequestID,
                     didCompleteStartupPlaybackCleanup: self.$didCompleteStartupPlaybackCleanup,
                     client: self.sharedClient,
                     youtubeClient: self.sharedYouTubeClient
@@ -492,6 +497,7 @@ struct KasetApp: App {
                 navigationSelection: self.$navigationSelection,
                 youtubeNavigationSelection: self.$youtubeNavigationSelection,
                 homeRefreshRequestID: self.$homeRefreshRequestID,
+                navigateBackRequestID: self.$navigateBackRequestID,
                 showCommandBar: self.$showCommandBar,
                 searchFocusTrigger: self.$searchFocusTrigger,
                 sidebarNavigationReselectGenerations: self.$sidebarNavigationReselectGenerations,

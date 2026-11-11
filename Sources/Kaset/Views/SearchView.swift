@@ -54,7 +54,7 @@ struct SearchView: View {
                 self.focusTrigger = false
             }
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .search)
     }
 
     // MARK: - Search Bar

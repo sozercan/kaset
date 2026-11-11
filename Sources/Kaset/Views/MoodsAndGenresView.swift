@@ -50,7 +50,7 @@ struct MoodsAndGenresView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .moodsAndGenres)
     }
 
     // MARK: - Views

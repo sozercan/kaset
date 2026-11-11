@@ -5,6 +5,7 @@ struct NavigationCommands: Commands {
     @Binding var navigationSelection: NavigationItem?
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
     @Binding var homeRefreshRequestID: Int
+    @Binding var navigateBackRequestID: Int
     @Binding var showCommandBar: Bool
     @Binding var searchFocusTrigger: Bool
     @Binding var sidebarNavigationReselectGenerations: [NavigationItem: Int]
@@ -20,6 +21,12 @@ struct NavigationCommands: Commands {
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(!self.canRefreshHome)
+
+            // Back - ⌘[
+            Button(String(localized: "Back")) {
+                self.navigateBackRequestID += 1
+            }
+            .keyboardShortcut("[", modifiers: .command)
 
             Divider()
 

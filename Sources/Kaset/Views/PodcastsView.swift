@@ -55,7 +55,7 @@ struct PodcastsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .podcasts)
     }
 
     // MARK: - Views
