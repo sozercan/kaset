@@ -404,13 +404,21 @@ fix_linked_sdk_version() {
   local binary="$1"
   local sdk_version recorded
   sdk_version=$(xcrun --sdk macosx --show-sdk-version)
-  recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" && !found { print $2; found = 1 }')
+  # Distinct SDK versions across all slices of a universal binary.
+  recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" { print $2 }' | sort -u | paste -sd ' ' -)
   if [[ "$recorded" == "$sdk_version" ]]; then
     return
   fi
   echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
+  # The rewrite invalidates the build's ad-hoc signature, and unsigned packaging
+  # skips the signing step below, so re-sign it ad hoc. Do both outside the
+  # bundle: signing in place would seal the still-empty bundle's resources.
+  local staged
+  staged="$BUILD_DIR/$(basename "$binary").sdk-fixed"
   xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
-    -output "$binary" "$binary"
+    -output "$staged" "$binary"
+  codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$staged"
+  mv "$staged" "$binary"
 }
 
 echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
@@ -437,7 +445,6 @@ mkdir -p "$APP_BUNDLE/Contents/Frameworks"
 # ── Executable ───────────────────────────────────────────────────────────────
 
 install_binary "$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 BUILD_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
@@ -535,6 +542,10 @@ if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
 else
   echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
 fi
+
+# Last edit to the executable before signing: its ad-hoc re-sign must come after
+# the rpath change above, which can't refresh a codesign-made signature.
+fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 # ── SwiftPM resource bundles ──────────────────────────────────────────────────
 # Kaset_Kaset.bundle contains Assets.xcassets compiled for Bundle.module.
