@@ -410,13 +410,21 @@ fix_linked_sdk_version() {
     return
   fi
   echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
-  # The rewrite invalidates the build's ad-hoc signature, and unsigned packaging
-  # skips the signing step below, so re-sign it ad hoc. Do both outside the
-  # bundle: signing in place would seal the still-empty bundle's resources.
-  local staged
-  staged="$BUILD_DIR/$(basename "$binary").sdk-fixed"
   xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
-    -output "$staged" "$binary"
+    -output "$binary" "$binary"
+}
+
+# Refresh the executable's ad-hoc signature after editing it.
+#
+# SwiftPM signs the executable with codesign, and vtool and install_name_tool
+# only refresh linker-made signatures, so the SDK and rpath edits leave it
+# invalid and Apple silicon kills it at launch. Signed modes re-sign the bundle
+# later, but unsigned packaging doesn't. Sign a copy outside the bundle: signing
+# in place would seal the still-empty bundle's resources.
+resign_executable_ad_hoc() {
+  local binary="$1"
+  local staged="$BUILD_DIR/${binary##*/}.resigned"
+  cp "$binary" "$staged"
   codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$staged"
   mv "$staged" "$binary"
 }
@@ -543,9 +551,9 @@ else
   echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
 fi
 
-# Last edit to the executable before signing: its ad-hoc re-sign must come after
-# the rpath change above, which can't refresh a codesign-made signature.
+# Last edits to the executable: the re-sign must follow the rpath change above.
 fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+resign_executable_ad_hoc "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 # ── SwiftPM resource bundles ──────────────────────────────────────────────────
 # Kaset_Kaset.bundle contains Assets.xcassets compiled for Bundle.module.
