@@ -803,6 +803,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         SingletonPlayerWebView.shared.cancelQueueInjection()
         self.injectedWebQueueVideoId = nil
         self.pendingWebQueueInjectionVideoId = nil
+        self.webQueueInjectionRetries = nil
     }
 
     /// Records the current index before `next()` moves to `newIndex` (no-op if unchanged).
