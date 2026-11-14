@@ -24,6 +24,7 @@ enum PlaylistPlaybackActions {
         onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
+        playerService.sourcePlaylistId = playlist.id
         return Task { @MainActor in
             var didStart = false
             defer {
