@@ -807,7 +807,11 @@ struct YouTubeChaptersSection: View {
                     controlVerticalAlignment: .center,
                     contentInset: 0
                 ) {
-                    HStack(alignment: .top, spacing: 10) {
+                    // Lazy so long chapter lists don't load every thumbnail up
+                    // front. A lazy stack sizes its height from the cards it has
+                    // built, so `ChapterCard` reserves both title lines to keep
+                    // every card, and the hugged row, the same height.
+                    LazyHStack(alignment: .top, spacing: 10) {
                         ForEach(self.chapters) { chapter in
                             Button {
                                 self.seekToChapter(chapter)
@@ -846,7 +850,7 @@ private struct ChapterCard: View {
                 Text(self.chapter.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
+                    .lineLimit(2, reservesSpace: true)
                     .multilineTextAlignment(.leading)
 
                 Text(self.chapter.timeText ?? Self.formatTime(self.chapter.startTime))
