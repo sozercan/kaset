@@ -795,6 +795,9 @@ struct YouTubeChaptersSection: View {
                 }
             }
             .buttonStyle(.plain)
+            .accessibilityValue(
+                self.isExpanded ? String(localized: "Showing") : String(localized: "Hidden")
+            )
 
             if self.isExpanded {
                 CarouselShelf(
