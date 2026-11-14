@@ -700,7 +700,6 @@ struct KasetApp: App {
         }
     }
 
-    /// Whether the currently routed player (video or music) is playing.
     /// Toggles playback on whichever player is active. Shared by the Playback menu item and
     /// `PlaybackSpaceKeyMonitor`, so the Space key and the menu can never diverge.
     private func performPlayPause() {
@@ -713,6 +712,7 @@ struct KasetApp: App {
         }
     }
 
+    /// Whether the currently routed player (video or music) is playing.
     private var activePlayerIsPlaying: Bool {
         if self.playbackArbiter.routesMediaKeysToVideo {
             self.youtubePlayerService.isPlaying
