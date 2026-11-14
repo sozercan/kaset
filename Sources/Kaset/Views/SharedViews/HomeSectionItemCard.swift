@@ -159,8 +159,7 @@ struct HomeSectionItemCard: View, Equatable {
         return self.hasPlayAction
     }
 
-    @ViewBuilder
-    private var thumbnailBackground: some View {
+    @ViewBuilder private var thumbnailBackground: some View {
         if self.isVideoSong {
             Rectangle()
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))

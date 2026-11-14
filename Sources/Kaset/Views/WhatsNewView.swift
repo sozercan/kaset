@@ -94,8 +94,7 @@ struct WhatsNewView: View {
         }
     }
 
-    @ViewBuilder
-    private var contentContainer: some View {
+    @ViewBuilder private var contentContainer: some View {
         if self.whatsNew.releaseNotes != nil {
             ScrollView {
                 self.contentView
@@ -115,8 +114,7 @@ struct WhatsNewView: View {
         }
     }
 
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         if let releaseNotes = self.whatsNew.releaseNotes {
             MarkdownContentView(markdown: releaseNotes)
                 .textSelection(.enabled)
@@ -311,11 +309,7 @@ private struct MarkdownContentView: View {
 
     private static func isThematicBreak(_ line: String) -> Bool {
         let stripped = line.replacingOccurrences(of: " ", with: "")
-        guard stripped.count >= 3, let first = stripped.first else {
-            return false
-        }
-
-        guard first == "-" || first == "*" || first == "_" else {
+        guard stripped.count >= 3, let first = stripped.first, first == "-" || first == "*" || first == "_" else {
             return false
         }
 

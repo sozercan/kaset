@@ -264,7 +264,8 @@ extension PlayerService {
                 ? (current.feedbackTokens ?? response.feedbackTokens)
                 : current.feedbackTokens,
             isExplicit: current.isExplicit ?? response.isExplicit,
-            audioTrackVideoId: current.audioTrackVideoId ?? response.audioTrackVideoId
+            audioTrackVideoId: current.audioTrackVideoId ?? response.audioTrackVideoId,
+            companionMusicVideoId: current.companionMusicVideoId ?? response.companionMusicVideoId
         )
     }
 }

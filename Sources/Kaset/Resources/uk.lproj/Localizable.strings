@@ -408,6 +408,10 @@
 "Return to Kaset" = "Повернутися до Kaset";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Романізувати текст пісні";
+"Pronunciation" = "Вимова";
+"Translation" = "Переклад";
+"Translate To" = "Перекласти на";
+"Lyrics Display Options" = "Параметри відображення тексту пісні";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Зберігайте плейлисти та підписуйтеся на подкасти в YouTube Music, щоб побачити їх тут.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Зберігайте плейлисти, підписуйтеся на виконавців і подкасти в YouTube Music, щоб побачити їх тут.";
 "Save albums on YouTube Music to see them here." = "Зберігайте альбоми в YouTube Music, щоб побачити їх тут.";
@@ -467,6 +471,7 @@
 "songs" = "пісень";
 "Songs you like will appear here" = "Пісні, які вам подобаються, з’являться тут";
 "Songs you play next will appear here." = "Пісні, які ви відтворите далі, з’являться тут.";
+"Source" = "Джерело";
 "Spoken Word" = "Мовлення";
 "Sports" = "Спорт";
 "Start Radio" = "Запустити радіо";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "Не знайдено пісень за запитом «%@».";
 "Couldn't play “%@”." = "Не вдалося відтворити «%@».";
 "Couldn't rate “%@”." = "Не вдалося оцінити «%@».";
+
+// Now-playing panel
+"Recommendations" = "Рекомендації";
+"Hide Panel" = "Приховати панель";
+"Show Panel" = "Показати панель";
+"Hide Video" = "Приховати відео";
+"Couldn't load recommendations." = "Не вдалося завантажити рекомендації.";
+
+// Showcase presentation
+"Open Now Playing" = "Відкрити «Зараз грає»";
+"Close Now Playing" = "Закрити «Зараз грає»";
+"Show Music Video" = "Показати музичне відео";
+"Show Album Artwork" = "Показати обкладинку альбому";

@@ -408,6 +408,10 @@
 "Return to Kaset" = "Terug naar Kaset";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Songteksten romaniseren";
+"Pronunciation" = "Uitspraak";
+"Translation" = "Vertaling";
+"Translate To" = "Vertalen naar";
+"Lyrics Display Options" = "Opties voor songtekstweergave";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Bewaar afspeellijsten en abonneer je op podcasts op YouTube Music om ze hier te zien.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Bewaar afspeellijsten, volg artiesten en abonneer je op podcasts op YouTube Music om ze hier te zien.";
 "Save albums on YouTube Music to see them here." = "Bewaar albums op YouTube Music om ze hier te zien.";
@@ -467,6 +471,7 @@
 "songs" = "nummers";
 "Songs you like will appear here" = "Nummers die je leuk vindt verschijnen hier";
 "Songs you play next will appear here." = "Nummers die je hierna afspeelt verschijnen hier.";
+"Source" = "Bron";
 "Spoken Word" = "Gesproken woord";
 "Sports" = "Sport";
 "Start Radio" = "Start radio";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "Geen nummers gevonden voor ‘%@’.";
 "Couldn't play “%@”." = "Kon ‘%@’ niet afspelen.";
 "Couldn't rate “%@”." = "Kon ‘%@’ niet beoordelen.";
+
+// Now-playing panel
+"Recommendations" = "Aanbevelingen";
+"Hide Panel" = "Paneel verbergen";
+"Show Panel" = "Paneel tonen";
+"Hide Video" = "Video verbergen";
+"Couldn't load recommendations." = "Aanbevelingen konden niet worden geladen.";
+
+// Showcase presentation
+"Open Now Playing" = "Nu afgespeeld openen";
+"Close Now Playing" = "Nu afgespeeld sluiten";
+"Show Music Video" = "Muziekvideo tonen";
+"Show Album Artwork" = "Albumhoes tonen";

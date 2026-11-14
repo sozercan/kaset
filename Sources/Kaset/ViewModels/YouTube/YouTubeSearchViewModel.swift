@@ -155,8 +155,7 @@ final class YouTubeSearchViewModel {
 
         do {
             let results = try await client.search(query: request.context.query, filter: request.context.filter)
-            guard self.isCurrentSearch(request) else { return }
-            guard !Task.isCancelled else { return }
+            guard self.isCurrentSearch(request), !Task.isCancelled else { return }
 
             self.results = results
             self.publishedSearchContext = request.context
@@ -168,8 +167,7 @@ final class YouTubeSearchViewModel {
             if error is CancellationError {
                 return
             }
-            guard self.isCurrentSearch(request) else { return }
-            guard !Task.isCancelled else { return }
+            guard self.isCurrentSearch(request), !Task.isCancelled else { return }
             self.logger.error("YouTube search failed: \(error.localizedDescription)")
             self.loadingState = .error(LoadingError(from: error))
         }

@@ -29,8 +29,7 @@ final class MiniPlayerSeekState {
 ///
 /// This is the only mini player view that observes `PlayerService.progress`, so each
 /// playback tick re-evaluates just this section instead of the whole mini player window.
-struct MiniPlayerSeekSection: View {
-    /// `.nowPlaying` swaps the system slider for the Now Playing view's thin capsule bar.
+struct MiniPlayerSeekSection<Transport: View>: View {
     enum Style {
         case mini
         case nowPlaying
@@ -38,23 +37,36 @@ struct MiniPlayerSeekSection: View {
 
     @Bindable var state: MiniPlayerSeekState
     var style: Style = .mini
+    @ViewBuilder var transport: () -> Transport
 
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
-        VStack(spacing: self.style == .mini ? 8 : 4) {
+        VStack(spacing: self.style == .mini ? 2 : 4) {
             self.slider
                 .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
-            HStack {
+                .accessibilityLabel(String(localized: "Playback position"))
+            HStack(spacing: 6) {
                 Text(PlayerBarSeekController.formatTime(self.state.isSeeking ? self.state.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
-                Spacer()
+                    .frame(minWidth: 30, alignment: .leading)
+                if self.style == .mini {
+                    self.transport()
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Spacer()
+                }
                 Text(self.playerService.isCurrentItemLive ? String(localized: "LIVE") : self.remainingTimeText)
+                    .frame(minWidth: 30, alignment: .trailing)
             }
-            .font(.system(size: self.style == .mini ? 9 : 11, weight: .semibold))
+            .font(.system(size: self.style == .mini ? 9 : 11, weight: .medium))
             .monospacedDigit()
             .foregroundStyle(.white.opacity(self.style == .mini ? 0.76 : 0.55))
             .shadow(color: .black.opacity(self.style == .mini ? 0.56 : 0), radius: 2, y: 1)
-            .overlay { WindowDragHandle() }
+            .overlay {
+                if self.style == .nowPlaying {
+                    WindowDragHandle()
+                }
+            }
         }
         .onChange(of: self.playerService.progress) { _, newValue in
             self.state.reconcileHold(observedProgress: newValue)
@@ -147,5 +159,14 @@ struct MiniPlayerSeekSection: View {
         self.state.hold.clear()
         self.state.isSeeking = false
         self.syncSeekValue()
+    }
+}
+
+/// Full-screen playback places transport controls below the seek row.
+extension MiniPlayerSeekSection where Transport == EmptyView {
+    init(state: MiniPlayerSeekState, style: Style) {
+        self.state = state
+        self.style = style
+        self.transport = { EmptyView() }
     }
 }

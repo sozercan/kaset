@@ -418,17 +418,13 @@ extension PlayerService {
         guard !self.isShowingAd,
               self.adPlaybackStateGeneration == adPlaybackStateGeneration,
               self.queueEntryIDOwningCurrentPlayback == currentQueueEntryID,
-              (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID
+              (self.currentTrack?.videoId ?? self.pendingPlayVideoId) == currentVideoID,
+              let authoritativeClock = self.authoritativeRemoteMusicClock(
+                  playbackSnapshot: playbackSnapshot,
+                  currentVideoID: currentVideoID,
+                  playbackStateObservationSequence: playbackStateObservationSequence
+              )
         else {
-            self.clearRemoteMusicSkipCoalescingTarget()
-            return
-        }
-
-        guard let authoritativeClock = self.authoritativeRemoteMusicClock(
-            playbackSnapshot: playbackSnapshot,
-            currentVideoID: currentVideoID,
-            playbackStateObservationSequence: playbackStateObservationSequence
-        ) else {
             self.clearRemoteMusicSkipCoalescingTarget()
             return
         }

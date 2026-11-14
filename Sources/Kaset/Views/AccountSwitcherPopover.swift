@@ -153,8 +153,7 @@ struct AccountSwitcherPopover: View {
         .accessibilityAddTraits(self.authService.isGuestModeEnabled ? [.isButton, .isSelected] : .isButton)
     }
 
-    @ViewBuilder
-    private var guestRowBackground: some View {
+    @ViewBuilder private var guestRowBackground: some View {
         if self.authService.isGuestModeEnabled {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.accentColor.opacity(self.isGuestModeHovering ? 0.12 : 0.08))
@@ -256,8 +255,7 @@ struct AccountSwitcherPopover: View {
         }
     }
 
-    @ViewBuilder
-    private var signOutBackground: some View {
+    @ViewBuilder private var signOutBackground: some View {
         if self.isSignOutHovering {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.red.opacity(0.10))

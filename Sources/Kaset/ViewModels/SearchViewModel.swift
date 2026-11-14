@@ -518,10 +518,7 @@ final class SearchViewModel {
     /// Loads more search results via continuation.
     func loadMore() async {
         // Only load more for filtered searches
-        guard self.selectedFilter != .all else { return }
-        guard self.loadingState == .loaded else { return }
-        guard self.hasMoreResults else { return }
-        guard let continuationToken = self.results.continuationToken else { return }
+        guard self.selectedFilter != .all, self.loadingState == .loaded, self.hasMoreResults, let continuationToken = self.results.continuationToken else { return }
 
         let generation = self.resultGeneration
         let currentQuery = self.query

@@ -15,8 +15,8 @@ enum CompatGlassTransition {
 }
 
 extension View {
-    func compatGlass(interactive: Bool = false, tint: Color? = nil, in shape: some Shape, isEnabled: Bool = true) -> some View {
-        self.modifier(CompatGlassModifier(interactive: interactive, tint: tint, shape: shape, isEnabled: isEnabled))
+    func compatGlass(interactive: Bool = false, tint: Color? = nil, in shape: some Shape) -> some View {
+        self.modifier(CompatGlassModifier(interactive: interactive, tint: tint, shape: shape))
     }
 
     func compatGlassID(_ id: String, in namespace: Namespace.ID) -> some View {
@@ -53,24 +53,29 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
     let interactive: Bool
     var tint: Color?
     let shape: S
-    var isEnabled = true
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
-        if !self.isEnabled {
-            content
-        } else if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
-            content.glassEffect(self.glass, in: self.shape)
+        // The glass surface is rendered by glassEffect/GlassEffectContainer in
+        // its own layer and is not hit-testable, so hover would leak through
+        // empty areas of the panel to content underneath. Claim the surface
+        // shape for interaction and hover so the panel blocks hits entirely;
+        // its own children keep working (they are hit-tested first).
+        let surface = content
+            .contentShape(.interaction, self.shape)
+
+        if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
+            surface.glassEffect(self.glass, in: self.shape)
         } else if let tint {
-            content
+            surface
                 .background(tint.opacity(0.55), in: self.shape)
                 .background(.ultraThinMaterial, in: self.shape)
         } else {
-            content.background(.ultraThinMaterial, in: self.shape)
+            surface.background(.ultraThinMaterial, in: self.shape)
         }
     }
 
-    @available(macOS 26.0, *)
-    private var glass: Glass {
+    @available(macOS 26.0, *) private var glass: Glass {
         var glass: Glass = .regular
         if let tint {
             glass = glass.tint(tint)
@@ -90,6 +95,7 @@ private struct CompatGlassIDModifier: ViewModifier {
     let id: String
     let namespace: Namespace.ID
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             content.glassEffectID(self.id, in: self.namespace)
@@ -106,6 +112,7 @@ private struct CompatGlassTransitionModifier: ViewModifier {
 
     let transition: CompatGlassTransition
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             switch self.transition {
@@ -123,6 +130,7 @@ private struct CompatGlassTransitionModifier: ViewModifier {
 private struct CompatGlassProminentButtonModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             content.buttonStyle(.glassProminent)
@@ -154,6 +162,7 @@ struct CompatGlassContainer<Content: View>: View {
 private struct CompatTranslucentSidebarModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
+    /// Applies native glass or the supported legacy material while preserving hit testing.
     func body(content: Content) -> some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             // macOS 26: reveal the system floating Liquid Glass.

@@ -408,6 +408,10 @@
 "Return to Kaset" = "Wróć do Kaset";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Romanizuj tekst";
+"Pronunciation" = "Wymowa";
+"Translation" = "Tłumaczenie";
+"Translate To" = "Tłumacz na";
+"Lyrics Display Options" = "Opcje wyświetlania tekstu";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Zapisuj playlisty i subskrybuj podcasty w YouTube Music, aby zobaczyć je tutaj.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Zapisuj playlisty, obserwuj artystów i subskrybuj podcasty w YouTube Music, aby zobaczyć je tutaj.";
 "Save albums on YouTube Music to see them here." = "Zapisuj albumy w YouTube Music, aby zobaczyć je tutaj.";
@@ -467,6 +471,7 @@
 "songs" = "utworów";
 "Songs you like will appear here" = "Utwory, które lubisz, pojawią się tutaj";
 "Songs you play next will appear here." = "Utwory, które odtworzysz jako następne, pojawią się tutaj.";
+"Source" = "Źródło";
 "Spoken Word" = "Słowo mówione";
 "Sports" = "Sport";
 "Start Radio" = "Uruchom radio";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "Nie znaleziono utworów dla „%@”.";
 "Couldn't play “%@”." = "Nie udało się odtworzyć „%@”.";
 "Couldn't rate “%@”." = "Nie udało się ocenić „%@”.";
+
+// Now-playing panel
+"Recommendations" = "Rekomendacje";
+"Hide Panel" = "Ukryj panel";
+"Show Panel" = "Pokaż panel";
+"Hide Video" = "Ukryj wideo";
+"Couldn't load recommendations." = "Nie udało się wczytać rekomendacji.";
+
+// Showcase presentation
+"Open Now Playing" = "Otwórz widok odtwarzania";
+"Close Now Playing" = "Zamknij widok odtwarzania";
+"Show Music Video" = "Pokaż teledysk";
+"Show Album Artwork" = "Pokaż okładkę albumu";

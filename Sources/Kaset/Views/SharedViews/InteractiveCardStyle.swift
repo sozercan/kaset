@@ -27,6 +27,7 @@ struct InteractiveCardStyle: ButtonStyle {
         self.showShadow || self.hoverScale != 1
     }
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         let label = configuration.label
@@ -74,6 +75,7 @@ struct InteractiveRowStyle: ButtonStyle {
 
     @State private var isHovering = false
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     @ViewBuilder
     func makeBody(configuration: Configuration) -> some View {
         if self.isHovered == nil {
@@ -107,17 +109,20 @@ struct InteractiveRowStyle: ButtonStyle {
 
 /// A button style that provides subtle press feedback for icon buttons.
 struct PressableButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Scale factor when pressed.
     var pressScale: CGFloat = 0.9
 
     /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? self.pressScale : 1.0)
+            .scaleEffect(configuration.isPressed && !self.reduceMotion ? self.pressScale : 1.0)
             .opacity(configuration.isPressed ? 0.7 : 1.0)
-            .animation(AppAnimation.quick, value: configuration.isPressed)
+            .animation(self.reduceMotion ? nil : AppAnimation.quick, value: configuration.isPressed)
             .onChange(of: configuration.isPressed) { _, isPressed in
                 if isPressed, let feedback = hapticFeedback {
                     HapticService.perform(feedback)
@@ -128,17 +133,25 @@ struct PressableButtonStyle: ButtonStyle {
 
 // MARK: - ChipButtonStyle
 
-/// A button style for filter chips with scale and background animation.
+/// A button style for filter chips: subtle background lift on hover, quick
+/// press feedback (scale + opacity dip). The chip label supplies its own
+/// resting capsule fill.
 struct ChipButtonStyle: ButtonStyle {
     var isSelected: Bool
 
     @State private var isHovering = false
 
+    /// Applies card interaction feedback while honoring the user’s motion preference.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.95 : (self.isHovering ? 1.03 : 1.0))
-            .animation(AppAnimation.spring, value: configuration.isPressed)
-            .animation(AppAnimation.spring, value: self.isHovering)
+            .background {
+                Capsule()
+                    .fill(.primary.opacity(self.isHovering ? 0.08 : 0))
+            }
+            .scaleEffect(configuration.isPressed ? 0.96 : 1.0)
+            .opacity(configuration.isPressed ? 0.80 : 1.0)
+            .animation(AppAnimation.quick, value: configuration.isPressed)
+            .animation(AppAnimation.quick, value: self.isHovering)
             .onHover { hovering in
                 self.isHovering = hovering
             }

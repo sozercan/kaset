@@ -178,11 +178,8 @@ enum PodcastParser {
     private static func parseTwoRowItem(_ data: [String: Any]) -> PodcastSectionItem? {
         let thumbnailURL = ParsingHelpers.extractThumbnailURL(from: data)
 
-        guard let title = ParsingHelpers.extractTitle(from: data) else {
-            return nil
-        }
-
-        guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
+        guard let title = ParsingHelpers.extractTitle(from: data),
+              let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
               let browseId = browseEndpoint["browseId"] as? String
         else {

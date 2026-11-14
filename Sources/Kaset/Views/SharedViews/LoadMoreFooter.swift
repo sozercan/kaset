@@ -58,8 +58,7 @@ struct LoadMoreFooter: View {
             || (self.autoLoad && self.lastAutoLoadTrigger != self.autoLoadTrigger)
     }
 
-    @MainActor
-    private var canStartAutoLoad: Bool {
+    @MainActor private var canStartAutoLoad: Bool {
         self.autoLoad
             && self.isVisible
             && !self.isLoading

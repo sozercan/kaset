@@ -213,11 +213,7 @@ enum YouTubeItemParser {
 
     /// Parses a playlist `lockupViewModel` (playlist search results, shelves).
     static func playlist(fromLockup lockup: [String: Any]) -> YouTubePlaylist? {
-        guard (lockup["contentType"] as? String) == "LOCKUP_CONTENT_TYPE_PLAYLIST" else {
-            return nil
-        }
-
-        guard let playlistId = lockup["contentId"] as? String else {
+        guard (lockup["contentType"] as? String) == "LOCKUP_CONTENT_TYPE_PLAYLIST", let playlistId = lockup["contentId"] as? String else {
             return nil
         }
 

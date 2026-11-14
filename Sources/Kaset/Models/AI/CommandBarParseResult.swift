@@ -12,40 +12,31 @@ import FoundationModels
 @Generable
 struct CommandBarParseResult: Equatable {
     /// High-level action the user wants to perform.
-    @Guide(description: "Action: play, queue, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, or resume.")
-    let action: CommandBarAction
+    @Guide(description: "Action: play, queue, search, inspectQueue, shuffle, clearQueue, like, dislike, skip, previous, pause, or resume.") let action: CommandBarAction
 
     /// Essential search words for content requests.
-    @Guide(description: "Essential search subject for play, queue, or search actions. Keep only the key content words, not filler or command words. Empty for pure playback controls.")
-    let subject: String
+    @Guide(description: "Essential search subject for play, queue, or search actions. Keep only the key content words, not filler or command words. Empty for pure playback controls.") let subject: String
 
     /// Optional shuffle scope.
-    @Guide(description: "Shuffle scope when action is shuffle: queue, library, likes, or empty if unspecified.")
-    let shuffleScope: String
+    @Guide(description: "Shuffle scope when action is shuffle: queue, library, likes, or empty if unspecified.") let shuffleScope: String
 
     /// Optional artist name.
-    @Guide(description: "Artist or band name only. Empty if not specified.")
-    let artist: String
+    @Guide(description: "Artist or band name only. Empty if not specified.") let artist: String
 
     /// Optional genre name.
-    @Guide(description: "Genre or style such as rock, jazz, pop, hip-hop, electronic, country, or indie. Empty if not specified.")
-    let genre: String
+    @Guide(description: "Genre or style such as rock, jazz, pop, hip-hop, electronic, country, or indie. Empty if not specified.") let genre: String
 
     /// Optional mood descriptor.
-    @Guide(description: "Mood or energy such as chill, upbeat, energetic, relaxing, sad, or groovy. Empty if not specified.")
-    let mood: String
+    @Guide(description: "Mood or energy such as chill, upbeat, energetic, relaxing, sad, or groovy. Empty if not specified.") let mood: String
 
     /// Optional time period.
-    @Guide(description: "Era such as 1960s, 1970s, 1980s, 1990s, 2000s, 2010s, 2020s, or classic. Empty if not specified.")
-    let era: String
+    @Guide(description: "Era such as 1960s, 1970s, 1980s, 1990s, 2000s, 2010s, 2020s, or classic. Empty if not specified.") let era: String
 
     /// Optional recording version.
-    @Guide(description: "Version such as acoustic, live, remix, instrumental, cover, unplugged, or remastered. Empty if not specified.")
-    let version: String
+    @Guide(description: "Version such as acoustic, live, remix, instrumental, cover, unplugged, or remastered. Empty if not specified.") let version: String
 
     /// Optional activity context.
-    @Guide(description: "Activity such as workout, study, sleep, party, driving, cooking, focus, running, or yoga. Empty if not specified.")
-    let activity: String
+    @Guide(description: "Activity such as workout, study, sleep, party, driving, cooking, focus, running, or yoga. Empty if not specified.") let activity: String
 
     var isQueueInspection: Bool {
         self.action == .inspectQueue

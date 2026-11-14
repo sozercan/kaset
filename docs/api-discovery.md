@@ -2340,3 +2340,11 @@ for the 2026-09-04 discoveries and their verification limits.
 | `playlist/delete` | HTTP 401 | Needs full auth and user-owned playlist |
 
 > **Note on Library Artists endpoints**: `FEmusic_library_corpus_track_artists` is the sign-in-backed Artists chip browseId and returns `MPLAUC...` library artist pages. Those `MPLAUC...` pages also require authentication when browsed directly. In current authenticated sessions, the library chip also exposes `FEmusic_library_corpus_artists` with `params=ggMCCAU=`; that endpoint returns followed artists with public `UC...` browseIds and is a better source for navigation. By contrast, `FEmusic_library_artists` currently returns HTTP 400 invalid argument even with full SAPISIDHASH authentication.
+
+### NetEase mixed lyric metadata (2026-11-08)
+
+`swift run api-explorer lyrics-probe netease-eapi 186016` returned HTTP 200,
+62 rows in its LRC section, including JSON credit metadata, and no YRC section. Parse
+bracket-timed LRC rows before considering JSON-only lyrics, so credit rows cannot
+replace the timed body. The reference API also documents this mixed format in
+[issue 1667](https://github.com/Binaryify/NeteaseCloudMusicApi/issues/1667).

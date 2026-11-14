@@ -13,8 +13,12 @@ import SwiftUI
 struct KasetSidebarRow: View {
     let title: String
     let systemImage: String
+    /// Optional artwork shown instead of the symbol (e.g. playlist covers).
+    var thumbnailURL: URL?
     let isSelected: Bool
     let action: () -> Void
+
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: self.action) {
@@ -24,24 +28,56 @@ struct KasetSidebarRow: View {
                     .fontWeight(self.isSelected ? .semibold : .regular)
                     .foregroundStyle(.primary)
             } icon: {
-                Image(systemName: self.systemImage)
-                    .foregroundStyle(PackageResourceLookup.brandAccent)
+                if let thumbnailURL {
+                    self.thumbnailView(url: thumbnailURL)
+                } else {
+                    Image(systemName: self.systemImage)
+                        .foregroundStyle(PackageResourceLookup.brandAccent)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.vertical, 5)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .onHover { hovering in
+            withAnimation(AppAnimation.quick) {
+                self.isHovering = hovering
+            }
+        }
         .listRowInsets(EdgeInsets(top: 1, leading: 10, bottom: 1, trailing: 10))
-        .listRowBackground(self.selectionBackground)
+        .listRowBackground(self.rowBackground)
         .accessibilityAddTraits(self.isSelected ? .isSelected : [])
     }
 
-    @ViewBuilder
-    private var selectionBackground: some View {
+    /// Small rounded-rect artwork matching the app's small-artwork corner radius.
+    private func thumbnailView(url: URL) -> some View {
+        CachedAsyncImage(url: url, targetSize: CGSize(width: 32, height: 32)) { image in
+            image
+                .resizable()
+                .scaledToFill()
+        } placeholder: {
+            Rectangle()
+                .fill(.quaternary)
+                .overlay {
+                    Image(systemName: self.systemImage)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+        }
+        .frame(width: 16, height: 16)
+        .clipShape(.rect(cornerRadius: 6))
+    }
+
+    @ViewBuilder private var rowBackground: some View {
         if self.isSelected {
             RoundedRectangle(cornerRadius: 8, style: .continuous)
                 .fill(Color.secondary.opacity(0.22))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 2)
+        } else if self.isHovering {
+            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                .fill(Color.primary.opacity(0.06))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
         }

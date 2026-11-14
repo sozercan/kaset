@@ -8,20 +8,16 @@ import FoundationModels
 @Generable
 struct QueueAnalysisSummary: Equatable {
     /// Opening sentence that anchors the read in the current song.
-    @Guide(description: "A short opening sentence that starts from the current song or current queue position.")
-    let opening: String
+    @Guide(description: "A short opening sentence that starts from the current song or current queue position.") let opening: String
 
     /// Short phrase describing the queue's overall feel.
-    @Guide(description: "A short phrase describing the queue's vibe, arc, or energy.")
-    let vibe: String
+    @Guide(description: "A short phrase describing the queue's vibe, arc, or energy.") let vibe: String
 
     /// A few concrete song or artist callouts.
-    @Guide(description: "Two to four concrete highlight callouts from the queue, using song titles or artist names from the provided list.")
-    let highlights: [String]
+    @Guide(description: "Two to four concrete highlight callouts from the queue, using song titles or artist names from the provided list.") let highlights: [String]
 
     /// Final prose shown in the command bar.
-    @Guide(description: "A concise 3-5 sentence analysis of the queue's flow, taste, and momentum. Natural prose only.")
-    let summary: String
+    @Guide(description: "A concise 3-5 sentence analysis of the queue's flow, taste, and momentum. Natural prose only.") let summary: String
 
     var displayText: String {
         self.summary.trimmingCharacters(in: .whitespacesAndNewlines)

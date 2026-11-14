@@ -74,11 +74,7 @@ enum GuideParser {
         )?["browseId"] as? String
 
         // Only channel entries — guide also lists Home/Library/etc.
-        guard let browseId, browseId.hasPrefix("UC") else {
-            return nil
-        }
-
-        guard let name = YouTubeItemParser.text(from: entry["formattedTitle"]) else {
+        guard let browseId, browseId.hasPrefix("UC"), let name = YouTubeItemParser.text(from: entry["formattedTitle"]) else {
             return nil
         }
 

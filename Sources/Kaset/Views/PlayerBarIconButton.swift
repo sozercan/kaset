@@ -5,6 +5,7 @@ import SwiftUI
 struct PlayerBarIconButton<Icon: View>: View {
     let action: () -> Void
     var isSelected = false
+    var size: CGFloat = 28
     var accessibilityID: String?
     var accessibilityLabel: String?
     var accessibilityValue: String?
@@ -20,7 +21,7 @@ struct PlayerBarIconButton<Icon: View>: View {
                 Text(self.accessibilityLabel ?? "")
             } icon: {
                 self.icon()
-                    .frame(width: PlayerBarIconButtonMetrics.size, height: PlayerBarIconButtonMetrics.size)
+                    .frame(width: self.size, height: self.size)
                     .background {
                         RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous)
                             .fill(self.backgroundColor)
@@ -30,7 +31,7 @@ struct PlayerBarIconButton<Icon: View>: View {
             .labelStyle(.iconOnly)
         }
         .buttonStyle(PlayerBarIconButtonStyle())
-        .frame(width: PlayerBarIconButtonMetrics.size, height: PlayerBarIconButtonMetrics.size)
+        .frame(width: self.size, height: self.size)
         .contentShape(RoundedRectangle(cornerRadius: PlayerBarIconButtonMetrics.cornerRadius, style: .continuous))
         .playerBarAccessibilityIdentifier(self.accessibilityID)
         .playerBarAccessibilityLabel(self.accessibilityLabel)
@@ -58,7 +59,6 @@ struct PlayerBarIconButton<Icon: View>: View {
 // MARK: - PlayerBarIconButtonMetrics
 
 private enum PlayerBarIconButtonMetrics {
-    static let size: CGFloat = 28
     static let cornerRadius: CGFloat = 8
     static let hoverOpacity = 0.08
     static let selectedOpacity = 0.06

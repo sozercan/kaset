@@ -11,14 +11,11 @@ struct SongEntity: AppEntity {
     /// The YouTube video ID.
     let id: String
 
-    @Property(title: "Title")
-    var title: String
+    @Property(title: "Title") var title: String
 
-    @Property(title: "Artist")
-    var artist: String
+    @Property(title: "Artist") var artist: String
 
-    @Property(title: "Album")
-    var album: String?
+    @Property(title: "Album") var album: String?
 
     let thumbnailURL: URL?
     let isPlayable: Bool
@@ -90,11 +87,9 @@ struct PlaylistEntity: IndexedEntity {
 
     let id: String
 
-    @Property(title: "Title")
-    var title: String
+    @Property(title: "Title") var title: String
 
-    @Property(title: "Author")
-    var author: String?
+    @Property(title: "Author") var author: String?
 
     let thumbnailURL: URL?
 
@@ -114,8 +109,7 @@ struct PlaylistEntity: IndexedEntity {
     }
 
     /// The Library playlist with this ID, or a stand-in that is enough to fetch its tracks.
-    @MainActor
-    var playlist: Playlist {
+    @MainActor var playlist: Playlist {
         AppIntentsBridge.shared.library.playlists.first { $0.id == self.id }
             ?? Playlist(
                 id: self.id,
@@ -131,8 +125,7 @@ struct PlaylistEntity: IndexedEntity {
 
 struct PlaylistEntityQuery: EntityStringQuery {
     /// Playlists offered without a search: Liked Music, then the Library.
-    @MainActor
-    static var knownPlaylists: [Playlist] {
+    @MainActor static var knownPlaylists: [Playlist] {
         let bridge = AppIntentsBridge.shared
         let library = bridge.library.playablePlaylists.filter { !LikedMusicPlaylist.matches(id: $0.id) }
         guard bridge.isSignedIn else { return library }
@@ -172,11 +165,9 @@ struct AlbumEntity: IndexedEntity {
 
     let id: String
 
-    @Property(title: "Title")
-    var title: String
+    @Property(title: "Title") var title: String
 
-    @Property(title: "Artist")
-    var artist: String
+    @Property(title: "Artist") var artist: String
 
     let thumbnailURL: URL?
 
@@ -196,8 +187,7 @@ struct AlbumEntity: IndexedEntity {
     }
 
     /// The saved album with this ID, or a stand-in that is enough to fetch its tracks.
-    @MainActor
-    var album: Album {
+    @MainActor var album: Album {
         AppIntentsBridge.shared.library.albums.first { $0.id == self.id }
             ?? Album(
                 id: self.id,

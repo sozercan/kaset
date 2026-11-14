@@ -135,8 +135,7 @@ final class LibraryMutationBroadcaster {
 
     func rollbackPlaylistRemoval(_ playlist: Playlist, receipt: PlaylistRemovalReceipt) {
         for target in receipt.targets {
-            guard target.viewModel.currentAccountScopeGeneration == target.accountScopeGeneration else { continue }
-            guard target.viewModel.rollbackPlaylistRemoval(
+            guard target.viewModel.currentAccountScopeGeneration == target.accountScopeGeneration, target.viewModel.rollbackPlaylistRemoval(
                 playlist,
                 expectedPlaylistRevision: target.playlistRevision
             ) else { continue }

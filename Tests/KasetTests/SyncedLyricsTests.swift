@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import Kaset
 
@@ -25,6 +26,38 @@ struct SyncedLyricsTests {
 
         let currentIdx = lyrics.currentLineIndex(at: 12000)
         #expect(currentIdx == 1)
+    }
+
+    @Test("Karaoke sweep front interpolates between word-timing keyframes")
+    func karaokeSweepFront() {
+        // "hello world" with "hello" at 0ms, "world" at 1000ms, line ends at 2000ms.
+        let keyframes = [
+            LyricsKaraokeSweep.Keyframe(timeMs: 0, offset: 0),
+            LyricsKaraokeSweep.Keyframe(timeMs: 1000, offset: 5),
+            LyricsKaraokeSweep.Keyframe(timeMs: 2000, offset: 11),
+        ]
+        // Before the first word: line starts unhighlighted.
+        #expect(LyricsKaraokeSweep.front(at: -100, totalCharacters: 11, keyframes: keyframes) == 0)
+        // Halfway to "world" the front is halfway across "hello".
+        #expect(abs(LyricsKaraokeSweep.front(at: 500, totalCharacters: 11, keyframes: keyframes) - 2.5) < 0.001)
+        // At "world"'s start the front reaches "world"'s first character.
+        #expect(LyricsKaraokeSweep.front(at: 1000, totalCharacters: 11, keyframes: keyframes) == 5)
+        // The front keeps moving after the last word starts (variable speed).
+        #expect(abs(LyricsKaraokeSweep.front(at: 1500, totalCharacters: 11, keyframes: keyframes) - 8) < 0.001)
+        // Past the line end the whole line is bright.
+        #expect(LyricsKaraokeSweep.front(at: 3000, totalCharacters: 11, keyframes: keyframes) == 11)
+    }
+
+    @Test("Karaoke sweep alpha eases across a feathered window, color only")
+    func karaokeSweepAlpha() {
+        // Well ahead of the front: fully dim.
+        #expect(LyricsKaraokeSweep.sungAlpha(front: 3, index: 10, dim: 0.33, bright: 1.0) == 0.33)
+        // Well behind the front: fully bright.
+        #expect(LyricsKaraokeSweep.sungAlpha(front: 10, index: 3, dim: 0.33, bright: 1.0) == 1.0)
+        // The transition window is bounded and monotonic: later characters dim first.
+        let alphas = (0 ..< 12).map { LyricsKaraokeSweep.sungAlpha(front: 6, index: $0, dim: 0.33, bright: 1.0) }
+        #expect(zip(alphas, alphas.dropFirst()).allSatisfy { $1 <= $0 + 0.0001 })
+        #expect(alphas[0] == 1.0 && alphas[11] == 0.33)
     }
 }
 
@@ -122,6 +155,32 @@ struct SyncedLyricsServiceTests {
         #expect(service.currentLyrics == .unavailable)
         #expect(service.activeProvider == nil)
         #expect(await provider.callCount() == 2)
+    }
+
+    @Test("setPinnedProvider re-ranks results and drops the cached winner")
+    func setPinnedProviderReranksCachedResults() async {
+        let first = Self.makeSyncedLyrics(source: "First Source", lineText: "First line")
+        let second = Self.makeSyncedLyrics(source: "Second Source", lineText: "Second line")
+        let secondProvider = MockLyricsProvider(name: "Second", result: .synced(second))
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "First", result: .synced(first)),
+            secondProvider,
+        ])
+        let info = Self.makeSearchInfo(videoId: "video-pin-change")
+
+        await service.fetchLyrics(for: info)
+
+        #expect(service.activeProvider == "First")
+        #expect(await secondProvider.callCount() == 1)
+
+        service.setPinnedProvider("Second")
+        await service.fetchLyrics(for: info)
+
+        // The pin wins within the same quality tier, and the cleared cache
+        // re-queries instead of re-serving the result the old pin produced.
+        #expect(service.activeProvider == "Second")
+        #expect(service.currentLyrics == .synced(second))
+        #expect(await secondProvider.callCount() == 2)
     }
 
     @Test("fetchLyrics updates loading state while a search is in flight")
@@ -265,6 +324,50 @@ struct SyncedLyricsServiceTests {
         #expect(await provider.callCount() == 1)
     }
 
+    @Test("Recording duration and strict matching never share cached synced results")
+    func cacheSeparatesRecordings() async {
+        let provider = MockLyricsProvider(name: "Recording", searchHandler: { info in
+            .synced(Self.makeSyncedLyrics(source: "Recording", lineText: "\(info.duration ?? 0):\(info.requiresCloseDurationMatch)"))
+        })
+        let service = SyncedLyricsService(providers: [provider])
+        let audio = Self.makeSearchInfo(videoId: "same-video")
+        var strict = audio
+        strict.requiresCloseDurationMatch = true
+        let live = LyricsSearchInfo(title: audio.title, artist: audio.artist, album: audio.album, duration: 240, videoId: audio.videoId, requiresCloseDurationMatch: true)
+        let unknownDuration = LyricsSearchInfo(title: audio.title, artist: audio.artist, album: audio.album, duration: nil, videoId: audio.videoId)
+        for info in [unknownDuration, audio, strict, live, audio] {
+            await service.fetchLyrics(for: info)
+        }
+        #expect(await provider.callCount() == 4)
+        #expect(Self.syncedLyrics(from: service.currentLyrics)?.lines.first?.text == "180.0:false")
+    }
+
+    @Test("Pinned provider wins despite fewer lines and lower timing granularity")
+    func pinnedProviderOutranksCompleteness() async {
+        let pinned = Self.makeSyncedLyrics(source: "Pinned", lineText: "Chosen")
+        let words = SyncedLyrics(lines: [
+            SyncedLyricLine(timeInMs: 0, duration: 1000, text: "More", words: [TimedWord(timeInMs: 0, word: "More")]),
+            SyncedLyricLine(timeInMs: 1000, duration: 1000, text: "Lines", words: nil),
+        ], source: "Other")
+        let service = SyncedLyricsService(providers: [MockLyricsProvider(name: "Other", result: .synced(words)), MockLyricsProvider(name: "Pinned", result: .synced(pinned))], pinnedProvider: "Pinned")
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "pinned"))
+        #expect(service.activeProvider == "Pinned")
+    }
+
+    @Test("Rejected lyrics cannot be revived by changing pronunciation")
+    func rejectionClearsRomanizationBase() async {
+        let originalSetting = SettingsManager.shared.romanizationEnabled
+        defer { SettingsManager.shared.romanizationEnabled = originalSetting }
+        let service = SyncedLyricsService(providers: [MockLyricsProvider(name: "Wrong", result: .synced(Self.makeSyncedLyrics(source: "Wrong", lineText: "안녕하세요")))])
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "rejected"))
+        let plain = Lyrics(text: "Correct lyrics", source: "YouTube Music")
+        service.rejectSyncedLyrics(replacingWith: plain, videoId: "rejected")
+        SettingsManager.shared.romanizationEnabled.toggle()
+        try? await Task.sleep(for: .milliseconds(100))
+        #expect(service.currentLyrics == .plain(plain))
+        #expect(service.activeProvider == "YouTube Music")
+    }
+
     private static func makeSearchInfo(videoId: String) -> LyricsSearchInfo {
         LyricsSearchInfo(
             title: "Test Song",
@@ -273,6 +376,123 @@ struct SyncedLyricsServiceTests {
             duration: 180,
             videoId: videoId
         )
+    }
+
+    // MARK: - MV recording mismatch
+
+    private static func lrcLibEntry(
+        duration: TimeInterval?,
+        plainLyrics: String? = nil,
+        syncedLyrics: String? = nil
+    ) -> LRCLibModel {
+        LRCLibModel(
+            id: 1,
+            trackName: "Song",
+            artistName: "Artist",
+            albumName: nil,
+            duration: duration,
+            instrumental: false,
+            plainLyrics: plainLyrics,
+            syncedLyrics: syncedLyrics
+        )
+    }
+
+    private static func info(
+        duration: TimeInterval?,
+        requiresCloseDurationMatch: Bool
+    ) -> LyricsSearchInfo {
+        LyricsSearchInfo(
+            title: "Song",
+            artist: "Artist",
+            album: nil,
+            duration: duration,
+            videoId: "mv",
+            requiresCloseDurationMatch: requiresCloseDurationMatch
+        )
+    }
+
+    private static func plainText(from result: LyricResult) -> String? {
+        guard case let .plain(lyrics) = result else { return nil }
+        return lyrics.text
+    }
+
+    @Test("LRCLib keeps the closest-recording synced match within the duration tolerance")
+    func lrcLibCloseDurationMatchStaysSynced() {
+        let studio = Self.lrcLibEntry(duration: 180, plainLyrics: "Studio plain", syncedLyrics: "[00:00.20]Studio line")
+        let live = Self.lrcLibEntry(duration: 254, plainLyrics: "Live plain", syncedLyrics: "[00:00.20]Live line")
+
+        // The loaded MV recording runs ~254s; the live entry matches closely
+        // and wins over the studio entry even though the search is keyed to
+        // the studio title.
+        let result = LRCLibProvider.matchResult(
+            from: [studio, live],
+            info: Self.info(duration: 254, requiresCloseDurationMatch: true)
+        )
+
+        guard case let .synced(lyrics) = result else {
+            Issue.record("Expected a synced match for the close recording")
+            return
+        }
+        #expect(lyrics.lines.first?.text == "Live line")
+    }
+
+    @Test("LRCLib degrades to plain lyrics when only a different recording matches")
+    func lrcLibDegradesOnRecordingDurationMismatch() {
+        let studio = Self.lrcLibEntry(duration: 180, plainLyrics: "Studio plain", syncedLyrics: "[00:00.20]Studio line")
+
+        // The loaded MV recording runs ~254s; only the studio recording's
+        // synced lyrics exist, and their timings would highlight the wrong
+        // moments — degrade to the plain lyrics instead.
+        let degraded = LRCLibProvider.matchResult(
+            from: [studio],
+            info: Self.info(duration: 254, requiresCloseDurationMatch: true)
+        )
+        #expect(Self.plainText(from: degraded) == "Studio plain")
+
+        // Without the close-match requirement (normal audio playback), the
+        // studio synced lyrics are still served.
+        let normal = LRCLibProvider.matchResult(
+            from: [studio],
+            info: Self.info(duration: 254, requiresCloseDurationMatch: false)
+        )
+        guard case .synced = normal else {
+            Issue.record("Expected the normal path to stay synced")
+            return
+        }
+    }
+
+    @Test("LRCLib keeps synced lyrics when the mismatch flag is set but durations are close")
+    func lrcLibKeepsSyncedForCloseDurations() {
+        let entry = Self.lrcLibEntry(duration: 256, plainLyrics: "Plain", syncedLyrics: "[00:01.00]Line")
+
+        let result = LRCLibProvider.matchResult(
+            from: [entry],
+            info: Self.info(duration: 254, requiresCloseDurationMatch: true)
+        )
+
+        guard case .synced = result else {
+            Issue.record("Expected a synced match within tolerance")
+            return
+        }
+    }
+
+    @Test("invalidateCachedLyrics forces the next fetch to re-search the providers")
+    func invalidateCachedLyricsForcesRefetch() async {
+        let synced = Self.makeSyncedLyrics(source: "Provider", lineText: "Cached line")
+        let provider = MockLyricsProvider(name: "Provider", result: .synced(synced))
+        let service = SyncedLyricsService(providers: [provider])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-invalidate"))
+        #expect(await provider.callCount() == 1)
+
+        // A repeat fetch is served from cache…
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-invalidate"))
+        #expect(await provider.callCount() == 1)
+
+        // …but the recording-mismatch refetch must re-search.
+        service.invalidateCachedLyrics(for: "video-invalidate")
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-invalidate"))
+        #expect(await provider.callCount() == 2)
     }
 
     private static func makeSyncedLyrics(source: String, lineText: String) -> SyncedLyrics {
@@ -287,6 +507,117 @@ struct SyncedLyricsServiceTests {
     private static func syncedLyrics(from result: LyricResult) -> SyncedLyrics? {
         guard case let .synced(lyrics) = result else { return nil }
         return lyrics
+    }
+
+    @Test("fetchLyrics prefers word-level synced lyrics over line-level regardless of provider order")
+    func fetchLyricsPrefersWordLevelSyncedLyrics() async {
+        let lineLevel = Self.makeSyncedLyrics(source: "LineProvider", lineText: "Line 1")
+        let wordLevel = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(
+                    timeInMs: 0,
+                    duration: 5000,
+                    text: "Hello world",
+                    words: [
+                        TimedWord(timeInMs: 0, word: "Hello "),
+                        TimedWord(timeInMs: 500, word: "world"),
+                    ]
+                ),
+            ],
+            source: "WordProvider"
+        )
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "LineProvider", result: .synced(lineLevel)),
+            MockLyricsProvider(name: "WordProvider", result: .synced(wordLevel)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-word-level"))
+
+        #expect(service.currentLyrics == .synced(wordLevel))
+        #expect(service.activeProvider == "WordProvider")
+    }
+
+    @Test("fetchLyrics prefers the more complete line-level lyrics on granularity ties")
+    func fetchLyricsPrefersMoreCompleteSyncedLyrics() async {
+        let sparse = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(timeInMs: 0, duration: 5000, text: "One", words: nil),
+            ],
+            source: "Sparse"
+        )
+        let complete = SyncedLyrics(
+            lines: [
+                SyncedLyricLine(timeInMs: 0, duration: 3000, text: "One", words: nil),
+                SyncedLyricLine(timeInMs: 3000, duration: 3000, text: "Two", words: nil),
+            ],
+            source: "Complete"
+        )
+        let service = SyncedLyricsService(providers: [
+            MockLyricsProvider(name: "Sparse", result: .synced(sparse)),
+            MockLyricsProvider(name: "Complete", result: .synced(complete)),
+        ])
+
+        await service.fetchLyrics(for: Self.makeSearchInfo(videoId: "video-completeness"))
+
+        #expect(service.currentLyrics == .synced(complete))
+        #expect(service.activeProvider == "Complete")
+    }
+
+    @Test("NetEase yrc parser builds word timings from the bracket format")
+    func netEaseYRCParsing() throws {
+        let raw = """
+        {"t":-1000,"c":[{"tx":"作词: 某人"}]}
+        [27410,5060](27410,260,0)也(27670,500,0)许(28170,600,0)已
+        [33920,2100](33920,210,0)面(34130,120,0)对
+        """
+
+        let lines = try #require(NetEaseProvider.parseYRC(raw))
+        #expect(lines.count == 2)
+        #expect(lines[0].timeInMs == 27410)
+        #expect(lines[0].text == "也许已")
+        #expect(lines[0].words?.count == 3)
+        #expect(lines[0].words?[0] == TimedWord(timeInMs: 27410, word: "也"))
+        #expect(lines[0].words?[1] == TimedWord(timeInMs: 27670, word: "许"))
+        #expect(lines[1].text == "面对")
+    }
+
+    @Test("NetEase mixed credit JSON and LRC preserves timed lyrics")
+    func netEaseMixedCreditLyricsParsing() throws {
+        let raw = """
+        {"t":0,"c":[{"tx":"Credit one"}]}
+        {"t":1000,"c":[{"tx":"Credit two"}]}
+        [00:02.000]First lyric
+        [00:04.500]Second lyric
+        """
+        let lines = try #require(NetEaseProvider.parseLyricBody(raw))
+            .filter { !$0.text.isEmpty }
+        #expect(lines.map(\.text) == ["First lyric", "Second lyric"])
+        #expect(lines.map(\.timeInMs) == [2000, 4500])
+        #expect(lines[0].duration == 2500)
+    }
+
+    @Test("NetEase JSON-shape lyrics parse into timed lines")
+    func netEaseJSONLyricsParsing() throws {
+        let raw = """
+        {"t":0,"c":[{"tx":"作词: "},{"tx":"某人"}]}
+        {"t":1500,"c":[{"tx":"第一行"}]}
+        {"t":4000,"c":[{"tx":"第二行"}]}
+        """
+
+        let lines = try #require(NetEaseProvider.parseLyricBody(raw))
+        #expect(lines.count == 3)
+        #expect(lines[0].text == "作词: 某人")
+        #expect(lines[1].timeInMs == 1500)
+        #expect(lines[1].duration == 2500)
+        #expect(lines[2].duration == 5000)
+    }
+
+    @Test("Google translate target codes map script suffixes")
+    func googleTranslateTargetCodes() {
+        #expect(GoogleTranslateService.targetCode(for: "zh-Hans") == "zh-CN")
+        #expect(GoogleTranslateService.targetCode(for: "zh-Hant") == "zh-TW")
+        #expect(GoogleTranslateService.targetCode(for: "ja") == "ja")
+        #expect(GoogleTranslateService.targetCode(for: nil) == "en")
     }
 }
 

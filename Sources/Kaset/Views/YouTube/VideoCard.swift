@@ -121,8 +121,7 @@ struct VideoThumbnailView: View {
         ))
     }
 
-    @ViewBuilder
-    private var badge: some View {
+    @ViewBuilder private var badge: some View {
         if self.video.isLive {
             Text("LIVE", comment: "Badge on live stream thumbnails")
                 .font(.system(size: 10, weight: .bold))

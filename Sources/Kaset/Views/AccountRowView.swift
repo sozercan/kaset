@@ -110,8 +110,7 @@ struct AccountRowView: View {
 
     // MARK: - Background
 
-    @ViewBuilder
-    private var rowBackground: some View {
+    @ViewBuilder private var rowBackground: some View {
         if self.isSelected {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.accentColor.opacity(self.isHovering ? 0.12 : 0.08))

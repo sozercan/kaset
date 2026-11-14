@@ -176,8 +176,7 @@ final class FoundationModelsService {
     func prewarmCommandBar(promptPrefix: String) {
         self.refreshAvailability()
 
-        guard self.isAvailable else { return }
-        guard self.supportsLocale(Locale.current) else { return }
+        guard self.isAvailable, self.supportsLocale(Locale.current) else { return }
 
         self.logger.debug("Pre-warming Foundation Models command bar prompt prefix")
         let session = LanguageModelSession()

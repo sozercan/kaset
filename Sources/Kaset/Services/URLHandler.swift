@@ -143,17 +143,13 @@ enum URLHandler {
         let pathLower = path.lowercased()
 
         // /watch?v=videoId - Play song
-        if pathLower == "/watch" || pathLower.hasPrefix("/watch") {
-            if let videoId = Self.queryValue(for: "v", in: queryItems), !videoId.isEmpty {
-                return .song(videoId: videoId)
-            }
+        if pathLower == "/watch" || pathLower.hasPrefix("/watch"), let videoId = Self.queryValue(for: "v", in: queryItems), !videoId.isEmpty {
+            return .song(videoId: videoId)
         }
 
         // /playlist?list=playlistId - Open playlist
-        if pathLower == "/playlist" || pathLower.hasPrefix("/playlist") {
-            if let listId = Self.queryValue(for: "list", in: queryItems), !listId.isEmpty {
-                return .playlist(id: listId)
-            }
+        if pathLower == "/playlist" || pathLower.hasPrefix("/playlist"), let listId = Self.queryValue(for: "list", in: queryItems), !listId.isEmpty {
+            return .playlist(id: listId)
         }
 
         // /browse/XXX - Album, Playlist (VLPL prefix), or other browse content

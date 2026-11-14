@@ -100,10 +100,7 @@ struct YouTubeShortsView: View {
     }
 
     private func play(shortId: String) {
-        guard let short = self.viewModel.shorts.first(where: { $0.videoId == shortId }) else {
-            return
-        }
-        guard self.youtubePlayer.currentVideo?.videoId != short.videoId else { return }
+        guard let short = self.viewModel.shorts.first(where: { $0.videoId == shortId }), self.youtubePlayer.currentVideo?.videoId != short.videoId else { return }
         self.youtubePlayer.play(video: short, usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore)
         self.youtubePlayer.activeInlineVideoId = short.videoId
     }

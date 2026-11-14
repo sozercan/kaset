@@ -285,33 +285,32 @@ struct PodcastParserTests {
             ],
         ]
 
-        if let token = continuationToken {
-            // Add continuation to the music shelf
-            if var contents = data["contents"] as? [String: Any],
-               var singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
-               var tabs = singleColumn["tabs"] as? [[String: Any]],
-               var firstTab = tabs.first,
-               var tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-               var content = tabRenderer["content"] as? [String: Any],
-               var sectionList = content["sectionListRenderer"] as? [String: Any],
-               var sectionContents = sectionList["contents"] as? [[String: Any]],
-               var firstSection = sectionContents.first,
-               var musicShelf = firstSection["musicShelfRenderer"] as? [String: Any]
-            {
-                musicShelf["continuations"] = [[
-                    "nextContinuationData": ["continuation": token],
-                ]]
-                firstSection["musicShelfRenderer"] = musicShelf
-                sectionContents[0] = firstSection
-                sectionList["contents"] = sectionContents
-                content["sectionListRenderer"] = sectionList
-                tabRenderer["content"] = content
-                firstTab["tabRenderer"] = tabRenderer
-                tabs[0] = firstTab
-                singleColumn["tabs"] = tabs
-                contents["singleColumnBrowseResultsRenderer"] = singleColumn
-                data["contents"] = contents
-            }
+        if let token = continuationToken,
+           // Add continuation to the music shelf
+           var contents = data["contents"] as? [String: Any],
+           var singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
+           var tabs = singleColumn["tabs"] as? [[String: Any]],
+           var firstTab = tabs.first,
+           var tabRenderer = firstTab["tabRenderer"] as? [String: Any],
+           var content = tabRenderer["content"] as? [String: Any],
+           var sectionList = content["sectionListRenderer"] as? [String: Any],
+           var sectionContents = sectionList["contents"] as? [[String: Any]],
+           var firstSection = sectionContents.first,
+           var musicShelf = firstSection["musicShelfRenderer"] as? [String: Any]
+        {
+            musicShelf["continuations"] = [[
+                "nextContinuationData": ["continuation": token],
+            ]]
+            firstSection["musicShelfRenderer"] = musicShelf
+            sectionContents[0] = firstSection
+            sectionList["contents"] = sectionContents
+            content["sectionListRenderer"] = sectionList
+            tabRenderer["content"] = content
+            firstTab["tabRenderer"] = tabRenderer
+            tabs[0] = firstTab
+            singleColumn["tabs"] = tabs
+            contents["singleColumnBrowseResultsRenderer"] = singleColumn
+            data["contents"] = contents
         }
 
         return data

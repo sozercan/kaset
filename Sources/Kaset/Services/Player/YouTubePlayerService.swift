@@ -710,10 +710,8 @@ final class YouTubePlayerService {
         // stop) after a partial watch, neither of which emits a skip or finish
         // event. `signalWatchConclusion` de-dupes, so a close right after a
         // natural end (already signalled) does not re-signal the finished video.
-        if self.currentVideo != nil, self.progress > 0 {
-            if self.signalWatchConclusion() {
-                self.watchActivityGeneration += 1
-            }
+        if self.currentVideo != nil, self.progress > 0, self.signalWatchConclusion() {
+            self.watchActivityGeneration += 1
         }
         self.currentVideo = nil
         self.resetPlaybackOccurrenceState()
@@ -1592,9 +1590,8 @@ extension YouTubePlayerService {
     private func acknowledgeExplicitStartTarget(with update: PlaybackUpdate) {
         guard !update.isAd,
               let target = self.pendingExplicitStartTarget,
-              (update.pendingSeekVideoId ?? update.videoId) == target.videoId
-        else { return }
-        guard update.didApplyPendingSeek else { return }
+              (update.pendingSeekVideoId ?? update.videoId) == target.videoId,
+              update.didApplyPendingSeek else { return }
         self.pendingExplicitStartTarget = nil
     }
 

@@ -4,6 +4,19 @@ import WebKit
 // MARK: - SingletonPlayerWebView Video Mode Extension
 
 extension SingletonPlayerWebView {
+    /// Whether the currently loaded media element actually carries video frames
+    /// (`videoWidth`/`videoHeight` > 0). Audio-only streams report zeros, so
+    /// this is the live evidence that the loaded stream can be hosted as video.
+    func loadedStreamHasVideoContent() async -> Bool {
+        guard let webView else { return false }
+        let script = "(function(){const v=document.querySelector('video');return v?(v.videoWidth>0&&v.videoHeight>0):false})()"
+        return await withCheckedContinuation { continuation in
+            webView.evaluateJavaScript(script) { result, _ in
+                continuation.resume(returning: result as? Bool ?? false)
+            }
+        }
+    }
+
     /// Updates WebView size based on display mode.
     func updateDisplayMode(_ mode: DisplayMode) {
         guard let webView, self.displayMode != mode else { return }
@@ -29,7 +42,7 @@ extension SingletonPlayerWebView {
 
     /// Injects a temporary blackout overlay to hide the web UI during video mode setup.
     func injectBlackoutCSS() {
-        guard let webView else { return }
+        guard self.displayMode == .video, let webView else { return }
 
         let script = """
             (function() {
@@ -55,7 +68,7 @@ extension SingletonPlayerWebView {
 
     /// Waits for the WebView's superview to have valid (non-zero) bounds, then injects CSS.
     func waitForValidBoundsAndInject(attempts: Int = 0) {
-        guard let webView else { return }
+        guard self.displayMode == .video, let webView else { return }
 
         let maxAttempts = 20 // 2 seconds max (20 * 100ms)
         if let superview = webView.superview, superview.bounds.width > 0, superview.bounds.height > 0 {
@@ -80,54 +93,13 @@ extension SingletonPlayerWebView {
     /// Injects CSS to hide YouTube Music UI and show only the video.
     /// Called when entering video mode or when page reloads while in video mode.
     func injectVideoModeCSS() {
-        guard let webView else { return }
-
-        // First, let's debug what's in the DOM
-        let debugScript = """
-            (function() {
-                const video = document.querySelector('video');
-                const videoInfo = video ? {
-                    src: video.src ? video.src.substring(0, 100) : 'none',
-                    width: video.videoWidth,
-                    height: video.videoHeight,
-                    paused: video.paused,
-                    display: getComputedStyle(video).display,
-                    visibility: getComputedStyle(video).visibility
-                } : 'no video element';
-
-                const tabs = document.querySelectorAll('tp-yt-paper-tab');
-                const tabTexts = Array.from(tabs).map(t => t.textContent.trim());
-
-                const playerPage = document.querySelector('ytmusic-player-page');
-                const moviePlayer = document.querySelector('#movie_player');
-                const html5Player = document.querySelector('.html5-video-player');
-
-                return {
-                    videoInfo: videoInfo,
-                    tabTexts: tabTexts,
-                    hasPlayerPage: !!playerPage,
-                    hasMoviePlayer: !!moviePlayer,
-                    hasHtml5Player: !!html5Player,
-                    url: window.location.href
-                };
-            })();
-        """
-
-        webView.evaluateJavaScript(debugScript) { [weak self] result, error in
-            if let error {
-                DiagnosticsLogger.player.error("Video debug script failed: \(error.localizedDescription, privacy: .public)")
-            }
-            if let dict = result as? [String: Any] {
-                DiagnosticsLogger.player.info("Video mode debug result (Info): \(String(describing: dict), privacy: .public)")
-            }
-            // Now click the Video tab
-            self?.clickVideoTabAndInjectCSS()
-        }
+        guard self.displayMode == .video else { return }
+        self.clickVideoTabAndInjectCSS()
     }
 
     /// Clicks the Video tab and then injects CSS.
     func clickVideoTabAndInjectCSS() {
-        guard let webView else { return }
+        guard self.displayMode == .video, let webView else { return }
 
         // The Song/Video toggle is different from the tabs
         // It appears as a segmented control near the top of the player page
@@ -178,6 +150,7 @@ extension SingletonPlayerWebView {
         """
 
         webView.evaluateJavaScript(clickVideoTabScript) { [weak self] result, _ in
+            guard self?.displayMode == .video else { return }
             // Log if Video tab wasn't found (YouTube UI may have changed)
             if let resultDict = result as? [String: Any],
                let clicked = resultDict["clicked"] as? Bool,
@@ -207,7 +180,7 @@ extension SingletonPlayerWebView {
 
     /// Actually injects the CSS styles for video mode.
     func injectVideoModeStyles() {
-        guard let webView else { return }
+        guard self.displayMode == .video, let webView else { return }
 
         // Use superview frame since that's the actual container size
         _ = webView.superview?.frame ?? .zero
