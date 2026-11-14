@@ -141,6 +141,7 @@
 "Number %lld, %@" = "%1$lld numara, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "örn. Yavaş şarkıları kaldır, enerjiye göre yeniden sırala...";
 "Edit" = "Düzenle";
+"Edit search" = "Aramayı düzenle";
 "Electronic" = "Elektronik";
 "Enable %@ Scrobbling" = "%@ Scrobbling'i Etkinleştir";
 "Enable AI Features" = "Yapay Zeka Özelliklerini Etkinleştir";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Öne Çıkan Çalma Listeleri";
 "Fetch and display real-time synced lyrics when available" = "Mevcut olduğunda gerçek zamanlı senkronize şarkı sözlerini getir ve göster";
 "Filter" = "Filtre";
+"Find in playlist" = "Çalma listesinde ara";
 "Find songs, albums, artists, and playlists" = "Şarkıları, albümleri, sanatçıları ve çalma listelerini bulun";
 "Find videos, channels, and playlists." = "Videoları, kanalları ve oynatma listelerini bulun.";
 "Flat" = "Düz";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Abonelik videosu yok";
 "No uploaded songs yet" = "Henüz yüklenen şarkı yok";
 "No videos" = "Video yok";
+"Not all tracks loaded. Results may be incomplete." = "Bazı parçalar yüklenemedi. Sonuçlar eksik olabilir.";
 "Not connected" = "Bağlı değil";
 "Not disliked" = "Olumsuz oy verilmedi";
 "Not Enabled" = "Etkin Değil";

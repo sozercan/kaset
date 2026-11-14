@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Nomor %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "mis. Hapus lagu lambat, urutkan ulang berdasarkan energi...";
 "Edit" = "Edit";
+"Edit search" = "Edit pencarian";
 "Electronic" = "Elektronik";
 "Enable %@ Scrobbling" = "Aktifkan Scrobbling %@";
 "Enable AI Features" = "Aktifkan Fitur AI";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Daftar putar unggulan";
 "Fetch and display real-time synced lyrics when available" = "Ambil dan tampilkan lirik tersinkron waktu nyata jika tersedia";
 "Filter" = "Filter";
+"Find in playlist" = "Cari di daftar putar";
 "Find songs, albums, artists, and playlists" = "Temukan lagu, album, artis, dan daftar putar";
 "Find videos, channels, and playlists." = "Temukan video, channel, dan playlist.";
 "Flat" = "Flat";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Tidak ada video langganan";
 "No uploaded songs yet" = "Belum ada lagu yang diunggah";
 "No videos" = "Tidak ada video";
+"Not all tracks loaded. Results may be incomplete." = "Tidak semua trek dimuat. Hasil mungkin tidak lengkap.";
 "Not connected" = "Tidak terhubung";
 "Not disliked" = "Belum ditandai tidak suka";
 "Not Enabled" = "Tidak Diaktifkan";

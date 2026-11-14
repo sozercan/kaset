@@ -39,7 +39,7 @@
 - 📚 **Library Access** — Browse playlists, liked songs, and subscribed podcasts; create playlists, add songs to playlists, and delete your own playlists
 - 🧭 **Explore** — Discover new releases, charts, and moods & genres
 - 🎙️ **Podcasts** — Browse and listen to podcasts with episode progress tracking
-- 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts
+- 🔍 **Search** — Find songs, albums, artists, playlists, and podcasts, or filter any playlist or album by track title, artist, or album and play just the matches
 - 🕓 **History** — Revisit recently played tracks
 
 ### macOS Integration

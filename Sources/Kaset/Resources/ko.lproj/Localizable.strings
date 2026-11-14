@@ -141,6 +141,7 @@
 "Number %lld, %@" = "%1$lld위, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
 "Edit" = "편집";
+"Edit search" = "검색 편집";
 "Electronic" = "일렉트로닉";
 "Enable %@ Scrobbling" = "%@ 스크로블링 사용";
 "Enable AI Features" = "AI 기능 활성화";
@@ -170,6 +171,7 @@
 "Featured playlists" = "추천 재생목록";
 "Fetch and display real-time synced lyrics when available" = "사용 가능한 경우 실시간 동기화 가사를 가져와 표시합니다";
 "Filter" = "필터";
+"Find in playlist" = "재생목록에서 찾기";
 "Find songs, albums, artists, and playlists" = "노래, 앨범, 아티스트, 재생목록 찾기";
 "Find videos, channels, and playlists." = "동영상, 채널 및 재생목록을 찾으세요.";
 "Flat" = "플랫";
@@ -313,6 +315,7 @@
 "No subscription videos" = "구독 동영상이 없습니다";
 "No uploaded songs yet" = "아직 업로드한 노래가 없습니다";
 "No videos" = "동영상 없음";
+"Not all tracks loaded. Results may be incomplete." = "일부 트랙을 로드하지 못했습니다. 결과가 불완전할 수 있습니다.";
 "Not connected" = "연결되지 않음";
 "Not disliked" = "싫어요 취소됨";
 "Not Enabled" = "활성화되지 않음";

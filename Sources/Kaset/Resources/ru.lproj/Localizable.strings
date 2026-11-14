@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Номер %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "например, убрать медленные треки, перестроить по энергии…";
 "Edit" = "Правка";
+"Edit search" = "Изменить поиск";
 "Electronic" = "Электроника";
 "Enable %@ Scrobbling" = "Включить Scrobbling %@";
 "Enable AI Features" = "Включить функции AI";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Рекомендуемые плейлисты";
 "Fetch and display real-time synced lyrics when available" = "Получать и показывать синхронизированные тексты в реальном времени, когда они доступны";
 "Filter" = "Фильтр";
+"Find in playlist" = "Найти в плейлисте";
 "Find songs, albums, artists, and playlists" = "Находите треки, альбомы, исполнителей и плейлисты";
 "Find videos, channels, and playlists." = "Находите видео, каналы и плейлисты.";
 "Flat" = "Плоский";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Нет видео из подписок";
 "No uploaded songs yet" = "Пока нет загруженных песен";
 "No videos" = "Нет видео";
+"Not all tracks loaded. Results may be incomplete." = "Загружены не все треки. Результаты могут быть неполными.";
 "Not connected" = "Не подключено";
 "Not disliked" = "Не отмечено как «не нравится»";
 "Not Enabled" = "Не включено";
