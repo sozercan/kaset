@@ -391,6 +391,44 @@ install_binary() {
   verify_binary_arches "$dest" "${ARCH_LIST[@]}"
 }
 
+# Record the SDK the app was compiled against in its LC_BUILD_VERSION.
+#
+# Swift Build, the default SwiftPM build system since Xcode 27, runs the link
+# step without SDKROOT in its environment. The linker driver then records the
+# deployment target (15.4) as the SDK version, even though everything was
+# compiled against the current SDK. macOS uses that field for linked-on-or-after
+# checks, so an app claiming SDK 15.4 runs in compatibility mode: no Liquid Glass
+# toolbar, sidebar, or window styling on macOS 26 and later. The native build
+# system and Xcode 26 toolchains record the real SDK, so this is a no-op there.
+fix_linked_sdk_version() {
+  local binary="$1"
+  local sdk_version recorded
+  sdk_version=$(xcrun --sdk macosx --show-sdk-version)
+  # Distinct SDK versions across all slices of a universal binary.
+  recorded=$(xcrun vtool -show-build "$binary" | awk '$1 == "sdk" { print $2 }' | sort -u | paste -sd ' ' -)
+  if [[ "$recorded" == "$sdk_version" ]]; then
+    return
+  fi
+  echo "  → Recording linked SDK $sdk_version (linker wrote ${recorded:-none})"
+  xcrun vtool -set-build-version macos "$MIN_MACOS_VERSION" "$sdk_version" -replace \
+    -output "$binary" "$binary"
+}
+
+# Refresh the executable's ad-hoc signature after editing it.
+#
+# SwiftPM signs the executable with codesign, and vtool and install_name_tool
+# only refresh linker-made signatures, so the SDK and rpath edits leave it
+# invalid and Apple silicon kills it at launch. Signed modes re-sign the bundle
+# later, but unsigned packaging doesn't. Sign a copy outside the bundle: signing
+# in place would seal the still-empty bundle's resources.
+resign_executable_ad_hoc() {
+  local binary="$1"
+  local staged="$BUILD_DIR/${binary##*/}.resigned"
+  cp "$binary" "$staged"
+  codesign --force --sign - --preserve-metadata=identifier,entitlements,flags "$staged"
+  mv "$staged" "$binary"
+}
+
 echo "🔨 Building $APP_NAME ($CONF) for ${ARCH_LIST[*]}..."
 
 # Clean previous build
@@ -512,6 +550,10 @@ if [[ -n "$SPARKLE_FRAMEWORK" ]]; then
 else
   echo "WARN: Sparkle.framework not found in build output. Auto-updates will not work."
 fi
+
+# Last edits to the executable: the re-sign must follow the rpath change above.
+fix_linked_sdk_version "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+resign_executable_ad_hoc "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
 # ── SwiftPM resource bundles ──────────────────────────────────────────────────
 # Kaset_Kaset.bundle contains Assets.xcassets compiled for Bundle.module.
