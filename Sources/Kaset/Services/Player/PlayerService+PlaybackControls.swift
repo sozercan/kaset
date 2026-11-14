@@ -508,6 +508,11 @@ extension PlayerService {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("Pausing playback (origin: \(String(describing: origin)))")
         self.clearQueueNavigationRecovery()
+        // Recovery is scoped to playback the route loss itself stopped. macOS can still send its
+        // route-loss `pause` to an app that is already paused (by the user, by WebKit handling a
+        // media key, by the page's own controls, or at the end of a track), and arming recovery
+        // then would resume music nobody was listening to when the output comes back.
+        let stopsPlayback = self.isPlaying || self.isAwaitingPlaybackConfirmation
         self.isAwaitingPlaybackConfirmation = false
         switch origin {
         case .user:
@@ -519,20 +524,19 @@ extension PlayerService {
             // Behaves as the user's until proven otherwise. Core Audio publishes a route change
             // only after several synchronous device queries while this command drains
             // independently, so a genuine route-loss pause can arrive first and look deliberate.
-            // A pause landing on playback the user already paused stopped nothing, so it leaves
-            // no marker: re-attributing it would clear that standing pause, as `.routeLoss`
-            // never does, and a reconnect would resume music the user chose to stop.
-            let userAlreadyPaused = self.isExplicitPauseIntentActive && !self.isPlaying
+            // Only a pause that stopped playback leaves a marker for the route event to claim.
             self.shouldResumeAfterInterruption = false
             self.isExplicitPauseIntentActive = true
             self.routeLossPauseAt = nil
-            self.unattributedRemotePauseAt = userAlreadyPaused ? nil : admittedAt
+            self.unattributedRemotePauseAt = stopsPlayback ? admittedAt : nil
         case let .routeLoss(at):
             self.unattributedRemotePauseAt = nil
             // Dated to when the command was admitted, not to now: this runs after an unbounded
             // hop to the MainActor, and a marker stamped late would sort *after* a reconnect
             // that already happened, leaving `hasAudioRouteChanged` permanently false.
-            self.routeLossPauseAt = at
+            if stopsPlayback {
+                self.routeLossPauseAt = at
+            }
         }
 
         if self.isPendingRestoredLoadDeferred {

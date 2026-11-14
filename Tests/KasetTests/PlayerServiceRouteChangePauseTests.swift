@@ -174,6 +174,45 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A route-loss pause on playback that was already stopped does not arm recovery")
+    func routeLossWhileAlreadyPausedDoesNotResume() async {
+        // Paused without a Kaset pause command (WebKit handled the media key, or the page's own
+        // controls), so no explicit pause intent was recorded.
+        let playerService = self.makePlayingService()
+        playerService.state = .paused
+
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .routeLoss(at: .now)
+        )
+        playerService.hasAudioRouteReturned = { _ in true }
+        await playerService.resumeAfterRouteRestored()
+
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
+    @Test("A late route event does not arm recovery for playback that was already stopped")
+    func lateRouteEventWhileAlreadyPausedDoesNotResume() async {
+        let playerService = self.makePlayingService()
+        playerService.state = .paused
+        let admittedAt = ContinuousClock.now
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .unattributedRemote(admittedAt: admittedAt)
+        )
+
+        playerService.reattributeRemotePauseToRouteLoss { $0 == admittedAt }
+        playerService.hasAudioRouteReturned = { _ in true }
+        await playerService.resumeAfterRouteRestored()
+
+        #expect(playerService.unattributedRemotePauseAt == nil)
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }
