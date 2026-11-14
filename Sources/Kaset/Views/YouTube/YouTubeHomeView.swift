@@ -46,6 +46,9 @@ struct YouTubeHomeView: View {
                 }
             }
         }
+        .overlay(alignment: .top) {
+            YouTubeFeedbackToastOverlay(viewModel: self.viewModel)
+        }
         .navigationTitle(Text("Home", comment: "YouTube home feed title"))
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.homeGrid)
         // Key on the view-model identity, not a bare `.task`. On cold launch the
@@ -128,6 +131,9 @@ struct YouTubeHomeView: View {
                     .frame(width: 284)
             }
             .buttonStyle(.interactiveCard)
+            .youtubeFeedbackContextMenu(for: video) { action in
+                self.sendFeedback(action, for: video)
+            }
         }
     }
 
@@ -150,6 +156,9 @@ struct YouTubeHomeView: View {
                         VideoCard(video: video)
                     }
                     .buttonStyle(.interactiveCard)
+                    .youtubeFeedbackContextMenu(for: video) { action in
+                        self.sendFeedback(action, for: video)
+                    }
                 }
 
                 if self.viewModel.hasMoreVideos {
@@ -176,6 +185,12 @@ struct YouTubeHomeView: View {
                 urls: Array(urls),
                 targetSize: CGSize(width: 320, height: 180)
             )
+        }
+    }
+
+    private func sendFeedback(_ action: YouTubeFeedbackAction, for video: YouTubeVideo) {
+        Task {
+            await self.viewModel.sendFeedback(action, for: video)
         }
     }
 

@@ -630,3 +630,6 @@
 "No songs found for “%@”." = "找不到符合「%@」的歌曲。";
 "Couldn't play “%@”." = "無法播放「%@」。";
 "Couldn't rate “%@”." = "無法評價「%@」。";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "無法向 YouTube 傳送意見回饋。";

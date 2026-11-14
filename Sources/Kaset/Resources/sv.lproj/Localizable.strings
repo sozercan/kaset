@@ -632,3 +632,6 @@
 "No songs found for “%@”." = "Inga låtar hittades för ”%@”.";
 "Couldn't play “%@”." = "Kunde inte spela ”%@”.";
 "Couldn't rate “%@”." = "Kunde inte betygsätta ”%@”.";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "Det gick inte att skicka feedback till YouTube.";

@@ -32,9 +32,16 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     /// When set, every call throws this error.
     var error: Error?
 
+    /// When set, `sendFeedback` throws this error.
+    var feedbackError: Error?
+    /// Runs inside `sendFeedback` before it returns, to simulate UI changes
+    /// while a feedback request is in flight.
+    var beforeFeedbackReturn: (@MainActor () async -> Void)?
+
     // MARK: - Call Tracking
 
     private(set) var homeFeedCallCount = 0
+    private(set) var sentFeedbackTokens: [String] = []
     private(set) var homeBundleForceRefreshes: [Bool] = []
     private(set) var searchCallCount = 0
     private(set) var lastSearchQuery: String?
@@ -529,6 +536,14 @@ final class MockYouTubeClient: YouTubeClientProtocol {
             throw error
         }
         self.watchLaterRemovals.append(videoId)
+    }
+
+    func sendFeedback(token: String) async throws {
+        if let error = self.feedbackError ?? self.error {
+            throw error
+        }
+        self.sentFeedbackTokens.append(token)
+        await self.beforeFeedbackReturn?()
     }
 
     // MARK: - Factories
