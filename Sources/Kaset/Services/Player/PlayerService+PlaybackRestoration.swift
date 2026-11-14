@@ -319,6 +319,10 @@ extension PlayerService {
         self.shouldResumeAfterInterruption = !startsPaused
         self.isAwaitingPlaybackConfirmation = !startsPaused
         self.isExplicitPauseIntentActive = startsPaused
+        // This load replaces whatever an earlier remote pause stopped. A late route event must
+        // not re-attribute that pause and clear the intent set here, or reconnecting the output
+        // would resume a paused load nobody asked to play.
+        self.unattributedRemotePauseAt = nil
         self.state = startsPaused ? .paused : .loading
         return targetProgress
     }
