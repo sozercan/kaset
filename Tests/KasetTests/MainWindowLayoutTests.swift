@@ -30,6 +30,20 @@ struct MainWindowLayoutTests {
         #expect(MainWindowLayout.minimumContentSize.height == MainWindowLayout.minimumHeight)
     }
 
+    @Test("Primary window identity follows the SwiftUI scene identifier after navigation changes the title")
+    func primaryWindowIdentityUsesSceneIdentifier() {
+        #expect(MainWindowLayout.isPrimaryWindowIdentity(
+            title: "Home",
+            frameAutosaveName: "main",
+            identifier: MainWindowLayout.sceneIdentifier
+        ))
+        #expect(!MainWindowLayout.isPrimaryWindowIdentity(
+            title: "Settings",
+            frameAutosaveName: "",
+            identifier: "settings"
+        ))
+    }
+
     @Test("Primary window identity excludes other regular scene windows")
     func primaryWindowIdentityExcludesOtherRegularSceneWindows() {
         #expect(MainWindowLayout.isPrimaryWindowIdentity(title: MainWindowLayout.windowTitle, frameAutosaveName: ""))
