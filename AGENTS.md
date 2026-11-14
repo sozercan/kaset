@@ -25,7 +25,7 @@ Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6
 
 ```bash
 swift build                              # Build
-swift test --skip KasetUITests           # Unit tests (UI tests live in a separate Xcode project)
+swift test --skip KasetUITests --no-parallel  # Unit tests, serial like CI (UI tests live in a separate Xcode project)
 swiftlint --strict && swiftformat .      # Lint & format
 ```
 
