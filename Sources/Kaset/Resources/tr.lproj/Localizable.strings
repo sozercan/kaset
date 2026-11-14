@@ -632,3 +632,11 @@
 "No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
+
+// YouTube search history
+"Recent searches" = "Son aramalar";
+"YouTube search history" = "YouTube arama geçmişi";
+"Manage" = "Yönet";
+"Review and delete YouTube search history in your Google Account" = "YouTube arama geçmişini Google Hesabınızda inceleyin ve silin";
+"Remove from search history" = "Arama geçmişinden kaldır";
+"Couldn't update YouTube search history." = "YouTube arama geçmişi güncellenemedi.";

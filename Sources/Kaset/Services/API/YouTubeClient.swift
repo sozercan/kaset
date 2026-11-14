@@ -72,6 +72,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         self.homePaginationEpoch &+= 1
         self.homeContinuation = nil
         self.searchContinuation = nil
+        self.searchSuggestToken = nil
         self.askSessionGeneration &+= 1
         self.consumedAskBootstraps = []
         self.consumedAskRevisions = []
@@ -569,6 +570,185 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         ]
         _ = try await self.request("browse/edit_playlist", body: body, retry: false)
         self.cache.invalidate(matching: Self.cachePrefix)
+    }
+
+    // MARK: - Search History
+
+    /// The web search box's personalization token, scoped to the account it
+    /// was fetched for. Fresh tokens come from any signed-in YouTube page.
+    private struct SearchSuggestToken {
+        let value: String
+        let fetchedAt: Date
+        let identityGeneration: UInt64
+        /// Whether this token has returned history entries. Only then does an
+        /// empty reply suggest that the token expired; accounts with no or
+        /// paused history always get empty replies.
+        var hasReturnedHistory = false
+    }
+
+    private var searchSuggestToken: SearchSuggestToken?
+
+    /// How long a fetched token is reused before fetching a new page. Older
+    /// tokens kept working in testing; this only bounds the page fetches.
+    private static let searchSuggestTokenLifetime: TimeInterval = 10 * 60
+
+    /// The lightest stable signed-in page that carries `SBOX_SETTINGS`.
+    private static let searchSuggestTokenPageURL = "https://www.youtube.com/account"
+
+    func getSearchHistory() async throws -> [String] {
+        guard self.canUseAccountSearchHistory else { return [] }
+
+        if let cachedToken = self.currentSearchSuggestToken() {
+            let queries = try await self.fetchSearchHistory(token: cachedToken.value)
+            guard queries.isEmpty, cachedToken.hasReturnedHistory else {
+                self.noteSearchHistoryResult(queries, token: cachedToken.value)
+                return queries
+            }
+            // A token that returned entries before now returns none: it most
+            // likely expired, which degrades to an empty list rather than an
+            // error. Retry once with a fresh token.
+            self.searchSuggestToken = nil
+        }
+
+        guard let freshToken = try await self.fetchSearchSuggestToken() else { return [] }
+        let queries = try await self.fetchSearchHistory(token: freshToken)
+        self.noteSearchHistoryResult(queries, token: freshToken)
+        return queries
+    }
+
+    func removeSearchHistoryEntry(query: String) async throws {
+        guard self.canUseAccountSearchHistory else { throw YTMusicError.notAuthenticated }
+        let resolvedToken: String? = if let cachedToken = self.currentSearchSuggestToken() {
+            cachedToken.value
+        } else {
+            try await self.fetchSearchSuggestToken()
+        }
+        guard let token = resolvedToken else {
+            throw YTMusicError.apiError(message: "Missing search history token", code: nil)
+        }
+
+        self.logger.info("Removing an entry from YouTube search history")
+        // Mirrors the web search box's "Remove" link.
+        _ = try await self.searchBoxRequest(
+            path: "/complete/deleteitems",
+            query: [
+                ("client", "youtube"),
+                ("delq", query),
+                ("tok", token),
+            ]
+        )
+    }
+
+    /// Account search history belongs to the primary Google account; the suggest
+    /// endpoint has no brand-account selector, so brand accounts skip it.
+    private var canUseAccountSearchHistory: Bool {
+        self.authService.hasPersonalAccount && self.brandIdProvider?() == nil
+    }
+
+    private func currentSearchSuggestToken() -> SearchSuggestToken? {
+        guard let token = self.searchSuggestToken,
+              token.identityGeneration == self.authService.accountIdentityGeneration,
+              Date().timeIntervalSince(token.fetchedAt) < Self.searchSuggestTokenLifetime
+        else {
+            return nil
+        }
+        return token
+    }
+
+    private func noteSearchHistoryResult(_ queries: [String], token: String) {
+        guard !queries.isEmpty, self.searchSuggestToken?.value == token else { return }
+        self.searchSuggestToken?.hasReturnedHistory = true
+    }
+
+    private func fetchSearchSuggestToken() async throws -> String? {
+        let identityGeneration = self.authService.accountIdentityGeneration
+        let data = try await self.searchBoxRequest(url: Self.searchSuggestTokenPageURL)
+        guard let html = String(data: data, encoding: .utf8),
+              let token = YouTubeSearchHistoryParser.suggestToken(fromHTML: html)
+        else {
+            self.logger.warning("YouTube page had no search suggest token")
+            return nil
+        }
+        guard identityGeneration == self.authService.accountIdentityGeneration else {
+            throw CancellationError()
+        }
+        self.searchSuggestToken = SearchSuggestToken(
+            value: token,
+            fetchedAt: Date(),
+            identityGeneration: identityGeneration
+        )
+        return token
+    }
+
+    private func fetchSearchHistory(token: String) async throws -> [String] {
+        let data = try await self.searchBoxRequest(
+            path: "/complete/search",
+            query: [
+                ("ds", "yt"),
+                ("hl", SettingsManager.shared.contentLanguage.apiLanguageCode),
+                ("client", "youtube"),
+                ("gs_ri", "youtube"),
+                ("tok", token),
+                ("q", ""),
+                ("cp", "0"),
+            ]
+        )
+        return YouTubeSearchHistoryParser.queries(fromSuggestResponse: data)
+    }
+
+    private func searchBoxRequest(path: String, query: [(String, String)]) async throws -> Data {
+        // Encode like the web client's `encodeURIComponent`; URLComponents
+        // leaves `+` and `&`-adjacent characters that would alter a query.
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_.~"))
+        let queryString = query.map { name, value in
+            let encoded = value.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
+            return "\(name)=\(encoded)"
+        }.joined(separator: "&")
+        return try await self.searchBoxRequest(url: "\(Self.origin)\(path)?\(queryString)")
+    }
+
+    /// Cookie-authenticated GET against a www.youtube.com page or search-box
+    /// endpoint. These aren't InnerTube calls, so they carry no SAPISIDHASH.
+    private func searchBoxRequest(url urlString: String) async throws -> Data {
+        guard let url = URL(string: urlString) else {
+            throw YTMusicError.invalidInput("Invalid YouTube URL")
+        }
+        let identityGeneration = self.authService.accountIdentityGeneration
+        let authMaterial = await self.webKitManager.authMaterial(for: "youtube.com")
+        guard let cookieHeader = authMaterial.cookieHeader else {
+            throw YTMusicError.notAuthenticated
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        // Personal data: never serve from or store in the shared URL cache, and
+        // keep response cookies out of the shared cookie store.
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.httpShouldHandleCookies = false
+        request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
+        request.setValue(Self.origin, forHTTPHeaderField: "Referer")
+
+        let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        guard identityGeneration == self.authService.accountIdentityGeneration,
+              self.authService.hasPersonalAccount
+        else {
+            throw CancellationError()
+        }
+
+        switch result {
+        case let .success(data):
+            return data
+        case let .authError(statusCode):
+            // A side endpoint rejecting the request is not enough evidence to end
+            // the session, so report it without calling `sessionExpired`.
+            self.logger.error("YouTube search box auth error: HTTP \(statusCode)")
+            throw YTMusicError.authExpired
+        case let .httpError(statusCode):
+            self.logger.error("YouTube search box error: HTTP \(statusCode)")
+            throw YTMusicError.apiError(message: "HTTP \(statusCode)", code: statusCode)
+        case let .networkError(error):
+            throw YTMusicError.networkError(underlying: error)
+        }
     }
 
     // MARK: - Request Core
