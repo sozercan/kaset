@@ -68,6 +68,7 @@ Returns JSON with the current player state:
   "repeating": "all",
   "muted": false,
   "likeStatus": "liked",
+  "isAd": false,
   "currentTrack": {
     "name": "Song Title",
     "artist": "Artist Name",
@@ -75,9 +76,22 @@ Returns JSON with the current player state:
     "duration": 180,
     "videoId": "dQw4w9WgXcQ",
     "artworkURL": "https://..."
+  },
+  "video": {
+    "isPlaying": false,
+    "isAd": false,
+    "position": 312.4,
+    "duration": 1681.0,
+    "videoId": "jNQXAC9IVRw",
+    "title": "Video Title",
+    "channel": "Channel Name"
   }
 }
 ```
+
+`isAd` is `true` while YouTube Music is playing an ad. `currentTrack` keeps describing the song the ad interrupted. Don't rely on `position` and `duration` while `isAd` is `true`.
+
+`video` appears only while a regular YouTube video is loaded. It's reported separately from YouTube Music, and only one of the two plays at a time. `video.isAd` is `true` during that video's ads; `videoId` and `title` stay on the video, and `position` and `duration` follow the ad.
 
 ### Get Play Queue
 

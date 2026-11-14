@@ -1011,6 +1011,34 @@ struct YouTubePlayerServiceTests {
 }
 
 extension YouTubePlayerServiceTests {
+    @Test("Starting another video clears the previous video's ad state")
+    func playClearsPreviousAdState() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 2, duration: 15,
+            videoId: "a", title: nil, isAd: true
+        ))
+        #expect(self.sut.isShowingAd)
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "b"))
+        #expect(!self.sut.isShowingAd)
+    }
+
+    @Test("Skipping back to a previous video clears the current ad state")
+    func advanceClearsPreviousAdState() {
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "a"))
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "b"))
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true, progress: 2, duration: 15,
+            videoId: "b", title: nil, isAd: true
+        ))
+        #expect(self.sut.isShowingAd)
+
+        self.sut.skipBackward()
+        #expect(self.sut.currentVideo?.videoId == "a")
+        #expect(!self.sut.isShowingAd)
+    }
+
     @Test("YouTube ignores absolute, relative, and remote seeks during ads")
     func adSeeksAreIgnored() {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "content"))
