@@ -16,18 +16,15 @@ struct AppIntentsBridgeTests {
         var publishedLibraries: [AppIntentsLibrary] = []
     }
 
-    init() {
-        // Like requests run through the shared status manager; keep tests from leaking into each other.
-        SongLikeStatusManager.shared.clearCache()
-        SongLikeStatusManager.shared.setActiveAccountID(nil)
-    }
-
     private func makeBridge(
         playerService: PlayerService = PlayerService(),
         client: MockYTMusicClient = MockYTMusicClient(),
         environment: Environment = Environment(),
         startupComplete: Bool = true
     ) -> AppIntentsBridge {
+        // Like requests run through the player's status manager. A private one keeps
+        // these tests from racing other suites over `SongLikeStatusManager.shared`.
+        playerService.setSongLikeStatusManager(SongLikeStatusManager())
         let bridge = AppIntentsBridge()
         bridge.startupTimeout = .milliseconds(300)
         bridge.configure(
