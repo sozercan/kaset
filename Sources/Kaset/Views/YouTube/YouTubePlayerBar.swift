@@ -417,6 +417,7 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
 
             self.compactCaptionsMenu
+            self.compactPlaybackRateMenu
             self.compactQualityMenu
 
             if self.showsFloatOnTopControl {
@@ -475,6 +476,33 @@ struct YouTubePlayerBar: View {
                 .font(.system(size: 16, weight: .regular))
                 .frame(width: 16, height: 16)
                 .foregroundStyle(self.youtubePlayer.activeCaptionLanguageCode == nil ? .primary : Self.brandAccent)
+        }
+        .disabled(self.youtubePlayer.currentVideo == nil)
+    }
+
+    /// Speed menu next to captions and quality, accented when the rate is not 1×.
+    private var compactPlaybackRateMenu: some View {
+        PlayerBarIconMenu(
+            isSelected: self.youtubePlayer.playbackRate != 1,
+            accessibilityID: AccessibilityID.YouTubeContent.playbackSpeedButton,
+            accessibilityLabel: String(localized: "Playback speed")
+        ) {
+            ForEach(YouTubePlayerService.playbackRateOptions, id: \.self) { rate in
+                Button {
+                    self.youtubePlayer.selectPlaybackRate(rate)
+                } label: {
+                    if self.youtubePlayer.playbackRate == rate {
+                        Label(YouTubePlayerService.playbackRateDisplayName(rate), systemImage: "checkmark")
+                    } else {
+                        Text(verbatim: YouTubePlayerService.playbackRateDisplayName(rate))
+                    }
+                }
+            }
+        } icon: {
+            Image(systemName: "gauge.with.needle")
+                .font(.system(size: 16, weight: .regular))
+                .frame(width: 16, height: 16)
+                .foregroundStyle(self.youtubePlayer.playbackRate == 1 ? .primary : Self.brandAccent)
         }
         .disabled(self.youtubePlayer.currentVideo == nil)
     }
@@ -817,4 +845,5 @@ extension AccessibilityID.YouTubeContent {
     static let watchFullView = "youtubeContent.watchFullView"
     static let captionsButton = "youtubeContent.captionsButton"
     static let qualityButton = "youtubeContent.qualityButton"
+    static let playbackSpeedButton = "youtubeContent.playbackSpeedButton"
 }
