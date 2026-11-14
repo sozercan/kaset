@@ -25,6 +25,7 @@ struct VideoWebViewContainer: NSViewRepresentable {
     @Environment(AuthService.self) private var authService
 
     let videoId: String?
+    var isShowcase = false
 
     func makeNSView(context _: Context) -> VideoContainerView {
         DiagnosticsLogger.player.info("VideoWebViewContainer.makeNSView called")
@@ -41,13 +42,27 @@ struct VideoWebViewContainer: NSViewRepresentable {
     }
 
     private func attachPlayerWebView(to container: VideoContainerView) {
+        guard self.playerService.playbackViewHost == (self.isShowcase ? .showcase : .videoWindow) else { return }
         _ = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
             playerService: self.playerService,
             usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
+        if SingletonPlayerWebView.shared.displayMode != .video {
+            self.playerService.videoWindowDidOpen()
+        }
         SingletonPlayerWebView.shared.updateDisplayMode(.video)
+
+        // Click-to-pause belongs to Kaset: the surface swallows clicks that would
+        // otherwise double-fire through YouTube's own video and overlay controls.
+        container.clickSurface.isHidden = false
+        container.clickSurface.onClick = { [weak playerService] in
+            guard let playerService,
+                  SingletonPlayerWebView.shared.displayMode == .video
+            else { return }
+            Task { await playerService.playPause() }
+        }
 
         if let videoId = self.videoId,
            self.playerService.shouldAutoloadPendingVideo,
@@ -62,6 +77,10 @@ struct VideoWebViewContainer: NSViewRepresentable {
 
 /// Custom NSView that observes frame changes and re-injects CSS.
 final class VideoContainerView: NSView {
+    /// Transparent surface above the WebView that owns click-to-pause while the
+    /// video-mode CSS hides all of YouTube's chrome.
+    let clickSurface = VideoClickSurfaceView()
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         self.postsFrameChangedNotifications = true
@@ -71,11 +90,22 @@ final class VideoContainerView: NSView {
             name: NSView.frameDidChangeNotification,
             object: self
         )
+        self.clickSurface.isHidden = true
+        self.clickSurface.frame = self.bounds
+        self.clickSurface.autoresizingMask = [.width, .height]
+        super.addSubview(self.clickSurface)
     }
 
     @available(*, unavailable)
     required init?(coder _: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    /// Keep the click surface above the re-parented WebView.
+    override func addSubview(_ subview: NSView) {
+        super.addSubview(subview)
+        guard subview !== self.clickSurface else { return }
+        super.addSubview(self.clickSurface)
     }
 
     private var refreshTask: Task<Void, Never>?
@@ -94,6 +124,34 @@ final class VideoContainerView: NSView {
     deinit {
         self.refreshTask?.cancel()
         NotificationCenter.default.removeObserver(self)
+    }
+}
+
+// MARK: - VideoClickSurfaceView
+
+/// Swallows mouse clicks over the video so the page's own click-to-toggle and
+/// overlay button cannot double-fire; a click pauses or resumes exactly once.
+final class VideoClickSurfaceView: NSView {
+    var onClick: (() -> Void)?
+
+    override func mouseDown(with _: NSEvent) {
+        self.onClick?()
+    }
+
+    /// Right-click must also stay off the page: YouTube's own context menu
+    /// would otherwise appear in video mode.
+    override func rightMouseDown(with _: NSEvent) {}
+
+    override func menu(for _: NSEvent) -> NSMenu? {
+        nil
+    }
+
+    override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
+        true
+    }
+
+    override func isAccessibilityElement() -> Bool {
+        false
     }
 }
 

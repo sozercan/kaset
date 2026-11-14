@@ -11,24 +11,40 @@ struct QueueView: View {
     /// Namespace for glass effect morphing.
     @Namespace private var queueNamespace
 
+    /// Fixed panel width; `nil` uses the default sidebar panel width. The
+    /// now-playing showcase passes its resizable column width.
+    var width: CGFloat?
+
+    var isEmbedded = false
+    @State private var isEditing = false
+
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                // Header
-                self.headerView
-
-                Divider()
-                    .opacity(0.3)
-
-                // Content
-                self.contentView
+        Group {
+            if self.isEmbedded {
+                if self.isEditing {
+                    QueueSidePanelView(width: self.width, onDone: { self.isEditing = false })
+                } else {
+                    self.panelContent
+                }
+            } else {
+                CompatGlassContainer(spacing: 0) {
+                    self.panelContent
+                        .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+                        .compatGlassID("queuePanel", in: self.queueNamespace)
+                }
+                .compatGlassTransition(.materialize)
             }
-            .frame(width: 280)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
-            .compatGlassID("queuePanel", in: self.queueNamespace)
         }
-        .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Queue.container)
+    }
+
+    private var panelContent: some View {
+        VStack(spacing: 0) {
+            self.headerView
+            Divider().opacity(0.3)
+            self.contentView
+        }
+        .frame(width: self.width ?? 280)
     }
 
     // MARK: - Header
@@ -49,30 +65,37 @@ struct QueueView: View {
                     Text(String(localized: "Clear"))
                         .font(.subheadline)
                         .foregroundStyle(.red)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.interactiveRow(cornerRadius: 6))
                 .accessibilityIdentifier(AccessibilityID.Queue.clearButton)
             }
 
             Button {
-                self.playerService.toggleQueueDisplayMode()
+                if self.isEmbedded {
+                    self.isEditing = true
+                } else {
+                    self.playerService.toggleQueueDisplayMode()
+                }
             } label: {
                 Label(String(localized: "Edit"), systemImage: "square.and.pencil")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.interactiveRow(cornerRadius: 6))
             .help(String(localized: "Open queue in side panel"))
             .accessibilityLabel(String(localized: "Open queue in side panel"))
         }
         .padding(.horizontal, 16)
-        .padding(.vertical, 14)
+        .padding(.vertical, 11)
     }
 
     // MARK: - Content
 
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         if self.playerService.queue.isEmpty {
             self.emptyQueueView
         } else {
@@ -218,8 +241,7 @@ private struct QueueRowView: View {
         }
     }
 
-    @ViewBuilder
-    private var leadingIndicator: some View {
+    @ViewBuilder private var leadingIndicator: some View {
         if self.isCurrentTrack {
             Image(systemName: "waveform")
                 .font(.system(size: 12, weight: .medium))

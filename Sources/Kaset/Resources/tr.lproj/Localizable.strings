@@ -408,6 +408,10 @@
 "Return to Kaset" = "Kaset'e dön";
 "Rock" = "Rock";
 "Romanize Lyrics" = "Şarkı Sözlerini Romanize Et";
+"Pronunciation" = "Telaffuz";
+"Translation" = "Çeviri";
+"Translate To" = "Çeviri hedefi";
+"Lyrics Display Options" = "Şarkı sözü görüntüleme seçenekleri";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "Burada görmek için YouTube Music'te çalma listeleri kaydedin ve podcastlere abone olun.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "Burada görmek için YouTube Music'te çalma listeleri kaydedin, sanatçıları takip edin ve podcastlere abone olun.";
 "Save albums on YouTube Music to see them here." = "Burada görmek için YouTube Music'te albümleri kaydedin.";
@@ -467,6 +471,7 @@
 "songs" = "şarkı";
 "Songs you like will appear here" = "Beğendiğiniz şarkılar burada görünecek";
 "Songs you play next will appear here." = "Sonraki çalacağınız şarkılar burada görünür.";
+"Source" = "Kaynak";
 "Spoken Word" = "Sözel";
 "Sports" = "Spor";
 "Start Radio" = "Radyoyu Başlat";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
+
+// Now-playing panel
+"Recommendations" = "Öneriler";
+"Hide Panel" = "Paneli Gizle";
+"Show Panel" = "Paneli Göster";
+"Hide Video" = "Videoyu Gizle";
+"Couldn't load recommendations." = "Öneriler yüklenemedi.";
+
+// Showcase presentation
+"Open Now Playing" = "Şu An Çalanı Aç";
+"Close Now Playing" = "Şu An Çalanı Kapat";
+"Show Music Video" = "Müzik Videosunu Göster";
+"Show Album Artwork" = "Albüm Kapağını Göster";

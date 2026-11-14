@@ -355,10 +355,7 @@ final class AccountService { // swiftlint:disable:this type_body_length
                 fromOwnerID: sourceOwnerID,
                 intoOwnerID: ownerID,
                 accountIDs: Array(migrationAccountIDs)
-            ) else {
-                return self.activatableFavoritesOwnerID(sourceOwnerID)
-            }
-            guard FavoritesManager.shared.commitAccountScopeMerge(
+            ), FavoritesManager.shared.commitAccountScopeMerge(
                 fromOwnerID: sourceOwnerID,
                 intoOwnerID: ownerID,
                 accountIDs: Array(migrationAccountIDs)

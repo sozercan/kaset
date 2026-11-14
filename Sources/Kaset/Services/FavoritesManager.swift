@@ -830,15 +830,13 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     // MARK: - Actions
 
     func add(_ item: FavoriteItem) {
-        guard self.canMutate else { return }
-        guard !self.isPinned(contentId: item.contentId) else { return }
+        guard self.canMutate, !self.isPinned(contentId: item.contentId) else { return }
         self.items.insert(item, at: 0)
         self.save()
     }
 
     func remove(contentId: String) {
-        guard self.canMutate else { return }
-        guard let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
+        guard self.canMutate, let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
         self.items.remove(at: index)
         self.save()
     }
@@ -850,16 +848,14 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     }
 
     func moveToTop(contentId: String) {
-        guard self.canMutate else { return }
-        guard let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
+        guard self.canMutate, let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
         let item = self.items.remove(at: index)
         self.items.insert(item, at: 0)
         self.save()
     }
 
     func moveToEnd(contentId: String) {
-        guard self.canMutate else { return }
-        guard let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
+        guard self.canMutate, let index = items.firstIndex(where: { $0.contentId == contentId }) else { return }
         let item = self.items.remove(at: index)
         self.items.append(item)
         self.save()

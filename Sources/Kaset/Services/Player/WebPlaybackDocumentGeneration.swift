@@ -381,12 +381,11 @@ struct WebPlaybackDocumentGeneration: Equatable {
         let mainDocumentGeneration = Self.generation(from: request.mainDocumentURL)
         guard requestGeneration == nil
             || mainDocumentGeneration == nil
-            || requestGeneration == mainDocumentGeneration
-        else { return false }
-        guard Self.isAllowedPlaybackNavigationURL(
-            request.url,
-            playbackHost: playbackHost
-        ) else { return false }
+            || requestGeneration == mainDocumentGeneration,
+            Self.isAllowedPlaybackNavigationURL(
+                request.url,
+                playbackHost: playbackHost
+            ) else { return false }
         if let explicitGeneration = requestGeneration ?? mainDocumentGeneration {
             return explicitGeneration == generation
         }

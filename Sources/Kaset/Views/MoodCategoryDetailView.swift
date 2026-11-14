@@ -43,8 +43,7 @@ struct MoodCategoryDetailView: View {
 
     // MARK: - Views
 
-    @ViewBuilder
-    private var contentView: some View {
+    @ViewBuilder private var contentView: some View {
         if self.viewModel.sections.isEmpty {
             ContentUnavailableView(
                 "No Content Available",

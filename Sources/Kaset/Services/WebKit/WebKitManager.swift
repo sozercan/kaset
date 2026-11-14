@@ -82,8 +82,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     /// The YouTube Music origin URL.
     static let origin = "https://music.youtube.com"
 
-    @MainActor
-    let webExtensionController = WKWebExtensionController()
+    @MainActor let webExtensionController = WKWebExtensionController()
 
     /// Required cookie name for authentication.
     nonisolated static let authCookieName = "__Secure-3PAPISID"
@@ -100,8 +99,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     #if compiler(>=5.9)
         @ObservationIgnored
-        @available(macOS 15.4, *)
-        private lazy var webExtensionHost = KasetWebExtensionHost(
+        @available(macOS 15.4, *) private lazy var webExtensionHost = KasetWebExtensionHost(
             controller: self.webExtensionController,
             logger: DiagnosticsLogger.extensions
         )
@@ -352,8 +350,7 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     func extensionPage(forExtensionId id: String) -> ExtensionPage? {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
-                guard let context = self.extensionContexts[id] else { return nil }
-                guard let configuration = context.webViewConfiguration else { return nil }
+                guard let context = self.extensionContexts[id], let configuration = context.webViewConfiguration else { return nil }
 
                 if let optionsURL = context.optionsPageURL {
                     return ExtensionPage(id: id, url: optionsURL, configuration: configuration)

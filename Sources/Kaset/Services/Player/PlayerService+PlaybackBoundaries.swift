@@ -36,6 +36,7 @@ extension PlayerService {
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
+    /// Clears playback and account-owned queue state before crossing an authentication boundary.
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
         self.accountSessionGeneration &+= 1
         self.songLikeStatusManager.invalidateSession()
@@ -70,6 +71,11 @@ extension PlayerService {
         self.isMiniPlayerVisible = false
         self.showLyrics = false
         self.showQueue = false
+        self.showNowPlayingShowcase = false
+        // Clear the swap synchronously: the spawned dismissal Task must never
+        // call play() after tearDown() (playback restarting after sign-out).
+        self.showNowPlayingVideo = false
+        self.showcaseVideoSourceSwap = nil
         self.showVideo = false
         self.currentTrackHasVideo = false
         self.mixContinuationToken = nil

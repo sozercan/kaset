@@ -193,8 +193,7 @@ struct YouTubeWatchView: View {
             && self.youtubePlayer.surfaceLocation == .floating
     }
 
-    @ViewBuilder
-    private var videoSurface: some View {
+    @ViewBuilder private var videoSurface: some View {
         if self.presentsLiveSurface {
             // Clean video surface — playback is controlled from the Liquid
             // Glass player bar, at the bottom of the window or on the video.

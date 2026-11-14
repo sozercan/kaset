@@ -69,6 +69,28 @@ extension URL {
 
         return URL(string: urlString)
     }
+
+    /// Returns a very large square YouTube thumbnail URL for full-window
+    /// artwork (now-playing showcase). `highQualityThumbnailURL` caps at
+    /// 226px, which turns blurry above roughly 113pt.
+    var largeThumbnailURL: URL? {
+        guard host?.contains("ytimg.com") == true || host?.contains("googleusercontent.com") == true, var components = URLComponents(url: self, resolvingAgainstBaseURL: false) else { return self }
+        components.path = components.path.replacingOccurrences(
+            of: "w\\d+-h\\d+", with: "w800-h800", options: .regularExpression
+        )
+        let upgradedPath = components.path.replacingOccurrences(
+            of: "/(default|mqdefault|hqdefault|sddefault|hq720)\\.jpg$",
+            with: "/maxresdefault.jpg", options: .regularExpression
+        )
+        if upgradedPath != components.path {
+            components.path = upgradedPath
+            components.queryItems = components.queryItems?.filter { !["sqp", "rs"].contains($0.name) }
+            if components.queryItems?.isEmpty == true {
+                components.queryItems = nil
+            }
+        }
+        return components.url
+    }
 }
 
 // MARK: - String Extensions

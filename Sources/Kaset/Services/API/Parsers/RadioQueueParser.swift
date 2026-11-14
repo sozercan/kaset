@@ -112,6 +112,8 @@ enum RadioQueueParser {
             // stay unset: they gate the single-track metadata fetch and queue enrichment.
             let likeStatus = SongMetadataParser.parseLikeStatus(from: panelVideoRenderer)
 
+            let counterpartIds = SongMetadataParser.counterpartIds(primary: panelVideoRenderer, counterpart: SongMetadataParser.counterpartRenderer(in: item["playlistPanelVideoWrapperRenderer"] as? [String: Any]))
+
             let song = Song(
                 id: videoId,
                 title: title,
@@ -120,8 +122,11 @@ enum RadioQueueParser {
                 duration: duration,
                 thumbnailURL: thumbnailURL,
                 videoId: videoId,
+                musicVideoType: SongMetadataParser.parseMusicVideoType(from: panelVideoRenderer),
                 likeStatus: likeStatus,
-                isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer)
+                isExplicit: ParsingHelpers.extractIsExplicit(from: panelVideoRenderer),
+                audioTrackVideoId: counterpartIds.audio,
+                companionMusicVideoId: counterpartIds.companion
             )
             songs.append(song)
         }

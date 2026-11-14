@@ -408,6 +408,10 @@
 "Return to Kaset" = "العودة إلى Kaset";
 "Rock" = "روك";
 "Romanize Lyrics" = "رومنة كلمات الأغاني";
+"Pronunciation" = "النطق";
+"Translation" = "الترجمة";
+"Translate To" = "ترجمة إلى";
+"Lyrics Display Options" = "خيارات عرض كلمات الأغاني";
 "Save playlists and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل واشترك في البودكاست على YouTube Music لتراها هنا.";
 "Save playlists, follow artists, and subscribe to podcasts on YouTube Music to see them here." = "احفظ قوائم التشغيل، وتابع الفنانين، واشترك في البودكاست على YouTube Music لتراها هنا.";
 "Save albums on YouTube Music to see them here." = "احفظ الألبومات على YouTube Music لتراها هنا.";
@@ -467,6 +471,7 @@
 "songs" = "أغانٍ";
 "Songs you like will appear here" = "الأغاني التي تعجبك ستظهر هنا";
 "Songs you play next will appear here." = "ستظهر هنا الأغاني التي ستشغّلها بعد ذلك.";
+"Source" = "المصدر";
 "Spoken Word" = "كلمة منطوقة";
 "Sports" = "الرياضة";
 "Start Radio" = "بدء الراديو";
@@ -632,3 +637,16 @@
 "No songs found for “%@”." = "لم يتم العثور على أغانٍ لـ “%@”.";
 "Couldn't play “%@”." = "تعذّر تشغيل “%@”.";
 "Couldn't rate “%@”." = "تعذّر تقييم “%@”.";
+
+// Now-playing panel
+"Recommendations" = "التوصيات";
+"Hide Panel" = "إخفاء اللوحة";
+"Show Panel" = "إظهار اللوحة";
+"Hide Video" = "إخفاء الفيديو";
+"Couldn't load recommendations." = "تعذر تحميل التوصيات.";
+
+// Showcase presentation
+"Open Now Playing" = "فتح «قيد التشغيل»";
+"Close Now Playing" = "إغلاق «قيد التشغيل»";
+"Show Music Video" = "عرض الفيديو الموسيقي";
+"Show Album Artwork" = "عرض غلاف الألبوم";

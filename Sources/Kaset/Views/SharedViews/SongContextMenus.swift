@@ -16,8 +16,7 @@ struct LikeDislikeContextMenu: View {
         }
     }
 
-    @ViewBuilder
-    private var menuItems: some View {
+    @ViewBuilder private var menuItems: some View {
         // Show Unlike if already liked, otherwise show Like
         if self.likeStatusManager.isLiked(self.song) {
             Button {

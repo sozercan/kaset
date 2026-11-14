@@ -9,6 +9,11 @@ struct LyricsSearchInfo {
     let album: String?
     let duration: TimeInterval? // seconds
     let videoId: String
+    /// The lyrics are matched against a stream whose recording may differ from
+    /// the song's own (a loaded MV can be a live version or a different cut).
+    /// Providers must then treat a large duration mismatch as "wrong recording"
+    /// and degrade to unsynced lyrics: wrong highlighting is worse than none.
+    var requiresCloseDurationMatch = false
 }
 
 // MARK: - LyricsProvider

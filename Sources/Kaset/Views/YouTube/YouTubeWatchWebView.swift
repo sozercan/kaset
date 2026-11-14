@@ -116,8 +116,7 @@ final class YouTubeWatchWebView {
         expectedVideoId: String? = nil,
         selectedVideoId: String? = nil
     ) {
-        guard let webView else { return }
-        guard YouTubeWatchSurfaceAttachment.claim(
+        guard let webView, YouTubeWatchSurfaceAttachment.claim(
             surface: webView,
             in: container,
             expectedVideoId: expectedVideoId,

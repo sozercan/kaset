@@ -143,14 +143,9 @@ extension PlayerService {
     /// that the replacement document has finished loading.
     func syncWebQueue() {
         // Never manipulate the player-bar menu while its document is being replaced.
-        guard self.state == .playing || self.state == .paused else { return }
-        guard !SingletonPlayerWebView.shared.isDocumentNavigationInProgress else { return }
-        guard self.activePlaybackOwnsCurrentQueueEntry else {
-            self.clearWebQueueInjectionState()
-            return
-        }
-
-        guard let nextIndex = self.expectedQueueIndexAfterCurrentTrack(),
+        guard self.state == .playing || self.state == .paused, !SingletonPlayerWebView.shared.isDocumentNavigationInProgress else { return }
+        guard self.activePlaybackOwnsCurrentQueueEntry,
+              let nextIndex = self.expectedQueueIndexAfterCurrentTrack(),
               let nextSong = self.queue[safe: nextIndex],
               let sourceVideoId = self.expectedPlaybackVideoId
         else {

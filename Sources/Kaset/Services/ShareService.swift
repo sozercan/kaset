@@ -75,8 +75,7 @@ extension Album: Shareable {
 
     var shareURL: URL? {
         // Only albums with navigable IDs (MPRE or OLAK prefixes) can be shared
-        guard self.hasNavigableId else { return nil }
-        guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard self.hasNavigableId, let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }
         return URL(string: "https://music.youtube.com/browse/\(encodedId)")
@@ -118,8 +117,7 @@ extension PodcastShow: Shareable {
 
     var shareURL: URL? {
         // Podcast show IDs start with "MPSPP" prefix
-        guard self.hasNavigableId else { return nil }
-        guard let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+        guard self.hasNavigableId, let encodedId = self.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
             return nil
         }
         return URL(string: "https://music.youtube.com/browse/\(encodedId)")

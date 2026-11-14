@@ -401,8 +401,7 @@ final class ProcessTapHelper {
         guard Self.legacyGetProcessForPID(pid, &psn) == noErr else { return nil }
         var info = ProcessInfoRec()
         info.processInfoLength = UInt32(MemoryLayout<ProcessInfoRec>.size)
-        guard Self.legacyGetProcessInformation(&psn, &info) == noErr else { return nil }
-        guard info.processLauncher.highLongOfPSN != 0 || info.processLauncher.lowLongOfPSN != 0 else {
+        guard Self.legacyGetProcessInformation(&psn, &info) == noErr, info.processLauncher.highLongOfPSN != 0 || info.processLauncher.lowLongOfPSN != 0 else {
             return nil
         }
         return Self.copyProcessName(for: info.processLauncher)

@@ -237,29 +237,23 @@ struct SimpleLyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
-    /// Draws the glass panel behind the lyrics; the Now Playing view turns it off.
+    var isEmbedded = false
+    /// Full-screen lyrics omit the sidebar glass surface.
     var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
 
     var body: some View {
-        CompatGlassContainer(spacing: 0) {
-            VStack(spacing: 0) {
-                if self.showsHeader {
-                    HStack {
-                        Text(String(localized: "Lyrics"))
-                            .font(.headline)
-                        Spacer()
-                    }
-                    .padding()
-                    Divider().opacity(0.3)
+        Group {
+            if self.isEmbedded || !self.showsPanel {
+                self.panelContent
+            } else {
+                CompatGlassContainer(spacing: 0) {
+                    self.panelContent
+                        .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
                 }
-
-                self.contentView
             }
-            .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20), isEnabled: self.showsPanel)
         }
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != self.lastLoadedVideoId {
@@ -284,8 +278,21 @@ struct SimpleLyricsView: View {
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)
     }
 
-    @ViewBuilder
-    private var contentView: some View {
+    private var panelContent: some View {
+        VStack(spacing: 0) {
+            if self.showsHeader {
+                Text(String(localized: "Lyrics"))
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                Divider().opacity(0.3)
+            }
+            self.contentView
+        }
+        .frame(width: self.preferredWidth)
+    }
+
+    @ViewBuilder private var contentView: some View {
         if self.playerService.currentTrack == nil {
             self.noTrackPlayingView
         } else if self.syncedLyricsService.isLoading || self.isLoadingFallback {
@@ -396,13 +403,13 @@ struct SimpleLyricsView: View {
         }
     }
 
+    /// Loads lyrics for the current track without publishing an obsolete track response.
     @MainActor
     private func loadLyrics(for videoId: String) async {
         self.lastLoadedVideoId = videoId
         self.isLoadingFallback = false
 
-        guard let track = self.playerService.currentTrack else { return }
-        guard track.videoId == videoId else { return }
+        guard let track = self.playerService.currentTrack, track.videoId == videoId else { return }
 
         let info = LyricsSearchInfo(
             title: track.title,
@@ -419,8 +426,7 @@ struct SimpleLyricsView: View {
             self.syncedLyricsService.activeProvider = nil
         }
 
-        guard self.lastLoadedVideoId == videoId else { return }
-        guard self.playerService.currentTrack?.videoId == videoId else { return }
+        guard self.lastLoadedVideoId == videoId, self.playerService.currentTrack?.videoId == videoId else { return }
 
         if case .unavailable = self.syncedLyricsService.currentLyrics {
             self.isLoadingFallback = true

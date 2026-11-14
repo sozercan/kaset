@@ -2579,23 +2579,18 @@ private struct AskVideoResponseAuditor {
                 let valueMarker = (nestedValue as? String).flatMap(Self.fixedMarkerLabel)
                 let nestedIsAIRelevant = dictionaryIsAIRelevant || keyMarker != nil || valueMarker != nil
 
-                if let keyMarker {
-                    if !Self.record(keyMarker, sample: "\(nestedPath) [key]", in: &self.report.markers) {
-                        self.report.truncated = true
-                    }
+                if let keyMarker, !Self.record(keyMarker, sample: "\(nestedPath) [key]", in: &self.report.markers) {
+                    self.report.truncated = true
                 }
-                if let valueMarker {
-                    if !Self.record(valueMarker, sample: "\(nestedPath) [value]", in: &self.report.markers) {
-                        self.report.truncated = true
-                    }
+                if let valueMarker, !Self.record(valueMarker, sample: "\(nestedPath) [value]", in: &self.report.markers) {
+                    self.report.truncated = true
                 }
                 if key == "apiUrl", let rawURL = nestedValue as? String,
                    let endpoint = AskVideoAuditSafety.safeYouTubeInnerTubePath(from: rawURL),
-                   Self.aiEndpoints.contains(endpoint)
+                   Self.aiEndpoints.contains(endpoint),
+                   !Self.record(endpoint, sample: nestedPath, in: &self.report.endpoints)
                 {
-                    if !Self.record(endpoint, sample: nestedPath, in: &self.report.endpoints) {
-                        self.report.truncated = true
-                    }
+                    self.report.truncated = true
                 }
 
                 let fieldIsOpaque = AskVideoAuditSafety.isOpaqueField(key: key, value: nestedValue)

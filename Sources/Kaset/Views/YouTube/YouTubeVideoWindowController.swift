@@ -322,8 +322,7 @@ final class YouTubeVideoWindowController {
 
     /// Closes the window programmatically (e.g. when docking back inline).
     func close() {
-        guard !self.isClosing else { return }
-        guard let window = self.window else { return }
+        guard !self.isClosing, let window = self.window else { return }
 
         self.isClosing = true
         NotificationCenter.default.removeObserver(self, name: NSWindow.willCloseNotification, object: window)

@@ -99,8 +99,7 @@ struct ScrobbleServiceRow: View {
         }
     }
 
-    @ViewBuilder
-    private var connectionButton: some View {
+    @ViewBuilder private var connectionButton: some View {
         switch self.service.authState {
         case .disconnected, .error:
             Button(String(localized: "Connect")) {

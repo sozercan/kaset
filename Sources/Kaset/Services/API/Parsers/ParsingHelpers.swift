@@ -131,13 +131,12 @@ enum ParsingHelpers {
         }
 
         // Try foregroundThumbnail (used by some album/artist headers)
-        if let foregroundThumbnail = data["foregroundThumbnail"] as? [String: Any] {
-            if let musicThumbnailRenderer = foregroundThumbnail["musicThumbnailRenderer"] as? [String: Any],
-               let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
-               let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
-            {
-                return Self.normalizedThumbnailURLs(from: thumbnails)
-            }
+        if let foregroundThumbnail = data["foregroundThumbnail"] as? [String: Any],
+           let musicThumbnailRenderer = foregroundThumbnail["musicThumbnailRenderer"] as? [String: Any],
+           let thumbData = musicThumbnailRenderer["thumbnail"] as? [String: Any],
+           let thumbnails = thumbData["thumbnails"] as? [[String: Any]]
+        {
+            return Self.normalizedThumbnailURLs(from: thumbnails)
         }
 
         // Try direct thumbnails array at top level
@@ -584,12 +583,11 @@ enum ParsingHelpers {
            let musicPlayButton = content["musicPlayButtonRenderer"] as? [String: Any],
            let accessibilityData = musicPlayButton["accessibilityPlayData"] as? [String: Any],
            let accessibilityLabel = accessibilityData["accessibilityData"] as? [String: Any],
-           let label = accessibilityLabel["label"] as? String
+           let label = accessibilityLabel["label"] as? String,
+           // Extract duration from accessibility label like "Play Billie Jean by Michael Jackson, 4 minutes, 55 seconds"
+           let duration = extractDurationFromAccessibilityLabel(label)
         {
-            // Extract duration from accessibility label like "Play Billie Jean by Michael Jackson, 4 minutes, 55 seconds"
-            if let duration = extractDurationFromAccessibilityLabel(label) {
-                return duration
-            }
+            return duration
         }
 
         return nil

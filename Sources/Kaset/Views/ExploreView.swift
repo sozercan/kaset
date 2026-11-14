@@ -76,7 +76,7 @@ struct ExploreView: View {
             }
             // Edge-to-edge so shelves slide under the glass sidebar; resting
             // inset is restored per-shelf via contentInset.
-            .padding(.vertical, 20)
+            .padding(.vertical, 24)
         }
         .accessibilityIdentifier(AccessibilityID.Explore.scrollView)
     }

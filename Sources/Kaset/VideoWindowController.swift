@@ -105,8 +105,7 @@ final class VideoWindowController {
     /// Closes the video window programmatically (called when showVideo becomes false).
     func close() {
         // Prevent re-entrant calls
-        guard !self.isClosing else { return }
-        guard let window = self.window else { return }
+        guard !self.isClosing, let window = self.window else { return }
 
         self.isClosing = true
 
@@ -146,11 +145,10 @@ final class VideoWindowController {
 
     /// Shared cleanup logic for both close paths.
     private func performCleanup() {
-        // Clear grace period
-        self.playerService?.videoWindowDidClose()
-
-        // Return WebView to hidden mode (removes video container CSS)
-        SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+        if self.playerService?.shouldHostPlaybackInShowcase != true {
+            self.playerService?.videoWindowDidClose()
+            SingletonPlayerWebView.shared.updateDisplayMode(.hidden)
+        }
 
         // Clear references
         self.window = nil

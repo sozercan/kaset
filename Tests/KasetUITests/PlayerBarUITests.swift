@@ -124,7 +124,7 @@ final class PlayerBarUITests: KasetUITestCase {
         navigateToHome()
 
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
-        XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should exist")
+        XCTAssertFalse(videoButton.exists, "Video shares the mini-player control's context menu")
     }
 
     func testMiniPlayerButtonExists() {

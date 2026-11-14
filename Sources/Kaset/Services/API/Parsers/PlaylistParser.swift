@@ -886,14 +886,12 @@ enum PlaylistParser {
         }
 
         // Try recursive search if no tracks found
-        if tracks.isEmpty {
-            if let contents = data["contents"] as? [String: Any] {
-                for (_, value) in contents {
-                    if let renderer = value as? [String: Any] {
-                        tracks.append(contentsOf: self.findTracksRecursively(in: renderer, depth: 0, fallbackThumbnailURL: fallbackThumbnailURL))
-                        if !tracks.isEmpty {
-                            break
-                        }
+        if tracks.isEmpty, let contents = data["contents"] as? [String: Any] {
+            for (_, value) in contents {
+                if let renderer = value as? [String: Any] {
+                    tracks.append(contentsOf: self.findTracksRecursively(in: renderer, depth: 0, fallbackThumbnailURL: fallbackThumbnailURL))
+                    if !tracks.isEmpty {
+                        break
                     }
                 }
             }
@@ -969,11 +967,7 @@ enum PlaylistParser {
     }
 
     private static func parseTrackItem(_ data: [String: Any], fallbackThumbnailURL: URL?) -> Song? {
-        guard let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any] else {
-            return nil
-        }
-
-        guard let videoId = ParsingHelpers.extractVideoId(from: responsiveRenderer) else {
+        guard let responsiveRenderer = data["musicResponsiveListItemRenderer"] as? [String: Any], let videoId = ParsingHelpers.extractVideoId(from: responsiveRenderer) else {
             return nil
         }
 

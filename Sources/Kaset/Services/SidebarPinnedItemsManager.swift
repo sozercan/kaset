@@ -47,6 +47,7 @@ final class SidebarPinnedItemsManager {
         }
     }
 
+    /// Restores every persisted pin; library duplicate suppression belongs to the sidebar presentation.
     func load() {
         do {
             guard FileManager.default.fileExists(atPath: self.fileURL.path) else {
@@ -57,13 +58,22 @@ final class SidebarPinnedItemsManager {
             let data = try Data(contentsOf: self.fileURL)
             let decoded = try JSONDecoder().decode([SidebarPinnedItem].self, from: data)
             self.items = decoded
-            DiagnosticsLogger.ui.info("Loaded \(decoded.count) sidebar pinned items")
+            DiagnosticsLogger.ui.info("Loaded \(decoded.count) decoded, \(self.items.count) kept sidebar pinned items")
         } catch {
             DiagnosticsLogger.ui.error("Failed to load sidebar pinned items: \(error.localizedDescription)")
             self.items = []
         }
     }
 
+    /// Keeps saved external shortcuts visible, suppressing only playlists already shown by the library.
+    func visibleItems(libraryPlaylistIDs: Set<String>) -> [SidebarPinnedItem] {
+        self.items.filter { item in
+            guard case let .playlist(playlist) = item.itemType else { return true }
+            return !LibraryContentIdentity.containsPlaylist(playlist.id, in: libraryPlaylistIDs)
+        }
+    }
+
+    /// Persists a shortcut only when its canonical content is not already pinned.
     func add(_ item: SidebarPinnedItem) {
         guard !self.isPinned(item) else {
             DiagnosticsLogger.ui.debug("Item already pinned to sidebar: \(item.contentId)")
@@ -157,21 +167,25 @@ final class SidebarPinnedItemsManager {
         self.save()
     }
 
-    func moveUp(contentId: String) {
+    /// Moves a pin before the preceding visible shortcut, leaving hidden duplicates in place.
+    func moveUp(contentId: String, visibleContentIds: Set<String>? = nil) {
         guard let index = self.items.firstIndex(where: { $0.contentId == contentId }),
-              index > self.items.startIndex
-        else { return }
-
-        self.items.swapAt(index, self.items.index(before: index))
+              index > self.items.startIndex,
+              let neighbor = self.items.indices.prefix(upTo: index).last(where: {
+                  visibleContentIds?.contains(self.items[$0].contentId) ?? true
+              }) else { return }
+        self.items.swapAt(index, neighbor)
         self.save()
     }
 
-    func moveDown(contentId: String) {
+    /// Moves a pin after the following visible shortcut, leaving hidden duplicates in place.
+    func moveDown(contentId: String, visibleContentIds: Set<String>? = nil) {
         guard let index = self.items.firstIndex(where: { $0.contentId == contentId }),
-              index < self.items.index(before: self.items.endIndex)
-        else { return }
-
-        self.items.swapAt(index, self.items.index(after: index))
+              index < self.items.index(before: self.items.endIndex),
+              let neighbor = self.items.indices.suffix(from: index + 1).first(where: {
+                  visibleContentIds?.contains(self.items[$0].contentId) ?? true
+              }) else { return }
+        self.items.swapAt(index, neighbor)
         self.save()
     }
 

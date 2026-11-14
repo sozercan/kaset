@@ -129,8 +129,7 @@ struct PlaylistTrackRow<Menu: View>: View {
         self.artists?.contains(where: \.hasNavigableId) ?? false
     }
 
-    @ViewBuilder
-    private var artistLinksView: some View {
+    @ViewBuilder private var artistLinksView: some View {
         let artists = self.artists ?? []
 
         HStack(spacing: 0) {
