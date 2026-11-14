@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Inga låtar hittades för ”%@”.";
 "Couldn't play “%@”." = "Kunde inte spela ”%@”.";
 "Couldn't rate “%@”." = "Kunde inte betygsätta ”%@”.";
+
+// YouTube video settings
+"Video settings" = "Videoinställningar";
+"Audio track" = "Ljudspår";

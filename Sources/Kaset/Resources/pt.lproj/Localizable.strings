@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Nenhuma música encontrada para “%@”.";
 "Couldn't play “%@”." = "Não foi possível reproduzir “%@”.";
 "Couldn't rate “%@”." = "Não foi possível avaliar “%@”.";
+
+// YouTube video settings
+"Video settings" = "Definições do vídeo";
+"Audio track" = "Faixa de áudio";

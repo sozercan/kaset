@@ -630,3 +630,7 @@
 "No songs found for “%@”." = "未找到与“%@”匹配的歌曲。";
 "Couldn't play “%@”." = "无法播放“%@”。";
 "Couldn't rate “%@”." = "无法评价“%@”。";
+
+// YouTube video settings
+"Video settings" = "视频设置";
+"Audio track" = "音轨";

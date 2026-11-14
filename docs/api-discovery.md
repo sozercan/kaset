@@ -2159,6 +2159,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-11-14 | Verified the WebView player's audio-track API |
 | 2026-09-05 | Tightened discovery redaction, JSON scalar validation, and token-file diagnostics and overwrite protection. Rechecked Android with a consistent OS/SDK profile and verified guest hops; corrected Account menu implementation status |
 | 2026-09-04 | Verified signed-in Library filters, sort reloads, pagination, podcast Channels, Profiles, upload empty states, and taste-builder data. Added safe selection-read extraction and blocked taste acceptance in Explorer; recorded Recap and authenticated transcript limits |
 | 2026-09-04 | Located the mobile Speed dial Home model in an existing client; verified guest `IOS_MUSIC` Home requests, added a read-only mobile profile and model/item counts to Explorer, and recorded the missing signed-in validation |
@@ -2239,6 +2240,15 @@ Regular YouTube quality selection is implemented in
 The picker reads the WebView player's available quality levels and requests
 the chosen level through `setPlaybackQualityRange`, with a
 `setPlaybackQuality` fallback. A Music video resolution picker is not implemented.
+
+The same gear menu also lists the audio tracks of videos with dubs (verified
+in a signed-in browser on 2026-11-14 with a video that has 24 tracks).
+`player.getAvailableAudioTracks()` returns player objects with minified
+fields. Their public `getLanguageInfo()` gives a stable `id` (`en-US.4` for
+the original, `ru.3` for a dub), a localized `name` ("English (US) original"),
+`isDefault`, and `isAutoDubbed`. `getAudioTrack()` returns the active track,
+and `setAudioTrack(track)` with a track object from the list switched audio
+immediately.
 
 Historical `player` responses exposed formats in `streamingData.adaptiveFormats`.
 Kaset uses WebView playback rather than those URLs. Guest responses may omit

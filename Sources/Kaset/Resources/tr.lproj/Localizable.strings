@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
+
+// YouTube video settings
+"Video settings" = "Video ayarları";
+"Audio track" = "Ses parçası";

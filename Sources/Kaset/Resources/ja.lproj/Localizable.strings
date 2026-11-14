@@ -627,3 +627,7 @@
 "No songs found for “%@”." = "「%@」に一致する曲が見つかりませんでした。";
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
+
+// YouTube video settings
+"Video settings" = "動画の設定";
+"Audio track" = "音声トラック";

@@ -129,6 +129,23 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
         self.selectedQuality = level
     }
 
+    var audioTracks: [YouTubeAudioTrack] = []
+    var activeAudioTrackID: String?
+    private(set) var selectedAudioTrackIDs: [String] = []
+
+    func availableAudioTracks() async -> [YouTubeAudioTrack] {
+        self.audioTracks
+    }
+
+    func currentAudioTrackID() async -> String? {
+        self.activeAudioTrackID
+    }
+
+    func setAudioTrack(id: String) {
+        self.selectedAudioTrackIDs.append(id)
+        self.activeAudioTrackID = id
+    }
+
     var storyboardSpecResponse: String?
     private(set) var storyboardSpecRequests: [String?] = []
 
@@ -1618,6 +1635,32 @@ extension YouTubePlayerServiceTests {
         self.sut.selectQuality("hd1080")
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
         #expect(self.sut.userPinnedQuality == nil)
+    }
+
+    @Test("Audio tracks load per video and selections forward to the player")
+    func audioTrackOptions() async {
+        self.controller.captionTracks = [YouTubeCaptionTrack(languageCode: "en", displayName: "English")]
+        self.controller.audioTracks = [
+            YouTubeAudioTrack(id: "en-US.4", displayName: "English (US) original", isOriginal: true, isAutoDubbed: false),
+            YouTubeAudioTrack(id: "ru.3", displayName: "Russian", isOriginal: false, isAutoDubbed: false),
+        ]
+        self.controller.activeAudioTrackID = "en-US.4"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.refreshPlaybackOptions()
+        #expect(self.sut.audioTracks.map(\.id) == ["en-US.4", "ru.3"])
+        #expect(self.sut.activeAudioTrackID == "en-US.4")
+
+        self.sut.selectAudioTrack(id: "ru.3")
+        #expect(self.sut.activeAudioTrackID == "ru.3")
+        #expect(self.controller.selectedAudioTrackIDs == ["ru.3"])
+
+        self.sut.selectAudioTrack(id: "missing")
+        #expect(self.controller.selectedAudioTrackIDs == ["ru.3"])
+
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
+        #expect(self.sut.audioTracks.isEmpty)
+        #expect(self.sut.activeAudioTrackID == nil)
     }
 
     @Test("Playback options do not duplicate Auto and remain unavailable when empty")
