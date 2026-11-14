@@ -78,6 +78,7 @@ struct SongContextMenu: View {
     @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(AuthService.self) private var authService
+    @Environment(\.trackCreditsAction) private var trackCreditsAction
 
     var body: some View {
         if let play {
@@ -113,6 +114,16 @@ struct SongContextMenu: View {
         AddToQueueContextMenu(song: self.song, playerService: self.playerService)
 
         self.goToItems
+
+        if let presentCredits = self.trackCreditsAction.present {
+            Divider()
+
+            Button {
+                presentCredits(self.song)
+            } label: {
+                Label(String(localized: "View Credits"), systemImage: "person.2")
+            }
+        }
     }
 
     @ViewBuilder

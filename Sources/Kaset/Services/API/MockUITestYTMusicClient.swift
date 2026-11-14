@@ -477,6 +477,17 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
     }
 
+    func getTrackCredits(videoId _: String) async throws -> TrackCredits {
+        try? await Task.sleep(for: .milliseconds(100))
+        return TrackCredits(
+            title: "Song credits",
+            sections: [
+                TrackCredits.Section(title: "Performed by", names: ["Mock Artist"]),
+                TrackCredits.Section(title: "Written by", names: ["Mock Writer", "Second Writer"]),
+            ]
+        )
+    }
+
     func getTimedLyrics(videoId _: String) async throws -> LyricResult {
         try? await Task.sleep(for: .milliseconds(100))
         return .unavailable
