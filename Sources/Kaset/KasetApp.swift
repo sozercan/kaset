@@ -175,6 +175,7 @@ struct KasetApp: App {
         // YouTube video playback service + the one-audio-source arbiter
         let youtubePlayer = YouTubePlayerService(webKitManager: webkit)
         youtubePlayer.youtubeClient = youtubeClient
+        YouTubePlayerService.shared = youtubePlayer
         let arbiter = PlaybackArbiter(playerService: player, youtubePlayerService: youtubePlayer)
 
         _authService = State(initialValue: auth)
@@ -191,9 +192,8 @@ struct KasetApp: App {
         _notificationService = State(initialValue: NotificationService(playerService: player))
         _accountService = State(initialValue: account)
 
-        // Playback-UI tracklist provider: owns seek-bar segmentation for the current item and is
-        // driven by the player, so segments show even without Last.fm connected. Scrobbling keeps
-        // its provisional classification state but shares the same cached/coalescing parser.
+        // Playback-UI tracklist provider: owns seek-bar segmentation for the current item and is driven by the player,
+        // so segments show even without Last.fm connected. Scrobbling keeps its provisional classification state but shares the same cached/coalescing parser.
         let mixTracklistParser = MixTracklistParser(youTubeClient: youtubeClient)
         let tracklistProvider = NowPlayingTracklistProvider(parser: mixTracklistParser)
         player.setNowPlayingTracklistProvider(tracklistProvider)

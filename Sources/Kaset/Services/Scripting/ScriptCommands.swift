@@ -350,7 +350,23 @@ final class GetPlayerInfoCommand: NSScriptCommand {
                 "repeating": repeatMode,
                 "muted": playerService.isMuted,
                 "likeStatus": likeStatus,
+                "isAd": playerService.isShowingAd,
             ]
+
+            // Regular YouTube playback runs in its own player; report it alongside music.
+            if let youtubePlayerService = YouTubePlayerService.shared,
+               let video = youtubePlayerService.currentVideo
+            {
+                info["video"] = [
+                    "isPlaying": youtubePlayerService.isPlaying,
+                    "isAd": youtubePlayerService.isShowingAd,
+                    "position": youtubePlayerService.progress,
+                    "duration": youtubePlayerService.duration,
+                    "videoId": video.videoId,
+                    "title": video.title,
+                    "channel": video.channelName ?? "",
+                ]
+            }
 
             if let track {
                 info["currentTrack"] = [

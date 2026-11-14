@@ -108,6 +108,58 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
+    @Test("GetPlayerInfo reports music ad state")
+    func getPlayerInfoReportsMusicAdState() {
+        let playerService = PlayerService()
+        PlayerService.shared = playerService
+        YouTubePlayerService.shared = nil
+
+        #expect(self.playerInfo()?["isAd"] as? Bool == false)
+        #expect(self.playerInfo()?["video"] == nil)
+
+        playerService.isShowingAd = true
+        #expect(self.playerInfo()?["isAd"] as? Bool == true)
+
+        PlayerService.shared = nil
+    }
+
+    @Test("GetPlayerInfo reports YouTube video playback and ad state")
+    func getPlayerInfoReportsVideoAdState() {
+        PlayerService.shared = PlayerService()
+        let youtubePlayerService = YouTubePlayerService(
+            playbackController: MockYouTubeWatchPlaybackController(),
+            shouldPopOutOnNavigateAway: { false }
+        )
+        YouTubePlayerService.shared = youtubePlayerService
+        youtubePlayerService.play(video: MockYouTubeClient.makeVideo(videoId: "content", title: "Content"))
+        youtubePlayerService.updatePlaybackState(.init(
+            isPlaying: true, progress: 2, duration: 15,
+            videoId: "content", title: nil, isAd: true
+        ))
+
+        let video = self.playerInfo()?["video"] as? [String: Any]
+        #expect(video?["isAd"] as? Bool == true)
+        #expect(video?["isPlaying"] as? Bool == true)
+        #expect(video?["videoId"] as? String == "content")
+        #expect(video?["title"] as? String == "Content")
+        #expect(self.playerInfo()?["isAd"] as? Bool == false)
+
+        youtubePlayerService.updatePlaybackState(.init(
+            isPlaying: true, progress: 3, duration: 60,
+            videoId: "content", title: "Content", isAd: false
+        ))
+        #expect((self.playerInfo()?["video"] as? [String: Any])?["isAd"] as? Bool == false)
+
+        YouTubePlayerService.shared = nil
+        PlayerService.shared = nil
+    }
+
+    private func playerInfo() -> [String: Any]? {
+        let result = GetPlayerInfoCommand().performDefaultImplementation() as? String
+        guard let data = result?.data(using: .utf8) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+
     @Test("GetPlayerInfo returns correct repeat mode values")
     func getPlayerInfoReturnsCorrectRepeatMode() {
         let playerService = PlayerService()
