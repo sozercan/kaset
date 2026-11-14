@@ -156,7 +156,8 @@ The bottom Liquid Glass bar adapts to the active source. In YouTube mode
   in the player metadata title area, and release-near-chapter scrubs snap to
   that chapter.
 - No shuffle/repeat/lyrics/queue — those are music concepts. Chapters use a
-  horizontal scroller with chevron paging controls on the watch page.
+  horizontal scroller with chevron paging controls on the watch page; the shelf
+  hugs the cards, and the Chapters header collapses it.
 
 Every navigable YouTube view carries its own bar inset (pushed views
 don't inherit `safeAreaInset` — same rule as the music side). The watch
@@ -292,8 +293,9 @@ from the regular grids, and routed to this surface.
 Below the video, the layout is two-column: title/metadata/channel and
 chapters/comments down the left, the related rail down the right.
 Chapters come from the watch page's `next` response (see Endpoints above), show
-as a horizontal scroller with chevron paging controls, and seek the active video
-natively. Comments come from the watch page's `comment-item-section` continuation
+as a horizontal scroller with chevron paging controls that hugs the cards, and
+seek the active video natively. The Chapters header collapses the shelf.
+Comments come from the watch page's `comment-item-section` continuation
 (entity-payload mutations joined to comment view models, with a legacy
 `commentRenderer` fallback): paged reading, posting via
 `comment/create_comment`, like/dislike toggles via
