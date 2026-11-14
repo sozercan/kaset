@@ -632,3 +632,6 @@
 "No songs found for “%@”." = "Nenhuma música encontrada para “%@”.";
 "Couldn't play “%@”." = "Não foi possível reproduzir “%@”.";
 "Couldn't rate “%@”." = "Não foi possível avaliar “%@”.";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "Não foi possível enviar o feedback ao YouTube.";

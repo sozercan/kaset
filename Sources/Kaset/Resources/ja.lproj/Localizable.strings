@@ -627,3 +627,6 @@
 "No songs found for “%@”." = "「%@」に一致する曲が見つかりませんでした。";
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "YouTube にフィードバックを送信できませんでした。";

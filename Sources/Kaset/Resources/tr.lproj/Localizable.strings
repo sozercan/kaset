@@ -632,3 +632,6 @@
 "No songs found for “%@”." = "“%@” için şarkı bulunamadı.";
 "Couldn't play “%@”." = "“%@” çalınamadı.";
 "Couldn't rate “%@”." = "“%@” derecelendirilemedi.";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "Geri bildirim YouTube'a gönderilemedi.";

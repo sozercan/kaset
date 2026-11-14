@@ -253,6 +253,8 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
 
     func removeFromWatchLater(videoId _: String) async throws {}
 
+    func sendFeedback(token _: String) async throws {}
+
     // MARK: - Sample Data
 
     private static let sampleVideos = [
