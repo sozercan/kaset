@@ -19,6 +19,10 @@ struct EqualizerServiceTests {
         var granted = false
     }
 
+    private final class PlayingProbe: @unchecked Sendable {
+        var isPlaying = true
+    }
+
     private struct TestHarness {
         let service: EqualizerService
         let mock: MockEqualizerAudioEngine
@@ -33,7 +37,8 @@ struct EqualizerServiceTests {
         isPlaybackActive: @escaping @MainActor () -> Bool = { false },
         playbackProgress: @escaping @MainActor () -> TimeInterval = { 0 },
         hasCapturePermission: @escaping @MainActor () -> Bool = { true },
-        requestCapturePermission: @escaping @MainActor () -> Bool = { true }
+        requestCapturePermission: @escaping @MainActor () -> Bool = { true },
+        scanRetryInterval: Duration = .milliseconds(50)
     ) -> TestHarness {
         let defaults = UserDefaults(suiteName: self.suiteName)!
         defaults.removePersistentDomain(forName: self.suiteName)
@@ -44,6 +49,7 @@ struct EqualizerServiceTests {
             playbackProgress: playbackProgress,
             hasCapturePermission: hasCapturePermission,
             requestCapturePermission: requestCapturePermission,
+            scanRetryInterval: scanRetryInterval,
             defaults: defaults
         )
         return TestHarness(service: service, mock: mock, defaults: defaults)
@@ -305,6 +311,119 @@ struct EqualizerServiceTests {
         #expect(service.settings.isEnabled == true)
         #expect(service.lastFailure == nil)
         #expect(service.status == .standby)
+    }
+
+    @Test("An empty process scan during playback doesn't report missing permission")
+    func emptyScanDuringPlaybackStaysStandby() async {
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { true }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+
+        service.retryStartIfEnabled()
+        let retried = await self.waitUntil { mock.startCallCount >= 2 }
+        #expect(retried)
+        #expect(service.lastFailure == nil)
+        #expect(service.status == .standby)
+    }
+
+    @Test("A rescan during playback starts the engine once WebKit's audio process is found")
+    func rescanDuringPlaybackStartsEngine() async {
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { true }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+        service.retryStartIfEnabled()
+        let missed = await self.waitUntil { mock.startCallCount >= 2 }
+        #expect(missed)
+
+        mock.startResult = .success(())
+        let started = await self.waitUntil { service.status == .active }
+        #expect(started)
+    }
+
+    @Test("Rescans during playback stop after the retry limit")
+    func rescansStopAfterLimit() async {
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { true }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+        service.retryStartIfEnabled()
+
+        // The enable attempt, the playback retry, then five rescans.
+        let exhausted = await self.waitUntil { mock.startCallCount == 7 }
+        #expect(exhausted)
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(mock.startCallCount == 7)
+        #expect(service.status == .standby)
+    }
+
+    @Test("A missed scan after permission is granted clears the earlier permission warning")
+    func missedScanClearsEarlierPermissionWarning() async {
+        let permission = PermissionProbe()
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { true },
+            hasCapturePermission: { permission.granted },
+            requestCapturePermission: { false }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+        if case .permissionNeeded = service.status {
+            // expected
+        } else {
+            Issue.record("Expected .permissionNeeded status, got \(service.status)")
+        }
+
+        permission.granted = true
+        service.retryStartIfEnabled()
+        let scanned = await self.waitUntil { mock.startCallCount >= 1 }
+        #expect(scanned)
+        #expect(service.status == .standby)
+    }
+
+    @Test("Enabling the EQ during playback rescans after a missed scan")
+    func enablingDuringPlaybackRescans() async {
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { true }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+
+        let rescanned = await self.waitUntil { mock.startCallCount >= 3 }
+        #expect(rescanned)
+        #expect(service.status == .standby)
+    }
+
+    @Test("Rescans stop when playback stops")
+    func rescansStopWhenPlaybackStops() async {
+        let playback = PlayingProbe()
+        let harness = Self.makeService(
+            startResult: .failure(.tap(.noAudioSource)),
+            isPlaybackActive: { playback.isPlaying }
+        )
+        let service = harness.service
+        let mock = harness.mock
+        service.setEnabled(true)
+        let missed = await self.waitUntil { mock.startCallCount >= 2 }
+        #expect(missed)
+
+        playback.isPlaying = false
+        let attemptsWhenStopped = mock.startCallCount
+        try? await Task.sleep(for: .milliseconds(300))
+        #expect(mock.startCallCount == attemptsWhenStopped)
     }
 
     @Test("retryStartIfEnabled is a no-op when toggle is off")

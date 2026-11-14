@@ -59,10 +59,9 @@ final class EqualizerService {
     /// "no playback yet" case).
     private(set) var lastFailure: EqualizerAudioEngine.StartFailure?
 
-    /// Set to `true` once we've inferred a permission denial from
-    /// circumstantial evidence — typically: playback is known to be
-    /// active, yet our Core Audio process-list scan returns empty, which
-    /// means the sandbox is silently blocking the enumeration.
+    /// Set to `true` once we've inferred a permission denial: the capture
+    /// permission is missing, the tap couldn't be created, or the tap
+    /// stayed silent through a long stretch of active playback.
     private var inferredPermissionDenial: Bool = false
 
     // MARK: - Private
@@ -86,6 +85,16 @@ final class EqualizerService {
     /// Cancelled and replaced on every default-output change so a rapid
     /// plug/unplug storm doesn't pile up pending rebinds.
     @ObservationIgnored private var deviceChangeTask: Task<Void, Never>?
+
+    /// Pending rescan after a start attempt during playback found no
+    /// WebKit audio process to tap. Cancelled and replaced per miss.
+    @ObservationIgnored private var scanRetryTask: Task<Void, Never>?
+
+    /// Rescans since the last play start, toggle, or successful start,
+    /// capped at ``maxScanRetries`` so an unprovable process isn't
+    /// rescanned for the rest of that stretch of playback.
+    private var scanRetryCount: Int = 0
+    private let scanRetryInterval: Duration
 
     /// Probe used by ``scheduleTapVerification`` to decide whether a silent
     /// tap really means "no permission" or just "user paused playback". A
@@ -114,6 +123,7 @@ final class EqualizerService {
     private static let persistDebounceInterval: Duration = .milliseconds(250)
     private static let tapVerificationPollInterval: Duration = .seconds(2)
     private static let tapVerificationProgressThreshold: TimeInterval = 8
+    private static let maxScanRetries = 5
 
     /// Set when the user explicitly turns the EQ on so the next start attempt
     /// may trigger the system permission prompt. Automatic retries consume
@@ -133,6 +143,7 @@ final class EqualizerService {
         playbackProgress: @escaping @MainActor () -> TimeInterval = { PlayerService.shared?.progress ?? 0 },
         hasCapturePermission: @escaping @MainActor () -> Bool = { CGPreflightScreenCaptureAccess() },
         requestCapturePermission: @escaping @MainActor () -> Bool = { CGRequestScreenCaptureAccess() },
+        scanRetryInterval: Duration = .seconds(2),
         defaults: UserDefaults = .standard
     ) {
         self.engine = engine
@@ -140,6 +151,7 @@ final class EqualizerService {
         self.playbackProgress = playbackProgress
         self.hasCapturePermission = hasCapturePermission
         self.requestCapturePermission = requestCapturePermission
+        self.scanRetryInterval = scanRetryInterval
         self.defaults = defaults
         self.settings = Self.loadPersistedSettings(from: defaults)
         self.syncEngine()
@@ -232,10 +244,16 @@ final class EqualizerService {
         // If permission is still missing, the next start attempt will
         // immediately infer it again.
         self.inferredPermissionDenial = false
+        self.scanRetryCount = 0
         self.shouldRequestCapturePermissionOnNextStart = enabled
         var next = self.settings
         next.isEnabled = enabled
         self.settings = next
+        // Enabling mid-song gets the same delayed retry and rescans as a
+        // playback start, in case the immediate attempt found no process.
+        if enabled, self.isPlaybackActive() {
+            self.retryStartIfEnabled()
+        }
     }
 
     /// Resets to a flat, disabled equalizer (keeps `isEnabled` state).
@@ -252,6 +270,8 @@ final class EqualizerService {
     /// before we scan for it.
     func retryStartIfEnabled() {
         guard self.settings.isEnabled, !self.engine.isRunning else { return }
+        self.scanRetryCount = 0
+        self.scanRetryTask?.cancel()
         self.retryTask?.cancel()
         self.retryTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
@@ -335,16 +355,18 @@ final class EqualizerService {
             self.retryTask?.cancel()
             self.verificationTask?.cancel()
             self.deviceChangeTask?.cancel()
+            self.scanRetryTask?.cancel()
             self.engine.stop()
             self.lastFailure = nil
         }
     }
 
-    /// Tries to bring the audio engine up. The `playbackKnownActive` flag
-    /// changes how we interpret a `.noAudioSource` failure: at launch it's
-    /// benign ("user hasn't pressed play yet"), but after we know playback
-    /// is happening it strongly implies the sandbox is silently blocking
-    /// our process-list scan due to missing audio-capture permission.
+    /// Tries to bring the audio engine up. A `.noAudioSource` failure is
+    /// never a permission signal: Core Audio lists processes without
+    /// capture permission, and the tap helper only scans after its
+    /// permission preflight passed. At launch it means playback hasn't
+    /// started; with `playbackKnownActive`, WebKit's audio process isn't
+    /// listed or provably Kaset's yet, so a rescan is scheduled.
     private func attemptStart(playbackKnownActive: Bool) {
         if !self.hasCapturePermission() {
             if self.shouldRequestCapturePermissionOnNextStart {
@@ -367,6 +389,7 @@ final class EqualizerService {
         case .success:
             self.lastFailure = nil
             self.inferredPermissionDenial = false
+            self.scanRetryCount = 0
             self.engine.apply(settings: self.settings)
             // The pre-check in ProcessTapHelper handles the common case,
             // but TCC services occasionally disagree (different service,
@@ -374,14 +397,14 @@ final class EqualizerService {
             // seconds later that the tap actually delivers audio.
             self.scheduleTapVerification()
         case let .failure(failure):
-            if failure.isWaitingForPlayback, !playbackKnownActive {
-                // Normal at launch — keep the standby badge.
+            if failure.isWaitingForPlayback {
+                // Show standby: the scan only runs once permission checks
+                // pass, so an earlier permission warning no longer applies.
                 self.lastFailure = nil
-            } else if failure.isWaitingForPlayback, playbackKnownActive {
-                self.logger.warning(
-                    "process scan empty while playback active — inferring permission denial"
-                )
-                self.flagPermissionDenial()
+                self.inferredPermissionDenial = false
+                if playbackKnownActive {
+                    self.scheduleScanRetry()
+                }
             } else if failure.isPermissionLikely {
                 self.logger.warning("permission failure — \(String(describing: failure))")
                 self.flagPermissionDenial()
@@ -391,6 +414,27 @@ final class EqualizerService {
                 self.logger.warning("start failed — \(String(describing: failure))")
                 self.lastFailure = failure
             }
+        }
+    }
+
+    /// Rescans shortly after a start attempt during playback found no
+    /// WebKit audio process to tap, until the engine starts, playback
+    /// stops, or ``maxScanRetries`` rescans have run.
+    private func scheduleScanRetry() {
+        guard self.scanRetryCount < Self.maxScanRetries else {
+            self.logger.warning("no WebKit audio process to tap after \(Self.maxScanRetries) rescans")
+            return
+        }
+        self.scanRetryCount += 1
+        self.scanRetryTask?.cancel()
+        let interval = self.scanRetryInterval
+        self.scanRetryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: interval)
+            guard let self, !Task.isCancelled,
+                  self.settings.isEnabled, !self.engine.isRunning,
+                  self.isPlaybackActive()
+            else { return }
+            self.attemptStart(playbackKnownActive: true)
         }
     }
 
