@@ -35,9 +35,11 @@ final class KasetWebView: WKWebView {
               keyCode == self.leftArrowKeyCode || keyCode == self.rightArrowKeyCode
         else { return false }
 
+        // AppKit sets `.numericPad` and `.function` on every arrow-key event; neither
+        // means the user held another modifier, so only Command is significant here.
         let significantModifiers = modifiers
             .intersection(.deviceIndependentFlagsMask)
-            .subtracting([.capsLock, .numericPad])
+            .subtracting([.capsLock, .numericPad, .function])
         return significantModifiers == .command
     }
 }

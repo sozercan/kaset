@@ -6,12 +6,20 @@ import Testing
 struct KasetWebViewTests {
     @Test("Hidden WebView declines command-arrow playback shortcuts")
     func hiddenWebViewDeclinesCommandArrows() {
+        // A real arrow-key event carries `.numericPad` and `.function` alongside Command.
         for keyCode in [KasetWebView.leftArrowKeyCode, KasetWebView.rightArrowKeyCode] {
-            #expect(KasetWebView.declinesHiddenPlaybackKeyEquivalent(
-                keyCode: keyCode,
-                modifiers: [.command, .numericPad],
-                isHidden: true
-            ))
+            for modifiers: NSEvent.ModifierFlags in [
+                [.command],
+                [.command, .numericPad],
+                [.command, .function],
+                [.command, .numericPad, .function],
+            ] {
+                #expect(KasetWebView.declinesHiddenPlaybackKeyEquivalent(
+                    keyCode: keyCode,
+                    modifiers: modifiers,
+                    isHidden: true
+                ))
+            }
         }
     }
 
@@ -38,7 +46,7 @@ struct KasetWebViewTests {
         ))
         #expect(!KasetWebView.declinesHiddenPlaybackKeyEquivalent(
             keyCode: KasetWebView.rightArrowKeyCode,
-            modifiers: [.command, .function],
+            modifiers: [.command, .shift, .numericPad, .function],
             isHidden: true
         ))
     }
