@@ -150,6 +150,30 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.routeLossPauseAt == nil)
     }
 
+    @Test("A late route event does not undo a pause the user already made")
+    func lateRouteEventKeepsAnEarlierUserPause() async {
+        // The system can still send its route-loss `pause` to an app the user already paused.
+        // When that pause also beats the route event, re-attributing it must not clear the
+        // user's intent, or reconnecting would resume music the user chose to stop.
+        let playerService = self.makePlayingService()
+        await playerService.pause(intent: playerService.currentMusicPlaybackIntent)
+        let admittedAt = ContinuousClock.now
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .unattributedRemote(admittedAt: admittedAt)
+        )
+
+        playerService.reattributeRemotePauseToRouteLoss { $0 == admittedAt }
+        playerService.hasAudioRouteReturned = { _ in true }
+        await playerService.resumeAfterRouteRestored()
+
+        #expect(playerService.isExplicitPauseIntentActive)
+        #expect(playerService.shouldResumeAfterInterruption == false)
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }

@@ -519,10 +519,14 @@ extension PlayerService {
             // Behaves as the user's until proven otherwise. Core Audio publishes a route change
             // only after several synchronous device queries while this command drains
             // independently, so a genuine route-loss pause can arrive first and look deliberate.
+            // A pause landing on playback the user already paused stopped nothing, so it leaves
+            // no marker: re-attributing it would clear that standing pause, as `.routeLoss`
+            // never does, and a reconnect would resume music the user chose to stop.
+            let userAlreadyPaused = self.isExplicitPauseIntentActive && !self.isPlaying
             self.shouldResumeAfterInterruption = false
             self.isExplicitPauseIntentActive = true
             self.routeLossPauseAt = nil
-            self.unattributedRemotePauseAt = admittedAt
+            self.unattributedRemotePauseAt = userAlreadyPaused ? nil : admittedAt
         case let .routeLoss(at):
             self.unattributedRemotePauseAt = nil
             // Dated to when the command was admitted, not to now: this runs after an unbounded
