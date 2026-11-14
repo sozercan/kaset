@@ -632,3 +632,11 @@
 "No songs found for “%@”." = "Inga låtar hittades för ”%@”.";
 "Couldn't play “%@”." = "Kunde inte spela ”%@”.";
 "Couldn't rate “%@”." = "Kunde inte betygsätta ”%@”.";
+
+// YouTube search history
+"Recent searches" = "Senaste sökningar";
+"YouTube search history" = "Sökhistorik på YouTube";
+"Manage" = "Hantera";
+"Review and delete YouTube search history in your Google Account" = "Granska och radera sökhistoriken på YouTube i ditt Google-konto";
+"Remove from search history" = "Ta bort från sökhistoriken";
+"Couldn't update YouTube search history." = "Det gick inte att uppdatera sökhistoriken på YouTube.";

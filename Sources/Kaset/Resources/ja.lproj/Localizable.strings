@@ -627,3 +627,11 @@
 "No songs found for “%@”." = "「%@」に一致する曲が見つかりませんでした。";
 "Couldn't play “%@”." = "「%@」を再生できませんでした。";
 "Couldn't rate “%@”." = "「%@」を評価できませんでした。";
+
+// YouTube search history
+"Recent searches" = "最近の検索";
+"YouTube search history" = "YouTube の検索履歴";
+"Manage" = "管理";
+"Review and delete YouTube search history in your Google Account" = "Google アカウントで YouTube の検索履歴を確認・削除します";
+"Remove from search history" = "検索履歴から削除";
+"Couldn't update YouTube search history." = "YouTube の検索履歴を更新できませんでした。";

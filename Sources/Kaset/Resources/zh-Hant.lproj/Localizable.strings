@@ -630,3 +630,11 @@
 "No songs found for “%@”." = "找不到符合「%@」的歌曲。";
 "Couldn't play “%@”." = "無法播放「%@」。";
 "Couldn't rate “%@”." = "無法評價「%@」。";
+
+// YouTube search history
+"Recent searches" = "最近搜尋";
+"YouTube search history" = "YouTube 搜尋紀錄";
+"Manage" = "管理";
+"Review and delete YouTube search history in your Google Account" = "在 Google 帳戶中查看及刪除 YouTube 搜尋紀錄";
+"Remove from search history" = "從搜尋紀錄中移除";
+"Couldn't update YouTube search history." = "無法更新 YouTube 搜尋紀錄。";

@@ -632,3 +632,11 @@
 "No songs found for “%@”." = "Keine Titel für „%@“ gefunden.";
 "Couldn't play “%@”." = "„%@“ konnte nicht wiedergegeben werden.";
 "Couldn't rate “%@”." = "„%@“ konnte nicht bewertet werden.";
+
+// YouTube search history
+"Recent searches" = "Letzte Suchanfragen";
+"YouTube search history" = "YouTube-Suchverlauf";
+"Manage" = "Verwalten";
+"Review and delete YouTube search history in your Google Account" = "YouTube-Suchverlauf in deinem Google-Konto ansehen und löschen";
+"Remove from search history" = "Aus dem Suchverlauf entfernen";
+"Couldn't update YouTube search history." = "YouTube-Suchverlauf konnte nicht aktualisiert werden.";

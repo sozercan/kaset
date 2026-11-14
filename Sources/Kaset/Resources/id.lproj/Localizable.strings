@@ -632,3 +632,11 @@
 "No songs found for “%@”." = "Tidak ada lagu yang ditemukan untuk “%@”.";
 "Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
 "Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";
+
+// YouTube search history
+"Recent searches" = "Penelusuran terbaru";
+"YouTube search history" = "Histori penelusuran YouTube";
+"Manage" = "Kelola";
+"Review and delete YouTube search history in your Google Account" = "Tinjau dan hapus histori penelusuran YouTube di Akun Google Anda";
+"Remove from search history" = "Hapus dari histori penelusuran";
+"Couldn't update YouTube search history." = "Tidak dapat memperbarui histori penelusuran YouTube.";

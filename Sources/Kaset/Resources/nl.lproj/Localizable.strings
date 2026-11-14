@@ -632,3 +632,11 @@
 "No songs found for “%@”." = "Geen nummers gevonden voor ‘%@’.";
 "Couldn't play “%@”." = "Kon ‘%@’ niet afspelen.";
 "Couldn't rate “%@”." = "Kon ‘%@’ niet beoordelen.";
+
+// YouTube search history
+"Recent searches" = "Recente zoekopdrachten";
+"YouTube search history" = "YouTube-zoekgeschiedenis";
+"Manage" = "Beheren";
+"Review and delete YouTube search history in your Google Account" = "Bekijk en verwijder je YouTube-zoekgeschiedenis in je Google-account";
+"Remove from search history" = "Verwijderen uit zoekgeschiedenis";
+"Couldn't update YouTube search history." = "Kan YouTube-zoekgeschiedenis niet bijwerken.";
