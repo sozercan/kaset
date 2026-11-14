@@ -153,12 +153,13 @@ final class DefaultOutputDeviceMonitor {
         admittedAt instant: ContinuousClock.Instant,
         within window: Duration
     ) -> Int? {
-        guard let index = events.lastIndex(where: { event in
-            event.isDisappearance
-                && !event.isConsumed
-                && event.at <= instant
-                && instant - event.at <= window
-        }) else { return nil }
+        // Only the newest disappearance before the command can explain it. If another pause
+        // already claimed that one, an older disappearance does not explain this pause either:
+        // the system already paused for the disconnect, so this one is the user's.
+        guard let index = events.lastIndex(where: { $0.isDisappearance && $0.at <= instant }),
+              !events[index].isConsumed,
+              instant - events[index].at <= window
+        else { return nil }
 
         // Output coming back between that disappearance and the command means there was a route
         // to play to when the command was admitted, so the pause is the user's. A restoration

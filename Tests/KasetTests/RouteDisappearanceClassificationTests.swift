@@ -78,6 +78,23 @@ struct RouteDisappearanceClassificationTests {
         #expect(self.routeLossIndex(in: events, admittedAt: 60) == nil)
     }
 
+    @Test("A claimed newer disappearance does not fall back to an older one")
+    func consumedNewerDisappearanceDoesNotFallBack() {
+        // Two disappearances with nothing restored between them: the system's pause at 860 ms
+        // claims the newer one, and a user pause at 950 ms must not claim the older one instead.
+        var events = [
+            self.disappearance(at: 0),
+            self.disappearance(at: 800),
+        ]
+        let systemPause = self.routeLossIndex(in: events, admittedAt: 860)
+        #expect(systemPause == 1)
+        if let systemPause {
+            events[systemPause].isConsumed = true
+        }
+
+        #expect(self.routeLossIndex(in: events, admittedAt: 950) == nil)
+    }
+
     @Test("Route changes that never removed a device do not qualify")
     func changeWithoutDisappearanceDoesNotQualify() {
         // Plugging in a new output or switching by hand changes the default device without
