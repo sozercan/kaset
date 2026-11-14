@@ -266,6 +266,37 @@ struct ExtensionsManagerTests {
         #expect(reloadedManager.extensions.first?.isEnabled == false)
     }
 
+    @Test("An approval that cannot be saved fails and leaves the extension off")
+    func unsavedApprovalFailsAndStaysDisabled() async throws {
+        let rootDirectory = try self.makeTemporaryDirectory()
+        defer { self.cleanupDirectory(rootDirectory) }
+
+        let sourceURL = try self.makeExtensionSource(
+            in: rootDirectory,
+            folderName: "UnsavedExtension",
+            manifest: [
+                "name": "Unsaved Extension",
+                "manifest_version": 3,
+            ]
+        )
+        let manager = self.makeManager(in: rootDirectory)
+        try manager.addExtension(at: sourceURL)
+        let ext = try #require(manager.extensions.first)
+        let review = try await manager.permissionReview(id: ext.id)
+
+        // A directory where extensions.json belongs makes the atomic write fail.
+        let persistenceURL = self.makePersistenceURL(in: rootDirectory)
+        try FileManager.default.removeItem(at: persistenceURL)
+        try FileManager.default.createDirectory(at: persistenceURL, withIntermediateDirectories: false)
+
+        await #expect(throws: (any Error).self) {
+            try await manager.approveExtension(review)
+        }
+        #expect(manager.extensions.first?.isEnabled == false)
+        #expect(manager.extensions.first?.approvedPermissions == nil)
+        #expect(manager.resolvedURLs().isEmpty)
+    }
+
     @Test("resolvedURLs skips missing copied folders")
     func resolvedURLsSkipsMissingCopiedFolders() async throws {
         let rootDirectory = try self.makeTemporaryDirectory()

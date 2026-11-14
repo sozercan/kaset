@@ -108,15 +108,19 @@ final class ExtensionsManager {
     }
 
     private func save() {
-        guard let url = self.persistenceURL else { return }
         do {
-            let dir = url.deletingLastPathComponent()
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let data = try JSONEncoder().encode(self.extensions)
-            try data.write(to: url, options: .atomic)
+            try self.persist()
         } catch {
             self.logger.error("Failed to save extensions list: \(error.localizedDescription)")
         }
+    }
+
+    private func persist() throws {
+        guard let url = self.persistenceURL else { return }
+        let dir = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(self.extensions)
+        try data.write(to: url, options: .atomic)
     }
 
     // MARK: - Public API
@@ -172,9 +176,18 @@ final class ExtensionsManager {
         guard let index = self.extensions.firstIndex(where: { $0.id == review.id }) else {
             throw ExtensionConsentError.unavailable
         }
+        let previous = self.extensions[index]
         self.extensions[index].approvedPermissions = review.permissions
         self.extensions[index].isEnabled = true
-        self.save()
+        // An approval that isn't saved is lost on restart, and the extension stays off, so
+        // report the failure instead of telling the user to restart.
+        do {
+            try self.persist()
+        } catch {
+            self.extensions[index] = previous
+            self.logger.error("Failed to save extension approval: \(error.localizedDescription)")
+            throw error
+        }
     }
 
     /// Must succeed before granting permissions or loading the parsed extension.
