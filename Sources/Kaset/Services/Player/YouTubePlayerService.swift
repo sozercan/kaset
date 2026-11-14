@@ -36,6 +36,9 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func availableQualityLevels() async -> [String]
     func currentQualityLevel() async -> String?
     func setQualityLevel(_ level: String)
+    func availableAudioTracks() async -> [YouTubeAudioTrack]
+    func currentAudioTrackID() async -> String?
+    func setAudioTrack(id: String)
     func storyboardSpec(expectedVideoId: String?) async -> String?
     func tearDown()
 }
@@ -274,6 +277,13 @@ final class YouTubePlayerService {
     /// Auto. Kept apart from `currentQuality`, which the player overwrites with
     /// whatever level it actually resolved and so cannot represent "Auto".
     private(set) var userPinnedQuality: String?
+
+    /// Audio tracks (original and dubs) the current video offers. Usually a
+    /// single track; the picker only appears when there is a choice.
+    private(set) var audioTracks: [YouTubeAudioTrack] = []
+
+    /// Language-track ID of the active audio track.
+    private(set) var activeAudioTrackID: String?
 
     /// YouTube storyboard spec for the current video (drives the ambient
     /// backdrop's fine-grained live color). `nil` until fetched / unavailable.
@@ -913,6 +923,8 @@ final class YouTubePlayerService {
         self.qualityLevels = []
         self.currentQuality = nil
         self.userPinnedQuality = nil
+        self.audioTracks = []
+        self.activeAudioTrackID = nil
         self.currentMediaIsLive = false
         self.storyboardSpec = nil
         self.storyboardFetchVideoId = nil
@@ -976,6 +988,8 @@ final class YouTubePlayerService {
                 : levels + ["auto"]
             self.currentQuality = await self.playbackController.currentQualityLevel()
             self.activeCaptionLanguageCode = await self.playbackController.currentCaptionLanguageCode()
+            await self.refreshAudioTrackOptions(videoId: videoId)
+            guard self.currentVideo?.videoId == videoId else { return }
 
             if !tracks.isEmpty || attempt == 2 {
                 return
@@ -1787,5 +1801,27 @@ extension YouTubePlayerService {
             return occurrence.documentGeneration > other.documentGeneration
         }
         return occurrence.mediaGeneration > other.mediaGeneration
+    }
+}
+
+// MARK: - Audio Tracks
+
+extension YouTubePlayerService {
+    /// Reads the current video's audio tracks and which one is active.
+    private func refreshAudioTrackOptions(videoId: String?) async {
+        let audioTracks = await self.playbackController.availableAudioTracks()
+        let activeAudioTrackID = await self.playbackController.currentAudioTrackID()
+        guard self.currentVideo?.videoId == videoId else { return }
+
+        self.audioTracks = audioTracks
+        self.activeAudioTrackID = activeAudioTrackID
+    }
+
+    /// Switches the current video to an audio track (original or a dub).
+    func selectAudioTrack(id: String) {
+        guard self.audioTracks.contains(where: { $0.id == id }) else { return }
+        self.activeAudioTrackID = id
+        self.playbackController.setAudioTrack(id: id)
+        HapticService.toggle()
     }
 }

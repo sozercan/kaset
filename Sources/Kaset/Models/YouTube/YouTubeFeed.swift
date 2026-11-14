@@ -317,6 +317,21 @@ struct YouTubeCaptionTrack: Identifiable, Hashable {
     }
 }
 
+// MARK: - YouTubeAudioTrack
+
+/// An audio track offered by the watch page player: the original audio or a
+/// dubbed (human or auto-generated) language.
+struct YouTubeAudioTrack: Identifiable, Hashable {
+    /// The player's language-track ID, e.g. "en-US.4" (original) or "ru.3" (dubbed).
+    let id: String
+    /// Player-provided name, e.g. "English (US) original" or "Russian".
+    let displayName: String
+    /// Whether this is the video's default (original) audio.
+    let isOriginal: Bool
+    /// Whether YouTube generated this dub automatically.
+    let isAutoDubbed: Bool
+}
+
 // MARK: - YouTubeQuality
 
 /// Display helpers for YouTube's quality-level identifiers.

@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Geen nummers gevonden voor ‘%@’.";
 "Couldn't play “%@”." = "Kon ‘%@’ niet afspelen.";
 "Couldn't rate “%@”." = "Kon ‘%@’ niet beoordelen.";
+
+// YouTube video settings
+"Video settings" = "Video-instellingen";
+"Audio track" = "Audiotrack";

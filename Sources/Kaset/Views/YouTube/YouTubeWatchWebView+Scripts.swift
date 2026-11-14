@@ -1089,6 +1089,103 @@ extension YouTubeWatchWebView {
         self.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
+    // MARK: Audio Tracks
+
+    /// Fetches the audio tracks (original and dubs) the player offers.
+    ///
+    /// `getAvailableAudioTracks()` returns player objects whose fields are
+    /// minified; their public `getLanguageInfo()` carries a stable `id`
+    /// ("ru.3"), a display `name`, and `isDefault` for the original track.
+    func availableAudioTracks() async -> [YouTubeAudioTrack] {
+        guard let json = await self.evaluateForString(Self.availableAudioTracksScript),
+              let data = json.data(using: .utf8),
+              let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        else {
+            return []
+        }
+        return entries.compactMap { entry in
+            guard let id = entry["id"] as? String, !id.isEmpty,
+                  let name = entry["name"] as? String, !name.isEmpty
+            else {
+                return nil
+            }
+            return YouTubeAudioTrack(
+                id: id,
+                displayName: name,
+                isOriginal: entry["isDefault"] as? Bool ?? false,
+                isAutoDubbed: entry["isAutoDubbed"] as? Bool ?? false
+            )
+        }
+    }
+
+    static var availableAudioTracksScript: String {
+        """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getAvailableAudioTracks !== 'function') { return '[]'; }
+                const tracks = player.getAvailableAudioTracks() || [];
+                const seen = new Set();
+                return JSON.stringify(tracks.map(function(track) {
+                    let info = null;
+                    try { info = track && typeof track.getLanguageInfo === 'function' ? track.getLanguageInfo() : null; } catch (e) {}
+                    const id = (info && info.id) || '';
+                    return {
+                        id: id,
+                        name: (info && info.name) || id,
+                        isDefault: !!(info && info.isDefault),
+                        isAutoDubbed: !!(info && info.isAutoDubbed)
+                    };
+                }).filter(function(track) {
+                    if (!track.id || seen.has(track.id)) { return false; }
+                    seen.add(track.id);
+                    return true;
+                }));
+            } catch (e) { return '[]'; }
+        })();
+        """
+    }
+
+    /// The language-track ID of the player's active audio track.
+    func currentAudioTrackID() async -> String? {
+        let script = """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getAudioTrack !== 'function') { return ''; }
+                const track = player.getAudioTrack();
+                const info = track && typeof track.getLanguageInfo === 'function' ? track.getLanguageInfo() : null;
+                return (info && info.id) || '';
+            } catch (e) { return ''; }
+        })();
+        """
+        let id = await self.evaluateForString(script)
+        return (id?.isEmpty == false) ? id : nil
+    }
+
+    /// Switches to the audio track with the given language-track ID.
+    func setAudioTrack(id: String) {
+        self.webView?.evaluateJavaScript(Self.setAudioTrackScript(id: id), completionHandler: nil)
+    }
+
+    static func setAudioTrackScript(id: String) -> String {
+        let idLiteral = Self.jsStringLiteral(id)
+        return """
+        (function() {
+            try {
+                const player = document.getElementById('movie_player');
+                if (!player || typeof player.getAvailableAudioTracks !== 'function'
+                    || typeof player.setAudioTrack !== 'function') { return; }
+                const requested = \(idLiteral);
+                const match = (player.getAvailableAudioTracks() || []).find(function(track) {
+                    try { return track.getLanguageInfo().id === requested; } catch (e) { return false; }
+                });
+                if (match) { player.setAudioTrack(match); }
+            } catch (e) {}
+        })();
+        """
+    }
+
     /// Shows the system AirPlay picker for the watch page's video element.
     func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         guard let webView = self.webView else { return }

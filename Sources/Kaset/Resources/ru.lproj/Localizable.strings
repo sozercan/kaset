@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Не найдено треков по запросу «%@».";
 "Couldn't play “%@”." = "Не удалось воспроизвести «%@».";
 "Couldn't rate “%@”." = "Не удалось оценить «%@».";
+
+// YouTube video settings
+"Video settings" = "Настройки видео";
+"Audio track" = "Звуковая дорожка";

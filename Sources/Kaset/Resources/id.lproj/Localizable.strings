@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Tidak ada lagu yang ditemukan untuk “%@”.";
 "Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
 "Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";
+
+// YouTube video settings
+"Video settings" = "Setelan video";
+"Audio track" = "Trek audio";

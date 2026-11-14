@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "Не знайдено пісень за запитом «%@».";
 "Couldn't play “%@”." = "Не вдалося відтворити «%@».";
 "Couldn't rate “%@”." = "Не вдалося оцінити «%@».";
+
+// YouTube video settings
+"Video settings" = "Налаштування відео";
+"Audio track" = "Звукова доріжка";

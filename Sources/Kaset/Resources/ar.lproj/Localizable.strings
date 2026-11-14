@@ -632,3 +632,7 @@
 "No songs found for “%@”." = "لم يتم العثور على أغانٍ لـ “%@”.";
 "Couldn't play “%@”." = "تعذّر تشغيل “%@”.";
 "Couldn't rate “%@”." = "تعذّر تقييم “%@”.";
+
+// YouTube video settings
+"Video settings" = "إعدادات الفيديو";
+"Audio track" = "المسار الصوتي";
