@@ -269,17 +269,23 @@ struct SyncedLyricsBridgeScriptTests {
             readyState: 4,
             addEventListener: function(name, handler) { videoListeners[name] = handler; }
         };
-        var playerBar = { attributes: {}, childNodes: [] };
+        var playerBar = { attributes: {}, childNodes: [], querySelector: function() { return null; } };
         var playerApi = {
-            getVideoData: function() { return { video_id: 'abc', title: 'Title', author: 'Artist' }; }
+            getVideoData: function() { return { video_id: 'abc', title: 'Title', author: 'Artist' }; },
+            getPresentingPlayerType: function() { return 1; },
+            addEventListener: function() {}
         };
         var ytmusicPlayer = { playerApi: playerApi };
-        var moviePlayer = { getVideoData: playerApi.getVideoData };
+        var moviePlayer = {
+            getVideoData: playerApi.getVideoData,
+            getPresentingPlayerType: playerApi.getPresentingPlayerType,
+            addEventListener: function() {}
+        };
         var document = {
             readyState: 'complete',
             body: {},
             querySelector: function(selector) {
-                if (selector === 'ytmusic-player-bar') return playerBar;
+                if (selector === '[slot="player-bar"]') return playerBar;
                 if (selector === 'video') return video;
                 if (selector === 'ytmusic-player') return ytmusicPlayer;
                 if (selector === '#progress-bar') return null;

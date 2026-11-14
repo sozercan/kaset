@@ -21,7 +21,7 @@ struct YouTubeContentView: View {
                     // (pushed views don't inherit a parent's safeAreaInset).
                     self.rootView(for: selection)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .youtubePlayerBarInset()
+                        .youtubePagePlayerBarInset(keepsBar: selection == .shorts)
                         .youtubeNavigationDestinations(client: self.store.client)
                 }
                 // Reset the drill-in stack when the sidebar selection changes.
@@ -30,7 +30,7 @@ struct YouTubeContentView: View {
                 Text("Select an item from the sidebar", comment: "Placeholder shown when no sidebar item is selected")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .youtubePlayerBarInset()
+                    .youtubePagePlayerBarInset()
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)

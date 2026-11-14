@@ -765,7 +765,7 @@ struct YTMusicClientContinuationResetTests {
         let authService = AuthService(webKitManager: MockWebKitManager())
         let client = YTMusicClient(authService: authService, session: session)
 
-        _ = try await client.getHome()
+        _ = try await client.getHome(forceRefresh: false)
         async let staleContinuation = client.getHomeContinuation()
         while continuationRequestCount.isEmpty {
             await Task.yield()

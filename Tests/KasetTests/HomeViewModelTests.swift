@@ -139,6 +139,7 @@ struct HomeViewModelTests {
 
         #expect(self.viewModel.sections.count == 3)
         #expect(self.mockClient.getHomeCallCount == 2)
+        #expect(self.mockClient.getHomeForceRefreshes == [false, true])
     }
 
     @Test("Refresh replaces an in-flight home load")

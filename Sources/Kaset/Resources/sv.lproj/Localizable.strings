@@ -1,3 +1,6 @@
+"Ad" = "Annons";
+"Advertisement" = "Annons";
+
 // Localizable.strings
 
 "%lld songs" = "%lld låtar";
@@ -100,6 +103,8 @@
 "Continue" = "Fortsätt";
 "Continue Watching" = "Fortsätt titta";
 "Control playback with your keyboard" = "Styr uppspelningen med tangentbordet";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Reglagen visas när du flyttar pekaren över videon och tonas ut medan den spelas upp.";
+"Copy Link" = "Kopiera länk";
 "Could not create AI session" = "Kunde inte skapa AI-session";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Det gick inte att fånga Kasets ljud (status %d). Kontrollera behörigheten för skärm- och systemljudinspelning i Systeminställningar.";
 "Couldn't configure the audio unit (%lld)." = "Kunde inte konfigurera ljudenheten (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "Laddar ned";
 "Drag to reorder" = "Dra för att ändra ordning";
 "E" = "E";
+"Number %lld, %@" = "Nummer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "t.ex. ta bort långsamma låtar, ordna om efter energi…";
 "Edit" = "Redigera";
 "Electronic" = "Elektronisk";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset fungerar utan inloggning för offentlig bläddring, sökning och uppspelning. Logga in för att komma åt personliga musiksamlingar.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset fungerar utan inloggning för offentlig YouTube-sökning, upptäckt och uppspelning. Logga in för att komma åt personliga videosamlingar.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kunde inte rensa sparade inloggningsdata på ett säkert sätt. Försök igen innan du loggar in på nytt.";
+"Sign-In Temporarily Unavailable" = "Inloggning tillfälligt otillgänglig";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset kunde inte läsa sparade inloggningsdata. Försök igen för att återställa din session.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kunde inte ta bort sparade inloggningsdata. Försök logga ut igen innan du avslutar.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Behåll en spelande video i ett flytande fönster när du lämnar sidan. När det är av stannar videon i stället.";
 "Keep listening even when the window is closed" = "Fortsätt lyssna även när fönstret är stängt";
@@ -312,7 +320,6 @@
 "Not Playing" = "Spelar inte";
 "Not signed in" = "Inte inloggad";
 "Not Supported" = "Stöds inte";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Obs! Om lösenkoder inte fungerar kan du använda \"Try another way\" för att logga in med lösenord.";
 "Nothing here right now" = "Det finns inget här just nu";
 "Nothing to show" = "Inget att visa";
 "Now Playing" = "Spelas nu";
@@ -333,6 +340,7 @@
 "Permission needed" = "Behörighet krävs";
 "Piano" = "Piano";
 "Picture in Picture" = "Bild i bild";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Placera uppspelningsreglagen på videon i stället för i fältet längst ned i fönstret";
 "Play" = "Spela";
 "Play a song to view its lyrics here." = "Spela en låt för att se sångtexten här.";
 "Play All" = "Spela alla";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "Ljudkvalitet vid uppspelning";
 "Playback position" = "Uppspelningsposition";
 "Played" = "Spelad";
+"Player Controls" = "Spelarreglage";
 "Playing" = "Spelas";
 "Playlist" = "Spellista";
 "Playlist not found" = "Spellistan hittades inte";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Ta bort dubbletter: radera upprepade låtar från kön och behåll den första förekomsten av varje.";
 "Remove extension" = "Ta bort tillägg";
 "Remove from Favorites" = "Ta bort från favoriter";
+"Remove from Library" = "Ta bort från biblioteket";
 "Remove from Playlist" = "Ta bort från spellista";
 "Remove from Queue" = "Ta bort från kön";
 "Remove from Sidebar" = "Ta bort från sidofältet";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Visa en avisering när ett nytt spår börjar spelas";
 "Show a soft color glow, drawn from the video, behind the player" = "Visa ett mjukt färgskimmer från videon bakom spelaren";
 "Show All" = "Visa alla";
+"Show Controls on Video" = "Visa reglage på videon";
 "Show Large Artwork" = "Visa stor omslagsbild";
 "Show Lyrics" = "Visa sångtext";
 "Show more comments" = "Visa fler kommentarer";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "Starta en ny chatt för att fortsätta.";
 "Ask Gemini response ready" = "Svaret från Fråga Gemini är klart";
 "New Ask Gemini chat ready" = "Ny Fråga Gemini-chatt är klar";
+
+// Appearance
+"Appearance" = "Utseende";
+"App Appearance" = "Appens utseende";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Välj ljust eller mörkt läge för Kaset, eller följ inställningen i macOS";
+"Match System" = "Som systemet";
+"Light Mode" = "Ljust läge";
+"Dark Mode" = "Mörkt läge";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Spela musik";
+"Play Song" = "Spela låt";
+"Play Playlist" = "Spela spellista";
+"Play Album" = "Spela album";
+"Play Liked Music" = "Spela gillad musik";
+"Play or Pause" = "Spela eller pausa";
+"Resume Playback" = "Återuppta uppspelning";
+"Next Track" = "Nästa spår";
+"Previous Track" = "Föregående spår";
+"Get Current Song" = "Hämta aktuell låt";
+"Like Current Song" = "Gilla aktuell låt";
+"Dislike Current Song" = "Ogilla aktuell låt";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Söker i YouTube Music och spelar den låt som matchar bäst, följd av låtens radio.";
+"Plays a song in Kaset, followed by its radio." = "Spelar en låt i Kaset, följd av låtens radio.";
+"Plays a playlist in Kaset." = "Spelar en spellista i Kaset.";
+"Plays an album in Kaset." = "Spelar ett album i Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Spelar din spellista Gillad musik i Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Pausar Kaset om något spelas, annars återupptas uppspelningen.";
+"Pauses playback in Kaset." = "Pausar uppspelningen i Kaset.";
+"Resumes playback in Kaset." = "Återupptar uppspelningen i Kaset.";
+"Skips to the next track in Kaset." = "Hoppar till nästa spår i Kaset.";
+"Goes back to the previous track in Kaset." = "Går tillbaka till föregående spår i Kaset.";
+"Returns the song playing in Kaset." = "Returnerar låten som spelas i Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Gillar låten som spelas i Kaset. En låt som redan är gillad förblir gillad.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Ogillar låten som spelas i Kaset. En låt som redan är ogillad förblir ogillad.";
+"Resume" = "Återuppta";
+"Next Song" = "Nästa låt";
+"Previous Song" = "Föregående låt";
+"Like Song" = "Gilla låt";
+"Title" = "Titel";
+"Author" = "Skapare";
+"Play ${query}" = "Spela ${query}";
+"Play ${song}" = "Spela ${song}";
+"Play ${target}" = "Spela ${target}";
+"What do you want to play?" = "Vad vill du spela?";
+"Playing %@." = "Spelar %@.";
+"Playing %@ by %@." = "Spelar %1$@ med %2$@.";
+"Now playing %@." = "Spelas nu: %@.";
+"Now playing %@ by %@." = "Spelas nu: %1$@ med %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset startar fortfarande. Försök igen om en stund.";
+"Nothing is playing in Kaset." = "Inget spelas i Kaset.";
+"Sign in to YouTube Music in Kaset first." = "Logga in i YouTube Music i Kaset först.";
+"No songs found for “%@”." = "Inga låtar hittades för ”%@”.";
+"Couldn't play “%@”." = "Kunde inte spela ”%@”.";
+"Couldn't rate “%@”." = "Kunde inte betygsätta ”%@”.";

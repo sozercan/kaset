@@ -1,0 +1,26 @@
+{
+  "$schema": "https://t3.codes/schema/t3.json",
+  "iconPath": "website/favicon.svg",
+  "scripts": [
+    {
+      "name": "Run",
+      "command": "Scripts/compile_and_run.sh --wait",
+      "icon": "play"
+    },
+    {
+      "name": "Build",
+      "command": "swift build",
+      "icon": "build"
+    },
+    {
+      "name": "Test",
+      "command": "swift test --skip KasetUITests",
+      "icon": "test"
+    },
+    {
+      "name": "Lint & Format",
+      "command": "swiftlint --strict && swiftformat .",
+      "icon": "lint"
+    }
+  ]
+}

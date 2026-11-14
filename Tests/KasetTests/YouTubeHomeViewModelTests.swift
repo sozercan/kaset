@@ -78,12 +78,19 @@ struct YouTubeHomeViewModelTests {
             videos: MockYouTubeClient.makeVideos(count: 1),
             continuation: nil
         )
+        self.mockClient.homeChips = [YouTubeHomeChip(title: "Music", continuation: "music-topic")]
+        self.mockClient.homeTopicFeeds = [
+            "music-topic": YouTubeFeed(videos: MockYouTubeClient.makeVideos(count: 1), continuation: nil),
+        ]
         await self.sut.load()
         #expect(self.mockClient.homeFeedCallCount == 1)
 
         await self.sut.refresh()
 
         #expect(self.mockClient.homeFeedCallCount == 2)
+        #expect(self.mockClient.homeBundleForceRefreshes == [false, true])
+        #expect(self.mockClient.requestedTopicForceRefreshes == [false, true])
+        #expect(self.mockClient.getHistoryForceRefreshCount == 1)
         #expect(self.sut.loadingState == .loaded)
     }
 
@@ -249,7 +256,7 @@ struct YouTubeHomeViewModelTests {
     }
 
     @Test("Deferred topic rails load in explicit batches without duplicate requests")
-    func deferredTopicRailsLoadInBatches() async {
+    func deferredTopicRailsLoadInBatches() async throws {
         self.mockClient.homeFeed = YouTubeFeed(
             videos: MockYouTubeClient.makeVideos(count: 3),
             continuation: nil
@@ -262,10 +269,27 @@ struct YouTubeHomeViewModelTests {
         })
 
         await self.sut.load()
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await self.sut.loadMoreTopicRails() }
-            group.addTask { await self.sut.loadMoreTopicRails() }
+        try #require(self.sut.hasMoreTopicRails)
+
+        // Hold the next batch open so the second call deterministically lands
+        // while the first is still in flight. Two unsynchronized child tasks can
+        // run back-to-back instead, letting the second legitimately load tok-4/5.
+        // Only tok-2/3 are gated: if the in-flight guard regresses, the
+        // duplicate's tok-4/5 requests return and the assertions below fail
+        // instead of deadlocking on the gate.
+        let batchStarted = AsyncGate()
+        let releaseBatch = AsyncGate()
+        self.mockClient.beforeTopicReturn = { continuation in
+            guard continuation == "tok-2" || continuation == "tok-3" else { return }
+            await batchStarted.open()
+            await releaseBatch.wait()
         }
+        async let firstBatch: Void = self.sut.loadMoreTopicRails()
+        await batchStarted.wait()
+        await self.sut.loadMoreTopicRails() // in-flight duplicate: must no-op
+        await releaseBatch.open()
+        await firstBatch
+        self.mockClient.beforeTopicReturn = nil
 
         #expect(Set(self.mockClient.requestedTopicContinuations) == Set(["tok-0", "tok-1", "tok-2", "tok-3"]))
         #expect(self.mockClient.requestedTopicContinuations.count == 4)

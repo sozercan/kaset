@@ -62,14 +62,45 @@ struct PlayerBarProgressLane: View {
     }
 
     var body: some View {
+        if self.isLive {
+            self.liveIndicator
+        } else {
+            self.playbackTimeline
+        }
+    }
+
+    private var liveIndicator: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(.red)
+                    .frame(width: 5, height: 5)
+
+                Text("LIVE")
+                    .font(.system(size: 11))
+                    .lineLimit(1)
+            }
+            .frame(height: 12)
+
+            Capsule()
+                .fill(self.accent)
+                .frame(height: PlayerBarSliderVisuals.trackThickness)
+                .frame(height: 12, alignment: .top)
+        }
+        .frame(height: 30)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(String(localized: "Live stream"))
+    }
+
+    private var playbackTimeline: some View {
         VStack(spacing: 6) {
             HStack(spacing: 8) {
-                Text(self.isLive ? String(localized: "LIVE") : self.elapsedText)
-                    .foregroundStyle(self.isLive ? .red : .secondary)
+                Text(self.elapsedText)
+                    .foregroundStyle(.secondary)
 
                 Spacer(minLength: 8)
 
-                Text(self.isLive ? "" : self.remainingText)
+                Text(self.remainingText)
                     .foregroundStyle(.secondary)
             }
             .font(.system(size: 11))
@@ -120,7 +151,6 @@ struct PlayerBarProgressLane: View {
                     )
                     .fill(fillColor)
                     .frame(width: fillWidth, height: PlayerBarSliderVisuals.trackThickness)
-                    .opacity(self.isLive ? 0 : 1)
                 } else {
                     self.segmentedTrack(width: width, fillColor: fillColor)
                 }
@@ -142,7 +172,7 @@ struct PlayerBarProgressLane: View {
                                 x: self.markerX(marker, trackWidth: width, isHighlighted: isHighlighted),
                                 y: -3
                             )
-                            .opacity(self.isLive || self.isLoading ? 0 : 1)
+                            .opacity(self.isLoading ? 0 : 1)
                             .accessibilityHidden(true)
                     }
                 }
@@ -156,7 +186,7 @@ struct PlayerBarProgressLane: View {
                     )
                     .opacity(self.canSeek ? 1 : 0)
 
-                if let segment = self.hoveredSegment, self.segments.contains(segment), !self.isLoading, !self.isLive {
+                if let segment = self.hoveredSegment, self.segments.contains(segment), !self.isLoading {
                     self.segmentTooltip(segment, trackWidth: width)
                         .onGeometryChange(for: CGSize.self) { $0.size } action: { self.tooltipSize = $0 }
                         .offset(
@@ -342,7 +372,6 @@ struct PlayerBarProgressLane: View {
                     RoundedRectangle(cornerRadius: 2, style: .continuous)
                         .fill(fillColor)
                         .frame(width: geometry.width * within, height: PlayerBarSliderVisuals.trackThickness)
-                        .opacity(self.isLive ? 0 : 1)
                 }
                 .frame(width: geometry.width, alignment: .leading)
                 .scaleEffect(y: isProminent ? 2.0 : 1, anchor: .center)

@@ -174,6 +174,51 @@ struct JapaneseRomanizerTests {
     }
 }
 
+// MARK: - BengaliRomanizerTests
+
+struct BengaliRomanizerTests {
+    @Test("Pure Bengali romanizes to non-empty text")
+    func pureBengali() throws {
+        // Control: the fix only touches the no-transcription fallback branch, so a
+        // pure-Bengali input (which is fully transcribed) must keep working. Keep
+        // the assertion as weak as the sibling romanizer tests (non-empty) so it
+        // does not depend on per-OS tokenizer transcription data.
+        let result = try #require(BengaliRomanizer.romanize("নমস্কার"))
+        #expect(!result.isEmpty)
+    }
+
+    @Test("Mixed Bengali and another non-Latin script does not crash")
+    func crossScriptDoesNotCrash() throws {
+        // A non-Latin character the Bengali-locale tokenizer cannot transcribe
+        // (here Thai "ก") is emitted as a token with no Latin transcription, so it
+        // reaches the fallback branch. Before the fix, that branch indexed the
+        // Swift String by grapheme cluster while the token range is measured in
+        // UTF-16 code units; the Bengali matras (combining marks) before the token
+        // make those units diverge, throwing the offset out of bounds and trapping
+        // with "String index is out of bounds". NSString indexing shares the
+        // UTF-16 unit, mirroring the Thai/Japanese romanizers.
+        //
+        // Across macOS versions the tokenizer may transcribe "ก" instead of
+        // passing it through, so this only asserts the crash contract — no trap —
+        // plus an intact Bengali run (verified to crash at HEAD on macOS 26).
+        let bengali = try #require(BengaliRomanizer.romanize("বাংলা"))
+        let mixed = try #require(BengaliRomanizer.romanize("বাংলা ก"))
+
+        // The Bengali portion is still romanized (control is a substring).
+        #expect(mixed.contains(bengali))
+    }
+
+    @Test("Emoji after Bengali text is passed through")
+    func emojiPassthrough() throws {
+        // Regression guard: an emoji after Bengali text must survive in the output.
+        // On macOS 26 the emoji takes the transcription branch (its LatinTranscription
+        // equals itself); should that ever differ on another OS, the now-fixed
+        // fallback branch preserves it too — so the assertion holds either way.
+        let result = try #require(BengaliRomanizer.romanize("নমস্কার❤️"))
+        #expect(result.contains("❤️"))
+    }
+}
+
 // MARK: - TextCanonicalizerTests
 
 struct TextCanonicalizerTests {

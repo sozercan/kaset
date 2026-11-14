@@ -1,0 +1,117 @@
+import JavaScriptCore
+import Testing
+@testable import Kaset
+
+// MARK: - MusicPlaybackObserverTestContext
+
+enum MusicPlaybackObserverTestContext {
+    // swiftlint:disable:next function_body_length
+    static func make(setup: String = "") throws -> JSContext {
+        let context = try #require(JSContext())
+        context.evaluateScript(
+            """
+            var messages = [];
+            var listeners = {};
+            function addListener(name, callback) {
+                if (!listeners[name]) listeners[name] = [];
+                listeners[name].push(callback);
+            }
+            function dispatch(name) {
+                (listeners[name] || []).forEach(function(callback) { callback({ currentTarget: video }); });
+            }
+            var fakeNow = 0;
+            Date.now = function() { return fakeNow; };
+            var scheduledTimeouts = [];
+            function setTimeout(callback, delay) { scheduledTimeouts.push({ callback: callback, delay: delay, dueAt: fakeNow + delay }); return scheduledTimeouts.length; }
+            function runTimeout(delay) {
+                for (var index = 0; index < scheduledTimeouts.length; index += 1) {
+                    if (scheduledTimeouts[index].delay !== delay) continue;
+                    var timeout = scheduledTimeouts.splice(index, 1)[0]; fakeNow = timeout.dueAt; timeout.callback(); return true;
+                }
+                return false;
+            }
+            function clearTimeout() {}
+            function setInterval() { return 1; }
+            function clearInterval() {}
+            function MutationObserver() { this.observe = function() {}; }
+
+            var currentDataVideoId = 'v1';
+            var currentDataArtist = 'Artist';
+            var video = {
+                paused: false,
+                ended: false,
+                currentSrc: 'https://media.example/v1',
+                src: '',
+                currentTime: 179,
+                duration: 180,
+                readyState: 4,
+                volume: 1,
+                webkitCurrentPlaybackTargetIsWireless: false,
+                addEventListener: addListener,
+                pause: function() { this.paused = true; },
+                play: function() { this.paused = false; }
+            };
+            var player = {
+                playerApi: {
+                    getVideoData: function() {
+                        return {
+                            video_id: currentDataVideoId,
+                            title: currentDataVideoId,
+                            author: currentDataArtist
+                        };
+                    },
+                    setVolume: function() {}
+                }
+            };
+            var moviePlayer = {
+                classList: { contains: function() { return false; } },
+                getVideoData: function() { return { video_id: currentDataVideoId }; },
+                setVolume: function() {}
+            };
+            var progressBar = {
+                getAttribute: function(name) { return name === 'value' ? '179' : '180'; }
+            };
+            var titleElement = { textContent: 'v1' };
+            var artistElement = { textContent: 'Artist' };
+            var likeRenderer = null;
+            var playerBar = {
+                querySelector: function(selector) {
+                    if (selector.indexOf('.ytmusic-player-bar.title') >= 0) return titleElement;
+                    if (selector.indexOf('.ytmusic-player-bar.byline') >= 0) return artistElement;
+                    if (selector === 'ytmusic-like-button-renderer') return likeRenderer;
+                    return null;
+                }
+            };
+            var document = {
+                readyState: 'complete',
+                body: {},
+                addEventListener: function() {},
+                getElementById: function(id) { return id === 'movie_player' ? moviePlayer : null; },
+                querySelectorAll: function() { return []; },
+                querySelector: function(selector) {
+                    if (selector === 'video') return video;
+                    if (selector === 'ytmusic-player') return player;
+                    if (selector === '[slot="player-bar"]') return playerBar;
+                    if (selector === '#progress-bar') return progressBar;
+                    return null;
+                }
+            };
+            var window = globalThis;
+            window.location = { href: 'https://music.youtube.com/watch?v=v1' };
+            window.__kasetDocumentGeneration = 7;
+            window.__kasetTargetVolume = 1;
+            window.__kasetAutoplayPending = false;
+            window.__kasetPlaybackSuppressed = false;
+            window.webkit = {
+                messageHandlers: {
+                    singletonPlayer: {
+                        postMessage: function(message) { messages.push(message); }
+                    }
+                }
+            };
+            """
+        )
+        context.evaluateScript(setup + "\n" + SingletonPlayerWebView.observerScript)
+        return context
+    }
+}

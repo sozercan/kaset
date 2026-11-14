@@ -1,3 +1,6 @@
+"Ad" = "Advertentie";
+"Advertisement" = "Advertentie";
+
 // Localizable.strings
 
 "%lld songs" = "%lld nummers";
@@ -100,6 +103,8 @@
 "Continue" = "Ga door";
 "Continue Watching" = "Verder kijken";
 "Control playback with your keyboard" = "Bedien het afspelen met je toetsenbord";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "De bediening verschijnt wanneer je de aanwijzer over de video beweegt en vervaagt tijdens het afspelen.";
+"Copy Link" = "Link kopiëren";
 "Could not create AI session" = "Kon geen AI-sessie maken";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kon het audio van Kaset niet vastleggen (status %d). Controleer de toestemming voor Scherm- en systeemaudio-opname in Systeeminstellingen.";
 "Couldn't configure the audio unit (%lld)." = "Kon de audio-eenheid niet configureren (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "Downloaden";
 "Drag to reorder" = "Sleep om opnieuw te ordenen";
 "E" = "E";
+"Number %lld, %@" = "Nummer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "bijv. langzame nummers verwijderen, opnieuw ordenen op energie…";
 "Edit" = "Wijzig";
 "Electronic" = "Elektronisch";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset werkt zonder inloggen voor openbaar bladeren, zoeken en afspelen. Log in voor toegang tot persoonlijke muziekcollecties.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset werkt zonder inloggen voor openbare YouTube-zoekopdrachten, ontdekking en weergave. Log in voor toegang tot persoonlijke videocollecties.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset kon de opgeslagen aanmeldgegevens niet veilig wissen. Probeer het opnieuw voordat je je weer aanmeldt.";
+"Sign-In Temporarily Unavailable" = "Aanmelden tijdelijk niet beschikbaar";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset kon de opgeslagen aanmeldgegevens niet lezen. Probeer het opnieuw om je sessie te herstellen.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset kon de opgeslagen aanmeldgegevens niet verwijderen. Probeer opnieuw af te melden voordat je stopt.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Houd een afspelende video in een zwevend venster wanneer je de pagina verlaat. Als dit uit staat, stopt de video.";
 "Keep listening even when the window is closed" = "Blijf luisteren, zelfs wanneer het venster is gesloten";
@@ -312,7 +320,6 @@
 "Not Playing" = "Speelt niet af";
 "Not signed in" = "Niet ingelogd";
 "Not Supported" = "Niet ondersteund";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Opmerking: als passkeys niet werken, gebruik je \"Try another way\" om met een wachtwoord in te loggen.";
 "Nothing here right now" = "Hier staat nu niets";
 "Nothing to show" = "Niets om weer te geven";
 "Now Playing" = "Speelt nu";
@@ -333,6 +340,7 @@
 "Permission needed" = "Toestemming vereist";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "De afspeelbediening op de video plaatsen in plaats van in de balk onder in het venster";
 "Play" = "Speel af";
 "Play a song to view its lyrics here." = "Speel een nummer af om hier de songtekst te bekijken.";
 "Play All" = "Alles afspelen";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "Audiokwaliteit bij afspelen";
 "Playback position" = "Afspeelpositie";
 "Played" = "Afgespeeld";
+"Player Controls" = "Spelerbediening";
 "Playing" = "Speelt af";
 "Playlist" = "Afspeellijst";
 "Playlist not found" = "Afspeellijst niet gevonden";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Duplicaten verwijderen: verwijdert dubbele nummers uit de wachtrij en behoudt van elk nummer de eerste vermelding.";
 "Remove extension" = "Extensie verwijderen";
 "Remove from Favorites" = "Verwijder uit favorieten";
+"Remove from Library" = "Uit bibliotheek verwijderen";
 "Remove from Playlist" = "Uit afspeellijst verwijderen";
 "Remove from Queue" = "Verwijder uit wachtrij";
 "Remove from Sidebar" = "Verwijder uit zijbalk";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Toon een melding wanneer een nieuw nummer begint met afspelen";
 "Show a soft color glow, drawn from the video, behind the player" = "Een zachte kleurglans uit de video achter de speler tonen";
 "Show All" = "Toon alles";
+"Show Controls on Video" = "Bediening op video tonen";
 "Show Large Artwork" = "Grote illustratie tonen";
 "Show Lyrics" = "Toon songteksten";
 "Show more comments" = "Meer reacties tonen";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "Start een nieuwe chat om door te gaan.";
 "Ask Gemini response ready" = "Antwoord van Vraag Gemini is klaar";
 "New Ask Gemini chat ready" = "Nieuwe chat met Vraag Gemini is klaar";
+
+// Appearance
+"Appearance" = "Weergave";
+"App Appearance" = "App-weergave";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Kies de lichte of donkere modus voor Kaset, of volg de macOS-instelling";
+"Match System" = "Volg systeem";
+"Light Mode" = "Lichte modus";
+"Dark Mode" = "Donkere modus";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Muziek afspelen";
+"Play Song" = "Nummer afspelen";
+"Play Playlist" = "Afspeellijst afspelen";
+"Play Album" = "Album afspelen";
+"Play Liked Music" = "Muziek die je leuk vindt afspelen";
+"Play or Pause" = "Afspelen of pauzeren";
+"Resume Playback" = "Afspelen hervatten";
+"Next Track" = "Volgende track";
+"Previous Track" = "Vorige track";
+"Get Current Song" = "Huidig nummer ophalen";
+"Like Current Song" = "Huidig nummer leuk vinden";
+"Dislike Current Song" = "Huidig nummer niet leuk vinden";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Zoekt in YouTube Music en speelt het best passende nummer af, gevolgd door de radio ervan.";
+"Plays a song in Kaset, followed by its radio." = "Speelt een nummer af in Kaset, gevolgd door de radio ervan.";
+"Plays a playlist in Kaset." = "Speelt een afspeellijst af in Kaset.";
+"Plays an album in Kaset." = "Speelt een album af in Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Speelt je afspeellijst Muziek die je leuk vindt af in Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Pauzeert Kaset als er iets speelt en hervat anders het afspelen.";
+"Pauses playback in Kaset." = "Pauzeert het afspelen in Kaset.";
+"Resumes playback in Kaset." = "Hervat het afspelen in Kaset.";
+"Skips to the next track in Kaset." = "Gaat naar de volgende track in Kaset.";
+"Goes back to the previous track in Kaset." = "Gaat terug naar de vorige track in Kaset.";
+"Returns the song playing in Kaset." = "Geeft het nummer dat in Kaset speelt.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Markeert het nummer dat in Kaset speelt als leuk. Een nummer dat je al leuk vindt, blijft zo gemarkeerd.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Markeert het nummer dat in Kaset speelt als niet leuk. Een nummer dat al zo is gemarkeerd, blijft zo gemarkeerd.";
+"Resume" = "Hervatten";
+"Next Song" = "Volgend nummer";
+"Previous Song" = "Vorig nummer";
+"Like Song" = "Leuk vinden";
+"Title" = "Titel";
+"Author" = "Maker";
+"Play ${query}" = "${query} afspelen";
+"Play ${song}" = "${song} afspelen";
+"Play ${target}" = "${target} afspelen";
+"What do you want to play?" = "Wat wil je afspelen?";
+"Playing %@." = "%@ wordt afgespeeld.";
+"Playing %@ by %@." = "%1$@ van %2$@ wordt afgespeeld.";
+"Now playing %@." = "Speelt nu: %@.";
+"Now playing %@ by %@." = "Speelt nu: %1$@ van %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset wordt nog opgestart. Probeer het zo opnieuw.";
+"Nothing is playing in Kaset." = "Er wordt niets afgespeeld in Kaset.";
+"Sign in to YouTube Music in Kaset first." = "Log eerst in bij YouTube Music in Kaset.";
+"No songs found for “%@”." = "Geen nummers gevonden voor ‘%@’.";
+"Couldn't play “%@”." = "Kon ‘%@’ niet afspelen.";
+"Couldn't rate “%@”." = "Kon ‘%@’ niet beoordelen.";

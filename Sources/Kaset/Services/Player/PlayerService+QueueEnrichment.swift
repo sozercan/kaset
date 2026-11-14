@@ -263,7 +263,8 @@ extension PlayerService {
             feedbackTokens: includesAccountMetadata
                 ? (current.feedbackTokens ?? response.feedbackTokens)
                 : current.feedbackTokens,
-            isExplicit: current.isExplicit ?? response.isExplicit
+            isExplicit: current.isExplicit ?? response.isExplicit,
+            audioTrackVideoId: current.audioTrackVideoId ?? response.audioTrackVideoId
         )
     }
 }

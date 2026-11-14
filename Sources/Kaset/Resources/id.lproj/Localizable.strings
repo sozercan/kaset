@@ -1,3 +1,6 @@
+"Ad" = "Iklan";
+"Advertisement" = "Iklan";
+
 // Localizable.strings
 
 "%lld songs" = "%lld lagu";
@@ -100,6 +103,8 @@
 "Continue" = "Lanjutkan";
 "Continue Watching" = "Lanjutkan Menonton";
 "Control playback with your keyboard" = "Kendalikan pemutaran dengan keyboard Anda";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "Kontrol muncul saat Anda menggerakkan penunjuk di atas video dan memudar saat video diputar.";
+"Copy Link" = "Salin Tautan";
 "Could not create AI session" = "Tidak dapat membuat sesi AI";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Tidak dapat menangkap audio Kaset (status %d). Periksa izin Perekaman Layar & Audio Sistem di Pengaturan Sistem.";
 "Couldn't configure the audio unit (%lld)." = "Tidak dapat mengonfigurasi unit audio (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "Mengunduh";
 "Drag to reorder" = "Seret untuk mengurutkan ulang";
 "E" = "E";
+"Number %lld, %@" = "Nomor %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "mis. Hapus lagu lambat, urutkan ulang berdasarkan energi...";
 "Edit" = "Edit";
 "Electronic" = "Elektronik";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset berfungsi tanpa login untuk penelusuran, pencarian, dan pemutaran publik. Masuk untuk mengakses koleksi musik pribadi.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset berfungsi tanpa login untuk pencarian, penemuan, dan pemutaran YouTube publik. Masuk untuk mengakses koleksi video pribadi.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset tidak dapat menghapus data masuk yang tersimpan dengan aman. Coba lagi sebelum masuk kembali.";
+"Sign-In Temporarily Unavailable" = "Masuk sementara tidak tersedia";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset tidak dapat membaca data masuk yang tersimpan. Coba lagi untuk memulihkan sesi Anda.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset tidak dapat menghapus data masuk yang tersimpan. Coba keluar lagi sebelum menutup aplikasi.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "Pertahankan video yang sedang diputar di jendela mengambang saat Anda meninggalkan halaman. Jika nonaktif, video akan berhenti.";
 "Keep listening even when the window is closed" = "Lanjutkan mendengarkan meski jendela ditutup";
@@ -312,7 +320,6 @@
 "Not Playing" = "Tidak Memutar";
 "Not signed in" = "Belum masuk";
 "Not Supported" = "Tidak Didukung";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "Catatan: Jika passkey tidak berfungsi, gunakan \"Try another way\" untuk masuk dengan kata sandi.";
 "Nothing here right now" = "Tidak ada apa-apa di sini saat ini";
 "Nothing to show" = "Tidak ada yang ditampilkan";
 "Now Playing" = "Sedang Diputar";
@@ -333,6 +340,7 @@
 "Permission needed" = "Izin diperlukan";
 "Piano" = "Piano";
 "Picture in Picture" = "Picture in Picture";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "Letakkan kontrol pemutaran di video, bukan di bilah bagian bawah jendela";
 "Play" = "Putar";
 "Play a song to view its lyrics here." = "Putar sebuah lagu untuk melihat liriknya di sini.";
 "Play All" = "Putar Semua";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "Kualitas Audio Pemutaran";
 "Playback position" = "Posisi pemutaran";
 "Played" = "Diputar";
+"Player Controls" = "Kontrol Pemutar";
 "Playing" = "Memutar";
 "Playlist" = "Daftar putar";
 "Playlist not found" = "Daftar putar tidak ditemukan";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "Hapus Duplikat: hapus lagu berulang dari antrean dan pertahankan kemunculan pertama setiap lagu.";
 "Remove extension" = "Hapus ekstensi";
 "Remove from Favorites" = "Hapus dari Favorit";
+"Remove from Library" = "Hapus dari Pustaka";
 "Remove from Playlist" = "Hapus dari Playlist";
 "Remove from Queue" = "Hapus dari Antrean";
 "Remove from Sidebar" = "Hapus dari Bilah Samping";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "Tampilkan notifikasi saat trek baru mulai diputar";
 "Show a soft color glow, drawn from the video, behind the player" = "Tampilkan cahaya warna lembut dari video di belakang pemutar";
 "Show All" = "Tampilkan Semua";
+"Show Controls on Video" = "Tampilkan Kontrol di Video";
 "Show Large Artwork" = "Tampilkan Artwork Besar";
 "Show Lyrics" = "Tampilkan Lirik";
 "Show more comments" = "Tampilkan lebih banyak komentar";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "Mulai chat baru untuk melanjutkan.";
 "Ask Gemini response ready" = "Respons Tanya Gemini siap";
 "New Ask Gemini chat ready" = "Chat Tanya Gemini baru siap";
+
+// Appearance
+"Appearance" = "Tampilan";
+"App Appearance" = "Tampilan Aplikasi";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Pilih mode terang atau gelap untuk Kaset, atau ikuti pengaturan macOS";
+"Match System" = "Ikuti Sistem";
+"Light Mode" = "Mode Terang";
+"Dark Mode" = "Mode Gelap";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "Putar Musik";
+"Play Song" = "Putar Lagu";
+"Play Playlist" = "Putar Daftar Putar";
+"Play Album" = "Putar Album";
+"Play Liked Music" = "Putar Musik yang Disukai";
+"Play or Pause" = "Putar atau Jeda";
+"Resume Playback" = "Lanjutkan Pemutaran";
+"Next Track" = "Trek Berikutnya";
+"Previous Track" = "Trek Sebelumnya";
+"Get Current Song" = "Dapatkan Lagu Saat Ini";
+"Like Current Song" = "Sukai Lagu Saat Ini";
+"Dislike Current Song" = "Tidak Sukai Lagu Saat Ini";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "Mencari di YouTube Music dan memutar lagu yang paling cocok, diikuti radionya.";
+"Plays a song in Kaset, followed by its radio." = "Memutar lagu di Kaset, diikuti radionya.";
+"Plays a playlist in Kaset." = "Memutar daftar putar di Kaset.";
+"Plays an album in Kaset." = "Memutar album di Kaset.";
+"Plays your Liked Music playlist in Kaset." = "Memutar daftar putar Musik yang Disukai Anda di Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Menjeda Kaset jika sedang memutar, atau melanjutkan pemutaran jika tidak.";
+"Pauses playback in Kaset." = "Menjeda pemutaran di Kaset.";
+"Resumes playback in Kaset." = "Melanjutkan pemutaran di Kaset.";
+"Skips to the next track in Kaset." = "Melompat ke trek berikutnya di Kaset.";
+"Goes back to the previous track in Kaset." = "Kembali ke trek sebelumnya di Kaset.";
+"Returns the song playing in Kaset." = "Mengembalikan lagu yang sedang diputar di Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Menyukai lagu yang sedang diputar di Kaset. Lagu yang sudah disukai tetap disukai.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Menandai lagu yang sedang diputar di Kaset sebagai tidak disukai. Lagu yang sudah ditandai tetap ditandai.";
+"Resume" = "Lanjutkan";
+"Next Song" = "Lagu Berikutnya";
+"Previous Song" = "Lagu Sebelumnya";
+"Like Song" = "Sukai Lagu";
+"Title" = "Judul";
+"Author" = "Pembuat";
+"Play ${query}" = "Putar ${query}";
+"Play ${song}" = "Putar ${song}";
+"Play ${target}" = "Putar ${target}";
+"What do you want to play?" = "Apa yang ingin Anda putar?";
+"Playing %@." = "Memutar %@.";
+"Playing %@ by %@." = "Memutar %1$@ oleh %2$@.";
+"Now playing %@." = "Sedang diputar: %@.";
+"Now playing %@ by %@." = "Sedang diputar: %1$@ oleh %2$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset masih dimulai. Coba lagi sebentar lagi.";
+"Nothing is playing in Kaset." = "Tidak ada yang diputar di Kaset.";
+"Sign in to YouTube Music in Kaset first." = "Masuk ke YouTube Music di Kaset terlebih dahulu.";
+"No songs found for “%@”." = "Tidak ada lagu yang ditemukan untuk “%@”.";
+"Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
+"Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";

@@ -101,6 +101,119 @@ struct APICacheTests {
         #expect(self.cache.get(key: "key")?["value"] as? Int == 2)
     }
 
+    @Test("Older in-flight responses cannot overwrite the newest cache write")
+    func newestWriteReservationWins() throws {
+        let generation = self.cache.generation
+        let olderTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newerTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let older = try #require(self.cache.beginWrite(for: "key", ticket: olderTicket))
+        let newer = try #require(self.cache.beginWrite(for: "key", ticket: newerTicket))
+
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "newer"],
+            ttl: 60,
+            reservation: newer
+        )
+        self.cache.finishWrite(newerTicket)
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "older"],
+            ttl: 60,
+            reservation: older
+        )
+        self.cache.finishWrite(olderTicket)
+
+        #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
+    }
+
+    @Test("Request order survives out-of-order cache-key resolution")
+    func writeTicketOrderWinsBeforeKeyClaim() throws {
+        let generation = self.cache.generation
+        let olderTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newerTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let newer = try #require(self.cache.beginWrite(for: "key", ticket: newerTicket))
+
+        self.cache.setIfCurrent(
+            key: "key",
+            data: ["value": "newer"],
+            ttl: 60,
+            reservation: newer
+        )
+        self.cache.finishWrite(newerTicket)
+
+        let lateOlderClaim = self.cache.beginWrite(for: "key", ticket: olderTicket)
+        #expect(lateOlderClaim == nil)
+        self.cache.finishWrite(olderTicket)
+        #expect(self.cache.get(key: "key")?["value"] as? String == "newer")
+    }
+
+    @Test("Matching invalidation rejects tickets prepared before key resolution")
+    func invalidationRejectsPreparedWriteTicket() throws {
+        let ticket = try #require(
+            self.cache.prepareWrite(cacheGeneration: self.cache.generation)
+        )
+
+        self.cache.invalidate(matching: "key")
+
+        #expect(self.cache.beginWrite(for: "key", ticket: ticket) == nil)
+        self.cache.finishWrite(ticket)
+    }
+
+    @Test("Scoped invalidation cancels only matching active writes")
+    func scopedInvalidationCancelsOnlyMatchingActiveWrites() throws {
+        let browseKey = "browse:home"
+        let youtubeKey = "yt:data:browse"
+        self.cache.set(key: browseKey, data: ["value": "old"], ttl: 60)
+        self.cache.set(key: youtubeKey, data: ["value": "old"], ttl: 60)
+
+        let generation = self.cache.generation
+        let browseTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let youtubeTicket = try #require(self.cache.prepareWrite(cacheGeneration: generation))
+        let browseWrite = try #require(self.cache.beginWrite(for: browseKey, ticket: browseTicket))
+        let youtubeWrite = try #require(self.cache.beginWrite(for: youtubeKey, ticket: youtubeTicket))
+
+        self.cache.invalidate(matching: "yt:")
+        self.cache.setIfCurrent(
+            key: browseKey,
+            data: ["value": "fresh"],
+            ttl: 60,
+            reservation: browseWrite
+        )
+        self.cache.setIfCurrent(
+            key: youtubeKey,
+            data: ["value": "stale"],
+            ttl: 60,
+            reservation: youtubeWrite
+        )
+        self.cache.finishWrite(browseTicket)
+        self.cache.finishWrite(youtubeTicket)
+
+        #expect(self.cache.get(key: browseKey)?["value"] as? String == "fresh")
+        #expect(self.cache.get(key: youtubeKey) == nil)
+    }
+
+    @Test("Mutation invalidation preserves unrelated active writes")
+    func mutationInvalidationPreservesUnrelatedActiveWrite() throws {
+        let key = "yt:data:browse"
+        self.cache.set(key: key, data: ["value": "old"], ttl: 60)
+        let ticket = try #require(
+            self.cache.prepareWrite(cacheGeneration: self.cache.generation)
+        )
+        let write = try #require(self.cache.beginWrite(for: key, ticket: ticket))
+
+        self.cache.invalidateMutationCaches()
+        self.cache.setIfCurrent(
+            key: key,
+            data: ["value": "fresh"],
+            ttl: 60,
+            reservation: write
+        )
+        self.cache.finishWrite(ticket)
+
+        #expect(self.cache.get(key: key)?["value"] as? String == "fresh")
+    }
+
     @Test("Cache TTL constants are correct")
     func cacheTTLConstants() {
         #expect(APICache.TTL.home == 5 * 60) // 5 minutes

@@ -159,17 +159,34 @@ enum SongMetadataParser {
         var result = MenuParseResult(feedbackTokens: nil, isInLibrary: false, likeStatus: nil)
 
         guard let menu = renderer["menu"] as? [String: Any],
-              let menuRenderer = menu["menuRenderer"] as? [String: Any],
-              let items = menuRenderer["items"] as? [[String: Any]]
+              let menuRenderer = menu["menuRenderer"] as? [String: Any]
         else { return result }
 
-        for item in items {
-            self.parseMenuServiceItem(item, into: &result)
-            self.parseToggleMenuItem(item, into: &result)
+        // Library/feedback tokens live in `items`; like status lives in `topLevelButtons` or in a
+        // like toggle in `items`. Parse them independently so a menu that carries one but not the
+        // other still yields what it does have.
+        if let items = menuRenderer["items"] as? [[String: Any]] {
+            for item in items {
+                self.parseMenuServiceItem(item, into: &result)
+                self.parseToggleMenuItem(item, into: &result)
+            }
         }
 
-        self.parseLikeStatus(from: menuRenderer, into: &result)
+        result.likeStatus = Self.parseLikeStatus(from: renderer)
         return result
+    }
+
+    /// Parses a row's current like status from its own menu.
+    /// An explicit `topLevelButtons` like button wins; otherwise the rating toggle in `items` is
+    /// inverted. A pending LIKE only proves "not liked" (INDIFFERENT and DISLIKE look the same),
+    /// so it stays unknown and the like-status cache decides.
+    static func parseLikeStatus(from renderer: [String: Any]) -> LikeStatus? {
+        guard let menu = renderer["menu"] as? [String: Any],
+              let menuRenderer = menu["menuRenderer"] as? [String: Any]
+        else { return nil }
+
+        return Self.parseDirectLikeStatus(from: menuRenderer)
+            ?? Self.parseToggleLikeStatus(from: menuRenderer, videoId: renderer["videoId"] as? String)
     }
 
     /// Parses a menuServiceItemRenderer for library tokens.
@@ -199,6 +216,7 @@ enum SongMetadataParser {
     /// Parses a toggleMenuServiceItemRenderer for library tokens.
     private static func parseToggleMenuItem(_ item: [String: Any], into result: inout MenuParseResult) {
         guard let toggleItem = item["toggleMenuServiceItemRenderer"] as? [String: Any],
+              !Self.containsLikeEndpoint(in: toggleItem),
               let defaultIcon = toggleItem["defaultIcon"] as? [String: Any],
               let iconType = defaultIcon["iconType"] as? String
         else { return }
@@ -222,20 +240,51 @@ enum SongMetadataParser {
         return feedback["feedbackToken"] as? String
     }
 
-    /// Parses the like status from the menu renderer's top level buttons.
-    private static func parseLikeStatus(from menuRenderer: [String: Any], into result: inout MenuParseResult) {
-        guard let topLevelButtons = menuRenderer["topLevelButtons"] as? [[String: Any]] else { return }
-
-        for button in topLevelButtons {
-            if let likeButtonRenderer = button["likeButtonRenderer"] as? [String: Any],
-               let status = likeButtonRenderer["likeStatus"] as? String
+    /// Parses the current status from a top-level like button.
+    private static func parseDirectLikeStatus(from menuRenderer: [String: Any]) -> LikeStatus? {
+        let buttons = menuRenderer["topLevelButtons"] as? [[String: Any]] ?? []
+        for button in buttons {
+            if let likeButton = button["likeButtonRenderer"] as? [String: Any],
+               let rawStatus = likeButton["likeStatus"] as? String,
+               let likeStatus = LikeStatus(rawValue: rawStatus)
             {
-                result.likeStatus = switch status {
-                case "LIKE": .like
-                case "DISLIKE": .dislike
-                default: .indifferent
-                }
+                return likeStatus
             }
+        }
+        return nil
+    }
+
+    /// Inverts a rating toggle: its active endpoint is the rating a click would request.
+    /// Only a pending INDIFFERENT is conclusive; it clears the rating the other endpoint
+    /// restores (LIKE when that endpoint is absent, as ytmusicapi assumes).
+    private static func parseToggleLikeStatus(from menuRenderer: [String: Any], videoId: String?) -> LikeStatus? {
+        let items = menuRenderer["items"] as? [[String: Any]] ?? []
+        for item in items {
+            guard let toggleItem = item["toggleMenuServiceItemRenderer"] as? [String: Any] else { continue }
+            let isToggled = (toggleItem["isToggled"] as? Bool) == true
+            let activeKey = isToggled ? "toggledServiceEndpoint" : "defaultServiceEndpoint"
+            let inactiveKey = isToggled ? "defaultServiceEndpoint" : "toggledServiceEndpoint"
+            guard let activeEndpoint = Self.likeEndpoint(in: toggleItem, key: activeKey),
+                  activeEndpoint["status"] as? String == LikeStatus.indifferent.rawValue
+            else { continue }
+
+            let targetVideoId = (activeEndpoint["target"] as? [String: Any])?["videoId"] as? String
+            if let targetVideoId, let videoId, targetVideoId != videoId {
+                continue
+            }
+            let restoredStatus = Self.likeEndpoint(in: toggleItem, key: inactiveKey)?["status"] as? String
+            return restoredStatus == LikeStatus.dislike.rawValue ? .dislike : .like
+        }
+        return nil
+    }
+
+    private static func likeEndpoint(in toggleItem: [String: Any], key: String) -> [String: Any]? {
+        (toggleItem[key] as? [String: Any])?["likeEndpoint"] as? [String: Any]
+    }
+
+    private static func containsLikeEndpoint(in toggleItem: [String: Any]) -> Bool {
+        ["defaultServiceEndpoint", "toggledServiceEndpoint"].contains {
+            Self.likeEndpoint(in: toggleItem, key: $0) != nil
         }
     }
 }

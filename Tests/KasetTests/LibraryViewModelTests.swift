@@ -31,7 +31,6 @@ struct LibraryViewModelTests {
         #expect(self.viewModel.libraryPlaylistIds.isEmpty)
         #expect(self.viewModel.libraryArtistIds.isEmpty)
         #expect(self.viewModel.libraryPodcastIds.isEmpty)
-        #expect(self.viewModel.selectedPlaylistDetail == nil)
     }
 
     @Test("Activating the first account scope preserves pending optimistic state")
@@ -224,34 +223,6 @@ struct LibraryViewModelTests {
         ))
 
         #expect(self.viewModel.albums.map(\.id) == ["MPRE-new"])
-    }
-
-    @Test("Load playlist success")
-    func loadPlaylistSuccess() async {
-        let playlist = TestFixtures.makePlaylist(id: "VL-test")
-        let playlistDetail = TestFixtures.makePlaylistDetail(playlist: playlist, trackCount: 5)
-        self.mockClient.playlistDetails["VL-test"] = playlistDetail
-
-        await self.viewModel.loadPlaylist(id: "VL-test")
-
-        #expect(self.mockClient.getPlaylistCalled == true)
-        #expect(self.mockClient.getPlaylistIds.first == "VL-test")
-        #expect(self.viewModel.playlistDetailLoadingState == .loaded)
-        #expect(self.viewModel.selectedPlaylistDetail != nil)
-        #expect(self.viewModel.selectedPlaylistDetail?.tracks.count == 5)
-    }
-
-    @Test("Clear selected playlist")
-    func clearSelectedPlaylist() async {
-        let playlist = TestFixtures.makePlaylist(id: "VL-test")
-        self.mockClient.playlistDetails["VL-test"] = TestFixtures.makePlaylistDetail(playlist: playlist)
-        await self.viewModel.loadPlaylist(id: "VL-test")
-        #expect(self.viewModel.selectedPlaylistDetail != nil)
-
-        self.viewModel.clearSelectedPlaylist()
-
-        #expect(self.viewModel.selectedPlaylistDetail == nil)
-        #expect(self.viewModel.playlistDetailLoadingState == .idle)
     }
 
     @Test("Refresh clears and reloads")

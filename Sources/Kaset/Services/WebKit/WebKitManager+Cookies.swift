@@ -108,7 +108,7 @@ enum KeychainCookieStorage {
     #if DEBUG
         private static let debugCookieStorageEnvironmentKey = "KASET_DEBUG_COOKIE_STORAGE"
 
-        fileprivate static var usesDebugFileStorage: Bool {
+        static var usesDebugFileStorage: Bool {
             ProcessInfo.processInfo.environment[debugCookieStorageEnvironmentKey]?.lowercased() != "keychain"
         }
     #endif

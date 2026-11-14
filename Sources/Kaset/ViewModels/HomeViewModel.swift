@@ -53,10 +53,10 @@ final class HomeViewModel {
     /// Loads home content with fast initial load.
     func load() async {
         guard !self.isLoadingHome, !self.isLoadingMoreSections else { return }
-        await self.performLoad()
+        await self.performLoad(forceRefresh: false)
     }
 
-    private func performLoad() async {
+    private func performLoad(forceRefresh: Bool) async {
         self.loadGeneration += 1
         let generation = self.loadGeneration
         self.isLoadingHome = true
@@ -68,7 +68,7 @@ final class HomeViewModel {
         }
 
         do {
-            let response = try await client.getHome()
+            let response = try await client.getHome(forceRefresh: forceRefresh)
             guard generation == self.loadGeneration else { return }
             self.sections = response.sections
             self.hasMoreSections = self.client.hasMoreHomeSections
@@ -166,7 +166,7 @@ final class HomeViewModel {
         self.hasMoreSections = true
         self.isLoadingMoreSections = false
         self.refreshRequestIssued = true
-        await self.performLoad()
+        await self.performLoad(forceRefresh: true)
     }
 
     private func waitForInFlightLoad() async {

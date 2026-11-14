@@ -61,6 +61,7 @@ jobs:
 
       - name: Build app
         env:
+          # Ad-hoc builds list App Intents in Shortcuts but macOS will not run them.
           KASET_SIGNING: adhoc
           ARCHES: "arm64 x86_64"
         run: |
@@ -94,7 +95,7 @@ jobs:
             kaset-dev.dmg
 
       - name: Upload DMG
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4
         if: github.event_name != 'pull_request'
         with:
           name: kaset-dev-${{ steps.slug.outputs.sha_short }}

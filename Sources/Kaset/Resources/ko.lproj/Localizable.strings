@@ -1,3 +1,6 @@
+"Ad" = "광고";
+"Advertisement" = "광고";
+
 // Localizable.strings
 
 "%lld songs" = "%lld곡";
@@ -100,6 +103,8 @@
 "Continue" = "계속";
 "Continue Watching" = "계속 시청";
 "Control playback with your keyboard" = "키보드로 재생을 제어하세요";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "비디오 위로 포인터를 움직이면 컨트롤이 나타나고 재생 중에는 사라집니다.";
+"Copy Link" = "링크 복사";
 "Could not create AI session" = "AI 세션을 생성할 수 없음";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "Kaset의 오디오를 캡처할 수 없습니다(상태 %d). 시스템 설정에서 화면 및 시스템 오디오 녹음 권한을 확인하세요.";
 "Couldn't configure the audio unit (%lld)." = "오디오 유닛을 구성할 수 없습니다 (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "다운로드 중";
 "Drag to reorder" = "드래그하여 순서 변경";
 "E" = "E";
+"Number %lld, %@" = "%1$lld위, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "예: 느린 곡 제거, 에너지순으로 재정렬...";
 "Edit" = "편집";
 "Electronic" = "일렉트로닉";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "Kaset은 로그인 없이 공개 탐색, 검색 및 재생을 사용할 수 있습니다. 개인 음악 모음을 보려면 로그인하세요.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "Kaset은 로그인 없이 공개 YouTube 검색, 탐색 및 재생을 사용할 수 있습니다. 개인 동영상 모음을 보려면 로그인하세요.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset이 저장된 로그인 데이터를 안전하게 지우지 못했습니다. 다시 로그인하기 전에 재시도하세요.";
+"Sign-In Temporarily Unavailable" = "일시적으로 로그인할 수 없음";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset이 저장된 로그인 데이터를 읽지 못했습니다. 세션을 복원하려면 재시도하세요.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset이 저장된 로그인 데이터를 제거하지 못했습니다. 앱을 종료하기 전에 다시 로그아웃해 보세요.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "페이지를 벗어나도 재생 중인 비디오를 떠 있는 윈도우에 유지합니다. 끄면 대신 비디오가 중지됩니다.";
 "Keep listening even when the window is closed" = "창이 닫혀도 계속 재생";
@@ -312,7 +320,6 @@
 "Not Playing" = "재생 중 아님";
 "Not signed in" = "로그인되지 않음";
 "Not Supported" = "지원되지 않음";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "참고: 패스키가 작동하지 않으면 \"Try another way\"를 사용해 비밀번호로 로그인하세요.";
 "Nothing here right now" = "지금은 여기에 아무것도 없습니다";
 "Nothing to show" = "표시할 내용이 없습니다";
 "Now Playing" = "지금 재생 중";
@@ -333,6 +340,7 @@
 "Permission needed" = "권한 필요";
 "Piano" = "피아노";
 "Picture in Picture" = "화면 속 화면";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "재생 컨트롤을 윈도우 하단 막대 대신 비디오 위에 배치";
 "Play" = "재생";
 "Play a song to view its lyrics here." = "가사를 보려면 노래를 재생하세요.";
 "Play All" = "모두 재생";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "재생 오디오 품질";
 "Playback position" = "재생 위치";
 "Played" = "재생됨";
+"Player Controls" = "플레이어 컨트롤";
 "Playing" = "재생 중";
 "Playlist" = "재생목록";
 "Playlist not found" = "재생목록을 찾을 수 없음";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "중복 제거: 대기열에서 반복된 노래를 삭제하고 각 노래의 첫 번째 항목만 유지합니다.";
 "Remove extension" = "확장 프로그램 제거";
 "Remove from Favorites" = "즐겨찾기에서 삭제";
+"Remove from Library" = "보관함에서 제거";
 "Remove from Playlist" = "재생목록에서 제거";
 "Remove from Queue" = "대기열에서 삭제";
 "Remove from Sidebar" = "사이드바에서 제거";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "새 트랙이 재생되기 시작하면 알림 표시";
 "Show a soft color glow, drawn from the video, behind the player" = "비디오에서 가져온 부드러운 색상 빛을 플레이어 뒤에 표시";
 "Show All" = "모두 표시";
+"Show Controls on Video" = "비디오 위에 컨트롤 표시";
 "Show Large Artwork" = "큰 아트워크 표시";
 "Show Lyrics" = "가사 표시";
 "Show more comments" = "댓글 더 보기";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "계속하려면 새 채팅을 시작하세요.";
 "Ask Gemini response ready" = "Gemini에게 질문 응답 준비됨";
 "New Ask Gemini chat ready" = "새 Gemini 채팅이 준비되었습니다";
+
+// Appearance
+"Appearance" = "모양";
+"App Appearance" = "앱 모양";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "Kaset의 라이트 또는 다크 모드를 선택하거나 macOS 설정을 따르세요";
+"Match System" = "시스템 설정에 맞춤";
+"Light Mode" = "라이트 모드";
+"Dark Mode" = "다크 모드";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "음악 재생";
+"Play Song" = "노래 재생";
+"Play Playlist" = "재생목록 재생";
+"Play Album" = "앨범 재생";
+"Play Liked Music" = "좋아요 표시한 음악 재생";
+"Play or Pause" = "재생 또는 일시중지";
+"Resume Playback" = "재생 재개";
+"Next Track" = "다음 트랙";
+"Previous Track" = "이전 트랙";
+"Get Current Song" = "현재 노래 가져오기";
+"Like Current Song" = "현재 노래에 좋아요 표시";
+"Dislike Current Song" = "현재 노래에 싫어요 표시";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "YouTube Music에서 검색하여 가장 일치하는 노래를 재생하고 이어서 해당 노래의 라디오를 재생합니다.";
+"Plays a song in Kaset, followed by its radio." = "Kaset에서 노래를 재생하고 이어서 해당 노래의 라디오를 재생합니다.";
+"Plays a playlist in Kaset." = "Kaset에서 재생목록을 재생합니다.";
+"Plays an album in Kaset." = "Kaset에서 앨범을 재생합니다.";
+"Plays your Liked Music playlist in Kaset." = "Kaset에서 좋아요 표시한 음악 재생목록을 재생합니다.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "Kaset이 재생 중이면 일시중지하고, 그렇지 않으면 재생을 재개합니다.";
+"Pauses playback in Kaset." = "Kaset에서 재생을 일시중지합니다.";
+"Resumes playback in Kaset." = "Kaset에서 재생을 재개합니다.";
+"Skips to the next track in Kaset." = "Kaset에서 다음 트랙으로 건너뜁니다.";
+"Goes back to the previous track in Kaset." = "Kaset에서 이전 트랙으로 돌아갑니다.";
+"Returns the song playing in Kaset." = "Kaset에서 재생 중인 노래를 반환합니다.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "Kaset에서 재생 중인 노래에 좋아요를 표시합니다. 이미 좋아요를 표시한 노래는 그대로 유지됩니다.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "Kaset에서 재생 중인 노래에 싫어요를 표시합니다. 이미 싫어요를 표시한 노래는 그대로 유지됩니다.";
+"Resume" = "재개";
+"Next Song" = "다음 노래";
+"Previous Song" = "이전 노래";
+"Like Song" = "좋아요";
+"Title" = "제목";
+"Author" = "작성자";
+"Play ${query}" = "${query} 재생";
+"Play ${song}" = "${song} 재생";
+"Play ${target}" = "${target} 재생";
+"What do you want to play?" = "무엇을 재생할까요?";
+"Playing %@." = "%@ 재생 중입니다.";
+"Playing %@ by %@." = "%2$@의 %1$@ 재생 중입니다.";
+"Now playing %@." = "지금 재생 중: %@.";
+"Now playing %@ by %@." = "지금 재생 중: %2$@의 %1$@.";
+"Kaset is still starting up. Try again in a moment." = "Kaset이 아직 시작 중입니다. 잠시 후 다시 시도하세요.";
+"Nothing is playing in Kaset." = "Kaset에서 재생 중인 항목이 없습니다.";
+"Sign in to YouTube Music in Kaset first." = "먼저 Kaset에서 YouTube Music에 로그인하세요.";
+"No songs found for “%@”." = "“%@”에 대한 노래를 찾을 수 없습니다.";
+"Couldn't play “%@”." = "“%@”을(를) 재생할 수 없습니다.";
+"Couldn't rate “%@”." = "“%@”을(를) 평가할 수 없습니다.";

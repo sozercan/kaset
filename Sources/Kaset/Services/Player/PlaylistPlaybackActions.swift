@@ -1,6 +1,7 @@
 import Foundation
 
 /// Playback actions for playlist-backed queues.
+@MainActor
 enum PlaylistPlaybackActions {
     struct ContinuationContext {
         let continuationToken: String?
@@ -12,15 +13,24 @@ enum PlaylistPlaybackActions {
     }
 
     /// Plays a playlist immediately, replacing the current queue.
+    /// - Parameter onStart: Called once with whether the playlist started playing. False when it
+    ///   failed to load, had nothing playable, or newer playback replaced it. A long playlist keeps
+    ///   paging in after a successful start.
     @discardableResult
-    @MainActor
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        playerService: PlayerService
+        playerService: PlayerService,
+        onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
+            var didStart = false
+            defer {
+                if !didStart {
+                    onStart(false)
+                }
+            }
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
                 guard playerService.acceptsMusicPlaybackIntent(intent) else {
@@ -45,6 +55,10 @@ enum PlaylistPlaybackActions {
                     } catch {
                         DiagnosticsLogger.ui.debug("Falling back to browse playlist tracks: \(error.localizedDescription)")
                     }
+                    guard playerService.acceptsMusicPlaybackIntent(intent) else {
+                        DiagnosticsLogger.ui.info("Discarding stale radio playlist fallback after newer playback intent")
+                        return
+                    }
                 } else {
                     let playableSongs = self.playableSongsWithPlaylistArtwork(songs, playlist: playlist)
                     guard !playableSongs.isEmpty else { return }
@@ -60,6 +74,8 @@ enum PlaylistPlaybackActions {
                         deferringSmartShuffleFill: willDeferLoad,
                         intent: intent
                     )
+                    didStart = true
+                    onStart(true)
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
 
                     guard let loadGeneration else { return }
@@ -89,6 +105,8 @@ enum PlaylistPlaybackActions {
                     deferringSmartShuffleFill: false,
                     intent: intent
                 )
+                didStart = true
+                onStart(true)
                 DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")
@@ -102,11 +120,18 @@ enum PlaylistPlaybackActions {
 
     static func tracksForPlaylistPlayback(browseTracks: [Song], queueTracks: [Song]) -> [Song] {
         var browsePlayabilityByVideoId: [String: Bool] = [:]
+        var browseAudioIDsByVideoId: [String: String] = [:]
         for track in browseTracks {
             browsePlayabilityByVideoId[track.videoId] = track.isPlayable
+            if let audioTrackVideoId = track.audioTrackVideoId {
+                browseAudioIDsByVideoId[track.videoId] = audioTrackVideoId
+            }
         }
 
-        return queueTracks.map { track in
+        return queueTracks.map { queueTrack in
+            // Queue responses may omit the audio ID already discovered in browse rows.
+            var track = queueTrack
+            track.audioTrackVideoId = track.audioTrackVideoId ?? browseAudioIDsByVideoId[track.videoId]
             guard let browseIsPlayable = browsePlayabilityByVideoId[track.videoId],
                   browseIsPlayable != track.isPlayable
             else {
@@ -206,7 +231,8 @@ enum PlaylistPlaybackActions {
             isInLibrary: song.isInLibrary,
             feedbackTokens: carried,
             isExplicit: song.isExplicit,
-            playlistSetVideoId: song.playlistSetVideoId
+            playlistSetVideoId: song.playlistSetVideoId,
+            audioTrackVideoId: song.audioTrackVideoId
         )
     }
 

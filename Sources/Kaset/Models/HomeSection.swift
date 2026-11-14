@@ -3,7 +3,7 @@ import Foundation
 // MARK: - HomeSection
 
 /// Represents a section on the YouTube Music home page.
-struct HomeSection: Identifiable {
+struct HomeSection: Identifiable, Hashable {
     let id: String
     let title: String
     let items: [HomeSectionItem]
@@ -22,7 +22,7 @@ struct HomeSection: Identifiable {
 // MARK: - HomeSectionItem
 
 /// An item within a home section (can be song, album, playlist, or artist).
-enum HomeSectionItem: Identifiable {
+enum HomeSectionItem: Identifiable, Hashable {
     case song(Song)
     case album(Album)
     case playlist(Playlist)
@@ -144,6 +144,17 @@ enum HomeSectionItem: Identifiable {
         }
     }
 
+    /// Whether this is a song that renders as a wide video thumbnail rather
+    /// than square artwork.
+    var isVideoSong: Bool {
+        guard case let .song(song) = self else { return false }
+        if let musicVideoType = song.musicVideoType {
+            return musicVideoType != .atv
+        }
+        let subtitle = song.artistsDisplay.lowercased()
+        return subtitle.contains("views") || subtitle.contains("video")
+    }
+
     /// Returns the video ID if this item is playable.
     var videoId: String? {
         switch self {
@@ -182,5 +193,30 @@ enum HomeSectionItem: Identifiable {
             return album
         }
         return nil
+    }
+
+    /// Song equality compares playback identity. Both card implementations also
+    /// need the metadata they render and pass to playback, navigation, and library actions.
+    func hasSameCardContent(as other: Self) -> Bool {
+        guard self == other else { return false }
+        guard case let .song(lhsSong) = self,
+              case let .song(rhsSong) = other
+        else { return true }
+
+        return lhsSong.id == rhsSong.id
+            && lhsSong.title == rhsSong.title
+            && lhsSong.artists == rhsSong.artists
+            && lhsSong.album == rhsSong.album
+            && lhsSong.duration == rhsSong.duration
+            && lhsSong.thumbnailURL == rhsSong.thumbnailURL
+            && lhsSong.isPlayable == rhsSong.isPlayable
+            && lhsSong.hasVideo == rhsSong.hasVideo
+            && lhsSong.musicVideoType == rhsSong.musicVideoType
+            && lhsSong.likeStatus == rhsSong.likeStatus
+            && lhsSong.isInLibrary == rhsSong.isInLibrary
+            && lhsSong.feedbackTokens == rhsSong.feedbackTokens
+            && lhsSong.isExplicit == rhsSong.isExplicit
+            && lhsSong.playlistSetVideoId == rhsSong.playlistSetVideoId
+            && lhsSong.audioTrackVideoId == rhsSong.audioTrackVideoId
     }
 }

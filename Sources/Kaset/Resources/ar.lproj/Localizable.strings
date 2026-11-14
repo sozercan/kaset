@@ -1,3 +1,6 @@
+"Ad" = "إعلان";
+"Advertisement" = "إعلان";
+
 // Localizable.strings
 
 "%lld songs" = "%lld أغنية";
@@ -100,6 +103,8 @@
 "Continue" = "متابعة";
 "Continue Watching" = "متابعة المشاهدة";
 "Control playback with your keyboard" = "تحكم في التشغيل باستخدام لوحة المفاتيح";
+"Controls appear when you move the pointer over the video and fade out while it plays." = "تظهر عناصر التحكم عند تحريك المؤشر فوق الفيديو وتختفي تدريجيًا أثناء تشغيله.";
+"Copy Link" = "نسخ الرابط";
 "Could not create AI session" = "تعذّر إنشاء جلسة الذكاء الاصطناعي";
 "Couldn't capture Kaset's audio (status %d). Check Screen & System Audio Recording permission in System Settings." = "تعذر التقاط صوت Kaset (الحالة %d). تحقق من إذن تسجيل الشاشة وصوت النظام في إعدادات النظام.";
 "Couldn't configure the audio unit (%lld)." = "تعذر تكوين وحدة الصوت (%lld).";
@@ -133,6 +138,7 @@
 "Downloading" = "جارٍ التنزيل";
 "Drag to reorder" = "اسحب لإعادة الترتيب";
 "E" = "E";
+"Number %lld, %@" = "رقم %1$lld، %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "مثال: أزل الأغاني البطيئة، أعد الترتيب حسب الحيوية...";
 "Edit" = "تعديل";
 "Electronic" = "إلكتروني";
@@ -210,6 +216,8 @@
 "Kaset works without login for public browsing, search, and playback. Sign in to access personal music collections." = "يعمل Kaset من دون تسجيل دخول للتصفح العام والبحث والتشغيل. سجّل الدخول للوصول إلى مجموعات الموسيقى الشخصية.";
 "Kaset works without login for public YouTube search, discovery, and playback. Sign in to access personal video collections." = "يعمل Kaset من دون تسجيل دخول للبحث العام في YouTube والاكتشاف والتشغيل. سجّل الدخول للوصول إلى مجموعات الفيديو الشخصية.";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "تعذّر على Kaset مسح بيانات تسجيل الدخول المحفوظة بأمان. أعد المحاولة قبل تسجيل الدخول مرة أخرى.";
+"Sign-In Temporarily Unavailable" = "تسجيل الدخول غير متاح مؤقتًا";
+"Kaset could not read saved sign-in data. Retry to restore your session." = "تعذّر على Kaset قراءة بيانات تسجيل الدخول المحفوظة. أعد المحاولة لاستعادة جلستك.";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "تعذّر على Kaset إزالة بيانات تسجيل الدخول المحفوظة. حاول تسجيل الخروج مرة أخرى قبل إنهاء التطبيق.";
 "Keep a playing video in a floating window when you leave the page. When off, the video stops instead." = "أبقِ الفيديو الجاري تشغيله في نافذة عائمة عند مغادرة الصفحة. عند إيقافه، سيتوقف الفيديو بدلًا من ذلك.";
 "Keep listening even when the window is closed" = "استمر في الاستماع حتى عند إغلاق النافذة";
@@ -312,7 +320,6 @@
 "Not Playing" = "لا يتم التشغيل";
 "Not signed in" = "لم يتم تسجيل الدخول";
 "Not Supported" = "غير مدعوم";
-"Note: If passkeys don't work, use \"Try another way\" to sign in with password." = "ملاحظة: إذا لم تعمل مفاتيح المرور، فاستخدم \"جرّب طريقة أخرى\" لتسجيل الدخول بكلمة المرور.";
 "Nothing here right now" = "لا يوجد شيء هنا الآن";
 "Nothing to show" = "لا يوجد ما يمكن عرضه";
 "Now Playing" = "قيد التشغيل";
@@ -333,6 +340,7 @@
 "Permission needed" = "الإذن مطلوب";
 "Piano" = "بيانو";
 "Picture in Picture" = "صورة داخل صورة";
+"Place the playback controls on the video instead of in the bar at the bottom of the window" = "وضع عناصر التحكم في التشغيل على الفيديو بدلًا من الشريط أسفل النافذة";
 "Play" = "تشغيل";
 "Play a song to view its lyrics here." = "شغّل أغنية لعرض كلماتها هنا.";
 "Play All" = "تشغيل الكل";
@@ -344,6 +352,7 @@
 "Playback Audio Quality" = "جودة صوت التشغيل";
 "Playback position" = "موضع التشغيل";
 "Played" = "تم التشغيل";
+"Player Controls" = "عناصر التحكم في المشغّل";
 "Playing" = "قيد التشغيل";
 "Playlist" = "قائمة تشغيل";
 "Playlist not found" = "قائمة التشغيل غير موجودة";
@@ -383,6 +392,7 @@
 "Remove Duplicates: delete repeated songs from the queue and keep the first occurrence of each." = "إزالة التكرارات: احذف الأغاني المكررة من قائمة الانتظار واحتفظ بأول ظهور لكل أغنية.";
 "Remove extension" = "إزالة الإضافة";
 "Remove from Favorites" = "إزالة من المفضلة";
+"Remove from Library" = "إزالة من المكتبة";
 "Remove from Playlist" = "إزالة من قائمة التشغيل";
 "Remove from Queue" = "إزالة من قائمة الانتظار";
 "Remove from Sidebar" = "إزالة من الشريط الجانبي";
@@ -423,6 +433,7 @@
 "Show a notification when a new track starts playing" = "إظهار إشعار عند بدء تشغيل مقطع جديد";
 "Show a soft color glow, drawn from the video, behind the player" = "إظهار توهج لوني ناعم مستمد من الفيديو خلف المشغّل";
 "Show All" = "عرض الكل";
+"Show Controls on Video" = "إظهار عناصر التحكم على الفيديو";
 "Show Large Artwork" = "إظهار العمل الفني الكبير";
 "Show Lyrics" = "إظهار الكلمات";
 "Show more comments" = "إظهار المزيد من التعليقات";
@@ -566,3 +577,58 @@
 "Start a new chat to continue." = "ابدأ محادثة جديدة للمتابعة.";
 "Ask Gemini response ready" = "رد «اسأل Gemini» جاهز";
 "New Ask Gemini chat ready" = "محادثة «اسأل Gemini» الجديدة جاهزة";
+
+// Appearance
+"Appearance" = "المظهر";
+"App Appearance" = "مظهر التطبيق";
+"Choose light or dark mode for Kaset, or match the macOS setting" = "اختر الوضع الفاتح أو الداكن لـ Kaset، أو اتبع إعداد macOS";
+"Match System" = "مطابقة النظام";
+"Light Mode" = "الوضع الفاتح";
+"Dark Mode" = "الوضع الداكن";
+
+// App Intents (Shortcuts, Siri, Spotlight)
+"Play Music" = "تشغيل الموسيقى";
+"Play Song" = "تشغيل أغنية";
+"Play Playlist" = "تشغيل قائمة تشغيل";
+"Play Album" = "تشغيل ألبوم";
+"Play Liked Music" = "تشغيل الموسيقى المعجب بها";
+"Play or Pause" = "تشغيل أو إيقاف مؤقت";
+"Resume Playback" = "استئناف التشغيل";
+"Next Track" = "المقطع التالي";
+"Previous Track" = "المقطع السابق";
+"Get Current Song" = "الحصول على الأغنية الحالية";
+"Like Current Song" = "الإعجاب بالأغنية الحالية";
+"Dislike Current Song" = "عدم الإعجاب بالأغنية الحالية";
+"Searches YouTube Music and plays the best matching song, followed by its radio." = "يبحث في YouTube Music ويشغّل الأغنية الأكثر تطابقًا، متبوعة بالراديو الخاص بها.";
+"Plays a song in Kaset, followed by its radio." = "يشغّل أغنية في Kaset، متبوعة بالراديو الخاص بها.";
+"Plays a playlist in Kaset." = "يشغّل قائمة تشغيل في Kaset.";
+"Plays an album in Kaset." = "يشغّل ألبومًا في Kaset.";
+"Plays your Liked Music playlist in Kaset." = "يشغّل قائمة الموسيقى المعجب بها في Kaset.";
+"Pauses Kaset if it is playing, otherwise resumes playback." = "يوقف Kaset مؤقتًا إذا كان يشغّل شيئًا، وإلا يستأنف التشغيل.";
+"Pauses playback in Kaset." = "يوقف التشغيل مؤقتًا في Kaset.";
+"Resumes playback in Kaset." = "يستأنف التشغيل في Kaset.";
+"Skips to the next track in Kaset." = "ينتقل إلى المقطع التالي في Kaset.";
+"Goes back to the previous track in Kaset." = "يعود إلى المقطع السابق في Kaset.";
+"Returns the song playing in Kaset." = "يُرجع الأغنية قيد التشغيل في Kaset.";
+"Likes the song playing in Kaset. A song that is already liked stays liked." = "يسجّل الإعجاب بالأغنية قيد التشغيل في Kaset. تبقى الأغنية المعجب بها معجبًا بها.";
+"Dislikes the song playing in Kaset. A song that is already disliked stays disliked." = "يسجّل عدم الإعجاب بالأغنية قيد التشغيل في Kaset. تبقى الأغنية غير المعجب بها كما هي.";
+"Resume" = "استئناف";
+"Next Song" = "الأغنية التالية";
+"Previous Song" = "الأغنية السابقة";
+"Like Song" = "الإعجاب بالأغنية";
+"Title" = "العنوان";
+"Author" = "المؤلف";
+"Play ${query}" = "تشغيل ${query}";
+"Play ${song}" = "تشغيل ${song}";
+"Play ${target}" = "تشغيل ${target}";
+"What do you want to play?" = "ماذا تريد أن تشغّل؟";
+"Playing %@." = "جارٍ تشغيل %@.";
+"Playing %@ by %@." = "جارٍ تشغيل %1$@ لـ %2$@.";
+"Now playing %@." = "قيد التشغيل الآن: %@.";
+"Now playing %@ by %@." = "قيد التشغيل الآن: %1$@ لـ %2$@.";
+"Kaset is still starting up. Try again in a moment." = "لا يزال Kaset قيد البدء. حاول مرة أخرى بعد لحظات.";
+"Nothing is playing in Kaset." = "لا يتم تشغيل أي شيء في Kaset.";
+"Sign in to YouTube Music in Kaset first." = "سجّل الدخول إلى YouTube Music في Kaset أولًا.";
+"No songs found for “%@”." = "لم يتم العثور على أغانٍ لـ “%@”.";
+"Couldn't play “%@”." = "تعذّر تشغيل “%@”.";
+"Couldn't rate “%@”." = "تعذّر تقييم “%@”.";

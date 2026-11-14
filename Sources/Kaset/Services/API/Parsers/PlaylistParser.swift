@@ -264,124 +264,7 @@ enum PlaylistParser {
         contents.compactMap { self.parseTrackItem($0, fallbackThumbnailURL: nil) }
     }
 
-    /// Parses liked songs response with pagination support.
-    /// Checks both legacy continuations format and 2025 continuationItemRenderer format.
-    static func parseLikedSongs(_ data: [String: Any]) -> LikedSongsResponse {
-        let tracks = self.parsePlaylistTracks(data, fallbackThumbnailURL: nil)
-        let continuationToken = Self.extractContinuationToken(from: data)
-        Self.logger.info("Parsed \(tracks.count) liked songs, hasMore: \(continuationToken != nil)")
-        return LikedSongsResponse(songs: tracks, continuationToken: continuationToken)
-    }
-
-    /// Parses liked songs continuation response.
-    /// Handles both legacy musicShelfContinuation and 2025 onResponseReceivedActions formats.
-    static func parseLikedSongsContinuation(_ data: [String: Any]) -> LikedSongsResponse {
-        var tracks: [Song] = []
-
-        // Try legacy musicShelfContinuation format
-        if let continuationContents = data["continuationContents"] as? [String: Any],
-           let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any],
-           let contents = shelfContinuation["contents"] as? [[String: Any]]
-        {
-            Self.logger.debug("Parsing liked songs continuation (legacy format) with \(contents.count) items")
-            for itemData in contents {
-                if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                    tracks.append(track)
-                }
-            }
-        }
-
-        // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction
-        if tracks.isEmpty,
-           let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
-           let firstAction = onResponseReceivedActions.first,
-           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
-           let continuationItems = appendAction["continuationItems"] as? [[String: Any]]
-        {
-            Self.logger.debug("Parsing liked songs continuation (2025 format) with \(continuationItems.count) items")
-            for itemData in continuationItems {
-                if let track = parseTrackItem(itemData, fallbackThumbnailURL: nil) {
-                    tracks.append(track)
-                }
-            }
-        }
-
-        let continuationToken = Self.extractContinuationTokenFromContinuation(data)
-        Self.logger.debug("Liked songs continuation parsed: \(tracks.count) tracks, hasMore: \(continuationToken != nil)")
-        return LikedSongsResponse(songs: tracks, continuationToken: continuationToken)
-    }
-
     // MARK: - Continuation Token Extraction
-
-    /// Extracts continuation token from initial browse response (liked songs).
-    /// Checks both legacy continuations format and 2025 continuationItemRenderer format.
-    private static func extractContinuationToken(from data: [String: Any]) -> String? {
-        guard let contents = data["contents"] as? [String: Any],
-              let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
-              let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
-              let firstTab = tabs.first,
-              let tabRenderer = firstTab["tabRenderer"] as? [String: Any],
-              let tabContent = tabRenderer["content"] as? [String: Any],
-              let sectionListRenderer = tabContent["sectionListRenderer"] as? [String: Any],
-              let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
-        else {
-            return nil
-        }
-
-        // Look for continuation in musicShelfRenderer
-        for sectionData in sectionContents {
-            if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any] {
-                // Try legacy continuations format
-                if let token = Self.extractTokenFromRenderer(shelfRenderer) {
-                    Self.logger.debug("Found liked songs continuation token (legacy format)")
-                    return token
-                }
-                // Try 2025 format - continuationItemRenderer at end of contents
-                if let shelfContents = shelfRenderer["contents"] as? [[String: Any]],
-                   let token = Self.extractTokenFromContents(shelfContents)
-                {
-                    Self.logger.debug("Found liked songs continuation token (2025 format)")
-                    return token
-                }
-            }
-        }
-
-        return nil
-    }
-
-    /// Extracts continuation token from a continuation response (liked songs).
-    /// Checks both legacy continuations format and 2025 continuationItemRenderer format.
-    private static func extractContinuationTokenFromContinuation(_ data: [String: Any]) -> String? {
-        if let continuationContents = data["continuationContents"] as? [String: Any],
-           let shelfContinuation = continuationContents["musicShelfContinuation"] as? [String: Any]
-        {
-            // Try legacy continuations format
-            if let token = extractTokenFromRenderer(shelfContinuation) {
-                self.logger.debug("Found liked songs continuation token from continuation (legacy format)")
-                return token
-            }
-            // Try 2025 format - continuationItemRenderer at end of contents
-            if let contents = shelfContinuation["contents"] as? [[String: Any]],
-               let token = Self.extractTokenFromContents(contents)
-            {
-                Self.logger.debug("Found liked songs continuation token from continuation (2025 format)")
-                return token
-            }
-        }
-
-        // Try 2025 format: onResponseReceivedActions -> appendContinuationItemsAction
-        if let onResponseReceivedActions = data["onResponseReceivedActions"] as? [[String: Any]],
-           let firstAction = onResponseReceivedActions.first,
-           let appendAction = firstAction["appendContinuationItemsAction"] as? [String: Any],
-           let continuationItems = appendAction["continuationItems"] as? [[String: Any]],
-           let token = Self.extractTokenFromContents(continuationItems)
-        {
-            Self.logger.debug("Found liked songs continuation token from 2025 format response")
-            return token
-        }
-
-        return nil
-    }
 
     /// Extracts continuation token from playlist browse response (handles multiple renderer types).
     private static func extractPlaylistContinuationToken(from data: [String: Any]) -> String? {
@@ -1102,6 +985,12 @@ enum PlaylistParser {
         let isPlayable = ParsingHelpers.isPlayableMusicItem(from: responsiveRenderer)
         let isExplicit = ParsingHelpers.extractIsExplicit(from: responsiveRenderer)
         let playlistSetVideoId = ParsingHelpers.extractPlaylistSetVideoId(from: responsiveRenderer)
+        let musicVideoType = ParsingHelpers.extractMusicVideoType(from: responsiveRenderer)
+
+        // Music-video rows advertise their audio recording through the credits menu.
+        // Ignore the credits ID when it just repeats the row (ordinary audio tracks).
+        let creditsVideoId = ParsingHelpers.extractTrackCreditsVideoId(from: responsiveRenderer)
+        let audioTrackVideoId = creditsVideoId == videoId ? nil : creditsVideoId
 
         return Song(
             id: videoId,
@@ -1112,8 +1001,10 @@ enum PlaylistParser {
             thumbnailURL: thumbnailURL,
             videoId: videoId,
             isPlayable: isPlayable,
+            musicVideoType: musicVideoType,
             isExplicit: isExplicit,
-            playlistSetVideoId: playlistSetVideoId
+            playlistSetVideoId: playlistSetVideoId,
+            audioTrackVideoId: audioTrackVideoId
         )
     }
 
@@ -1507,9 +1398,14 @@ enum PlaylistParser {
             .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
             ?? "Unknown"
 
-        let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
-        let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
-        let artistId = Self.extractArtistId(from: artistRuns)
+        // Curated queues keep artist links in the long byline; the short byline is display-only.
+        var artists = SongMetadataParser.parseArtists(from: renderer)
+        if artists.isEmpty {
+            let artistRuns = (renderer["shortBylineText"] as? [String: Any])?["runs"] as? [[String: Any]]
+            let artistName = artistRuns?.first?["text"] as? String ?? "Unknown Artist"
+            let artistId = Self.extractArtistId(from: artistRuns)
+            artists = [Artist(id: artistId ?? "", name: artistName)]
+        }
 
         let durationText = (renderer["lengthText"] as? [String: Any])?["runs"]
             .flatMap { ($0 as? [[String: Any]])?.first?["text"] as? String }
@@ -1524,7 +1420,7 @@ enum PlaylistParser {
         return Song(
             id: videoId,
             title: title,
-            artists: [Artist(id: artistId ?? "", name: artistName, thumbnailURL: nil)],
+            artists: artists,
             album: nil,
             duration: durationText.flatMap { ParsingHelpers.parseDuration($0) },
             thumbnailURL: thumbnailURL,

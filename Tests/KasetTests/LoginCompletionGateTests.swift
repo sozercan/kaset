@@ -9,6 +9,7 @@ struct LoginCompletionGateTests {
         let webKitManager = MockWebKitManager()
         webKitManager.forceBackupCookiesResult = false
         let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
         authService.startLogin()
         guard let attemptID = authService.activeLoginAttemptID else {
             Issue.record("Expected an active login attempt")
@@ -33,7 +34,7 @@ struct LoginCompletionGateTests {
         #expect(webKitManager.forceBackupCookiesCallCount == 1)
         #expect(webKitManager.commitLoginCookieBackupCallCount == 1)
         #expect(webKitManager.finalizeLoginCookieBackupCallCount == 0)
-        #expect(authService.state == .initializing)
+        #expect(authService.state == .loggedOut)
     }
 
     @Test("Cancellation while persistence is in flight rolls back and prevents login completion")
@@ -46,6 +47,7 @@ struct LoginCompletionGateTests {
             await releaseBackup.wait()
         }
         let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
         authService.startLogin()
         guard let attemptID = authService.activeLoginAttemptID else {
             Issue.record("Expected an active login attempt")
@@ -73,7 +75,7 @@ struct LoginCompletionGateTests {
         let didComplete = await completionTask.value
         #expect(!didComplete)
         #expect(webKitManager.rollbackLoginCookieBackupCallCount == 1)
-        #expect(authService.state == .initializing)
+        #expect(authService.state == .loggedOut)
     }
 
     @Test("A newer login attempt supersedes detection while persistence is in flight")
@@ -405,6 +407,7 @@ struct LoginCompletionGateTests {
         let webKitManager = MockWebKitManager()
         webKitManager.finalizeLoginCookieBackupResult = false
         let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
         authService.startLogin()
         guard let attemptID = authService.activeLoginAttemptID,
               let transaction = await webKitManager.beginLoginCookieBackup()
@@ -425,7 +428,7 @@ struct LoginCompletionGateTests {
         #expect(!didComplete)
         #expect(webKitManager.rollbackLoginCookieBackupCallCount == 1)
         #expect(!webKitManager.clearAllDataCalled)
-        #expect(authService.state == .initializing)
+        #expect(authService.state == .loggedOut)
         #expect(!authService.loginCleanupRequired)
     }
 
@@ -601,6 +604,7 @@ struct LoginCompletionGateTests {
         let webKitManager = MockWebKitManager()
         webKitManager.commitLoginCookieBackupResult = false
         let authService = AuthService(webKitManager: webKitManager)
+        await authService.checkLoginStatus()
         authService.startLogin()
         guard let attemptID = authService.activeLoginAttemptID else {
             Issue.record("Expected an active login attempt")
@@ -627,7 +631,7 @@ struct LoginCompletionGateTests {
         #expect(webKitManager.finalizeLoginCookieBackupCallCount == 0)
         #expect(webKitManager.rollbackLoginCookieBackupCallCount == 1)
         #expect(!webKitManager.clearAllDataCalled)
-        #expect(authService.state == .initializing)
+        #expect(authService.state == .loggedOut)
         #expect(!authService.needsReauth)
     }
 }

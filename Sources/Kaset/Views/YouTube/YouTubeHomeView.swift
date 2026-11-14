@@ -104,6 +104,9 @@ struct YouTubeHomeView: View {
             // downward shift in one smooth move.
             .animation(AppAnimation.smooth, value: self.viewModel.sections.map(\.id))
         }
+        .pullToRefresh {
+            await self.viewModel.refresh()
+        }
     }
 
     /// A single horizontal rail of video cards with a title header.
@@ -199,8 +202,8 @@ struct YouTubeHomeView: View {
                 }
             }
             .padding(.vertical, 20)
+            .detailScrollContentInset()
         }
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .disabled(true)
     }
 }

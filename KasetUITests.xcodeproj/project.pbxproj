@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		E5000001 /* AccountSwitcherUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000101 /* AccountSwitcherUITests.swift */; };
 		E5000002 /* AppLaunchUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000102 /* AppLaunchUITests.swift */; };
+		E500000D /* CommandBarUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E500010D /* CommandBarUITests.swift */; };
 		E5000003 /* ExploreViewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000103 /* ExploreViewUITests.swift */; };
 		E5000004 /* HomeViewUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000104 /* HomeViewUITests.swift */; };
 		E5000005 /* KasetUITestCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5000105 /* KasetUITestCase.swift */; };
@@ -24,6 +25,7 @@
 /* Begin PBXFileReference section */
 		E5000101 /* AccountSwitcherUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountSwitcherUITests.swift; sourceTree = "<group>"; };
 		E5000102 /* AppLaunchUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLaunchUITests.swift; sourceTree = "<group>"; };
+		E500010D /* CommandBarUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CommandBarUITests.swift; sourceTree = "<group>"; };
 		E5000103 /* ExploreViewUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreViewUITests.swift; sourceTree = "<group>"; };
 		E5000104 /* HomeViewUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewUITests.swift; sourceTree = "<group>"; };
 		E5000105 /* KasetUITestCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KasetUITestCase.swift; sourceTree = "<group>"; };
@@ -61,6 +63,7 @@
 			children = (
 				E5000101 /* AccountSwitcherUITests.swift */,
 				E5000102 /* AppLaunchUITests.swift */,
+				E500010D /* CommandBarUITests.swift */,
 				E5000103 /* ExploreViewUITests.swift */,
 				E5000104 /* HomeViewUITests.swift */,
 				E5000105 /* KasetUITestCase.swift */,
@@ -138,6 +141,7 @@
 			files = (
 				E5000001 /* AccountSwitcherUITests.swift in Sources */,
 				E5000002 /* AppLaunchUITests.swift in Sources */,
+				E500000D /* CommandBarUITests.swift in Sources */,
 				E5000003 /* ExploreViewUITests.swift in Sources */,
 				E5000004 /* HomeViewUITests.swift in Sources */,
 				E5000005 /* KasetUITestCase.swift in Sources */,

@@ -3,11 +3,12 @@ import SwiftUI
 // MARK: - HomeSectionItemCard
 
 /// Reusable card view for home section items (songs, playlists, albums, artists).
-struct HomeSectionItemCard: View {
+struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
     let rank: Int?
     let playAction: (() -> Void)?
     let action: () -> Void
+    private let hasPlayAction: Bool
     @Environment(AuthService.self) private var authService
 
     /// Card dimensions.
@@ -29,6 +30,19 @@ struct HomeSectionItemCard: View {
         self.rank = rank
         self.playAction = playAction
         self.action = action
+        self.hasPlayAction = playAction != nil
+    }
+
+    /// Lets SwiftUI skip re-evaluating unchanged cards when a shelf or its
+    /// parent re-renders (measured: this is what made Home scrolling hitch).
+    ///
+    /// Contract for callers: `action`/`playAction` must depend only on `item`
+    /// (and `rank`). If two cards compare equal, the old closures are kept, so
+    /// an action that captured section membership or index would go stale.
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.item.hasSameCardContent(as: rhs.item)
+            && lhs.rank == rhs.rank
+            && lhs.hasPlayAction == rhs.hasPlayAction
     }
 
     var body: some View {
@@ -51,16 +65,11 @@ struct HomeSectionItemCard: View {
                     self.regularContent
                 }
             }
+            // Hover feedback lives on the thumbnail (see `thumbnail`), so the
+            // button style only contributes press feedback and registers no
+            // hover responder.
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
         }
-        .scaleEffect(self.isHovering ? 1.02 : 1)
-        .shadow(
-            color: self.isHovering ? .black.opacity(0.15) : .clear,
-            radius: self.isHovering ? 12 : 0,
-            x: 0,
-            y: self.isHovering ? 4 : 0
-        )
-        .animation(AppAnimation.spring, value: self.isHovering)
         .onHover { hovering in
             withAnimation(AppAnimation.quick) {
                 self.isHovering = hovering
@@ -126,6 +135,9 @@ struct HomeSectionItemCard: View {
         }
         .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
+        // Lift only the thumbnail and add its shadow on hover while preserving
+        // the loaded image's identity.
+        .modifier(ThumbnailHoverLift(isHovering: self.isHovering))
         .overlay {
             // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
@@ -144,7 +156,7 @@ struct HomeSectionItemCard: View {
 
     private var supportsPlaylistPlayAction: Bool {
         guard case .playlist = self.item else { return false }
-        return self.playAction != nil
+        return self.hasPlayAction
     }
 
     @ViewBuilder
@@ -299,14 +311,29 @@ struct HomeSectionItemCard: View {
     }
 
     private var isVideoSong: Bool {
-        guard case let .song(song) = self.item else { return false }
+        self.item.isVideoSong
+    }
+}
 
-        if let musicVideoType = song.musicVideoType {
-            return musicVideoType != .atv
-        }
+// MARK: - ThumbnailHoverLift
 
-        let subtitle = song.artistsDisplay.lowercased()
-        return subtitle.contains("views") || subtitle.contains("video")
+private struct ThumbnailHoverLift: ViewModifier {
+    let isHovering: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .background {
+                // Keep the stateful image outside the conditional branch.
+                if self.isHovering {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(.black.opacity(0.15))
+                        .blur(radius: 12)
+                        .offset(y: 4)
+                        .allowsHitTesting(false)
+                }
+            }
+            .scaleEffect(self.isHovering ? 1.02 : 1)
+            .animation(AppAnimation.spring, value: self.isHovering)
     }
 }
 
@@ -328,7 +355,7 @@ private struct LiquidGlassPlayIcon: View {
 
 // MARK: - SongCoverPlayOverlay
 
-private struct SongCoverPlayOverlay: View {
+struct SongCoverPlayOverlay: View {
     let size: CGSize
 
     var body: some View {

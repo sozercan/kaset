@@ -7,11 +7,9 @@ import SwiftUI
 @available(macOS 26.0, *)
 struct PlaylistDetailView: View {
     let playlist: Playlist
-    let playerBarNavigationAction: PlayerBarNavigationAction
     @State var viewModel: PlaylistDetailViewModel
     @Environment(PlayerService.self) var playerService
     @Environment(AuthService.self) private var authService
-    @Environment(FavoritesManager.self) private var favoritesManager
     @Environment(SidebarPinnedItemsManager.self) var sidebarPinnedItemsManager: SidebarPinnedItemsManager?
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
     @Environment(\.libraryViewModel) var libraryViewModel: LibraryViewModel?
@@ -50,13 +48,8 @@ struct PlaylistDetailView: View {
 
     private let logger = DiagnosticsLogger.ai
 
-    init(
-        playlist: Playlist,
-        viewModel: PlaylistDetailViewModel,
-        playerBarNavigationAction: PlayerBarNavigationAction = .disabled
-    ) {
+    init(playlist: Playlist, viewModel: PlaylistDetailViewModel) {
         self.playlist = playlist
-        self.playerBarNavigationAction = playerBarNavigationAction
         _viewModel = State(initialValue: viewModel)
     }
 
@@ -91,11 +84,17 @@ struct PlaylistDetailView: View {
             if case .error = self.viewModel.loadingState {
             } else {
                 PlayerBar()
-                    .environment(\.playerBarNavigationAction, self.playerBarNavigationAction)
-                    .environment(\.playerBarCurrentAlbumID, self.playlist.isAlbum ? self.playlist.id : nil)
+                    .environment(
+                        \.playerBarCurrentAlbumIDs,
+                        PlayerBarCurrentRoute.albumIDs(for: self.playlist, detail: self.viewModel.playlistDetail)
+                    )
             }
         }
-        .task {
+        // Keyed on `.idle` so the load re-runs when the view model drops back to it
+        // (e.g. a like-status scope change invalidates Liked Music pagination);
+        // a plain `.task` runs once and would leave the loading spinner up forever.
+        .task(id: self.viewModel.loadingState == .idle) {
+            guard self.viewModel.loadingState == .idle else { return }
             await self.viewModel.ensureLoaded()
         }
         .refreshable {
@@ -132,34 +131,40 @@ struct PlaylistDetailView: View {
     // MARK: - Views
 
     private func contentView(_ detail: PlaylistDetail) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                // Header
+        let fallbackAlbum = Album(
+            id: detail.id,
+            title: detail.title,
+            artists: detail.author.map { [$0] },
+            thumbnailURL: detail.thumbnailURL,
+            year: nil,
+            trackCount: detail.trackCount ?? detail.tracks.count
+        )
+        return ScrollView {
+            // One lazy stack as the scroll view's direct content: wrapping a LazyVStack
+            // in a VStack made every layout pass size the whole track list.
+            LazyVStack(alignment: .leading, spacing: 0) {
                 self.headerView(detail)
+                    .padding(.bottom, 24)
 
                 Divider()
+                    .padding(.bottom, 24)
 
-                // Tracks
-                let fallbackAlbum = Album(
-                    id: detail.id,
-                    title: detail.title,
-                    artists: detail.author.map { [$0] },
-                    thumbnailURL: detail.thumbnailURL,
-                    year: nil,
-                    trackCount: detail.trackCount ?? detail.tracks.count
-                )
-                self.tracksView(
+                self.trackRows(
                     detail.tracks, isAlbum: detail.isAlbum, author: detail.author?.name,
                     fallbackAlbum: fallbackAlbum
                 )
             }
             .padding(.vertical, 24)
+            // Inset the resting content while the scroll view stays edge-to-edge so
+            // content extends under the floating glass sidebar; the accent backdrop
+            // (which ignores the safe area) refracts through it.
+            .detailScrollContentInset()
         }
-        // Inset the resting content while the scroll view stays edge-to-edge so
-        // content extends under the floating glass sidebar; the accent backdrop
-        // (which ignores the safe area) refracts through it.
-        .contentMargins(.horizontal, DetailContentLayout.horizontalInset, for: .scrollContent)
         .topFade(style: .contentMask)
+        // The window recomputes its minimum size on every layout pass, and without a
+        // flexible frame that query measured the scroll content — a cost that grew
+        // with every loaded page of tracks.
+        .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
     }
 
     private func headerView(_ detail: PlaylistDetail) -> some View {
@@ -168,7 +173,7 @@ struct PlaylistDetailView: View {
             CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)
@@ -178,9 +183,10 @@ struct PlaylistDetailView: View {
                             .foregroundStyle(.secondary)
                     }
             }
+            // No `.fadeIn`: the header lives in the lazy stack, so it would replay on
+            // every scroll back to the top. CachedAsyncImage already fades in a fresh load.
             .frame(width: 180, height: 180)
             .clipShape(.rect(cornerRadius: 8))
-            .fadeIn(duration: 0.3)
 
             // Info
             VStack(alignment: .leading, spacing: 8) {
@@ -252,21 +258,18 @@ struct PlaylistDetailView: View {
         return detail.isAlbum ? String(localized: "Album") : String(localized: "Playlist")
     }
 
-    private func tracksView(
+    @ViewBuilder
+    private func trackRows(
         _ tracks: [Song], isAlbum: Bool, author: String?, fallbackAlbum: Album? = nil
     ) -> some View {
-        LazyVStack(spacing: 0) {
-            ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+        ForEach(Array(tracks.enumerated()), id: \.offset) { index, track in
+            // Row and divider form one lazy-stack element: as siblings they doubled
+            // the subviews the stack places and re-realizes while scrolling.
+            VStack(spacing: 0) {
                 self.trackRow(
                     track, index: index, tracks: tracks, isAlbum: isAlbum, author: author,
                     fallbackAlbum: fallbackAlbum
                 )
-                .onAppear {
-                    // Load more when reaching the last few items
-                    if index >= tracks.count - 3, self.viewModel.hasMore {
-                        Task { await self.viewModel.loadMore() }
-                    }
-                }
 
                 if index < tracks.count - 1 {
                     Divider()
@@ -275,16 +278,19 @@ struct PlaylistDetailView: View {
                         .padding(.leading, isAlbum ? 40 : 96)
                 }
             }
+            .onAppear {
+                self.viewModel.loadMoreIfNeeded(appearingAt: index)
+            }
+        }
 
-            // Loading indicator for pagination
-            if self.viewModel.loadingState == .loadingMore {
-                HStack {
-                    Spacer()
-                    ProgressView()
-                        .controlSize(.small)
-                        .padding()
-                    Spacer()
-                }
+        // Loading indicator for pagination
+        if self.viewModel.loadingState == .loadingMore {
+            HStack {
+                Spacer()
+                ProgressView()
+                    .controlSize(.small)
+                    .padding()
+                Spacer()
             }
         }
     }
@@ -293,26 +299,22 @@ struct PlaylistDetailView: View {
         _ track: Song, index: Int, tracks: [Song], isAlbum: Bool, author: String?,
         fallbackAlbum: Album? = nil
     ) -> some View {
-        PlaylistTrackRow(
+        let play = {
+            self.playTrackInQueue(
+                tracks: tracks, startingAt: index, fallbackArtist: author,
+                fallbackAlbum: fallbackAlbum
+            )
+        }
+        return PlaylistTrackRow(
             track: track,
             index: index,
             isAlbum: isAlbum,
             subtitle: self.trackArtistsDisplay(for: track, fallbackAuthor: author),
+            artists: self.trackArtists(for: track, fallbackAuthor: author),
             allowsLikeActions: self.hasPersonalAccount,
-            onPlay: {
-                self.playTrackInQueue(
-                    tracks: tracks, startingAt: index, fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            },
+            onPlay: play,
             menu: {
-                self.trackContextMenu(
-                    track,
-                    index: index,
-                    tracks: tracks,
-                    author: author,
-                    fallbackAlbum: fallbackAlbum
-                )
+                self.trackContextMenu(track, play: play)
             }
         )
         .staggeredAppearance(index: min(index, 10))
@@ -334,6 +336,21 @@ struct PlaylistDetailView: View {
 
         guard let fallbackArtist = self.cleanedArtistName(fallbackAuthor) else { return nil }
         return fallbackArtist
+    }
+
+    private func trackArtists(for track: Song, fallbackAuthor: String?) -> [Artist]? {
+        let artists = self.uniqueArtists(from: track.artists)
+        if !artists.isEmpty {
+            return artists
+        }
+
+        guard let fallbackName = self.cleanedArtistName(fallbackAuthor),
+              let author = self.cleanedArtist(self.viewModel.playlistDetail?.author),
+              author.hasNavigableId,
+              author.name == fallbackName
+        else { return nil }
+
+        return [author]
     }
 
     private func uniqueArtists(from artists: [Artist]) -> [Artist] {
@@ -388,82 +405,14 @@ struct PlaylistDetailView: View {
     // MARK: - Actions
 
     @ViewBuilder
-    private func trackContextMenu(
-        _ track: Song,
-        index: Int,
-        tracks: [Song],
-        author: String?,
-        fallbackAlbum: Album?
-    ) -> some View {
+    private func trackContextMenu(_ track: Song, play: @escaping () -> Void) -> some View {
         if track.isPlayable {
-            Button {
-                self.playTrackInQueue(
-                    tracks: tracks,
-                    startingAt: index,
-                    fallbackArtist: author,
-                    fallbackAlbum: fallbackAlbum
-                )
-            } label: {
-                Label(String(localized: "Play"), systemImage: "play.fill")
-            }
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                FavoritesContextMenu.menuItem(for: track, manager: self.favoritesManager)
-
-                Divider()
-
-                LikeDislikeContextMenu(song: track, likeStatusManager: self.likeStatusManager)
-            }
-
-            Divider()
-
-            StartRadioContextMenu.menuItem(for: track, playerService: self.playerService)
-
-            if self.authService.hasPersonalAccount {
-                Divider()
-
-                Button {
-                    SongActionsHelper.addToLibrary(track, playerService: self.playerService)
-                } label: {
-                    Label(String(localized: "Add to Library"), systemImage: "plus.circle")
-                }
-
-                Divider()
-
-                AddToPlaylistContextMenu(song: track, client: self.viewModel.client)
-            }
-
-            Divider()
-
-            ShareContextMenu.menuItem(for: track)
-
-            Divider()
-
-            AddToQueueContextMenu(song: track, playerService: self.playerService)
-
-            Divider()
-
-            if let artist = track.artists.first(where: { $0.hasNavigableId }) {
-                NavigationLink(value: artist) {
-                    Label(String(localized: "Go to Artist"), systemImage: "person")
-                }
-            }
-
-            if let album = track.album, album.hasNavigableId {
-                let playlist = Playlist(
-                    id: album.id,
-                    title: album.title,
-                    description: nil,
-                    thumbnailURL: album.thumbnailURL ?? track.thumbnailURL,
-                    trackCount: album.trackCount,
-                    author: Artist.inline(name: album.artistsDisplay, namespace: "album-artist")
-                )
-                NavigationLink(value: playlist) {
-                    Label(String(localized: "Go to Album"), systemImage: "square.stack")
-                }
-            }
+            SongContextMenu(
+                song: track,
+                client: self.viewModel.client,
+                play: play,
+                showsGoToAlbum: self.viewModel.playlistDetail?.isAlbum != true
+            )
         }
 
         if self.canRemoveTrack(track) {
@@ -564,69 +513,10 @@ struct PlaylistDetailView: View {
     func playableTracks(
         _ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil
     ) -> [Song] {
-        self.cleanTracks(
+        QueueSongMetadata.songsForQueue(
             tracks.filter(\.isPlayable), fallbackArtist: fallbackArtist,
             fallbackAlbum: fallbackAlbum
         )
-    }
-
-    /// Cleans track artists and applies fallback artist/album when needed.
-    private func cleanTracks(_ tracks: [Song], fallbackArtist: String?, fallbackAlbum: Album? = nil)
-        -> [Song]
-    {
-        tracks.map { song in
-            var cleanedArtists = song.artists.compactMap { artist -> Artist? in
-                if artist.name == "Album" {
-                    return nil
-                }
-                var cleanName = artist.name
-                if cleanName.hasPrefix("Album, ") {
-                    cleanName = String(cleanName.dropFirst(7))
-                }
-                return Artist(
-                    id: artist.id,
-                    name: cleanName,
-                    thumbnailURL: artist.thumbnailURL,
-                    subtitle: artist.subtitle,
-                    profileKind: artist.profileKind
-                )
-            }
-
-            // Use fallback artist if artists are empty (and clean the fallback too)
-            if cleanedArtists.isEmpty, let fallback = fallbackArtist, !fallback.isEmpty {
-                var cleanFallback = fallback
-                if cleanFallback == "Album" {
-                    cleanFallback = "Unknown Artist"
-                } else if cleanFallback.hasPrefix("Album, ") {
-                    cleanFallback = String(cleanFallback.dropFirst(7))
-                }
-                // Also handle case where it's "Album, Artist" but we got it as a combined string
-                if cleanFallback.contains("Album,") {
-                    let parts = cleanFallback.split(separator: ",", maxSplits: 1)
-                    if parts.count > 1 {
-                        cleanFallback = String(parts[1]).trimmingCharacters(in: .whitespaces)
-                    }
-                }
-                cleanedArtists = [Artist(id: "unknown", name: cleanFallback)]
-            }
-
-            // Use fallback album if song doesn't have album info
-            let finalAlbum = song.album ?? fallbackAlbum
-            // Use fallback thumbnail if song doesn't have one
-            let finalThumbnail = song.thumbnailURL ?? fallbackAlbum?.thumbnailURL
-
-            return Song(
-                id: song.id,
-                title: song.title,
-                artists: cleanedArtists,
-                album: finalAlbum,
-                duration: song.duration,
-                thumbnailURL: finalThumbnail,
-                videoId: song.videoId,
-                isPlayable: song.isPlayable,
-                playlistSetVideoId: song.playlistSetVideoId
-            )
-        }
     }
 
     private func refinePlaylist(tracks: [Song], prompt: String) async {
@@ -737,106 +627,6 @@ struct PlaylistDetailView: View {
 
         self.partialChanges = nil
         self.isRefining = false
-    }
-}
-
-// MARK: - PlaylistTrackRow
-
-@available(macOS 26.0, *)
-private struct PlaylistTrackRow<Menu: View>: View {
-    let track: Song
-    let index: Int
-    let isAlbum: Bool
-    let subtitle: String?
-    let allowsLikeActions: Bool
-    let onPlay: () -> Void
-    @ViewBuilder let menu: () -> Menu
-
-    @State private var isHovered: Bool = false
-    @Environment(PlayerService.self) private var playerService
-
-    var body: some View {
-        let isCurrent = self.playerService.currentTrack?.videoId == self.track.videoId
-
-        Button(action: self.onPlay) {
-            HStack(spacing: 12) {
-                Group {
-                    if isCurrent {
-                        NowPlayingIndicator(isPlaying: self.playerService.isPlaying, size: 14)
-                    } else {
-                        Text("\(self.index + 1)")
-                            .font(.system(size: 14))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .frame(width: 28, alignment: .trailing)
-
-                if !self.isAlbum {
-                    CachedAsyncImage(url: self.track.thumbnailURL, targetSize: CGSize(width: 40, height: 40)) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Rectangle().fill(.quaternary)
-                    }
-                    .frame(width: 40, height: 40)
-                    .clipShape(.rect(cornerRadius: 4))
-                }
-
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(self.track.title)
-                            .font(.system(size: 14))
-                            .foregroundStyle(isCurrent ? .red : .primary)
-                            .lineLimit(1)
-                        if self.track.isExplicit == true {
-                            ExplicitBadge()
-                        }
-                    }
-                    if let subtitle = self.subtitle {
-                        Text(subtitle)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                LikeButton(song: self.track, isRowHovered: self.isHovered, allowsActions: self.allowsLikeActions)
-
-                Text(self.track.durationDisplay)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-                    .frame(width: 45, alignment: .trailing)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 4)
-            .contentShape(Rectangle())
-            .opacity(self.track.isPlayable ? 1 : 0.5)
-        }
-        .buttonStyle(.interactiveRow(cornerRadius: 6))
-        .disabled(!self.track.isPlayable)
-        .onHover { hovering in self.isHovered = hovering }
-        .contextMenu { self.menu() }
-    }
-}
-
-// MARK: - HoverUnderlineNavigationLink
-
-private struct HoverUnderlineNavigationLink<Value: Hashable>: View {
-    let value: Value
-    let title: String
-
-    @State private var isHovering = false
-
-    var body: some View {
-        NavigationLink(value: self.value) {
-            Text(self.title)
-                .font(.subheadline)
-                .underline(self.isHovering)
-        }
-        .buttonStyle(.plain)
-        .onHover { hovering in
-            self.isHovering = hovering
-        }
     }
 }
 

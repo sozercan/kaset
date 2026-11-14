@@ -19,7 +19,6 @@ private struct CookieArchiveRollbackState: Sendable {
 // MARK: - CookieArchiveLiveBaseline
 
 enum CookieArchiveLiveBaseline: Sendable {
-    case empty
     case archive(Data)
     case persistedArchive
 }
@@ -183,8 +182,27 @@ enum CookieArchiveRestoreDecision: Equatable, Sendable {
 // MARK: - CookieArchiveRestorePolicy
 
 enum CookieArchiveRestorePolicy {
-    private static let invalidatedKey = "authCookieBackupInvalidated"
     private static let generationState = CookieArchiveRestoreGenerationState()
+
+    /// The tombstone must belong to the same backend as the archive it guards.
+    /// DEBUG file storage shares the app container's UserDefaults with release
+    /// builds, so a shared key would let a debug sign-out delete the release
+    /// Keychain archive on its next launch.
+    static func invalidationTombstoneKey(usesDebugFileStorage: Bool) -> String {
+        usesDebugFileStorage
+            ? "authCookieBackupInvalidated.debugFileStorage"
+            : "authCookieBackupInvalidated"
+    }
+
+    private static var invalidatedKey: String {
+        #if DEBUG
+            self.invalidationTombstoneKey(
+                usesDebugFileStorage: KeychainCookieStorage.usesDebugFileStorage
+            )
+        #else
+            self.invalidationTombstoneKey(usesDebugFileStorage: false)
+        #endif
+    }
 
     static var generation: UInt64 {
         self.generationState.current()
@@ -312,11 +330,31 @@ extension WebKitManager {
     }
 }
 
+// MARK: - InMemoryCookieArchiveBox
+
+/// Backing store for `CookieArchiveStorage.inMemory()`.
+final class InMemoryCookieArchiveBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var archiveData: Data?
+
+    func store(_ data: Data?) {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        self.archiveData = data
+    }
+
+    func load() -> Data? {
+        self.lock.lock()
+        defer { self.lock.unlock() }
+        return self.archiveData
+    }
+}
+
 // MARK: - CookieArchiveStorage
 
 struct CookieArchiveStorage: Sendable {
     let save: @Sendable (Data, Int) -> Bool
-    let load: @Sendable () -> Data?
+    let loadResult: @Sendable () -> CookieArchiveLoadResult
     let delete: @Sendable () -> Bool
     let restoreDecision: @Sendable () -> CookieArchiveRestoreDecision
     let setRestoreAllowed: @Sendable (Bool) -> Bool
@@ -325,7 +363,7 @@ struct CookieArchiveStorage: Sendable {
 
     init(
         save: @escaping @Sendable (Data, Int) -> Bool,
-        load: @escaping @Sendable () -> Data?,
+        loadResult: @escaping @Sendable () -> CookieArchiveLoadResult,
         delete: @escaping @Sendable () -> Bool,
         restoreDecision: @escaping @Sendable () -> CookieArchiveRestoreDecision = { .allowed },
         setRestoreAllowed: @escaping @Sendable (Bool) -> Bool = { _ in true },
@@ -333,7 +371,7 @@ struct CookieArchiveStorage: Sendable {
         deleteDebugArchive: @escaping @Sendable () -> Bool = { true }
     ) {
         self.save = save
-        self.load = load
+        self.loadResult = loadResult
         self.delete = delete
         self.restoreDecision = restoreDecision
         self.setRestoreAllowed = setRestoreAllowed
@@ -341,11 +379,41 @@ struct CookieArchiveStorage: Sendable {
         self.deleteDebugArchive = deleteDebugArchive
     }
 
+    func load() -> Data? {
+        guard case let .data(data) = self.loadResult() else { return nil }
+        return data
+    }
+
+    /// An archive that lives only for the lifetime of its queue. Keeps a manager's cookie
+    /// archive off the process-wide Keychain/`cookies.dat` store so parallel test suites
+    /// stay isolated from each other's invalidations.
+    static func inMemory() -> CookieArchiveStorage {
+        let box = InMemoryCookieArchiveBox()
+        return CookieArchiveStorage(
+            save: { data, _ in
+                box.store(data)
+                return true
+            },
+            loadResult: {
+                guard let data = box.load() else { return .notFound }
+                return .data(data)
+            },
+            delete: {
+                box.store(nil)
+                return true
+            },
+            restoreDecision: { .allowed },
+            setRestoreAllowed: { _ in true },
+            exportsDebugArchive: false,
+            deleteDebugArchive: { true }
+        )
+    }
+
     static let live = CookieArchiveStorage(
         save: { data, cookieCount in
             KeychainCookieStorage.saveArchiveData(data, cookieCount: cookieCount)
         },
-        load: { KeychainCookieStorage.loadArchiveData() },
+        loadResult: { KeychainCookieStorage.loadArchiveResult() },
         delete: { KeychainCookieStorage.deleteCookies() },
         restoreDecision: { CookieArchiveRestorePolicy.restoreDecision },
         setRestoreAllowed: { CookieArchiveRestorePolicy.setRestoreAllowed($0) },
@@ -416,6 +484,17 @@ actor CookieArchiveWriteQueue {
         self.storage.load()
     }
 
+    func loadArchiveResult() -> CookieArchiveLoadResult {
+        self.storage.loadResult()
+    }
+
+    #if DEBUG
+        func exportDebugArchiveIfEnabled(_ archiveData: Data) {
+            guard self.storage.exportsDebugArchive else { return }
+            DebugCookieFileExporter.exportAuthCookiesArchiveData(archiveData)
+        }
+    #endif
+
     func consumeLoginTransactionSetupCleanupRequirement() -> Bool {
         let requiresCleanup = self.loginTransactionSetupRequiresCleanup
         self.loginTransactionSetupRequiresCleanup = false
@@ -452,8 +531,6 @@ actor CookieArchiveWriteQueue {
         let wasRestoreAllowed = self.storage.restoreDecision() == .allowed
         let persistedArchiveData = self.storage.load()
         let capturedLiveArchiveData: Data? = switch liveBaseline {
-        case .empty:
-            nil
         case let .archive(data):
             data
         case .persistedArchive:
@@ -610,25 +687,6 @@ actor CookieArchiveWriteQueue {
         self.rollingBackTransactionID = nil
         _ = self.generationTracker.reserveGeneration()
         return self.storage.setRestoreAllowed(false)
-    }
-
-    func invalidateAndDeleteIfLatest(
-        generation: UInt64
-    ) -> CookieArchiveSaveResult {
-        guard self.generationTracker.isLatest(generation),
-              self.activeTransactionID == nil,
-              self.rollingBackTransactionID == nil
-        else {
-            return .superseded
-        }
-
-        let didInvalidateRestore = self.storage.setRestoreAllowed(false)
-        let didDelete = self.storage.delete()
-        let didDeleteDebugArchive = !self.storage.exportsDebugArchive
-            || self.storage.deleteDebugArchive()
-        return didInvalidateRestore && didDelete && didDeleteDebugArchive
-            ? .saved
-            : .failed
     }
 
     @discardableResult

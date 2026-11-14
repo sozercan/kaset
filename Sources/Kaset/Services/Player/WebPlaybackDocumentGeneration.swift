@@ -57,7 +57,9 @@ struct WebPlaybackDocumentGeneration: Equatable {
 
     static let mediaSuppressionScript = """
     (function() {
+        window.__kasetAirPlayNavigationRetry?.cancel();
         window.__kasetPlaybackSuppressed = true;
+        \(WebPlaybackAudioOutput.stopScript)
         if (!window.__kasetPlaybackSuppressionInstalled) {
             window.__kasetPlaybackSuppressionInstalled = true;
             document.addEventListener('play', function(event) {
@@ -442,6 +444,10 @@ struct WebPlaybackDocumentGeneration: Equatable {
               let literal = String(data: data, encoding: .utf8)
         else { return "null" }
         return literal
+    }
+
+    static func locationReplacementScript(for url: URL) -> String {
+        "window.location.replace(\(self.javaScriptStringLiteral(url.absoluteString)));"
     }
 
     static func isFragmentOnlyNavigation(from currentURL: URL?, to proposedURL: URL?) -> Bool {

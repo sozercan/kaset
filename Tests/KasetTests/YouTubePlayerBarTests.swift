@@ -51,6 +51,35 @@ struct YouTubePlayerBarTests {
         #expect(pinnedWindowBreakpoint - standardBreakpoint == 34)
     }
 
+    @Test("Options width tracks the buttons actually shown")
+    func optionsWidthTracksShownButtons() {
+        let signedIn = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: false, showsWatchLaterControl: true)
+        let signedOut = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: false, showsWatchLaterControl: false)
+        let pinnedSignedIn = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: true, showsWatchLaterControl: true)
+        let pinnedSignedOut = YouTubePlayerBar.optionsWidth(showsFloatOnTopControl: true, showsWatchLaterControl: false)
+
+        #expect(signedIn == 210)
+        #expect(signedIn - signedOut == 34)
+        #expect(pinnedSignedIn - signedIn == 34)
+        #expect(pinnedSignedOut == signedIn)
+    }
+
+    @Test("Detached controls stay visible while the volume overlay is presented")
+    func detachedControlsStayVisibleWhileVolumeOverlayIsPresented() {
+        #expect(!YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: false,
+            isVolumeOverlayPresented: false
+        ))
+        #expect(YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: true,
+            isVolumeOverlayPresented: false
+        ))
+        #expect(YouTubeVideoWindowLevelPolicy.shouldShowChrome(
+            isWindowHovered: false,
+            isVolumeOverlayPresented: true
+        ))
+    }
+
     @Test("Chapter segments resolve explicit, next-chapter, and duration end times")
     func chapterSegmentsResolveEndTimes() throws {
         let chapters = [

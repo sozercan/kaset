@@ -87,11 +87,14 @@ struct MoodCategoryDetailView: View {
         switch item {
         case let .song(song):
             // Songs play directly
-            HomeSectionItemCard(item: item) {
+            let play: () -> Void = {
                 Task {
                     await self.playerService.playWithRadio(song: song)
                 }
             }
+            HomeSectionItemCard(item: item, action: play)
+                .equatable()
+                .contextMenu { self.contextMenu(for: item, play: play) }
         case let .playlist(playlist):
             // Playlists navigate using NavigationLink
             if let parsed = playlist.resolvedMoodCategoryEndpoint {
@@ -109,6 +112,7 @@ struct MoodCategoryDetailView: View {
                     ItemCardContent(item: item)
                 }
                 .buttonStyle(.plain)
+                .contextMenu { self.contextMenu(for: item) }
             }
         case let .album(album):
             let playlist = Playlist(
@@ -123,12 +127,18 @@ struct MoodCategoryDetailView: View {
                 ItemCardContent(item: item)
             }
             .buttonStyle(.plain)
+            .contextMenu { self.contextMenu(for: item) }
         case let .artist(artist):
             NavigationLink(value: artist) {
                 ItemCardContent(item: item)
             }
             .buttonStyle(.plain)
+            .contextMenu { self.contextMenu(for: item) }
         }
+    }
+
+    private func contextMenu(for item: HomeSectionItem, play: (() -> Void)? = nil) -> some View {
+        HomeSectionItemContextMenu(item: item, client: self.viewModel.client, play: play)
     }
 }
 
@@ -167,7 +177,7 @@ private struct ItemCardContent: View {
                 CachedAsyncImage(url: url) { image in
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFill()
                 } placeholder: {
                     self.placeholderView
                 }

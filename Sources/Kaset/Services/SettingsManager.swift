@@ -11,6 +11,7 @@ final class SettingsManager {
     // MARK: - Settings Keys
 
     enum Keys {
+        static let appearance = "settings.appearance"
         static let appSource = "settings.appSource"
         static let showNowPlayingNotifications = "settings.showNowPlayingNotifications"
         static let defaultLaunchPage = "settings.defaultLaunchPage"
@@ -34,6 +35,7 @@ final class SettingsManager {
         static let ambientBackdropEnabled = "settings.ambientBackdropEnabled"
         static let ambientBackdropStyle = "settings.ambientBackdropStyle"
         static let popOutVideoOnNavigateAway = "settings.popOutVideoOnNavigateAway"
+        static let showYouTubeControlsOnVideo = "settings.showYouTubeControlsOnVideo"
         #if DEBUG
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
@@ -96,6 +98,7 @@ final class SettingsManager {
         case french
         case indonesian
         case italian
+        case japanese
         case korean
         case dutch
         case polish
@@ -104,6 +107,8 @@ final class SettingsManager {
         case swedish
         case turkish
         case ukrainian
+        case simplifiedChinese
+        case traditionalChinese
 
         var id: String {
             rawValue
@@ -119,12 +124,15 @@ final class SettingsManager {
             case .german: "Deutsch"
             case .indonesian: "Bahasa Indonesia"
             case .italian: "Italiano"
+            case .japanese: "日本語"
             case .korean: "한국어"
             case .polish: "Polski"
             case .portuguese: "Português"
             case .russian: "Русский"
             case .spanish: "Español"
+            case .simplifiedChinese: "简体中文"
             case .swedish: "Svenska"
+            case .traditionalChinese: "繁體中文"
             case .turkish: "Türkçe"
             case .ukrainian: "Українська"
             }
@@ -141,12 +149,19 @@ final class SettingsManager {
             case .german: "de"
             case .indonesian: "id"
             case .italian: "it"
+            case .japanese: "ja"
             case .korean: "ko"
             case .polish: "pl"
             case .portuguese: "pt"
             case .russian: "ru"
             case .spanish: "es"
+            // Chinese is distinguished by script, not region, matching Apple's
+            // localization identifiers. Verified against the InnerTube API: these
+            // same codes are valid `hl` values and return correctly-scripted
+            // responses, so no separate API mapping is needed.
+            case .simplifiedChinese: "zh-Hans"
             case .swedish: "sv"
+            case .traditionalChinese: "zh-Hant"
             case .turkish: "tr"
             case .ukrainian: "uk"
             }
@@ -156,7 +171,25 @@ final class SettingsManager {
         /// Returns the explicit language code or derives one from the system locale,
         /// falling back to `"en"`.
         var apiLanguageCode: String {
-            self.languageCode ?? Locale.current.language.languageCode?.identifier ?? "en"
+            self.apiLanguageCode(for: Locale.current)
+        }
+
+        /// Resolves the API language code against an injectable system locale.
+        func apiLanguageCode(for systemLocale: Locale) -> String {
+            if let languageCode = self.languageCode {
+                return languageCode
+            }
+
+            let language = systemLocale.language
+            guard let languageCode = language.languageCode?.identifier else {
+                return "en"
+            }
+
+            return switch (languageCode, language.script?.identifier) {
+            case ("zh", "Hans"): "zh-Hans"
+            case ("zh", "Hant"): "zh-Hant"
+            default: languageCode
+            }
         }
 
         /// The locale matching this language selection.
@@ -212,6 +245,15 @@ final class SettingsManager {
     }
 
     // MARK: - Settings Properties
+
+    /// App-wide light/dark override; `.system` follows macOS.
+    var appearance: AppAppearance {
+        didSet {
+            guard self.appearance != oldValue else { return }
+            UserDefaults.standard.set(self.appearance.rawValue, forKey: Keys.appearance)
+            self.appearance.apply()
+        }
+    }
 
     /// The active content source (YouTube Music or regular YouTube).
     var appSource: AppSource {
@@ -420,6 +462,16 @@ final class SettingsManager {
         }
     }
 
+    /// Whether the YouTube player controls overlay the docked watch-page video,
+    /// auto-hiding like a regular video player, instead of sitting in the bar at
+    /// the bottom of the window. Applies to regular YouTube videos only, not the
+    /// Music experience.
+    var showYouTubeControlsOnVideo: Bool {
+        didSet {
+            UserDefaults.standard.set(self.showYouTubeControlsOnVideo, forKey: Keys.showYouTubeControlsOnVideo)
+        }
+    }
+
     /// The style the YouTube watch page should request: the chosen style when
     /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
     /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
@@ -466,8 +518,17 @@ final class SettingsManager {
         defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
     }
 
+    static func loadShowYouTubeControlsOnVideo(from defaults: UserDefaults) -> Bool {
+        defaults.object(forKey: Keys.showYouTubeControlsOnVideo) as? Bool ?? false
+    }
+
+    static func loadAppearance(from defaults: UserDefaults) -> AppAppearance {
+        defaults.string(forKey: Keys.appearance).flatMap(AppAppearance.init(rawValue:)) ?? .system
+    }
+
     private init() {
         // Load persisted settings or use defaults
+        self.appearance = Self.loadAppearance(from: UserDefaults.standard)
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
         self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
@@ -503,6 +564,7 @@ final class SettingsManager {
         )
         self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
         self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.showYouTubeControlsOnVideo = Self.loadShowYouTubeControlsOnVideo(from: UserDefaults.standard)
         #if DEBUG
             self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif

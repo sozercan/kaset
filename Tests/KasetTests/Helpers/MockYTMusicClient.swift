@@ -95,17 +95,25 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var editSongLibraryStatusResponseDelays: [Duration] = []
     var editSongLibraryStatusErrors: [(any Error)?] = []
     var getSongDelay: Duration?
+    var getSongErrors: [Error] = []
     var getHistoryDelay: Duration?
+    var shouldWaitForGetHistoryResponse = false
     var getPodcastsDelay: Duration?
     var getPlaylistDelay: Duration?
+    var getPlaylistGate: AsyncGate?
     var getPlaylistError: Error?
     var playlistContinuationDelay: Duration?
     var shouldWaitForRemoveSongFromPlaylistResponse = false
     var removeSongFromPlaylistError: Error?
     var mixQueueDelay: Duration?
+    var mixQueueGate: AsyncGate?
+    var mixQueueContinuationGate: AsyncGate?
     var getRadioQueueDelay: Duration?
+    var getRadioQueueGate: AsyncGate?
     var mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
     var mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+    var mixQueueContinuationResults: [RadioQueueResult] = []
+    private(set) var getMixQueueCallCount = 0
     private(set) var getMixQueueContinuationCallCount = 0
     var shouldAutoUpdatePlaylistLibraryOnMutation = true
     var shouldAutoUpdatePodcastLibraryOnMutation = true
@@ -188,6 +196,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     private(set) var getHomeCalled = false
     private(set) var getHomeCallCount = 0
+    private(set) var getHomeForceRefreshes: [Bool] = []
     private(set) var getHomeContinuationCalled = false
     private(set) var getHomeContinuationCallCount = 0
     private(set) var getPersonalizedRecommendationsCalled = false
@@ -302,6 +311,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var addSongToPlaylistCalls: [AddSongToPlaylistCall] = []
     private(set) var removeSongFromPlaylistCalls: [RemoveSongFromPlaylistCall] = []
     private var removeSongFromPlaylistResponseContinuations: [CheckedContinuation<Void, Never>] = []
+    private var getHistoryResponseContinuations: [CheckedContinuation<Void, Never>] = []
     private(set) var unsubscribeFromPlaylistCalled = false
     private(set) var unsubscribeFromPlaylistIds: [String] = []
     private(set) var subscribeToArtistCalled = false
@@ -329,9 +339,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     // MARK: - Protocol Implementation
 
-    func getHome() async throws -> HomeResponse {
+    func getHome(forceRefresh: Bool) async throws -> HomeResponse {
         self.getHomeCalled = true
         self.getHomeCallCount += 1
+        self.getHomeForceRefreshes.append(forceRefresh)
         self._homeContinuationIndex = 0
         let response = self.homeResponse
         await self.beforeGetHomeReturn?()
@@ -472,6 +483,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getHistory() async throws -> HomeResponse {
         self.getHistoryCallCount += 1
         self._historyContinuationIndex = 0
+        if self.shouldWaitForGetHistoryResponse {
+            await withCheckedContinuation { continuation in
+                self.getHistoryResponseContinuations.append(continuation)
+            }
+        }
         if let getHistoryDelay {
             try? await Task.sleep(for: getHistoryDelay)
         }
@@ -816,6 +832,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.getPlaylistCalled = true
         self.getPlaylistIds.append(id)
+        await self.getPlaylistGate?.wait()
         if let getPlaylistDelay {
             try? await Task.sleep(for: getPlaylistDelay)
         }
@@ -1101,6 +1118,11 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
     }
 
+    func resumeNextGetHistoryResponse() {
+        guard !self.getHistoryResponseContinuations.isEmpty else { return }
+        self.getHistoryResponseContinuations.removeFirst().resume()
+    }
+
     func resumeNextRemoveSongFromPlaylistResponse() {
         guard !self.removeSongFromPlaylistResponseContinuations.isEmpty else { return }
         self.removeSongFromPlaylistResponseContinuations.removeFirst().resume()
@@ -1246,6 +1268,9 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let error = self.getSongErrorsByCallCount[callCount] {
             throw error
         }
+        if !self.getSongErrors.isEmpty {
+            throw self.getSongErrors.removeFirst()
+        }
         if let error = shouldThrowError {
             throw error
         }
@@ -1260,6 +1285,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func getRadioQueue(videoId: String) async throws -> [Song] {
         self.getRadioQueueCalled = true
         self.getRadioQueueVideoIds.append(videoId)
+        await self.getRadioQueueGate?.wait()
         if let getRadioQueueDelay {
             try? await Task.sleep(for: getRadioQueueDelay)
         }
@@ -1274,6 +1300,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     }
 
     func getMixQueue(playlistId: String, startVideoId: String?) async throws -> RadioQueueResult {
+        self.getMixQueueCallCount += 1
+        await self.mixQueueGate?.wait()
         if let mixQueueDelay {
             try? await Task.sleep(for: mixQueueDelay)
         }
@@ -1286,11 +1314,17 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     func getMixQueueContinuation(continuationToken continuation: String) async throws -> RadioQueueResult {
         self.getMixQueueContinuationCallCount += 1
+        let result = if self.mixQueueContinuationResults.isEmpty {
+            self.mixQueueContinuationResult
+        } else {
+            self.mixQueueContinuationResults.removeFirst()
+        }
+        await self.mixQueueContinuationGate?.wait()
         if let error = shouldThrowError {
             throw error
         }
         await self.waitBeforeMixQueueContinuationReturn(continuation)
-        return self.mixQueueContinuationResult
+        return result
     }
 
     func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse {
@@ -1325,6 +1359,7 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     func reset() { // swiftlint:disable:this function_body_length
         self.getHomeCalled = false
         self.getHomeCallCount = 0
+        self.getHomeForceRefreshes = []
         self.getHomeContinuationCalled = false
         self.getHomeContinuationCallCount = 0
         self._homeContinuationIndex = 0
@@ -1437,11 +1472,12 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.editSongLibraryStatusErrors = []
         self.getSongDelay = nil
         self.getHistoryDelay = nil
-        self.mixQueueDelay = nil
-        self.getRadioQueueDelay = nil
-        self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
-        self.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
-        self.getMixQueueContinuationCallCount = 0
+        self.shouldWaitForGetHistoryResponse = false
+        while !self.getHistoryResponseContinuations.isEmpty {
+            self.getHistoryResponseContinuations.removeFirst().resume()
+        }
+        self.getPlaylistGate = nil
+        self.resetQueueFetchState()
         self.getLyricsCalled = false
         self.getLyricsVideoIds = []
         self.getRadioQueueCalled = false
@@ -1450,5 +1486,20 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         self.moodCategoryBrowseIds = []
         self.moodCategoryParams = []
         self.shouldThrowError = nil
+    }
+
+    private func resetQueueFetchState() {
+        self.getSongDelay = nil
+        self.getSongErrors = []
+        self.mixQueueDelay = nil
+        self.mixQueueGate = nil
+        self.mixQueueContinuationGate = nil
+        self.getRadioQueueDelay = nil
+        self.getRadioQueueGate = nil
+        self.mixQueueResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.mixQueueContinuationResult = RadioQueueResult(songs: [], continuationToken: nil)
+        self.mixQueueContinuationResults = []
+        self.getMixQueueCallCount = 0
+        self.getMixQueueContinuationCallCount = 0
     }
 }

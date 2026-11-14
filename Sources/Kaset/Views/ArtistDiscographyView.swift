@@ -47,6 +47,9 @@ struct ArtistDiscographyView: View {
                         self.albumCard(album)
                     }
                     .buttonStyle(.plain)
+                    .contextMenu {
+                        AlbumContextMenu(album: album, client: self.viewModel.client)
+                    }
                 }
             }
             .padding(24)
@@ -69,7 +72,7 @@ struct ArtistDiscographyView: View {
             CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL) { image in
                 image
                     .resizable()
-                    .aspectRatio(contentMode: .fill)
+                    .scaledToFill()
             } placeholder: {
                 Rectangle()
                     .fill(.quaternary)

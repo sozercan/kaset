@@ -23,11 +23,3 @@ struct Lyrics: Equatable {
     /// Creates an empty lyrics instance for songs without lyrics.
     static let unavailable = Lyrics(text: "", source: nil)
 }
-
-// MARK: - LyricsBrowseInfo
-
-/// Represents the lyrics browse ID extracted from the next endpoint.
-struct LyricsBrowseInfo {
-    /// The browse ID to fetch lyrics (format: "MPLYt_xxx").
-    let browseId: String
-}
