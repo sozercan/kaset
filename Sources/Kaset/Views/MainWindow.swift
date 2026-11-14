@@ -54,6 +54,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Monotonic request from the View menu to refresh the active Home feed.
     @Binding var homeRefreshRequestID: Int
 
+    /// Monotonic request from the View menu to go back one page in the visible navigation stack.
+    @Binding var navigateBackRequestID: Int
+
     /// Whether startup guest playback cleanup has completed.
     @Binding var didCompleteStartupPlaybackCleanup: Bool
 
@@ -101,6 +104,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
     @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
 
+    /// Back requests for the music sections, consumed by `popsSidebarNavigationStack`.
+    @State private var sidebarNavigationBackGenerations: [NavigationItem: Int] = [:]
+
     /// Column visibility for NavigationSplitView. The main window is hidden rather than closed,
     /// so this keeps the user's sidebar choice across focus changes and Dock restores.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
@@ -109,6 +115,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         navigationSelection: Binding<NavigationItem?>,
         youtubeNavigationSelection: Binding<YouTubeNavigationItem?>,
         homeRefreshRequestID: Binding<Int>,
+        navigateBackRequestID: Binding<Int>,
         didCompleteStartupPlaybackCleanup: Binding<Bool>,
         client: any YTMusicClientProtocol,
         youtubeClient: any YouTubeClientProtocol
@@ -116,6 +123,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         self._navigationSelection = navigationSelection
         self._youtubeNavigationSelection = youtubeNavigationSelection
         self._homeRefreshRequestID = homeRefreshRequestID
+        self._navigateBackRequestID = navigateBackRequestID
         self._didCompleteStartupPlaybackCleanup = didCompleteStartupPlaybackCleanup
         self.client = client
         self.youtubeClient = youtubeClient
@@ -144,6 +152,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     var body: some View {
         self.accountLifecycleContent
+            .environment(\.sidebarNavigationBackGenerations, self.$sidebarNavigationBackGenerations)
             .task {
                 NowPlayingManager.shared.configure(playerService: self.playerService)
             }
@@ -358,6 +367,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onChange(of: self.homeRefreshRequestID) { _, _ in
                 Task { await self.refreshActiveHome() }
             }
+            .onChange(of: self.navigateBackRequestID) { _, _ in
+                self.navigateBack()
+            }
             .onChange(of: self.usesLegacyMacOS15UI) { _, usesLegacyUI in
                 if usesLegacyUI {
                     self.isCommandBarPresented = false
@@ -543,6 +555,44 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         case .video:
             guard self.youtubeNavigationSelection == .home else { return }
             await self.youtubeStore.home.refresh()
+        }
+    }
+
+    enum BackNavigationTarget: Equatable {
+        case youtube
+        case pinnedItem(contentId: String)
+        case section(NavigationItem)
+    }
+
+    nonisolated static func backNavigationTarget(
+        appSource: AppSource,
+        pinnedItemContentId: String?,
+        navigationSelection: NavigationItem?
+    ) -> BackNavigationTarget? {
+        if appSource == .video {
+            return .youtube
+        }
+        if let pinnedItemContentId {
+            return .pinnedItem(contentId: pinnedItemContentId)
+        }
+        return navigationSelection.map { .section($0) }
+    }
+
+    private func navigateBack() {
+        let target = Self.backNavigationTarget(
+            appSource: self.settings.appSource,
+            pinnedItemContentId: self.selectedSidebarPinnedItem?.contentId,
+            navigationSelection: self.navigationSelection
+        )
+        switch target {
+        case .youtube:
+            self.youtubeStore.navigationPath.removeLastIfNotEmpty()
+        case let .pinnedItem(contentId):
+            self.pinnedNavigationPaths[contentId]?.removeLastIfNotEmpty()
+        case let .section(item):
+            self.sidebarNavigationBackGenerations[item, default: 0] += 1
+        case nil:
+            return
         }
     }
 
@@ -760,7 +810,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         .navigationDestinations(client: self.client)
                     }
                     .playerBarMusicNavigation(path: self.$likedMusicNavigationPath)
-                    .popsNavigationStackOnSidebarReselect(
+                    .popsSidebarNavigationStack(
                         path: self.$likedMusicNavigationPath,
                         for: .likedMusic
                     )
@@ -1204,6 +1254,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     @Previewable @State var navSelection: NavigationItem? = .home
     @Previewable @State var youtubeNavSelection: YouTubeNavigationItem? = .home
     @Previewable @State var homeRefreshRequestID = 0
+    @Previewable @State var navigateBackRequestID = 0
     let authService = AuthService()
     let ytMusicClient = YTMusicClient(authService: authService)
     let accountService = AccountService(ytMusicClient: ytMusicClient, authService: authService)
@@ -1211,6 +1262,7 @@ enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
         navigationSelection: $navSelection,
         youtubeNavigationSelection: $youtubeNavSelection,
         homeRefreshRequestID: $homeRefreshRequestID,
+        navigateBackRequestID: $navigateBackRequestID,
         didCompleteStartupPlaybackCleanup: .constant(true),
         client: ytMusicClient,
         youtubeClient: YouTubeClient(authService: authService)

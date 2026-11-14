@@ -7,6 +7,7 @@ extension EnvironmentValues {
 
 extension EnvironmentValues {
     @Entry var sidebarNavigationReselectGenerations: Binding<[NavigationItem: Int]> = .constant([:])
+    @Entry var sidebarNavigationBackGenerations: Binding<[NavigationItem: Int]> = .constant([:])
 }
 
 extension EnvironmentValues {
@@ -77,6 +78,9 @@ struct KasetApp: App {
 
     /// Monotonic command request consumed by `MainWindow` to refresh the active Home feed.
     @State private var homeRefreshRequestID = 0
+
+    /// Monotonic command request consumed by `MainWindow` to go back one page.
+    @State private var navigateBackRequestID = 0
 
     /// Whether the command bar is visible.
     @State private var showCommandBar = false
@@ -233,6 +237,7 @@ struct KasetApp: App {
                     navigationSelection: self.$navigationSelection,
                     youtubeNavigationSelection: self.$youtubeNavigationSelection,
                     homeRefreshRequestID: self.$homeRefreshRequestID,
+                    navigateBackRequestID: self.$navigateBackRequestID,
                     didCompleteStartupPlaybackCleanup: self.$didCompleteStartupPlaybackCleanup,
                     client: self.sharedClient,
                     youtubeClient: self.sharedYouTubeClient
@@ -488,96 +493,17 @@ struct KasetApp: App {
                 .keyboardShortcut("l", modifiers: .command)
             }
 
-            // Navigation commands - replace default sidebar toggle
-            // Each routes to the active source's equivalent destination.
-            CommandGroup(replacing: .sidebar) {
-                Button(String(localized: "Refresh")) {
-                    self.homeRefreshRequestID += 1
-                }
-                .keyboardShortcut("r", modifiers: [.command, .shift])
-                .disabled(!self.canRefreshHome)
-
-                Divider()
-
-                // Home - ⌘1
-                Button(String(localized: "Home")) {
-                    if self.settings.appSource == .video {
-                        self.youtubeNavigationSelection = .home
-                    } else {
-                        self.navigationSelection = .home
-                    }
-                }
-                .keyboardShortcut("1", modifiers: .command)
-
-                // Explore - ⌘2
-                Button(String(localized: "Explore")) {
-                    if self.settings.appSource == .video {
-                        self.youtubeNavigationSelection = .explore
-                    } else {
-                        self.navigationSelection = .explore
-                    }
-                }
-                .keyboardShortcut("2", modifiers: .command)
-
-                // Library - ⌘3
-                Button(String(localized: "Library")) {
-                    if self.settings.appSource == .video {
-                        self.youtubeNavigationSelection = .playlists
-                    } else {
-                        self.navigationSelection = .library
-                    }
-                }
-                .keyboardShortcut("3", modifiers: .command)
-
-                Divider()
-
-                // Switch Source - ⌘⇧Y
-                Button(self.settings.appSource == .music ? "Switch to YouTube" : "Switch to Music") {
-                    if self.settings.appSource == .video {
-                        // Pause a docked video in place — no pop-out handoff.
-                        self.youtubePlayerService.prepareForSourceSwitch()
-                    }
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        self.settings.appSource = self.settings.appSource == .music ? .video : .music
-                    }
-                }
-                .keyboardShortcut("y", modifiers: [.command, .shift])
-
-                Divider()
-
-                // Search - ⌘F
-                Button(String(localized: "Search")) {
-                    if self.settings.appSource == .video {
-                        self.youtubeNavigationSelection = .search
-                        return
-                    }
-                    self.activateMusicSearch()
-                }
-                .keyboardShortcut("f", modifiers: .command)
-
-                // Command Bar - ⌘K
-                if PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.settings.useLegacyMacOS15UI) {
-                    Button(String(localized: "Command Bar")) {
-                        self.showCommandBar = true
-                    }
-                    .keyboardShortcut("k", modifiers: .command)
-                }
-
-                Divider()
-
-                Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
-                    .disabled(!YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
-                        isFloating: self.youtubePlayerService.surfaceLocation == .floating,
-                        isFullscreenOrTransitioning: self.youtubePlayerService.isWindowFullscreen
-                    ))
-
-                Divider()
-
-                Picker(String(localized: "Appearance"), selection: self.$settings.appearance) {
-                    ForEach(AppAppearance.allCases) { Text($0.displayName).tag($0) }
-                }
-                .pickerStyle(.menu)
-            }
+            NavigationCommands(
+                navigationSelection: self.$navigationSelection,
+                youtubeNavigationSelection: self.$youtubeNavigationSelection,
+                homeRefreshRequestID: self.$homeRefreshRequestID,
+                navigateBackRequestID: self.$navigateBackRequestID,
+                showCommandBar: self.$showCommandBar,
+                searchFocusTrigger: self.$searchFocusTrigger,
+                sidebarNavigationReselectGenerations: self.$sidebarNavigationReselectGenerations,
+                settings: self.settings,
+                youtubePlayerService: self.youtubePlayerService
+            )
 
             // Window menu - show main window
             CommandGroup(after: .windowArrangement) {
@@ -645,18 +571,6 @@ struct KasetApp: App {
             if self.playerService.consumeMiniPlayerMainWindowRestoreRequest() {
                 self.showMainWindow()
             }
-        }
-    }
-
-    private func activateMusicSearch() {
-        let alreadyOnSearch = self.navigationSelection == .search
-        self.navigationSelection = .search
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(100))
-            if alreadyOnSearch {
-                self.sidebarNavigationReselectGenerations[.search, default: 0] += 1
-            }
-            self.searchFocusTrigger = true
         }
     }
 
@@ -747,15 +661,6 @@ struct KasetApp: App {
 
     private var shouldDisableTrackNavigationCommands: Bool {
         !self.playbackArbiter.routesMediaKeysToVideo && self.playerService.currentEpisode != nil
-    }
-
-    private var canRefreshHome: Bool {
-        switch self.settings.appSource {
-        case .music:
-            self.navigationSelection == .home
-        case .video:
-            self.youtubeNavigationSelection == .home
-        }
     }
 
     /// Label for repeat mode menu item.

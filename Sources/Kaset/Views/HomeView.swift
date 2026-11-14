@@ -49,7 +49,7 @@ struct HomeView: View {
                 }
             }
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .home)
     }
 
     // MARK: - Views
