@@ -1,8 +1,8 @@
-# ADR-0033: Audio Route Loss Recovery and Now Playing Ownership
+# ADR-0043: Audio Route Loss Recovery and Now Playing Ownership
 
 ## Status
 
-Implemented
+Accepted
 
 ## Context
 
