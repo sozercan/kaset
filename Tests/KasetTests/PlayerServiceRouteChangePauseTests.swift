@@ -213,6 +213,30 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A paused clock restoration retires a pending remote-pause attribution")
+    func pausedRestorationRetiresUnattributedPause() async {
+        let playerService = self.makePlayingService()
+        let admittedAt = ContinuousClock.now
+        await playerService.pause(
+            intent: playerService.currentMusicPlaybackIntent,
+            origin: .unattributedRemote(admittedAt: admittedAt)
+        )
+
+        playerService.beginPlaybackClockRestoration(
+            MusicPlaybackRestoreClock(progress: 30, duration: 300),
+            songDuration: 300,
+            startsPaused: true
+        )
+        playerService.reattributeRemotePauseToRouteLoss { $0 == admittedAt }
+        playerService.hasAudioRouteReturned = { _ in true }
+        await playerService.resumeAfterRouteRestored()
+
+        #expect(playerService.isExplicitPauseIntentActive)
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }
