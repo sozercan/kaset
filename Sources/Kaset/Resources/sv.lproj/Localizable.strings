@@ -689,3 +689,11 @@
 "Talk to a companion app" = "Kommunicera med en tillhörande app";
 "Request a connection to its companion app." = "Begära en anslutning till sin tillhörande app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Det kan läsa och dela information som visas medan du är inloggad. Aktivera det bara om du litar på det.";
+
+// YouTube search history
+"Recent searches" = "Senaste sökningar";
+"YouTube search history" = "Sökhistorik på YouTube";
+"Manage" = "Hantera";
+"Review and delete YouTube search history in your Google Account" = "Granska och radera sökhistoriken på YouTube i ditt Google-konto";
+"Remove from search history" = "Ta bort från sökhistoriken";
+"Couldn't update YouTube search history." = "Det gick inte att uppdatera sökhistoriken på YouTube.";

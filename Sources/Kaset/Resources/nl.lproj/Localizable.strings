@@ -689,3 +689,11 @@
 "Talk to a companion app" = "Communiceren met een bijbehorende app";
 "Request a connection to its companion app." = "Een verbinding aanvragen met de bijbehorende app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "De extensie zou informatie kunnen lezen en delen die wordt getoond terwijl je bent ingelogd. Schakel deze alleen in als je de extensie vertrouwt.";
+
+// YouTube search history
+"Recent searches" = "Recente zoekopdrachten";
+"YouTube search history" = "YouTube-zoekgeschiedenis";
+"Manage" = "Beheren";
+"Review and delete YouTube search history in your Google Account" = "Bekijk en verwijder je YouTube-zoekgeschiedenis in je Google-account";
+"Remove from search history" = "Verwijderen uit zoekgeschiedenis";
+"Couldn't update YouTube search history." = "Kan YouTube-zoekgeschiedenis niet bijwerken.";

@@ -689,3 +689,11 @@
 "Talk to a companion app" = "التواصل مع تطبيق مرافق";
 "Request a connection to its companion app." = "طلب الاتصال بالتطبيق المرافق لها.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "قد تتمكن من قراءة المعلومات المعروضة أثناء تسجيل دخولك ومشاركتها. لا تفعّلها إلا إذا كنت تثق بها.";
+
+// YouTube search history
+"Recent searches" = "عمليات البحث الأخيرة";
+"YouTube search history" = "سجل البحث على YouTube";
+"Manage" = "إدارة";
+"Review and delete YouTube search history in your Google Account" = "راجِع سجل البحث على YouTube واحذفه في حسابك على Google";
+"Remove from search history" = "إزالة من سجل البحث";
+"Couldn't update YouTube search history." = "تعذّر تحديث سجل البحث على YouTube.";

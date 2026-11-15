@@ -687,3 +687,11 @@
 "Talk to a companion app" = "与配套应用通信";
 "Request a connection to its companion app." = "请求连接到其配套应用。";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "它可能会读取并共享你登录期间显示的信息。请仅在你信任它时启用。";
+
+// YouTube search history
+"Recent searches" = "最近搜索";
+"YouTube search history" = "YouTube 搜索记录";
+"Manage" = "管理";
+"Review and delete YouTube search history in your Google Account" = "在 Google 账号中查看和删除 YouTube 搜索记录";
+"Remove from search history" = "从搜索记录中移除";
+"Couldn't update YouTube search history." = "无法更新 YouTube 搜索记录。";

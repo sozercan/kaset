@@ -689,3 +689,11 @@
 "Talk to a companion app" = "Comunicare con un’app complementare";
 "Request a connection to its companion app." = "Richiedere una connessione alla propria app complementare.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Potrebbe leggere e condividere le informazioni mostrate mentre hai eseguito l’accesso. Attivala solo se ti fidi.";
+
+// YouTube search history
+"Recent searches" = "Ricerche recenti";
+"YouTube search history" = "Cronologia delle ricerche di YouTube";
+"Manage" = "Gestisci";
+"Review and delete YouTube search history in your Google Account" = "Rivedi ed elimina la cronologia delle ricerche di YouTube nel tuo account Google";
+"Remove from search history" = "Rimuovi dalla cronologia delle ricerche";
+"Couldn't update YouTube search history." = "Impossibile aggiornare la cronologia delle ricerche di YouTube.";

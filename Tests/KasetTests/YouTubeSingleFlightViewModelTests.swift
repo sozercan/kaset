@@ -454,6 +454,15 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         try await self.waitIfNeeded()
     }
 
+    func getSearchHistory() async throws -> [String] {
+        try await self.waitIfNeeded()
+        return []
+    }
+
+    func removeSearchHistoryEntry(query _: String) async throws {
+        try await self.waitIfNeeded()
+    }
+
     private func waitIfNeeded() async throws {
         if Task.isCancelled {
             throw CancellationError()

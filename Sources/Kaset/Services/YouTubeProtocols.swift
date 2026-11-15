@@ -142,6 +142,15 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Removes a video from Watch Later.
     func removeFromWatchLater(videoId: String) async throws
+
+    // MARK: Search history
+
+    /// The signed-in primary account's YouTube search history, most recent
+    /// first. Empty when signed out or while a brand account is active.
+    func getSearchHistory() async throws -> [String]
+
+    /// Removes one query from the signed-in account's YouTube search history.
+    func removeSearchHistoryEntry(query: String) async throws
 }
 
 // MARK: - YouTubeClientProtocol Convenience

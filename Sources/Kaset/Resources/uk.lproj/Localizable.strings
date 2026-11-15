@@ -689,3 +689,11 @@
 "Talk to a companion app" = "Зв’язуватися із супутньою програмою";
 "Request a connection to its companion app." = "Запитувати з’єднання зі своєю супутньою програмою.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Воно зможе читати й передавати інформацію, яка відображається, поки ви ввійшли в обліковий запис. Вмикайте його, лише якщо довіряєте йому.";
+
+// YouTube search history
+"Recent searches" = "Нещодавні запити";
+"YouTube search history" = "Історія пошуку YouTube";
+"Manage" = "Керувати";
+"Review and delete YouTube search history in your Google Account" = "Переглянути й видалити історію пошуку YouTube в обліковому записі Google";
+"Remove from search history" = "Видалити з історії пошуку";
+"Couldn't update YouTube search history." = "Не вдалося оновити історію пошуку YouTube.";
