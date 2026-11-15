@@ -44,6 +44,17 @@ final class YouTubeSearchViewModel {
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var paginationTask: Task<Void, Never>?
     @ObservationIgnored private var accountHistoryTask: Task<Bool, Never>?
+    /// Account entries whose removal is in flight. A load that finishes
+    /// meanwhile leaves them out, so it can't bring back an entry that is
+    /// still being removed.
+    @ObservationIgnored private var pendingAccountRemovals: [String] = []
+    /// Recent-search removals made while a load was pending and the account
+    /// copy wasn't published yet. The next history that publishes drops
+    /// their account copies and removes them, then forgets them all. One
+    /// that waits longer than `awaitingRemovalLifetime`, or whose query is
+    /// searched again, is dropped, so a later search of it stays.
+    @ObservationIgnored private var removalsAwaitingLoad: [(entry: String, expires: Date)] = []
+    private static let awaitingRemovalLifetime: TimeInterval = 60
     /// Identifies the load that owns `accountHistoryTask`, so a load that
     /// finishes after being replaced can't clear its successor's state.
     @ObservationIgnored private var accountHistoryLoadID = 0
@@ -82,6 +93,9 @@ final class YouTubeSearchViewModel {
         }
 
         self.historyStore.record(context.query)
+        // Searched again: an older removal waiting for the history must not
+        // delete this new search.
+        self.removalsAwaitingLoad.removeAll { YouTubeSearchHistoryStore.matches($0.entry, context.query) }
         self.recentSearches = self.historyStore.entries
         // Signed-in searches land in the account history too; refetch it the
         // next time the history shows.
@@ -183,16 +197,33 @@ final class YouTubeSearchViewModel {
         guard let accountEntry = self.accountSearchHistory.first(where: {
             YouTubeSearchHistoryStore.matches($0, entry)
         }) else {
+            // A pending load may still bring the account copy; handle it
+            // when the history publishes, whichever load that is.
+            if self.accountHistoryTask != nil {
+                self.removalsAwaitingLoad.append((entry, Date().addingTimeInterval(Self.awaitingRemovalLifetime)))
+            }
             return
         }
+        await self.removeAccountEntry(accountEntry)
+    }
 
-        let matchesEntry: (String) -> Bool = { YouTubeSearchHistoryStore.matches($0, entry) }
-        let previousIndex = self.accountSearchHistory.firstIndex(where: matchesEntry) ?? 0
+    /// Removes an entry from the account history and confirms the removal.
+    ///
+    /// - Parameter restoreIndex: where the entry goes back if the removal
+    ///   fails, for one that isn't in the shown history.
+    private func removeAccountEntry(_ accountEntry: String, restoreIndex: Int? = nil) async {
+        let matchesEntry: (String) -> Bool = { YouTubeSearchHistoryStore.matches($0, accountEntry) }
+        let previousIndex = self.accountSearchHistory.firstIndex(where: matchesEntry) ?? restoreIndex ?? 0
         self.accountHistoryGeneration += 1
         self.accountSearchHistory.removeAll(where: matchesEntry)
+        self.pendingAccountRemovals.append(accountEntry)
         do {
             try await self.client.removeSearchHistoryEntry(query: accountEntry)
+            // Settled: the confirmation below must be able to see the entry
+            // if YouTube kept it.
+            self.settlePendingRemoval(accountEntry)
         } catch {
+            self.settlePendingRemoval(accountEntry)
             if error is CancellationError {
                 return
             }
@@ -217,6 +248,12 @@ final class YouTubeSearchViewModel {
         }
         if self.accountSearchHistory.contains(where: matchesEntry) {
             self.searchHistoryFailureCount += 1
+        }
+    }
+
+    private func settlePendingRemoval(_ accountEntry: String) {
+        if let index = self.pendingAccountRemovals.firstIndex(of: accountEntry) {
+            self.pendingAccountRemovals.remove(at: index)
         }
     }
 
@@ -247,8 +284,28 @@ final class YouTubeSearchViewModel {
             guard generation == self.accountHistoryGeneration, self.accountHistoryLoadID == loadID else {
                 return false
             }
-            self.accountSearchHistory = history
+            // A removal still in flight here started before this request:
+            // one started after it would have bumped the generation, and the
+            // result would have been dropped above. YouTube may still list
+            // its entry, so keep it out until it settles. Removals requested
+            // before any history showed their entry are carried out now.
+            let now = Date()
+            let awaiting = self.removalsAwaitingLoad.filter { $0.expires > now }.map(\.entry)
+            self.removalsAwaitingLoad = []
+            let isAwaitingRemoval: (String) -> Bool = { entry in
+                awaiting.contains { YouTubeSearchHistoryStore.matches(entry, $0) }
+            }
+            self.accountSearchHistory = history.filter { entry in
+                !isAwaitingRemoval(entry)
+                    && !self.pendingAccountRemovals.contains { YouTubeSearchHistoryStore.matches($0, entry) }
+            }
             self.accountHistoryLoadedAt = Date()
+            // Each stays hidden and comes back only if its removal fails.
+            for (index, entry) in history.enumerated() where isAwaitingRemoval(entry) {
+                Task {
+                    await self.removeAccountEntry(entry, restoreIndex: index)
+                }
+            }
             return true
         } catch {
             if !(error is CancellationError) {

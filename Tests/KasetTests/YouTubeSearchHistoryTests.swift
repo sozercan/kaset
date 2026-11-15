@@ -199,6 +199,146 @@ struct YouTubeSearchViewModelHistoryTests {
         #expect(self.sut.searchHistoryFailureCount == 0)
     }
 
+    @Test("A removal during the first history load still removes the account entry")
+    func removalDuringFirstLoad() async {
+        self.mockClient.accountSearchHistory = ["jazz", "news"]
+        let loadEntered = AsyncGate()
+        let releaseLoad = AsyncGate()
+        self.mockClient.beforeSearchHistoryReturn = {
+            await loadEntered.open()
+            await releaseLoad.wait()
+        }
+        let firstLoad = Task { await self.sut.loadAccountSearchHistory() }
+        await loadEntered.wait()
+        self.mockClient.beforeSearchHistoryReturn = nil
+
+        await self.sut.removeSearchHistoryEntry("jazz")
+        await releaseLoad.open()
+        await firstLoad.value
+        // The load hands the removal to a task of its own.
+        for _ in 0 ..< 200 where self.mockClient.accountSearchHistory != ["news"] {
+            await Task.yield()
+        }
+
+        #expect(self.mockClient.removedSearchHistoryEntries == ["jazz"])
+        #expect(self.sut.accountSearchHistory == ["news"])
+    }
+
+    @Test("A removal waiting on a load that gets dropped is carried out by the next one")
+    func removalOutlivesDroppedLoad() async {
+        self.mockClient.accountSearchHistory = ["a"]
+        await self.sut.loadAccountSearchHistory()
+        // A refresh starts while YouTube already lists a new search.
+        self.mockClient.accountSearchHistory = ["a", "jazz"]
+        let loadEntered = AsyncGate()
+        let releaseLoad = AsyncGate()
+        self.mockClient.beforeSearchHistoryReturn = {
+            await loadEntered.open()
+            await releaseLoad.wait()
+        }
+        let refresh = Task { await self.sut.loadAccountSearchHistory(force: true) }
+        await loadEntered.wait()
+        self.mockClient.beforeSearchHistoryReturn = nil
+
+        // Removing "a" makes the refresh stale; "jazz" isn't shown yet.
+        let removeA = Task { await self.sut.removeSearchHistoryEntry("a") }
+        while self.mockClient.removedSearchHistoryEntries.isEmpty {
+            await Task.yield()
+        }
+        await self.sut.removeSearchHistoryEntry("jazz")
+        await releaseLoad.open()
+        await refresh.value
+        await removeA.value
+        for _ in 0 ..< 200 where self.mockClient.removedSearchHistoryEntries.count < 2 {
+            await Task.yield()
+        }
+        for _ in 0 ..< 200 where !self.sut.accountSearchHistory.isEmpty {
+            await Task.yield()
+        }
+
+        #expect(self.mockClient.removedSearchHistoryEntries == ["a", "jazz"])
+        #expect(self.sut.accountSearchHistory.isEmpty)
+        #expect(self.sut.searchHistoryFailureCount == 0)
+    }
+
+    @Test("A query searched again after a deferred removal is left alone")
+    func deferredRemovalAppliesOnce() async {
+        self.mockClient.accountSearchHistory = ["news"]
+        let releaseLoad = AsyncGate()
+        let loadEntered = AsyncGate()
+        self.mockClient.beforeSearchHistoryReturn = {
+            await loadEntered.open()
+            await releaseLoad.wait()
+        }
+        let firstLoad = Task { await self.sut.loadAccountSearchHistory() }
+        await loadEntered.wait()
+        self.mockClient.beforeSearchHistoryReturn = nil
+        // "jazz" isn't in the account at all; the first load publishes without it.
+        await self.sut.removeSearchHistoryEntry("jazz")
+        await releaseLoad.open()
+        await firstLoad.value
+
+        // Searched again later, YouTube records it, and the next load keeps it.
+        self.mockClient.accountSearchHistory = ["jazz", "news"]
+        await self.sut.loadAccountSearchHistory(force: true)
+
+        #expect(self.sut.accountSearchHistory == ["jazz", "news"])
+        #expect(self.mockClient.removedSearchHistoryEntries.isEmpty)
+    }
+
+    @Test("A confirmation load leaves out an entry whose removal is still pending")
+    func confirmationSkipsPendingRemoval() async {
+        self.mockClient.accountSearchHistory = ["a", "b"]
+        await self.sut.loadAccountSearchHistory()
+        let releaseB = AsyncGate()
+        self.mockClient.beforeSearchHistoryRemoval = { query in
+            if query == "b" {
+                await releaseB.wait()
+            }
+        }
+
+        let removeB = Task { await self.sut.removeSearchHistoryEntry("b") }
+        while self.sut.accountSearchHistory.contains("b") {
+            await Task.yield()
+        }
+        // "a" is removed and confirmed while YouTube still lists "b".
+        await self.sut.removeSearchHistoryEntry("a")
+        #expect(self.sut.accountSearchHistory.isEmpty)
+
+        await releaseB.open()
+        await removeB.value
+
+        #expect(self.sut.accountSearchHistory.isEmpty)
+        #expect(self.mockClient.removedSearchHistoryEntries == ["a", "b"])
+        #expect(self.sut.searchHistoryFailureCount == 0)
+    }
+
+    @Test("Searching a query again cancels its removal that waits for the history")
+    func searchAgainCancelsAwaitingRemoval() async {
+        self.mockClient.accountSearchHistory = ["news"]
+        let loadEntered = AsyncGate()
+        let releaseLoad = AsyncGate()
+        self.mockClient.beforeSearchHistoryReturn = {
+            await loadEntered.open()
+            await releaseLoad.wait()
+        }
+        let firstLoad = Task { await self.sut.loadAccountSearchHistory() }
+        await loadEntered.wait()
+        self.mockClient.beforeSearchHistoryReturn = nil
+        await self.sut.removeSearchHistoryEntry("jazz")
+
+        // Searched again before the history shows; YouTube records it.
+        self.sut.query = "jazz"
+        await self.sut.search()
+        self.mockClient.accountSearchHistory = ["jazz", "news"]
+        await releaseLoad.open()
+        await firstLoad.value
+        await self.sut.loadAccountSearchHistory(force: true)
+
+        #expect(self.sut.accountSearchHistory == ["jazz", "news"])
+        #expect(self.mockClient.removedSearchHistoryEntries.isEmpty)
+    }
+
     @Test("A failed account removal restores the entry and reports it")
     func removeEntryFailure() async {
         self.mockClient.accountSearchHistory = ["jazz"]
