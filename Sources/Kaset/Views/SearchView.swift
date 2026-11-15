@@ -55,6 +55,7 @@ struct SearchView: View {
             }
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Search Bar

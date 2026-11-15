@@ -85,7 +85,7 @@ struct LibraryView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Library")
-            .navigationDestination(for: Playlist.self) { playlist in
+            .swipeBackNavigationDestination(for: Playlist.self) { playlist in
                 if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                     PlaylistDetailView(
                         playlist: playlist,
@@ -106,7 +106,7 @@ struct LibraryView: View {
                     .environment(\.libraryViewModel, self.viewModel)
                 }
             }
-            .navigationDestination(for: Artist.self) { artist in
+            .swipeBackNavigationDestination(for: Artist.self) { artist in
                 ArtistDetailView(
                     artist: artist,
                     viewModel: ArtistDetailViewModel(
@@ -116,7 +116,7 @@ struct LibraryView: View {
                     )
                 )
             }
-            .navigationDestination(for: TopSongsDestination.self) { destination in
+            .swipeBackNavigationDestination(for: TopSongsDestination.self) { destination in
                 TopSongsView(
                     viewModel: TopSongsViewModel(
                         destination: destination,
@@ -124,7 +124,7 @@ struct LibraryView: View {
                     )
                 )
             }
-            .navigationDestination(for: PodcastShow.self) { show in
+            .swipeBackNavigationDestination(for: PodcastShow.self) { show in
                 PodcastShowView(show: show, client: self.viewModel.client)
             }
             .playerBarMusicNavigation(path: self.$navigationPath)
@@ -149,6 +149,7 @@ struct LibraryView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views

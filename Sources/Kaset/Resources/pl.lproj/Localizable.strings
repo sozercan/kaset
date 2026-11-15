@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Komunikować się z aplikacją towarzyszącą";
 "Request a connection to its companion app." = "Żądać połączenia z jego aplikacją towarzyszącą.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Mogłoby odczytywać i udostępniać informacje wyświetlane, gdy jesteś zalogowany. Włącz je tylko wtedy, gdy mu ufasz.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "Przesuń, aby wrócić";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "Przesuń w prawo na gładziku, aby wrócić do poprzedniej strony, gestem „Przesuwanie między stronami” z Ustawień systemowych";

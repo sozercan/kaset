@@ -1257,6 +1257,46 @@ The `PlayerBar` must be added to **every navigable view** via `safeAreaInset`:
 - Views pushed onto a `NavigationStack` don't inherit parent's `safeAreaInset`
 - Each view must explicitly include the `PlayerBar`
 
+### Swipe to Go Back
+
+A trackpad swipe to the right pops the current navigation stack one level, with
+a chevron that follows the fingers and fills once letting go would go back
+(`Views/SharedViews/NavigationSwipeBack.swift`). Two pieces wire it up:
+
+- Every `NavigationStack` that has a path applies `.navigationSwipeBack(path:)`,
+  next to `.popsNavigationStackOnSidebarReselect` where a stack has it. It puts
+  the stack's go-back action in its root content's environment.
+- The destination builders (`navigationDestinations(client:)` and
+  `youtubeNavigationDestinations(client:)`) read that action where they are
+  declared and apply `.navigationSwipeBackTarget(_:)` with it to every pushed
+  page, which tracks the gesture and draws the indicator. Add the target to any
+  new destination builder. A view that declares its own destinations uses
+  `.swipeBackNavigationDestination(for:destination:)`, which does the same.
+  The target also puts the action back into the pushed page's environment, so
+  destinations the page declares itself get it too. A page pushed with
+  `navigationDestination(isPresented:)` isn't on the path: give it a target
+  whose action clears its flag.
+- Neither half works alone. Inside a `NavigationSplitView`, pushed pages take
+  the split view's environment, not the stack's, so they can't read the action
+  themselves. And the stack can't carry the target: SwiftUI detaches a covered
+  page's views, including a background on the stack, from the window, so only
+  the page on top is reachable.
+
+How a swipe is recognized:
+
+- One app-wide local event monitor, `NavigationSwipeMonitor`, routes each
+  gesture to the innermost pushed page under the pointer.
+- It follows the "Swipe between pages" setting in System Settings → Trackpad:
+  two-finger swipes arrive as phased scroll events and are tracked by the pure
+  `NavigationSwipeTracker`; three-finger swipes arrive as one `.swipe` event.
+- The view-tree search for a scroller runs only while a gesture's direction is
+  undecided, so ordinary scrolling doesn't pay for it.
+- A horizontal scroller under the pointer (a shelf, a carousel) keeps the
+  swipe while it can still scroll that way, toward its leading edge with
+  natural scrolling and its trailing edge without; the swipe goes back only
+  from that edge.
+- Settings → General → Swipe to Go Back turns it off.
+
 ### Sidebar
 
 **File**: `Sources/Kaset/Views/Sidebar.swift`

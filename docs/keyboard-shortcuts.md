@@ -37,6 +37,10 @@ in YouTube mode, `⌘1`/`⌘2`/`⌘F` go to the YouTube Home/Explore/Search
 surfaces and `⌘3` goes to Playlists.
 `⇧⌘R` refreshes the active source's Home feed and bypasses its cached suggestions.
 
+On a trackpad, swipe right to go back a page, as in a browser. The gesture
+follows "Swipe between pages" in System Settings → Trackpad (two or three
+fingers) and can be turned off in Settings → General → Swipe to Go Back.
+
 With macOS Keyboard navigation enabled, `Tab` moves between shelf cards and each
 song's Like/Unlike control. `⇧Tab` moves in reverse. `Return` or `Space` activates
 the focused card or toggles the focused Like/Unlike control.

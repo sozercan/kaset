@@ -51,6 +51,7 @@ struct ExploreView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .explore)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views

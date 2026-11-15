@@ -687,3 +687,7 @@
 "Talk to a companion app" = "与配套应用通信";
 "Request a connection to its companion app." = "请求连接到其配套应用。";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "它可能会读取并共享你登录期间显示的信息。请仅在你信任它时启用。";
+
+// Navigation swipe back
+"Swipe to Go Back" = "轻扫返回";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "使用“系统设置”中的“在页面之间轻扫”手势，在触控板上向右轻扫可返回上一页";

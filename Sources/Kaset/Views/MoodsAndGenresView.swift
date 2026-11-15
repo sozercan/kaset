@@ -51,6 +51,7 @@ struct MoodsAndGenresView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views
