@@ -124,6 +124,10 @@ final class YouTubeWatchViewModel {
     /// Threads with a reply being posted.
     private(set) var postingReplyThreads: Set<String> = []
 
+    /// Loaded replies already taken for YouTube's copy of a reply posted
+    /// here. Each stands in for one posted reply only.
+    @ObservationIgnored private var claimedServerCopies: Set<String> = []
+
     func load(accountScope: YouTubeAskAccountScopeObservation? = nil) async {
         let accountScopeChanged: Bool
         if let accountScope {
@@ -226,6 +230,7 @@ final class YouTubeWatchViewModel {
         self.loadingReplies = []
         self.postedReplies = [:]
         self.postingReplyThreads = []
+        self.claimedServerCopies = []
         self.loadingState = .idle
     }
 
@@ -388,18 +393,13 @@ final class YouTubeWatchViewModel {
             let replies = page.comments.filter { $0.id != comment.id }
             self.repliesByComment[comment.id] = replies
             // A reply posted here before the thread loaded can come back in
-            // it; show it once, as YouTube returned it. Each loaded reply with
-            // the same text stands in for one posted copy. YouTube lists
-            // replies by handle, so authors are compared only when the posted
-            // copy carries one, not a display name or the "You" fallback.
+            // it; show it once, as YouTube returned it. Each loaded copy
+            // stands in for one posted reply.
             if var remaining = self.postedReplies[comment.id] {
                 for reply in replies {
-                    let text = reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    let match = remaining.firstIndex { posted in
-                        posted.text == text && (!posted.author.hasPrefix("@") || posted.author == reply.author)
-                    }
-                    if let match {
+                    if let match = remaining.firstIndex(where: { Self.isServerCopy(reply, of: $0) }) {
                         remaining.remove(at: match)
+                        self.claimedServerCopies.insert(reply.id)
                     }
                 }
                 self.postedReplies[comment.id] = remaining.isEmpty ? nil : remaining
@@ -433,6 +433,8 @@ final class YouTubeWatchViewModel {
         }
 
         let generation = self.commentsGeneration
+        // Replies already loaded can't be this one's copy from YouTube.
+        let loadedBeforePosting = Set(self.repliesByComment[thread.id]?.map(\.id) ?? [])
         self.postingReplyThreads.insert(thread.id)
         defer {
             if generation == self.commentsGeneration {
@@ -450,7 +452,17 @@ final class YouTubeWatchViewModel {
                 publishedText: nil,
                 likeCountText: nil
             )
-            self.postedReplies[thread.id, default: []].append(reply)
+            // The thread may have loaded with YouTube's copy while this posted.
+            // A copy that already stood in for an earlier posted reply doesn't
+            // count again.
+            let loadedWhilePosting = (self.repliesByComment[thread.id] ?? []).filter {
+                !loadedBeforePosting.contains($0.id) && !self.claimedServerCopies.contains($0.id)
+            }
+            if let copy = loadedWhilePosting.first(where: { Self.isServerCopy($0, of: reply) }) {
+                self.claimedServerCopies.insert(copy.id)
+            } else {
+                self.postedReplies[thread.id, default: []].append(reply)
+            }
             HapticService.success()
             return true
         } catch {
@@ -459,6 +471,17 @@ final class YouTubeWatchViewModel {
             HapticService.error()
             return false
         }
+    }
+
+    /// Whether `loaded` is YouTube's copy of `posted`, a reply posted here:
+    /// the same text by the same handle. YouTube lists replies by handle, so
+    /// a reply posted without one (shown by display name, or as "You" before
+    /// the account loads) matches nothing. Showing it twice beats hiding it
+    /// behind someone else's reply with the same text.
+    private static func isServerCopy(_ loaded: YouTubeComment, of posted: YouTubeComment) -> Bool {
+        posted.author.hasPrefix("@")
+            && loaded.author == posted.author
+            && loaded.text.trimmingCharacters(in: .whitespacesAndNewlines) == posted.text
     }
 
     /// Posts a top-level comment; returns true on success.

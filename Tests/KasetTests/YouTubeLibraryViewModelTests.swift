@@ -479,8 +479,8 @@ struct YouTubeWatchViewModelActionTests {
         #expect(sut.postedReplies["p1"]?.map(\.text) == ["Thanks!", "Twice"])
     }
 
-    @Test("A reply posted without the account's handle is matched by text when the thread loads")
-    func postedReplyWithoutHandleMatchesByText() async {
+    @Test("A reply posted without the account's handle isn't matched by text alone")
+    func postedReplyWithoutHandleStays() async {
         let client = MockYouTubeClient()
         let sut = YouTubeWatchViewModel(
             video: MockYouTubeClient.makeVideo(videoId: "abc"),
@@ -490,20 +490,107 @@ struct YouTubeWatchViewModelActionTests {
         thread.repliesContinuation = "replies-token"
 
         // No account loaded: shown as "You". An account without a handle: by name.
-        #expect(await sut.postReply(text: "First", to: thread, inThread: thread, author: nil))
-        #expect(await sut.postReply(text: "Second", to: thread, inThread: thread, author: (name: "Me", avatarURL: nil)))
+        #expect(await sut.postReply(text: "Thanks!", to: thread, inThread: thread, author: nil))
+        #expect(await sut.postReply(text: "Same", to: thread, inThread: thread, author: (name: "Me", avatarURL: nil)))
 
         client.commentsPage = YouTubeCommentsPage(
             comments: [
-                Self.comment(id: "r1", text: "First", replyParams: "params-r1", author: "@me"),
-                Self.comment(id: "r2", text: "Second", replyParams: "params-r2", author: "@me"),
+                Self.comment(id: "r1", text: "Thanks!", replyParams: "params-r1", author: "@other"),
+                Self.comment(id: "r2", text: "Same", replyParams: "params-r2", author: "@other"),
             ],
             continuation: nil,
             createCommentParams: nil
         )
         await sut.loadReplies(for: thread)
 
+        #expect(sut.postedReplies["p1"]?.map(\.text) == ["Thanks!", "Same"])
+    }
+
+    @Test("A thread that loads with the reply while it posts shows it once")
+    func threadLoadedWhilePostingShowsReplyOnce() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        var thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        thread.repliesContinuation = "replies-token"
+        let gate = AsyncGate()
+        client.beforePostReplyReturn = {
+            await gate.wait()
+        }
+
+        let post = Task {
+            await sut.postReply(text: "Echoed", to: thread, inThread: thread, author: (name: "@me", avatarURL: nil))
+        }
+        await self.waitUntil(sut.postingReplyThreads.contains("p1"))
+        // YouTube has the reply before the post's response arrives.
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [Self.comment(id: "r1", text: "Echoed", replyParams: "params-r1", author: "@me")],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadReplies(for: thread)
+        await gate.open()
+
+        #expect(await post.value)
+        #expect(sut.repliesByComment["p1"]?.map(\.id) == ["r1"])
         #expect(sut.postedReplies["p1"] == nil)
+    }
+
+    @Test("A loaded copy that stood in for an earlier posted reply doesn't hide a second one")
+    func loadedCopyStandsInOnce() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        var thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        thread.repliesContinuation = "replies-token"
+        let me = (name: "@me", avatarURL: URL?.none)
+        #expect(await sut.postReply(text: "Thanks!", to: thread, inThread: thread, author: me))
+
+        let gate = AsyncGate()
+        client.beforePostReplyReturn = {
+            await gate.wait()
+        }
+        let second = Task {
+            await sut.postReply(text: "Thanks!", to: thread, inThread: thread, author: me)
+        }
+        await self.waitUntil(sut.postingReplyThreads.contains("p1"))
+        // Only the first reply is on YouTube when the thread loads.
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [Self.comment(id: "r1", text: "Thanks!", replyParams: "params-r1", author: "@me")],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadReplies(for: thread)
+        #expect(sut.postedReplies["p1"] == nil)
+        await gate.open()
+
+        #expect(await second.value)
+        #expect(sut.postedReplies["p1"]?.map(\.text) == ["Thanks!"])
+    }
+
+    @Test("An earlier reply with the same text, loaded before posting, doesn't hide the new one")
+    func earlierIdenticalReplyDoesNotHideNewOne() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        var thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        thread.repliesContinuation = "replies-token"
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [Self.comment(id: "r1", text: "Thanks!", replyParams: "params-r1", author: "@me")],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadReplies(for: thread)
+
+        #expect(await sut.postReply(text: "Thanks!", to: thread, inThread: thread, author: (name: "@me", avatarURL: nil)))
+
+        #expect(sut.postedReplies["p1"]?.map(\.text) == ["Thanks!"])
     }
 
     private static func comment(
