@@ -15,23 +15,47 @@ extension View {
     /// Registers navigation destinations for YouTube routes
     /// (parallel to the music side's `navigationDestinations(client:)`).
     func youtubeNavigationDestinations(client: any YouTubeClientProtocol) -> some View {
-        navigationDestination(for: YouTubeRoute.self) { route in
-            // Pushed views don't inherit safeAreaInsets, so every
-            // destination carries its own player bar (music-side rule).
-            switch route {
-            case let .watch(video):
-                // Attaches its own bar so it can hand the controls to the
-                // docked video (Settings → YouTube → Show Controls on Video).
-                YouTubeWatchView(video: video, client: client)
-            case let .channel(channelId):
-                YouTubeChannelView(channelId: channelId, client: client)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .youtubePagePlayerBarInset()
-            case let .playlist(playlistId):
-                YouTubePlaylistDetailView(playlistId: playlistId, client: client)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .youtubePagePlayerBarInset()
-            }
+        modifier(YouTubeNavigationDestinationsModifier(client: client))
+    }
+}
+
+// MARK: - YouTubeNavigationDestinationsModifier
+
+private struct YouTubeNavigationDestinationsModifier: ViewModifier {
+    let client: any YouTubeClientProtocol
+
+    @Environment(\.navigationSwipeBackAction) private var swipeBackAction
+
+    func body(content: Content) -> some View {
+        content.navigationDestination(for: YouTubeRoute.self) { route in
+            YouTubeRouteDestination(route: route, client: self.client)
+                .navigationSwipeBackTarget(self.swipeBackAction)
+        }
+    }
+}
+
+// MARK: - YouTubeRouteDestination
+
+private struct YouTubeRouteDestination: View {
+    let route: YouTubeRoute
+    let client: any YouTubeClientProtocol
+
+    var body: some View {
+        // Pushed views don't inherit safeAreaInsets, so every
+        // destination carries its own player bar (music-side rule).
+        switch self.route {
+        case let .watch(video):
+            // Attaches its own bar so it can hand the controls to the
+            // docked video (Settings → YouTube → Show Controls on Video).
+            YouTubeWatchView(video: video, client: self.client)
+        case let .channel(channelId):
+            YouTubeChannelView(channelId: channelId, client: self.client)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .youtubePagePlayerBarInset()
+        case let .playlist(playlistId):
+            YouTubePlaylistDetailView(playlistId: playlistId, client: self.client)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .youtubePagePlayerBarInset()
         }
     }
 }

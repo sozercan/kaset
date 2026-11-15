@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Зв’язуватися із супутньою програмою";
 "Request a connection to its companion app." = "Запитувати з’єднання зі своєю супутньою програмою.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Воно зможе читати й передавати інформацію, яка відображається, поки ви ввійшли в обліковий запис. Вмикайте його, лише якщо довіряєте йому.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "Свайп для повернення назад";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "Змахніть праворуч на трекпеді, щоб повернутися на попередню сторінку, жестом «Змахування між сторінками» із Системних параметрів";

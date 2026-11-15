@@ -50,6 +50,7 @@ struct HomeView: View {
             }
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views

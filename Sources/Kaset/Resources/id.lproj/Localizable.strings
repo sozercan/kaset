@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Berkomunikasi dengan aplikasi pendamping";
 "Request a connection to its companion app." = "Meminta koneksi ke aplikasi pendampingnya.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Ekstensi ini dapat membaca dan membagikan informasi yang ditampilkan saat Anda masuk. Aktifkan hanya jika Anda memercayainya.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "Geser untuk Kembali";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "Geser ke kanan pada trackpad untuk kembali ke halaman sebelumnya, menggunakan gerakan Gesek antarhalaman dari Pengaturan Sistem";

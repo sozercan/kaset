@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Kommunicera med en tillhörande app";
 "Request a connection to its companion app." = "Begära en anslutning till sin tillhörande app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Det kan läsa och dela information som visas medan du är inloggad. Aktivera det bara om du litar på det.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "Svep för att gå tillbaka";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "Svep åt höger på styrplattan för att gå tillbaka till föregående sida med gesten Svep mellan sidor i Systeminställningar";

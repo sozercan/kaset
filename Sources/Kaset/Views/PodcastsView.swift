@@ -56,6 +56,7 @@ struct PodcastsView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views

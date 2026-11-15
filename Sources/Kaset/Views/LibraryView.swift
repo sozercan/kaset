@@ -149,6 +149,7 @@ struct LibraryView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     // MARK: - Views
