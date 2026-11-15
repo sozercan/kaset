@@ -7,7 +7,7 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
+    /// Full view, Watch Later, AirPlay, captions, settings, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
     /// One 28pt option button plus its 6pt spacing.
     private static let optionButtonSlotWidth: CGFloat = 28 + 6
@@ -417,7 +417,7 @@ struct YouTubePlayerBar: View {
             .disabled(self.youtubePlayer.currentVideo == nil)
 
             self.compactCaptionsMenu
-            self.compactQualityMenu
+            self.compactSettingsMenu
 
             if self.showsFloatOnTopControl {
                 self.youtubeFloatOnTopButton
@@ -479,19 +479,35 @@ struct YouTubePlayerBar: View {
         .disabled(self.youtubePlayer.currentVideo == nil)
     }
 
-    private var compactQualityMenu: some View {
+    /// Gear menu in the spirit of YouTube's own: the audio track (when the
+    /// video has dubs) as a submenu, then the quality levels.
+    private var compactSettingsMenu: some View {
         PlayerBarIconMenu(
             accessibilityID: AccessibilityID.YouTubeContent.qualityButton,
-            accessibilityLabel: String(localized: "Video quality")
+            accessibilityLabel: String(localized: "Video settings")
         ) {
-            ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
-                Button {
-                    self.youtubePlayer.selectQuality(level)
-                } label: {
-                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
-                        Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
-                    } else {
-                        Text(YouTubeQuality.displayName(for: level))
+            if self.youtubePlayer.audioTracks.count > 1 {
+                Picker(String(localized: "Audio track"), selection: self.audioTrackSelection) {
+                    ForEach(self.youtubePlayer.audioTracks) { track in
+                        Text(track.displayName).tag(track.id)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier(AccessibilityID.YouTubeContent.audioTrackMenu)
+            }
+
+            if !self.youtubePlayer.qualityLevels.isEmpty {
+                Section(String(localized: "Video quality")) {
+                    ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
+                        Button {
+                            self.youtubePlayer.selectQuality(level)
+                        } label: {
+                            if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
+                                Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
+                            } else {
+                                Text(YouTubeQuality.displayName(for: level))
+                            }
+                        }
                     }
                 }
             }
@@ -501,7 +517,14 @@ struct YouTubePlayerBar: View {
                 .frame(width: 16, height: 16)
                 .foregroundStyle(.primary)
         }
-        .disabled(self.youtubePlayer.qualityLevels.isEmpty)
+        .disabled(self.youtubePlayer.currentVideo == nil)
+    }
+
+    private var audioTrackSelection: Binding<String> {
+        Binding(
+            get: { self.youtubePlayer.activeAudioTrackID ?? "" },
+            set: { self.youtubePlayer.selectAudioTrack(id: $0) }
+        )
     }
 
     private var youtubeVolumeOverlay: some View {
@@ -817,4 +840,5 @@ extension AccessibilityID.YouTubeContent {
     static let watchFullView = "youtubeContent.watchFullView"
     static let captionsButton = "youtubeContent.captionsButton"
     static let qualityButton = "youtubeContent.qualityButton"
+    static let audioTrackMenu = "youtubeContent.audioTrackMenu"
 }

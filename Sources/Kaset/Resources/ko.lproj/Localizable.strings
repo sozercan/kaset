@@ -689,3 +689,7 @@
 "Talk to a companion app" = "도우미 앱과 통신";
 "Request a connection to its companion app." = "확장 프로그램의 도우미 앱에 연결을 요청합니다.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "로그인한 동안 표시되는 정보를 읽고 공유할 수 있습니다. 신뢰할 수 있는 경우에만 켜세요.";
+
+// YouTube video settings
+"Video settings" = "동영상 설정";
+"Audio track" = "오디오 트랙";

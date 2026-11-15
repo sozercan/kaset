@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Mit einer Begleit-App kommunizieren";
 "Request a connection to its companion app." = "Eine Verbindung zu ihrer Begleit-App anfordern.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Sie könnte Informationen lesen und weitergeben, die angezeigt werden, während du angemeldet bist. Aktiviere sie nur, wenn du ihr vertraust.";
+
+// YouTube video settings
+"Video settings" = "Videoeinstellungen";
+"Audio track" = "Audiospur";
