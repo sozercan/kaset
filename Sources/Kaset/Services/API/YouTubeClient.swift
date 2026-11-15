@@ -21,6 +21,9 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     private let authService: AuthService
     private let webKitManager: WebKitManager
     private let session: URLSession
+    /// `session` without a URL cache, for search-box responses that carry the
+    /// account's search history.
+    private let searchBoxSession: URLSession
     private let cache: APICache
     let askTransport: YouTubeAskTransport
     let askMessageIDGenerator: YouTubeAskMessageIDGenerator
@@ -95,6 +98,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             URLSession(configuration: APISessionConfiguration.make())
         }
         self.session = resolvedSession
+        self.searchBoxSession = URLSession(configuration: Self.uncachedConfiguration(from: resolvedSession))
         self.cache = cache
         self.askTransport = YouTubeAskTransport(configuration: resolvedSession.configuration)
         self.askMessageIDGenerator = askMessageIDGenerator ?? YouTubeAskMessageIDGenerator()
@@ -639,6 +643,16 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
     }
 
+    /// A copy of `session`'s configuration that neither reads nor stores
+    /// responses in a URL cache. The copy keeps the session's protocol classes
+    /// and headers, so tests that inject a session still intercept these calls.
+    private static func uncachedConfiguration(from session: URLSession) -> URLSessionConfiguration {
+        let configuration = session.configuration
+        configuration.urlCache = nil
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        return configuration
+    }
+
     /// Account search history belongs to the primary Google account; the suggest
     /// endpoint has no brand-account selector, so brand accounts skip it.
     private var canUseAccountSearchHistory: Bool {
@@ -721,14 +735,14 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
-        // Personal data: never serve from or store in the shared URL cache, and
-        // keep response cookies out of the shared cookie store.
+        // Personal data: the search-box session has no URL cache, and response
+        // cookies stay out of the shared cookie store.
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
         request.httpShouldHandleCookies = false
         request.setValue(cookieHeader, forHTTPHeaderField: "Cookie")
         request.setValue(Self.origin, forHTTPHeaderField: "Referer")
 
-        let result = try await Self.performNetworkRequest(request: request, session: self.session)
+        let result = try await Self.performNetworkRequest(request: request, session: self.searchBoxSession)
         guard identityGeneration == self.authService.accountIdentityGeneration,
               self.authService.hasPersonalAccount
         else {

@@ -43,7 +43,10 @@ final class YouTubeSearchViewModel {
 
     @ObservationIgnored private var searchTask: Task<Void, Never>?
     @ObservationIgnored private var paginationTask: Task<Void, Never>?
-    @ObservationIgnored private var accountHistoryTask: Task<Void, Never>?
+    @ObservationIgnored private var accountHistoryTask: Task<Bool, Never>?
+    /// Identifies the load that owns `accountHistoryTask`, so a load that
+    /// finishes after being replaced can't clear its successor's state.
+    @ObservationIgnored private var accountHistoryLoadID = 0
     @ObservationIgnored private var accountHistoryLoadedAt: Date?
     /// Bumped by removals so loads that started earlier can't put a removed
     /// entry back when they finish.
@@ -97,6 +100,8 @@ final class YouTubeSearchViewModel {
         self.resetForEmptyQuery()
         self.accountHistoryTask?.cancel()
         self.accountHistoryTask = nil
+        self.accountHistoryLoadID += 1
+        self.isLoadingAccountSearchHistory = false
     }
 
     /// Loads the next page of results.
@@ -143,25 +148,30 @@ final class YouTubeSearchViewModel {
     /// Loads the account's YouTube search history unless a recent copy is
     /// already showing. Concurrent callers share one request, which survives
     /// SwiftUI `.task` restarts.
-    func loadAccountSearchHistory(force: Bool = false) async {
+    ///
+    /// - Returns: Whether the history now shown came from a successful load.
+    @discardableResult
+    func loadAccountSearchHistory(force: Bool = false) async -> Bool {
         while let accountHistoryTask {
-            await accountHistoryTask.value
+            let loaded = await accountHistoryTask.value
             // A forced load must reflect the state after the caller's change, so
             // it starts its own request instead of reusing one already running.
-            guard force else { return }
+            guard force else { return loaded }
         }
         if !force,
            let loadedAt = self.accountHistoryLoadedAt,
            Date().timeIntervalSince(loadedAt) < Self.accountHistoryLifetime
         {
-            return
+            return true
         }
 
+        self.accountHistoryLoadID += 1
+        let loadID = self.accountHistoryLoadID
         let task = Task {
-            await self.performAccountHistoryLoad()
+            await self.performAccountHistoryLoad(loadID: loadID)
         }
         self.accountHistoryTask = task
-        await task.value
+        return await task.value
     }
 
     /// Removes a query from Kaset's recent searches and, when it is also in
@@ -176,9 +186,10 @@ final class YouTubeSearchViewModel {
             return
         }
 
-        let previous = self.accountSearchHistory
+        let matchesEntry: (String) -> Bool = { YouTubeSearchHistoryStore.matches($0, entry) }
+        let previousIndex = self.accountSearchHistory.firstIndex(where: matchesEntry) ?? 0
         self.accountHistoryGeneration += 1
-        self.accountSearchHistory.removeAll { YouTubeSearchHistoryStore.matches($0, entry) }
+        self.accountSearchHistory.removeAll(where: matchesEntry)
         do {
             try await self.client.removeSearchHistoryEntry(query: accountEntry)
         } catch {
@@ -186,15 +197,25 @@ final class YouTubeSearchViewModel {
                 return
             }
             self.logger.error("Removing YouTube search history entry failed: \(error.localizedDescription)")
-            self.accountSearchHistory = previous
+            // Put back only this entry; other removals may be pending or done.
+            if !self.accountSearchHistory.contains(where: matchesEntry) {
+                let index = min(previousIndex, self.accountSearchHistory.count)
+                self.accountSearchHistory.insert(accountEntry, at: index)
+            }
             self.searchHistoryFailureCount += 1
             return
         }
 
         // The endpoint's reply carries nothing to check, so confirm by
         // refetching: an entry that comes back was not removed.
-        await self.loadAccountSearchHistory(force: true)
-        if self.accountSearchHistory.contains(where: { YouTubeSearchHistoryStore.matches($0, entry) }) {
+        guard await self.loadAccountSearchHistory(force: true) else {
+            // YouTube accepted the removal but the check itself failed. Don't
+            // report an error for a request that succeeded; refetch the history
+            // the next time it shows instead of trusting the pruned list.
+            self.accountHistoryLoadedAt = nil
+            return
+        }
+        if self.accountSearchHistory.contains(where: matchesEntry) {
             self.searchHistoryFailureCount += 1
         }
     }
@@ -205,27 +226,37 @@ final class YouTubeSearchViewModel {
         self.recentSearches = []
     }
 
-    private func performAccountHistoryLoad() async {
-        defer { self.accountHistoryTask = nil }
+    private func performAccountHistoryLoad(loadID: Int) async -> Bool {
+        // The task body runs on a later main-actor turn; a load replaced or
+        // cancelled before then must not touch the loading state at all.
+        guard self.accountHistoryLoadID == loadID else { return false }
+        defer {
+            if self.accountHistoryLoadID == loadID {
+                self.accountHistoryTask = nil
+                self.isLoadingAccountSearchHistory = false
+            }
+        }
         if self.accountHistoryLoadedAt == nil, self.accountSearchHistory.isEmpty {
             self.isLoadingAccountSearchHistory = true
         }
-        defer { self.isLoadingAccountSearchHistory = false }
 
         let generation = self.accountHistoryGeneration
         do {
             let history = try await self.client.getSearchHistory()
             // A removal since this request started makes its result stale.
-            guard generation == self.accountHistoryGeneration else { return }
+            guard generation == self.accountHistoryGeneration, self.accountHistoryLoadID == loadID else {
+                return false
+            }
             self.accountSearchHistory = history
             self.accountHistoryLoadedAt = Date()
+            return true
         } catch {
-            if error is CancellationError {
-                return
+            if !(error is CancellationError) {
+                // Account history is a convenience on top of recent searches; keep
+                // whatever is showing and try again next time.
+                self.logger.error("Loading YouTube search history failed: \(error.localizedDescription)")
             }
-            // Account history is a convenience on top of recent searches; keep
-            // whatever is showing and try again next time.
-            self.logger.error("Loading YouTube search history failed: \(error.localizedDescription)")
+            return false
         }
     }
 

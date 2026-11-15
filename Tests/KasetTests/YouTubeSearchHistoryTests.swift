@@ -211,6 +211,76 @@ struct YouTubeSearchViewModelHistoryTests {
         #expect(self.sut.searchHistoryFailureCount == 1)
     }
 
+    @Test("Overlapping failed removals each put back only their own entry")
+    func overlappingFailedRemovals() async {
+        self.mockClient.accountSearchHistory = ["a", "b"]
+        await self.sut.loadAccountSearchHistory()
+        self.mockClient.searchHistoryError = YTMusicError.networkError(underlying: URLError(.timedOut))
+        let releaseA = AsyncGate()
+        let releaseB = AsyncGate()
+        self.mockClient.beforeSearchHistoryRemoval = { query in
+            await (query == "a" ? releaseA : releaseB).wait()
+        }
+
+        let removeA = Task { await self.sut.removeSearchHistoryEntry("a") }
+        while self.sut.accountSearchHistory.contains("a") {
+            await Task.yield()
+        }
+        let removeB = Task { await self.sut.removeSearchHistoryEntry("b") }
+        while self.sut.accountSearchHistory.contains("b") {
+            await Task.yield()
+        }
+
+        // "a" fails while "b" is still pending, then "b" fails too.
+        await releaseA.open()
+        await removeA.value
+        await releaseB.open()
+        await removeB.value
+
+        #expect(Set(self.sut.accountSearchHistory) == ["a", "b"])
+        #expect(self.sut.searchHistoryFailureCount == 2)
+    }
+
+    @Test("A failed confirmation after a removal is not an error and refetches later")
+    func failedConfirmationMarksHistoryStale() async {
+        self.mockClient.accountSearchHistory = ["jazz", "news"]
+        await self.sut.loadAccountSearchHistory()
+        self.mockClient.searchHistoryLoadError = YTMusicError.networkError(underlying: URLError(.timedOut))
+
+        await self.sut.removeSearchHistoryEntry("jazz")
+
+        #expect(self.mockClient.removedSearchHistoryEntries == ["jazz"])
+        #expect(self.sut.accountSearchHistory == ["news"])
+        #expect(self.sut.searchHistoryFailureCount == 0)
+
+        self.mockClient.searchHistoryLoadError = nil
+        let calls = self.mockClient.searchHistoryCallCount
+        await self.sut.loadAccountSearchHistory()
+        #expect(self.mockClient.searchHistoryCallCount == calls + 1)
+    }
+
+    @Test("A load cancelled before or while it runs never leaves the spinner on")
+    func cancelledLoadNeverSticksSpinner() async throws {
+        // Where the cancel lands depends on main-actor scheduling, so repeat
+        // with fresh models; whichever way it interleaves, nothing may stay
+        // marked as loading.
+        for _ in 0 ..< 20 {
+            let suiteName = "YouTubeSearchViewModelHistoryTests.cancel.\(UUID().uuidString)"
+            let defaults = try #require(UserDefaults(suiteName: suiteName))
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            let client = MockYouTubeClient()
+            client.accountSearchHistory = ["jazz"]
+            let sut = YouTubeSearchViewModel(client: client, historyStore: YouTubeSearchHistoryStore(defaults: defaults))
+
+            let load = Task { await sut.loadAccountSearchHistory() }
+            await Task.yield()
+            sut.cancelSearch()
+            await load.value
+
+            #expect(sut.isLoadingAccountSearchHistory == false)
+        }
+    }
+
     @Test("Clearing recent searches leaves the account history alone")
     func clearRecentOnly() async {
         self.store.record("swift")
