@@ -7,12 +7,15 @@ import Foundation
 /// mutations in `frameworkUpdates`; older ones inline `commentRenderer`s.
 /// Both are handled.
 enum YouTubeCommentsParser {
-    /// Like/dislike action tokens from a comment's toolbar surface payload.
+    /// Like/dislike action tokens and reply params from a comment's toolbar
+    /// surface payload.
     private struct ToolbarSurface {
         let like: String?
         let unlike: String?
         let dislike: String?
         let undislike: String?
+        let replyParams: String?
+        let replyMention: String?
     }
 
     static func parse(_ data: [String: Any]) -> YouTubeCommentsPage {
@@ -58,7 +61,9 @@ enum YouTubeCommentsParser {
                     like: Self.actionToken(of: surface["likeCommand"]),
                     unlike: Self.actionToken(of: surface["unlikeCommand"]),
                     dislike: Self.actionToken(of: surface["dislikeCommand"]),
-                    undislike: Self.actionToken(of: surface["undislikeCommand"])
+                    undislike: Self.actionToken(of: surface["undislikeCommand"]),
+                    replyParams: surface["replyCommand"].flatMap { Self.firstString(forKey: "createReplyParams", in: $0) },
+                    replyMention: Self.replyMention(of: surface["replyCommand"])
                 )
             }
         }
@@ -83,6 +88,8 @@ enum YouTubeCommentsParser {
                     comment.unlikeAction = surface.unlike
                     comment.dislikeAction = surface.dislike
                     comment.undislikeAction = surface.undislike
+                    comment.replyParams = surface.replyParams
+                    comment.replyMention = surface.replyMention
                 }
                 comment.repliesContinuation = entry.replies
                 return comment
@@ -91,6 +98,40 @@ enum YouTubeCommentsParser {
 
         // Fallback: mutation order without thread/action linkage.
         return orderedPayloads.compactMap { Self.comment(fromEntityPayload: $0) }
+    }
+
+    /// The mention a reply dialog starts with (its `editableText`), which
+    /// YouTube sets when the comment is itself a reply.
+    private static func replyMention(of command: Any?) -> String? {
+        guard let command,
+              let editableText = firstValue(forKey: "editableText", in: command),
+              let text = YouTubeItemParser.text(from: editableText)?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty
+        else {
+            return nil
+        }
+        return text
+    }
+
+    /// Depth-first search for any value under the given key.
+    private static func firstValue(forKey key: String, in value: Any) -> Any? {
+        if let dict = value as? [String: Any] {
+            if let match = dict[key] {
+                return match
+            }
+            for nested in dict.values {
+                if let found = Self.firstValue(forKey: key, in: nested) {
+                    return found
+                }
+            }
+        } else if let array = value as? [Any] {
+            for element in array {
+                if let found = Self.firstValue(forKey: key, in: element) {
+                    return found
+                }
+            }
+        }
+        return nil
     }
 
     /// Extracts the `performCommentActionEndpoint.action` token from a

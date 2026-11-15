@@ -689,3 +689,10 @@
 "Talk to a companion app" = "Communiquer avec une app associée";
 "Request a connection to its companion app." = "Demander une connexion à son app associée.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Elle pourrait lire et partager les informations affichées lorsque vous êtes connecté. Ne l’activez que si vous lui faites confiance.";
+
+// Comment replies
+"Reply" = "Répondre";
+"Reply to comment" = "Répondre au commentaire";
+"Add a reply…" = "Ajouter une réponse…";
+"Post reply" = "Publier la réponse";
+"You" = "Vous";

@@ -370,6 +370,10 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         try await self.waitIfNeeded()
     }
 
+    func postCommentReply(text _: String, createReplyParams _: String) async throws {
+        try await self.waitIfNeeded()
+    }
+
     func performCommentAction(_: String) async throws {
         try await self.waitIfNeeded()
     }

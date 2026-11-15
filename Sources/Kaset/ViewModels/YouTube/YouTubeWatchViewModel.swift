@@ -115,6 +115,15 @@ final class YouTubeWatchViewModel {
     /// Parent comments whose replies are currently loading.
     private(set) var loadingReplies: Set<String> = []
 
+    /// Replies posted from this page, by thread, shown after the loaded
+    /// replies until the account changes. YouTube's reply response isn't
+    /// parsed, so these are built from what was sent; one that comes back in
+    /// a later reply load is dropped from here.
+    private(set) var postedReplies: [String: [YouTubeComment]] = [:]
+
+    /// Threads with a reply being posted.
+    private(set) var postingReplyThreads: Set<String> = []
+
     func load(accountScope: YouTubeAskAccountScopeObservation? = nil) async {
         let accountScopeChanged: Bool
         if let accountScope {
@@ -192,6 +201,7 @@ final class YouTubeWatchViewModel {
         self.isPostingComment = false
         self.commentsContinuation = nil
         self.loadingReplies = []
+        self.postingReplyThreads = []
         self.ask.cancelAndDiscard()
         self.loadingState = .idle
     }
@@ -214,6 +224,8 @@ final class YouTubeWatchViewModel {
         self.dislikedComments = []
         self.repliesByComment = [:]
         self.loadingReplies = []
+        self.postedReplies = [:]
+        self.postingReplyThreads = []
         self.loadingState = .idle
     }
 
@@ -373,13 +385,79 @@ final class YouTubeWatchViewModel {
             let page = try await self.client.getComments(continuation: continuation)
             guard generation == self.commentsGeneration else { return }
             // Reply pages can echo the parent; drop it.
-            self.repliesByComment[comment.id] = page.comments.filter { $0.id != comment.id }
+            let replies = page.comments.filter { $0.id != comment.id }
+            self.repliesByComment[comment.id] = replies
+            // A reply posted here before the thread loaded can come back in
+            // it; show it once, as YouTube returned it. Each loaded reply with
+            // the same text stands in for one posted copy. YouTube lists
+            // replies by handle, so authors are compared only when the posted
+            // copy carries one, not a display name or the "You" fallback.
+            if var remaining = self.postedReplies[comment.id] {
+                for reply in replies {
+                    let text = reply.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let match = remaining.firstIndex { posted in
+                        posted.text == text && (!posted.author.hasPrefix("@") || posted.author == reply.author)
+                    }
+                    if let match {
+                        remaining.remove(at: match)
+                    }
+                }
+                self.postedReplies[comment.id] = remaining.isEmpty ? nil : remaining
+            }
         } catch {
             if error is CancellationError {
                 return
             }
             guard generation == self.commentsGeneration else { return }
             self.logger.error("Failed to load replies: \(error.localizedDescription)")
+        }
+    }
+
+    /// Posts a reply to `comment`, the thread's top-level comment or one of
+    /// its replies, and shows it under `thread`. Returns true on success.
+    ///
+    /// - Parameter author: the signed-in account's name and avatar, for the
+    ///   reply shown until the comments reload.
+    func postReply(
+        text: String,
+        to comment: YouTubeComment,
+        inThread thread: YouTubeComment,
+        author: (name: String, avatarURL: URL?)?
+    ) async -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let params = comment.replyParams,
+              !self.postingReplyThreads.contains(thread.id)
+        else {
+            return false
+        }
+
+        let generation = self.commentsGeneration
+        self.postingReplyThreads.insert(thread.id)
+        defer {
+            if generation == self.commentsGeneration {
+                self.postingReplyThreads.remove(thread.id)
+            }
+        }
+        do {
+            try await self.client.postCommentReply(text: trimmed, createReplyParams: params)
+            guard generation == self.commentsGeneration else { return false }
+            let reply = YouTubeComment(
+                id: "posted-\(UUID().uuidString)",
+                author: author?.name ?? String(localized: "You"),
+                authorAvatarURL: author?.avatarURL,
+                text: trimmed,
+                publishedText: nil,
+                likeCountText: nil
+            )
+            self.postedReplies[thread.id, default: []].append(reply)
+            HapticService.success()
+            return true
+        } catch {
+            guard generation == self.commentsGeneration else { return false }
+            self.logger.error("Failed to post comment reply: \(error.localizedDescription)")
+            HapticService.error()
+            return false
         }
     }
 

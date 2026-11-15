@@ -337,6 +337,192 @@ struct YouTubeWatchViewModelActionTests {
         #expect(client.performedCommentActions == ["like-token", "unlike-token"])
     }
 
+    @Test("A reply posts with the replied comment's params and shows under its thread")
+    func replyPostsAndShowsUnderThread() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        let reply = Self.comment(id: "r1", text: "First reply", replyParams: "params-r1")
+
+        let posted = await sut.postReply(
+            text: "  @a Thanks  ",
+            to: reply,
+            inThread: thread,
+            author: (name: "@me", avatarURL: nil)
+        )
+
+        #expect(posted)
+        #expect(client.postedReplies.map(\.text) == ["@a Thanks"])
+        #expect(client.postedReplies.map(\.params) == ["params-r1"])
+        let shown = sut.postedReplies["p1"] ?? []
+        #expect(shown.map(\.text) == ["@a Thanks"])
+        #expect(shown.map(\.author) == ["@me"])
+        #expect(shown.allSatisfy { $0.replyParams == nil })
+        #expect(sut.postingReplyThreads.isEmpty)
+    }
+
+    @Test("A blank reply, or one to a comment that takes none, isn't sent")
+    func replyRejectedWithoutTextOrParams() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let open = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        let closed = Self.comment(id: "p2", text: "Closed", replyParams: nil)
+
+        #expect(await sut.postReply(text: "   ", to: open, inThread: open, author: nil) == false)
+        #expect(await sut.postReply(text: "Hi", to: closed, inThread: closed, author: nil) == false)
+        #expect(client.postedReplies.isEmpty)
+        #expect(sut.postedReplies.isEmpty)
+    }
+
+    @Test("A failed reply shows nothing and frees the thread")
+    func failedReplyShowsNothing() async {
+        let client = MockYouTubeClient()
+        client.error = URLError(.notConnectedToInternet)
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+
+        let posted = await sut.postReply(text: "Hi", to: thread, inThread: thread, author: nil)
+
+        #expect(posted == false)
+        #expect(sut.postedReplies.isEmpty)
+        #expect(sut.postingReplyThreads.isEmpty)
+    }
+
+    @Test("One reply at a time per thread, and the posted one is shown as You without an account")
+    func oneReplyAtATimePerThread() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        let gate = AsyncGate()
+        client.beforePostReplyReturn = {
+            await gate.wait()
+        }
+
+        let first = Task {
+            await sut.postReply(text: "First", to: thread, inThread: thread, author: nil)
+        }
+        await self.waitUntil(sut.postingReplyThreads.contains("p1"))
+        #expect(await sut.postReply(text: "Second", to: thread, inThread: thread, author: nil) == false)
+
+        await gate.open()
+        #expect(await first.value)
+        #expect(client.postedReplies.map(\.text) == ["First"])
+        #expect(sut.postedReplies["p1"]?.map(\.author) == [String(localized: "You")])
+    }
+
+    @Test("Route cancellation drops a reply still in flight")
+    func cancellationDropsReplyInFlight() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        let thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        let gate = AsyncGate()
+        client.beforePostReplyReturn = {
+            await gate.wait()
+        }
+
+        let task = Task {
+            await sut.postReply(text: "Hi", to: thread, inThread: thread, author: nil)
+        }
+        await self.waitUntil(sut.postingReplyThreads.contains("p1"))
+
+        sut.cancel()
+        #expect(sut.postingReplyThreads.isEmpty)
+        await gate.open()
+        #expect(await task.value == false)
+        #expect(sut.postedReplies.isEmpty)
+    }
+
+    @Test("A posted reply that comes back, by the same author, when the thread loads is shown once")
+    func postedReplyReturningInThreadShowsOnce() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        var thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        thread.repliesContinuation = "replies-token"
+        let me = (name: "@me", avatarURL: URL?.none)
+
+        for text in ["Echoed", "Thanks!", "Twice", "Twice"] {
+            #expect(await sut.postReply(text: text, to: thread, inThread: thread, author: me))
+        }
+
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                // Someone else's reply with the same text isn't the posted one.
+                Self.comment(id: "r1", text: "Thanks!", replyParams: "params-r1", author: "@someone"),
+                Self.comment(id: "r2", text: "Echoed", replyParams: "params-r2", author: "@me"),
+                // One copy back stands in for one of the two posted.
+                Self.comment(id: "r3", text: "Twice", replyParams: "params-r3", author: "@me"),
+            ],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadReplies(for: thread)
+
+        #expect(sut.repliesByComment["p1"]?.map(\.id) == ["r1", "r2", "r3"])
+        #expect(sut.postedReplies["p1"]?.map(\.text) == ["Thanks!", "Twice"])
+    }
+
+    @Test("A reply posted without the account's handle is matched by text when the thread loads")
+    func postedReplyWithoutHandleMatchesByText() async {
+        let client = MockYouTubeClient()
+        let sut = YouTubeWatchViewModel(
+            video: MockYouTubeClient.makeVideo(videoId: "abc"),
+            client: client
+        )
+        var thread = Self.comment(id: "p1", text: "Parent", replyParams: "params-p1")
+        thread.repliesContinuation = "replies-token"
+
+        // No account loaded: shown as "You". An account without a handle: by name.
+        #expect(await sut.postReply(text: "First", to: thread, inThread: thread, author: nil))
+        #expect(await sut.postReply(text: "Second", to: thread, inThread: thread, author: (name: "Me", avatarURL: nil)))
+
+        client.commentsPage = YouTubeCommentsPage(
+            comments: [
+                Self.comment(id: "r1", text: "First", replyParams: "params-r1", author: "@me"),
+                Self.comment(id: "r2", text: "Second", replyParams: "params-r2", author: "@me"),
+            ],
+            continuation: nil,
+            createCommentParams: nil
+        )
+        await sut.loadReplies(for: thread)
+
+        #expect(sut.postedReplies["p1"] == nil)
+    }
+
+    private static func comment(
+        id: String,
+        text: String,
+        replyParams: String?,
+        author: String = "@a"
+    ) -> YouTubeComment {
+        YouTubeComment(
+            id: id,
+            author: author,
+            authorAvatarURL: nil,
+            text: text,
+            publishedText: nil,
+            likeCountText: nil,
+            replyParams: replyParams
+        )
+    }
+
     @Test("Subscribe toggle uses the watch-next channel and seeds from data")
     func subscribeToggle() async {
         let client = MockYouTubeClient()

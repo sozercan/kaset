@@ -464,7 +464,12 @@ struct YouTubeWatchView: View {
             } else {
                 LazyVStack(alignment: .leading, spacing: 16) {
                     ForEach(self.viewModel.comments) { comment in
-                        CommentThread(comment: comment, viewModel: self.viewModel, allowsActions: self.hasPersonalAccount)
+                        CommentThread(
+                            comment: comment,
+                            viewModel: self.viewModel,
+                            allowsActions: self.hasPersonalAccount,
+                            replyAuthor: self.replyAuthor
+                        )
                     }
                 }
             }
@@ -548,6 +553,14 @@ struct YouTubeWatchView: View {
         self.authService.hasPersonalAccount
     }
 
+    /// The signed-in account as replies show it: by handle, like YouTube's
+    /// own comments, and its avatar.
+    private var replyAuthor: (name: String, avatarURL: URL?)? {
+        self.accountService.currentAccount.map { account in
+            (name: account.handle ?? account.name, avatarURL: account.thumbnailURL)
+        }
+    }
+
     /// Whether the composer holds postable text (drives the send accent).
     private var hasCommentDraft: Bool {
         !self.commentDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -565,33 +578,28 @@ struct YouTubeWatchView: View {
 
 // MARK: - CommentThread
 
-/// A comment with its action row (like/dislike, replies) and, when
-/// expanded, its indented reply thread.
+/// A comment with its action row (like/dislike, reply, replies), the reply
+/// field when the comment or one of its replies is being replied to, and,
+/// when expanded, its indented reply thread.
 private struct CommentThread: View {
     let comment: YouTubeComment
     let viewModel: YouTubeWatchViewModel
     let allowsActions: Bool
+    /// The signed-in account's name and avatar, for the reply field and the
+    /// replies posted from it.
+    let replyAuthor: (name: String, avatarURL: URL?)?
 
     @State private var showsReplies = false
+    /// The comment the reply field answers: this thread's or one of its replies.
+    @State private var replyTarget: YouTubeComment?
+    @State private var replyDraft = ""
+
+    /// Indent of replies and the reply field under the parent comment's text.
+    private static let replyIndent: CGFloat = 38
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            CommentRow(
-                comment: self.comment,
-                isLiked: self.viewModel.likedComments.contains(self.comment.id),
-                isDisliked: self.viewModel.dislikedComments.contains(self.comment.id),
-                onLike: {
-                    Task {
-                        await self.viewModel.likeComment(self.comment)
-                    }
-                },
-                onDislike: {
-                    Task {
-                        await self.viewModel.dislikeComment(self.comment)
-                    }
-                },
-                allowsActions: self.allowsActions
-            )
+            self.rowWithReplyField(for: self.comment)
 
             if self.comment.repliesContinuation != nil {
                 Button {
@@ -612,52 +620,239 @@ private struct CommentThread: View {
                     .foregroundStyle(Color.accentColor)
                 }
                 .buttonStyle(.plain)
-                .padding(.leading, 38)
+                .padding(.leading, Self.replyIndent)
             }
 
             if self.showsReplies {
                 if self.viewModel.loadingReplies.contains(self.comment.id) {
                     ProgressView()
                         .controlSize(.small)
-                        .padding(.leading, 38)
+                        .padding(.leading, Self.replyIndent)
                 } else if let replies = self.viewModel.repliesByComment[self.comment.id] {
                     LazyVStack(alignment: .leading, spacing: 12) {
                         ForEach(replies) { reply in
-                            CommentRow(
-                                comment: reply,
-                                isLiked: self.viewModel.likedComments.contains(reply.id),
-                                isDisliked: self.viewModel.dislikedComments.contains(reply.id),
-                                onLike: {
-                                    Task {
-                                        await self.viewModel.likeComment(reply)
-                                    }
-                                },
-                                onDislike: {
-                                    Task {
-                                        await self.viewModel.dislikeComment(reply)
-                                    }
-                                },
-                                allowsActions: self.allowsActions
-                            )
+                            self.rowWithReplyField(for: reply)
                         }
                     }
-                    .padding(.leading, 38)
+                    .padding(.leading, Self.replyIndent)
                 }
             }
+
+            // Replies posted from here stay at the end of the thread, shown
+            // whether or not the loaded replies are expanded.
+            if let posted = self.viewModel.postedReplies[self.comment.id], !posted.isEmpty {
+                LazyVStack(alignment: .leading, spacing: 12) {
+                    ForEach(posted) { reply in
+                        self.row(for: reply)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                    }
+                }
+                .padding(.leading, Self.replyIndent)
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: self.replyTarget?.id)
+        .animation(.easeOut(duration: 0.2), value: self.viewModel.postedReplies[self.comment.id]?.count)
+    }
+
+    /// A comment row followed by the reply field while it is the reply target.
+    private func rowWithReplyField(for comment: YouTubeComment) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            self.row(for: comment)
+
+            if self.replyTarget?.id == comment.id {
+                CommentReplyField(
+                    draft: self.$replyDraft,
+                    avatarURL: self.replyAuthor?.avatarURL,
+                    isPosting: self.viewModel.postingReplyThreads.contains(self.comment.id),
+                    canPost: self.canPostReply,
+                    onCancel: self.cancelReply,
+                    onPost: self.postReply
+                )
+                .padding(.leading, Self.replyIndent)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func row(for comment: YouTubeComment) -> some View {
+        CommentRow(
+            comment: comment,
+            isLiked: self.viewModel.likedComments.contains(comment.id),
+            isDisliked: self.viewModel.dislikedComments.contains(comment.id),
+            isReplying: self.replyTarget?.id == comment.id,
+            onLike: {
+                Task {
+                    await self.viewModel.likeComment(comment)
+                }
+            },
+            onDislike: {
+                Task {
+                    await self.viewModel.dislikeComment(comment)
+                }
+            },
+            onReply: comment.replyParams == nil ? nil : {
+                self.startReply(to: comment)
+            },
+            allowsActions: self.allowsActions
+        )
+    }
+
+    // MARK: Replying
+
+    private var canPostReply: Bool {
+        CommentReplyDraft.canPost(self.replyDraft, replyingTo: self.replyTarget)
+    }
+
+    /// Opens the reply field under `comment`. Pressing Reply on the open
+    /// field's comment closes it unless something was typed. Moving the field
+    /// to another comment keeps typed text and swaps the mention.
+    private func startReply(to comment: YouTubeComment) {
+        if self.replyTarget?.id == comment.id {
+            if CommentReplyDraft.isUntouched(self.replyDraft, replyingTo: self.replyTarget) {
+                self.cancelReply()
+            }
+            return
+        }
+        self.replyDraft = CommentReplyDraft.moving(self.replyDraft, from: self.replyTarget, to: comment)
+        self.replyTarget = comment
+    }
+
+    private func cancelReply() {
+        self.replyTarget = nil
+        self.replyDraft = ""
+    }
+
+    private func postReply() {
+        guard let target = self.replyTarget, self.canPostReply else { return }
+        let draft = self.replyDraft
+        Task {
+            let posted = await self.viewModel.postReply(
+                text: draft,
+                to: target,
+                inThread: self.comment,
+                author: self.replyAuthor
+            )
+            // Leave the field alone if it moved or changed while posting.
+            if posted, self.replyTarget?.id == target.id, self.replyDraft == draft {
+                self.cancelReply()
+            }
+        }
+    }
+}
+
+// MARK: - CommentReplyField
+
+/// The inline field for replying to a comment: the account's avatar, a
+/// growing text field, Cancel, and a send button like the comment composer's.
+/// It takes focus when it appears, with the caret at the end. Return posts,
+/// Escape cancels.
+private struct CommentReplyField: View {
+    @Binding var draft: String
+    let avatarURL: URL?
+    let isPosting: Bool
+    let canPost: Bool
+    let onCancel: () -> Void
+    let onPost: () -> Void
+
+    @FocusState private var isFocused: Bool
+    @State private var selection: TextSelection?
+
+    var body: some View {
+        HStack(alignment: .bottom, spacing: 8) {
+            CachedAsyncImage(
+                url: self.avatarURL,
+                targetSize: CGSize(width: 24, height: 24)
+            ) { image in
+                image
+                    .resizable()
+                    .scaledToFill()
+            } placeholder: {
+                Circle()
+                    .fill(.quaternary)
+                    .overlay {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.tertiary)
+                    }
+            }
+            .frame(width: 24, height: 24)
+            .clipShape(.circle)
+            .padding(.bottom, 3)
+
+            TextField(String(localized: "Add a reply…"), text: self.$draft, selection: self.$selection, axis: .vertical)
+                .textFieldStyle(.plain)
+                .font(.system(size: 12))
+                .lineLimit(1 ... 6)
+                .focused(self.$isFocused)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                .onSubmit(self.onPost)
+                .onExitCommand(perform: self.onCancel)
+                .disabled(self.isPosting)
+                .accessibilityLabel(String(localized: "Add a reply…"))
+
+            Button(action: self.onCancel) {
+                Text("Cancel")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .frame(height: 30)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button(action: self.onPost) {
+                Group {
+                    if self.isPosting {
+                        ProgressView()
+                            .controlSize(.small)
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                }
+                .frame(width: 30, height: 30)
+                .foregroundStyle(self.canPost ? AnyShapeStyle(.white) : AnyShapeStyle(.secondary))
+                .compatGlass(
+                    interactive: true,
+                    tint: self.canPost ? YouTubeWatchView.brandAccent : nil,
+                    in: Circle()
+                )
+                .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!self.canPost || self.isPosting)
+            .accessibilityLabel(String(localized: "Post reply"))
+        }
+        .task {
+            // Let the inserted field join the focus hierarchy before requesting focus.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            self.isFocused = true
+            // Focusing selects the whole draft; put the caret after a prefilled
+            // mention instead, so typing doesn't replace it.
+            await Task.yield()
+            guard !Task.isCancelled else { return }
+            self.selection = TextSelection(insertionPoint: self.draft.endIndex)
         }
     }
 }
 
 // MARK: - CommentRow
 
-/// One comment: avatar, author + time, text, and working like/dislike.
-/// The author (avatar/name) navigates to their channel.
+/// One comment: avatar, author + time, text, and working like/dislike and
+/// reply. The author (avatar/name) navigates to their channel.
 private struct CommentRow: View {
     let comment: YouTubeComment
     let isLiked: Bool
     let isDisliked: Bool
+    /// Whether the reply field is open under this comment.
+    let isReplying: Bool
     let onLike: () -> Void
     let onDislike: () -> Void
+    /// Opens the reply field; nil when the comment takes no replies.
+    let onReply: (() -> Void)?
     let allowsActions: Bool
 
     var body: some View {
@@ -711,6 +906,22 @@ private struct CommentRow: View {
                     .buttonStyle(.plain)
                     .disabled(!self.allowsActions || self.comment.dislikeAction == nil)
                     .accessibilityLabel(String(localized: "Dislike comment"))
+
+                    if let onReply = self.onReply {
+                        Button(action: onReply) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrowshape.turn.up.left")
+                                    .font(.system(size: 11))
+                                Text("Reply", comment: "Button under a comment that opens a field to reply to it")
+                                    .font(.system(size: 11, weight: .semibold))
+                            }
+                            .foregroundStyle(self.isReplying ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.tertiary))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!self.allowsActions)
+                        .accessibilityLabel(String(localized: "Reply to comment"))
+                    }
                 }
                 .padding(.top, 2)
             }

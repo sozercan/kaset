@@ -359,6 +359,20 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.postedComments.append((text, createCommentParams))
     }
 
+    private(set) var postedReplies: [(text: String, params: String)] = []
+    var beforePostReplyReturn: (@Sendable () async -> Void)?
+
+    func postCommentReply(text: String, createReplyParams: String) async throws {
+        if let error {
+            throw error
+        }
+        if let beforePostReplyReturn {
+            await beforePostReplyReturn()
+        }
+        try Task.checkCancellation()
+        self.postedReplies.append((text, createReplyParams))
+    }
+
     private(set) var performedCommentActions: [String] = []
 
     func performCommentAction(_ action: String) async throws {
