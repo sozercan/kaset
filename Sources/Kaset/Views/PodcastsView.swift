@@ -34,9 +34,6 @@ struct PodcastsView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .localizedNavigationTitle("Podcasts")
-            .navigationDestination(for: PodcastShow.self) { show in
-                PodcastShowView(show: show, client: self.viewModel.client)
-            }
             .navigationDestinations(client: self.viewModel.client)
             .playerBarMusicNavigation(path: self.$navigationPath)
         }
@@ -267,6 +264,15 @@ struct PodcastShowView: View {
     /// Number of episodes to show in the preview
     private let previewEpisodeCount = 5
 
+    /// Goes back from All Episodes opened with the See All button.
+    private var allEpisodesSwipeBackAction: NavigationSwipeBackAction {
+        let isPresented = self.$showAllEpisodes
+        return NavigationSwipeBackAction(
+            canGoBack: { isPresented.wrappedValue },
+            goBack: { isPresented.wrappedValue = false }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -285,7 +291,7 @@ struct PodcastShowView: View {
         }
         .accentBackground(from: self.show.thumbnailURL)
         .navigationTitle(self.show.title)
-        .navigationDestination(for: AllEpisodesDestination.self) { destination in
+        .swipeBackNavigationDestination(for: AllEpisodesDestination.self) { destination in
             AllEpisodesView(
                 show: destination.show,
                 initialEpisodes: destination.episodes,
@@ -300,6 +306,9 @@ struct PodcastShowView: View {
                 continuationToken: self.continuationToken,
                 client: self.client
             )
+            // Pushed by a flag rather than the stack's path, so going back
+            // clears the flag.
+            .navigationSwipeBackTarget(self.allEpisodesSwipeBackAction)
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             PlayerBar()

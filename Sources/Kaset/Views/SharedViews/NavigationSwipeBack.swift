@@ -170,7 +170,8 @@ extension View {
     }
 
     /// Tracks the trackpad swipe back on a pushed page and shows its indicator.
-    /// Applied by the navigation destination builders to every pushed page.
+    /// Applied by the navigation destination builders to every pushed page,
+    /// and passed on to destinations the page declares itself.
     /// Follows the "Swipe between pages" gesture in System Settings → Trackpad
     /// (two fingers, or three) and Settings → General → Swipe to Go Back.
     ///
@@ -180,6 +181,32 @@ extension View {
     ///   not the stack's.
     func navigationSwipeBackTarget(_ action: NavigationSwipeBackAction?) -> some View {
         self.modifier(NavigationSwipeBackTargetModifier(action: action))
+    }
+
+    /// `navigationDestination(for:destination:)` whose pages go back with the
+    /// trackpad swipe. Use it for destinations a view declares itself, outside
+    /// the shared destination builders. Like them, it reads the stack's action
+    /// where it is declared and hands it to each pushed page.
+    func swipeBackNavigationDestination<D: Hashable>(
+        for _: D.Type,
+        @ViewBuilder destination: @escaping (D) -> some View
+    ) -> some View {
+        self.modifier(SwipeBackNavigationDestinationModifier(destination: destination))
+    }
+}
+
+// MARK: - SwipeBackNavigationDestinationModifier
+
+private struct SwipeBackNavigationDestinationModifier<D: Hashable, Destination: View>: ViewModifier {
+    let destination: (D) -> Destination
+
+    @Environment(\.navigationSwipeBackAction) private var swipeBackAction
+
+    func body(content: Content) -> some View {
+        content.navigationDestination(for: D.self) { value in
+            self.destination(value)
+                .navigationSwipeBackTarget(self.swipeBackAction)
+        }
     }
 }
 
@@ -193,6 +220,8 @@ private struct NavigationSwipeBackTargetModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content
+            // Destinations the page declares itself read the action from here.
+            .environment(\.navigationSwipeBackAction, self.action)
             .background {
                 if let action = self.action, self.settings.swipeToGoBackEnabled {
                     NavigationSwipeTarget(

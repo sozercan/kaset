@@ -1270,7 +1270,12 @@ a chevron that follows the fingers and fills once letting go would go back
   `youtubeNavigationDestinations(client:)`) read that action where they are
   declared and apply `.navigationSwipeBackTarget(_:)` with it to every pushed
   page, which tracks the gesture and draws the indicator. Add the target to any
-  new destination builder.
+  new destination builder. A view that declares its own destinations uses
+  `.swipeBackNavigationDestination(for:destination:)`, which does the same.
+  The target also puts the action back into the pushed page's environment, so
+  destinations the page declares itself get it too. A page pushed with
+  `navigationDestination(isPresented:)` isn't on the path: give it a target
+  whose action clears its flag.
 - Neither half works alone. Inside a `NavigationSplitView`, pushed pages take
   the split view's environment, not the stack's, so they can't read the action
   themselves. And the stack can't carry the target: SwiftUI detaches a covered
