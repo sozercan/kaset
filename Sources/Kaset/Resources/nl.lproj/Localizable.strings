@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Nummer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "bijv. langzame nummers verwijderen, opnieuw ordenen op energie…";
 "Edit" = "Wijzig";
+"Edit search" = "Wijzig zoekopdracht";
 "Electronic" = "Elektronisch";
 "Enable %@ Scrobbling" = "%@-scrobbling inschakelen";
 "Enable AI Features" = "AI-functies inschakelen";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Uitgelichte afspeellijsten";
 "Fetch and display real-time synced lyrics when available" = "Haal gesynchroniseerde songteksten in realtime op en toon ze wanneer beschikbaar";
 "Filter" = "Filter";
+"Find in playlist" = "Zoek in afspeellijst";
 "Find songs, albums, artists, and playlists" = "Vind nummers, albums, artiesten en afspeellijsten";
 "Find videos, channels, and playlists." = "Zoek video's, kanalen en afspeellijsten.";
 "Flat" = "Vlak";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Geen abonnementsvideo's";
 "No uploaded songs yet" = "Nog geen geüploade nummers";
 "No videos" = "Geen video's";
+"Not all tracks loaded. Results may be incomplete." = "Niet alle nummers zijn geladen. De resultaten zijn mogelijk onvolledig.";
 "Not connected" = "Niet verbonden";
 "Not disliked" = "Niet als niet leuk gemarkeerd";
 "Not Enabled" = "Niet ingeschakeld";

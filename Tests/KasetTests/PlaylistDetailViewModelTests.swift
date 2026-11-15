@@ -435,6 +435,51 @@ struct PlaylistDetailViewModelTests {
         #expect(self.viewModel.hasMore == false)
     }
 
+    @Test("A full load that gives up reports a stall until a retry completes it")
+    func fullLoadStallIsReportedAndClearedByRetry() async {
+        let playlist = Playlist(
+            id: "VL-test-playlist",
+            title: "Large Playlist",
+            description: nil,
+            thumbnailURL: URL(string: "https://example.com/playlist.jpg"),
+            trackCount: 125,
+            author: Artist.inline(name: "Test User", namespace: "playlist-author")
+        )
+        let detail = PlaylistDetail(playlist: playlist, tracks: TestFixtures.makeSongs(count: 100), duration: nil)
+        self.mockClient.playlistDetails[playlist.id] = detail
+        self.mockClient.playlistContinuationTracks[playlist.id] = [
+            (100 ..< 125).map { index in
+                TestFixtures.makeSong(id: "video-\(index)", title: "Song \(index)")
+            },
+        ]
+
+        await self.viewModel.load()
+        #expect(self.viewModel.hasMore == true)
+        #expect(self.viewModel.didFullLoadStall == false)
+
+        // Every continuation fails: the full load retries, then gives up with tracks remaining.
+        self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.timedOut))
+        await self.viewModel.loadAllRemaining()
+
+        #expect(self.viewModel.playlistDetail?.tracks.count == 100)
+        #expect(self.viewModel.hasMore == true)
+        #expect(self.viewModel.didFullLoadStall == true)
+        #expect(self.viewModel.isLoadingAllRemaining == false)
+
+        // A retry clears the stall while in flight and completes the playlist.
+        self.mockClient.shouldThrowError = nil
+        self.mockClient.playlistContinuationDelay = .milliseconds(100)
+        let retryTask = Task { await self.viewModel.loadAllRemaining() }
+        await self.waitUntil(self.viewModel.isLoadingAllRemaining, description: "retry full load to start")
+        #expect(self.viewModel.didFullLoadStall == false)
+        await retryTask.value
+
+        #expect(self.viewModel.playlistDetail?.tracks.count == 125)
+        #expect(self.viewModel.hasMore == false)
+        #expect(self.viewModel.didFullLoadStall == false)
+        #expect(self.viewModel.isLoadingAllRemaining == false)
+    }
+
     @Test("Large playlist load keeps delayed continuation lazy")
     func largePlaylistLoadKeepsDelayedContinuationLazy() async {
         let playlist = Playlist(
