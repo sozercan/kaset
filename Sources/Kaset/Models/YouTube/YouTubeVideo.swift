@@ -24,6 +24,9 @@ struct YouTubeVideo: Identifiable, Hashable {
     /// Percent of the video the signed-in user has already watched (0–100),
     /// when YouTube reports resume progress. `nil` when unwatched or unavailable.
     let watchedPercent: Int?
+    /// "Not interested" / "Don't recommend channel" entries from the video's
+    /// overflow menu. Empty when signed out or on surfaces without them.
+    let feedbackActions: [YouTubeFeedbackAction]
 
     var id: String {
         self.videoId
@@ -40,7 +43,8 @@ struct YouTubeVideo: Identifiable, Hashable {
         thumbnailURL: URL? = nil,
         isLive: Bool = false,
         isShort: Bool = false,
-        watchedPercent: Int? = nil
+        watchedPercent: Int? = nil,
+        feedbackActions: [YouTubeFeedbackAction] = []
     ) {
         self.videoId = videoId
         self.title = title
@@ -53,5 +57,6 @@ struct YouTubeVideo: Identifiable, Hashable {
         self.isLive = isLive
         self.isShort = isShort
         self.watchedPercent = watchedPercent
+        self.feedbackActions = feedbackActions
     }
 }

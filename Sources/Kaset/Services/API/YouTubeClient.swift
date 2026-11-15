@@ -571,6 +571,27 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         self.cache.invalidate(matching: Self.cachePrefix)
     }
 
+    // MARK: - Recommendation Feedback
+
+    func sendFeedback(token: String) async throws {
+        self.logger.info("Sending YouTube recommendation feedback")
+
+        // Same body the web client sends for `feedbackEndpoint` and
+        // `undoFeedbackEndpoint` (both target `/youtubei/v1/feedback`).
+        let body: [String: Any] = [
+            "feedbackTokens": [token],
+            "isFeedbackTokenUnencrypted": false,
+            "shouldMerge": false,
+        ]
+        let response = try await self.request("feedback", body: body, retry: false)
+        let results = response["feedbackResponses"] as? [[String: Any]] ?? []
+        if results.contains(where: { ($0["isProcessed"] as? Bool) == false }) {
+            throw YTMusicError.apiError(message: "YouTube did not process the feedback", code: nil)
+        }
+        // Cached Home and watch-next pages still contain the dismissed video.
+        self.cache.invalidate(matching: Self.cachePrefix)
+    }
+
     // MARK: - Request Core
 
     private enum RequestAuthPolicy {
@@ -664,6 +685,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         "browse/edit_playlist",
         "comment/create_comment",
         "comment/perform_comment_action",
+        "feedback",
     ]
 
     /// Builds authentication headers with the YouTube (not music) origin.

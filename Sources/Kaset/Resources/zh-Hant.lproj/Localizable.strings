@@ -687,3 +687,6 @@
 "Talk to a companion app" = "與配套應用程式通訊";
 "Request a connection to its companion app." = "要求連線到其配套應用程式。";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "它可能會讀取並分享你登入期間顯示的資訊。請僅在你信任它時啟用。";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "無法向 YouTube 傳送意見回饋。";

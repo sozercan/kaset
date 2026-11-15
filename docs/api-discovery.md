@@ -1345,7 +1345,7 @@ are listed separately in the same row.
 | Related content for the current Music track | Not implemented | No Music Related view |
 | Full radio builder | Not implemented | No form-driven station creation or saving |
 | Native YouTube transcript | Not implemented | No working transcript request or native panel |
-| Recommendation dismissal | Not implemented | Dislike and library add/remove feedback exist; Not interested for recommendations does not |
+| Recommendation dismissal | Partial | Regular YouTube Home has Not interested and Don't recommend channel with Undo; YouTube Music recommendations have none |
 | Taste profile onboarding | Not implemented | No artist-selection onboarding |
 | Account menu | Not implemented | No `account/account_menu` caller or parser; account selection uses the implemented `account/accounts_list` endpoint |
 | Uploaded albums/artists | Not implemented | Their issued browse routes return signed-in empty states; Uploaded Songs is implemented separately |
@@ -2072,6 +2072,39 @@ Treat the surface as rollout-fragile. Never commit or display cookies,
 authorization material, account identifiers, conversation identifiers, visitor
 or session values, opaque params, continuations, or server-issued commands.
 
+#### YouTube recommendation feedback (verified 2026-11-14)
+
+Signed-in Home (`FEwhat_to_watch`) and watch-next video lockups carry their
+overflow menu inline at
+`metadata.lockupMetadataViewModel.menuButton.buttonViewModel.onTap.innertubeCommand.showSheetCommand.panelLoadingStrategy.inlineContent.sheetViewModel.content.listViewModel.listItems[]`.
+Feedback entries are `listItemViewModel`s whose
+`rendererContext.commandContext.onTap.innertubeCommand` holds a
+`feedbackEndpoint` (`apiUrl` `/youtubei/v1/feedback`, `sendPost: true`).
+The entry's icon (`leadingImage.sources[0].clientResource.imageName`) is stable
+across languages while titles are localized:
+
+| Surface | Icon | Title (en) |
+|---------|------|------------|
+| Home, watch-next | `HIDE` | Not interested |
+| Home, watch-next | `REMOVE` | Don't recommend channel |
+| Subscriptions feed | `HIDE` | Hide |
+| History feed | `DELETE` | Remove from watch history |
+
+All 20 Home and 20 watch-next lockups in the probe carried both `HIDE` and
+`REMOVE`. Each `feedbackEndpoint` has `feedbackToken`,
+`uiActions.hideEnclosingContainer: true`, and an
+`actions[].replaceEnclosingAction.item.notificationMultiActionRenderer` with
+the confirmation text ("Video removed") and an Undo button whose
+`serviceEndpoint.undoFeedbackEndpoint.undoToken` also targets
+`/youtubei/v1/feedback`. Kaset sends
+`{"feedbackTokens": [token], "isFeedbackTokenUnencrypted": false, "shouldMerge": false}`
+for both the feedback and the undo token. The menu shapes were read in a
+signed-in browser session and in `api-explorer --youtube` captures of Home and a
+topic-chip continuation (78 of 78 lockups carried both entries). With the
+account owner's approval, Not interested, Don't recommend channel, and Undo were
+then sent from the app for low-traffic videos: YouTube accepted each request,
+the card disappeared, and Undo restored it.
+
 ### Authenticated Endpoints
 
 For authenticated endpoints (🔐), sign in to the Kaset app first:
@@ -2159,6 +2192,7 @@ The `--brand` flag sets `context.user.onBehalfOfUser` in the request body. See [
 
 | Date | Changes |
 |------|---------|
+| 2026-11-14 | Verified regular YouTube recommendation feedback menus (Home, topic chips, watch-next, subscriptions, history) and live Not interested, Don't recommend channel, and Undo requests |
 | 2026-09-05 | Tightened discovery redaction, JSON scalar validation, and token-file diagnostics and overwrite protection. Rechecked Android with a consistent OS/SDK profile and verified guest hops; corrected Account menu implementation status |
 | 2026-09-04 | Verified signed-in Library filters, sort reloads, pagination, podcast Channels, Profiles, upload empty states, and taste-builder data. Added safe selection-read extraction and blocked taste acceptance in Explorer; recorded Recap and authenticated transcript limits |
 | 2026-09-04 | Located the mobile Speed dial Home model in an existing client; verified guest `IOS_MUSIC` Home requests, added a read-only mobile profile and model/item counts to Explorer, and recorded the missing signed-in validation |

@@ -1,3 +1,4 @@
+// swiftlint:disable file_length
 import Foundation
 import Observation
 
@@ -24,6 +25,24 @@ final class YouTubeHomeViewModel {
 
     /// Whether an explicit topic-rail batch is currently loading.
     private(set) var isLoadingTopicRails = false
+
+    /// The most recent "Not interested" / "Don't recommend channel" dismissal,
+    /// shown as a confirmation with Undo until the view clears it.
+    private(set) var lastDismissal: YouTubeFeedbackDismissal?
+
+    /// Bumped when sending or undoing feedback fails, so the view can show an
+    /// error even when two failures in a row carry the same message.
+    private(set) var feedbackFailureCount = 0
+
+    /// Feedback dismissals. Every later publish (continuation pages, late topic
+    /// rails, cached responses) is filtered so a dismissed card can't come back.
+    private var dismissals = YouTubeFeedbackDismissals()
+
+    /// Videos with a feedback request in flight, to ignore repeated clicks.
+    private var feedbackInFlightVideoIDs: Set<String> = []
+
+    /// Whether an undo request is in flight, to ignore repeated Undo clicks.
+    private var isUndoingDismissal = false
 
     /// Video IDs already surfaced in titled shelf rails, excluded from the flat
     /// "For you" grid (including continuation pages) so a shelf video is never
@@ -203,7 +222,7 @@ final class YouTubeHomeViewModel {
             // grid is empty, the rails are the only content worth showing, so
             // keep the loading state until they resolve to avoid flashing the
             // empty placeholder.
-            self.videos = gridVideos
+            self.videos = self.dismissals.filtered(gridVideos)
             self.hasMoreVideos = self.client.hasMoreHomeFeed
             let gridReady = !gridVideos.isEmpty
             if gridReady {
@@ -217,7 +236,7 @@ final class YouTubeHomeViewModel {
             // inserted at the front once history resolves; remaining topic chips
             // stay queued for explicit demand instead of cold-launch fanout.
             if !shelves.isEmpty {
-                self.sections = shelves
+                self.sections = self.dismissals.filtered(shelves)
                 if !gridReady {
                     self.loadingState = .loaded // any content clears the skeleton
                 }
@@ -362,7 +381,7 @@ final class YouTubeHomeViewModel {
                 slots[index] = section
                 let resolved = slots.compactMap(\.self)
                 if !resolved.isEmpty {
-                    self.sections = resolved
+                    self.sections = self.dismissals.filtered(resolved)
                     self.loadingState = .loaded
                 }
             }
@@ -404,7 +423,7 @@ final class YouTubeHomeViewModel {
             }
             next.append(contentsOf: shelves)
             next.append(contentsOf: topicSlot.compactMap(\.self))
-            self.sections = next
+            self.sections = self.dismissals.filtered(next)
             // Only clear the skeleton once there is actual content. The first
             // group result is often history returning nil (no resumable watch
             // history); flipping `.loaded` then — with topics still pending and
@@ -471,7 +490,7 @@ final class YouTubeHomeViewModel {
             return preserveOnFailure && !result.failedChips.isEmpty ? .failed : .empty
         }
 
-        self.sections.append(contentsOf: result.sections)
+        self.sections.append(contentsOf: self.dismissals.filtered(result.sections))
         if !gridReady, self.loadingState == .loading {
             self.loadingState = .loaded
         }
@@ -606,7 +625,9 @@ final class YouTubeHomeViewModel {
                 // Skip videos already in the grid and any that belong to a
                 // titled shelf rail (consistent with the first page).
                 let newVideos = feed.videos.filter { video in
-                    !self.shelfVideoIDs.contains(video.videoId) && existing.insert(video.videoId).inserted
+                    !self.shelfVideoIDs.contains(video.videoId)
+                        && !self.dismissals.isDismissed(video)
+                        && existing.insert(video.videoId).inserted
                 }
                 self.videos.append(contentsOf: newVideos)
                 self.hasMoreVideos = self.client.hasMoreHomeFeed
@@ -806,7 +827,7 @@ final class YouTubeHomeViewModel {
         if let fresh {
             rebuilt.insert(fresh, at: 0) // Continue Watching always leads.
         }
-        self.sections = rebuilt
+        self.sections = self.dismissals.filtered(rebuilt)
         return .updated
     }
 
@@ -815,6 +836,72 @@ final class YouTubeHomeViewModel {
     /// as a change.
     private static func railIdentity(_ section: YouTubeHomeSection) -> [String] {
         section.videos.map { video in "\(video.videoId):\(video.watchedPercent ?? 0)" }
+    }
+
+    // MARK: - Recommendation Feedback
+
+    /// Sends "Not interested" / "Don't recommend channel" for `video`, then
+    /// removes the affected cards: the video itself, or every card from its
+    /// channel. Cards stay put if YouTube rejects the feedback.
+    func sendFeedback(_ action: YouTubeFeedbackAction, for video: YouTubeVideo) async {
+        guard self.feedbackInFlightVideoIDs.insert(video.videoId).inserted else { return }
+        defer { self.feedbackInFlightVideoIDs.remove(video.videoId) }
+
+        do {
+            try await self.client.sendFeedback(token: action.feedbackToken)
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("YouTube feedback failed: \(error.localizedDescription)")
+                self.feedbackFailureCount += 1
+            }
+            return
+        }
+
+        var videos = self.videos
+        var sections = self.sections
+        self.lastDismissal = self.dismissals.dismiss(action, for: video, videos: &videos, sections: &sections)
+        self.videos = videos
+        self.sections = sections
+    }
+
+    /// Reverses the most recent dismissal and puts its cards back where they were.
+    func undoLastDismissal() async {
+        guard !self.isUndoingDismissal,
+              let dismissal = self.lastDismissal,
+              let undoToken = dismissal.action.undoToken
+        else {
+            return
+        }
+        self.isUndoingDismissal = true
+        defer { self.isUndoingDismissal = false }
+
+        do {
+            try await self.client.sendFeedback(token: undoToken)
+        } catch {
+            if !(error is CancellationError) {
+                self.logger.error("YouTube feedback undo failed: \(error.localizedDescription)")
+                self.feedbackFailureCount += 1
+            }
+            return
+        }
+        // YouTube has reversed the feedback, so restore the cards even if the
+        // confirmation was closed or replaced while the request was in flight.
+        if self.lastDismissal?.id == dismissal.id {
+            self.lastDismissal = nil
+        }
+
+        var videos = self.videos
+        var sections = self.sections
+        self.dismissals.undo(dismissal, videos: &videos, sections: &sections)
+        self.videos = videos
+        self.sections = sections
+    }
+
+    /// Hides the dismissal confirmation once the view is done showing it.
+    func clearLastDismissal(id: YouTubeFeedbackDismissal.ID) {
+        if self.lastDismissal?.id == id {
+            self.lastDismissal = nil
+        }
     }
 
     // MARK: - Topic Rails

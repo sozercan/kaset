@@ -191,7 +191,8 @@ enum YouTubeItemParser {
             thumbnailURL: self.thumbnailURL(fromLockup: lockup),
             isLive: badgeText?.localizedCaseInsensitiveCompare("live") == .orderedSame,
             isShort: isShort,
-            watchedPercent: self.watchedPercent(ofLockup: lockup)
+            watchedPercent: self.watchedPercent(ofLockup: lockup),
+            feedbackActions: YouTubeFeedbackParser.actions(fromLockup: lockup)
         )
     }
 

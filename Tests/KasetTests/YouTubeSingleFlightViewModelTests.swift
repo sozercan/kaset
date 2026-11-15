@@ -454,6 +454,10 @@ private final class SingleFlightYouTubeClient: YouTubeClientProtocol {
         try await self.waitIfNeeded()
     }
 
+    func sendFeedback(token _: String) async throws {
+        try await self.waitIfNeeded()
+    }
+
     private func waitIfNeeded() async throws {
         if Task.isCancelled {
             throw CancellationError()

@@ -44,6 +44,13 @@ struct YouTubeHomeSection: Identifiable {
     let kind: Kind
 }
 
+extension YouTubeHomeSection {
+    /// The same rail with a different set of videos.
+    func replacingVideos(_ videos: [YouTubeVideo]) -> YouTubeHomeSection {
+        YouTubeHomeSection(id: self.id, title: self.title, videos: videos, kind: self.kind)
+    }
+}
+
 // MARK: - YouTubeHomeChip
 
 /// A personalized filter chip from the home feed's chip bar. Each chip's

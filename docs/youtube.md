@@ -88,6 +88,7 @@ and suggestion submissions are never retried automatically. See
 | Like / unlike | `like/like`, `like/dislike`, `like/removelike` |
 | Subscribe | `subscription/subscribe` / `subscription/unsubscribe` |
 | Watch Later edit | `browse/edit_playlist` (playlistId `WL`) |
+| Recommendation feedback | `feedback` with the `feedbackToken` from a lockup's Not interested / Don't recommend channel menu entry |
 
 Note: YouTube retired the Trending feed (`FEtrending` → HTTP 400); the
 Explore surface uses the destination feeds that replaced it.

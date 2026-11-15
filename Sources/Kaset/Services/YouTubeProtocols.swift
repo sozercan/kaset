@@ -142,6 +142,13 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Removes a video from Watch Later.
     func removeFromWatchLater(videoId: String) async throws
+
+    // MARK: Recommendation feedback
+
+    /// Sends a token from a video's overflow menu ("Not interested",
+    /// "Don't recommend channel") to the `feedback` endpoint. The matching
+    /// undo token goes through the same call.
+    func sendFeedback(token: String) async throws
 }
 
 // MARK: - YouTubeClientProtocol Convenience

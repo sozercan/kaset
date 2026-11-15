@@ -689,3 +689,6 @@
 "Talk to a companion app" = "Kommunicera med en tillhörande app";
 "Request a connection to its companion app." = "Begära en anslutning till sin tillhörande app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Det kan läsa och dela information som visas medan du är inloggad. Aktivera det bara om du litar på det.";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "Det gick inte att skicka feedback till YouTube.";

@@ -689,3 +689,6 @@
 "Talk to a companion app" = "Comunicare con un’app complementare";
 "Request a connection to its companion app." = "Richiedere una connessione alla propria app complementare.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Potrebbe leggere e condividere le informazioni mostrate mentre hai eseguito l’accesso. Attivala solo se ti fidi.";
+
+// YouTube recommendation feedback
+"Couldn't send feedback to YouTube." = "Impossibile inviare il feedback a YouTube.";
