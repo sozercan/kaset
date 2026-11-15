@@ -11,6 +11,13 @@ struct YouTubeFeedbackDismissal: Identifiable {
         let video: YouTubeVideo
     }
 
+    /// A rail the dismissal emptied and removed, with its position in the
+    /// section list and its cards as they were before the dismissal.
+    struct RemovedSection {
+        let index: Int
+        let section: YouTubeHomeSection
+    }
+
     let id = UUID()
     let action: YouTubeFeedbackAction
     /// The video the feedback was sent for.
@@ -21,6 +28,8 @@ struct YouTubeFeedbackDismissal: Identifiable {
     let gridRemovals: [Removal]
     /// Removed cards per rail, keyed by section ID.
     let sectionRemovals: [String: [Removal]]
+    /// Rails the dismissal emptied, restored on undo.
+    let removedSections: [RemovedSection]
 
     /// Whether YouTube offered a way to reverse this feedback.
     var canUndo: Bool {
@@ -36,19 +45,34 @@ struct YouTubeFeedbackDismissal: Identifiable {
 /// Continue Watching is the user's own history, not a recommendation, so it
 /// is never filtered.
 struct YouTubeFeedbackDismissals {
-    private var videoIDs: Set<String> = []
-    private var channelIDs: Set<String> = []
+    /// How many accepted dismissals cover each video and channel. An ID stops
+    /// filtering only when every dismissal that covers it has been undone,
+    /// because each undo token reverses only its own feedback.
+    private var videoCounts: [String: Int] = [:]
+    private var channelCounts: [String: Int] = [:]
+
+    /// Cards and rails an undo could not restore yet because another
+    /// dismissal still covered them. Later undos restore them once nothing
+    /// covers them anymore.
+    private var heldGridRemovals: [YouTubeFeedbackDismissal.Removal] = []
+    private var heldSectionRemovals: [String: [YouTubeFeedbackDismissal.Removal]] = [:]
+    private var heldSections: [YouTubeFeedbackDismissal.RemovedSection] = []
+
+    /// A stable order key per rail, learned from every rail list seen on
+    /// dismiss and undo. Restored rails go back between the same rails as
+    /// before, even when undos finish out of order.
+    private var railOrder: [String: Double] = [:]
 
     private var isEmpty: Bool {
-        self.videoIDs.isEmpty && self.channelIDs.isEmpty
+        self.videoCounts.isEmpty && self.channelCounts.isEmpty
     }
 
     func isDismissed(_ video: YouTubeVideo) -> Bool {
-        if self.videoIDs.contains(video.videoId) {
+        if self.videoCounts[video.videoId] != nil {
             return true
         }
         guard let channelID = video.channelId else { return false }
-        return self.channelIDs.contains(channelID)
+        return self.channelCounts[channelID] != nil
     }
 
     func filtered(_ videos: [YouTubeVideo]) -> [YouTubeVideo] {
@@ -78,10 +102,11 @@ struct YouTubeFeedbackDismissals {
         videos: inout [YouTubeVideo],
         sections: inout [YouTubeHomeSection]
     ) -> YouTubeFeedbackDismissal {
+        self.learnRailOrder(sections)
         let channelID = action.kind == .dontRecommendChannel ? video.channelId : nil
-        self.videoIDs.insert(video.videoId)
+        Self.add(video.videoId, to: &self.videoCounts)
         if let channelID {
-            self.channelIDs.insert(channelID)
+            Self.add(channelID, to: &self.channelCounts)
         }
 
         let matches: (YouTubeVideo) -> Bool = { candidate in
@@ -99,38 +124,124 @@ struct YouTubeFeedbackDismissals {
         }
 
         videos.removeAll(where: matches)
-        sections = sections.compactMap { section in
-            guard sectionRemovals[section.id] != nil else { return section }
+        var remainingSections: [YouTubeHomeSection] = []
+        var removedSections: [YouTubeFeedbackDismissal.RemovedSection] = []
+        for (index, section) in sections.enumerated() {
+            guard sectionRemovals[section.id] != nil else {
+                remainingSections.append(section)
+                continue
+            }
             let remaining = section.videos.filter { !matches($0) }
-            return remaining.isEmpty ? nil : section.replacingVideos(remaining)
+            if remaining.isEmpty {
+                removedSections.append(.init(index: index, section: section))
+            } else {
+                remainingSections.append(section.replacingVideos(remaining))
+            }
         }
+        sections = remainingSections
 
         return YouTubeFeedbackDismissal(
             action: action,
             videoID: video.videoId,
             channelID: channelID,
             gridRemovals: gridRemovals,
-            sectionRemovals: sectionRemovals
+            sectionRemovals: sectionRemovals,
+            removedSections: removedSections
         )
     }
 
-    /// Forgets an undone dismissal and puts its cards back where they were.
-    /// Rails the dismissal emptied were dropped; they return on the next refresh.
+    /// Forgets an undone dismissal and puts its cards, and any rails it
+    /// emptied, back where they were. Cards that another dismissal still
+    /// covers are held and come back when that dismissal is undone too.
     mutating func undo(
         _ dismissal: YouTubeFeedbackDismissal,
         videos: inout [YouTubeVideo],
         sections: inout [YouTubeHomeSection]
     ) {
-        self.videoIDs.remove(dismissal.videoID)
+        Self.remove(dismissal.videoID, from: &self.videoCounts)
         if let channelID = dismissal.channelID {
-            self.channelIDs.remove(channelID)
+            Self.remove(channelID, from: &self.channelCounts)
         }
 
-        videos = Self.reinserting(dismissal.gridRemovals, into: videos)
+        // This dismissal's cards plus everything earlier undos had to hold.
+        let gridCandidates = self.heldGridRemovals + dismissal.gridRemovals
+        self.heldGridRemovals = gridCandidates.filter { self.isDismissed($0.video) }
+        videos = Self.reinserting(gridCandidates.filter { !self.isDismissed($0.video) }, into: videos)
+
+        // Rail cards waiting to come back, keyed by rail. Cards whose rail is
+        // missing right now stay held for when the rail returns.
+        var pendingRailRemovals = self.heldSectionRemovals.merging(dismissal.sectionRemovals) { $0 + $1 }
         sections = sections.map { section in
-            guard let removals = dismissal.sectionRemovals[section.id] else { return section }
-            return section.replacingVideos(Self.reinserting(removals, into: section.videos))
+            guard let removals = pendingRailRemovals[section.id] else { return section }
+            pendingRailRemovals[section.id] = removals.filter { self.isDismissed($0.video) }
+            let restorable = removals.filter { !self.isDismissed($0.video) }
+            return section.replacingVideos(Self.reinserting(restorable, into: section.videos))
         }
+
+        self.learnRailOrder(sections)
+        var stillHeldSections: [YouTubeFeedbackDismissal.RemovedSection] = []
+        let removedCandidates = (self.heldSections + dismissal.removedSections).sorted { $0.index < $1.index }
+        for removed in removedCandidates where !sections.contains(where: { $0.id == removed.section.id }) {
+            let railID = removed.section.id
+            let snapshotRemovals = removed.section.videos.enumerated()
+                .map { YouTubeFeedbackDismissal.Removal(index: $0.offset, video: $0.element) }
+            let candidates = snapshotRemovals + (pendingRailRemovals[railID] ?? [])
+            let restorable = candidates.filter { !self.isDismissed($0.video) }
+            guard !restorable.isEmpty else {
+                stillHeldSections.append(removed)
+                continue
+            }
+            pendingRailRemovals[railID] = candidates.filter { self.isDismissed($0.video) }
+            sections.insert(
+                removed.section.replacingVideos(Self.reinserting(restorable, into: [])),
+                at: self.insertionIndex(for: removed, in: sections)
+            )
+        }
+        self.heldSectionRemovals = pendingRailRemovals.filter { !$0.value.isEmpty }
+        self.heldSections = stillHeldSections
+    }
+
+    /// Gives every rail not seen before an order key between its known
+    /// neighbors in this list. Keys of removed rails count too, so a new rail
+    /// never takes a removed rail's place: one appended at the end goes after
+    /// every known rail, and one inserted between neighbors goes before the
+    /// next known key.
+    private mutating func learnRailOrder(_ sections: [YouTubeHomeSection]) {
+        for (index, section) in sections.enumerated() where self.railOrder[section.id] == nil {
+            let order = self.railOrder
+            let previousKey = sections[..<index].reversed().first { order[$0.id] != nil }.flatMap { order[$0.id] }
+            let nextKey = sections[(index + 1)...].first { order[$0.id] != nil }.flatMap { order[$0.id] }
+            let knownKeys = order.values
+            self.railOrder[section.id] = switch (previousKey, nextKey) {
+            case let (previous?, next?):
+                (previous + (knownKeys.filter { $0 > previous }.min() ?? next)) / 2
+            case (_?, nil), (nil, nil):
+                (knownKeys.max() ?? -1) + 1
+            case let (nil, next?):
+                knownKeys.filter { $0 < next }.max().map { ($0 + next) / 2 } ?? next - 1
+            }
+        }
+    }
+
+    /// Where a restored rail goes: before the first rail that came after it.
+    /// The old index is the fallback for a rail with no known order.
+    private func insertionIndex(
+        for removed: YouTubeFeedbackDismissal.RemovedSection,
+        in sections: [YouTubeHomeSection]
+    ) -> Int {
+        guard let key = self.railOrder[removed.section.id] else {
+            return min(removed.index, sections.count)
+        }
+        return sections.firstIndex { (self.railOrder[$0.id] ?? .infinity) > key } ?? sections.count
+    }
+
+    private static func add(_ id: String, to counts: inout [String: Int]) {
+        counts[id, default: 0] += 1
+    }
+
+    private static func remove(_ id: String, from counts: inout [String: Int]) {
+        guard let count = counts[id] else { return }
+        counts[id] = count > 1 ? count - 1 : nil
     }
 
     private static func removals(

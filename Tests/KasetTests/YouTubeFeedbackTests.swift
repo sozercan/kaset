@@ -302,6 +302,146 @@ struct YouTubeHomeFeedbackTests {
         #expect(self.sut.videos.map(\.videoId) == ["a", "b", "c"])
     }
 
+    @Test("Undo keeps a card hidden when another dismissal still covers it")
+    func undoRespectsRemainingDismissals() async {
+        let videos = [
+            Self.video("a", channel: "UC1"),
+            Self.video("b", channel: "UC1"),
+            Self.video("c", channel: "UC2"),
+        ]
+        await self.loadHome(videos: videos)
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-a", undoToken: "mock-undo-a"), for: videos[0])
+        #expect(self.sut.videos.map(\.videoId) == ["b", "c"])
+
+        // While the Undo for "a" is in flight, its whole channel is dismissed.
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(Self.action(.dontRecommendChannel, token: "mock-b"), for: videos[1])
+        }
+        await self.sut.undoLastDismissal()
+
+        #expect(self.mockClient.sentFeedbackTokens == ["mock-a", "mock-undo-a", "mock-b"])
+        #expect(self.sut.videos.map(\.videoId) == ["c"])
+    }
+
+    @Test("Undo brings back a rail the dismissal emptied, in its place")
+    func undoRestoresEmptiedRail() async {
+        let first = Self.video("s1", channel: "UC8")
+        let only = Self.video("s2", channel: "UC9")
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "shelf-1", title: "First", videos: [first], kind: .shelf),
+            YouTubeHomeSection(id: "shelf-2", title: "Second", videos: [only], kind: .shelf),
+        ]
+        await self.loadHome(videos: [Self.video("a", channel: "UC1")])
+        await self.sut.sendFeedback(Self.action(.notInterested), for: only)
+        #expect(self.sut.sections.map(\.id) == ["shelf-1"])
+
+        await self.sut.undoLastDismissal()
+
+        #expect(self.sut.sections.map(\.id) == ["shelf-1", "shelf-2"])
+        #expect(self.sut.sections.last?.videos.map(\.videoId) == ["s2"])
+    }
+
+    @Test("Cards held back by an undo return once the covering dismissal is undone")
+    func heldCardsReturnAfterCoveringUndo() async {
+        let videos = [
+            Self.video("a", channel: "UC1"),
+            Self.video("b", channel: "UC1"),
+            Self.video("c", channel: "UC2"),
+        ]
+        await self.loadHome(videos: videos)
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-a", undoToken: "mock-undo-a"), for: videos[0])
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(
+                Self.action(.dontRecommendChannel, token: "mock-b", undoToken: "mock-undo-b"),
+                for: videos[1]
+            )
+        }
+        await self.sut.undoLastDismissal()
+        #expect(self.sut.videos.map(\.videoId) == ["c"])
+
+        // Undoing the channel dismissal releases "b" and the held "a".
+        await self.sut.undoLastDismissal()
+
+        #expect(Set(self.sut.videos.map(\.videoId)) == ["a", "b", "c"])
+        #expect(self.sut.lastDismissal == nil)
+    }
+
+    @Test("Rails restored out of order go back to their original places")
+    func railsRestoreInOrderAfterOutOfOrderUndo() async {
+        let first = Self.video("s0", channel: "UC7")
+        let middle = Self.video("s1", channel: "UC8")
+        let last = Self.video("s2", channel: "UC9")
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "shelf-0", title: "Zero", videos: [first], kind: .shelf),
+            YouTubeHomeSection(id: "shelf-1", title: "One", videos: [middle], kind: .shelf),
+            YouTubeHomeSection(id: "shelf-2", title: "Two", videos: [last], kind: .shelf),
+        ]
+        await self.loadHome(videos: [Self.video("a", channel: "UC1")])
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-1", undoToken: "mock-undo-1"), for: middle)
+        // While the middle rail's Undo is in flight, the first rail is emptied.
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(Self.action(.notInterested, token: "mock-0", undoToken: "mock-undo-0"), for: first)
+        }
+        await self.sut.undoLastDismissal()
+        #expect(self.sut.sections.map(\.id) == ["shelf-1", "shelf-2"])
+
+        await self.sut.undoLastDismissal()
+
+        #expect(self.sut.sections.map(\.id) == ["shelf-0", "shelf-1", "shelf-2"])
+    }
+
+    @Test("A card whose rail was emptied during its undo comes back with the rail")
+    func cardReturnsWithRailEmptiedDuringUndo() async {
+        let kept = Self.video("x", channel: "UC1")
+        let hidden = Self.video("y", channel: "UC2")
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "rail", title: "Rail", videos: [kept, hidden], kind: .shelf),
+        ]
+        await self.loadHome(videos: [Self.video("a", channel: "UC3")])
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-y", undoToken: "mock-undo-y"), for: hidden)
+        // While that Undo is in flight, the rail's last card goes with its channel.
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(
+                Self.action(.dontRecommendChannel, token: "mock-x", undoToken: "mock-undo-x"),
+                for: kept
+            )
+        }
+        await self.sut.undoLastDismissal()
+        #expect(self.sut.sections.isEmpty)
+
+        await self.sut.undoLastDismissal()
+
+        #expect(self.sut.sections.first?.videos.map(\.videoId) == ["x", "y"])
+    }
+
+    @Test("Rails that shared a neighbor come back in their original order")
+    func railsSharingANeighborRestoreInOrder() async {
+        let railA = Self.video("ra", channel: "UC7")
+        let railB = Self.video("rb", channel: "UC8")
+        let railC = Self.video("rc", channel: "UC9")
+        self.mockClient.homeShelves = [
+            YouTubeHomeSection(id: "A", title: "A", videos: [railA], kind: .shelf),
+            YouTubeHomeSection(id: "B", title: "B", videos: [railB], kind: .shelf),
+            YouTubeHomeSection(id: "C", title: "C", videos: [railC], kind: .shelf),
+        ]
+        await self.loadHome(videos: [Self.video("a", channel: "UC1")])
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-b", undoToken: "mock-undo-b"), for: railB)
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(Self.action(.notInterested, token: "mock-c", undoToken: "mock-undo-c"), for: railC)
+        }
+        await self.sut.undoLastDismissal()
+        #expect(self.sut.sections.map(\.id) == ["A", "B"])
+
+        await self.sut.undoLastDismissal()
+
+        #expect(self.sut.sections.map(\.id) == ["A", "B", "C"])
+    }
+
     @Test("Dismissed channels stay out of later continuation pages")
     func continuationFiltersDismissedChannel() async {
         let videos = [Self.video("a", channel: "UC1"), Self.video("b", channel: "UC2")]
@@ -332,5 +472,64 @@ struct YouTubeHomeFeedbackTests {
 
         #expect(self.sut.sections.isEmpty)
         #expect(self.sut.videos.map(\.videoId) == ["a"])
+    }
+}
+
+// MARK: - YouTubeFeedbackDismissalsTests
+
+@Suite("YouTubeFeedbackDismissals", .tags(.viewModel))
+struct YouTubeFeedbackDismissalsTests {
+    private static let channelAction = YouTubeFeedbackAction(
+        kind: .dontRecommendChannel,
+        title: "Don't recommend channel",
+        feedbackToken: "mock-feedback",
+        undoToken: "mock-undo",
+        confirmationText: nil,
+        undoTitle: nil
+    )
+
+    @Test("A restored rail goes before rails that appeared after it was removed")
+    func restoredRailPrecedesLaterRails() {
+        var dismissals = YouTubeFeedbackDismissals()
+        let action = YouTubeFeedbackAction(
+            kind: .notInterested,
+            title: "Not interested",
+            feedbackToken: "mock-feedback",
+            undoToken: "mock-undo",
+            confirmationText: nil,
+            undoTitle: nil
+        )
+        func rail(_ id: String) -> YouTubeHomeSection {
+            YouTubeHomeSection(id: id, title: id, videos: [YouTubeVideo(videoId: "v-\(id)", title: id)], kind: .topic)
+        }
+        var videos: [YouTubeVideo] = []
+        var sections = [rail("A"), rail("B")]
+        let dismissal = dismissals.dismiss(action, for: sections[1].videos[0], videos: &videos, sections: &sections)
+        #expect(sections.map(\.id) == ["A"])
+
+        // More topic rails load before the undo lands.
+        sections += [rail("C"), rail("D")]
+        dismissals.undo(dismissal, videos: &videos, sections: &sections)
+
+        #expect(sections.map(\.id) == ["A", "B", "C", "D"])
+    }
+
+    @Test("A channel stays filtered until every dismissal for it is undone")
+    func channelCountsAcrossDismissals() {
+        var dismissals = YouTubeFeedbackDismissals()
+        let first = YouTubeVideo(videoId: "a", title: "a", channelId: "UC1")
+        let second = YouTubeVideo(videoId: "b", title: "b", channelId: "UC1")
+        let later = YouTubeVideo(videoId: "c", title: "c", channelId: "UC1")
+        var videos = [first]
+        var sections: [YouTubeHomeSection] = []
+        let one = dismissals.dismiss(Self.channelAction, for: first, videos: &videos, sections: &sections)
+        videos = [second]
+        let two = dismissals.dismiss(Self.channelAction, for: second, videos: &videos, sections: &sections)
+
+        dismissals.undo(one, videos: &videos, sections: &sections)
+        #expect(dismissals.isDismissed(later))
+
+        dismissals.undo(two, videos: &videos, sections: &sections)
+        #expect(!dismissals.isDismissed(later))
     }
 }
