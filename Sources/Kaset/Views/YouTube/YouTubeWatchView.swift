@@ -1,3 +1,5 @@
+// swiftlint:disable file_length
+
 import SwiftUI
 
 // MARK: - YouTubeWatchView
@@ -363,35 +365,12 @@ struct YouTubeWatchView: View {
     // MARK: - Chapters
 
     private var chaptersSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Chapters", comment: "Video chapters section header")
-                .font(.title3.bold())
-
-            CarouselShelf(
-                accessibilityLabel: String(localized: "Video chapters"),
-                pageFraction: 0.82,
-                showsControls: true,
-                controlVerticalAlignment: .center,
-                contentInset: 0
-            ) {
-                LazyHStack(alignment: .top, spacing: 10) {
-                    ForEach(self.viewModel.data.chapters) { chapter in
-                        Button {
-                            self.seekToChapter(chapter)
-                        } label: {
-                            ChapterCard(chapter: chapter, isActive: self.isActiveChapter(chapter))
-                        }
-                        .buttonStyle(.interactiveRow)
-                        .accessibilityLabel(
-                            String(localized: "Jump to chapter: \(chapter.title)")
-                        )
-                        .disabled(!self.canSeekToChapter(chapter))
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-        }
-        .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
+        YouTubeChaptersSection(
+            chapters: self.viewModel.data.chapters,
+            isActiveChapter: self.isActiveChapter,
+            canSeekToChapter: self.canSeekToChapter,
+            seekToChapter: self.seekToChapter
+        )
     }
 
     private func seekToChapter(_ chapter: YouTubeChapter) {
@@ -775,6 +754,86 @@ private struct CommentRow: View {
     }
 }
 
+// MARK: - YouTubeChaptersSection
+
+/// Watch-page chapters. The carousel hugs the cards, and the header collapses it.
+struct YouTubeChaptersSection: View {
+    let chapters: [YouTubeChapter]
+    let isActiveChapter: (YouTubeChapter) -> Bool
+    let canSeekToChapter: (YouTubeChapter) -> Bool
+    let seekToChapter: (YouTubeChapter) -> Void
+
+    @State private var isExpanded: Bool
+
+    init(
+        chapters: [YouTubeChapter],
+        isActiveChapter: @escaping (YouTubeChapter) -> Bool,
+        canSeekToChapter: @escaping (YouTubeChapter) -> Bool,
+        seekToChapter: @escaping (YouTubeChapter) -> Void,
+        initiallyExpanded: Bool = true
+    ) {
+        self.chapters = chapters
+        self.isActiveChapter = isActiveChapter
+        self.canSeekToChapter = canSeekToChapter
+        self.seekToChapter = seekToChapter
+        self._isExpanded = State(initialValue: initiallyExpanded)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                self.isExpanded.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Text("Chapters", comment: "Video chapters section header")
+                        .font(.title3.bold())
+
+                    Image(systemName: self.isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(
+                self.isExpanded ? String(localized: "Showing") : String(localized: "Hidden")
+            )
+
+            if self.isExpanded {
+                CarouselShelf(
+                    accessibilityLabel: String(localized: "Video chapters"),
+                    pageFraction: 0.82,
+                    showsControls: true,
+                    controlVerticalAlignment: .center,
+                    contentInset: 0
+                ) {
+                    // Lazy so long chapter lists don't load every thumbnail up
+                    // front. A lazy stack sizes its height from the cards it has
+                    // built, so `ChapterCard` reserves both title lines to keep
+                    // every card, and the hugged row, the same height.
+                    LazyHStack(alignment: .top, spacing: 10) {
+                        ForEach(self.chapters) { chapter in
+                            Button {
+                                self.seekToChapter(chapter)
+                            } label: {
+                                ChapterCard(chapter: chapter, isActive: self.isActiveChapter(chapter))
+                            }
+                            .buttonStyle(.interactiveRow)
+                            .accessibilityLabel(
+                                String(localized: "Jump to chapter: \(chapter.title)")
+                            )
+                            .disabled(!self.canSeekToChapter(chapter))
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityIdentifier(AccessibilityID.YouTubeContent.chaptersSection)
+    }
+}
+
 // MARK: - ChapterCard
 
 private struct ChapterCard: View {
@@ -791,7 +850,7 @@ private struct ChapterCard: View {
                 Text(self.chapter.title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.primary)
-                    .lineLimit(2)
+                    .lineLimit(2, reservesSpace: true)
                     .multilineTextAlignment(.leading)
 
                 Text(self.chapter.timeText ?? Self.formatTime(self.chapter.startTime))
