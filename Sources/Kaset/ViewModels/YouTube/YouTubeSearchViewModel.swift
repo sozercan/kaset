@@ -55,6 +55,9 @@ final class YouTubeSearchViewModel {
     /// searched again, is dropped, so a later search of it stays.
     @ObservationIgnored private var removalsAwaitingLoad: [(entry: String, expires: Date)] = []
     private static let awaitingRemovalLifetime: TimeInterval = 60
+    /// Removals taken from `removalsAwaitingLoad` and queued to run. A search
+    /// of the same query before one starts takes it off, and it doesn't run.
+    @ObservationIgnored private var queuedAwaitingRemovals: [String] = []
     /// Identifies the load that owns `accountHistoryTask`, so a load that
     /// finishes after being replaced can't clear its successor's state.
     @ObservationIgnored private var accountHistoryLoadID = 0
@@ -96,6 +99,7 @@ final class YouTubeSearchViewModel {
         // Searched again: an older removal waiting for the history must not
         // delete this new search.
         self.removalsAwaitingLoad.removeAll { YouTubeSearchHistoryStore.matches($0.entry, context.query) }
+        self.queuedAwaitingRemovals.removeAll { YouTubeSearchHistoryStore.matches($0, context.query) }
         self.recentSearches = self.historyStore.entries
         // Signed-in searches land in the account history too; refetch it the
         // next time the history shows.
@@ -251,6 +255,20 @@ final class YouTubeSearchViewModel {
         }
     }
 
+    /// Runs a removal queued when the history published, unless its query was
+    /// searched again since: then the new search stays, and the entry the
+    /// removal hid shows again until the history is refetched.
+    private func runQueuedAwaitingRemoval(_ entry: String, restoreIndex: Int) async {
+        guard let queued = self.queuedAwaitingRemovals.firstIndex(of: entry) else {
+            if !self.accountSearchHistory.contains(where: { YouTubeSearchHistoryStore.matches($0, entry) }) {
+                self.accountSearchHistory.insert(entry, at: min(restoreIndex, self.accountSearchHistory.count))
+            }
+            return
+        }
+        self.queuedAwaitingRemovals.remove(at: queued)
+        await self.removeAccountEntry(entry, restoreIndex: restoreIndex)
+    }
+
     private func settlePendingRemoval(_ accountEntry: String) {
         if let index = self.pendingAccountRemovals.firstIndex(of: accountEntry) {
             self.pendingAccountRemovals.remove(at: index)
@@ -300,10 +318,12 @@ final class YouTubeSearchViewModel {
                     && !self.pendingAccountRemovals.contains { YouTubeSearchHistoryStore.matches($0, entry) }
             }
             self.accountHistoryLoadedAt = Date()
-            // Each stays hidden and comes back only if its removal fails.
+            // Each stays hidden and comes back only if its removal fails or
+            // its query is searched again before it starts.
             for (index, entry) in history.enumerated() where isAwaitingRemoval(entry) {
+                self.queuedAwaitingRemovals.append(entry)
                 Task {
-                    await self.removeAccountEntry(entry, restoreIndex: index)
+                    await self.runQueuedAwaitingRemoval(entry, restoreIndex: index)
                 }
             }
             return true

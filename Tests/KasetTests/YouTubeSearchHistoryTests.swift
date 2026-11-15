@@ -339,6 +339,46 @@ struct YouTubeSearchViewModelHistoryTests {
         #expect(self.mockClient.removedSearchHistoryEntries.isEmpty)
     }
 
+    @Test("A search after the history publishes, before its deferred removal starts, keeps the search")
+    func searchBeforeQueuedRemovalStarts() async {
+        // YouTube still lists the old "jazz" when the first history loads.
+        self.mockClient.accountSearchHistory = ["jazz", "news"]
+        let loadEntered = AsyncGate()
+        let releaseLoad = AsyncGate()
+        self.mockClient.beforeSearchHistoryReturn = {
+            await loadEntered.open()
+            await releaseLoad.wait()
+        }
+        let firstLoad = Task { await self.sut.loadAccountSearchHistory() }
+        await loadEntered.wait()
+        self.mockClient.beforeSearchHistoryReturn = nil
+        await self.sut.removeSearchHistoryEntry("jazz")
+
+        // The history publishing queues the deferred removal. A search queued
+        // at that moment runs before the removal starts.
+        let sut = self.sut
+        let searchQueued = AsyncGate()
+        withObservationTracking {
+            _ = sut.accountSearchHistory
+        } onChange: {
+            Task { @MainActor in
+                sut.query = "jazz"
+                // search() takes the removal off the queue before it suspends.
+                await sut.search()
+                await searchQueued.open()
+            }
+        }
+        await releaseLoad.open()
+        await firstLoad.value
+        await searchQueued.wait()
+        for _ in 0 ..< 200 where !sut.accountSearchHistory.contains("jazz") {
+            await Task.yield()
+        }
+
+        #expect(self.mockClient.removedSearchHistoryEntries.isEmpty)
+        #expect(sut.accountSearchHistory == ["jazz", "news"])
+    }
+
     @Test("A failed account removal restores the entry and reports it")
     func removeEntryFailure() async {
         self.mockClient.accountSearchHistory = ["jazz"]
