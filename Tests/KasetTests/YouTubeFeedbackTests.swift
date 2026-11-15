@@ -364,8 +364,26 @@ struct YouTubeHomeFeedbackTests {
         // Undoing the channel dismissal releases "b" and the held "a".
         await self.sut.undoLastDismissal()
 
-        #expect(Set(self.sut.videos.map(\.videoId)) == ["a", "b", "c"])
+        #expect(self.sut.videos.map(\.videoId) == ["a", "b", "c"])
         #expect(self.sut.lastDismissal == nil)
+    }
+
+    @Test("Cards keep their order when dismissals and undos overlap")
+    func overlappingUndosKeepCardOrder() async {
+        let videos = ["a", "b", "c", "d"].map { Self.video($0, channel: "UC-\($0)") }
+        await self.loadHome(videos: videos)
+        await self.sut.sendFeedback(Self.action(.notInterested, token: "mock-b", undoToken: "mock-undo-b"), for: videos[1])
+        // While the Undo for "b" is in flight, "a" is dismissed.
+        self.mockClient.beforeFeedbackReturn = { [sut = self.sut, mockClient = self.mockClient] in
+            mockClient.beforeFeedbackReturn = nil
+            await sut.sendFeedback(Self.action(.notInterested, token: "mock-a", undoToken: "mock-undo-a"), for: videos[0])
+        }
+        await self.sut.undoLastDismissal()
+        #expect(self.sut.videos.map(\.videoId) == ["b", "c", "d"])
+
+        await self.sut.undoLastDismissal()
+
+        #expect(self.sut.videos.map(\.videoId) == ["a", "b", "c", "d"])
     }
 
     @Test("Rails restored out of order go back to their original places")
@@ -393,7 +411,7 @@ struct YouTubeHomeFeedbackTests {
         #expect(self.sut.sections.map(\.id) == ["shelf-0", "shelf-1", "shelf-2"])
     }
 
-    @Test("A card whose rail was emptied during its undo comes back with the rail")
+    @Test("A card whose rail another dismissal emptied during its undo brings the rail back")
     func cardReturnsWithRailEmptiedDuringUndo() async {
         let kept = Self.video("x", channel: "UC1")
         let hidden = Self.video("y", channel: "UC2")
@@ -410,8 +428,10 @@ struct YouTubeHomeFeedbackTests {
                 for: kept
             )
         }
+        // Nothing covers "y" anymore, so its Undo brings the rail back for it.
         await self.sut.undoLastDismissal()
-        #expect(self.sut.sections.isEmpty)
+        #expect(self.sut.sections.map(\.id) == ["rail"])
+        #expect(self.sut.sections.first?.videos.map(\.videoId) == ["y"])
 
         await self.sut.undoLastDismissal()
 
