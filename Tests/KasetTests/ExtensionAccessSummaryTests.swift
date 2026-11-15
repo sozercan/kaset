@@ -32,4 +32,14 @@ struct ExtensionAccessSummaryTests {
     func unknownPermissionIsNotGivenAnInventedDescription() {
         #expect(ExtensionPermissions.accessDescription(for: "futurePermission") == nil)
     }
+
+    @Test("Several unrecognized permissions share one fallback row")
+    func unknownPermissionsShareOneRow() {
+        let permissions = ["cookies", "futureA", "storage", "futureB", "tabs"]
+
+        // Only described permissions get their own rows, and cookies is listed separately.
+        #expect(ExtensionPermissions.describedPermissions(in: permissions) == ["storage", "tabs"])
+        #expect(ExtensionPermissions.containsUndescribedPermission(permissions))
+        #expect(!ExtensionPermissions.containsUndescribedPermission(["cookies", "storage"]))
+    }
 }

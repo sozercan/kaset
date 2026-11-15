@@ -49,6 +49,18 @@ struct ExtensionPermissions: Codable, Equatable {
         }
     }
 
+    /// Permissions that get their own row in the review, in order. `cookies` is excluded
+    /// because the review always lists it first.
+    static func describedPermissions(in permissions: [String]) -> [String] {
+        permissions.filter { $0 != "cookies" && self.accessDescription(for: $0) != nil }
+    }
+
+    /// Whether any permission lacks a plain-language description. All such permissions
+    /// share one "Other access requested" row that points to Technical details.
+    static func containsUndescribedPermission(_ permissions: [String]) -> Bool {
+        permissions.contains { self.accessDescription(for: $0) == nil }
+    }
+
     static func accessDescription(for permission: String) -> ExtensionAccessDescription? {
         switch permission {
         case "cookies":

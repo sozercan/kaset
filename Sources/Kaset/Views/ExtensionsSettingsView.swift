@@ -287,9 +287,9 @@ private struct ExtensionPermissionReviewView: View {
         self.isApproving = isApproving
         self.cancel = cancel
         self.approve = approve
-        self._showTechnicalDetails = State(initialValue: review.permissions.permissions.contains {
-            ExtensionPermissions.accessDescription(for: $0) == nil
-        })
+        self._showTechnicalDetails = State(
+            initialValue: ExtensionPermissions.containsUndescribedPermission(review.permissions.permissions)
+        )
     }
 
     var body: some View {
@@ -379,8 +379,16 @@ private struct ExtensionPermissionReviewView: View {
                     detail: websites.joined(separator: "\n")
                 )
             }
-            ForEach(self.review.permissions.permissions.filter { $0 != "cookies" }, id: \.self) { permission in
+            ForEach(ExtensionPermissions.describedPermissions(in: self.review.permissions.permissions), id: \.self) { permission in
                 self.permissionSummary(permission)
+            }
+            if ExtensionPermissions.containsUndescribedPermission(self.review.permissions.permissions) {
+                self.accessRow(
+                    symbol: "exclamationmark.triangle",
+                    title: String(localized: "Other access requested"),
+                    detail: String(localized: "Kaset can’t explain this request. Check Technical details before turning it on."),
+                    isSensitive: true
+                )
             }
             if self.review.permissions.websitePatterns.isEmpty, self.review.permissions.permissions.isEmpty {
                 self.accessRow(
@@ -403,13 +411,6 @@ private struct ExtensionPermissionReviewView: View {
     private func permissionSummary(_ permission: String) -> some View {
         if let description = ExtensionPermissions.accessDescription(for: permission) {
             self.accessRow(symbol: description.symbol, title: description.title, detail: description.detail, isSensitive: permission == "cookies")
-        } else {
-            self.accessRow(
-                symbol: "exclamationmark.triangle",
-                title: String(localized: "Other access requested"),
-                detail: String(localized: "Kaset can’t explain this request. Check Technical details before turning it on."),
-                isSensitive: true
-            )
         }
     }
 
