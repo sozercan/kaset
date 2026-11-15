@@ -133,12 +133,25 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
     var activeAudioTrackID: String?
     private(set) var selectedAudioTrackIDs: [String] = []
 
+    /// Replies for successive `availableAudioTracks()` calls before falling
+    /// back to `audioTracks`.
+    var queuedAudioTrackReplies: [[YouTubeAudioTrack]] = []
+    private(set) var audioTrackReadCount = 0
+    /// Runs inside `currentAudioTrackID()` after it captured its reply.
+    var beforeCurrentAudioTrackIDReturn: (@MainActor () async -> Void)?
+
     func availableAudioTracks() async -> [YouTubeAudioTrack] {
-        self.audioTracks
+        self.audioTrackReadCount += 1
+        if !self.queuedAudioTrackReplies.isEmpty {
+            return self.queuedAudioTrackReplies.removeFirst()
+        }
+        return self.audioTracks
     }
 
     func currentAudioTrackID() async -> String? {
-        self.activeAudioTrackID
+        let id = self.activeAudioTrackID
+        await self.beforeCurrentAudioTrackIDReturn?()
+        return id
     }
 
     func setAudioTrack(id: String) {
@@ -1647,7 +1660,7 @@ extension YouTubePlayerServiceTests {
         self.controller.activeAudioTrackID = "en-US.4"
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
 
-        await self.sut.refreshPlaybackOptions()
+        await self.sut.refreshAudioTrackOptions()
         #expect(self.sut.audioTracks.map(\.id) == ["en-US.4", "ru.3"])
         #expect(self.sut.activeAudioTrackID == "en-US.4")
 
@@ -1661,6 +1674,75 @@ extension YouTubePlayerServiceTests {
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
         #expect(self.sut.audioTracks.isEmpty)
         #expect(self.sut.activeAudioTrackID == nil)
+    }
+
+    @Test("Audio tracks retry until the player reports them")
+    func audioTracksRetryWhileEmpty() async {
+        let original = YouTubeAudioTrack(id: "en.4", displayName: "English original", isOriginal: true, isAutoDubbed: false)
+        self.controller.queuedAudioTrackReplies = [[]]
+        self.controller.audioTracks = [original]
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        await self.sut.refreshAudioTrackOptions()
+
+        #expect(self.controller.audioTrackReadCount == 2)
+        #expect(self.sut.audioTracks == [original])
+    }
+
+    @Test("A selection made while the active track is read is kept")
+    func audioSelectionDuringReadWins() async {
+        self.controller.audioTracks = [
+            YouTubeAudioTrack(id: "en-US.4", displayName: "English (US) original", isOriginal: true, isAutoDubbed: false),
+            YouTubeAudioTrack(id: "ru.3", displayName: "Russian", isOriginal: false, isAutoDubbed: false),
+        ]
+        self.controller.activeAudioTrackID = "en-US.4"
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+        await self.sut.refreshAudioTrackOptions()
+
+        self.controller.beforeCurrentAudioTrackIDReturn = { [sut = self.sut] in
+            sut.selectAudioTrack(id: "ru.3")
+        }
+        await self.sut.refreshAudioTrackOptions()
+
+        #expect(self.sut.activeAudioTrackID == "ru.3")
+    }
+
+    @Test("Audio tracks are read once content plays, not during a preroll ad")
+    func audioTracksWaitForContent() async {
+        self.controller.audioTracks = [
+            YouTubeAudioTrack(id: "en.4", displayName: "English original", isOriginal: true, isAutoDubbed: false),
+        ]
+        self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "abc"))
+
+        // Same shape as the content update below except for `isAd`, so only the
+        // ad gate keeps this update from reading audio tracks.
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 600,
+            hasReadyMedia: true,
+            videoId: "abc",
+            boundVideoId: "abc",
+            isAd: true
+        ))
+        for _ in 0 ..< 20 {
+            await Task.yield()
+        }
+        #expect(self.controller.audioTrackReadCount == 0)
+
+        self.sut.updatePlaybackState(.init(
+            isPlaying: true,
+            progress: 1,
+            duration: 600,
+            hasReadyMedia: true,
+            videoId: "abc",
+            boundVideoId: "abc"
+        ))
+        for _ in 0 ..< 200 where self.sut.audioTracks.isEmpty {
+            await Task.yield()
+        }
+        #expect(self.controller.audioTrackReadCount == 1)
+        #expect(self.sut.audioTracks.count == 1)
     }
 
     @Test("Playback options do not duplicate Auto and remain unavailable when empty")

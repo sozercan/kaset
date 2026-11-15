@@ -303,6 +303,15 @@ final class YouTubePlayerService {
     /// The video whose playback options were last fetched.
     private var playbackOptionsVideoId: String?
 
+    /// The video whose audio tracks were last fetched. Kept apart from
+    /// `playbackOptionsVideoId` because audio tracks are read only once real
+    /// content plays: during a preroll ad the player reports the ad's track.
+    private var audioOptionsVideoId: String?
+
+    /// Bumped by every audio track selection, so an active-track read that
+    /// started earlier can't overwrite the newer choice.
+    private var audioSelectionRevision = 0
+
     /// Client used by rating actions from the playback controls.
     /// Set once by KasetApp; optional so unit tests don't need it.
     @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
@@ -930,6 +939,7 @@ final class YouTubePlayerService {
         self.storyboardFetchVideoId = nil
         self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
+        self.audioOptionsVideoId = nil
         // A genuinely new video starts under the user's own intent; never inherit
         // a deferred identity-reload latch from a prior video.
         self.pendingPausedIdentityReloadVideoId = nil
@@ -988,8 +998,6 @@ final class YouTubePlayerService {
                 : levels + ["auto"]
             self.currentQuality = await self.playbackController.currentQualityLevel()
             self.activeCaptionLanguageCode = await self.playbackController.currentCaptionLanguageCode()
-            await self.refreshAudioTrackOptions(videoId: videoId)
-            guard self.currentVideo?.videoId == videoId else { return }
 
             if !tracks.isEmpty || attempt == 2 {
                 return
@@ -1446,6 +1454,20 @@ extension YouTubePlayerService {
             }
         }
 
+        // Audio tracks belong to the content, so wait out a preroll ad before
+        // reading them. They retry on their own schedule, independent of
+        // whether captions are ready.
+        if effectiveIsPlaying,
+           !update.isAd,
+           let videoId = self.currentVideo?.videoId,
+           self.audioOptionsVideoId != videoId
+        {
+            self.audioOptionsVideoId = videoId
+            Task {
+                await self.refreshAudioTrackOptions()
+            }
+        }
+
         // Storyboard color drives the `.live` ambient backdrop, so only fetch it
         // when that style is actually active and real content (not a preroll ad)
         // is playing.
@@ -1807,19 +1829,34 @@ extension YouTubePlayerService {
 // MARK: - Audio Tracks
 
 extension YouTubePlayerService {
-    /// Reads the current video's audio tracks and which one is active.
-    private func refreshAudioTrackOptions(videoId: String?) async {
-        let audioTracks = await self.playbackController.availableAudioTracks()
-        let activeAudioTrackID = await self.playbackController.currentAudioTrackID()
-        guard self.currentVideo?.videoId == videoId else { return }
+    /// Reads the current video's audio tracks and which one is active,
+    /// retrying briefly while the player reports none (its audio module may
+    /// not be ready yet; every video has at least its original track).
+    func refreshAudioTrackOptions() async {
+        let videoId = self.currentVideo?.videoId
+        for attempt in 0 ..< 3 {
+            let selectionRevision = self.audioSelectionRevision
+            let audioTracks = await self.playbackController.availableAudioTracks()
+            let activeAudioTrackID = await self.playbackController.currentAudioTrackID()
+            guard self.currentVideo?.videoId == videoId else { return }
 
-        self.audioTracks = audioTracks
-        self.activeAudioTrackID = activeAudioTrackID
+            self.audioTracks = audioTracks
+            // A selection made while this read was in flight is newer.
+            if selectionRevision == self.audioSelectionRevision {
+                self.activeAudioTrackID = activeAudioTrackID
+            }
+
+            if !audioTracks.isEmpty || attempt == 2 {
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(1500))
+        }
     }
 
     /// Switches the current video to an audio track (original or a dub).
     func selectAudioTrack(id: String) {
         guard self.audioTracks.contains(where: { $0.id == id }) else { return }
+        self.audioSelectionRevision &+= 1
         self.activeAudioTrackID = id
         self.playbackController.setAudioTrack(id: id)
         HapticService.toggle()
