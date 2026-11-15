@@ -221,6 +221,7 @@
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset 無法移除已儲存的登入資料。請在結束前重新嘗試登出。";
 "Kaset could not safely clear saved sign-in data. Retry before signing in again." = "Kaset 無法安全地清除已儲存的登入資料。請重試後再登入。";
 "Number %lld, %@" = "第 %1$lld 名，%2$@";
+"Playback speed" = "播放速度";
 "Sign-In Temporarily Unavailable" = "暫時無法登入";
 "Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset 無法讀取已儲存的登入資料。請重試以還原工作階段。";
 "Kaset creates fresh AI sessions per request. Refresh the status if Apple Intelligence finishes downloading or becomes available while the app is open." = "Kaset 會為每個請求建立全新的 AI 工作階段。如果 Apple Intelligence 在應用程式執行期間完成下載或變為可用，請重新整理狀態。";

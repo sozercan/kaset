@@ -841,6 +841,13 @@ extension YouTubeWatchWebView {
         )
         contentController.addUserScript(bootstrap)
 
+        let playbackRate = WKUserScript(
+            source: Self.playbackRateScript(rate: self.coordinator?.playerService.playbackRate ?? 1.0),
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(playbackRate)
+
         // Black from first paint — no YouTube layout flash before extraction.
         let blackout = WKUserScript(
             source: Self.blackoutScript,
