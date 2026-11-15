@@ -274,15 +274,16 @@ struct PlayerBarMixTracksMenu: View {
             accessibilityLabel: String(localized: "Mix tracks")
         ) {
             ForEach(self.segments) { segment in
-                Button {
-                    self.seekController.seek(to: segment, playerService: self.playerService)
-                } label: {
-                    if segment.id == self.seekController.currentSegmentID {
-                        Label(segment.accessibilityDescription, systemImage: "checkmark")
-                    } else {
-                        Text(segment.accessibilityDescription)
-                    }
-                }
+                // A toggle marks the current track with the menu's own
+                // checkmark; a Label's icon is not drawn in macOS 26 menus.
+                // Choosing any track, the current one included, seeks to it.
+                Toggle(
+                    segment.accessibilityDescription,
+                    isOn: Binding(
+                        get: { segment.id == self.seekController.currentSegmentID },
+                        set: { _ in self.seekController.seek(to: segment, playerService: self.playerService) }
+                    )
+                )
                 .disabled(!PlayerBarSeekController.canSeek(self.playerService))
             }
         } icon: {
