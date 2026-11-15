@@ -1707,6 +1707,29 @@ extension YouTubePlayerServiceTests {
         #expect(self.sut.activeAudioTrackID == "ru.3")
     }
 
+    @Test("An audio read from before the same video was reopened is dropped")
+    func audioReadFromEarlierSessionIsDropped() async {
+        let video = MockYouTubeClient.makeVideo(videoId: "abc")
+        self.controller.audioTracks = [
+            YouTubeAudioTrack(id: "en.4", displayName: "English original", isOriginal: true, isAutoDubbed: false),
+            YouTubeAudioTrack(id: "ru.3", displayName: "Russian", isOriginal: false, isAutoDubbed: false),
+        ]
+        self.controller.activeAudioTrackID = "ru.3"
+        self.sut.play(video: video)
+
+        // While the first read waits, the video is reopened and its new
+        // player reads its own active track first.
+        self.controller.beforeCurrentAudioTrackIDReturn = { [sut = self.sut, controller = self.controller] in
+            controller.beforeCurrentAudioTrackIDReturn = nil
+            controller.activeAudioTrackID = "en.4"
+            sut.play(video: video)
+            await sut.refreshAudioTrackOptions()
+        }
+        await self.sut.refreshAudioTrackOptions()
+
+        #expect(self.sut.activeAudioTrackID == "en.4")
+    }
+
     @Test("Audio tracks are read once content plays, not during a preroll ad")
     func audioTracksWaitForContent() async {
         self.controller.audioTracks = [

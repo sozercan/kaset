@@ -312,6 +312,11 @@ final class YouTubePlayerService {
     /// started earlier can't overwrite the newer choice.
     private var audioSelectionRevision = 0
 
+    /// Bumped whenever per-video state resets, including when the same video
+    /// is opened again, so an audio read from an earlier session can't land
+    /// on the new one.
+    private var audioReadSession = 0
+
     /// Client used by rating actions from the playback controls.
     /// Set once by KasetApp; optional so unit tests don't need it.
     @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
@@ -940,6 +945,7 @@ final class YouTubePlayerService {
         self.storyboardFetchInFlightVideoId = nil
         self.playbackOptionsVideoId = nil
         self.audioOptionsVideoId = nil
+        self.audioReadSession &+= 1
         // A genuinely new video starts under the user's own intent; never inherit
         // a deferred identity-reload latch from a prior video.
         self.pendingPausedIdentityReloadVideoId = nil
@@ -1833,12 +1839,14 @@ extension YouTubePlayerService {
     /// retrying briefly while the player reports none (its audio module may
     /// not be ready yet; every video has at least its original track).
     func refreshAudioTrackOptions() async {
-        let videoId = self.currentVideo?.videoId
+        let session = self.audioReadSession
         for attempt in 0 ..< 3 {
             let selectionRevision = self.audioSelectionRevision
             let audioTracks = await self.playbackController.availableAudioTracks()
             let activeAudioTrackID = await self.playbackController.currentAudioTrackID()
-            guard self.currentVideo?.videoId == videoId else { return }
+            // A reset since the read began, even for the same video, means
+            // the reply describes a player that's gone.
+            guard session == self.audioReadSession else { return }
 
             self.audioTracks = audioTracks
             // A selection made while this read was in flight is newer.
