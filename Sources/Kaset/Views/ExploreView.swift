@@ -50,7 +50,7 @@ struct ExploreView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .explore)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .explore)
     }
 
     // MARK: - Views

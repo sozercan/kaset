@@ -67,29 +67,42 @@ extension View {
     }
 }
 
-// MARK: - SidebarReselectNavigationModifier
+// MARK: - SidebarNavigationStackModifier
 
-private struct SidebarReselectNavigationModifier: ViewModifier {
+/// Pops `navigationPath` to its root on sidebar reselect, and by one page on Back.
+private struct SidebarNavigationStackModifier: ViewModifier {
     @Binding var navigationPath: NavigationPath
     let navigationItem: NavigationItem
     @Environment(\.sidebarNavigationReselectGenerations) private var reselectGenerations
+    @Environment(\.sidebarNavigationBackGenerations) private var backGenerations
 
     func body(content: Content) -> some View {
-        content.onChange(of: self.reselectGenerations.wrappedValue[self.navigationItem, default: 0]) { _, _ in
-            guard !self.navigationPath.isEmpty else { return }
-            self.navigationPath = NavigationPath()
-        }
+        content
+            .onChange(of: self.reselectGenerations.wrappedValue[self.navigationItem, default: 0]) { _, _ in
+                guard !self.navigationPath.isEmpty else { return }
+                self.navigationPath = NavigationPath()
+            }
+            .onChange(of: self.backGenerations.wrappedValue[self.navigationItem, default: 0]) { _, _ in
+                self.navigationPath.removeLastIfNotEmpty()
+            }
     }
 }
 
 extension View {
-    func popsNavigationStackOnSidebarReselect(
+    func popsSidebarNavigationStack(
         path: Binding<NavigationPath>,
         for navigationItem: NavigationItem
     ) -> some View {
-        self.modifier(SidebarReselectNavigationModifier(
+        self.modifier(SidebarNavigationStackModifier(
             navigationPath: path,
             navigationItem: navigationItem
         ))
+    }
+}
+
+extension NavigationPath {
+    mutating func removeLastIfNotEmpty() {
+        guard !self.isEmpty else { return }
+        self.removeLast()
     }
 }

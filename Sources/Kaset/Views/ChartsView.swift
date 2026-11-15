@@ -50,7 +50,7 @@ struct ChartsView: View {
         .refreshable {
             await self.viewModel.refresh()
         }
-        .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .charts)
+        .popsSidebarNavigationStack(path: self.$navigationPath, for: .charts)
     }
 
     // MARK: - Views
