@@ -89,6 +89,9 @@ protocol YouTubeClientProtocol: Sendable {
     /// Posts a top-level comment.
     func postComment(text: String, createCommentParams: String) async throws
 
+    /// Posts a reply to a comment.
+    func postCommentReply(text: String, createReplyParams: String) async throws
+
     /// Performs a comment toolbar action (like/dislike) by action token.
     func performCommentAction(_ action: String) async throws
 

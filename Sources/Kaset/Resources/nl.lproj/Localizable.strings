@@ -689,3 +689,10 @@
 "Talk to a companion app" = "Communiceren met een bijbehorende app";
 "Request a connection to its companion app." = "Een verbinding aanvragen met de bijbehorende app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "De extensie zou informatie kunnen lezen en delen die wordt getoond terwijl je bent ingelogd. Schakel deze alleen in als je de extensie vertrouwt.";
+
+// Comment replies
+"Reply" = "Beantwoorden";
+"Reply to comment" = "Reactie beantwoorden";
+"Add a reply…" = "Antwoord toevoegen…";
+"Post reply" = "Antwoord plaatsen";
+"You" = "Jij";

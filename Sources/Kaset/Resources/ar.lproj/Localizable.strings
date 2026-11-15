@@ -689,3 +689,10 @@
 "Talk to a companion app" = "التواصل مع تطبيق مرافق";
 "Request a connection to its companion app." = "طلب الاتصال بالتطبيق المرافق لها.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "قد تتمكن من قراءة المعلومات المعروضة أثناء تسجيل دخولك ومشاركتها. لا تفعّلها إلا إذا كنت تثق بها.";
+
+// Comment replies
+"Reply" = "رد";
+"Reply to comment" = "الرد على التعليق";
+"Add a reply…" = "إضافة رد…";
+"Post reply" = "نشر الرد";
+"You" = "أنت";
