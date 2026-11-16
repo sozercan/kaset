@@ -23,6 +23,13 @@ struct SongThumbnailSource: Equatable {
         }
         return self.primaryURL ?? self.fallbackURL
     }
+
+    /// The API artwork to try first: the sharp version until that exact URL has failed, then
+    /// the standard thumbnail, so a failed sharp request never skips straight to the fallback.
+    static func primaryURL(sharpURL: URL?, standardURL: URL?, failedSharpURL: URL?) -> URL? {
+        guard let sharpURL, sharpURL != failedSharpURL else { return standardURL }
+        return sharpURL
+    }
 }
 
 // MARK: - SongThumbnailView
@@ -36,6 +43,7 @@ struct SongThumbnailView: View {
     var cornerRadius: CGFloat = 6
 
     @State private var failedPrimaryKey: SongThumbnailSource.PrimaryFailureKey?
+    @State private var failedSharpURL: URL?
 
     /// Above this size the 226 px `highQualityThumbnailURL` is visibly soft on a Retina display.
     private static let sharpArtworkMinimumSize: CGFloat = 113
@@ -48,10 +56,22 @@ struct SongThumbnailView: View {
         self.song.thumbnailURL?.highQualityThumbnailURL
     }
 
-    /// The API-provided thumbnail URL, at full resolution when the artwork is drawn large.
+    /// The API-provided thumbnail URL at full resolution, when the artwork is drawn large
+    /// and a larger version than the standard one exists.
+    private var sharpURL: URL? {
+        guard self.size > Self.sharpArtworkMinimumSize,
+              let sharpURL = self.song.thumbnailURL?.artworkURL(pixelSize: Self.sharpArtworkPixelSize),
+              sharpURL != self.standardURL
+        else { return nil }
+        return sharpURL
+    }
+
     private var primaryURL: URL? {
-        guard self.size > Self.sharpArtworkMinimumSize else { return self.standardURL }
-        return self.song.thumbnailURL?.artworkURL(pixelSize: Self.sharpArtworkPixelSize)
+        SongThumbnailSource.primaryURL(
+            sharpURL: self.sharpURL,
+            standardURL: self.standardURL,
+            failedSharpURL: self.failedSharpURL
+        )
     }
 
     /// The standard thumbnail, shown under large artwork while its sharper version loads:
@@ -81,6 +101,13 @@ struct SongThumbnailView: View {
 
     private var failureHandler: (@MainActor () -> Void)? {
         let source = self.thumbnailSource
+
+        // A failed sharp request steps down to the standard thumbnail before the fallback.
+        if let sharpURL = self.sharpURL, self.activeURL == sharpURL {
+            return {
+                self.failedSharpURL = sharpURL
+            }
+        }
 
         guard self.activeURL == source.primaryURL,
               let primaryFailureKey = source.primaryFailureKey
