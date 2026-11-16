@@ -58,6 +58,16 @@ struct YouTubeShortsView: View {
                 self.play(shortId: first.videoId)
             }
         }
+        .youtubePageRefreshable {
+            // A new feed starts again from its first short, as on entry.
+            self.currentShortId = nil
+            await self.viewModel.refresh()
+            guard !Task.isCancelled else { return }
+            if self.currentShortId == nil, let first = self.viewModel.shorts.first {
+                self.currentShortId = first.videoId
+                self.play(shortId: first.videoId)
+            }
+        }
         .onDisappear {
             self.stopIfPlayingShort()
         }

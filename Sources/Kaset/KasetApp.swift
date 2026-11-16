@@ -754,7 +754,7 @@ struct KasetApp: App {
         case .music:
             self.navigationSelection == .home
         case .video:
-            self.youtubeNavigationSelection == .home
+            self.youtubeNavigationSelection != nil
         }
     }
 

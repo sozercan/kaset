@@ -689,3 +689,6 @@
 "Talk to a companion app" = "Comunicar com uma app complementar";
 "Request a connection to its companion app." = "Pedir uma ligação à respetiva app complementar.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Poderá ler e partilhar informações apresentadas enquanto tem sessão iniciada. Ative-a apenas se confiar nela.";
+
+// YouTube page refresh
+"Refresh Page (⇧⌘R)" = "Atualizar página (⇧⌘R)";
