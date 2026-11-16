@@ -69,6 +69,22 @@ extension URL {
 
         return URL(string: urlString)
     }
+
+    /// Returns the URL of square artwork `pixelSize` pixels wide, for views that draw it larger
+    /// than `highQualityThumbnailURL` covers. Google-hosted artwork carries its size in the URL
+    /// (`w120-h120`); any other URL falls back to `highQualityThumbnailURL`.
+    func artworkURL(pixelSize: Int) -> URL? {
+        guard self.host?.contains("googleusercontent.com") == true else {
+            return self.highQualityThumbnailURL
+        }
+
+        let resized = self.absoluteString.replacingOccurrences(
+            of: #"w(\d+)-h\1(?!\d)"#,
+            with: "w\(pixelSize)-h\(pixelSize)",
+            options: .regularExpression
+        )
+        return URL(string: resized)
+    }
 }
 
 // MARK: - String Extensions

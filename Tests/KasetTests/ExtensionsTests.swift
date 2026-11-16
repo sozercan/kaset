@@ -116,6 +116,27 @@ struct ExtensionsTests {
         #expect(highQuality?.absoluteString == "https://i.ytimg.com/vi/abc/w400-h400-l90-rj")
     }
 
+    @Test("Resizes square Google-hosted artwork to the requested pixel size", arguments: [
+        "https://lh3.googleusercontent.com/abc=w120-h120-l90-rj",
+        "https://lh3.googleusercontent.com/abc=w544-h544-l90-rj",
+    ])
+    func artworkURLResizesSquareArtwork(source: String) throws {
+        let url = try #require(URL(string: source))
+        #expect(url.artworkURL(pixelSize: 1200)?.absoluteString == "https://lh3.googleusercontent.com/abc=w1200-h1200-l90-rj")
+    }
+
+    @Test("Leaves artwork that is not square at its own size")
+    func artworkURLKeepsNonSquareArtwork() throws {
+        let url = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w544-h306-l90-rj"))
+        #expect(url.artworkURL(pixelSize: 1200) == url)
+    }
+
+    @Test("Falls back to the high quality thumbnail for artwork hosted elsewhere")
+    func artworkURLFallsBackForOtherHosts() throws {
+        let url = try #require(URL(string: "https://i.ytimg.com/vi/abc/hqdefault.jpg"))
+        #expect(url.artworkURL(pixelSize: 1200) == url.highQualityThumbnailURL)
+    }
+
     // MARK: - String Truncated Tests
 
     @Test("Returns full string when shorter than limit")
