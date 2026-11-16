@@ -114,6 +114,9 @@ struct KasetApp: App {
         // Set shared instance for AppleScript access
         PlayerService.shared = player
 
+        // App Intents (Shortcuts, Siri, Spotlight) reach the same services through a bridge.
+        AppIntentsBridge.shared.configureForLaunch(playerService: player, client: client, authService: auth)
+
         // Create account service
         let account = AccountService(ytMusicClient: client, authService: auth, webKitManager: webkit)
         let beginAccountBoundary: @MainActor @Sendable () -> Void = {
@@ -273,6 +276,7 @@ struct KasetApp: App {
                     self.appDelegate.playerService = self.playerService
                     // Drain any cold-launch URLs once `onReceive` below is subscribed.
                     self.appDelegate.beginOpenURLDelivery()
+                    AppIntentsBridge.shared.setShowMainWindowHandler { self.showMainWindow() }
                     // Reference notificationService to keep SwiftUI from deallocating it
                     _ = self.notificationService
                 }
@@ -305,6 +309,7 @@ struct KasetApp: App {
                             self.youtubePlayerService.stop()
                         }
                         self.didCompleteStartupPlaybackCleanup = true
+                        AppIntentsBridge.shared.markStartupComplete()
                     }
                     self.drainPendingIncomingURLsIfReady()
 

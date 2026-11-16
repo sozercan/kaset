@@ -180,6 +180,38 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
     }
 
+    @Test("A new playback occurrence gets a fresh injection retry budget for the same pair")
+    func newOccurrenceResetsInjectionRetryBudget() async {
+        let songs = [
+            Song(id: "a", title: "A", artists: [], duration: 180, videoId: "va"),
+            Song(id: "b", title: "B", artists: [], duration: 180, videoId: "vb"),
+        ]
+        await self.playerService.playQueue(songs, startingAt: 0)
+
+        func failWithSourceNotReady() {
+            let generation = self.playerService.webQueueInjectionGeneration
+            self.playerService.pendingWebQueueInjectionVideoId = "vb"
+            self.playerService.handleWebQueueInjectionResult(
+                videoId: "vb",
+                attemptGeneration: generation,
+                success: false,
+                reason: "queue-source-not-ready"
+            )
+        }
+
+        for _ in 0 ..< 6 {
+            failWithSourceNotReady()
+        }
+        #expect(self.playerService.webQueueInjectionRetries?.remaining == 0)
+
+        await self.playerService.playQueue(songs, startingAt: 0)
+        #expect(self.playerService.webQueueInjectionRetries == nil)
+
+        failWithSourceNotReady()
+        #expect(self.playerService.webQueueInjectionRetries?.pair.videoId == "vb")
+        #expect(self.playerService.webQueueInjectionRetries?.remaining == 4)
+    }
+
     @Test("Changing the expected next target invalidates stale confirmed and pending injections")
     func changedNextTargetInvalidatesStaleInjectionState() async {
         let songs = [

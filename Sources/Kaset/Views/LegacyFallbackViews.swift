@@ -237,6 +237,8 @@ struct SimpleLyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
+    /// Draws the glass panel behind the lyrics; the Now Playing view turns it off.
+    var showsPanel = true
 
     @State private var lastLoadedVideoId: String?
     @State private var isLoadingFallback = false
@@ -257,7 +259,7 @@ struct SimpleLyricsView: View {
                 self.contentView
             }
             .frame(width: self.preferredWidth)
-            .compatGlass(interactive: true, in: .rect(cornerRadius: 20))
+            .compatGlass(interactive: true, in: .rect(cornerRadius: 20), isEnabled: self.showsPanel)
         }
         .onChange(of: self.playerService.currentTrack?.videoId) { _, newVideoId in
             if let videoId = newVideoId, videoId != self.lastLoadedVideoId {
@@ -273,9 +275,10 @@ struct SimpleLyricsView: View {
             self.updateLyricsPolling(for: newLyrics)
         }
         .onDisappear {
-            SingletonPlayerWebView.shared.stopLyricsPoll()
+            LyricsPollLease.release()
         }
         .onAppear {
+            LyricsPollLease.acquire()
             self.updateLyricsPolling(for: self.syncedLyricsService.currentLyrics)
         }
         .accessibilityIdentifier(AccessibilityID.Lyrics.fallbackPanel)

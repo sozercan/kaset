@@ -13,14 +13,24 @@ enum PlaylistPlaybackActions {
     }
 
     /// Plays a playlist immediately, replacing the current queue.
+    /// - Parameter onStart: Called once with whether the playlist started playing. False when it
+    ///   failed to load, had nothing playable, or newer playback replaced it. A long playlist keeps
+    ///   paging in after a successful start.
     @discardableResult
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
-        playerService: PlayerService
+        playerService: PlayerService,
+        onStart: @escaping @MainActor (Bool) -> Void = { _ in }
     ) -> Task<Void, Never> {
         let intent = playerService.beginMusicPlaybackIntent()
         return Task { @MainActor in
+            var didStart = false
+            defer {
+                if !didStart {
+                    onStart(false)
+                }
+            }
             do {
                 let response = try await client.getPlaylist(id: playlist.id)
                 guard playerService.acceptsMusicPlaybackIntent(intent) else {
@@ -64,6 +74,8 @@ enum PlaylistPlaybackActions {
                         deferringSmartShuffleFill: willDeferLoad,
                         intent: intent
                     )
+                    didStart = true
+                    onStart(true)
                     DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) initial songs)")
 
                     guard let loadGeneration else { return }
@@ -93,6 +105,8 @@ enum PlaylistPlaybackActions {
                     deferringSmartShuffleFill: false,
                     intent: intent
                 )
+                didStart = true
+                onStart(true)
                 DiagnosticsLogger.ui.info("Playing playlist '\(playlist.title)' (\(playableSongs.count) songs)")
             } catch {
                 DiagnosticsLogger.ui.error("Failed to play playlist: \(error.localizedDescription)")

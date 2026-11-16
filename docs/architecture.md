@@ -287,6 +287,7 @@ Remote command center integration for media key support:
 - Routes commands to `PlayerService` / `YouTubePlayerService` based on the active source
 - For music, publishes playback state only: WebKit's card is the single Kaset entry, and the state keeps the Play key on Kaset after a pause. YouTube video publishes a tagged minimal entry (title, channel) ([ADR-0042](adr/0042-single-now-playing-entry.md))
 - The music page forwards its play and pause media-session actions (and next/previous in the next/previous control style) over the bridge (`REMOTE_*`), and they go through the same native transport queue as media keys
+- Admits App Intents transport commands through the same ingress (`handleAppIntentCommand`)
 
 **Note**: Now Playing display for music (track info, artwork) is handled natively by WKWebView's Media Session API. This provides better integration with YouTube Music artwork.
 
@@ -540,6 +541,26 @@ tell application "Kaset"
     get player info  -- Returns JSON string
 end tell
 ```
+
+### App Intents (Shortcuts, Siri, Spotlight)
+
+**Directory**: `Sources/Kaset/Services/AppIntents/` · Decision record: [ADR-0033](adr/0033-app-intents.md) · User docs: [shortcuts.md](shortcuts.md)
+
+| File | Role |
+|------|------|
+| `AppIntentsBridge.swift` | `@MainActor` singleton configured in `KasetApp.init`: services, the deep-link readiness gate, the Library snapshot, and the operations intents call |
+| `PlaybackControlIntents.swift` | Play/pause, pause, resume, next/previous (via `NowPlayingManager.handleAppIntentCommand`), get current song, like/dislike |
+| `PlayContentIntents.swift` | Play music (search), song, playlist, album, Liked Music; playlist and album intents are also the entities' `OpenIntent`s |
+| `MusicEntities.swift` | `SongEntity`, `PlaylistEntity`, `AlbumEntity` (the latter two `IndexedEntity`) and their string queries |
+| `KasetShortcuts.swift` | `AppShortcutsProvider` with Siri phrases, localized from `Resources/AppShortcuts.xcstrings` |
+| `SpotlightLibraryIndexer.swift` | Replaces the Spotlight index with the signed-in Library's playlists and albums |
+
+**Implementation Details**:
+
+- `MainWindow` publishes the Library to the bridge once it has loaded (empty when signed out); the bridge reindexes Spotlight and refreshes App Shortcut parameters.
+- Playback intents set `openAppWhenRun`, wait for `AppIntentsBridge.isReady` (the same gate as `kaset://` deep links), and show the main window before playing.
+- `Scripts/build-app.sh` generates `Metadata.appintents` with `appintentsmetadataprocessor`, since SwiftPM has no App Intents build phase, and fails if `AppShortcuts.xcstrings` is out of sync with the phrases in code.
+- Intents only run in team-signed builds and from `/Applications` or `~/Applications`.
 
 ### UpdaterService
 
@@ -922,23 +943,27 @@ ForEach(Array(chartItems.enumerated()), id: \.element.id) { index, item in
 }
 ```
 
-#### Throttled UI Updates
+#### Isolating Playback Progress Updates
 
-For frequently changing values (e.g., playback progress at 60Hz), cache formatted strings:
+Playback progress changes on every bridge tick. Observation invalidates exactly the views that read a property, and `.onChange(of:)` counts as a read, so keep progress reads in small leaf views instead of in a player bar or window body:
 
 ```swift
-// In PlayerBar
-@State private var formattedProgress: String = "0:00"
-@State private var lastProgressSecond: Int = -1
+// In PlayerBar: owns the seek state but never reads progress or the
+// controller's properties in body, so ticks skip song info, artwork, and buttons.
+@State private var seekController = PlayerBarSeekController()
 
+PlayerBarTimelineLane(seekController: seekController, segments: segments, accent: accent)
+
+// In PlayerBarTimelineLane: the only player bar view that reads progress
 .onChange(of: playerService.progress) { _, newValue in
-    let currentSecond = Int(newValue)
-    if currentSecond != lastProgressSecond {
-        lastProgressSecond = currentSecond
-        formattedProgress = formatTime(newValue)  // Only 1x per second
-    }
+    seekController.progressDidChange(newValue, duration: playerService.duration)
 }
 ```
+
+- `PlayerBarTimelineLane`, `MiniPlayerSeekSection`, and `YouTubePlayerBarTimelineLane` are the only player views that read progress. Don't add progress reads to `PlayerBar`, `MiniPlayerWindow`, or `YouTubePlayerBar`.
+- Compute values that don't depend on progress, such as mix segments, in the parent and pass them in.
+- Cache formatted time strings and rebuild them only when the displayed second changes (`PlayerBarSeekController.progressDidChange`).
+- On an `@Observable` class, calling a mutating method on a stored struct notifies observers even when nothing changes. On per-tick paths, mutate a copy and assign it back only if it differs (see `PlayerBarSeekController.reconcileHold`).
 
 #### Task Cancellation
 

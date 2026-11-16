@@ -130,6 +130,31 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("clickedVideoId === null")?.toBool() == true)
     }
 
+    @Test("A stale selected row is disambiguated by the playing row")
+    func staleSelectedRowResolvedByPlayingRow() throws {
+        let context = try #require(self.makeContext(
+            menuAvailableAfterLookup: 1,
+            initialQueueVideoIds: ["source-video", "stale-selected", "target-video"],
+            queueCurrentIndex: 0,
+            additionalQueueCurrentIndices: [1],
+            playingQueueIndex: 0
+        ))
+
+        self.evaluate(
+            SingletonPlayerWebView.queueInjectionScript(
+                videoId: "target-video",
+                afterVideoId: "source-video"
+            ),
+            in: context
+        )
+        self.runTimersUntilMessage(in: context, limit: 200)
+
+        #expect(context.evaluateScript("clickedVideoId")?.toString() == "target-video")
+        #expect(context.evaluateScript("queueVideoIds[1]")?.toString() == "target-video")
+        #expect(context.evaluateScript("lastMessage.success")?.toBool() == true)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == "queue-readback-confirmed")
+    }
+
     @Test("An unhydrated selected row keeps queue readback ambiguous")
     func unhydratedSelectedRowDoesNotConfirm() throws {
         let context = try #require(self.makeContext(
@@ -404,6 +429,17 @@ struct QueueInjectionScriptTests {
         #expect(context.evaluateScript("bodyClickCount")?.toInt32() == 1)
     }
 
+    @Test("Play Next is identified by its endpoint when neither label nor icon matches", arguments: [
+        ("INSERT_AFTER_CURRENT_VIDEO", "queue-readback-confirmed"),
+        ("INSERT_AT_END", "play-next-item-not-found"),
+    ])
+    func identifiesPlayNextByEndpoint(insertPosition: String, expectedReason: String) throws {
+        let context = try #require(self.makeContext(menuAvailableAfterLookup: 1, itemLabel: "Riproduci a seguire", insertPosition: insertPosition))
+        self.evaluate(SingletonPlayerWebView.queueInjectionScript(videoId: "target-video", afterVideoId: "source-video"), in: context)
+        self.runTimersUntilMessage(in: context)
+        #expect(context.evaluateScript("lastMessage.reason")?.toString() == expectedReason)
+    }
+
     @Test("Delayed queue injection does not click after the source video changes")
     func rejectsChangedSourceVideo() throws {
         let context = try #require(self.makeContext(
@@ -494,18 +530,22 @@ struct QueueInjectionScriptTests {
         menuSelector: String = ".middle-controls-buttons.ytmusic-player-bar",
         clickMode: String = "insertTarget",
         itemLabel: String = "Play next",
+        insertPosition: String? = nil,
         originalVideoId: String = "source-video",
         currentVideoId: String? = nil,
         refreshMenuSourceOnTimer: Bool = false,
         initialQueueVideoIds: [String]? = nil,
         queueCurrentIndex: Int? = 0,
         additionalQueueCurrentIndices: [Int] = [],
-        unhydratedQueueIndices: [Int] = []
+        unhydratedQueueIndices: [Int] = [],
+        playingQueueIndex: Int? = nil
     ) -> JSContext? {
         guard let context = JSContext() else { return nil }
         let clickModeLiteral = SingletonPlayerWebView.javaScriptStringLiteral(clickMode)
         let menuSelectorLiteral = SingletonPlayerWebView.javaScriptStringLiteral(menuSelector)
         let itemLabelLiteral = SingletonPlayerWebView.javaScriptStringLiteral(itemLabel)
+        let insertPositionLiteral = insertPosition.map(SingletonPlayerWebView.javaScriptStringLiteral)
+            ?? "(\(itemLabelLiteral).toLowerCase().includes('next') ? 'INSERT_AFTER_CURRENT_VIDEO' : 'INSERT_AT_END')"
         let originalVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(originalVideoId)
         let currentVideoIdLiteral = SingletonPlayerWebView.javaScriptStringLiteral(currentVideoId ?? originalVideoId)
         let initialQueueVideoIds = initialQueueVideoIds ?? [originalVideoId, "autoplay-video"]
@@ -513,6 +553,7 @@ struct QueueInjectionScriptTests {
             .map(SingletonPlayerWebView.javaScriptStringLiteral)
             .joined(separator: ",") + "]"
         let queueCurrentIndexLiteral = queueCurrentIndex.map(String.init) ?? "null"
+        let playingQueueIndexLiteral = playingQueueIndex.map(String.init) ?? "null"
         let additionalQueueCurrentIndicesLiteral = "[" + additionalQueueCurrentIndices
             .map(String.init)
             .joined(separator: ",") + "]"
@@ -540,6 +581,7 @@ struct QueueInjectionScriptTests {
             var queueCurrentIndexValue = \(queueCurrentIndexLiteral);
             var additionalQueueCurrentIndices = \(additionalQueueCurrentIndicesLiteral);
             var unhydratedQueueIndices = \(unhydratedQueueIndicesLiteral);
+            var playingQueueIndex = \(playingQueueIndexLiteral);
             Date.now = function() { return fakeNow; };
             function setTimeout(callback, delay) {
                 timerID += 1;
@@ -608,7 +650,7 @@ struct QueueInjectionScriptTests {
                         clickTrackingParams: 'tracking',
                         queueAddEndpoint: {
                             queueTarget: originalQueueTarget,
-                            queueInsertPosition: 'INSERT_AFTER_CURRENT_VIDEO',
+                            queueInsertPosition: \(insertPositionLiteral),
                             commands: []
                         }
                     }
@@ -667,6 +709,9 @@ struct QueueInjectionScriptTests {
                             return this.__kasetIsCurrent && name === 'selected';
                         },
                         getAttribute: function(name) {
+                            if (name === 'play-button-state' && playingQueueIndex !== null) {
+                                return playingQueueIndex === index ? 'playing' : 'default';
+                            }
                             return this.__kasetIsCurrent && name === 'aria-current' ? 'true' : null;
                         },
                         classList: { contains: function() { return false; } }

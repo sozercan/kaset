@@ -391,6 +391,58 @@ struct AirPlayNavigationScriptTests {
         #expect(context.evaluateScript("window.__kasetAirPlayNavigationRetry === null")?.toBool() == true)
     }
 
+    @Test("Without resolveCommand, navigation goes through the polymer controller's handler")
+    func controllerNavigationFallback() throws {
+        let context = try Self.makeContext(setup: """
+        delete app.resolveCommand;
+        app.polymerController = {
+            handleNavigationEndpoint: command => { requests.push(command.watchEndpoint.videoId); }
+        };
+        """)
+        let result = context.evaluateScript(SingletonPlayerWebView.routerNavigationScript(videoId: "target", generation: 1))
+
+        #expect(result?.toBool() == true)
+        #expect(context.exception == nil)
+        #expect(Self.requests(in: context) == ["target"])
+    }
+
+    @Test("A clean start rewinds the audible target while muted, then restores the requested mute state", arguments: [false, true])
+    func cleanStartRewindsWhileMuted(requestedMuted: Bool) throws {
+        let context = try Self.makeContext(setup: """
+        function HTMLMediaElement() {}
+        Object.defineProperty(HTMLMediaElement.prototype, 'muted', {
+            configurable: true,
+            get() { return !!this.nativeMuted; },
+            set(value) { this.nativeMuted = !!value; }
+        });
+        var mediaListeners = [];
+        video = Object.assign(Object.create(HTMLMediaElement.prototype), video, {
+            currentTime: 0,
+            addEventListener: (type, handler) => mediaListeners.push({ type: type, handler: handler }),
+            removeEventListener: (type, handler) => {
+                mediaListeners = mediaListeners.filter(value => value.type !== type || value.handler !== handler);
+            }
+        });
+        originalVideo = video;
+        function dispatchMedia(type) {
+            mediaListeners.filter(value => value.type === type).forEach(value => value.handler());
+        }
+        """)
+        Self.navigate(to: "target", generation: 1, in: context)
+        Self.evaluate("video.muted = \(requestedMuted); video.currentTime = 0.5; dispatchMedia('timeupdate');", in: context)
+
+        #expect(context.evaluateScript("video.currentTime")?.toDouble() == 0)
+        #expect(context.evaluateScript("video.nativeMuted")?.toBool() == true)
+        #expect(context.evaluateScript("video.muted")?.toBool() == requestedMuted)
+
+        Self.evaluate("dispatchMedia('seeked');", in: context)
+
+        #expect(context.evaluateScript("video.nativeMuted")?.toBool() == requestedMuted)
+        #expect(context.evaluateScript("Object.getOwnPropertyDescriptor(video, 'muted') === undefined")?.toBool() == true)
+        #expect(context.evaluateScript("window.__kasetCleanStart === null")?.toBool() == true)
+        #expect(context.evaluateScript("mediaListeners.length")?.toInt32() == 0)
+    }
+
     private static func makeContext(setup: String = "") throws -> JSContext {
         let context = try #require(JSContext())
         Self.evaluate("""

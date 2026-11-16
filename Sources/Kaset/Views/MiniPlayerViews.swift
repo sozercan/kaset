@@ -73,7 +73,7 @@ struct PersistentPlayerView: NSViewRepresentable {
 
 // MARK: - MiniPlayerWindow
 
-struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
+struct MiniPlayerWindow: View {
     private enum Layout {
         static let chromeTopInset: CGFloat = 12
         static let trafficLightSize: CGFloat = 13
@@ -92,9 +92,8 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
     let client: any YTMusicClientProtocol
 
     @State private var settings = SettingsManager.shared
-    @State private var seekValue: Double = 0
-    @State private var isSeeking = false
-    @State private var seekHold = PlayerBarSeekHold()
+    /// Shared by the per-layout seek sections; `body` must not read its properties.
+    @State private var seekState = MiniPlayerSeekState()
     @State private var volumeValue: Double = 1
     @State private var isAdjustingVolume = false
     @State private var detailPane: DetailPane = .lyrics
@@ -127,26 +126,6 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         }
         .clipShape(.rect(cornerRadius: self.cornerRadius))
         .accessibilityIdentifier(AccessibilityID.MiniPlayer.container)
-        .onChange(of: self.playerService.progress) { _, newValue in
-            self.seekHold.reconcile(observedProgress: newValue)
-            if !self.isSeeking, !self.seekHold.isActive, self.playerService.duration > 0 {
-                self.seekValue = self.displayedPlaybackProgress / self.playerService.duration
-            }
-        }
-        .onChange(of: self.playerService.duration) { _, _ in
-            self.seekHold.reconcile(observedProgress: self.playerService.progress)
-            if !self.isSeeking, !self.seekHold.isActive {
-                self.syncSeekValue()
-            }
-        }
-        .onChange(of: self.currentTrackIdentity) { _, _ in
-            self.clearSeekHold()
-        }
-        .onChange(of: self.playerService.isShowingAd) { _, isShowingAd in
-            if isShowingAd {
-                self.clearSeekHold()
-            }
-        }
         .onChange(of: self.playerService.volume) { _, newValue in
             if !self.isAdjustingVolume {
                 self.volumeValue = newValue
@@ -154,7 +133,6 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         }
         .onAppear {
             self.volumeValue = self.playerService.volume
-            self.syncSeekValue()
         }
     }
 
@@ -251,7 +229,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
 
-            self.seekSection
+            MiniPlayerSeekSection(state: self.seekState)
             self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
         }
         .padding(.top, Self.Layout.headerTopInset)
@@ -285,7 +263,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                     }
                 }
 
-                self.seekSection
+                MiniPlayerSeekSection(state: self.seekState)
                 self.transportControls(playSize: 27, sideSize: 17, spacing: 30)
             }
             .padding(.horizontal, 16)
@@ -318,7 +296,7 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
                     }
                 }
 
-                self.seekSection
+                MiniPlayerSeekSection(state: self.seekState)
                 self.transportControls(playSize: 25, sideSize: 16, spacing: 30)
             }
             .padding(.top, Self.Layout.headerTopInset)
@@ -666,31 +644,6 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
             .accessibilityIdentifier(AccessibilityID.MiniPlayer.trackArtist)
     }
 
-    private var seekSection: some View {
-        VStack(spacing: 8) {
-            Slider(value: self.$seekValue, in: 0 ... 1) { editing in
-                self.isSeeking = editing
-                if !editing {
-                    self.performSeek()
-                }
-            }
-            .controlSize(.small)
-            .tint(PackageResourceLookup.brandAccent)
-            .disabled(self.playerService.duration <= 0 || self.playerService.isCurrentItemLive || self.playerService.isShowingAd)
-            .accessibilityIdentifier(AccessibilityID.MiniPlayer.seekSlider)
-            HStack {
-                Text(self.formatTime(self.isSeeking ? self.seekValue * self.playerService.duration : self.displayedPlaybackProgress))
-                Spacer()
-                Text(self.playerService.isCurrentItemLive ? String(localized: "LIVE") : self.remainingTimeText)
-            }
-            .font(.system(size: 9, weight: .semibold))
-            .monospacedDigit()
-            .foregroundStyle(.white.opacity(0.76))
-            .shadow(color: .black.opacity(0.56), radius: 2, y: 1)
-            .overlay { WindowDragHandle() }
-        }
-    }
-
     private func transportControls(playSize: CGFloat, sideSize: CGFloat, spacing: CGFloat) -> some View {
         HStack(spacing: spacing) {
             self.transportButton(
@@ -827,18 +780,6 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         self.panelToggleLabel
     }
 
-    private var remainingTimeText: String {
-        "-\(self.formatTime(max(0, self.playerService.duration - self.displayedPlaybackProgress)))"
-    }
-
-    private var displayedPlaybackProgress: TimeInterval {
-        self.seekHold.displayProgress(observedProgress: self.playerService.progress)
-    }
-
-    private var currentTrackIdentity: String {
-        self.playerService.currentTrack?.videoId ?? "none"
-    }
-
     private var repeatIcon: String {
         switch self.playerService.repeatMode {
         case .off, .all:
@@ -857,44 +798,5 @@ struct MiniPlayerWindow: View { // swiftlint:disable:this type_body_length
         } else {
             return "speaker.wave.2.fill"
         }
-    }
-
-    private func syncSeekValue() {
-        if self.playerService.duration > 0 {
-            self.seekValue = self.displayedPlaybackProgress / self.playerService.duration
-        } else {
-            self.seekValue = 0
-        }
-    }
-
-    private func performSeek() {
-        guard self.playerService.duration > 0, !self.playerService.isShowingAd else { return }
-        let target = self.seekValue * self.playerService.duration
-        let holdID = self.seekHold.begin(target: target)
-        Task { await self.playerService.seek(to: target) }
-        Task { @MainActor in
-            try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdID) {
-                self.syncSeekValue()
-            }
-        }
-    }
-
-    private func clearSeekHold() {
-        self.seekHold.clear()
-        self.isSeeking = false
-        self.syncSeekValue()
-    }
-
-    private func formatTime(_ seconds: TimeInterval) -> String {
-        guard seconds.isFinite, seconds >= 0 else { return "0:00" }
-        let totalSeconds = Int(seconds)
-        let hours = totalSeconds / 3600
-        let mins = (totalSeconds % 3600) / 60
-        let secs = totalSeconds % 60
-        if hours > 0 {
-            return String(format: "%d:%02d:%02d", hours, mins, secs)
-        }
-        return String(format: "%d:%02d", mins, secs)
     }
 }

@@ -31,54 +31,31 @@ private struct CurrentTrackLikeStatusEvidence {
 
 @MainActor
 extension PlayerService {
-    /// Likes the current track (thumbs up).
-    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// Likes the current track (thumbs up), or removes the like if it is already liked.
     func likeCurrentTrack() {
-        guard self.canPerformAccountMutation else {
-            self.logger.info("Ignoring like request while signed out")
-            return
-        }
-        guard let track = currentTrack else { return }
-        self.logger.info("Liking current track: \(track.videoId)")
-        let activeAccountID = self.songLikeStatusManager.activeAccountID
-        let client = self.ytMusicClient
-        let previousStatus = self.currentTrackLikeStatus
-        // Toggle: if already liked, remove the like
-        let newStatus: LikeStatus = previousStatus == .like ? .indifferent : .like
-        let request = self.songLikeStatusManager.enqueueRating(
-            track,
-            status: newStatus,
-            accountID: activeAccountID,
-            client: client,
-            visibleBaseline: previousStatus
-        )
-        // Optimistic UI update for PlayerBar
-        self.currentTrackLikeStatus = newStatus
-
-        Task {
-            let finalStatus = await request.value
-            self.reconcileCurrentTrackLikeStatusAfterRating(
-                track: track,
-                requestedAccountID: activeAccountID,
-                finalStatus: finalStatus
-            )
-        }
+        self.rateCurrentTrack(self.currentTrackLikeStatus == .like ? .indifferent : .like)
     }
 
-    /// Dislikes the current track (thumbs down).
-    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// Dislikes the current track (thumbs down), or removes the dislike if it is already disliked.
     func dislikeCurrentTrack() {
+        self.rateCurrentTrack(self.currentTrackLikeStatus == .dislike ? .indifferent : .dislike)
+    }
+
+    /// Sets the current track's rating.
+    /// Delegates to SongLikeStatusManager for unified state management and real-time sync.
+    /// - Returns: A task resolving to the rating once the request settles (the previous rating if it
+    ///   failed), or nil when there is no track or account to rate with.
+    @discardableResult
+    func rateCurrentTrack(_ newStatus: LikeStatus) -> Task<LikeStatus, Never>? {
         guard self.canPerformAccountMutation else {
-            self.logger.info("Ignoring dislike request while signed out")
-            return
+            self.logger.info("Ignoring rating request while signed out")
+            return nil
         }
-        guard let track = currentTrack else { return }
-        self.logger.info("Disliking current track: \(track.videoId)")
+        guard let track = currentTrack else { return nil }
+        self.logger.info("Rating current track \(track.videoId) as \(String(describing: newStatus))")
         let activeAccountID = self.songLikeStatusManager.activeAccountID
         let client = self.ytMusicClient
         let previousStatus = self.currentTrackLikeStatus
-        // Toggle: if already disliked, remove the dislike
-        let newStatus: LikeStatus = previousStatus == .dislike ? .indifferent : .dislike
         let request = self.songLikeStatusManager.enqueueRating(
             track,
             status: newStatus,
@@ -89,13 +66,14 @@ extension PlayerService {
         // Optimistic UI update for PlayerBar
         self.currentTrackLikeStatus = newStatus
 
-        Task {
+        return Task {
             let finalStatus = await request.value
             self.reconcileCurrentTrackLikeStatusAfterRating(
                 track: track,
                 requestedAccountID: activeAccountID,
                 finalStatus: finalStatus
             )
+            return finalStatus
         }
     }
 

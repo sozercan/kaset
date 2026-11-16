@@ -499,4 +499,32 @@ struct PlayerServiceTests {
         #expect(self.playerService.queue.first?.videoId == "v2")
         #expect(self.playerService.currentIndex == 0)
     }
+
+    // MARK: - Full Screen Player Tests
+
+    @Test("Full screen player starts hidden")
+    func fullScreenPlayerStartsHidden() {
+        #expect(self.playerService.showFullScreenPlayer == false)
+        #expect(self.playerService.artistNavigationRequest == nil)
+    }
+
+    @Test("An artist navigation request is consumed only once")
+    func artistNavigationRequestConsumedOnce() throws {
+        self.playerService.requestArtistNavigation()
+        let request = try #require(self.playerService.artistNavigationRequest)
+
+        #expect(self.playerService.consumeArtistNavigationRequest(request))
+        #expect(self.playerService.artistNavigationRequest == nil)
+        #expect(!self.playerService.consumeArtistNavigationRequest(request))
+    }
+
+    @Test("A superseded artist navigation request cannot be consumed")
+    func supersededArtistNavigationRequestIsIgnored() throws {
+        self.playerService.requestArtistNavigation()
+        let first = try #require(self.playerService.artistNavigationRequest)
+        self.playerService.requestArtistNavigation()
+
+        #expect(!self.playerService.consumeArtistNavigationRequest(first))
+        #expect(self.playerService.artistNavigationRequest != nil)
+    }
 }

@@ -1,0 +1,1482 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Play music in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "شغّل الموسيقى في ${applicationName}",
+              "شغّل شيئًا في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spiele Musik in ${applicationName}",
+              "Spiele etwas in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Play music in ${applicationName}",
+              "Play something in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pon música en ${applicationName}",
+              "Pon algo en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mets de la musique dans ${applicationName}",
+              "Lance quelque chose dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Putar musik di ${applicationName}",
+              "Putar sesuatu di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Riproduci musica su ${applicationName}",
+              "Metti qualcosa su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で音楽を再生",
+              "${applicationName}で何か再生して"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 음악 재생",
+              "${applicationName}에서 아무거나 재생"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Speel muziek af in ${applicationName}",
+              "Speel iets af in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Odtwórz muzykę w ${applicationName}",
+              "Puść coś w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reproduz música no ${applicationName}",
+              "Põe alguma coisa a tocar no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Включи музыку в ${applicationName}",
+              "Включи что-нибудь в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spela musik i ${applicationName}",
+              "Spela något i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında müzik çal",
+              "${applicationName} uygulamasında bir şeyler çal"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Увімкни музику в ${applicationName}",
+              "Увімкни щось у ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中播放音乐",
+              "在${applicationName}中随便放点歌"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}播放音樂",
+              "在${applicationName}隨便放點歌"
+            ]
+          }
+        }
+      }
+    },
+    "Play my liked songs in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "شغّل الأغاني التي أعجبتني في ${applicationName}",
+              "شغّل الموسيقى المعجب بها في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spiele meine Lieblingssongs in ${applicationName}",
+              "Spiele Musik, die mir gefällt, in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Play my liked songs in ${applicationName}",
+              "Play liked songs in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pon mis canciones favoritas en ${applicationName}",
+              "Pon la música que me gusta en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mets mes morceaux aimés dans ${applicationName}",
+              "Lance ma musique aimée dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Putar lagu yang saya sukai di ${applicationName}",
+              "Putar lagu favorit di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Riproduci i brani che mi piacciono su ${applicationName}",
+              "Metti la musica che mi piace su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で高く評価した曲を再生",
+              "${applicationName}でお気に入りの曲を再生"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 좋아요 표시한 노래 재생",
+              "${applicationName}에서 좋아하는 노래 재생"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Speel mijn favoriete nummers af in ${applicationName}",
+              "Speel muziek die ik leuk vind af in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Odtwórz moje polubione utwory w ${applicationName}",
+              "Puść polubione utwory w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reproduz as músicas de que gosto no ${applicationName}",
+              "Põe as minhas músicas favoritas no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Включи понравившиеся треки в ${applicationName}",
+              "Включи мою любимую музыку в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spela mina gillade låtar i ${applicationName}",
+              "Spela gillade låtar i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında beğendiğim şarkıları çal",
+              "${applicationName} uygulamasında beğenilen müzikleri çal"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Увімкни вподобані пісні в ${applicationName}",
+              "Увімкни мою улюблену музику в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中播放我喜欢的歌曲",
+              "在${applicationName}中播放喜欢的音乐"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}播放我喜歡的歌曲",
+              "在${applicationName}播放喜歡的音樂"
+            ]
+          }
+        }
+      }
+    },
+    "Play ${target} in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "شغّل ${target} في ${applicationName}",
+              "شغّل قائمة التشغيل ${target} في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spiele ${target} in ${applicationName}",
+              "Spiele meine Playlist ${target} in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Play ${target} in ${applicationName}",
+              "Play my ${target} playlist in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pon ${target} en ${applicationName}",
+              "Pon mi playlist ${target} en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mets ${target} dans ${applicationName}",
+              "Lance ma playlist ${target} dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Putar ${target} di ${applicationName}",
+              "Putar daftar putar ${target} saya di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Riproduci ${target} su ${applicationName}",
+              "Riproduci la mia playlist ${target} su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で${target}を再生",
+              "${applicationName}でプレイリスト${target}を再生"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 ${target} 재생",
+              "${applicationName}에서 내 ${target} 재생목록 재생"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Speel ${target} af in ${applicationName}",
+              "Speel mijn afspeellijst ${target} af in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Odtwórz ${target} w ${applicationName}",
+              "Odtwórz moją playlistę ${target} w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reproduz ${target} no ${applicationName}",
+              "Reproduz a minha lista ${target} no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Включи ${target} в ${applicationName}",
+              "Включи мой плейлист ${target} в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Spela ${target} i ${applicationName}",
+              "Spela min spellista ${target} i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında ${target} çal",
+              "${applicationName} uygulamasında ${target} çalma listemi çal"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Увімкни ${target} в ${applicationName}",
+              "Увімкни мій плейлист ${target} в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中播放${target}",
+              "在${applicationName}中播放我的${target}播放列表"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}播放${target}",
+              "在${applicationName}播放我的${target}播放清單"
+            ]
+          }
+        }
+      }
+    },
+    "Pause ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "أوقف ${applicationName} مؤقتًا",
+              "أوقف الموسيقى مؤقتًا في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pausiere ${applicationName}",
+              "Pausiere die Musik in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pause ${applicationName}",
+              "Pause music in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pausa ${applicationName}",
+              "Pausa la música en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Mets ${applicationName} en pause",
+              "Mets la musique en pause dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Jeda ${applicationName}",
+              "Jeda musik di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Metti in pausa ${applicationName}",
+              "Metti in pausa la musica su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}を一時停止",
+              "${applicationName}で音楽を一時停止"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} 일시중지",
+              "${applicationName}에서 음악 일시중지"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pauzeer ${applicationName}",
+              "Pauzeer de muziek in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Wstrzymaj ${applicationName}",
+              "Wstrzymaj muzykę w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pausa o ${applicationName}",
+              "Pausa a música no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Поставь ${applicationName} на паузу",
+              "Поставь музыку на паузу в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pausa ${applicationName}",
+              "Pausa musiken i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasını duraklat",
+              "${applicationName} uygulamasında müziği duraklat"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Постав ${applicationName} на паузу",
+              "Постав музику на паузу в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "暂停${applicationName}",
+              "在${applicationName}中暂停音乐"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "暫停${applicationName}",
+              "在${applicationName}暫停音樂"
+            ]
+          }
+        }
+      }
+    },
+    "Resume ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "استأنف ${applicationName}",
+              "استأنف الموسيقى في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Setze ${applicationName} fort",
+              "Setze die Musik in ${applicationName} fort"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Resume ${applicationName}",
+              "Resume music in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reanuda ${applicationName}",
+              "Reanuda la música en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Reprends ${applicationName}",
+              "Reprends la musique dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Lanjutkan ${applicationName}",
+              "Lanjutkan musik di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Riprendi ${applicationName}",
+              "Riprendi la musica su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}を再開",
+              "${applicationName}で音楽を再開"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} 재개",
+              "${applicationName}에서 음악 다시 재생"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Hervat ${applicationName}",
+              "Hervat de muziek in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Wznów ${applicationName}",
+              "Wznów muzykę w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Retoma o ${applicationName}",
+              "Retoma a música no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Продолжи ${applicationName}",
+              "Продолжи музыку в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Återuppta ${applicationName}",
+              "Återuppta musiken i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında devam et",
+              "${applicationName} uygulamasında müziğe devam et"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Продовж ${applicationName}",
+              "Продовж музику в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "继续播放${applicationName}",
+              "在${applicationName}中继续播放音乐"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "繼續播放${applicationName}",
+              "在${applicationName}繼續播放音樂"
+            ]
+          }
+        }
+      }
+    },
+    "Skip this song in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "تخطَّ هذه الأغنية في ${applicationName}",
+              "الأغنية التالية في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Überspringe diesen Titel in ${applicationName}",
+              "Nächster Titel in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Skip this song in ${applicationName}",
+              "Next song in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Salta esta canción en ${applicationName}",
+              "Siguiente canción en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Passe ce morceau dans ${applicationName}",
+              "Morceau suivant dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Lewati lagu ini di ${applicationName}",
+              "Lagu berikutnya di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Salta questo brano su ${applicationName}",
+              "Brano successivo su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}でこの曲をスキップ",
+              "${applicationName}で次の曲"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 이 노래 건너뛰기",
+              "${applicationName}에서 다음 노래"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Sla dit nummer over in ${applicationName}",
+              "Volgend nummer in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Pomiń ten utwór w ${applicationName}",
+              "Następny utwór w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Salta esta música no ${applicationName}",
+              "Música seguinte no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Пропусти этот трек в ${applicationName}",
+              "Следующий трек в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Hoppa över den här låten i ${applicationName}",
+              "Nästa låt i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında bu şarkıyı atla",
+              "${applicationName} uygulamasında sonraki şarkı"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Пропусти цю пісню в ${applicationName}",
+              "Наступна пісня в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中跳过这首歌",
+              "在${applicationName}中播放下一首"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}跳過這首歌",
+              "在${applicationName}播放下一首"
+            ]
+          }
+        }
+      }
+    },
+    "Previous song in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "الأغنية السابقة في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Vorheriger Titel in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Previous song in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Canción anterior en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Morceau précédent dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Lagu sebelumnya di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Brano precedente su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で前の曲"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 이전 노래"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Vorig nummer in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Poprzedni utwór w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Música anterior no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Предыдущий трек в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Föregående låt i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında önceki şarkı"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Попередня пісня в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中播放上一首"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}播放上一首"
+            ]
+          }
+        }
+      }
+    },
+    "Like this song in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "سجّل إعجابي بهذه الأغنية في ${applicationName}",
+              "سجّل إعجابي بالأغنية الحالية في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Dieser Titel gefällt mir in ${applicationName}",
+              "Markiere den aktuellen Titel in ${applicationName} mit Gefällt mir"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Like this song in ${applicationName}",
+              "Like the current song in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Me gusta esta canción en ${applicationName}",
+              "Marca con Me gusta la canción actual en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "J'aime ce morceau dans ${applicationName}",
+              "Aime le morceau en cours dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Sukai lagu ini di ${applicationName}",
+              "Sukai lagu saat ini di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Metti Mi piace a questo brano su ${applicationName}",
+              "Metti Mi piace al brano attuale su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}でこの曲を高く評価",
+              "${applicationName}で再生中の曲を高く評価"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 이 노래에 좋아요",
+              "${applicationName}에서 현재 노래에 좋아요 표시"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Vind dit nummer leuk in ${applicationName}",
+              "Markeer het huidige nummer als leuk in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Polub ten utwór w ${applicationName}",
+              "Polub bieżący utwór w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Gosto desta música no ${applicationName}",
+              "Marca a música atual com Gosto no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Лайкни этот трек в ${applicationName}",
+              "Отметь текущий трек как понравившийся в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Gilla den här låten i ${applicationName}",
+              "Gilla den aktuella låten i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında bu şarkıyı beğen",
+              "${applicationName} uygulamasında çalan şarkıyı beğen"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Вподобай цю пісню в ${applicationName}",
+              "Вподобай поточну пісню в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}中喜欢这首歌",
+              "在${applicationName}中将当前歌曲标记为喜欢"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "在${applicationName}喜歡這首歌",
+              "在${applicationName}將目前歌曲標示為喜歡"
+            ]
+          }
+        }
+      }
+    },
+    "What's playing in ${applicationName}": {
+      "localizations": {
+        "ar": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "ما الذي يُشغَّل في ${applicationName}",
+              "ما هذه الأغنية في ${applicationName}"
+            ]
+          }
+        },
+        "de": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Was läuft gerade in ${applicationName}",
+              "Welcher Titel ist das in ${applicationName}"
+            ]
+          }
+        },
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "What's playing in ${applicationName}",
+              "What song is this in ${applicationName}"
+            ]
+          }
+        },
+        "es": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Qué está sonando en ${applicationName}",
+              "Qué canción es esta en ${applicationName}"
+            ]
+          }
+        },
+        "fr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Qu'est-ce qui passe dans ${applicationName}",
+              "Quel est ce morceau dans ${applicationName}"
+            ]
+          }
+        },
+        "id": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Apa yang sedang diputar di ${applicationName}",
+              "Lagu apa ini di ${applicationName}"
+            ]
+          }
+        },
+        "it": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Cosa sta suonando su ${applicationName}",
+              "Che brano è questo su ${applicationName}"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で再生中の曲は",
+              "${applicationName}でこの曲は何"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}에서 지금 재생 중인 노래",
+              "${applicationName}에서 이 노래 뭐야"
+            ]
+          }
+        },
+        "nl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Wat speelt er in ${applicationName}",
+              "Welk nummer is dit in ${applicationName}"
+            ]
+          }
+        },
+        "pl": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Co gra w ${applicationName}",
+              "Jaki to utwór w ${applicationName}"
+            ]
+          }
+        },
+        "pt": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "O que está a tocar no ${applicationName}",
+              "Que música é esta no ${applicationName}"
+            ]
+          }
+        },
+        "ru": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Что играет в ${applicationName}",
+              "Что это за трек в ${applicationName}"
+            ]
+          }
+        },
+        "sv": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Vad spelas i ${applicationName}",
+              "Vilken låt är det här i ${applicationName}"
+            ]
+          }
+        },
+        "tr": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName} uygulamasında ne çalıyor",
+              "${applicationName} uygulamasında bu hangi şarkı"
+            ]
+          }
+        },
+        "uk": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Що грає в ${applicationName}",
+              "Що це за пісня в ${applicationName}"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}正在播放什么",
+              "${applicationName}里这是什么歌"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}正在播放什麼",
+              "${applicationName}這是什麼歌"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

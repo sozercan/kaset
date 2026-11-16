@@ -29,8 +29,12 @@ struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
                 Label {
                     Text(self.accessibilityLabel ?? "")
                 } icon: {
-                    Color.white.opacity(0.001)
-                        .frame(width: 28, height: 28)
+                    // A borderless menu is an AppKit pop-up button sized to its label
+                    // image. Arbitrary views such as a clear `Color` are not rendered
+                    // into that image, which collapses the button to a few points in
+                    // the middle of the 28pt slot. A transparent 28pt image keeps the
+                    // whole slot clickable, matching `PlayerBarIconButton`.
+                    Image(size: CGSize(width: 28, height: 28)) { _ in }
                 }
                 .labelStyle(.iconOnly)
             }

@@ -2,6 +2,8 @@
 
 Kaset supports AppleScript for automation with tools like Raycast, Alfred, and Shortcuts.
 
+For Shortcuts and Siri, Kaset also provides native actions that need no scripting; see [Shortcuts, Siri, and Spotlight](shortcuts.md).
+
 ## Available Commands
 
 | Command | Description |

@@ -103,6 +103,7 @@ jobs:
 
             echo "WARN: $reason" >&2
             echo "WARN: Falling back to ad-hoc signing. The release will not be notarized and macOS Gatekeeper may warn users." >&2
+            echo "::warning::Ad-hoc signed release: Shortcuts, Siri, and Spotlight actions (App Intents) will not run without a team-signed build."
             echo "identity=" >> "$GITHUB_OUTPUT"
             echo "signing_mode=adhoc" >> "$GITHUB_OUTPUT"
           }

@@ -61,6 +61,7 @@ jobs:
 
       - name: Build app
         env:
+          # Ad-hoc builds list App Intents in Shortcuts but macOS will not run them.
           KASET_SIGNING: adhoc
           ARCHES: "arm64 x86_64"
         run: |

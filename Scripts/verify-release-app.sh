@@ -28,6 +28,7 @@ Checks:
   - Info.plist contains Sparkle's sandboxed installer launcher key
   - sandbox entitlements include Sparkle's installer/status mach lookups
   - Sparkle Installer.xpc is embedded
+  - App Intents metadata and App Shortcut phrases are embedded
   - codesign verification succeeds
   - optional Developer ID Application signing identity is used
 USAGE
@@ -61,6 +62,7 @@ plutil -lint "$ENTITLEMENTS_PLIST" >/dev/null
 codesign -dv --verbose=4 "$APP_PATH" >"$CODESIGN_DETAILS" 2>&1 || fail "Could not read code signature details"
 
 python3 - "$APP_PATH" "$INFO_PLIST" "$ENTITLEMENTS_PLIST" "$EXPECTED_BUNDLE_ID" <<'PY'
+import json
 import plistlib
 import sys
 from pathlib import Path
@@ -86,6 +88,16 @@ if info.get("SUEnableInstallerLauncherService") is not True:
 installer_xpc = app_path / "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
 if not installer_xpc.exists():
     errors.append(f"Sparkle Installer.xpc is missing at {installer_xpc}")
+
+# Shortcuts, Siri, and Spotlight discover App Intents only from this generated metadata.
+app_intents_metadata = app_path / "Contents/Resources/Metadata.appintents/extract.actionsdata"
+if not app_intents_metadata.exists():
+    errors.append(f"App Intents metadata is missing at {app_intents_metadata}")
+elif not json.loads(app_intents_metadata.read_text(encoding="utf-8")).get("actions"):
+    errors.append("App Intents metadata declares no actions")
+app_shortcut_phrases = app_path / "Contents/Resources/en.lproj/AppShortcuts.strings"
+if not app_shortcut_phrases.exists():
+    errors.append(f"App Shortcut phrases are missing at {app_shortcut_phrases}")
 
 if entitlements.get("com.apple.security.app-sandbox") is True:
     expected_mach_services = {

@@ -39,9 +39,6 @@ struct YouTubePlayerBar: View {
     @Namespace private var playerNamespace
 
     @State private var settings = SettingsManager.shared
-    @State private var seekValue: Double = 0
-    @State private var isSeeking = false
-    @State private var seekHold = PlayerBarSeekHold()
     @State private var volumeValue: Double = 1.0
     @State private var isAdjustingVolume = false
     @State private var showsVolumeOverlay = false
@@ -89,24 +86,10 @@ struct YouTubePlayerBar: View {
         .background(alignment: .bottom) {
             self.playerAreaFade
         }
-        .onChange(of: self.youtubePlayer.progress) { _, newValue in
-            self.seekHold.reconcile(observedProgress: newValue)
-            if !self.isSeeking, !self.seekHold.isActive, self.youtubePlayer.duration > 0 {
-                self.seekValue = self.displayedPlaybackProgress / self.youtubePlayer.duration
-            }
-        }
-        .onChange(of: self.youtubePlayer.duration) { _, newValue in
-            self.seekHold.reconcile(observedProgress: self.youtubePlayer.progress)
-            if !self.isSeeking, !self.seekHold.isActive, newValue > 0 {
-                self.seekValue = self.displayedPlaybackProgress / newValue
-            }
-        }
         .onChange(of: self.currentSeekIdentity) { _, _ in
-            self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
         .onChange(of: self.canSeek) { _, _ in
-            self.clearSeekHold()
             self.chapterPreviewMarker = nil
         }
         .onChange(of: self.youtubePlayer.volume) { _, newValue in
@@ -117,9 +100,6 @@ struct YouTubePlayerBar: View {
         .onChange(of: self.showsVolumeOverlay) { _, isPresented in self.onVolumeOverlayChange(isPresented) }
         .onAppear {
             self.volumeValue = self.youtubePlayer.volume
-            if self.youtubePlayer.duration > 0 {
-                self.seekValue = self.youtubePlayer.progress / self.youtubePlayer.duration
-            }
         }
     }
 
@@ -291,21 +271,12 @@ struct YouTubePlayerBar: View {
                 if self.youtubePlayer.isShowingAd {
                     PlayerBarAdIndicator()
                 } else {
-                    PlayerBarProgressLane(
-                        fraction: self.displayFraction,
+                    YouTubePlayerBarTimelineLane(
                         accent: Self.brandAccent,
-                        elapsedText: Self.formatTime(self.progressTextValue),
-                        remainingText: "-\(Self.formatTime(max(0, self.youtubePlayer.duration - self.progressTextValue)))",
                         markers: self.chapterProgressMarkers,
                         segments: self.chapterProgressSegments,
                         isLive: self.isLive,
                         canSeek: self.canSeek,
-                        isLoading: self.isProgressLoading,
-                        onScrub: { fraction in
-                            self.isSeeking = true
-                            self.seekValue = fraction
-                        },
-                        onCommit: self.performSeek,
                         onMarkerPreviewChange: { self.chapterPreviewMarker = $0 }
                     )
                 }
@@ -586,23 +557,6 @@ struct YouTubePlayerBar: View {
         self.colorScheme == .dark ? .black.opacity(0.36) : .black.opacity(0.18)
     }
 
-    /// Fraction (0...1) to render: the live drag value while seeking, otherwise actual progress.
-    private var displayFraction: Double {
-        if self.isSeeking {
-            return min(max(0, self.seekValue), 1)
-        }
-        guard self.youtubePlayer.duration > 0 else { return 0 }
-        return min(max(0, self.displayedPlaybackProgress / self.youtubePlayer.duration), 1)
-    }
-
-    private var progressTextValue: TimeInterval {
-        self.isSeeking ? self.seekValue * self.youtubePlayer.duration : self.displayedPlaybackProgress
-    }
-
-    private var displayedPlaybackProgress: TimeInterval {
-        self.seekHold.displayProgress(observedProgress: self.youtubePlayer.progress)
-    }
-
     private var currentSeekIdentity: String {
         self.youtubePlayer.currentVideo?.videoId ?? "none"
     }
@@ -693,10 +647,6 @@ struct YouTubePlayerBar: View {
         self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd && !self.isLive
     }
 
-    private var isProgressLoading: Bool {
-        self.youtubePlayer.isPlaybackLoading
-    }
-
     private var canNavigateToCurrentChannel: Bool {
         self.youtubeStore != nil && self.currentChannelId != nil
     }
@@ -711,35 +661,6 @@ struct YouTubePlayerBar: View {
     private func openCurrentChannel() {
         guard let channelId = self.currentChannelId else { return }
         self.youtubeStore?.navigationPath.append(YouTubeRoute.channel(channelId: channelId))
-    }
-
-    private func performSeek() {
-        guard self.isSeeking, self.canSeek else { return }
-        let seekTime = self.seekValue * self.youtubePlayer.duration
-        let holdID = self.seekHold.begin(target: seekTime)
-        self.isSeeking = false
-        self.youtubePlayer.seek(to: seekTime)
-
-        Task { @MainActor in
-            try? await Task.sleep(for: PlayerBarSeekHold.timeout)
-            if self.seekHold.clearIfCurrent(holdID) {
-                self.syncSeekValueFromDisplayedProgress()
-            }
-        }
-    }
-
-    private func clearSeekHold() {
-        self.seekHold.clear()
-        self.isSeeking = false
-        self.syncSeekValueFromDisplayedProgress()
-    }
-
-    private func syncSeekValueFromDisplayedProgress() {
-        if self.youtubePlayer.duration > 0 {
-            self.seekValue = self.displayedPlaybackProgress / self.youtubePlayer.duration
-        } else {
-            self.seekValue = 0
-        }
     }
 
     private var volumeIcon: String {

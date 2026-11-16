@@ -171,17 +171,17 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 
     /// Loads all enabled extensions from `ExtensionsManager`.
-    private func loadExtensions() async {
+    func loadExtensions(using manager: ExtensionsManager = .shared) async {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
-                let resolvedURLs = ExtensionsManager.shared.resolvedURLs()
+                let resolvedURLs = manager.resolvedURLs()
                 guard !resolvedURLs.isEmpty else {
                     self.logger.info("No enabled extensions to load")
                     return
                 }
 
                 for (id, url) in resolvedURLs {
-                    await self.loadSingleExtension(at: url, id: id)
+                    await self.loadSingleExtension(at: url, id: id, manager: manager)
                 }
 
                 self.logger.info("Loaded \(self.webExtensionController.extensionContexts.count) extension(s)")
@@ -191,9 +191,13 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
     /// Loads a single web extension from a directory URL.
     @available(macOS 14.0, *)
-    private func loadSingleExtension(at url: URL, id: String) async {
+    private func loadSingleExtension(at url: URL, id: String, manager: ExtensionsManager) async {
         do {
             let webExtension = try await WKWebExtension(resourceBaseURL: url)
+            guard manager.allowsLoading(ExtensionPermissions(webExtension: webExtension), id: id) else {
+                self.logger.warning("Extension requires permission review before loading: \(id)")
+                return
+            }
             let context = WKWebExtensionContext(for: webExtension)
             // WebKit generates a new context identifier by default, which would
             // move extension storage and webkit-extension:// origins every launch.
@@ -620,14 +624,17 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 #if compiler(>=5.9)
     @available(macOS 14.0, *)
     extension WebKitManager: WKWebExtensionControllerDelegate {
-        func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor permissions: Set<WKWebExtension.Permission>, in _: WKWebExtensionContext) async -> Bool {
-            self.logger.info("Showing permission prompt for: \(permissions.map(\.rawValue).joined(separator: ", "))")
-            return true
+        /// Runtime requests cannot expand the access approved in Settings.
+        func webExtensionController(_: WKWebExtensionController, promptForPermissions _: Set<WKWebExtension.Permission>, in _: (any WKWebExtensionTab)?, for _: WKWebExtensionContext) async -> (Set<WKWebExtension.Permission>, Date?) {
+            ([], nil)
         }
 
-        func webExtensionController(_: WKWebExtensionController, shouldShowPromptFor matchPatterns: Set<WKWebExtension.MatchPattern>, in _: WKWebExtensionContext) async -> Bool {
-            self.logger.info("Showing match-pattern prompt for: \(matchPatterns.map(\.string).joined(separator: ", "))")
-            return true
+        func webExtensionController(_: WKWebExtensionController, promptForPermissionMatchPatterns _: Set<WKWebExtension.MatchPattern>, in _: (any WKWebExtensionTab)?, for _: WKWebExtensionContext) async -> (Set<WKWebExtension.MatchPattern>, Date?) {
+            ([], nil)
+        }
+
+        func webExtensionController(_: WKWebExtensionController, promptForPermissionToAccess _: Set<URL>, in _: (any WKWebExtensionTab)?, for _: WKWebExtensionContext) async -> (Set<URL>, Date?) {
+            ([], nil)
         }
 
         @available(macOS 15.4, *)
