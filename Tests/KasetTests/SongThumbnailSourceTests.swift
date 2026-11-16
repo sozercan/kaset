@@ -43,4 +43,42 @@ struct SongThumbnailSourceTests {
                 .primaryFailureKey == nil
         )
     }
+
+    @Test("a failed sharp artwork steps down to the standard thumbnail before the fallback")
+    func failedSharpArtworkTriesStandardBeforeFallback() throws {
+        let sharpURL = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w1200-h1200-l90-rj"))
+        let standardURL = try #require(URL(string: "https://lh3.googleusercontent.com/abc=w226-h226-l90-rj"))
+        let fallbackURL = try #require(URL(string: "https://i.ytimg.com/vi/abc123/hqdefault.jpg"))
+        func source(failedSharpURL: URL?) -> SongThumbnailSource {
+            SongThumbnailSource(
+                videoId: "abc123",
+                primaryURL: SongThumbnailSource.primaryURL(
+                    sharpURL: sharpURL,
+                    standardURL: standardURL,
+                    failedSharpURL: failedSharpURL
+                ),
+                fallbackURL: fallbackURL
+            )
+        }
+
+        #expect(source(failedSharpURL: nil).activeURL(failedPrimaryKey: nil) == sharpURL)
+
+        let afterSharpFailure = source(failedSharpURL: sharpURL)
+        #expect(afterSharpFailure.activeURL(failedPrimaryKey: nil) == standardURL)
+        #expect(afterSharpFailure.activeURL(failedPrimaryKey: afterSharpFailure.primaryFailureKey) == fallbackURL)
+    }
+
+    @Test("a sharp artwork failure does not carry over to another artwork")
+    func sharpFailureIsPerURL() throws {
+        let failedURL = try #require(URL(string: "https://lh3.googleusercontent.com/old=w1200-h1200-l90-rj"))
+        let sharpURL = try #require(URL(string: "https://lh3.googleusercontent.com/new=w1200-h1200-l90-rj"))
+        let standardURL = try #require(URL(string: "https://lh3.googleusercontent.com/new=w226-h226-l90-rj"))
+
+        #expect(
+            SongThumbnailSource.primaryURL(sharpURL: sharpURL, standardURL: standardURL, failedSharpURL: failedURL) == sharpURL
+        )
+        #expect(
+            SongThumbnailSource.primaryURL(sharpURL: nil, standardURL: standardURL, failedSharpURL: nil) == standardURL
+        )
+    }
 }
