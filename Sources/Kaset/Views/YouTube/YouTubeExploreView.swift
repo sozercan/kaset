@@ -55,6 +55,9 @@ struct YouTubeExploreView: View {
         .task(id: self.viewModel.selectedDestination) {
             await self.viewModel.load()
         }
+        .youtubePageRefreshable {
+            await self.viewModel.refresh()
+        }
     }
 
     private var grid: some View {

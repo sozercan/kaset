@@ -29,13 +29,16 @@ Playback shortcuts are source-aware where both sources implement an equivalent a
 | `⌘3`     | Go to Library    |
 | `⌘F`     | Go to Search     |
 | `⌘K`     | Open Command Bar |
-| `⇧⌘R`    | Refresh Home suggestions |
+| `⇧⌘R`    | Refresh (Home in YouTube Music, the current page in YouTube) |
 | `⇧⌘Y`    | Switch source (YouTube Music ⟷ YouTube) |
 
 Navigation shortcuts route to the active source's equivalent destination:
 in YouTube mode, `⌘1`/`⌘2`/`⌘F` go to the YouTube Home/Explore/Search
 surfaces and `⌘3` goes to Playlists.
-`⇧⌘R` refreshes the active source's Home feed and bypasses its cached suggestions.
+`⇧⌘R` refreshes YouTube Music's Home feed and bypasses its cached suggestions.
+In YouTube mode it reloads the page on screen, as the toolbar's Refresh button
+does: a feed, channel, playlist, search, or the watch page around the video,
+which keeps playing.
 
 With macOS Keyboard navigation enabled, `Tab` moves between shelf cards and each
 song's Like/Unlike control. `⇧Tab` moves in reverse. `Return` or `Space` activates

@@ -38,6 +38,11 @@ struct YouTubeSearchView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(Text("Search", comment: "YouTube search title"))
+        // Runs the search again; with no query there is nothing to reload.
+        .youtubePageRefreshable {
+            guard !self.viewModel.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+            await self.viewModel.search()
+        }
     }
 
     // MARK: - Header

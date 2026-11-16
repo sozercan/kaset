@@ -689,3 +689,6 @@
 "Talk to a companion app" = "Связываться с приложением-компаньоном";
 "Request a connection to its companion app." = "Запрашивать подключение к своему приложению-компаньону.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Оно сможет читать и передавать информацию, которая отображается, пока вы вошли в аккаунт. Включайте его, только если доверяете ему.";
+
+// YouTube page refresh
+"Refresh Page (⇧⌘R)" = "Обновить страницу (⇧⌘R)";

@@ -13,7 +13,7 @@ final class YouTubeViewModelStore {
     /// Drill-in path for the active section's stack. Lives here (not in
     /// the content view) so toggling to Music and back restores the exact
     /// screen — e.g. the watch view you were on.
-    var navigationPath = NavigationPath()
+    var navigationPath: [YouTubeRoute] = []
 
     private(set) var home: YouTubeHomeViewModel
     private(set) var search: YouTubeSearchViewModel
@@ -36,7 +36,7 @@ final class YouTubeViewModelStore {
 
     /// Resets account-scoped state after an account switch.
     func resetForAccountChange() {
-        self.navigationPath = NavigationPath()
+        self.navigationPath = []
         // Cancel outgoing in-flight work before discarding the models: their
         // unstructured single-flight tasks intentionally survive SwiftUI task
         // cancellation, so account changes must explicitly stop them before the
