@@ -217,6 +217,9 @@ struct FullScreenPlayerView: View {
                 systemName: "shuffle",
                 size: 15,
                 isActive: self.playerService.shuffleEnabled,
+                // Same marker as the player bar, so Smart Shuffle is told apart from plain shuffle.
+                badgeSystemName: self.playerService.shuffleMode == .smart ? "sparkles" : nil,
+                isDimmed: self.playerService.isApplyingSmartShuffle,
                 label: String(localized: "Shuffle"),
                 accessibilityValue: Self.shuffleAccessibilityValue(for: self.playerService.shuffleMode)
             ) {
@@ -347,6 +350,8 @@ struct FullScreenPlayerView: View {
         systemName: String,
         size: CGFloat,
         isActive: Bool = false,
+        badgeSystemName: String? = nil,
+        isDimmed: Bool = false,
         label: String,
         accessibilityValue: String = "",
         action: @escaping () -> Void
@@ -355,6 +360,15 @@ struct FullScreenPlayerView: View {
             Image(systemName: systemName)
                 .font(.system(size: size, weight: .medium))
                 .foregroundStyle(isActive ? PackageResourceLookup.brandAccent : .white.opacity(0.92))
+                .overlay(alignment: .topTrailing) {
+                    if let badgeSystemName {
+                        Image(systemName: badgeSystemName)
+                            .font(.system(size: 8, weight: .bold))
+                            .foregroundStyle(PackageResourceLookup.brandAccent)
+                            .offset(x: 6, y: -5)
+                    }
+                }
+                .opacity(isDimmed ? 0.5 : 1)
                 .frame(minWidth: 36, minHeight: 40)
                 .contentShape(.rect)
         }
