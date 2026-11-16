@@ -187,6 +187,79 @@ struct MediaControlScriptTests {
         #expect(secondMessageType == "REMOTE_PREVIOUS")
     }
 
+    @Test("Bootstrap wrapper blocks YouTube-owned play and pause handlers", arguments: [false, true])
+    func bootstrapWrapperBlocksYouTubePlayPause(useNextPrev: Bool) throws {
+        let context = try #require(self.makeBootstrapWrapperContext())
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: useNextPrev), in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('play', function() {});
+            navigator.mediaSession.setActionHandler('pause', function() {});
+            """,
+            in: context
+        )
+
+        let calls = context.evaluateScript("mediaSessionCalls.join(',')")?.toString() ?? ""
+        #expect(calls.isEmpty)
+    }
+
+    /// A play from WebKit's Now Playing card or a media key must reach the native player, which
+    /// clears Kaset's pause intent; left to the page, it is re-paused after an in-app pause.
+    @Test("Override script routes play and pause to Kaset in both control styles", arguments: [false, true])
+    func overrideScriptRoutesPlayPauseToKaset(useNextPrev: Bool) throws {
+        let context = try #require(self.makeOverrideScriptContext(useNextPrev: useNextPrev))
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: useNextPrev), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
+        // YouTube registering its own handlers afterwards must not take them back.
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('play', function() { postedMessages.push({ type: 'PAGE_PLAY' }); });
+            navigator.mediaSession.setActionHandler('pause', function() { postedMessages.push({ type: 'PAGE_PAUSE' }); });
+            mediaSessionHandlers.play();
+            mediaSessionHandlers.pause();
+            """,
+            in: context
+        )
+
+        let messageTypes = context.evaluateScript("""
+            postedMessages.map(function(message) { return message.type; }).join(',')
+        """)?.toString()
+        #expect(messageTypes == "REMOTE_PLAY,REMOTE_PAUSE")
+    }
+
+    @Test("Switching to skip mode at runtime keeps play and pause routed to Kaset")
+    func runtimeSwitchToSkipModeKeepsPlayPauseRouted() throws {
+        let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))
+
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleBootstrapScript(useNextPrev: true), in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlOverrideScript, in: context)
+        self.evaluate(SingletonPlayerWebView.mediaControlStyleSyncScript(useNextPrev: false), in: context)
+        self.evaluate(
+            """
+            navigator.mediaSession.setActionHandler('play', function() { postedMessages.push({ type: 'PAGE_PLAY' }); });
+            mediaSessionHandlers.play();
+            mediaSessionHandlers.pause();
+            """,
+            in: context
+        )
+
+        let messageTypes = context.evaluateScript("""
+            postedMessages.map(function(message) { return message.type; }).join(',')
+        """)?.toString()
+        #expect(messageTypes == "REMOTE_PLAY,REMOTE_PAUSE")
+    }
+
+    @Test("Media-session bridge messages map to native transport commands")
+    func remoteMessagesMapToTransportCommands() {
+        #expect(SingletonPlayerWebView.remoteTransportCommand(forMessageType: "REMOTE_NEXT") == .next)
+        #expect(SingletonPlayerWebView.remoteTransportCommand(forMessageType: "REMOTE_PREVIOUS") == .previous)
+        #expect(SingletonPlayerWebView.remoteTransportCommand(forMessageType: "REMOTE_PLAY") == .play)
+        #expect(SingletonPlayerWebView.remoteTransportCommand(forMessageType: "REMOTE_PAUSE") == .pause)
+        #expect(SingletonPlayerWebView.remoteTransportCommand(forMessageType: "STATE_UPDATE") == nil)
+    }
+
     @Test("Override script uses event-driven reassertion without endless animation-frame loop")
     func overrideScriptUsesEventDrivenReassertionWithoutEndlessAnimationFrameLoop() throws {
         let context = try #require(self.makeOverrideScriptContext(useNextPrev: true))

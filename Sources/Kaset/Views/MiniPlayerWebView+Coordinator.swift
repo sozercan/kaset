@@ -150,7 +150,7 @@ extension SingletonPlayerWebView {
                   let type = body["type"] as? String
             else { return }
 
-            let isUserCommand = type == "REMOTE_NEXT" || type == "REMOTE_PREVIOUS"
+            let isUserCommand = SingletonPlayerWebView.remoteTransportCommand(forMessageType: type) != nil
             let commandIssuedAtMilliseconds = SingletonPlayerWebView.finitePlaybackBridgeDouble(
                 from: body["commandIssuedAtMilliseconds"]
             )
@@ -192,7 +192,7 @@ extension SingletonPlayerWebView {
                     eventIssuedAtMilliseconds: eventIssuedAtMilliseconds,
                     identityResolutionTimedOut: type == "TRACK_ENDED_IDENTITY_DEADLINE"
                 )
-            case "REMOTE_NEXT", "REMOTE_PREVIOUS":
+            case "REMOTE_NEXT", "REMOTE_PREVIOUS", "REMOTE_PLAY", "REMOTE_PAUSE":
                 self.handleRemoteCommand(
                     type: type,
                     documentGeneration: documentGeneration,
@@ -383,10 +383,11 @@ extension SingletonPlayerWebView {
             ), self.playerService.acceptsMusicRemoteCommand(
                 intent: musicPlaybackIntent,
                 commandIssuedAtMilliseconds: commandIssuedAtMilliseconds
-            ), let commandIssuedAtMilliseconds
+            ), let commandIssuedAtMilliseconds,
+            let command = SingletonPlayerWebView.remoteTransportCommand(forMessageType: type)
             else { return }
             self.playerService.enqueueRemoteMusicTransportCommand(
-                type == "REMOTE_NEXT" ? .next : .previous,
+                command,
                 issuedAtMilliseconds: commandIssuedAtMilliseconds
             )
         }
