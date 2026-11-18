@@ -70,6 +70,10 @@ enum YouTubeVideoWindowFullscreenPhase: Equatable {
     var blocksWindowedControls: Bool {
         self != .windowed
     }
+
+    var isTransitioning: Bool {
+        self == .entering || self == .exiting
+    }
 }
 
 // MARK: - YouTubeVideoWindowController
@@ -88,6 +92,7 @@ final class YouTubeVideoWindowController {
     private var hostingView: NSHostingView<AnyView>?
     private weak var youtubePlayerService: YouTubePlayerService?
     private var isClosing = false
+    private var isPoppingOutToFullView = false
     private let frameAutosaveKey = "KasetYouTubeVideoWindow"
 
     /// Floor for the video content area. Below roughly this size the macOS 26
@@ -309,6 +314,28 @@ final class YouTubeVideoWindowController {
             }
         }
         window.toggleFullScreen(nil)
+    }
+
+    /// Enters or leaves Kaset's full screen from wherever the video is, the
+    /// path shared by the player bar button and the page's F / double-click.
+    /// An inline video pops out first and docks back when full screen ends.
+    func toggleFullView(for player: YouTubePlayerService) {
+        // A second trigger mid-transition, including the pop-out delay, would
+        // reverse the one in flight.
+        guard !self.isPoppingOutToFullView,
+              !player.windowFullscreenPhase.isTransitioning
+        else { return }
+        if player.surfaceLocation == .inline {
+            player.popOutToWindow()
+            self.isPoppingOutToFullView = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                self.isPoppingOutToFullView = false
+                self.toggleFullscreen(returnInlineOnExit: true)
+            }
+        } else {
+            self.toggleFullscreen()
+        }
     }
 
     /// Shows/hides the traffic lights with the hover overlay so the video

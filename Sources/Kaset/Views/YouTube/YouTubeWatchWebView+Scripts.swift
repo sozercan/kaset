@@ -507,6 +507,35 @@ extension YouTubeWatchWebView {
         """
     }
 
+    /// Document-start redirect of YouTube's element full screen.
+    ///
+    /// YouTube's F key and double-click call `requestFullscreen` on the
+    /// player, which puts it in a WebKit-owned window the Kaset player bar
+    /// cannot draw over. Patched before any page script runs, every such
+    /// request instead posts `TOGGLE_FULLSCREEN` so Kaset enters or leaves its
+    /// own full screen. The page never enters element full screen, so each
+    /// request reads as a toggle.
+    static var fullscreenRedirectScript: String {
+        """
+        (function() {
+            'use strict';
+            const bridge = window.webkit.messageHandlers.youtubePlayer;
+            function redirect() {
+                bridge.postMessage({
+                    type: 'TOGGLE_FULLSCREEN',
+                    documentGeneration: window.__kasetDocumentGeneration
+                });
+                return Promise.resolve();
+            }
+            ['requestFullscreen', 'webkitRequestFullscreen', 'webkitRequestFullScreen'].forEach(function(name) {
+                if (typeof Element.prototype[name] === 'function') {
+                    Element.prototype[name] = redirect;
+                }
+            });
+        })();
+        """
+    }
+
     /// Document-start blackout: the page is black from its very first paint
     /// so YouTube's layout never flashes before extraction runs. Uses
     /// element selectors only, so the extraction script's class-based
