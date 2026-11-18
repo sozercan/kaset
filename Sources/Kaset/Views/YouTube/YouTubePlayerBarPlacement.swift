@@ -121,10 +121,6 @@ extension View {
 
 private struct YouTubeInlineVideoControlsModifier: ViewModifier {
     private static let tabKeyCode: UInt16 = 48
-    /// Caps the overlaid bar so it floats centered on wide videos. 800pt keeps
-    /// the capsule (minus its 16pt side padding) above the 736pt compact-details
-    /// breakpoint, and the margin keeps menus off the window edge.
-    private static let maxBarWidth: CGFloat = 800
 
     let isEnabled: Bool
 
@@ -160,7 +156,7 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
                                 self.isVolumeOverlayPresented = isPresented
                             }
                         )
-                        .frame(maxWidth: Self.maxBarWidth)
+                        .frame(maxWidth: YouTubePlayerBar.overlayMaxWidth)
                         .onHover { hovering in
                             self.isPointerOverControls = hovering
                         }
