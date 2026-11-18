@@ -583,6 +583,7 @@ private struct YouTubeVideoWindowContent: View {
                             self.isVolumeOverlayPresented = isPresented
                         }
                     )
+                    .frame(maxWidth: YouTubePlayerBar.overlayMaxWidth)
                     .transition(.opacity)
                 }
             }

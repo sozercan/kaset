@@ -7,6 +7,11 @@ struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
+    /// Caps the bar where it floats over the video, so it sits centered on wide
+    /// videos. 800pt keeps the capsule (minus its 16pt side padding) above the
+    /// 736pt compact-details breakpoint, and the margin keeps menus off the
+    /// window edge.
+    static let overlayMaxWidth: CGFloat = 800
     /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
     /// One 28pt option button plus its 6pt spacing.

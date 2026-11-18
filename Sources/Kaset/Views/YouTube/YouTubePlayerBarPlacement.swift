@@ -156,6 +156,7 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
                                 self.isVolumeOverlayPresented = isPresented
                             }
                         )
+                        .frame(maxWidth: YouTubePlayerBar.overlayMaxWidth)
                         .onHover { hovering in
                             self.isPointerOverControls = hovering
                         }
