@@ -391,6 +391,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: true)
                 self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
             }
+            .onChange(of: self.settings.appSource) { _, source in
+                guard source == .video else { return }
+                self.playerService.showLyrics = false
+                self.playerService.showQueue = false
+            }
             .onChange(of: self.playerService.showVideo) { _, showVideo in
                 DiagnosticsLogger.player.debug("showVideo onChange triggered: \(showVideo)")
                 if showVideo {
