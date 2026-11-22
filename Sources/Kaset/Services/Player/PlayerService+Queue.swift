@@ -140,6 +140,10 @@ extension PlayerService {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let requestGeneration = self.beginPlaybackRequest()
         if self.currentTrack?.videoId == song.videoId {
+            // Selecting the current song is still a play action, so resume it if paused or ended.
+            if self.state == .paused || self.state == .ended {
+                await self.resume(intent: intent)
+            }
             // An applied refresh invalidates stale loads in fetchAndApplyRadioQueue via
             // prepareForNewPlaybackContext(); an unapplied one keeps playlist paging alive.
             await self.fetchAndApplyRadioQueue(

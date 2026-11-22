@@ -46,6 +46,24 @@ struct PlayerServiceQueueTests {
         }
     }
 
+    @Test("Selecting the paused current song resumes it and refreshes radio")
+    func pausedCurrentSongRadioResumes() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.playerService.pendingPlayVideoId = nil
+        await self.playerService.pause()
+        #expect(self.playerService.state == .paused)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.shouldResumeAfterInterruption)
+        #expect(!self.playerService.isExplicitPauseIntentActive)
+        #expect(self.playerService.progress == 42)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
+    }
+
     @Test("Starting radio for a different seed starts its playback and replaces the queue")
     func differentSeedRadio() async {
         let songs = TestFixtures.makeSongs(count: 4)
