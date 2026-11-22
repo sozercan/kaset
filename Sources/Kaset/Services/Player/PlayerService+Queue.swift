@@ -143,13 +143,13 @@ extension PlayerService {
                 guard self.acceptsMusicPlaybackIntent(intent) else { return }
             }
             self.cancelSmartShuffleFill()
-            await self.fetchAndApplyRadioQueue(
+            let outcome = await self.fetchAndApplyRadioQueue(
                 for: song.videoId,
                 seedEntryID: self.queueEntryIDOwningCurrentPlayback,
                 queueGeneration: self.queueLoadGeneration,
                 replacesUpcoming: true
             )
-            guard self.acceptsMusicPlaybackIntent(intent) else { return }
+            guard outcome == .applied, self.acceptsMusicPlaybackIntent(intent) else { return }
             await self.fillSmartShuffleWindow()
             return
         }

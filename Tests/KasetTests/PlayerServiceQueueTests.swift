@@ -1200,6 +1200,31 @@ extension PlayerServiceQueueTests {
         #expect(self.playerService.pendingPlayVideoId == nil)
     }
 
+    @Test(
+        "An empty or failed radio refresh skips the Smart Shuffle fill",
+        arguments: [false, true]
+    )
+    func unavailableRadioRefreshSkipsSmartShuffleFill(fails: Bool) async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
+        }
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.mockClient.radioQueueSongs[songs[1].videoId] = [songs[1], recommended]
+        if fails {
+            self.mockClient.radioQueueErrors[songs[0].videoId] = URLError(.timedOut)
+        }
+        let originalEntries = self.playerService.queueEntries
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queueEntries == originalEntries)
+        #expect(self.mockClient.getRadioQueueVideoIds == [songs[0].videoId])
+    }
+
     @Test("A queue edit during a radio refresh wins")
     func editDuringRadioRefresh() async {
         let songs = TestFixtures.makeSongs(count: 4)
