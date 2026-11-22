@@ -55,6 +55,9 @@ struct YouTubeHomeView: View {
         .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
+        .youtubePageRefreshable {
+            await self.viewModel.refresh()
+        }
     }
 
     /// Personalized rails (Continue Watching, shelves, topics) stacked above

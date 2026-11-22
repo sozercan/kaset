@@ -39,6 +39,9 @@ struct YouTubePlaylistDetailView: View {
         .task {
             await self.viewModel.load()
         }
+        .youtubePageRefreshable {
+            await self.viewModel.load()
+        }
     }
 
     private func content(for detail: YouTubePlaylistDetail) -> some View {

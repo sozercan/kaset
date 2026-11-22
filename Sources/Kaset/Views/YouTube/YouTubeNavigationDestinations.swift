@@ -12,22 +12,26 @@ extension View {
     /// (parallel to the music side's `navigationDestinations(client:)`).
     func youtubeNavigationDestinations(client: any YouTubeClientProtocol) -> some View {
         navigationDestination(for: YouTubeRoute.self) { route in
-            // Pushed views don't inherit safeAreaInsets, so every
-            // destination carries its own player bar (music-side rule).
-            switch route {
-            case let .watch(video):
-                // Attaches its own bar so it can hand the controls to the
-                // docked video (Settings → YouTube → Show Controls on Video).
-                YouTubeWatchView(video: video, client: client)
-            case let .channel(channelId):
-                YouTubeChannelView(channelId: channelId, client: client)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .youtubePagePlayerBarInset()
-            case let .playlist(playlistId):
-                YouTubePlaylistDetailView(playlistId: playlistId, client: client)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .youtubePagePlayerBarInset()
+            Group {
+                // Pushed views don't inherit safeAreaInsets, so every
+                // destination carries its own player bar (music-side rule).
+                switch route {
+                case let .watch(video):
+                    // Attaches its own bar so it can hand the controls to the
+                    // docked video (Settings → YouTube → Show Controls on Video).
+                    YouTubeWatchView(video: video, client: client)
+                case let .channel(channelId):
+                    YouTubeChannelView(channelId: channelId, client: client)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .youtubePagePlayerBarInset()
+                case let .playlist(playlistId):
+                    YouTubePlaylistDetailView(playlistId: playlistId, client: client)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .youtubePagePlayerBarInset()
+                }
             }
+            // Tells the page's refresh which route it is.
+            .environment(\.youtubePageRoute, route)
         }
     }
 }

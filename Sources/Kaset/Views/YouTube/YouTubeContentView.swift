@@ -33,6 +33,10 @@ struct YouTubeContentView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .environment(self.store)
+        .onAppear {
+            // Refresh requests go to the page on top of this store's stack.
+            YouTubePageRefresh.shared.store = self.store
+        }
         // Reconcile on (re)mount: switching to the Music source unmounts this
         // view, so the observers below can't see a floating video that finishes
         // or is closed while away. On switching back to YouTube with Home already
@@ -51,7 +55,7 @@ struct YouTubeContentView: View {
             self.handleSkipNavigationRequest(request)
         }
         .onChange(of: self.selection) { _, newSelection in
-            self.store.navigationPath = NavigationPath()
+            self.store.navigationPath = []
             // Returning to Home via the sidebar is one way back after watching
             // (watch from any section, then pick Home). The path is already — or
             // just reset to — empty, so the depth trigger below won't fire; drive

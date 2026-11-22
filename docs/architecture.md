@@ -1170,6 +1170,37 @@ Spotlight-style command palette triggered by ⌘K:
 
 **Trigger**: `@Environment(\.showCommandBar)` environment key.
 
+### YouTube Page Refresh
+
+**File**: `Sources/Kaset/Views/YouTube/YouTubePageRefresh.swift`
+
+In YouTube mode, the toolbar shows a Refresh button where Music shows the
+command bar button. The button and View → Refresh (⇧⌘R) reload the page on
+screen, the way a browser does.
+
+- Both call `YouTubePageRefresh.shared.request()`. Each YouTube page attaches
+  `.youtubePageRefreshable { … }` with its own reload.
+- Only the page on top runs its reload: a section's root page while the
+  path is empty, a pushed page while it is the path's last. The YouTube path
+  is a typed `[YouTubeRoute]` for this, and
+  `youtubeNavigationDestinations(client:)` gives each pushed page its route
+  through `\.youtubePageRoute`. A page notes its position (its route's last
+  index) when it first appears, so an earlier page for the same route, say a
+  channel opened again from one of its videos, isn't taken for the top. A
+  stack rebuilt after a switch to Music and back brings all its pages up at
+  once, so repeats of a route both note its last index: a position past the
+  end counts as on top once its route is last again, and while both repeats
+  are in the path, both reload. Appearance can't tell: a page covered by a
+  pushed one gets no `onDisappear`, and pages rebuilt with a path already
+  pushed all appear at once.
+- Pages observe the shared object instead of an environment value set above
+  the stack, which pages pushed inside a `NavigationSplitView` don't get.
+  `YouTubeContentView` hands it the store.
+- Each reload runs in a `.task` keyed on the request, so a newer request or
+  the page going away cancels it.
+- The watch page reloads its metadata, comments, and related videos;
+  playback isn't touched. A new YouTube page needs the modifier to refresh.
+
 ### ToastView
 
 **File**: `Sources/Kaset/Views/ToastView.swift`

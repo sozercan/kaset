@@ -171,6 +171,13 @@ final class YouTubeWatchViewModel {
         }
     }
 
+    /// Reloads the watch page and its comments from scratch, as a browser
+    /// reload would. Playback isn't the view model's, so it carries on.
+    func refresh() async {
+        self.resetAccountScopedWatchState()
+        await self.load()
+    }
+
     /// Invalidates the current route load and discards all Ask state.
     func cancel() {
         self.loadGeneration += 1

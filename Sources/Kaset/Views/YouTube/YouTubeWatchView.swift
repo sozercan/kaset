@@ -145,6 +145,17 @@ struct YouTubeWatchView: View {
                 data: self.viewModel.data
             )
         }
+        // Reloads the page around the video; playback carries on.
+        .youtubePageRefreshable {
+            await self.viewModel.refresh()
+            // A newer request, or leaving the page, cancelled this reload.
+            guard !Task.isCancelled else { return }
+            YouTubeWatchPlaybackLifecycle.synchronizeLoadedData(
+                videoId: self.video.videoId,
+                player: self.youtubePlayer,
+                data: self.viewModel.data
+            )
+        }
         .onDisappear {
             self.viewModel.cancel()
             self.youtubePlayer.inlineSurfaceWillDisappear(videoId: self.video.videoId)

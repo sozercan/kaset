@@ -49,7 +49,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Binding to the YouTube (video) experience's navigation selection.
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
 
-    /// Monotonic request from the View menu to refresh the active Home feed.
+    /// Monotonic request from View → Refresh: the active Home feed in Music,
+    /// the page on screen in YouTube.
     @Binding var homeRefreshRequestID: Int
 
     /// Whether startup guest playback cleanup has completed.
@@ -529,14 +530,14 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
+    /// View → Refresh: the Home feed in Music, the page on screen in YouTube.
     private func refreshActiveHome() async {
         switch self.settings.appSource {
         case .music:
             guard self.navigationSelection == .home, let homeViewModel else { return }
             await homeViewModel.refresh()
         case .video:
-            guard self.youtubeNavigationSelection == .home else { return }
-            await self.youtubeStore.home.refresh()
+            YouTubePageRefresh.shared.request()
         }
     }
 
@@ -567,7 +568,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     YouTubeSidebar(
                         selection: self.$youtubeNavigationSelection,
                         onReselect: { _ in
-                            self.youtubeStore.navigationPath = NavigationPath()
+                            self.youtubeStore.navigationPath = []
                         }
                     )
                 }
@@ -615,6 +616,21 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     .keyboardShortcut("k", modifiers: .command)
                     .help(String(localized: "Open Command Bar (⌘K)"))
                     .accessibilityIdentifier(AccessibilityID.MainWindow.aiButton)
+                }
+            } else if self.settings.appSource == .video {
+                // YouTube has no command bar; its place holds Refresh, which
+                // reloads the page on screen like a browser's.
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        YouTubePageRefresh.shared.request()
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                    }
+                    .help(String(localized: "Refresh Page (⇧⌘R)"))
+                    .accessibilityLabel(String(localized: "Refresh"))
+                    .accessibilityIdentifier(AccessibilityID.MainWindow.refreshButton)
                 }
             }
         }
