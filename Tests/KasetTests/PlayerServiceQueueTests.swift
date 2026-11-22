@@ -1075,39 +1075,42 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         #expect(!self.playerService.isQueueLoading)
     }
 
-    @Test("A Smart Shuffle fill that lands before a radio refresh does not discard the refresh")
+    @Test("A Smart Shuffle fill that lands during a radio refresh does not discard the refresh")
     func smartShuffleFillAheadOfRadioRefresh() async {
         let songs = TestFixtures.makeSongs(count: 3)
+        let suggested = TestFixtures.makeSong(id: "suggested-1")
         let recommended = TestFixtures.makeSong(id: "rec-1")
         self.playerService.smartShuffleFeatureEnabled = { true }
         self.playerService.smartShuffleConfigProvider = {
             PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
         }
         await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
         self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
-        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], suggested]
 
-        let counter = RadioCallCounter()
-        let fillGate = AsyncGate()
-        let fillBox = FillTaskBox()
-        self.mockClient.beforeRadioQueueReturn = { _ in
-            if await counter.next() == 1 {
-                await fillGate.wait()
-            } else {
-                await fillGate.open()
-                let fill = await MainActor.run { fillBox.task }
-                await fill?.value
-            }
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+
+        let userMutationGenerationBeforeFill = self.playerService.userQueueMutationGeneration
+        let refreshTask = Task { @MainActor [playerService] in
+            await playerService.playWithRadio(song: songs[0])
         }
-
-        self.playerService.setShuffleMode(.smart)
         for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
             await Task.yield()
         }
-        #expect(self.mockClient.getRadioQueueVideoIds.count == 1)
-        fillBox.task = self.playerService.smartShuffleFillTask
+        #expect(self.mockClient.getRadioQueueVideoIds == [songs[0].videoId])
 
-        await self.playerService.playWithRadio(song: songs[0])
+        self.mockClient.getRadioQueueGate = nil
+        await self.playerService.fillSmartShuffleWindow()
+        #expect(self.playerService.queueEntries.contains {
+            $0.song.videoId == suggested.videoId && $0.source == .suggested
+        })
+        #expect(self.playerService.userQueueMutationGeneration == userMutationGenerationBeforeFill)
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        await radioGate.open()
+        await refreshTask.value
 
         #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, recommended.videoId])
@@ -1145,20 +1148,6 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
         #expect(self.playerService.mixContinuationToken == nil)
     }
-}
-
-private actor RadioCallCounter {
-    private var count = 0
-
-    func next() -> Int {
-        self.count += 1
-        return self.count
-    }
-}
-
-@MainActor
-private final class FillTaskBox {
-    var task: Task<Void, Never>?
 }
 
 extension PlayerServiceQueueTests {
