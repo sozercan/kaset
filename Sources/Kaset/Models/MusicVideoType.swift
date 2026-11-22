@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - MusicVideoType
-
 /// Represents the type of music video content from YouTube Music.
 ///
 /// This enum maps to the `musicVideoType` field in the YouTube Music API's

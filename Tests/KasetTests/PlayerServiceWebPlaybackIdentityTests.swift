@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlaybackMediaGenerationCase
-
 struct PlaybackMediaGenerationCase {
     let queueEntryChanged: Bool
     let epoch: Double
@@ -13,8 +11,6 @@ struct PlaybackMediaGenerationCase {
     let expected: Bool
 }
 
-// MARK: - PlaybackEndedOccurrenceCase
-
 struct PlaybackEndedOccurrenceCase {
     let epoch: Double
     let lastEpoch: Double?
@@ -23,8 +19,6 @@ struct PlaybackEndedOccurrenceCase {
     let expected: Bool
 }
 
-// MARK: - PlaybackBridgeTransitionPayloads
-
 private struct PlaybackBridgeTransitionPayloads {
     let sourceState: [String: Any]
     let targetState: [String: Any]
@@ -32,8 +26,6 @@ private struct PlaybackBridgeTransitionPayloads {
 }
 
 extension PlayerServiceWebQueueSyncTests {
-    // MARK: - Web Playback Identity Reconciliation
-
     @Test(
         "Stale media state after manual Next is rejected before queue recovery",
         arguments: [true, false]

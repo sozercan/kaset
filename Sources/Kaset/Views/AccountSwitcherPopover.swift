@@ -5,14 +5,10 @@
 
 import SwiftUI
 
-// MARK: - AccountSwitcherSignOutDisposition
-
 enum AccountSwitcherSignOutDisposition: Equatable {
     case dismiss
     case presentFailure
 }
-
-// MARK: - AccountSwitcherSignOutFlow
 
 @MainActor
 enum AccountSwitcherSignOutFlow {
@@ -24,8 +20,6 @@ enum AccountSwitcherSignOutFlow {
         await signOut() ? .dismiss : .presentFailure
     }
 }
-
-// MARK: - AccountSwitcherPopover
 
 /// A Liquid Glass styled popover for switching between accounts.
 ///
@@ -79,8 +73,6 @@ struct AccountSwitcherPopover: View {
             )
         }
     }
-
-    // MARK: - Header
 
     private var headerView: some View {
         HStack {
@@ -169,8 +161,6 @@ struct AccountSwitcherPopover: View {
             Color.clear
         }
     }
-
-    // MARK: - Accounts List
 
     private var accountsListView: some View {
         ScrollView {
@@ -267,8 +257,6 @@ struct AccountSwitcherPopover: View {
     }
 }
 
-// MARK: - AccessibilityID.AccountSwitcher
-
 extension AccessibilityID {
     enum AccountSwitcher {
         static let container = "accountSwitcher"
@@ -282,8 +270,6 @@ extension AccessibilityID {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview("Account Switcher") {
     let authService = AuthService()

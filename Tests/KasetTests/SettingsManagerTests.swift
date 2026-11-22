@@ -8,8 +8,6 @@ import Testing
 struct SettingsManagerTests {
     // Note: These tests use a fresh UserDefaults domain to avoid affecting real settings
 
-    // MARK: - LaunchPage Tests
-
     @Test("LaunchPage has correct display names")
     func launchPageDisplayNames() {
         #expect(SettingsManager.LaunchPage.home.displayName == "Home")
@@ -49,8 +47,6 @@ struct SettingsManagerTests {
         #expect(SettingsManager.LaunchPage.playlists.navigationItem == .library)
         #expect(SettingsManager.LaunchPage.lastUsed.navigationItem == .home) // Fallback
     }
-
-    // MARK: - Default Values Tests
 
     @Test("Default showNowPlayingNotifications is true")
     func defaultShowNowPlayingNotifications() {
@@ -291,8 +287,6 @@ struct SettingsManagerTests {
         #expect(AppLocalization.bundle.localizedString(forKey: "Home", value: nil, table: nil) == "홈")
     }
 
-    // MARK: - launchPage Computed Property Tests
-
     @Test("launchPage returns defaultLaunchPage for non-lastUsed")
     func launchPageReturnsDefault() {
         let manager = SettingsManager.shared
@@ -322,8 +316,6 @@ struct SettingsManagerTests {
         manager.lastUsedPage = originalLastUsed
     }
 
-    // MARK: - launchNavigationItem Tests
-
     @Test("launchNavigationItem returns correct item")
     func launchNavigationItemReturnsCorrect() {
         let manager = SettingsManager.shared
@@ -336,8 +328,6 @@ struct SettingsManagerTests {
         // Restore
         manager.defaultLaunchPage = originalPage
     }
-
-    // MARK: - MediaControlStyle Tests
 
     @Test("MediaControlStyle has correct display names")
     func mediaControlStyleDisplayNames() {
@@ -366,8 +356,6 @@ struct SettingsManagerTests {
         #expect(manager.mediaControlStyle == .nextPreviousTrack)
     }
 
-    // MARK: - PlaybackAudioQuality Tests
-
     @Test("PlaybackAudioQuality has correct display names")
     func playbackAudioQualityDisplayNames() {
         #expect(SettingsManager.PlaybackAudioQuality.auto.displayName == "Auto")
@@ -395,8 +383,6 @@ struct SettingsManagerTests {
     func playbackAudioQualityAllCasesCovered() {
         #expect(SettingsManager.PlaybackAudioQuality.allCases.count == 4)
     }
-
-    // MARK: - All Cases Coverage
 
     @Test("All LaunchPage cases are covered")
     func allLaunchPageCasesCovered() {

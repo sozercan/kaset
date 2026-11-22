@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ArtistEpisode
-
 /// A video-backed item from an artist page's "Latest episodes" shelf.
 ///
 /// These are channel uploads — often live radio streams for channel-style

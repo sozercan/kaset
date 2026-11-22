@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarSeekController
-
 /// Seek and elapsed-time state shared by the player bar's progress-dependent leaf views.
 ///
 /// `PlayerBar` owns this object but never reads its properties in `body`, so playback
@@ -176,8 +174,6 @@ final class PlayerBarSeekController {
     }
 }
 
-// MARK: - PlayerBarTimelineLane
-
 /// The player bar's seek lane. This is the only player bar view that observes
 /// `PlayerService.progress`, so each playback tick re-evaluates just this lane.
 struct PlayerBarTimelineLane: View {
@@ -257,8 +253,6 @@ struct PlayerBarTimelineLane: View {
         self.seekController.updateCurrentSegment(fraction: fraction, segments: self.segments)
     }
 }
-
-// MARK: - PlayerBarMixTracksMenu
 
 /// Mix-tracks menu that tracks the current segment through `PlayerBarSeekController`,
 /// so it only rebuilds at segment boundaries rather than on every progress tick.

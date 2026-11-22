@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - VideoRowView
-
 /// Horizontal list row for a YouTube video (search results, related lists).
 struct VideoRowView: View {
     let video: YouTubeVideo
@@ -40,8 +38,6 @@ struct VideoRowView: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - ChannelRowView
 
 /// List row for a YouTube channel (search results).
 struct ChannelRowView: View {
@@ -96,8 +92,6 @@ struct ChannelRowView: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - YouTubePlaylistRowView
 
 /// List row for a YouTube playlist (search results, library lists).
 struct YouTubePlaylistRowView: View {
@@ -160,8 +154,6 @@ struct YouTubePlaylistRowView: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - YouTubePlaylistCard
 
 /// Grid card for a YouTube playlist: 16:9 thumbnail with a count badge,
 /// title, and channel line (matches `VideoCard`'s layout).

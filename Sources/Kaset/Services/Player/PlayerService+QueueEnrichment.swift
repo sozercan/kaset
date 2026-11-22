@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Queue Metadata Enrichment
-
 @MainActor
 extension PlayerService {
     /// Starts queue metadata enrichment if the current queue needs it.

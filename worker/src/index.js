@@ -1,27 +1,5 @@
-/**
- * Kaset Last.fm Proxy Worker
- *
- * A lightweight Cloudflare Worker that proxies Last.fm API requests.
- * The app sends unsigned requests; this Worker adds api_key and computes
- * api_sig (MD5) before forwarding to ws.audioscrobbler.com/2.0/.
- *
- * Environment variables (set via `wrangler secret put`):
- * - LASTFM_API_KEY: Last.fm API key
- * - LASTFM_SHARED_SECRET: Last.fm shared secret
- *
- * - Run "npm run dev" in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run "npm run deploy" to publish your worker
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
-
 const LASTFM_API_URL = "https://ws.audioscrobbler.com/2.0/";
 
-/**
- * Computes Last.fm API signature (MD5 of sorted params + shared secret).
- * See: https://www.last.fm/api/authspec#_8-signing-calls
- */
 async function computeApiSig(params, secret) {
 	const sortedKeys = Object.keys(params).sort();
 	let sigString = "";
@@ -37,15 +15,10 @@ async function computeApiSig(params, secret) {
 	return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-/**
- * Makes a signed request to the Last.fm API.
- */
 async function lastfmRequest(params, env, method = "POST") {
-	// Add api_key to params
 	params["api_key"] = env.LASTFM_API_KEY;
 	params["format"] = "json";
 
-	// Compute signature (format is excluded from sig per Last.fm spec)
 	const sigParams = { ...params };
 	delete sigParams["format"];
 	const apiSig = await computeApiSig(sigParams, env.LASTFM_SHARED_SECRET);
@@ -59,7 +32,6 @@ async function lastfmRequest(params, env, method = "POST") {
 		return fetch(url.toString());
 	}
 
-	// POST request
 	const body = new URLSearchParams(params);
 	return fetch(LASTFM_API_URL, {
 		method: "POST",
@@ -68,9 +40,6 @@ async function lastfmRequest(params, env, method = "POST") {
 	});
 }
 
-/**
- * JSON error response helper.
- */
 function errorResponse(message, status = 400) {
 	return new Response(JSON.stringify({ error: message }), {
 		status,
@@ -83,12 +52,10 @@ export default {
 		const url = new URL(request.url);
 		const path = url.pathname;
 
-		// Validate env vars are configured
 		if (!env.LASTFM_API_KEY || !env.LASTFM_SHARED_SECRET) {
 			return errorResponse("Server misconfigured: missing API credentials", 500);
 		}
 
-		// --- Health Check ---
 		if (path === "/health" && request.method === "GET") {
 			return new Response(
 				JSON.stringify({ status: "ok", service: "kaset-lastfm-proxy" }),
@@ -96,7 +63,6 @@ export default {
 			);
 		}
 
-		// --- GET /auth/token — Request an auth token from Last.fm ---
 		if (path === "/auth/token" && request.method === "GET") {
 			const params = { method: "auth.getToken" };
 			const response = await lastfmRequest(params, env, "GET");
@@ -107,7 +73,6 @@ export default {
 			});
 		}
 
-		// --- GET /auth/session?token=X — Exchange token for session key ---
 		if (path === "/auth/session" && request.method === "GET") {
 			const token = url.searchParams.get("token");
 			if (!token) {
@@ -123,7 +88,6 @@ export default {
 			});
 		}
 
-		// --- POST /auth/validate — Validate an existing session key ---
 		if (path === "/auth/validate" && request.method === "POST") {
 			let body;
 			try {
@@ -145,7 +109,6 @@ export default {
 			});
 		}
 
-		// --- GET /auth/url?token=X — Return the Last.fm auth URL ---
 		if (path === "/auth/url" && request.method === "GET") {
 			const token = url.searchParams.get("token");
 			if (!token) {
@@ -159,7 +122,6 @@ export default {
 			});
 		}
 
-		// --- POST /nowplaying — Send a "now playing" update ---
 		if (path === "/nowplaying" && request.method === "POST") {
 			let body;
 			try {
@@ -190,7 +152,6 @@ export default {
 			});
 		}
 
-		// --- POST /scrobble — Submit scrobbles (up to 50 per batch) ---
 		if (path === "/scrobble" && request.method === "POST") {
 			let body;
 			try {
@@ -211,7 +172,6 @@ export default {
 				return errorResponse("Maximum 50 scrobbles per batch");
 			}
 
-			// Build indexed params per Last.fm batch scrobble format
 			const params = {
 				method: "track.scrobble",
 				sk: body.sk,
@@ -239,7 +199,6 @@ export default {
 			});
 		}
 
-		// --- 404 ---
 		return errorResponse("Not found", 404);
 	},
 };

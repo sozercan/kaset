@@ -3,8 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - HomeItemShelfViewTests
-
 @Suite(.tags(.model))
 @MainActor
 struct HomeItemShelfViewTests {
@@ -340,8 +338,6 @@ struct HomeItemShelfViewTests {
     }
 }
 
-// MARK: - HomeItemTestClipView
-
 @MainActor
 private final class HomeItemTestClipView: NSClipView {
     /// Apply paging destinations without requiring an onscreen animation clock.
@@ -349,8 +345,6 @@ private final class HomeItemTestClipView: NSClipView {
         self
     }
 }
-
-// MARK: - HomeItemTestScrollView
 
 @MainActor
 private final class HomeItemTestScrollView: NSScrollView {

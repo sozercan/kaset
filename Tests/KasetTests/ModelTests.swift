@@ -5,8 +5,6 @@ import Testing
 /// Tests for data models.
 @Suite(.tags(.model))
 struct ModelTests {
-    // MARK: - Song Tests
-
     @Test("Parses duration from seconds field")
     func songDurationParsingFromSeconds() throws {
         let data: [String: Any] = [
@@ -155,8 +153,6 @@ struct ModelTests {
         set.insert(song2)
         #expect(set.count == 1)
     }
-
-    // MARK: - Playlist Tests
 
     @Test(
         "Detects album prefixes correctly",
@@ -357,8 +353,6 @@ struct ModelTests {
         #expect(playlist == nil)
     }
 
-    // MARK: - PlaylistDetail Tests
-
     @Test("Creates PlaylistDetail from Playlist")
     func playlistDetailFromPlaylist() {
         let playlist = Playlist(
@@ -400,8 +394,6 @@ struct ModelTests {
         let detail = PlaylistDetail(playlist: albumPlaylist, tracks: [])
         #expect(detail.isAlbum)
     }
-
-    // MARK: - Album Tests
 
     @Test("Formats multiple artists display")
     func albumArtistsDisplay() {
@@ -526,8 +518,6 @@ struct ModelTests {
         let album = Album(from: data)
         #expect(album == nil)
     }
-
-    // MARK: - Artist Tests
 
     @Test("Parses artist with thumbnail")
     func artistWithThumbnail() throws {

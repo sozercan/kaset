@@ -1,8 +1,6 @@
 import SwiftUI
 import WebKit
 
-// MARK: - SingletonPlayerWebView Video Mode Extension
-
 extension SingletonPlayerWebView {
     /// Updates WebView size based on display mode.
     func updateDisplayMode(_ mode: DisplayMode) {

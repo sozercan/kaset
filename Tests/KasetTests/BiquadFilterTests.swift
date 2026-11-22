@@ -7,8 +7,6 @@ import Testing
 /// involving Core Audio.
 @Suite(.tags(.service))
 struct BiquadFilterTests {
-    // MARK: - Helpers
-
     private static let sampleRate: Float = 48000
 
     /// Drives a freshly configured filter with `frameCount` samples of the
@@ -45,8 +43,6 @@ struct BiquadFilterTests {
         return { index in sinf(omega * Float(index)) }
     }
 
-    // MARK: - Default state
-
     @Test("Default coefficients pass the signal through unchanged")
     func defaultIsUnityGain() {
         let peak = Self.steadyStatePeak(
@@ -56,8 +52,6 @@ struct BiquadFilterTests {
         // Allow a tiny bit of headroom for floating-point round-off.
         #expect(abs(peak - 1) < 0.01)
     }
-
-    // MARK: - Peaking EQ
 
     @Test("Peaking EQ at +6 dB roughly doubles the on-centre amplitude")
     func peakingEQBoostsCentreFrequency() {
@@ -95,8 +89,6 @@ struct BiquadFilterTests {
         // not noticeably reach it. Allow ~1 dB skirt residue.
         #expect(abs(peak - 1) < 0.15)
     }
-
-    // MARK: - Shelving
 
     @Test("Low-shelf boost lifts a sub-centre frequency")
     func lowShelfBoostsBelowCentre() {
@@ -146,8 +138,6 @@ struct BiquadFilterTests {
         #expect(abs(peak - 1) < 0.1)
     }
 
-    // MARK: - Stability
-
     @Test("Extreme gains stay numerically stable over a long run")
     func extremeGainStaysStable() {
         let frameCount = 48000
@@ -168,8 +158,6 @@ struct BiquadFilterTests {
             #expect(buffer[index].isFinite)
         }
     }
-
-    // MARK: - Stereo independence
 
     @Test("Stereo channels use independent state (no L↔R bleed)")
     func stereoChannelsAreIndependent() {

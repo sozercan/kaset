@@ -3,8 +3,6 @@ import Foundation
 import os
 import WebKit
 
-// MARK: - PlaybackBridgeEventQueue
-
 @MainActor
 final class PlaybackBridgeEventQueue {
     private typealias Operation = @MainActor () async -> Void
@@ -66,8 +64,6 @@ final class PlaybackBridgeEventQueue {
     }
 }
 
-// MARK: - SingletonPlayerWebView.Coordinator
-
 extension SingletonPlayerWebView {
     nonisolated static func finitePlaybackBridgeDouble(from value: Any?) -> Double? {
         guard !(value is Bool) else { return nil }
@@ -111,8 +107,6 @@ extension SingletonPlayerWebView {
 
         return raw
     }
-
-    // MARK: - Coordinator
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         private static let queueNavigationObservationGrace: Duration = .seconds(1)

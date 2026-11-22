@@ -1,8 +1,6 @@
 import FoundationModels
 import SwiftUI
 
-// MARK: - PlaylistDetailView
-
 /// Detail view for a playlist showing its tracks.
 @available(macOS 26.0, *)
 struct PlaylistDetailView: View {
@@ -127,8 +125,6 @@ struct PlaylistDetailView: View {
             }
         }
     }
-
-    // MARK: - Views
 
     private func contentView(_ detail: PlaylistDetail) -> some View {
         let fallbackAlbum = Album(
@@ -402,8 +398,6 @@ struct PlaylistDetailView: View {
         return cleanName.isEmpty ? nil : cleanName
     }
 
-    // MARK: - Actions
-
     @ViewBuilder
     private func trackContextMenu(_ track: Song, play: @escaping () -> Void) -> some View {
         if track.isPlayable {
@@ -629,8 +623,6 @@ struct PlaylistDetailView: View {
         self.isRefining = false
     }
 }
-
-// MARK: - HeaderArtistLinkLabel
 
 private struct HeaderArtistLinkLabel: View {
     let name: String

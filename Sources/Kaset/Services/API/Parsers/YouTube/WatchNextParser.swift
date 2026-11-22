@@ -412,8 +412,6 @@ enum WatchNextParser {
         "\(chapter.videoId ?? "")|\(Int((chapter.startTime * 1000).rounded()))|\(chapter.title)"
     }
 
-    // MARK: - Private
-
     private static func channel(fromVideoOwner owner: [String: Any]) -> YouTubeChannel? {
         let browseEndpoint = (owner["navigationEndpoint"] as? [String: Any])?["browseEndpoint"]
             as? [String: Any]

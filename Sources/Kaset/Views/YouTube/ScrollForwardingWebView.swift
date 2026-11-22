@@ -1,7 +1,5 @@
 import WebKit
 
-// MARK: - ScrollForwardingWebView
-
 /// A WebView that hands scroll-wheel events to the view behind it.
 ///
 /// The extracted watch document is `overflow: hidden`, so it has nothing to

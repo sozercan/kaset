@@ -2,8 +2,6 @@ import Foundation
 import os
 import WebKit
 
-// MARK: - ManagedExtension
-
 /// A user-managed web extension entry.
 struct ManagedExtension: Codable, Identifiable, Equatable {
     /// Stable identifier (UUID string).
@@ -50,8 +48,6 @@ struct ManagedExtension: Codable, Identifiable, Equatable {
     }
 }
 
-// MARK: - ExtensionsManager
-
 /// Manages the list of user-installed web extensions.
 ///
 /// Extensions are persisted as JSON in Application Support. Directory access
@@ -95,8 +91,6 @@ final class ExtensionsManager {
         }
     }
 
-    // MARK: - Persistence
-
     private static func load(from persistenceURL: URL?) -> [ManagedExtension] {
         guard let url = persistenceURL,
               let data = try? Data(contentsOf: url),
@@ -122,8 +116,6 @@ final class ExtensionsManager {
         let data = try JSONEncoder().encode(self.extensions)
         try data.write(to: url, options: .atomic)
     }
-
-    // MARK: - Public API
 
     /// Returns the resolved `URL`s for all enabled extensions, in order.
     /// Starts security-scoped access — call `stopAllAccess()` when done.

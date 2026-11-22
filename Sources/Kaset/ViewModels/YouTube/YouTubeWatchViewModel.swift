@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - YouTubeAskAccountScopeObservation
-
 /// In-memory observation key for watch-page account changes. The raw scope is
 /// never persisted or rendered; it only restarts the Ask bootstrap request.
 struct YouTubeAskAccountScopeObservation: Hashable, Sendable {
@@ -12,8 +10,6 @@ struct YouTubeAskAccountScopeObservation: Hashable, Sendable {
     let isPrimaryAccount: Bool?
     let verifiedIdentitySequence: Int
 }
-
-// MARK: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable
 
 extension YouTubeAskAccountScopeObservation: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     var description: String {
@@ -28,8 +24,6 @@ extension YouTubeAskAccountScopeObservation: CustomStringConvertible, CustomDebu
         Mirror(reflecting: self.description)
     }
 }
-
-// MARK: - YouTubeWatchViewModel
 
 /// View model for the YouTube watch page (metadata + related videos).
 @MainActor
@@ -60,15 +54,11 @@ final class YouTubeWatchViewModel {
         self.ask = YouTubeAskViewModel(videoID: video.videoId, client: client)
     }
 
-    // MARK: - Action State (optimistic)
-
     // Like/dislike and Watch Later live on YouTubePlayerService so the
     // player bar (inline and pop-out) owns them.
 
     /// Whether the user is subscribed to the channel (seeded from watch-next).
     private(set) var isSubscribed = false
-
-    // MARK: - Comments State
 
     /// Loaded comments (top-level threads).
     private(set) var comments: [YouTubeComment] = []
@@ -216,8 +206,6 @@ final class YouTubeWatchViewModel {
         self.loadingReplies = []
         self.loadingState = .idle
     }
-
-    // MARK: - Comments
 
     private enum CommentsLoadOutcome {
         case completed
@@ -409,8 +397,6 @@ final class YouTubeWatchViewModel {
             return false
         }
     }
-
-    // MARK: - Actions
 
     /// Subscribes/unsubscribes the channel (optimistic with rollback).
     func toggleSubscribed() async {

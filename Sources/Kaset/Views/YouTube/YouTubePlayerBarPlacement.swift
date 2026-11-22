@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - YouTubeInlineControlsVisibility
-
 /// Show/hide policy for the player controls overlaid on the docked watch-page
 /// video (Settings → YouTube → Show Controls on Video). Without that setting
 /// the bar sits in the bottom inset below.
@@ -59,8 +57,6 @@ enum YouTubeInlineControlsVisibility {
     }
 }
 
-// MARK: - Per-View Inset
-
 extension View {
     /// Attaches the YouTube player bar to the bottom of a navigable view.
     ///
@@ -92,8 +88,6 @@ extension View {
     }
 }
 
-// MARK: - YouTubePagePlayerBarInsetModifier
-
 private struct YouTubePagePlayerBarInsetModifier: ViewModifier {
     let keepsBar: Bool
 
@@ -106,8 +100,6 @@ private struct YouTubePagePlayerBarInsetModifier: ViewModifier {
     }
 }
 
-// MARK: - Inline Video Controls
-
 extension View {
     /// Overlays the YouTube player bar on the docked watch-page video. The bar
     /// appears when the pointer moves over the video or a key is pressed, and
@@ -116,8 +108,6 @@ extension View {
         self.modifier(YouTubeInlineVideoControlsModifier(isEnabled: isEnabled))
     }
 }
-
-// MARK: - YouTubeInlineVideoControlsModifier
 
 private struct YouTubeInlineVideoControlsModifier: ViewModifier {
     private static let tabKeyCode: UInt16 = 48
@@ -274,16 +264,12 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
     }
 }
 
-// MARK: - UserActivity
-
 @MainActor
 private final class UserActivity {
     var lastActivity = ContinuousClock.now
     var lastPointerLocation: CGPoint?
     var isPointerInside = false
 }
-
-// MARK: - YouTubeKeyActivityMonitor
 
 /// Reports key presses in its window, except while text input has focus
 /// (the comment composer, search), so the keyboard can reveal the inline
@@ -349,8 +335,6 @@ private struct YouTubeKeyActivityMonitor: NSViewRepresentable {
         }
     }
 }
-
-// MARK: - YouTubeKeyActivityMonitorView
 
 @MainActor
 private final class YouTubeKeyActivityMonitorView: NSView {

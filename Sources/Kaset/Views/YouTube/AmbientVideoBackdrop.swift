@@ -2,8 +2,6 @@ import AppKit
 import CoreGraphics
 import SwiftUI
 
-// MARK: - AmbientVideoBackdrop
-
 /// PROTOTYPE — "live ambient" glow for the YouTube watch page.
 ///
 /// We cannot sample the playing video's pixels (Widevine DRM black-frames every
@@ -19,8 +17,6 @@ import SwiftUI
 /// (used by the artist/playlist/podcast pages). Revert by deleting this file and
 /// the `.ambientVideoBackdrop(...)` call in `YouTubeWatchView`.
 struct AmbientVideoBackdrop: View {
-    // MARK: Inputs
-
     let videoId: String?
     let thumbnailURL: URL?
     let style: AmbientBackdropStyle
@@ -31,8 +27,6 @@ struct AmbientVideoBackdrop: View {
     /// its sprite-sheet cells replace the coarse 3-still source. `nil` until the
     /// player publishes it (or unavailable).
     var storyboardSpec: String?
-
-    // MARK: State
 
     @State private var palette: ColorExtractor.ColorPalette = .default
     /// Distinct vivid colors from the thumbnail (used by `.glow` and as the
@@ -55,8 +49,6 @@ struct AmbientVideoBackdrop: View {
     /// second keeps the large blurred blobs moving smoothly enough while cutting
     /// steady-state invalidations substantially compared with `.animation`.
     nonisolated static let animatedTimelineInterval: TimeInterval = 1.0 / 8.0
-
-    // MARK: Body
 
     var body: some View {
         let style = self.effectiveStyle
@@ -113,8 +105,6 @@ struct AmbientVideoBackdrop: View {
         }
         return style
     }
-
-    // MARK: Ambient composition
 
     /// Branch on Reduce Motion rather than pausing the `TimelineView`, mirroring
     /// the repo's `PulseModifier` pattern. `.soft` is intentionally steady (no
@@ -271,8 +261,6 @@ struct AmbientVideoBackdrop: View {
         }
     }
 
-    // MARK: Loading
-
     private func load() async {
         let style = self.effectiveStyle
         guard style != .off else { return }
@@ -353,8 +341,6 @@ struct AmbientVideoBackdrop: View {
         guard let videoId else { return [] }
         return (1 ... 3).compactMap { URL(string: "https://i.ytimg.com/vi/\(videoId)/\($0).jpg") }
     }
-
-    // MARK: Off-main extraction
 
     //
     // `nonisolated` so the CPU-bound pixel work runs off the main actor and the
@@ -531,8 +517,6 @@ struct AmbientVideoBackdrop: View {
     // swiftformat:enable modifierOrder
 }
 
-// MARK: - View modifier
-
 extension View {
     /// Applies the prototype ambient glow full-bleed behind the content.
     func ambientVideoBackdrop(
@@ -554,8 +538,6 @@ extension View {
         }
     }
 }
-
-// MARK: - StoryboardSheet
 
 /// Parses a YouTube storyboard spec string into fetchable sprite-sheet URLs and
 /// per-cell crop rects. Format confirmed against yt-dlp / NewPipe and a live

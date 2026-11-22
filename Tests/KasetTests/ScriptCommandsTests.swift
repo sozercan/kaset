@@ -6,8 +6,6 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct ScriptCommandsTests {
-    // MARK: - Setup/Teardown
-
     /// Clears PlayerService.shared before each test.
     init() {
         // Ensure clean state - no shared instance
@@ -29,8 +27,6 @@ struct ScriptCommandsTests {
 
         return true
     }
-
-    // MARK: - GetPlayerInfoCommand Tests
 
     @Test("GetPlayerInfo returns error JSON when PlayerService is nil")
     func getPlayerInfoReturnsErrorWhenNil() {
@@ -137,8 +133,6 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
-    // MARK: - ToggleShuffleCommand Tests
-
     @Test("ToggleShuffle toggles shuffle state when PlayerService exists")
     func toggleShuffleTogglesState() {
         let playerService = PlayerService()
@@ -169,8 +163,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == -1728) // errAENoSuchObject
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
-
-    // MARK: - CycleRepeatCommand Tests
 
     @Test("CycleRepeat cycles through repeat modes when PlayerService exists")
     func cycleRepeatCyclesThroughModes() {
@@ -205,8 +197,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
 
-    // MARK: - SetVolumeCommand Tests
-
     @Test("SetVolume sets error when PlayerService is nil")
     func setVolumeSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -234,8 +224,6 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
-    // MARK: - PlayCommand Tests
-
     @Test("Play sets error when PlayerService is nil")
     func playSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -246,8 +234,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == -1728)
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
-
-    // MARK: - PlayVideoCommand Tests
 
     @Test("PlayVideo stays hidden while keeping the first-session gate closed until playback is confirmed")
     func playVideoKeepsFirstSessionGateClosedUntilPlaybackIsConfirmed() async {
@@ -328,8 +314,6 @@ struct ScriptCommandsTests {
         PlayerService.shared = nil
     }
 
-    // MARK: - PauseCommand Tests
-
     @Test("Pause sets error when PlayerService is nil")
     func pauseSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -339,8 +323,6 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
     }
-
-    // MARK: - PlayPauseCommand Tests
 
     @Test("PlayPause sets error when PlayerService is nil")
     func playPauseSetsErrorWhenNil() {
@@ -352,8 +334,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == -1728)
     }
 
-    // MARK: - NextTrackCommand Tests
-
     @Test("NextTrack sets error when PlayerService is nil")
     func nextTrackSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -363,8 +343,6 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
     }
-
-    // MARK: - PreviousTrackCommand Tests
 
     @Test("PreviousTrack sets error when PlayerService is nil")
     func previousTrackSetsErrorWhenNil() {
@@ -376,8 +354,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == -1728)
     }
 
-    // MARK: - ToggleMuteCommand Tests
-
     @Test("ToggleMute sets error when PlayerService is nil")
     func toggleMuteSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -387,8 +363,6 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
     }
-
-    // MARK: - LikeTrackCommand Tests
 
     @Test("LikeTrack sets error when PlayerService is nil")
     func likeTrackSetsErrorWhenNil() {
@@ -400,8 +374,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == -1728)
     }
 
-    // MARK: - DislikeTrackCommand Tests
-
     @Test("DislikeTrack sets error when PlayerService is nil")
     func dislikeTrackSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -411,8 +383,6 @@ struct ScriptCommandsTests {
 
         #expect(command.scriptErrorNumber == -1728)
     }
-
-    // MARK: - GetPlayQueueCommand Tests
 
     @Test("GetPlayQueue returns error JSON when PlayerService is nil")
     func getPlayQueueReturnsErrorWhenNil() {
@@ -577,8 +547,6 @@ struct ScriptCommandsTests {
         #expect(tracks?.first?["audioVideoId"] as? String == "qCDPprTDkJE")
         #expect(playerService.queue.first?.musicVideoType == .omv)
     }
-
-    // MARK: - PlayTrackAtIndexCommand Tests
 
     @Test("PlayTrackAtIndex sets error when PlayerService is nil")
     func playTrackAtIndexSetsErrorWhenNil() {

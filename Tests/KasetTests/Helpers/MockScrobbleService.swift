@@ -6,11 +6,7 @@ import Foundation
 final class MockScrobbleService: ScrobbleServiceProtocol {
     let serviceName = "Mock"
 
-    // MARK: - State
-
     var authState: ScrobbleAuthState = .disconnected
-
-    // MARK: - Call Tracking
 
     private(set) var authenticateCalled = false
     private(set) var disconnectCalled = false
@@ -19,16 +15,12 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
     private(set) var scrobbledBatches: [[ScrobbleTrack]] = []
     private(set) var validateSessionCalled = false
 
-    // MARK: - Stubbed Responses
-
     var shouldThrowOnAuthenticate: Error?
     var shouldThrowOnNowPlaying: Error?
     var shouldThrowOnScrobble: Error?
     var beforeNowPlayingReturn: (@Sendable (ScrobbleTrack) async -> Void)?
     var scrobbleResults: [ScrobbleResult]?
     var validateSessionResult: Bool = true
-
-    // MARK: - Protocol Methods
 
     func authenticate() async throws {
         self.authenticateCalled = true
@@ -73,8 +65,6 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
         self.validateSessionCalled = true
         return self.validateSessionResult
     }
-
-    // MARK: - Helpers
 
     func reset() {
         self.authenticateCalled = false

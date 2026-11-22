@@ -3,8 +3,6 @@ import Observation
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerBarSeekControllerTests
-
 @Suite(.tags(.model))
 @MainActor
 struct PlayerBarSeekControllerTests {
@@ -68,8 +66,6 @@ struct PlayerBarSeekControllerTests {
         #expect(!state.hold.isActive)
     }
 }
-
-// MARK: - ObservationFlag
 
 /// Records whether an observation fired; only touched on the main actor in these tests.
 private final class ObservationFlag: @unchecked Sendable {

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - StoryboardSheetTests
-
 /// Tests for `StoryboardSheet`, the pure parser that turns a YouTube storyboard
 /// spec string into fetchable sprite-sheet URLs and per-cell crop rects, plus
 /// the `AmbientBackdropStyle` value type.
@@ -16,8 +14,6 @@ struct StoryboardSheetTests {
         "https://i.ytimg.com/sb/VIDEOID/storyboard3_L$L/$N.jpg?sqp=TOKEN" +
         "|48#27#100#10#10#0#default#PLACEHOLDERSIGH" +
         "|80#45#100#10#10#5000#M$M#PLACEHOLDERSIGH2"
-
-    // MARK: - Valid parsing
 
     @Test("Parses a valid spec into an https ytimg sheet URL")
     func parsesValidSpec() throws {
@@ -40,8 +36,6 @@ struct StoryboardSheetTests {
         let sheet = try #require(StoryboardSheet(spec: spec))
         #expect(sheet.sheetURLs.count == 3)
     }
-
-    // MARK: - cellRects capping
 
     @Test("cellRects caps the last sheet to the remaining real frames")
     func cellRectsCapsLastSheet() throws {
@@ -69,8 +63,6 @@ struct StoryboardSheetTests {
         #expect(sheet.cellRects(forSheetAt: 0, pixelWidth: 4, height: 4).isEmpty)
     }
 
-    // MARK: - Security: host / scheme allowlist (tested via init? building URLs)
-
     @Test(
         "Rejects specs whose base resolves to a non-ytimg or non-https host",
         arguments: [
@@ -92,8 +84,6 @@ struct StoryboardSheetTests {
         let sheet = try #require(StoryboardSheet(spec: spec))
         #expect(sheet.sheetURLs.first?.host == "i9.ytimg.com")
     }
-
-    // MARK: - Security: bounds / malformed input
 
     @Test("Rejects an empty or single-field spec")
     func rejectsMalformedSpec() {
@@ -132,8 +122,6 @@ struct StoryboardSheetTests {
         #expect(StoryboardSheet(spec: spec) == nil)
     }
 }
-
-// MARK: - AmbientBackdropStyleTests
 
 @Suite(.tags(.model))
 struct AmbientBackdropStyleTests {

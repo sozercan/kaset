@@ -1,8 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - AuthCookieOperationFence
-
 struct AuthCookieOperationFence {
     private(set) var generation: UInt64 = 0
 
@@ -15,14 +13,10 @@ struct AuthCookieOperationFence {
     }
 }
 
-// MARK: - LiveAuthCookieClearResult
-
 struct LiveAuthCookieClearResult: Equatable {
     let didClear: Bool
     let usedCookieStoreFallback: Bool
 }
-
-// MARK: - LiveAuthCookieStoreClearer
 
 @MainActor
 enum LiveAuthCookieStoreClearer {

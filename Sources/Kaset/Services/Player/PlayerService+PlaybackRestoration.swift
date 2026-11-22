@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Playback Restoration
-
 @MainActor
 extension PlayerService {
     func updateAdPlaybackState(

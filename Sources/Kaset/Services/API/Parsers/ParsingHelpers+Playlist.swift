@@ -1,5 +1,3 @@
-// MARK: - Playlist Parsing
-
 extension ParsingHelpers {
     /// Extracts the playlist-item-specific `setVideoId`, required to remove the correct
     /// occurrence of a track from a playlist (the same song can appear more than once).

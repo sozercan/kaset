@@ -30,8 +30,6 @@ enum YouTubePlaylistPageParser {
         return YouTubePlaylistDetail(playlist: playlist, videos: deduplicated)
     }
 
-    // MARK: - Private
-
     private static func title(of data: [String: Any]) -> String? {
         // Microformat is the most stable source for the playlist title.
         let microformat = (

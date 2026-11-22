@@ -2,8 +2,6 @@ import AppKit
 import Foundation
 import os
 
-// MARK: - Constants
-
 /// AppleScript error code for when PlayerService is not available.
 private let errPlayerNotAvailable: Int = -1728 // errAENoSuchObject
 
@@ -18,8 +16,6 @@ private let invalidVideoIdListMessage = "Video IDs must be a non-empty list of v
 
 /// Shared logger for scripting commands.
 private let logger = DiagnosticsLogger.scripting
-
-// MARK: - Helper
 
 /// Checks if PlayerService.shared is available. Must be called from main thread.
 @MainActor
@@ -85,8 +81,6 @@ private extension NSScriptCommand {
     }
 }
 
-// MARK: - PlayCommand
-
 /// Play command: start or resume playback.
 @objc(KasetPlayCommand)
 final class PlayCommand: NSScriptCommand {
@@ -110,8 +104,6 @@ final class PlayCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - PlayVideoCommand
 
 /// PlayVideo command: play a specific video by its YouTube video ID.
 @objc(KasetPlayVideoCommand)
@@ -140,8 +132,6 @@ final class PlayVideoCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PauseCommand
-
 /// Pause command: pause playback.
 @objc(KasetPauseCommand)
 final class PauseCommand: NSScriptCommand {
@@ -159,8 +149,6 @@ final class PauseCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - PlayPauseCommand
 
 /// PlayPause command: toggle play/pause state.
 @objc(KasetPlayPauseCommand)
@@ -180,8 +168,6 @@ final class PlayPauseCommand: NSScriptCommand {
     }
 }
 
-// MARK: - NextTrackCommand
-
 /// NextTrack command: skip to the next track.
 @objc(KasetNextTrackCommand)
 final class NextTrackCommand: NSScriptCommand {
@@ -200,8 +186,6 @@ final class NextTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PreviousTrackCommand
-
 /// PreviousTrack command: go to the previous track.
 @objc(KasetPreviousTrackCommand)
 final class PreviousTrackCommand: NSScriptCommand {
@@ -219,8 +203,6 @@ final class PreviousTrackCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - SetVolumeCommand
 
 /// SetVolume command: set the playback volume (0-100).
 @objc(KasetSetVolumeCommand)
@@ -249,8 +231,6 @@ final class SetVolumeCommand: NSScriptCommand {
     }
 }
 
-// MARK: - ToggleShuffleCommand
-
 /// ToggleShuffle command: toggle shuffle mode.
 /// This is a synchronous operation.
 @objc(KasetToggleShuffleCommand)
@@ -269,8 +249,6 @@ final class ToggleShuffleCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - CycleRepeatCommand
 
 /// CycleRepeat command: cycle through repeat modes (off, all, one).
 /// This is a synchronous operation.
@@ -291,8 +269,6 @@ final class CycleRepeatCommand: NSScriptCommand {
     }
 }
 
-// MARK: - ToggleMuteCommand
-
 /// ToggleMute command: toggle mute state.
 @objc(KasetToggleMuteCommand)
 final class ToggleMuteCommand: NSScriptCommand {
@@ -310,8 +286,6 @@ final class ToggleMuteCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - GetPlayerInfoCommand
 
 /// GetPlayerInfo command: returns current player state as JSON.
 /// This is a synchronous operation that returns immediately.
@@ -383,8 +357,6 @@ final class GetPlayerInfoCommand: NSScriptCommand {
     }
 }
 
-// MARK: - LikeTrackCommand
-
 /// LikeTrack command: like/unlike the current track.
 /// This is a synchronous operation.
 @objc(KasetLikeTrackCommand)
@@ -404,8 +376,6 @@ final class LikeTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - DislikeTrackCommand
-
 /// DislikeTrack command: dislike/undislike the current track.
 /// This is a synchronous operation.
 @objc(KasetDislikeTrackCommand)
@@ -424,8 +394,6 @@ final class DislikeTrackCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - GetPlayQueueCommand
 
 /// GetPlayQueue command: returns the current playback queue and active index as JSON.
 /// This is a synchronous operation that returns immediately.
@@ -476,8 +444,6 @@ final class GetPlayQueueCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PlayTrackAtIndexCommand
-
 /// PlayTrackAtIndex command: plays a specific track from the queue by its 1-based index.
 @objc(KasetPlayTrackAtIndexCommand)
 final class PlayTrackAtIndexCommand: NSScriptCommand {
@@ -520,8 +486,6 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - PlayVideosCommand
 
 /// PlayVideos command: replaces the queue with videos by their YouTube video IDs and starts
 /// playback at an optional 1-based index.
@@ -575,8 +539,6 @@ final class PlayVideosCommand: NSScriptCommand {
     }
 }
 
-// MARK: - AddToQueueCommand
-
 /// AddToQueue command: appends videos by their YouTube video IDs to the queue, or inserts them
 /// after the current track when `next` is true. Never starts playback.
 /// This is a synchronous operation.
@@ -616,8 +578,6 @@ final class AddToQueueCommand: NSScriptCommand {
         return nil
     }
 }
-
-// MARK: - RemoveFromQueueCommand
 
 /// RemoveFromQueue command: removes every queue entry whose video or audio recording has the given
 /// YouTube video ID, except the entry that is playing.

@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - WhatsNewView
-
 /// Sheet view that showcases new features for the current app version.
 /// Displays either structured feature rows (static fallback) or markdown release notes (from GitHub).
 struct WhatsNewView: View {
@@ -166,8 +164,6 @@ struct WhatsNewView: View {
         self.whatsNew.releaseNotes == nil ? "sparkles.rectangle.stack.fill" : "text.document"
     }
 }
-
-// MARK: - MarkdownContentView
 
 /// Renders GitHub-flavored markdown into native SwiftUI views.
 private struct MarkdownContentView: View {
@@ -371,8 +367,6 @@ private struct MarkdownContentView: View {
         }
     }
 }
-
-// MARK: - WhatsNewFeatureRow
 
 /// A row displaying a single feature with icon, title, and subtitle.
 private struct WhatsNewFeatureRow: View {

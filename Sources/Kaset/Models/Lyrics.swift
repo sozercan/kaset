@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Lyrics
-
 /// Represents lyrics for a song from YouTube Music.
 struct Lyrics: Equatable {
     /// The lyrics text, with line breaks preserved.

@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - PlaybackArbiter
-
 /// Ensures exactly one audio source plays at a time: starting YouTube video
 /// playback pauses music, and starting music pauses video.
 ///

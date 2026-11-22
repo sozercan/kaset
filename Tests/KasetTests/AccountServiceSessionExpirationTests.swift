@@ -1,8 +1,6 @@
 import Testing
 @testable import Kaset
 
-// MARK: - AccountServiceSessionExpirationTests
-
 @Suite(.serialized)
 @MainActor
 struct AccountServiceSessionExpirationTests {
@@ -31,8 +29,6 @@ struct AccountServiceSessionExpirationTests {
         return SessionExpirationTestServices(account: accountService, client: mockClient, auth: authService)
     }
 }
-
-// MARK: - SessionExpirationTestServices
 
 private struct SessionExpirationTestServices {
     let account: AccountService

@@ -1,14 +1,10 @@
 import Foundation
 import NaturalLanguage
 
-// MARK: - Script
-
 /// Writing systems that can be detected in lyrics text.
 enum Script {
     case latin, japanese, korean, chinese, thai, bengali, hindi, unknown
 }
-
-// MARK: - ScriptDetector
 
 /// Detects which writing system a string contains using Unicode scalar ranges.
 enum ScriptDetector {

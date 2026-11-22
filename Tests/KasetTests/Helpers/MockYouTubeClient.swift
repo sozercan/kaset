@@ -4,8 +4,6 @@ import Foundation
 /// Configurable mock implementation of YouTubeClientProtocol for unit tests.
 @MainActor
 final class MockYouTubeClient: YouTubeClientProtocol {
-    // MARK: - Configurable Responses
-
     var homeFeed = YouTubeFeed.empty
     var homeFeedContinuation: YouTubeFeed?
     var homeChips: [YouTubeHomeChip] = []
@@ -31,8 +29,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
 
     /// When set, every call throws this error.
     var error: Error?
-
-    // MARK: - Call Tracking
 
     private(set) var homeFeedCallCount = 0
     private(set) var homeBundleForceRefreshes: [Bool] = []
@@ -70,8 +66,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     /// `homeFeedContinuation` when non-empty. Lets tests exercise multi-page
     /// pagination (e.g. a fully-filtered page followed by a page with videos).
     var homeContinuationPages: [YouTubeFeed] = []
-
-    // MARK: - YouTubeClientProtocol
 
     func getHomeFeed() async throws -> YouTubeFeed {
         if let error {
@@ -530,8 +524,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         }
         self.watchLaterRemovals.append(videoId)
     }
-
-    // MARK: - Factories
 
     nonisolated static func makeVideo(
         videoId: String = "test-video",

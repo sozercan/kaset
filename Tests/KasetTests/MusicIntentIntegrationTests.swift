@@ -3,8 +3,6 @@ import FoundationModels
 import Testing
 @testable import Kaset
 
-// MARK: - MusicIntentIntegrationTests
-
 /// Integration tests that call the actual Apple Intelligence LLM.
 ///
 /// These tests validate that natural language prompts are correctly parsed
@@ -42,8 +40,6 @@ private func isAppleIntelligenceAvailable() -> Bool {
     }
 }
 
-// MARK: - MusicIntentIntegrationTests
-
 @Suite(
     .tags(.integration, .slow),
     .serialized,
@@ -51,12 +47,8 @@ private func isAppleIntelligenceAvailable() -> Bool {
 )
 @MainActor
 struct MusicIntentIntegrationTests {
-    // MARK: - Constants
-
     /// Maximum number of retry attempts for flaky LLM calls.
     private static let maxRetries = 3
-
-    // MARK: - Test Helpers
 
     /// Parses a natural language prompt into a `CommandBarParseResult` using the shipped prompt.
     /// Creates a fresh session per call to avoid context window overflow.
@@ -101,8 +93,6 @@ struct MusicIntentIntegrationTests {
         throw lastError!
     }
 
-    // MARK: - Basic Actions (Parameterized)
-
     @Test("Parses playback control commands", arguments: [
         (prompt: "Play music", expectedAction: CommandBarAction.play),
         (prompt: "Skip this song", expectedAction: CommandBarAction.skip),
@@ -119,8 +109,6 @@ struct MusicIntentIntegrationTests {
             #expect(intent.action == expectedAction)
         }
     }
-
-    // MARK: - Content Queries (Parameterized)
 
     @Test("Parses mood-based queries", arguments: [
         (prompt: "Play something chill", expected: "chill"),
@@ -205,8 +193,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Complex Query
-
     @Test("Parses complex multi-component query")
     func parseComplexQuery() async throws {
         try await self.withRetry {
@@ -231,8 +217,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Shuffle Commands
-
     @Test("Parses shuffle commands", arguments: [
         (prompt: "Shuffle my library", expected: "library"),
         (prompt: "Shuffle play my music", expected: ""),
@@ -251,8 +235,6 @@ struct MusicIntentIntegrationTests {
             }
         }
     }
-
-    // MARK: - Navigation Commands
 
     @Test("Parses previous track command")
     func parsePreviousCommand() async throws {
@@ -274,8 +256,6 @@ struct MusicIntentIntegrationTests {
         }
     }
 
-    // MARK: - Rating Commands
-
     @Test("Parses dislike command")
     func parseDislikeCommand() async throws {
         try await self.withRetry {
@@ -284,8 +264,6 @@ struct MusicIntentIntegrationTests {
             #expect(intent.action == .dislike)
         }
     }
-
-    // MARK: - Multi-Attribute Queries
 
     @Test("Parses query with artist and mood")
     func parseArtistWithMood() async throws {
@@ -329,8 +307,6 @@ struct MusicIntentIntegrationTests {
             #expect(intent.action == .clearQueue)
         }
     }
-
-    // MARK: - Edge Cases
 
     @Test("Handles ambiguous play command")
     func handleAmbiguousPlay() async throws {

@@ -37,8 +37,6 @@ struct NotificationServiceTests {
         }
     }
 
-    // MARK: - Observation Lifecycle
-
     @Test("observation is active after init")
     func observationActiveAfterInit() {
         #expect(self.notificationService.isObserving)
@@ -49,8 +47,6 @@ struct NotificationServiceTests {
         self.notificationService.stopObserving()
         #expect(!self.notificationService.isObserving)
     }
-
-    // MARK: - Track Change Detection
 
     @Test("detects track change without polling delay when playback is active")
     func detectsTrackChangeWithoutPollingDelay() async {
@@ -185,8 +181,6 @@ struct NotificationServiceTests {
 
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
     }
-
-    // MARK: - Service Retention
 
     @Test("service remains active between event-driven notifications")
     func serviceRemainsActiveBetweenEvents() async {

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - InteractiveCardStyle
-
 /// A button style that provides hover and press feedback for card-like elements.
 /// Scales up on hover, scales down on press, and shows a subtle shadow.
 struct InteractiveCardStyle: ButtonStyle {
@@ -55,8 +53,6 @@ struct InteractiveCardStyle: ButtonStyle {
     }
 }
 
-// MARK: - InteractiveRowStyle
-
 /// A button style for list rows with hover background highlight.
 struct InteractiveRowStyle: ButtonStyle {
     /// Corner radius for the hover background.
@@ -103,8 +99,6 @@ struct InteractiveRowStyle: ButtonStyle {
     }
 }
 
-// MARK: - PressableButtonStyle
-
 /// A button style that provides subtle press feedback for icon buttons.
 struct PressableButtonStyle: ButtonStyle {
     /// Scale factor when pressed.
@@ -126,8 +120,6 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-// MARK: - ChipButtonStyle
-
 /// A button style for filter chips with scale and background animation.
 struct ChipButtonStyle: ButtonStyle {
     var isSelected: Bool
@@ -144,8 +136,6 @@ struct ChipButtonStyle: ButtonStyle {
             }
     }
 }
-
-// MARK: - Button Style Extensions
 
 extension ButtonStyle where Self == InteractiveCardStyle {
     /// Interactive card style with hover scale and shadow effects.
@@ -204,8 +194,6 @@ extension ButtonStyle where Self == ChipButtonStyle {
         ChipButtonStyle(isSelected: isSelected)
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     VStack(spacing: 20) {

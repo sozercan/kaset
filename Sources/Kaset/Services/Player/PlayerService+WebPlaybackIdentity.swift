@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Web Playback Identity
-
 @MainActor
 extension PlayerService {
     private static let nativeQueueAdvanceTimeout: Duration = .seconds(3)

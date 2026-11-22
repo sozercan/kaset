@@ -1,8 +1,6 @@
 import Foundation
 @testable import Kaset
 
-// MARK: - MockEqualizerAudioEngine
-
 /// In-memory stub of `EqualizerAudioEngineProtocol` so
 /// `EqualizerServiceTests` can exercise the service's state machine
 /// without touching Core Audio. Lives in `Helpers/` because multiple

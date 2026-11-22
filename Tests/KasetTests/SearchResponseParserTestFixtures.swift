@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Search Response Parser Test Fixtures
-
 extension SearchResponseParserTests {
     static func loadFixture(_ name: String) throws -> [String: Any] {
         guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {

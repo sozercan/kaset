@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarIconMenu
-
 struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
     var isSelected = false
     var accessibilityID: String?
@@ -66,8 +64,6 @@ struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
         return .clear
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

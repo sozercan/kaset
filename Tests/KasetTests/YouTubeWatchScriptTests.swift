@@ -3,8 +3,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeWatchScriptTests
-
 @Suite("YouTubeWatchWebView scripts", .tags(.service))
 @MainActor
 struct YouTubeWatchScriptTests {
@@ -891,8 +889,6 @@ extension YouTubeWatchScriptTests {
         }
     }
 }
-
-// MARK: - TestScriptError
 
 private enum TestScriptError: Error {
     case javaScriptException(String)

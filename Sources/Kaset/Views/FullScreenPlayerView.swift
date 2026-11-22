@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - FullScreenPlayerView
-
 /// Now-playing view that covers the main window, laid out like Apple Music's full screen
 /// player: artwork, track info and transport controls on the left, lyrics or the queue on
 /// the right, over a blurred copy of the artwork. Closing it reveals the untouched window below.
@@ -57,8 +55,6 @@ struct FullScreenPlayerView: View {
         .animation(AppAnimation.standard, value: self.sidePane)
     }
 
-    // MARK: - Layout
-
     /// Inset of the glass capsules from the window edges; it lines the top capsules up with
     /// the traffic lights.
     private static let chromeInset: CGFloat = 8
@@ -72,8 +68,6 @@ struct FullScreenPlayerView: View {
         let byWidth = columnWidth - 120
         return max(180, min(byHeight, byWidth, 560))
     }
-
-    // MARK: - Views
 
     private var backdrop: some View {
         ZStack {
@@ -363,8 +357,6 @@ struct FullScreenPlayerView: View {
         .accessibilityLabel(label)
         .accessibilityValue(accessibilityValue)
     }
-
-    // MARK: - Helpers
 
     static func shuffleAccessibilityValue(for mode: PlayerService.ShuffleMode) -> String {
         switch mode {

@@ -10,8 +10,6 @@ private let optimizedPromptIntegrationEnabled: Bool = {
     return false
 }()
 
-// MARK: - FoundationModelsOptimizedPromptIntegrationTests
-
 /// Integration tests that exercise the actual 26.4+ prompt library against the on-device model.
 ///
 /// These tests focus on the optimized prompts Kaset ships, rather than generic schema-only prompts.

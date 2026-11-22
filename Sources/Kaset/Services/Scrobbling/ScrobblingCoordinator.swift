@@ -8,8 +8,6 @@ final class ScrobblingCoordinator {
     static let mixMinimumVideoDuration: TimeInterval = 600
     static let mixReplayStartTolerance: TimeInterval = 5
 
-    // MARK: - Dependencies
-
     let playerService: PlayerService
     private let settingsManager: any ScrobblingSettingsProviding
     /// All registered scrobbling service backends.
@@ -24,8 +22,6 @@ final class ScrobblingCoordinator {
     let unknownDurationParseDelay: Duration
     let mixParseTimeout: Duration
     private let now: () -> Date
-
-    // MARK: - Tracking State
 
     /// The video ID of the track currently being tracked.
     var currentTrackVideoId: String?
@@ -46,8 +42,6 @@ final class ScrobblingCoordinator {
 
     /// Tracked-video duration retained across transitions so finalization never reads the next track.
     var trackedVideoDuration: TimeInterval?
-
-    // MARK: - Mix-Mode State
 
     /// Classification gate that defers whole-track side effects until mix detection resolves.
     var mixDetectionState: MixDetectionState = .unresolved
@@ -100,8 +94,6 @@ final class ScrobblingCoordinator {
     /// Monotonic token used to ignore one-shot Observation callbacks armed before a stop/start cycle.
     private var monitoringGeneration = 0
 
-    // MARK: - Init
-
     /// Creates a ScrobblingCoordinator with injectable services, settings, queue, and mix parser.
     init(
         playerService: PlayerService,
@@ -128,8 +120,6 @@ final class ScrobblingCoordinator {
         // Main-actor state cannot be safely finalized from deinit.
     }
 
-    // MARK: - Service Helpers
-
     /// Whether any registered service is both enabled in settings and connected.
     private var hasAnyEnabledConnectedService: Bool {
         self.services.contains { service in
@@ -143,8 +133,6 @@ final class ScrobblingCoordinator {
             self.settingsManager.isServiceEnabled(service.serviceName) && service.authState.isConnected
         }
     }
-
-    // MARK: - Lifecycle
 
     /// Starts monitoring; must be paired with stopMonitoring() before deinit.
     func startMonitoring() {
@@ -184,8 +172,6 @@ final class ScrobblingCoordinator {
             service.restoreSession()
         }
     }
-
-    // MARK: - Observation
 
     /// Re-arms observation for playback fields, avoiding an independent app-lifetime polling timer.
     private func observePlayerStateChanges(generation: Int) {
@@ -331,8 +317,6 @@ final class ScrobblingCoordinator {
             self.finalizeCurrentTrack()
         }
     }
-
-    // MARK: - Track Lifecycle
 
     private func startTrackingNewTrack(
         _ track: Song,
@@ -627,8 +611,6 @@ final class ScrobblingCoordinator {
         self.provisionalCurrentMixCredit = nil
     }
 
-    // MARK: - Scrobble Threshold
-
     /// Whole-track thresholds treat unknown duration as ineligible.
     var trackThresholds: PlaybackScrobbleTracker.Thresholds {
         .init(
@@ -660,8 +642,6 @@ final class ScrobblingCoordinator {
         self.scheduleQueueFlushIfNeeded()
         self.logger.info("Scrobble threshold met for: \(track.title) (accumulated: \(String(format: "%.1f", tracker.accumulatedPlayTime))s)")
     }
-
-    // MARK: - Mix-Mode Playback Handling
 
     /// Handles per-sub-track scrobbling when a mix tracklist is available.
     private func handleMixPlayback(
@@ -802,8 +782,6 @@ final class ScrobblingCoordinator {
         self.scheduleQueueFlushIfNeeded()
         self.logger.info("Mix scrobble: \(entry.artist ?? "?") - \(entry.title) (accumulated: \(String(format: "%.1f", tracker.accumulatedPlayTime))s)")
     }
-
-    // MARK: - Queue Flush
 
     func scheduleQueueFlushIfNeeded(after delay: Duration = .seconds(30)) {
         guard self.isMonitoring,

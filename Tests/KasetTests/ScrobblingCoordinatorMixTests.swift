@@ -16,8 +16,6 @@ struct ScrobblingCoordinatorMixTests {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    // MARK: - Mix-Mode Detection
-
     private func makeWatchNextData(chapters: [YouTubeChapter]) -> WatchNextData {
         WatchNextData(
             videoTitle: "Long Mix",

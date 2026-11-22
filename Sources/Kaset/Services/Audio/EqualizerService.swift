@@ -3,8 +3,6 @@ import CoreGraphics
 import Foundation
 import Observation
 
-// MARK: - EqualizerService
-
 /// Single source of truth for the equalizer feature.
 ///
 /// Observable state lives here so SwiftUI views bind directly to the
@@ -24,8 +22,6 @@ import Observation
 final class EqualizerService {
     static let shared = EqualizerService()
 
-    // MARK: - Status
-
     /// Outward-facing engine state. Surfaced to the settings UI so users
     /// understand whether the EQ is currently active, waiting for audio,
     /// or held back by an error.
@@ -37,13 +33,9 @@ final class EqualizerService {
         case error(message: String)
     }
 
-    // MARK: - Keys
-
     private enum Keys {
         static let settings = "settings.equalizer"
     }
-
-    // MARK: - Observable state
 
     /// Current settings. Mutating this updates the engine and persists.
     var settings: EQSettings {
@@ -63,8 +55,6 @@ final class EqualizerService {
     /// permission is missing, the tap couldn't be created, or the tap
     /// stayed silent through a long stretch of active playback.
     private var inferredPermissionDenial: Bool = false
-
-    // MARK: - Private
 
     private let engine: any EqualizerAudioEngineProtocol
 
@@ -130,8 +120,6 @@ final class EqualizerService {
     /// this flag rather than reopening System Settings over and over.
     private var shouldRequestCapturePermissionOnNextStart: Bool = false
 
-    // MARK: - Init
-
     private let defaults: UserDefaults
 
     /// Tests construct an isolated instance with a stub engine, stub
@@ -157,8 +145,6 @@ final class EqualizerService {
         self.syncEngine()
         self.installDefaultOutputDeviceListener()
     }
-
-    // MARK: - Output device tracking
 
     // Listener block invoked by Core Audio on its own callback queue
     // (`com.apple.root.default-qos`). Declared as a `nonisolated static`
@@ -208,8 +194,6 @@ final class EqualizerService {
             self.attemptStart(playbackKnownActive: self.isPlaybackActive())
         }
     }
-
-    // MARK: - Public API
 
     /// Applies a preset, replacing all band gains.
     func apply(preset: EQPreset) {
@@ -282,8 +266,6 @@ final class EqualizerService {
         }
     }
 
-    // MARK: - Status
-
     /// Computed status used by the UI badge.
     var status: Status {
         // Permission warnings outrank the engine's live state so the user
@@ -306,8 +288,6 @@ final class EqualizerService {
         }
         return .standby
     }
-
-    // MARK: - Persistence
 
     private func schedulePersist() {
         self.persistTask?.cancel()
@@ -345,8 +325,6 @@ final class EqualizerService {
             return .flat
         }
     }
-
-    // MARK: - Engine sync
 
     private func syncEngine() {
         if self.settings.isEnabled {

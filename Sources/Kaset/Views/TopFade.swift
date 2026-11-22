@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - TopFade
-
 /// A lightweight top overlay that fades scrolling content beneath hidden toolbar backgrounds.
 struct TopFade: View {
     enum Style {
@@ -45,8 +43,6 @@ struct TopFade: View {
     }
 }
 
-// MARK: - TopFadeMask
-
 /// A mask that makes foreground content transparent at the top edge.
 private struct TopFadeMask: View {
     let height: CGFloat
@@ -70,8 +66,6 @@ private struct TopFadeMask: View {
         .accessibilityHidden(true)
     }
 }
-
-// MARK: - TopFadeModifier
 
 struct TopFadeModifier: ViewModifier {
     let height: CGFloat

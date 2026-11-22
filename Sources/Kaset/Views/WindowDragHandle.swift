@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - WindowDragHandle
-
 /// Native region that moves its containing window when dragged.
 ///
 /// Use this only over noninteractive content. SwiftUI and WebKit views can
@@ -15,8 +13,6 @@ struct WindowDragHandle: NSViewRepresentable {
 
     func updateNSView(_: NSView, context _: Context) {}
 }
-
-// MARK: - WindowDragNSView
 
 private final class WindowDragNSView: NSView {
     override var mouseDownCanMoveWindow: Bool {

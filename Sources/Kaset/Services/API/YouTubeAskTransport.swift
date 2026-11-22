@@ -1,14 +1,10 @@
 import Foundation
 import YouTubeAskCore
 
-// MARK: - YouTubeAskHTTPResponse
-
 struct YouTubeAskHTTPResponse: Sendable {
     let data: Data
     let statusCode: Int
 }
-
-// MARK: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable
 
 extension YouTubeAskHTTPResponse: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     var description: String {
@@ -24,14 +20,10 @@ extension YouTubeAskHTTPResponse: CustomStringConvertible, CustomDebugStringConv
     }
 }
 
-// MARK: - YouTubeAskTransportError
-
 enum YouTubeAskTransportError: Error, Sendable {
     case responseTooLarge
     case invalidResponse
 }
-
-// MARK: - YouTubeAskTransport
 
 final class YouTubeAskTransport: @unchecked Sendable {
     private let configuration: URLSessionConfiguration
@@ -65,8 +57,6 @@ final class YouTubeAskTransport: @unchecked Sendable {
         )
     }
 }
-
-// MARK: - YouTubeAskBoundedResponseLoader
 
 private final class YouTubeAskBoundedResponseLoader: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let scheme: String?

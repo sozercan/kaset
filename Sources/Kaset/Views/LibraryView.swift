@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - LibraryFilter
-
 /// Filter options for the Library view.
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
@@ -43,8 +41,6 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - LibraryView
 
 /// Library view displaying the user's saved music and followed content.
 struct LibraryView: View {
@@ -150,8 +146,6 @@ struct LibraryView: View {
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .library)
     }
-
-    // MARK: - Views
 
     private var contentView: some View {
         ScrollView {
@@ -569,8 +563,6 @@ struct LibraryView: View {
         }
     }
 }
-
-// MARK: - LibraryItem
 
 /// Represents a tile displayed in the combined Library grid.
 enum LibraryItem: Identifiable {

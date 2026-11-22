@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarSliderLoadingShimmer
-
 struct PlayerBarSliderLoadingShimmer: View {
     let colorScheme: ColorScheme
     let reduceMotion: Bool

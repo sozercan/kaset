@@ -235,8 +235,6 @@ actor ImageCache {
         }
     }
 
-    // MARK: - Image Creation with Downsampling
-
     /// Creates an NSImage from data, optionally downsampling for memory efficiency.
     private static func createImage(from data: Data, targetSize: CGSize?) -> NSImage? {
         guard let targetSize else {
@@ -309,8 +307,6 @@ actor ImageCache {
         }
         return totalSize
     }
-
-    // MARK: - Disk Cache Helpers
 
     // swiftformat:disable modifierOrder
     nonisolated private func cacheKey(for url: URL) -> String {
@@ -389,8 +385,6 @@ actor ImageCache {
         }
         self.diskEvictionTask = task
     }
-
-    // MARK: - Disk Cache Eviction
 
     /// Metadata for a cached file used during eviction.
     private struct CachedFileInfo {

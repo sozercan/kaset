@@ -1,8 +1,6 @@
 import Foundation
 import YouTubeAskCore
 
-// MARK: - YouTubeAskAccountBinding
-
 /// Opaque, in-memory identity for the confirmed primary account that owns one
 /// Ask conversation. The scope is never persisted, logged, or shown to users.
 struct YouTubeAskAccountBinding: Equatable, Sendable {
@@ -12,8 +10,6 @@ struct YouTubeAskAccountBinding: Equatable, Sendable {
         self.scopeID = scopeID
     }
 }
-
-// MARK: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable
 
 extension YouTubeAskAccountBinding: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     var description: String {
@@ -28,8 +24,6 @@ extension YouTubeAskAccountBinding: CustomStringConvertible, CustomDebugStringCo
         Mirror(reflecting: self.description)
     }
 }
-
-// MARK: - YouTubeAskSuggestion
 
 struct YouTubeAskSuggestion: Identifiable, Sendable {
     // swiftlint:disable:next type_name
@@ -48,8 +42,6 @@ struct YouTubeAskSuggestion: Identifiable, Sendable {
     let id: ID
     let text: String
 }
-
-// MARK: - YouTubeAskMessage
 
 struct YouTubeAskMessage: Identifiable, Sendable {
     enum Role: Sendable {
@@ -75,8 +67,6 @@ struct YouTubeAskMessage: Identifiable, Sendable {
     }
 }
 
-// MARK: - YouTubeAskBindingState
-
 private struct YouTubeAskBindingState: Sendable {
     let videoID: String
     let authenticationGeneration: UInt64
@@ -97,14 +87,10 @@ private struct YouTubeAskBindingState: Sendable {
     }
 }
 
-// MARK: - YouTubeAskSuggestionState
-
 private struct YouTubeAskSuggestionState: Sendable {
     let visible: YouTubeAskSuggestion
     let command: YouTubeAskOpaqueCommand
 }
-
-// MARK: - YouTubeAskBootstrap
 
 struct YouTubeAskBootstrap: Sendable {
     let videoID: String
@@ -233,8 +219,6 @@ struct YouTubeAskBootstrap: Sendable {
         )
     }
 }
-
-// MARK: - YouTubeAskConversation
 
 struct YouTubeAskConversation: Sendable {
     let id: UUID
@@ -461,8 +445,6 @@ struct YouTubeAskConversation: Sendable {
     }
 }
 
-// MARK: - YouTubeAskBootstrap + CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable
-
 extension YouTubeAskBootstrap: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     var description: String {
         "<redacted YouTube Ask bootstrap>"
@@ -476,8 +458,6 @@ extension YouTubeAskBootstrap: CustomStringConvertible, CustomDebugStringConvert
         Mirror(reflecting: self.description)
     }
 }
-
-// MARK: - YouTubeAskConversation + CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable
 
 extension YouTubeAskConversation: CustomStringConvertible, CustomDebugStringConvertible, CustomReflectable {
     var description: String {
@@ -493,15 +473,11 @@ extension YouTubeAskConversation: CustomStringConvertible, CustomDebugStringConv
     }
 }
 
-// MARK: - YouTubeAskSuggestion Convenience
-
 private extension YouTubeAskSuggestion {
     init(text: String) {
         self.init(id: ID(), text: text)
     }
 }
-
-// MARK: - YouTubeAskClientError
 
 enum YouTubeAskClientError: Error, Equatable, Sendable {
     case authenticationRequired
@@ -512,16 +488,12 @@ enum YouTubeAskClientError: Error, Equatable, Sendable {
     case unavailable
 }
 
-// MARK: - YouTubeAskPresentationError
-
 enum YouTubeAskPresentationError: Equatable, Sendable {
     case authentication
     case rateLimited
     case preparation
     case restartRequired
 }
-
-// MARK: - YouTubeAsk Production Support
 
 extension YouTubeAskBootstrap {
     static func production(

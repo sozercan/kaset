@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - PodcastShow
-
 /// Represents a podcast show from YouTube Music.
 struct PodcastShow: Identifiable, Hashable, Codable {
     let id: String // browseId (MPSPP...)
@@ -17,8 +15,6 @@ struct PodcastShow: Identifiable, Hashable, Codable {
         self.id.hasPrefix("MPSPP")
     }
 }
-
-// MARK: - PodcastEpisode
 
 /// Represents a podcast episode from YouTube Music.
 struct PodcastEpisode: Identifiable, Hashable {
@@ -67,16 +63,12 @@ struct PodcastEpisode: Identifiable, Hashable {
     }
 }
 
-// MARK: - PodcastSection
-
 /// Represents a section of podcast content on the discovery page.
 struct PodcastSection: Identifiable {
     let id: String
     let title: String
     let items: [PodcastSectionItem]
 }
-
-// MARK: - PodcastSectionItem
 
 /// An item within a podcast section - either a show or an episode.
 enum PodcastSectionItem: Identifiable {
@@ -93,8 +85,6 @@ enum PodcastSectionItem: Identifiable {
     }
 }
 
-// MARK: Hashable
-
 extension PodcastSectionItem: Hashable {
     static func == (lhs: PodcastSectionItem, rhs: PodcastSectionItem) -> Bool {
         lhs.id == rhs.id
@@ -104,8 +94,6 @@ extension PodcastSectionItem: Hashable {
         hasher.combine(self.id)
     }
 }
-
-// MARK: - PodcastShowDetail
 
 /// Detailed information about a podcast show including its episodes.
 struct PodcastShowDetail {
@@ -118,8 +106,6 @@ struct PodcastShowDetail {
         self.continuationToken != nil
     }
 }
-
-// MARK: - PodcastEpisodesContinuation
 
 /// Response from fetching more podcast episodes via continuation.
 struct PodcastEpisodesContinuation {

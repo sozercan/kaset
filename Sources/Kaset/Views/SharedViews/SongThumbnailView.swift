@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SongThumbnailSource
-
 struct SongThumbnailSource: Equatable {
     struct PrimaryFailureKey: Equatable {
         let videoId: String
@@ -24,8 +22,6 @@ struct SongThumbnailSource: Equatable {
         return self.primaryURL ?? self.fallbackURL
     }
 }
-
-// MARK: - SongThumbnailView
 
 /// Displays a song's thumbnail with automatic YouTube fallback.
 /// If the API-provided thumbnail URL fails to load, falls back to

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - EqualizerAudioEngineProtocol
-
 /// Audio-side surface that ``EqualizerService`` depends on. Production code
 /// uses ``EqualizerAudioEngine``; tests inject a no-op stub so they don't
 /// touch Core Audio.

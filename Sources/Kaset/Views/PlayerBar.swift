@@ -2,8 +2,6 @@ import SwiftUI
 
 // swiftlint:disable file_length
 
-// MARK: - PlayerBar
-
 /// Player bar shown at the bottom of the content area, styled like Apple Music with Liquid Glass.
 struct PlayerBar: View { // swiftlint:disable:this type_body_length
     private static let brandAccent = PackageResourceLookup.brandAccent
@@ -113,8 +111,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-
-    // MARK: - Song Info
 
     private func songInfoSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
@@ -374,8 +370,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Progress
-
     private var progressSection: some View {
         ZStack(alignment: .top) {
             if case let .error(message) = playerService.state {
@@ -601,8 +595,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         self.playerService.currentTrack?.videoId ?? "none"
     }
 
-    // MARK: - Playback Options
-
     private var playbackOptionsSection: some View {
         HStack(spacing: 6) {
             self.lyricsButton
@@ -723,8 +715,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Current Song Context Menu
-
     private func currentSongContextMenu(for track: Song) -> some View {
         SongContextMenu(
             song: track,
@@ -744,8 +734,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             }
         )
     }
-
-    // MARK: - Error View
 
     private func errorView(message: String) -> some View {
         HStack(spacing: 8) {
@@ -775,8 +763,6 @@ struct PlayerBar: View { // swiftlint:disable:this type_body_length
             .clipShape(.capsule)
         }
     }
-
-    // MARK: - Actions
 
     private func openFullScreenPlayer() {
         guard self.playerService.currentTrack != nil else { return }

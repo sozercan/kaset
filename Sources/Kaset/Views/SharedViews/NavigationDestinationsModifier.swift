@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - NavigationDestinationsModifier
-
 /// View modifier that adds common navigation destinations for Playlist, Artist, MoodCategory, and TopSongsDestination.
 /// Note: Lyrics sidebar is handled globally in MainWindow, outside the NavigationSplitView.
 struct NavigationDestinationsModifier: ViewModifier {

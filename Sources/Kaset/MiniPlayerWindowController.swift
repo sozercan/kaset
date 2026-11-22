@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - MiniPlayerWindowController
-
 /// Manages the Apple Music-style floating mini player window.
 @MainActor
 final class MiniPlayerWindowController {

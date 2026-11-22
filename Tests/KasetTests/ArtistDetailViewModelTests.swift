@@ -33,16 +33,12 @@ extension LibraryMutationSerialTests {
             }
         }
 
-        // MARK: - Initial State Tests
-
         @Test("Initial state is idle with no artist detail")
         func initialState() {
             #expect(self.viewModel.loadingState == .idle)
             #expect(self.viewModel.artistDetail == nil)
             #expect(self.viewModel.showAllSongs == false)
         }
-
-        // MARK: - Load Tests
 
         @Test("Load success sets artist detail")
         func loadSuccess() async {
@@ -152,8 +148,6 @@ extension LibraryMutationSerialTests {
             #expect(viewModel.artistDetail?.orderedSections.map(\.title) == ["Singles & EPs", "Featured on", "Playlists on repeat", "Artists on repeat"])
         }
 
-        // MARK: - Refresh Tests
-
         @Test("Refresh clears detail and reloads")
         func refreshClearsDetailAndReloads() async {
             let artistDetail = TestFixtures.makeArtistDetail(
@@ -177,8 +171,6 @@ extension LibraryMutationSerialTests {
             #expect(self.viewModel.artistDetail?.songs.count == 8)
             #expect(self.viewModel.showAllSongs == false)
         }
-
-        // MARK: - Displayed Songs Tests
 
         @Test("displayedSongs returns preview count by default")
         func displayedSongsReturnsPreviewCount() async {
@@ -212,8 +204,6 @@ extension LibraryMutationSerialTests {
             #expect(self.viewModel.displayedSongs.isEmpty)
         }
 
-        // MARK: - Has More Songs Tests
-
         @Test("hasMoreSongs returns false when no detail")
         func hasMoreSongsReturnsFalseWhenNoDetail() {
             #expect(self.viewModel.hasMoreSongs == false)
@@ -244,8 +234,6 @@ extension LibraryMutationSerialTests {
 
             #expect(self.viewModel.hasMoreSongs == false)
         }
-
-        // MARK: - Subscription Tests
 
         @Test("toggleSubscription does nothing without channel ID")
         func toggleSubscriptionNoChannelId() async {
@@ -366,8 +354,6 @@ extension LibraryMutationSerialTests {
             #expect(self.viewModel.subscriptionError != nil)
             #expect(self.viewModel.artistDetail?.isSubscribed == false) // Unchanged
         }
-
-        // MARK: - Get All Songs Tests
 
         @Test("getAllSongs returns artist detail songs when no browse ID")
         func getAllSongsReturnsDetailSongs() async {

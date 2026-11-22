@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - URLHandler
-
 /// Handles parsing and routing of YouTube Music URLs, regular YouTube watch
 /// links, and Kaset custom-scheme URLs.
 ///
@@ -19,8 +17,6 @@ import Foundation
 /// - `kaset://album?id=MPRExxx` - Custom scheme for album
 /// - `kaset://artist?id=UCxxx` - Custom scheme for artist
 enum URLHandler {
-    // MARK: - Types
-
     /// Represents the type of content from a parsed URL.
     enum ParsedContent: Equatable {
         /// A song/video to play.
@@ -38,8 +34,6 @@ enum URLHandler {
         /// A regular YouTube video to play (switches to the video source).
         case youtubeVideo(videoId: String)
     }
-
-    // MARK: - URL Parsing
 
     /// Parses a supported URL and returns the content type.
     /// - Parameter url: The URL to parse.

@@ -1,14 +1,10 @@
 import Foundation
 
-// MARK: - ArtistProfileKind
-
 enum ArtistProfileKind: String, Codable, Hashable {
     case artist
     case profile
     case unknown
 }
-
-// MARK: - Artist
 
 /// Represents an artist from YouTube Music.
 struct Artist: Identifiable, Codable, Hashable {

@@ -5,8 +5,6 @@ import Foundation
 /// Does not interact with real WebKit or file storage.
 @MainActor
 final class MockWebKitManager: WebKitManagerProtocol {
-    // MARK: - Response Stubs
-
     var allCookies: [HTTPCookie] = []
     var sapisidValue: String?
     var getSAPISIDGate: (@Sendable () async -> Void)?
@@ -48,8 +46,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
     /// URLs passed to `switchSessionIdentity`, in call order.
     private(set) var switchSessionIdentityURLs: [URL] = []
 
-    // MARK: - Call Tracking
-
     private(set) var getAllCookiesCalled = false
     private(set) var getCookiesForDomainCalled = false
     private(set) var getCookiesForDomains: [String] = []
@@ -77,8 +73,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
     private(set) var switchSessionIdentityExpectedBrandIds: [String?] = []
     private(set) var switchSessionIdentityCompletedBrandIds: [String?] = []
     private(set) var callSequence: [String] = []
-
-    // MARK: - Protocol Implementation
 
     func getAllCookies() async -> [HTTPCookie] {
         self.getAllCookiesCalled = true
@@ -284,8 +278,6 @@ final class MockWebKitManager: WebKitManagerProtocol {
 
         self.switchSessionIdentityCompletedBrandIds.append(expectedBrandId)
     }
-
-    // MARK: - Helper Methods
 
     /// Resets all call tracking.
     func reset() {

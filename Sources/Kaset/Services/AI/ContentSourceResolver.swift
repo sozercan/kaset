@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ContentSourceResolver
-
 @available(macOS 26.0, *)
 enum ContentSourceResolver {
     static func buildSearchQuery(

@@ -4,8 +4,6 @@ import Foundation
 /// Returns predictable data from environment variables or defaults.
 @MainActor
 final class MockUITestYTMusicClient: YTMusicClientProtocol {
-    // MARK: - Continuation State
-
     var hasMoreHomeSections: Bool {
         false
     }
@@ -42,8 +40,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
-    // MARK: - Mock Data
-
     private let homeSections: [HomeSection]
     private let exploreSections: [HomeSection]
     private let searchResults: SearchResponse
@@ -58,8 +54,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         self.playlists = Self.parsePlaylists() ?? Self.defaultPlaylists()
         self.likedSongs = Self.defaultLikedSongs()
     }
-
-    // MARK: - Protocol Implementation
 
     func getHome(forceRefresh _: Bool) async throws -> HomeResponse {
         // Simulate network delay
@@ -580,8 +574,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
         return AccountsListResponse(googleEmail: "test@example.com", accounts: [primaryAccount])
     }
-
-    // MARK: - Environment Parsing
 
     private static func parseHomeSections() -> [HomeSection]? {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockHomeSectionsKey),

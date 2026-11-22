@@ -1,8 +1,6 @@
 import FoundationModels
 import SwiftUI
 
-// MARK: - CommandBarView
-
 /// A floating command bar for natural language music control.
 /// Accessible via Cmd+K, allows users to control playback with voice-like commands.
 @available(macOS 26.0, *)
@@ -137,8 +135,6 @@ struct CommandBarView: View {
         }
     }
 
-    // MARK: - Subviews
-
     private func errorView(_ error: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -255,8 +251,6 @@ struct CommandBarView: View {
         }
     }
 }
-
-// MARK: - SuggestionChip
 
 @available(macOS 26.0, *)
 private struct SuggestionChip: View {

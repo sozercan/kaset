@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeHomeView
-
 /// The YouTube home (recommended) feed: an adaptive grid of video cards.
 struct YouTubeHomeView: View {
     let viewModel: YouTubeHomeViewModel
@@ -207,8 +205,6 @@ struct YouTubeHomeView: View {
         .disabled(true)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let homeGrid = "youtubeContent.homeGrid"

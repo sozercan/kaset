@@ -3,8 +3,6 @@ import os
 import Security
 import WebKit
 
-// MARK: - CookieArchiveWriteCoordinator
-
 /// Tracks the last persisted archive so identical cookie backups can be skipped safely.
 final class CookieArchiveWriteCoordinator: @unchecked Sendable {
     private let lock = NSLock()
@@ -49,8 +47,6 @@ final class CookieArchiveWriteCoordinator: @unchecked Sendable {
     }
 }
 
-// MARK: - CookieArchiveSaveResult
-
 enum CookieArchiveSaveResult {
     case saved
     case alreadyCurrent
@@ -62,15 +58,11 @@ enum CookieArchiveSaveResult {
     }
 }
 
-// MARK: - CookieArchiveLoadResult
-
 enum CookieArchiveLoadResult: Sendable {
     case data(Data)
     case notFound
     case failure
 }
-
-// MARK: - CookieRestorePolicyLoadResult
 
 enum CookieRestorePolicyLoadResult: Equatable, Sendable {
     case allowed
@@ -79,15 +71,11 @@ enum CookieRestorePolicyLoadResult: Equatable, Sendable {
     case failure
 }
 
-// MARK: - CookieArchiveEncodingResult
-
 enum CookieArchiveEncodingResult: Equatable, Sendable {
     case archive(data: Data, cookieCount: Int)
     case noPrimarySession
     case failure
 }
-
-// MARK: - KeychainCookieStorage
 
 /// Stores auth cookie backups in the configured backing store.
 ///
@@ -542,8 +530,6 @@ enum KeychainCookieStorage {
     #endif
 }
 
-// MARK: - CookieRestorePolicyStorage
-
 enum CookieRestorePolicyStorage {
     private static let logger = DiagnosticsLogger.webKit
     private static let keychainAccount = "youtube-music-cookies-restore-policy"
@@ -645,8 +631,6 @@ enum CookieRestorePolicyStorage {
         }
     #endif
 }
-
-// MARK: - LegacyCookieMigration
 
 /// Handles one-time migration from file-based cookie storage to Keychain.
 /// This ensures existing users don't lose their login session.
@@ -759,8 +743,6 @@ enum LegacyCookieMigration {
 }
 
 #if DEBUG
-
-    // MARK: - DebugCookieFileExporter
 
     /// Debug-only cookie export to the legacy `cookies.dat` file used by `Tools/api-explorer.swift`.
     ///

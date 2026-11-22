@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - LikeButton
-
 /// One-click thumbs-up toggle that mirrors YouTube Music's per-track like state.
 ///
 /// Visibility rules:
@@ -65,8 +63,6 @@ struct LikeButton: View {
     }
 }
 
-// MARK: - LikeButtonStyleModifier
-
 private struct LikeButtonStyleModifier: ViewModifier {
     let isNestedInButton: Bool
 
@@ -78,8 +74,6 @@ private struct LikeButtonStyleModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - HoverObservingRow
 
 /// Wraps a row's body and provides per-row hover state via closure.
 /// Use to drive `LikeButton.isRowHovered` and any other hover-only chrome.

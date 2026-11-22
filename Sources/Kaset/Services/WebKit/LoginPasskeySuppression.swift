@@ -1,7 +1,5 @@
 import WebKit
 
-// MARK: - LoginPasskeySuppression
-
 /// Hides WebAuthn passkey support from Google sign-in pages loaded in the
 /// login and session-switch WebViews.
 ///

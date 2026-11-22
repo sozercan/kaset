@@ -356,8 +356,6 @@ extension WebKitCookieRestoreTests {
     }
 }
 
-// MARK: - CookieRecoveryStorage
-
 private final class CookieRecoveryStorage: @unchecked Sendable {
     struct State {
         var policy: CookieArchiveRestoreDecision = .allowed

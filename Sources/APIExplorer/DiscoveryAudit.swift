@@ -36,8 +36,6 @@ func discoveryHelp() -> String {
     return lines.joined(separator: "\n")
 }
 
-// MARK: - DiscoveryRequest
-
 /// A small read-only subset of InnerTube. In particular, browse + formData can
 /// update a taste profile, so checking the endpoint alone is not sufficient.
 /// Charts country selection is the only supported form, constrained separately.
@@ -128,14 +126,10 @@ struct DiscoveryRequest {
     }
 }
 
-// MARK: - DiscoveryError
-
 enum DiscoveryError: Error, Equatable {
     case unsupportedRequest
     case invalidMobileToken
 }
-
-// MARK: - DiscoveryNavigation
 
 struct DiscoveryNavigation {
     let request: DiscoveryRequest
@@ -176,8 +170,6 @@ struct DiscoveryNavigation {
         return self.request.endpoint == "browse" ? 6 : 7
     }
 }
-
-// MARK: - DiscoveryAudit
 
 /// Stores replayable values only in memory. Reports contain schema names, counts,
 /// fixed UI labels, and browse-ID families, never response text or opaque values.

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - HomeRefreshCacheTests
-
 @Suite(.serialized, .tags(.api), .timeLimit(.minutes(1)))
 @MainActor
 struct HomeRefreshCacheTests {
@@ -697,8 +695,6 @@ struct HomeRefreshCacheTests {
         ])
     }
 }
-
-// MARK: - HomeRefreshControlledURLProtocol
 
 private final class HomeRefreshControlledURLProtocol: URLProtocol {
     private static let lock = NSLock()

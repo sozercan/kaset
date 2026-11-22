@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - VideoWindowController
-
 /// Manages the floating video window.
 @MainActor
 final class VideoWindowController {

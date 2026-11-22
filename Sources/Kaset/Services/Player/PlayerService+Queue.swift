@@ -1,8 +1,6 @@
 // swiftlint:disable file_length
 import Foundation
 
-// MARK: - Queue Management
-
 @MainActor
 extension PlayerService {
     /// Plays a queue of songs starting at the specified index.
@@ -140,12 +138,9 @@ extension PlayerService {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let requestGeneration = self.beginPlaybackRequest()
         if self.currentTrack?.videoId == song.videoId {
-            // Selecting the current song is still a play action, so resume it if paused or ended.
             if self.state == .paused || self.state == .ended {
                 await self.resume(intent: intent)
             }
-            // An applied refresh invalidates stale loads in fetchAndApplyRadioQueue via
-            // prepareForNewPlaybackContext(); an unapplied one keeps playlist paging alive.
             await self.fetchAndApplyRadioQueue(
                 for: song.videoId,
                 seedEntryID: self.queueEntryIDOwningCurrentPlayback,
@@ -431,8 +426,6 @@ extension PlayerService {
                 self.logger.info("Discarding stale radio queue after queue replacement")
                 return .superseded
             }
-            // Pages appended by an in-flight playlist load are not queue edits; the
-            // refresh replaces everything after the seed, including those pages.
             let onlyQueueLoadAppended = replacesUpcoming
                 && self.isQueueLoading
                 && self.queueEntries.count > sourceQueueEntryIDs.count
@@ -1070,8 +1063,6 @@ extension PlayerService {
         self.logger.info("Appended \(songs.count) songs to queue")
         self.saveQueueForPersistence()
     }
-
-    // MARK: - Queue Persistence
 
     /// Serialized playback session persisted across launches.
     private struct PersistedPlaybackSession: Codable, Hashable {

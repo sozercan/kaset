@@ -1,7 +1,5 @@
 import AppKit
 
-// MARK: - HomeItemShelfContainerView
-
 /// Hosts the shelf's scroll view and its two paging arrows.
 ///
 /// The arrows are native glass (`NSGlassEffectView`) rather than SwiftUI
@@ -115,8 +113,6 @@ final class HomeItemShelfContainerView: NSView {
     }
 }
 
-// MARK: - HomeItemShelfArrowView
-
 /// One paging arrow: a glass circle with a chevron. Handles its own clicks,
 /// Return/Space under Full Keyboard Access, focus ring and accessibility, so
 /// the glass and chevron subviews stay passive.
@@ -197,8 +193,6 @@ final class HomeItemShelfArrowView: NSView {
         self.addSubview(background)
         self.background = background
     }
-
-    // MARK: Visibility and prominence
 
     func setVisible(_ visible: Bool, animated: Bool) {
         guard visible != self.isVisible else { return }
@@ -292,8 +286,6 @@ final class HomeItemShelfArrowView: NSView {
         self.setScale(self.isVisible ? self.restingScale : 0.9)
     }
 
-    // MARK: Input
-
     /// The glass and chevron are decoration; the arrow itself takes every event.
     override func hitTest(_ point: NSPoint) -> NSView? {
         // `point` is in the superview's coordinates. Only a showing arrow's
@@ -345,8 +337,6 @@ final class HomeItemShelfArrowView: NSView {
         self.press()
         return true
     }
-
-    // MARK: Keyboard
 
     override var acceptsFirstResponder: Bool {
         // Keyboard focus only: an arrow focused by a click would keep Space,

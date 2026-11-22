@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchFilterProbe
-
 struct SearchFilterProbe: Hashable {
     let label: String
     let query: String
@@ -12,8 +10,6 @@ let kasetSearchFilterLabels: Set<String> = [
     "Albums", "Artists", "Community playlists", "Episodes", "Featured playlists", "Playlists",
     "Podcasts", "Profiles", "Songs", "Videos",
 ]
-
-// MARK: - SearchAuditContext
 
 enum SearchAuditContext {
     case automatic
@@ -381,8 +377,6 @@ private func formattedCounts(_ counts: [String: Int]) -> String {
     }.map { "\($0.key)=\($0.value)" }.joined(separator: ", ")
 }
 
-// MARK: - CurrentSearchParserCoverage
-
 private struct CurrentSearchParserCoverage {
     var parsedTypes: [String: Int] = [:]
     var ignoredSections: [String: Int] = [:]
@@ -665,8 +659,6 @@ private func currentSearchParserCoverage(_ data: [String: Any]) -> CurrentSearch
     return coverage
 }
 
-// MARK: - BoundedSearchAuditRenderers
-
 private struct BoundedSearchAuditRenderers {
     var itemSections: [[String: Any]] = []
     var cardShelves: [[String: Any]] = []
@@ -786,8 +778,6 @@ private func boundedContainerContainsResult(_ container: [String: Any]) -> Bool 
     return (section["contents"] as? [[String: Any]] ?? []).contains(where: boundedContainerContainsResult)
 }
 
-// MARK: - SearchAuditSnapshot
-
 private struct SearchAuditSnapshot {
     let tabbedSearchCount: Int
     let itemSections: [[String: Any]]
@@ -846,8 +836,6 @@ private struct SearchAuditSnapshot {
     }
 }
 
-// MARK: - SearchRowAuditStats
-
 private struct SearchRowAuditStats {
     var contentTypes: [String: Int] = [:]
     var videoSourceCounts: [String: Int] = [:]
@@ -889,8 +877,6 @@ private func makeSearchRowAuditStats(_ rows: [[String: Any]]) -> SearchRowAuditS
     return stats
 }
 
-// MARK: - SearchCardAuditStats
-
 private struct SearchCardAuditStats {
     var watchEndpoints = 0
     var browseEndpoints = 0
@@ -928,8 +914,6 @@ private func makeSearchCardAuditStats(_ cards: [[String: Any]]) -> SearchCardAud
     }
     return stats
 }
-
-// MARK: - SearchContinuationAuditStats
 
 private struct SearchContinuationAuditStats {
     let sectionListContinuationCount: Int

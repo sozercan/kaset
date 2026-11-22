@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - AccentBackground
-
 /// A background view that displays a gradient based on colors extracted from an image.
 /// Creates an effect similar to Apple Music/YouTube Music album backgrounds.
 /// In light mode, uses a subtle tint; in dark mode, uses a rich gradient.
@@ -81,8 +79,6 @@ struct AccentBackground: View {
         self.isLoaded = true
     }
 }
-
-// MARK: - AccentBackgroundModifier
 
 /// View modifier to apply accent background based on album art.
 struct AccentBackgroundModifier: ViewModifier {

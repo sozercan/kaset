@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - LoginSheet
-
 /// Login sheet presented when authentication is required.
 struct LoginSheet: View {
     @Environment(AuthService.self) private var authService
@@ -507,8 +505,6 @@ struct LoginSheet: View {
     }
 }
 
-// MARK: - Failed Login Cleanup
-
 @MainActor
 private func rollbackLoginCookiesWithFallback(
     forceCleanup: Bool,
@@ -552,8 +548,6 @@ private func clearFailedLogin(
         }
     )
 }
-
-// MARK: - LoginCompletionGate
 
 @MainActor
 struct LoginCompletionGate {

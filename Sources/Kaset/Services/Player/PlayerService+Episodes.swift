@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Artist-Page Episode Playback
-
 @MainActor
 extension PlayerService {
     /// Convenience flag for UI gating (disables seek/queue UI for live streams).

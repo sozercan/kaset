@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - EQBand
-
 /// A single band of the equalizer.
 ///
 /// Mirrors Spotify's mobile equalizer layout: six bands with a fixed centre

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - AppIntentsError
-
 /// Failures App Intents report back to Shortcuts and Siri.
 enum AppIntentsError: Error, Equatable, CustomLocalizedStringResourceConvertible {
     /// A cold launch did not finish restoring sign-in state in time.
@@ -35,8 +33,6 @@ enum AppIntentsError: Error, Equatable, CustomLocalizedStringResourceConvertible
     }
 }
 
-// MARK: - AppIntentsLibrary
-
 /// The signed-in account's Library playlists and saved albums, as published by `MainWindow`.
 struct AppIntentsLibrary: Equatable {
     static let empty = AppIntentsLibrary(playlists: [], albums: [])
@@ -54,8 +50,6 @@ struct AppIntentsLibrary: Equatable {
         self.albums.filter(\.hasNavigableId)
     }
 }
-
-// MARK: - AppIntentsBridge
 
 /// Gives App Intents (Shortcuts, Siri, Spotlight) access to the running app's services.
 ///
@@ -132,8 +126,6 @@ final class AppIntentsBridge {
         self.showMainWindowHandler = handler
     }
 
-    // MARK: Readiness
-
     /// Called when startup has restored sign-in state and cleared stale playback,
     /// the same point at which deferred deep links are replayed.
     func markStartupComplete() {
@@ -161,15 +153,11 @@ final class AppIntentsBridge {
         return true
     }
 
-    // MARK: Library
-
     func updateLibrary(_ library: AppIntentsLibrary) {
         guard library != self.publishedLibrary else { return }
         self.publishedLibrary = library
         self.libraryDidChange(library)
     }
-
-    // MARK: Transport
 
     /// Sends play/pause/skip through the media-key path. Throws when the player is not up yet or
     /// has nothing loaded to control.
@@ -178,8 +166,6 @@ final class AppIntentsBridge {
             throw AppIntentsError.nothingPlaying
         }
     }
-
-    // MARK: Now Playing
 
     /// The track loaded in the music player, if any.
     var currentSong: Song? {
@@ -207,8 +193,6 @@ final class AppIntentsBridge {
         }
         return track
     }
-
-    // MARK: Playback
 
     /// Waits for startup, then shows the main window the way a deep link does.
     /// The playback WebView lives in that window's hierarchy.
@@ -284,8 +268,6 @@ final class AppIntentsBridge {
     static func bestSong(in songs: [Song]) -> Song? {
         songs.first { $0.isPlayable && !$0.videoId.isEmpty }
     }
-
-    // MARK: Search
 
     /// Song search for entity pickers. Works before startup completes: it needs only the client.
     func searchSongs(matching query: String) async throws -> [Song] {

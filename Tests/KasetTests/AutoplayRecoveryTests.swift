@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - AutoplayRecoveryJSTests
-
 @Suite(.tags(.service))
 struct AutoplayRecoveryJSTests {
     private func makeContext() -> JSContext {
@@ -298,8 +296,6 @@ struct AutoplayRecoveryJSTests {
     }
 }
 
-// MARK: - AutoplayIntentScriptTests
-
 @Suite(.tags(.service))
 struct AutoplayIntentScriptTests {
     @Test("Sets the pending flag to true for a fresh navigation")
@@ -351,8 +347,6 @@ struct AutoplayIntentScriptTests {
         #expect(script.contains("window.__kasetTargetVolume = 1.0;"))
     }
 }
-
-// MARK: - MusicPlaybackOccurrenceJSTests
 
 @Suite(.tags(.service))
 struct MusicPlaybackOccurrenceJSTests {
@@ -675,8 +669,6 @@ struct MusicPlaybackOccurrenceJSTests {
     }
 }
 
-// MARK: - MusicPlaybackClockJSTests
-
 @Suite(.tags(.service))
 struct MusicPlaybackClockJSTests {
     private func makeContext() -> JSContext {
@@ -767,8 +759,6 @@ struct MusicPlaybackClockJSTests {
         #expect(context.evaluateScript("clock.duration").toDouble() == 0)
     }
 }
-
-// MARK: - MusicPlaybackBridgeDecodingTests
 
 @Suite(.tags(.service))
 struct MusicPlaybackBridgeDecodingTests {

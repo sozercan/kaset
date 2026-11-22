@@ -5,8 +5,6 @@
 
 import SwiftUI
 
-// MARK: - ToastView
-
 /// A toast notification that auto-dismisses after a configurable duration.
 ///
 /// ## Usage
@@ -26,8 +24,6 @@ import SwiftUI
 /// }
 /// ```
 struct ToastView: View {
-    // MARK: - Properties
-
     /// The message to display in the toast.
     let message: String
 
@@ -36,8 +32,6 @@ struct ToastView: View {
 
     /// Called when the toast should be dismissed.
     var onDismiss: (() -> Void)?
-
-    // MARK: - Body
 
     var body: some View {
         CompatGlassContainer(spacing: 0) {
@@ -79,8 +73,6 @@ struct ToastView: View {
     }
 }
 
-// MARK: - AccountErrorToast
-
 /// A toast that observes AccountService errors and auto-dismisses.
 ///
 /// Add this to MainWindow as an overlay to show account switching errors.
@@ -111,8 +103,6 @@ struct AccountErrorToast: View {
             }
         }
     }
-
-    // MARK: - Private Methods
 
     private func errorMessage(for error: Error) -> String {
         if let ytError = error as? YTMusicError {
@@ -150,15 +140,11 @@ struct AccountErrorToast: View {
     }
 }
 
-// MARK: - AccessibilityID.Toast
-
 extension AccessibilityID {
     enum Toast {
         static let container = "toast.container"
     }
 }
-
-// MARK: - Preview
 
 #Preview("Error Toast") {
     ToastView(message: "Failed to switch account. Please try again.", isError: true) {

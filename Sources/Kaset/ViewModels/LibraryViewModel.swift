@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import os
 
-// MARK: - LibraryMutationBroadcaster
-
 /// Broadcasts library mutations to every active LibraryViewModel.
 ///
 /// Context menus can be presented from views that do not reliably have the same
@@ -215,8 +213,6 @@ final class LibraryMutationBroadcaster {
         return isCurrent()
     }
 }
-
-// MARK: - LibraryViewModel
 
 /// View model for the Library view.
 @MainActor

@@ -1,15 +1,11 @@
 import Foundation
 
-// MARK: - RadioQueueResult
-
 /// Result from parsing a radio queue, including songs and continuation token.
 struct RadioQueueResult {
     let songs: [Song]
     /// Continuation token for fetching more songs (infinite mix).
     let continuationToken: String?
 }
-
-// MARK: - RadioQueueParser
 
 /// Parses radio queue responses from YouTube Music API.
 enum RadioQueueParser {

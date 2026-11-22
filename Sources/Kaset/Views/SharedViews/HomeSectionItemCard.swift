@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - HomeSectionItemCard
-
 /// Reusable card view for home section items (songs, playlists, albums, artists).
 struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
@@ -80,16 +78,12 @@ struct HomeSectionItemCard: View, Equatable {
         }
     }
 
-    // MARK: - Regular Card Content
-
     private var regularContent: some View {
         VStack(alignment: .leading, spacing: 8) {
             self.thumbnail
             self.titleAndSubtitle
         }
     }
-
-    // MARK: - Chart Card Content
 
     private func chartContent(rank: Int) -> some View {
         ZStack(alignment: .bottomLeading) {
@@ -107,8 +101,6 @@ struct HomeSectionItemCard: View, Equatable {
                 .padding(.bottom, 60)
         }
     }
-
-    // MARK: - Shared Components
 
     private var thumbnail: some View {
         let thumbnailURLs = self.thumbnailURLs
@@ -315,8 +307,6 @@ struct HomeSectionItemCard: View, Equatable {
     }
 }
 
-// MARK: - ThumbnailHoverLift
-
 private struct ThumbnailHoverLift: ViewModifier {
     let isHovering: Bool
 
@@ -337,8 +327,6 @@ private struct ThumbnailHoverLift: ViewModifier {
     }
 }
 
-// MARK: - LiquidGlassPlayIcon
-
 private struct LiquidGlassPlayIcon: View {
     let size: CGSize
     let interactive: Bool
@@ -352,8 +340,6 @@ private struct LiquidGlassPlayIcon: View {
             .compatGlass(interactive: self.interactive, in: .circle)
     }
 }
-
-// MARK: - SongCoverPlayOverlay
 
 struct SongCoverPlayOverlay: View {
     let size: CGSize

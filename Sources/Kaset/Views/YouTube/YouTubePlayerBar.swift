@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubePlayerBar
-
 /// The Liquid Glass player bar for inline and detached YouTube playback.
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
@@ -118,8 +116,6 @@ struct YouTubePlayerBar: View {
         .allowsHitTesting(false)
         .accessibilityHidden(true)
     }
-
-    // MARK: - Updated Player Layout
 
     private func videoDetailsSection(usesCompactDetails: Bool) -> some View {
         HStack(spacing: 8) {
@@ -805,8 +801,6 @@ private extension YouTubePlayerBar {
         self.settings.keepYouTubeVideoOnTop.toggle()
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchPlayPause = "youtubeContent.watchPlayPause"

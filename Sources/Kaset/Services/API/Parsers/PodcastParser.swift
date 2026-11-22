@@ -4,8 +4,6 @@ import Foundation
 enum PodcastParser {
     private static let logger = DiagnosticsLogger.api
 
-    // MARK: - Discovery Page Parsing
-
     /// Parses the podcasts discovery page (FEmusic_podcasts) response.
     /// This page uses the same structure as home/explore but with podcast-specific items.
     static func parseDiscovery(_ data: [String: Any]) -> [PodcastSection] {
@@ -71,8 +69,6 @@ enum PodcastParser {
 
         return sections
     }
-
-    // MARK: - Section Parsing
 
     private static func parsePodcastSection(_ data: [String: Any]) -> PodcastSection? {
         // Try musicCarouselShelfRenderer (horizontal carousels)
@@ -152,8 +148,6 @@ enum PodcastParser {
             items: items
         )
     }
-
-    // MARK: - Item Parsing
 
     private static func parsePodcastItem(_ data: [String: Any]) -> PodcastSectionItem? {
         // Try musicTwoRowItemRenderer (podcast shows as cards)
@@ -360,8 +354,6 @@ enum PodcastParser {
         return .episode(episode)
     }
 
-    // MARK: - Podcast Show Detail Parsing
-
     /// Parses a podcast show detail page (MPSPP{id}).
     static func parseShowDetail( // swiftlint:disable:this function_body_length cyclomatic_complexity
         _ data: [String: Any],
@@ -538,8 +530,6 @@ enum PodcastParser {
         )
     }
 
-    // MARK: - Helper Methods
-
     /// Extracts a stable ID from a PodcastSectionItem for identity purposes.
     private static func extractPodcastItemId(_ item: PodcastSectionItem) -> String {
         switch item {
@@ -624,8 +614,6 @@ enum PodcastParser {
 
         return nil
     }
-
-    // MARK: - Podcast Detection Helpers
 
     /// Checks if a browse ID is a podcast show.
     static func isPodcastShow(_ browseId: String) -> Bool {

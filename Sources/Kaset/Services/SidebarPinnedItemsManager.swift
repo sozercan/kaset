@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - SidebarPinnedItemsManager
-
 /// Manages playlist-like items pinned to the sidebar.
 @MainActor
 @Observable

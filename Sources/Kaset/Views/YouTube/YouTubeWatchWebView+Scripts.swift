@@ -2,8 +2,6 @@
 
 import Foundation
 
-// MARK: - Observer & Extraction Scripts
-
 extension YouTubeWatchWebView {
     func markCurrentPlaybackOccurrenceEnded() {
         guard let webView = self.webView else { return }
@@ -760,8 +758,6 @@ extension YouTubeWatchWebView {
         """
     }
 }
-
-// MARK: - Playback Controls
 
 extension YouTubeWatchWebView {
     /// Toggles play/pause on the watch page's video element.

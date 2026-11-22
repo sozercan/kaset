@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - WhatsNewVersionStore
-
 /// Persists which app versions have had their "What's New" sheet presented.
 struct WhatsNewVersionStore: @unchecked Sendable {
     /// UserDefaults key prefix for presented versions.
@@ -12,8 +10,6 @@ struct WhatsNewVersionStore: @unchecked Sendable {
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
     }
-
-    // MARK: - Read
 
     /// Whether the given version has already been presented.
     func hasPresented(_ version: WhatsNew.Version) -> Bool {
@@ -31,14 +27,10 @@ struct WhatsNewVersionStore: @unchecked Sendable {
             }
     }
 
-    // MARK: - Write
-
     /// Marks a version as presented so it won't be shown again.
     func markPresented(_ version: WhatsNew.Version) {
         self.defaults.set(true, forKey: Self.key(for: version))
     }
-
-    // MARK: - Private
 
     private static func key(for version: WhatsNew.Version) -> String {
         "\(self.keyPrefix)\(version.description)"

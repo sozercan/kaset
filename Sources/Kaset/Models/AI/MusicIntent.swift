@@ -1,8 +1,6 @@
 import Foundation
 import FoundationModels
 
-// MARK: - MusicIntent
-
 /// Represents a user's intent when using natural language music commands.
 /// The model generates this from free-form text like "play some jazz" or "skip this song".
 @available(macOS 26.0, *)
@@ -19,8 +17,6 @@ struct MusicIntent: Equatable {
     /// Scope for shuffle action (e.g., "library", "playlist", "artist").
     @Guide(description: "The scope for shuffle: all, library, likes, or empty for single song actions.")
     let shuffleScope: String
-
-    // MARK: - Parsed Query Components (for rich search queries)
 
     /// Artist name if explicitly mentioned.
     @Guide(description: "Artist name if mentioned (e.g., 'Rolling Stones'). Empty if not specified.")
@@ -46,8 +42,6 @@ struct MusicIntent: Equatable {
     @Guide(description: "Activity if mentioned (workout, study, sleep, party, driving, cooking, focus, running, yoga). Empty if not specified.")
     let activity: String
 
-    // MARK: - Query Building
-
     /// Builds an optimized search query from the parsed components.
     func buildSearchQuery() -> String {
         ContentSourceResolver.buildSearchQuery(from: self)
@@ -65,8 +59,6 @@ struct MusicIntent: Equatable {
     }
 }
 
-// MARK: - MusicAction
-
 /// Actions that can be performed via natural language commands.
 @available(macOS 26.0, *)
 @Generable
@@ -82,8 +74,6 @@ enum MusicAction: String, CaseIterable {
     case resume
     case search
 }
-
-// MARK: - ContentSource
 
 /// Hints about where to source content for the best results.
 /// Used to route requests to curated endpoints instead of search when appropriate.

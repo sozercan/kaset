@@ -3,8 +3,6 @@ import CryptoKit
 import Foundation
 import os
 
-// MARK: - PaginatedContentType
-
 /// Identifies content types that support pagination via continuation tokens.
 /// Used internally by YTMusicClient to manage pagination state generically.
 enum PaginatedContentType: String, Hashable {
@@ -29,8 +27,6 @@ enum PaginatedContentType: String, Hashable {
         }
     }
 }
-
-// MARK: - YTMusicClient
 
 /// Client for making authenticated requests to YouTube Music's internal API.
 @MainActor
@@ -90,8 +86,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.apiKeyResolver = apiKeyResolver ?? YTMusicAPIKeyResolver(session: resolvedSession)
         self.cache = cache
     }
-
-    // MARK: - Generic Pagination Methods
 
     /// Fetches paginated content for the given content type.
     /// Stores the continuation token for subsequent calls to `getContinuation`.
@@ -175,8 +169,6 @@ final class YTMusicClient: YTMusicClientProtocol {
     private func hasMoreSections(for type: PaginatedContentType) -> Bool {
         self.continuationTokens[type] != nil
     }
-
-    // MARK: - Public API Methods (Protocol Conformance)
 
     /// Fetches the home page content (initial sections only for fast display).
     /// Call `getHomeContinuation` to load additional sections progressively.
@@ -481,8 +473,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Songs search found \(songs.count) songs")
         return songs
     }
-
-    // MARK: - Filtered Search with Pagination
 
     /// Filter params for YouTube Music search.
     /// Pattern: EgWKAQ (base) + filter code + AWoMEA4QChADEAQQCRAF (no spelling correction)
@@ -905,8 +895,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    // MARK: - Liked Songs with Pagination
-
     /// Continuation token for liked songs pagination.
     private var likedSongsContinuationToken: String?
 
@@ -983,8 +971,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             throw error
         }
     }
-
-    // MARK: - Playlist with Pagination
 
     /// Maps a playlist, album, or radio ID to the browse ID that loads it.
     ///
@@ -1260,8 +1246,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return episodes
     }
 
-    // MARK: - Lyrics
-
     /// Fetches lyrics for a song by video ID.
     /// - Parameter videoId: The video ID of the song
     /// - Returns: Lyrics if available, or Lyrics.unavailable if not
@@ -1331,8 +1315,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return .unavailable
     }
 
-    // MARK: - Radio Queue
-
     /// Fetches a radio queue (similar songs) based on a video ID.
     /// Uses the "next" endpoint with a radio playlist ID (RDAMVM prefix).
     /// - Parameter videoId: The seed video ID to base the radio on
@@ -1399,8 +1381,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return result
     }
 
-    // MARK: - Song Metadata
-
     /// Fetches full song metadata including feedbackTokens for library management.
     /// Uses the `next` endpoint to get track details with library status.
     /// - Parameter videoId: The video ID of the song
@@ -1421,8 +1401,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Parsed song '\(song.title)' - inLibrary: \(song.isInLibrary ?? false), hasTokens: \(song.feedbackTokens != nil)")
         return song
     }
-
-    // MARK: - Mood/Genre Category
 
     /// Fetches content for a moods/genres category page.
     /// These are browse pages that return sections of songs/playlists, not playlist tracks.
@@ -1447,8 +1425,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    // MARK: - Account Management
-
     /// Fetches the list of available accounts (primary + brand accounts).
     /// Used for account switching functionality.
     /// - Returns: AccountsListResponse containing all available accounts
@@ -1467,8 +1443,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.logger.info("Accounts list loaded: \(response.accounts.count) accounts")
         return response
     }
-
-    // MARK: - Like/Library Actions
 
     /// Rates a song (like/dislike/indifferent).
     /// - Parameters:
@@ -1679,8 +1653,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.cache.invalidate(matching: "browse:")
     }
 
-    // MARK: - Podcast ID Conversion
-
     /// Converts a podcast show ID (MPSPP prefix) to a playlist ID (PL prefix) for the like/unlike API.
     /// - Podcast show IDs use "MPSPP" + "L" + {idSuffix}, e.g. "MPSPPLXz2p9...".
     /// - The corresponding playlist ID is "PL" + {idSuffix}, e.g. "PLXz2p9...".
@@ -1783,8 +1755,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         // Invalidate artist cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
-
-    // MARK: - Private Methods
 
     private enum RequestAuthPolicy {
         case optional
@@ -2178,8 +2148,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         try await self.apiKeyResolver.resolve()
     }
 
-    // MARK: - Nonisolated Network Helper
-
     /// Result type for network request to avoid throwing across actor boundaries.
     /// Uses Data (which is Sendable) instead of parsed JSON.
     private enum NetworkResult {
@@ -2219,8 +2187,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 }
-
-// MARK: - YTMusicAPIKeyResolver
 
 /// Resolves the YouTube Music web client's current Innertube API key without storing it in source.
 @MainActor

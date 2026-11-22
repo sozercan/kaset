@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - VideoCard
-
 /// Grid card for a YouTube video: 16:9 thumbnail with duration badge,
 /// title, and channel/meta lines.
 struct VideoCard: View {
@@ -61,8 +59,6 @@ struct VideoCard: View {
         return parts.joined(separator: ", ")
     }
 }
-
-// MARK: - VideoThumbnailView
 
 /// 16:9 video thumbnail with a duration (or LIVE) badge.
 struct VideoThumbnailView: View {

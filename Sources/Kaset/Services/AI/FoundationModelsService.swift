@@ -3,8 +3,6 @@ import FoundationModels
 import Observation
 import os
 
-// MARK: - FoundationModelsPromptBudget
-
 @available(macOS 26.0, *)
 struct FoundationModelsPromptBudget: Equatable {
     let contextSize: Int
@@ -26,8 +24,6 @@ struct FoundationModelsPromptBudget: Equatable {
         return Int((Double(self.totalTokens) / Double(self.contextSize) * 100).rounded())
     }
 }
-
-// MARK: - FoundationModelsService
 
 /// Service for managing Apple Foundation Models integration.
 ///
@@ -66,12 +62,8 @@ struct FoundationModelsPromptBudget: Equatable {
 @MainActor
 @Observable
 final class FoundationModelsService {
-    // MARK: - Singleton
-
     /// Shared instance for app-wide access.
     static let shared = FoundationModelsService()
-
-    // MARK: - Published State
 
     /// Current availability status of Foundation Models.
     private(set) var availability: SystemLanguageModel.Availability = .unavailable(.modelNotReady)
@@ -88,26 +80,18 @@ final class FoundationModelsService {
         }
     }
 
-    // MARK: - Computed Properties
-
     /// Whether AI features are currently available and enabled.
     var isAvailable: Bool {
         guard !self.isDisabledByUser else { return false }
         return self.availability == .available
     }
 
-    // MARK: - Private Properties
-
     private let logger = DiagnosticsLogger.ai
     private static let disabledKey = "intelligence.disabled"
-
-    // MARK: - Initialization
 
     private init() {
         self.isDisabledByUser = UserDefaults.standard.bool(forKey: Self.disabledKey)
     }
-
-    // MARK: - Public Methods
 
     /// Warms up the Foundation Models session in the background.
     ///
@@ -135,8 +119,6 @@ final class FoundationModelsService {
 
         self.isWarmedUp = true
     }
-
-    // MARK: - Specialized Session Factories
 
     /// Creates a session optimized for command parsing with tools.
     ///
@@ -581,8 +563,6 @@ final class FoundationModelsService {
             return lines.count
         #endif
     }
-
-    // MARK: - Private Methods
 
     private func promptBudget(
         context: String,

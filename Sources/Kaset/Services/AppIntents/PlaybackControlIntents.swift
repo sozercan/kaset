@@ -5,8 +5,6 @@ import Foundation
 // whichever source the media keys would, music or video. They run without bringing Kaset
 // forward; when Kaset was not running, nothing is loaded and they report that.
 
-// MARK: - TogglePlaybackIntent
-
 struct TogglePlaybackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play or Pause"
     static let description = IntentDescription("Pauses Kaset if it is playing, otherwise resumes playback.")
@@ -17,8 +15,6 @@ struct TogglePlaybackIntent: AudioPlaybackIntent {
         return .result()
     }
 }
-
-// MARK: - PausePlaybackIntent
 
 struct PausePlaybackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Pause"
@@ -31,8 +27,6 @@ struct PausePlaybackIntent: AudioPlaybackIntent {
     }
 }
 
-// MARK: - ResumePlaybackIntent
-
 struct ResumePlaybackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Resume Playback"
     static let description = IntentDescription("Resumes playback in Kaset.")
@@ -43,8 +37,6 @@ struct ResumePlaybackIntent: AudioPlaybackIntent {
         return .result()
     }
 }
-
-// MARK: - NextTrackIntent
 
 struct NextTrackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Next Track"
@@ -57,8 +49,6 @@ struct NextTrackIntent: AudioPlaybackIntent {
     }
 }
 
-// MARK: - PreviousTrackIntent
-
 struct PreviousTrackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Previous Track"
     static let description = IntentDescription("Goes back to the previous track in Kaset.")
@@ -69,8 +59,6 @@ struct PreviousTrackIntent: AudioPlaybackIntent {
         return .result()
     }
 }
-
-// MARK: - GetCurrentSongIntent
 
 struct GetCurrentSongIntent: AppIntent {
     static let title: LocalizedStringResource = "Get Current Song"
@@ -89,8 +77,6 @@ struct GetCurrentSongIntent: AppIntent {
     }
 }
 
-// MARK: - LikeCurrentSongIntent
-
 struct LikeCurrentSongIntent: AppIntent {
     static let title: LocalizedStringResource = "Like Current Song"
     static let description = IntentDescription("Likes the song playing in Kaset. A song that is already liked stays liked.")
@@ -101,8 +87,6 @@ struct LikeCurrentSongIntent: AppIntent {
         return .result(value: SongEntity(song: song))
     }
 }
-
-// MARK: - DislikeCurrentSongIntent
 
 struct DislikeCurrentSongIntent: AppIntent {
     static let title: LocalizedStringResource = "Dislike Current Song"

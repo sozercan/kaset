@@ -5,8 +5,6 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct ScrobblingCoordinatorTests {
-    // MARK: - Helpers
-
     private func makeTemporaryDirectory() throws -> URL {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ScrobblingCoordinatorTests-\(UUID().uuidString)")
@@ -43,8 +41,6 @@ struct ScrobblingCoordinatorTests {
             timestamp: timestamp
         )
     }
-
-    // MARK: - ScrobbleTrack Tests
 
     @Test("ScrobbleTrack from Song captures correct metadata")
     func scrobbleTrackFromSong() {
@@ -85,8 +81,6 @@ struct ScrobblingCoordinatorTests {
         #expect(track1 != track3) // Different UUID
     }
 
-    // MARK: - ScrobbleResult Tests
-
     @Test("ScrobbleResult accepted")
     func scrobbleResultAccepted() {
         let track = self.makeTrack()
@@ -126,8 +120,6 @@ struct ScrobblingCoordinatorTests {
         #expect(result.correctedTrack == "Blinding Lights")
     }
 
-    // MARK: - Queue Integration
-
     @Test("Queue enqueue and flush cycle")
     func queueEnqueueAndFlush() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -149,8 +141,6 @@ struct ScrobblingCoordinatorTests {
 
         #expect(queue.isEmpty)
     }
-
-    // MARK: - Scrobble Threshold Logic
 
     @Test("50% threshold for short track (180s)")
     func shortTrackThreshold() {
@@ -187,8 +177,6 @@ struct ScrobblingCoordinatorTests {
         let thresholdMet = accumulated >= duration * percentThreshold || accumulated >= minSeconds
         #expect(!thresholdMet)
     }
-
-    // MARK: - Play Time Accumulation Logic
 
     @Test("Normal play accumulates correctly")
     func normalPlayAccumulation() {
@@ -242,8 +230,6 @@ struct ScrobblingCoordinatorTests {
 
         #expect(accumulated == 0) // Seek was ignored (negative)
     }
-
-    // MARK: - ScrobbleTrack Codable
 
     @Test("ScrobbleTrack round-trips through JSON")
     func scrobbleTrackCodable() throws {
@@ -331,8 +317,6 @@ struct ScrobblingCoordinatorTests {
         #expect(coordinator.isQueueFlushScheduled)
     }
 
-    // MARK: - Fix #1: Only accepted tracks removed from queue
-
     @Test("FlushQueue only marks accepted tracks as completed, rejected stay in queue")
     func flushQueueOnlyRemovesAccepted() async throws {
         let dir = try self.makeTemporaryDirectory()
@@ -376,8 +360,6 @@ struct ScrobblingCoordinatorTests {
         settings.setServiceEnabled("Mock", false)
     }
 
-    // MARK: - Fix #7: CancellationError handled in flushQueue
-
     @Test("FlushQueue stops processing on CancellationError")
     func flushQueueHandlesCancellation() async throws {
         let dir = try self.makeTemporaryDirectory()
@@ -411,8 +393,6 @@ struct ScrobblingCoordinatorTests {
         settings.setServiceEnabled("Mock", false)
     }
 
-    // MARK: - Fix #8: 30-second minimum duration guard
-
     @Test("Tracks under 30 seconds are not scrobbled")
     func shortTrackNotScrobbled() {
         // With a 10-second track at 50% threshold, 5 seconds of play time would meet
@@ -431,8 +411,6 @@ struct ScrobblingCoordinatorTests {
 
         #expect(duration >= minDuration, "30-second tracks should pass the guard")
     }
-
-    // MARK: - Fix #2: Replay detection
 
     @Test("Large backward progress jump signals replay")
     func replayDetectedOnBackwardJump() {
@@ -561,8 +539,6 @@ struct ScrobblingCoordinatorTests {
         #expect(queue.count == 1)
     }
 
-    // MARK: - Fix: Title/artist-based track change detection
-
     @Test("Title change triggers track change detection even with same videoId")
     func titleChangeDetectedWithSameVideoId() {
         // When videoId is stale (reused from previous track), title/artist change
@@ -600,8 +576,6 @@ struct ScrobblingCoordinatorTests {
         #expect(!metadataChanged)
         #expect(!(videoIdChanged || metadataChanged), "No change should be detected")
     }
-
-    // MARK: - Fix: Final threshold check on finalize
 
     @Test("Finalize performs threshold check before discarding play time")
     func finalizeThresholdCheck() {

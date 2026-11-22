@@ -4,8 +4,6 @@ import CoreGraphics
 import Darwin
 import Foundation
 
-// MARK: - ProcessTapHelper
-
 /// Wraps the Core Audio "process tap" (macOS 14.2+) plumbing used by the
 /// equalizer.
 ///
@@ -77,8 +75,6 @@ final class ProcessTapHelper {
         }.filter { !$0.isEmpty }))
     }()
 
-    // MARK: - StartFailure
-
     /// High-level reason a `start()` call didn't succeed. Lets the caller
     /// distinguish "user hasn't started playback yet" from "we hit a real
     /// Core Audio error" so the UI can phrase the message accordingly.
@@ -99,8 +95,6 @@ final class ProcessTapHelper {
         /// Pre-flight check failed (running on an unsupported macOS).
         case unsupportedOS
     }
-
-    // MARK: - Lifecycle
 
     /// Starts the tap and installs the aggregate device.
     ///
@@ -214,8 +208,6 @@ final class ProcessTapHelper {
             AudioHardwareDestroyProcessTap(self.tapID)
         }
     }
-
-    // MARK: - Process discovery
 
     /// Bundle IDs of WebKit XPC subprocesses that host audio playback.
     /// On macOS Sonoma+ WebKit moved media decode into the "GPU" process,
@@ -461,8 +453,6 @@ final class ProcessTapHelper {
         _ psn: UnsafeMutablePointer<ProcessSerialNumber>,
         _ name: UnsafeMutablePointer<Unmanaged<CFString>?>
     ) -> OSStatus
-
-    // MARK: - Audio-object lookup
 
     /// Reads the tap's negotiated stream format.
     private static func streamFormat(forTap tapID: AudioObjectID) -> AudioStreamBasicDescription? {

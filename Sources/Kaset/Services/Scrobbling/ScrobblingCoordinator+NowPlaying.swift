@@ -40,8 +40,6 @@ extension ScrobblingCoordinator {
         }
     }
 
-    // MARK: - Now Playing
-
     func sendNowPlaying(_ track: Song) {
         guard var tracker = self.trackTracker else { return }
         tracker.markNowPlayingSent()

@@ -5,8 +5,6 @@
 
 import SwiftUI
 
-// MARK: - SidebarProfileView
-
 /// A profile section displayed at the bottom of the sidebar.
 ///
 /// Shows the current user's account info with an option to switch accounts
@@ -30,8 +28,6 @@ struct SidebarProfileView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
     }
-
-    // MARK: - Logged In Content
 
     @ViewBuilder
     private var loggedInContent: some View {
@@ -105,8 +101,6 @@ struct SidebarProfileView: View {
         .accessibilityHint(String(localized: "Double-tap to retry loading accounts"))
     }
 
-    // MARK: - Loading State
-
     private var loadingStateView: some View {
         HStack(spacing: 10) {
             Circle()
@@ -127,8 +121,6 @@ struct SidebarProfileView: View {
         }
         .accessibilityIdentifier(AccessibilityID.SidebarProfile.loadingState)
     }
-
-    // MARK: - Error State
 
     private var errorStateView: some View {
         HStack(spacing: 10) {
@@ -176,8 +168,6 @@ struct SidebarProfileView: View {
         }
     }
 
-    // MARK: - Logged Out Content
-
     private var loggedOutContent: some View {
         Button {
             self.authService.startLogin()
@@ -210,8 +200,6 @@ struct SidebarProfileView: View {
         .contentShape(Rectangle())
     }
 
-    // MARK: - Avatar View
-
     @ViewBuilder
     private func avatarView(for account: UserAccount) -> some View {
         if let thumbnailURL = account.thumbnailURL {
@@ -240,8 +228,6 @@ struct SidebarProfileView: View {
             }
     }
 
-    // MARK: - Accessibility
-
     private func profileAccessibilityLabel(for account: UserAccount) -> String {
         var label = "Profile: \(account.name)"
         if let handle = account.handle {
@@ -254,8 +240,6 @@ struct SidebarProfileView: View {
     }
 }
 
-// MARK: - AccessibilityID.SidebarProfile
-
 extension AccessibilityID {
     enum SidebarProfile {
         static let container = "sidebarProfile"
@@ -265,8 +249,6 @@ extension AccessibilityID {
         static let loggedOutState = "sidebarProfile.loggedOut"
     }
 }
-
-// MARK: - Preview
 
 #Preview("With Account") {
     let authService = AuthService()

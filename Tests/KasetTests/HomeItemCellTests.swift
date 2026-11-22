@@ -3,8 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - HomeItemCellTests
-
 @Suite(.tags(.model))
 @MainActor
 struct HomeItemCellTests {
@@ -358,8 +356,6 @@ struct HomeItemCellTests {
         ))
     }
 }
-
-// MARK: - HomeItemTestWindow
 
 @MainActor
 private final class HomeItemTestWindow: NSWindow {

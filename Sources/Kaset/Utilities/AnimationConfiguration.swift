@@ -1,12 +1,8 @@
 import SwiftUI
 
-// MARK: - AppAnimation
-
 /// Centralized animation constants for consistent motion design throughout the app.
 /// All animations respect the system's "Reduce Motion" accessibility setting.
 enum AppAnimation {
-    // MARK: - Duration Constants
-
     /// Quick interactions like button presses (0.15s)
     static let quick = Animation.easeOut(duration: 0.15)
 
@@ -19,8 +15,6 @@ enum AppAnimation {
     /// Decorative, ambient animations (0.5s)
     static let ambient = Animation.easeInOut(duration: 0.5)
 
-    // MARK: - Spring Animations
-
     /// Responsive spring for interactive elements
     static let spring = Animation.spring(response: 0.35, dampingFraction: 0.7)
 
@@ -29,8 +23,6 @@ enum AppAnimation {
 
     /// Snappy spring for quick snaps
     static let snappy = Animation.spring(response: 0.25, dampingFraction: 0.8)
-
-    // MARK: - Stagger Delays
 
     /// Base delay for staggered list animations
     static let staggerDelay: Double = 0.05

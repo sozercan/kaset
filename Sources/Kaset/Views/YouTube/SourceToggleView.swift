@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SourceToggleView
-
 /// A two-segment glass capsule that flips the whole app between the
 /// YouTube Music and YouTube video experiences.
 ///
@@ -90,8 +88,6 @@ struct SourceToggleView: View {
     }
 }
 
-// MARK: - AccessibilityID.SourceToggle
-
 extension AccessibilityID {
     enum SourceToggle {
         static let container = "sidebar.sourceToggle"
@@ -101,8 +97,6 @@ extension AccessibilityID {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     SourceToggleView()

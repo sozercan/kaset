@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - RequiresIntelligenceModifier
-
 /// A view modifier that conditionally shows content based on Apple Intelligence availability.
 /// Use `.requiresIntelligence()` on AI-powered buttons and controls.
 @available(macOS 26.0, *)
@@ -48,8 +46,6 @@ struct RequiresIntelligenceModifier: ViewModifier {
     }
 }
 
-// MARK: - View Extension
-
 @available(macOS 26.0, *)
 extension View {
     /// Marks this view as requiring Apple Intelligence.
@@ -71,8 +67,6 @@ extension View {
         ))
     }
 }
-
-// MARK: - Notification
 
 extension Notification.Name {
     /// Posted when Apple Intelligence availability changes.

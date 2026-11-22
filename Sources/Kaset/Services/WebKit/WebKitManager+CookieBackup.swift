@@ -1,8 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - CookieArchiveBackupAction
-
 enum CookieArchiveBackupAction: Equatable, Sendable {
     case persist(data: Data, cookieCount: Int)
     /// The live jar has no primary session. Explicit sign-out and failed-login
@@ -22,8 +20,6 @@ enum CookieArchiveBackupAction: Equatable, Sendable {
         }
     }
 }
-
-// MARK: - CookieArchiveSnapshot
 
 struct CookieArchiveSnapshot: Equatable, Sendable {
     let data: Data
@@ -70,8 +66,6 @@ struct CookieArchiveSnapshot: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveVerificationState
-
 enum CookieArchiveVerificationState: Sendable {
     case noValidAuthCookies
     case snapshot(CookieArchiveSnapshot)
@@ -95,8 +89,6 @@ enum CookieArchiveVerificationState: Sendable {
         }
     }
 }
-
-// MARK: - CookieArchiveStabilityEntry
 
 private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     let name: String
@@ -126,8 +118,6 @@ private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - LoginCookieVerificationState
-
 private struct LoginCookieVerificationState: Equatable, Sendable {
     let entries: [CookieArchiveStabilityEntry]
 
@@ -149,14 +139,10 @@ private struct LoginCookieVerificationState: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveWriteAttempt
-
 struct CookieArchiveWriteAttempt: Sendable {
     let snapshot: CookieArchiveSnapshot
     let generation: UInt64
 }
-
-// MARK: - CookieBackupStabilizationResult
 
 enum CookieBackupStabilizationResult: Equatable {
     case persisted
@@ -164,8 +150,6 @@ enum CookieBackupStabilizationResult: Equatable {
     case cancelled
     case unstable
 }
-
-// MARK: - CookieBackupStabilizer
 
 @MainActor
 enum CookieBackupStabilizer {
@@ -247,23 +231,17 @@ enum CookieBackupStabilizer {
     }
 }
 
-// MARK: - LiveCookieRollbackResult
-
 private enum LiveCookieRollbackResult {
     case restored
     case superseded
     case failed
 }
 
-// MARK: - LoginCookieBackupBaseline
-
 private struct LoginCookieBackupBaseline {
     let liveBaseline: CookieArchiveLiveBaseline
     let authSnapshot: CookieArchiveSnapshot?
     let loginCookies: [HTTPCookie]
 }
-
-// MARK: - Forced Cookie Backup
 
 extension WebKitManager {
     /// Starts a rollback-safe persistence transaction before the login WebView
@@ -779,8 +757,6 @@ extension WebKitManager {
         )
     }
 }
-
-// MARK: - WebKitManager + WKHTTPCookieStoreObserver
 
 extension WebKitManager: WKHTTPCookieStoreObserver {
     nonisolated func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {

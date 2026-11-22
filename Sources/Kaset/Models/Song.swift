@@ -1,8 +1,6 @@
 import CoreTransferable
 import Foundation
 
-// MARK: - Song
-
 /// Represents a song/track from YouTube Music.
 struct Song: Identifiable, Codable, Hashable {
     let id: String
@@ -265,8 +263,6 @@ extension Song {
     }
 }
 
-// MARK: - Equatable & Hashable
-
 extension Song {
     static func == (lhs: Song, rhs: Song) -> Bool {
         // Compare by video ID for identity equality
@@ -277,8 +273,6 @@ extension Song {
         hasher.combine(self.videoId)
     }
 }
-
-// MARK: Transferable
 
 extension Song: Transferable {
     static var transferRepresentation: some TransferRepresentation {

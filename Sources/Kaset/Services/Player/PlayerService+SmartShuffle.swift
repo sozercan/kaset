@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Smart Shuffle (pure helpers)
-
 @MainActor
 extension PlayerService {
     /// Numeric tuning for the Smart Shuffle fill loop, read via ``smartShuffleConfigProvider``.
@@ -93,8 +91,6 @@ extension PlayerService {
     static func stripSuggested(from entries: [QueueEntry], keepingCurrentID currentID: UUID?) -> [QueueEntry] {
         entries.filter { $0.source != .suggested || $0.id == currentID }
     }
-
-    // MARK: - Smart Shuffle (orchestration)
 
     /// Rolling, preceding-song filler. For each insertion slot in the upcoming window it seeds
     /// radio from the original track immediately before the slot, so suggestions stay locally
@@ -300,8 +296,6 @@ extension PlayerService {
             await self.fillSmartShuffleWindow()
         }
     }
-
-    // MARK: - Progressive queue loading
 
     /// Marks the queue as still loading the rest of a playlist after playback started and returns
     /// the generation identifying this load stream. While loading, `fillSmartShuffleWindow` defers

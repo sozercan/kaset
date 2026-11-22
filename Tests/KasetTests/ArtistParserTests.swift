@@ -6,8 +6,6 @@ import Testing
 /// Tests for ArtistParser.
 @Suite(.tags(.parser))
 struct ArtistParserTests {
-    // MARK: - Parse Artist Detail Tests
-
     @Test("parseArtistDetail extracts basic info")
     func parseArtistDetailBasicInfo() {
         let data = Self.makeArtistResponse(
@@ -119,8 +117,6 @@ struct ArtistParserTests {
         #expect(result.thumbnailURL?.absoluteString == "https://example.com/artist.jpg")
     }
 
-    // MARK: - Parse Artist Songs Tests
-
     @Test("parseArtistSongs extracts songs from shelf")
     func parseArtistSongsExtractsFromShelf() {
         let data = Self.makeArtistSongsResponse(songCount: 10)
@@ -164,8 +160,6 @@ struct ArtistParserTests {
         #expect(songs[0].isPlayable)
         #expect(songs[1].isPlayable == false)
     }
-
-    // MARK: - Album Parsing Tests
 
     @Test("parseArtistDetail extracts albums with MPRE prefix")
     func parseArtistDetailExtractsAlbumsWithMPRE() {
@@ -334,8 +328,6 @@ struct ArtistParserTests {
         #expect(Self.artists(in: result, titled: "Artists on repeat")?.first?.profileKind == .profile)
     }
 
-    // MARK: - Mix Playlist Tests
-
     @Test("parseArtistDetail extracts mix playlist ID from startRadioButton")
     func parseArtistDetailExtractsMixPlaylistId() {
         let data = Self.makeArtistResponseWithRadioButton(
@@ -347,8 +339,6 @@ struct ArtistParserTests {
 
         #expect(result.mixPlaylistId == "RDCLAK-mix-123")
     }
-
-    // MARK: - Fixture-backed Tests (real payload shape)
 
     /// Loads and parses `artist_lofi_girl.json`, a snapshot of the artist page
     /// for a channel-style artist (Lofi Girl). Asserts every non-default
@@ -447,8 +437,6 @@ struct ArtistParserTests {
         #expect(!liveEpisodes.isEmpty, "Expected at least one live stream in the full episodes list")
         #expect(episodes.contains { $0.videoId == "IxPANmjPaek" })
     }
-
-    // MARK: - Test Helpers
 
     @Test("parseArtistDetail propagates explicit badge to top songs")
     func parseArtistDetailPropagatesExplicitBadge() {

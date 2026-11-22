@@ -3,15 +3,11 @@ import Foundation
 /// Launch arguments and environment keys for UI testing.
 /// Use these to configure the app in test mode with mock data.
 enum UITestConfig {
-    // MARK: - Launch Arguments
-
     /// When present, app runs in UI test mode with mock services.
     static let uiTestModeArgument = "-UITestMode"
 
     /// When present, skip auth and assume logged in.
     static let skipAuthArgument = "-SkipAuth"
-
-    // MARK: - Environment Keys
 
     /// JSON-encoded mock home sections data.
     static let mockHomeSectionsKey = "MOCK_HOME_SECTIONS"
@@ -53,8 +49,6 @@ enum UITestConfig {
     /// to simulate a region where YouTube Music does not offer the
     /// Podcasts discovery surface. Used to UI-test sidebar visibility.
     static let mockPodcastsRegionUnavailableKey = "MOCK_PODCASTS_REGION_UNAVAILABLE"
-
-    // MARK: - Detection
 
     /// Returns true if the app was launched in UI test mode.
     static var isUITestMode: Bool {

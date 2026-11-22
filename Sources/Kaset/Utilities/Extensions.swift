@@ -1,16 +1,12 @@
 import Foundation
 import SwiftUI
 
-// MARK: - Collection Extensions
-
 extension Collection {
     /// Safe subscript that returns nil if index is out of bounds.
     subscript(safe index: Index) -> Element? {
         indices.contains(index) ? self[index] : nil
     }
 }
-
-// MARK: - TimeInterval Extensions
 
 extension TimeInterval {
     /// Formats the time interval as "mm:ss" or "h:mm:ss".
@@ -27,8 +23,6 @@ extension TimeInterval {
         }
     }
 }
-
-// MARK: - View Extensions
 
 extension View {
     /// Applies a modifier conditionally.
@@ -52,8 +46,6 @@ extension View {
     }
 }
 
-// MARK: - URL Extensions
-
 extension URL {
     /// Returns a higher quality YouTube thumbnail URL.
     var highQualityThumbnailURL: URL? {
@@ -71,8 +63,6 @@ extension URL {
     }
 }
 
-// MARK: - String Extensions
-
 extension String {
     /// Returns a truncated version of the string.
     func truncated(to length: Int, trailing: String = "…") -> String {
@@ -82,8 +72,6 @@ extension String {
         return self
     }
 }
-
-// MARK: - Color Extensions
 
 extension Color {
     /// Creates a Color from a hex string (e.g., "#FF5733" or "FF5733").

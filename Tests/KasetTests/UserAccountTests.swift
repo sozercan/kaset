@@ -7,11 +7,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - UserAccountTests
-
 struct UserAccountTests {
-    // MARK: - Primary Account Tests
-
     @Test func primaryAccountHasNilBrandId() {
         let account = MockUserAccountData.primaryAccount
 
@@ -33,8 +29,6 @@ struct UserAccountTests {
         #expect(account.handle == "@testuser")
     }
 
-    // MARK: - Brand Account Tests
-
     @Test func brandAccountHasBrandId() {
         let account = MockUserAccountData.brandAccount
 
@@ -55,8 +49,6 @@ struct UserAccountTests {
 
         #expect(account.handle == "@brandaccount")
     }
-
-    // MARK: - Factory Method Tests
 
     @Test func factoryMethodCreatesPrimaryAccount() {
         let account = UserAccount.from(
@@ -93,8 +85,6 @@ struct UserAccountTests {
         #expect(account.isPrimary == false)
         #expect(account.isSelected == false)
     }
-
-    // MARK: - Equatable Tests
 
     @Test func accountEqualitySameAccounts() {
         let account1 = MockUserAccountData.primaryAccount
@@ -149,8 +139,6 @@ struct UserAccountTests {
         #expect(account1 != account2)
     }
 
-    // MARK: - Hashable Tests
-
     @Test func accountHashability() {
         let account1 = MockUserAccountData.primaryAccount
         let account2 = MockUserAccountData.primaryAccount
@@ -179,8 +167,6 @@ struct UserAccountTests {
         // Different accounts should (almost certainly) have different hashes
         #expect(account1.hashValue != account2.hashValue)
     }
-
-    // MARK: - Optional Fields Tests
 
     @Test func accountWithNilHandle() {
         let account = UserAccount.from(
@@ -225,8 +211,6 @@ struct UserAccountTests {
         #expect(account.isPrimary == true)
     }
 
-    // MARK: - Selection State Tests
-
     @Test func selectedAccountState() {
         let selected = UserAccount.from(
             name: "Selected User",
@@ -250,8 +234,6 @@ struct UserAccountTests {
 
         #expect(unselected.isSelected == false)
     }
-
-    // MARK: - Type Label Tests
 
     @Test func typeLabelForPrimaryAccount() {
         let primary = MockUserAccountData.primaryAccount
@@ -286,8 +268,6 @@ struct UserAccountTests {
         #expect(first.cacheIdentity != second.cacheIdentity)
     }
 }
-
-// MARK: - MockUserAccountData
 
 enum MockUserAccountData {
     static var primaryAccount: UserAccount {

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YouTubeFeed
-
 /// A page of the YouTube home (recommended) feed.
 struct YouTubeFeed {
     let videos: [YouTubeVideo]
@@ -18,8 +16,6 @@ struct YouTubeFeed {
 
     static let empty = YouTubeFeed(videos: [], continuation: nil)
 }
-
-// MARK: - YouTubeHomeSection
 
 /// A titled, side-scrolling section on the YouTube (video) home surface.
 ///
@@ -44,8 +40,6 @@ struct YouTubeHomeSection: Identifiable {
     let kind: Kind
 }
 
-// MARK: - YouTubeHomeChip
-
 /// A personalized filter chip from the home feed's chip bar. Each chip's
 /// `continuation` browses (via the `browse` continuation endpoint) to a
 /// topic-filtered, personalized video feed used to build a home rail.
@@ -60,8 +54,6 @@ struct YouTubeHomeChip: Identifiable {
     let continuation: String
 }
 
-// MARK: - YouTubeHomeBundle
-
 /// The three surfaces carried by a single home `FEwhat_to_watch` response: the
 /// flat recommendation feed, the personalized filter chips, and the response's
 /// own titled shelves. Produced by one fetch + one parse pass so the ~2 MB blob
@@ -71,8 +63,6 @@ struct YouTubeHomeBundle {
     let chips: [YouTubeHomeChip]
     let shelves: [YouTubeHomeSection]
 }
-
-// MARK: - YouTubeChapter
 
 /// A navigation chapter exposed by YouTube's watch-next `next` response.
 struct YouTubeChapter: Identifiable, Hashable {
@@ -92,8 +82,6 @@ struct YouTubeChapter: Identifiable, Hashable {
     }
 }
 
-// MARK: - YouTubeSearchResponse
-
 /// Results of a YouTube search, split by result kind.
 struct YouTubeSearchResponse {
     var videos: [YouTubeVideo]
@@ -112,8 +100,6 @@ struct YouTubeSearchResponse {
         self.videos.isEmpty && self.channels.isEmpty && self.playlists.isEmpty
     }
 }
-
-// MARK: - YouTubeSearchFilter
 
 /// Search result filters mapped to InnerTube `params` values.
 enum YouTubeSearchFilter: String, CaseIterable, Identifiable {
@@ -153,8 +139,6 @@ enum YouTubeSearchFilter: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - WatchNextData
 
 /// Watch-page companion data from the `next` endpoint: video metadata and
 /// the related-videos rail.
@@ -207,8 +191,6 @@ struct WatchNextData {
     )
 }
 
-// MARK: - YouTubeDestination
-
 /// Public destination feeds shown on the Explore surface.
 /// (YouTube retired the Trending feed in 2025; these are its successors.)
 enum YouTubeDestination: String, CaseIterable, Identifiable {
@@ -238,8 +220,6 @@ enum YouTubeDestination: String, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - YouTubeComment
 
 /// A comment on a YouTube video.
 struct YouTubeComment: Identifiable, Hashable {
@@ -291,8 +271,6 @@ struct YouTubeComment: Identifiable, Hashable {
     }
 }
 
-// MARK: - YouTubeCommentsPage
-
 /// One page of a video's comments.
 struct YouTubeCommentsPage {
     let comments: [YouTubeComment]
@@ -305,8 +283,6 @@ struct YouTubeCommentsPage {
     static let empty = YouTubeCommentsPage(comments: [], continuation: nil, createCommentParams: nil)
 }
 
-// MARK: - YouTubeCaptionTrack
-
 /// A caption track offered by the watch page player.
 struct YouTubeCaptionTrack: Identifiable, Hashable {
     let languageCode: String
@@ -316,8 +292,6 @@ struct YouTubeCaptionTrack: Identifiable, Hashable {
         self.languageCode
     }
 }
-
-// MARK: - YouTubeQuality
 
 /// Display helpers for YouTube's quality-level identifiers.
 enum YouTubeQuality {
@@ -339,8 +313,6 @@ enum YouTubeQuality {
         }
     }
 }
-
-// MARK: - YouTubeRating
 
 /// Rating actions for a video.
 enum YouTubeRating {

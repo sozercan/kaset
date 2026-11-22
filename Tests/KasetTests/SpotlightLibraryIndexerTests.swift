@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SpotlightLibraryIndexerTests
-
 @Suite("Spotlight Library indexer", .serialized, .tags(.service))
 @MainActor
 struct SpotlightLibraryIndexerTests {
@@ -155,8 +153,6 @@ struct SpotlightLibraryIndexerTests {
         #expect(await index.started == [["PL-first"], ["PL-latest"]])
     }
 }
-
-// MARK: - AppIntentsEntityTests
 
 @Suite("App Intents entities", .tags(.service))
 @MainActor

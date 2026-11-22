@@ -52,8 +52,6 @@ enum YouTubeFeedParser {
         )
     }
 
-    // MARK: - Home Sections (Chips & Shelves)
-
     /// One deserialize + parse of the home `FEwhat_to_watch` response into all
     /// three of its surfaces: the flat feed, the personalized chips, and the
     /// titled shelves. The home response carries all three, so callers fetch and
@@ -180,8 +178,6 @@ enum YouTubeFeedParser {
         return nil
     }
 
-    // MARK: - Collection
-
     /// Recursively collects regular videos and the first continuation token,
     /// dropping Shorts. Convenience for surfaces that don't present Shorts
     /// (watch-next related, channel pages).
@@ -256,8 +252,6 @@ enum YouTubeFeedParser {
         var seen = Set<String>()
         return videos.filter { seen.insert($0.videoId).inserted }
     }
-
-    // MARK: - Playlist Collection
 
     /// Recursively collects playlist lockups (used by the user-playlists page).
     static func collectPlaylists(_ data: [String: Any]) -> [YouTubePlaylist] {

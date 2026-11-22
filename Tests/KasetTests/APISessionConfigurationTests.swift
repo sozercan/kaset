@@ -7,8 +7,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - APISessionConfigurationTests
-
 struct APISessionConfigurationTests {
     /// Regression guard for the "Data Error" outage: the API session must NOT set an
     /// `Accept-Encoding` header. Setting it manually disables URLSession's transparent

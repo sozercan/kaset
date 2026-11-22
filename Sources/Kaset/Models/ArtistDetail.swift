@@ -1,14 +1,10 @@
 import Foundation
 
-// MARK: - ArtistDetailSectionContent
-
 enum ArtistDetailSectionContent: Hashable {
     case albums([Album])
     case playlists([Playlist])
     case artists([Artist])
 }
-
-// MARK: - ArtistDetailSection
 
 struct ArtistDetailSection: Identifiable, Hashable {
     let title: String
@@ -28,8 +24,6 @@ struct ArtistDetailSection: Identifiable, Hashable {
         }
     }
 }
-
-// MARK: - ArtistDetail
 
 /// Contains detailed artist information including their songs.
 struct ArtistDetail {

@@ -3,8 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YTMusicClientTests
-
 /// Tests for YTMusicClient.
 @Suite(.tags(.api))
 struct YTMusicClientTests {
@@ -117,8 +115,6 @@ struct YTMusicClientTests {
         #expect(artist.name == "Test Artist")
     }
 
-    // MARK: - Podcast Show ID Validation Tests
-
     @Test("Podcast show ID conversion handles L-prefixed suffix correctly")
     func podcastShowIdConversionWithLPrefix() {
         // Real podcast IDs are "MPSPP" + "L" + {base64id}
@@ -179,8 +175,6 @@ struct YTMusicClientTests {
         #expect(!suffix.hasPrefix("L"), "This ID doesn't have required L-prefix")
     }
 
-    // MARK: - Podcast Subscription Integration Tests
-
     @Test("subscribeToPodcast throws for empty suffix")
     @MainActor
     func subscribeToPodcastThrowsForEmptySuffix() async {
@@ -239,8 +233,6 @@ struct YTMusicClientTests {
         try await mockClient.unsubscribeFromPodcast(showId: "MPSPPLXz2p9abc123")
     }
 }
-
-// MARK: - YTMusicClientSearchRequestTests
 
 @Suite(.serialized, .tags(.api))
 @MainActor
@@ -455,8 +447,6 @@ struct YTMusicClientSearchRequestTests {
     }
 }
 
-// MARK: - SearchRequestRecord
-
 private struct SearchRequestRecord: Equatable, Sendable {
     let path: String
     let query: String?
@@ -464,8 +454,6 @@ private struct SearchRequestRecord: Equatable, Sendable {
     let continuation: String?
     let hasBrowseId: Bool
 }
-
-// MARK: - SearchRequestRecorder
 
 private final class SearchRequestRecorder: @unchecked Sendable {
     private let lock = NSLock()
@@ -481,8 +469,6 @@ private final class SearchRequestRecorder: @unchecked Sendable {
         }
     }
 }
-
-// MARK: - YTMusicAPIKeyResolverTests
 
 /// Tests for runtime resolution of the YouTube Music web client API key.
 @Suite(.serialized, .tags(.api))
@@ -712,8 +698,6 @@ struct YTMusicAPIKeyResolverTests {
         }
     }
 }
-
-// MARK: - YTMusicClientContinuationResetTests
 
 @Suite(.serialized, .tags(.api))
 @MainActor

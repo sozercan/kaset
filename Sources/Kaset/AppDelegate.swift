@@ -6,8 +6,6 @@ extension Notification.Name {
     static let kasetOpenURLs = Notification.Name("kasetOpenURLs")
 }
 
-// MARK: - AppActivationWindowPolicy
-
 /// Decides whether a generic activation should reveal the main window. Explicit
 /// reopen actions such as the Dock icon and Window → Kaset bypass this policy.
 enum AppActivationWindowPolicy {
@@ -19,8 +17,6 @@ enum AppActivationWindowPolicy {
             && !AccessibilityID.isAuxiliaryPlayerWindowIdentifier(mainWindowIdentifier)
     }
 }
-
-// MARK: - AppDelegate
 
 /// App delegate to control application lifecycle behavior.
 /// Keeps the app running when windows are closed so audio playback continues.
@@ -176,8 +172,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         self.mainWindow = nil
     }
-
-    // MARK: - Dock Menu
 
     func applicationDockMenu(_: NSApplication) -> NSMenu? {
         let menu = NSMenu()
@@ -361,8 +355,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: NSWindowDelegate
-
 extension AppDelegate: NSWindowDelegate {
     /// Intercept window close and hide instead, keeping WebView alive for background audio.
     /// In UI test mode, close normally to avoid process conflicts.
@@ -377,8 +369,6 @@ extension AppDelegate: NSWindowDelegate {
         return false // Don't actually close
     }
 }
-
-// MARK: UNUserNotificationCenterDelegate
 
 extension AppDelegate: UNUserNotificationCenterDelegate {
     /// Show notifications even when the app is in the foreground.

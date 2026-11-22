@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SkeletonView
-
 /// A skeleton loading placeholder with shimmer animation.
 /// Use this to indicate content is loading while maintaining layout structure.
 /// Uses TimelineView for smooth, stutter-free continuous animation.
@@ -82,8 +80,6 @@ struct SkeletonView: View {
     }
 }
 
-// MARK: - Convenience Initializers
-
 extension SkeletonView {
     /// Rectangle skeleton with optional corner radius.
     static func rectangle(cornerRadius: CGFloat = 8) -> SkeletonView {
@@ -100,8 +96,6 @@ extension SkeletonView {
         SkeletonView(shape: .capsule)
     }
 }
-
-// MARK: - SkeletonCardView
 
 /// A skeleton placeholder for card layouts (thumbnail + text).
 struct SkeletonCardView: View {
@@ -129,8 +123,6 @@ struct SkeletonCardView: View {
         }
     }
 }
-
-// MARK: - SkeletonRowView
 
 /// A skeleton placeholder for list rows.
 struct SkeletonRowView: View {
@@ -162,8 +154,6 @@ struct SkeletonRowView: View {
     }
 }
 
-// MARK: - SkeletonSectionView
-
 /// A skeleton placeholder for a horizontal section (like home sections).
 struct SkeletonSectionView: View {
     let cardCount: Int
@@ -193,8 +183,6 @@ struct SkeletonSectionView: View {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     VStack(spacing: 32) {

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - DetailContentLayout
-
 /// Shared layout constants for detail-column content that slides under the
 /// floating Liquid Glass sidebar on macOS 26.
 ///

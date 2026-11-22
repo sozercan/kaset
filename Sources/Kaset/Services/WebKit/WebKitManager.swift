@@ -3,8 +3,6 @@ import os
 import Security
 import WebKit
 
-// MARK: - WebKitManager
-
 /// Manages WebKit data store for persistent cookies and session management.
 @MainActor
 @Observable
@@ -649,8 +647,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 #endif
 
-// MARK: - SessionSwitchError
-
 /// Errors raised while switching the WebView session's active delegated identity.
 enum SessionSwitchError: LocalizedError {
     /// The page loaded but its `DATASYNC_ID` did not reflect the expected identity.
@@ -794,8 +790,6 @@ extension WebKitManager {
         return delegatedSessionId == nil
     }
 }
-
-// MARK: - SessionSwitchNavigationDriver
 
 /// Drives a one-shot navigation to completion for ``WebKitManager/switchSessionIdentity(to:expectedBrandId:)``.
 ///

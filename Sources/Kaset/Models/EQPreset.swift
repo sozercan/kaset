@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - EQPreset
-
 /// Built-in equalizer presets, modelled after Spotify's mobile preset list.
 ///
 /// Each case carries a fixed gain table matching ``EQBand/defaultBands``

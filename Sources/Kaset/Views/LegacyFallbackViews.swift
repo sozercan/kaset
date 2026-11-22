@@ -7,8 +7,6 @@ import SwiftUI
 // app remains usable on Sequoia. On macOS 26+ the original full-featured
 // views are used instead.
 
-// MARK: - SimplePlaylistDetailView
-
 /// Minimal playlist view used on macOS 15 (no Liquid Glass, no AI refine).
 struct SimplePlaylistDetailView: View {
     let playlist: Playlist
@@ -225,8 +223,6 @@ struct SimplePlaylistDetailView: View {
         return String(format: "%d:%02d", m, s)
     }
 }
-
-// MARK: - SimpleLyricsView
 
 /// Minimal lyrics panel used on macOS 15. Shows synced lyrics if available,
 /// without AI explanations.

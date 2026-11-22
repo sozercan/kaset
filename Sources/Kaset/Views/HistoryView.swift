@@ -85,8 +85,6 @@ struct HistoryView: View {
         return changed
     }
 
-    // MARK: - Content
-
     private var headerView: some View {
         HStack(spacing: 16) {
             ZStack {
@@ -168,8 +166,6 @@ struct HistoryView: View {
         }
         .accessibilityIdentifier(AccessibilityID.History.scrollView)
     }
-
-    // MARK: - Song Row
 
     private func songRow(_ song: Song, allSongs: [Song], index: Int) -> some View {
         HoverObservingRow { isHovered in
