@@ -1,0 +1,124 @@
+{
+  "onResponseReceivedActions": [
+    {
+      "openPopupAction": {
+        "popupType": "DIALOG",
+        "popup": {
+          "dismissableDialogRenderer": {
+            "title": "Song credits",
+            "displayStyle": "DISMISSABLE_DIALOG_DISPLAY_STYLE_TRACK_CREDITS",
+            "metadata": {
+              "musicMultiRowListItemRenderer": {
+                "title": {
+                  "runs": [
+                    {
+                      "text": "Test Song",
+                      "navigationEndpoint": {
+                        "watchEndpoint": {
+                          "videoId": "test-video"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "subtitle": {
+                  "runs": [
+                    {
+                      "text": "Test Artist"
+                    }
+                  ]
+                }
+              }
+            },
+            "sections": [
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Performed by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Test Artist"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Written by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Writer One"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Writer Two"
+                      },
+                      {
+                        "text": "\n"
+                      },
+                      {
+                        "text": "Writer Three"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Produced by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Producer One"
+                      }
+                    ]
+                  }
+                }
+              },
+              {
+                "dismissableDialogContentSectionRenderer": {
+                  "title": {
+                    "runs": [
+                      {
+                        "text": "Music metadata provided by"
+                      }
+                    ]
+                  },
+                  "subtitle": {
+                    "runs": [
+                      {
+                        "text": "Test Label"
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

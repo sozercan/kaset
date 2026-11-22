@@ -38,6 +38,10 @@ extension ParsingHelpers {
         return nil
     }
 
+    static func trackCreditsBrowseId(forVideoId videoId: String) -> String {
+        self.trackCreditsBrowseIdPrefix + videoId
+    }
+
     /// Page type identifying a track-credits browse destination.
     private static let trackCreditsPageType = "MUSIC_PAGE_TYPE_TRACK_CREDITS"
 
