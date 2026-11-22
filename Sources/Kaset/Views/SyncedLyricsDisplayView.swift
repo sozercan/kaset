@@ -16,7 +16,7 @@ struct SyncedLyricsDisplayView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .center, spacing: 20) {
-                    Spacer().frame(height: 150) // Top padding
+                    Spacer().frame(height: 150)
 
                     ForEach(self.lyrics.lines.indices, id: \.self) { lineIndex in
                         let line = self.lyrics.lines[lineIndex]
@@ -29,7 +29,7 @@ struct SyncedLyricsDisplayView: View {
                         .id(line.id)
                     }
 
-                    Spacer().frame(height: 150) // Bottom padding
+                    Spacer().frame(height: 150)
                 }
                 .padding(.horizontal, 24)
             }
@@ -44,7 +44,6 @@ struct SyncedLyricsDisplayView: View {
 
                 self.currentLineId = newId
                 withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) {
-                    // Target center for natural scrolling
                     proxy.scrollTo(newId, anchor: .center)
                 }
             }
@@ -71,17 +70,14 @@ struct SyncedLineView: View {
     let status: SyncedLyrics.LineStatus
     let onTap: () -> Void
 
-    /// Smooth transition
     private let animation = Animation.spring(response: 0.4, dampingFraction: 0.8)
 
     var body: some View {
         VStack(spacing: 4) {
-            // Original text
             Text(self.line.text.isEmpty ? "♪" : self.line.text)
                 .font(.system(size: self.status == .current ? 26 : 20, weight: self.status == .current ? .bold : .medium, design: .default))
                 .foregroundStyle(self.status == .current ? .primary : (self.status == .previous ? .secondary : .tertiary))
 
-            // Romanized text (only if present and differs from original)
             if let romaji = self.line.romanizedText {
                 Text(romaji)
                     .font(.system(size: self.status == .current ? 18 : 14, weight: .regular, design: .default))
@@ -96,7 +92,6 @@ struct SyncedLineView: View {
         .animation(self.animation, value: self.status)
         .multilineTextAlignment(.center)
         .lineLimit(nil)
-        // Use content shape to allow tapping on empty space around text too
         .contentShape(Rectangle())
         .onTapGesture {
             self.onTap()

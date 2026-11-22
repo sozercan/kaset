@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Reusable card view for home section items (songs, playlists, albums, artists).
 struct HomeSectionItemCard: View, Equatable {
     let item: HomeSectionItem
     let rank: Int?
@@ -9,12 +8,10 @@ struct HomeSectionItemCard: View, Equatable {
     private let hasPlayAction: Bool
     @Environment(AuthService.self) private var authService
 
-    /// Card dimensions.
     private static let squareThumbnailSize = CGSize(width: 160, height: 160)
     private static let videoThumbnailSize = CGSize(width: 284, height: 160)
     private static let playButtonSize = CGSize(width: 48, height: 48)
 
-    /// Hover state for play overlay.
     @State private var isHovering = false
     @State private var failedThumbnailURLs: Set<URL> = []
 
@@ -31,12 +28,6 @@ struct HomeSectionItemCard: View, Equatable {
         self.hasPlayAction = playAction != nil
     }
 
-    /// Lets SwiftUI skip re-evaluating unchanged cards when a shelf or its
-    /// parent re-renders (measured: this is what made Home scrolling hitch).
-    ///
-    /// Contract for callers: `action`/`playAction` must depend only on `item`
-    /// (and `rank`). If two cards compare equal, the old closures are kept, so
-    /// an action that captured section membership or index would go stale.
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.item.hasSameCardContent(as: rhs.item)
             && lhs.rank == rhs.rank
@@ -63,9 +54,6 @@ struct HomeSectionItemCard: View, Equatable {
                     self.regularContent
                 }
             }
-            // Hover feedback lives on the thumbnail (see `thumbnail`), so the
-            // button style only contributes press feedback and registers no
-            // hover responder.
             .buttonStyle(.interactiveCard(showShadow: false, hoverScale: 1))
         }
         .onHover { hovering in
@@ -92,7 +80,6 @@ struct HomeSectionItemCard: View, Equatable {
                 self.titleAndSubtitle
             }
 
-            // Rank badge overlay with adaptive styling
             Text("\(rank)")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(.primary)
@@ -127,18 +114,14 @@ struct HomeSectionItemCard: View, Equatable {
         }
         .frame(width: self.thumbnailSize.width, height: self.thumbnailSize.height)
         .clipShape(.rect(cornerRadius: 8))
-        // Lift only the thumbnail and add its shadow on hover while preserving
-        // the loaded image's identity.
         .modifier(ThumbnailHoverLift(isHovering: self.isHovering))
         .overlay {
-            // Play overlay on hover (for songs)
             if case .song = self.item, self.isHovering {
                 SongCoverPlayOverlay(size: Self.playButtonSize)
                     .transition(.opacity)
             }
         }
         .overlay(alignment: .topTrailing) {
-            // Favorite heart in the corner for songs
             if case let .song(song) = self.item {
                 LikeButton(song: song, isRowHovered: self.isHovering, allowsActions: self.authService.hasPersonalAccount)
                     .padding(6)
@@ -209,21 +192,17 @@ struct HomeSectionItemCard: View, Equatable {
         }
     }
 
-    /// Placeholder view for items without thumbnails.
-    /// Uses the API-provided color for mood/genre cards, or a gradient based on the title.
     private var placeholderView: some View {
         let gradient = self.gradientForItem
         return Rectangle()
             .fill(gradient)
             .overlay {
-                // Show a contextual icon based on item type
                 Image(systemName: self.placeholderIcon)
                     .font(.system(size: 36))
                     .foregroundStyle(.white.opacity(0.8))
             }
     }
 
-    /// Returns appropriate icon for the placeholder based on item type.
     private var placeholderIcon: String {
         switch self.item {
         case .song: self.isVideoSong ? "play.rectangle" : "music.note"
@@ -233,16 +212,12 @@ struct HomeSectionItemCard: View, Equatable {
         }
     }
 
-    /// Generates a gradient for the card.
-    /// Uses API-provided color (from description) for mood cards, or title-based hash.
     private var gradientForItem: LinearGradient {
-        // Check if this is a mood card with color in description
         if case let .playlist(playlist) = item,
            let colorHex = playlist.description,
            colorHex.hasPrefix("#"),
            let color = Color(hex: colorHex)
         {
-            // Create a gradient from the API color
             return LinearGradient(
                 colors: [color, color.opacity(0.7)],
                 startPoint: .topLeading,
@@ -250,11 +225,9 @@ struct HomeSectionItemCard: View, Equatable {
             )
         }
 
-        // Fallback to title-based gradient
         return Self.gradientForTitle(self.item.title)
     }
 
-    /// Generates a consistent gradient color based on the title string.
     private static func gradientForTitle(_ title: String) -> LinearGradient {
         let hash = abs(title.hashValue)
         let hue1 = Double(hash % 360) / 360.0
@@ -313,7 +286,6 @@ private struct ThumbnailHoverLift: ViewModifier {
     func body(content: Content) -> some View {
         content
             .background {
-                // Keep the stateful image outside the conditional branch.
                 if self.isHovering {
                     RoundedRectangle(cornerRadius: 8)
                         .fill(.black.opacity(0.15))
@@ -358,12 +330,8 @@ struct SongCoverPlayOverlay: View {
         videoId: "testVideo"
     )
     HStack {
-        HomeSectionItemCard(item: .song(song)) {
-            // No-op for preview
-        }
-        HomeSectionItemCard(item: .song(song), rank: 1) {
-            // No-op for preview
-        }
+        HomeSectionItemCard(item: .song(song)) {}
+        HomeSectionItemCard(item: .song(song), rank: 1) {}
     }
     .padding()
     .environment(AuthService())

@@ -2,11 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for FavoritesManager using Swift Testing.
 @Suite(.serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
 struct FavoritesManagerTests {
-    /// Use a fresh manager for each test (skipLoad to avoid disk state)
     var manager: FavoritesManager
 
     init() {
@@ -128,12 +126,10 @@ struct FavoritesManagerTests {
     func toggleAddsAndRemoves() {
         let song = TestFixtures.makeSong(id: "toggle-test")
 
-        // First toggle should add
         self.manager.toggle(song: song)
         #expect(self.manager.isPinned(song: song) == true)
         #expect(self.manager.items.count == 1)
 
-        // Second toggle should remove
         self.manager.toggle(song: song)
         #expect(self.manager.isPinned(song: song) == false)
         #expect(self.manager.items.isEmpty)
@@ -162,12 +158,10 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is now: song3, song2, song1 (newest first)
         #expect(self.manager.items[0].title == "Song 3")
         #expect(self.manager.items[1].title == "Song 2")
         #expect(self.manager.items[2].title == "Song 1")
 
-        // Move song1 (index 2) to index 0
         self.manager.move(from: IndexSet(integer: 2), to: 0)
 
         #expect(self.manager.items[0].title == "Song 1")
@@ -185,8 +179,6 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is: song3, song2, song1
-        // Move song1 to top
         self.manager.moveToTop(contentId: song1.videoId)
 
         #expect(self.manager.items[0].title == "Song 1")
@@ -202,8 +194,6 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is: song3, song2, song1
-        // Move song3 to end
         self.manager.moveToEnd(contentId: song3.videoId)
 
         #expect(self.manager.items[2].title == "Song 3")
@@ -812,7 +802,6 @@ struct FavoritesManagerTests {
         let item1 = FavoriteItem.from(song)
         let item2 = FavoriteItem.from(song)
 
-        // Should be equal even though they have different UUIDs
         #expect(item1 == item2)
         #expect(item1.hashValue == item2.hashValue)
     }

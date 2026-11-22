@@ -405,7 +405,6 @@ struct YouTubeAskClientTests {
             _ = try await client.loadAskConversation(from: #require(page.askBootstrap))
             Issue.record("Expected YTMusicError.authExpired")
         } catch YTMusicError.authExpired {
-            // Expected shared authentication-expiry contract.
         } catch {
             Issue.record("Expected YTMusicError.authExpired, got \(type(of: error))")
         }

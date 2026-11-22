@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Loads a captured YouTube API fixture from the test bundle.
 private func loadYouTubeFixture(_ name: String) throws -> [String: Any] {
     guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
         throw YouTubeFixtureError.notFound(name)
@@ -73,8 +72,6 @@ struct YouTubeFeedParserTests {
 
         let feed = YouTubeFeedParser.parse(data)
 
-        // Unauthenticated home is a sign-in nudge; the parser must return
-        // cleanly with no items rather than mis-parsing chrome as videos.
         #expect(feed.videos.isEmpty)
     }
 
@@ -123,19 +120,12 @@ struct YouTubeFeedParserTests {
         #expect(result.map(\.videoId) == ["a", "b"])
     }
 
-    /// A chip spec for `makeHomeResponse` (struct, not a tuple, to satisfy the
-    /// large_tuple lint rule).
     private struct ChipFixture {
         let title: String
-        /// InnerTube continuation cursor; `nil` models the tokenless "All" chip.
         let continuation: String?
         let selected: Bool
     }
 
-    /// Builds a minimal home browse response with a filter-chip bar and
-    /// optional richShelfRenderer shelves, matching the live `FEwhat_to_watch`
-    /// shape (`richGridRenderer.header.feedFilterChipBarRenderer` and
-    /// `richGridRenderer.contents[].richSectionRenderer.content.richShelfRenderer`).
     private func makeHomeResponse(
         chips: [ChipFixture] = [],
         shelves: [(title: String, videoIds: [String])] = []
@@ -238,14 +228,10 @@ struct YouTubeFeedParserTests {
 
         let bundle = try YouTubeFeedParser.parseHomeBundle(from: data)
 
-        // Chips: the selected "All" chip is dropped.
         #expect(bundle.chips.map(\.title) == ["Gaming"])
         #expect(bundle.chips.map(\.continuation) == ["tok-gaming"])
-        // Shelves: the titled shelf with its videos.
         #expect(bundle.shelves.map(\.title) == ["Breaking news"])
         #expect(bundle.shelves.first?.videos.map(\.videoId) == ["n1", "n2"])
-        // Feed: the flat walk collects the shelf videos too (the view model
-        // dedupes them against the shelf rail).
         #expect(bundle.feed.videos.map(\.videoId).sorted() == ["n1", "n2"])
     }
 
@@ -403,8 +389,6 @@ struct WatchNextParserTests {
                     ],
                 ],
             ],
-            // Matching macro markers provide end bounds that the canonical
-            // chapterRenderer timeline omits.
             "engagementPanels": [
                 [
                     "engagementPanelSectionListRenderer": [

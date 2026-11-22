@@ -132,7 +132,6 @@ struct LyricsSummaryTests {
         )
 
         #expect(!summary.explanation.isEmpty)
-        // Should be 2-4 sentences, reasonably concise
         #expect(summary.explanation.count < 500)
     }
 

@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Seek state owned by `MiniPlayerWindow` and shared by its per-layout seek sections, so a
-/// pending seek hold survives panel layout changes. The window must not read these
-/// properties in `body`, or progress ticks re-evaluate the whole window again.
 @MainActor
 @Observable
 final class MiniPlayerSeekState {
@@ -10,8 +7,6 @@ final class MiniPlayerSeekState {
     var isSeeking = false
     var hold = PlayerBarSeekHold()
 
-    /// Reconciles a copy so observers are only notified when the hold actually changes;
-    /// calling a mutating method on the stored property notifies on every progress tick.
     func reconcileHold(observedProgress: TimeInterval) {
         var hold = self.hold
         hold.reconcile(observedProgress: observedProgress)
@@ -21,12 +16,7 @@ final class MiniPlayerSeekState {
     }
 }
 
-/// Mini player seek slider and elapsed/remaining labels.
-///
-/// This is the only mini player view that observes `PlayerService.progress`, so each
-/// playback tick re-evaluates just this section instead of the whole mini player window.
 struct MiniPlayerSeekSection: View {
-    /// `.nowPlaying` swaps the system slider for the Now Playing view's thin capsule bar.
     enum Style {
         case mini
         case nowPlaying
@@ -76,7 +66,6 @@ struct MiniPlayerSeekSection: View {
             self.syncSeekValue()
         }
         .onDisappear {
-            // A panel switch mid-drag can remove the slider before it reports the end of editing.
             self.state.isSeeking = false
         }
     }

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Settings view for general app preferences.
 struct GeneralSettingsView: View {
     @Environment(AuthService.self) private var authService
     @State private var settings = SettingsManager.shared
@@ -8,7 +7,6 @@ struct GeneralSettingsView: View {
     @State private var isClearing = false
     @State private var signOutFailurePresented = false
 
-    /// The updater service for managing app updates.
     var updaterService: UpdaterService
 
     var body: some View {
@@ -16,7 +14,6 @@ struct GeneralSettingsView: View {
 
         Form {
             Section {
-                // Account status
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "Account"))
@@ -53,11 +50,9 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                // Haptic Feedback
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help(String(localized: "Provide tactile feedback for actions on Force Touch trackpads"))
 
-                // Default Launch Page
                 Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in
                         Text(page.displayName).tag(page)
@@ -68,7 +63,6 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                // Content Language
                 Picker(String(localized: "Content Language"), selection: self.$settings.contentLanguage) {
                     ForEach(SettingsManager.ContentLanguage.allCases) { language in
                         Text(language.displayName).tag(language)
@@ -80,7 +74,6 @@ struct GeneralSettingsView: View {
             }
 
             Section {
-                // Image Cache
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(String(localized: "Image Cache"))

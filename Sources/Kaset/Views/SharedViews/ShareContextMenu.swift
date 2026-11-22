@@ -1,27 +1,19 @@
 import AppKit
 import SwiftUI
 
-/// Shared context menu items for sharing items via NSSharingServicePicker.
-/// Uses native macOS sharing services for proper popup positioning in context menus.
 @MainActor
 enum ShareContextMenu {
-    /// Held here because `NSSharingServicePicker.delegate` is weak.
     private static let pickerDelegate = CopyLinkSharingPickerDelegate()
 
-    /// Shows the share picker at the current mouse location.
-    /// Exposed for AppKit context menus (e.g. queue side panel) that cannot use the SwiftUI menu item.
     static func showSharePicker(for url: URL) {
         let picker = NSSharingServicePicker(items: [url])
         picker.delegate = Self.pickerDelegate
 
-        // Get the current mouse location in screen coordinates
         let mouseLocation = NSEvent.mouseLocation
 
-        // Find the window under the mouse
         guard let window = NSApp.windows.first(where: { window in
             window.isVisible && window.frame.contains(mouseLocation)
         }) else {
-            // Fallback: use key window
             guard let keyWindow = NSApp.keyWindow,
                   let contentView = keyWindow.contentView
             else { return }
@@ -31,21 +23,17 @@ enum ShareContextMenu {
             return
         }
 
-        // Convert screen coordinates to window coordinates
         let windowPoint = window.convertPoint(fromScreen: mouseLocation)
 
-        // Find the view at this point, or use contentView as fallback
         guard let contentView = window.contentView else { return }
         let targetView = contentView.hitTest(windowPoint) ?? contentView
 
-        // Convert the point to the target view's coordinate system
         let viewPoint = targetView.convert(windowPoint, from: nil)
         let rect = NSRect(origin: viewPoint, size: CGSize(width: 1, height: 1))
 
         picker.show(relativeTo: rect, of: targetView, preferredEdge: .minY)
     }
 
-    /// Creates a share menu item for a song.
     @ViewBuilder
     static func menuItem(for song: Song) -> some View {
         if let url = song.shareURL {
@@ -57,7 +45,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for a playlist.
     @ViewBuilder
     static func menuItem(for playlist: Playlist) -> some View {
         if let url = playlist.shareURL {
@@ -69,8 +56,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for an album.
-    /// Only shows if the album has a navigable ID.
     @ViewBuilder
     static func menuItem(for album: Album) -> some View {
         if let url = album.shareURL {
@@ -82,8 +67,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for an artist.
-    /// Only shows if the artist has a valid YouTube channel ID.
     @ViewBuilder
     static func menuItem(for artist: Artist) -> some View {
         if let url = artist.shareURL {
@@ -95,8 +78,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for a podcast show.
-    /// Only shows if the show has a navigable ID.
     @ViewBuilder
     static func menuItem(for podcastShow: PodcastShow) -> some View {
         if let url = podcastShow.shareURL {
@@ -108,7 +89,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for a HomeSectionItem.
     @ViewBuilder
     static func menuItem(for item: HomeSectionItem) -> some View {
         switch item {
@@ -123,7 +103,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for a SearchResultItem.
     @ViewBuilder
     static func menuItem(for item: SearchResultItem) -> some View {
         switch item {
@@ -142,7 +121,6 @@ enum ShareContextMenu {
         }
     }
 
-    /// Creates a share menu item for a FavoriteItem.
     @ViewBuilder
     static func menuItem(for item: FavoriteItem) -> some View {
         switch item.itemType {
@@ -160,8 +138,6 @@ enum ShareContextMenu {
     }
 }
 
-/// Puts Copy Link first in the share picker, since macOS does not always offer a copy action for URLs.
-/// Stateless and nonisolated: the link comes from the picker's items, so one instance serves every picker.
 final class CopyLinkSharingPickerDelegate: NSObject, NSSharingServicePickerDelegate {
     func sharingServicePicker(
         _: NSSharingServicePicker,
@@ -183,7 +159,6 @@ final class CopyLinkSharingPickerDelegate: NSObject, NSSharingServicePickerDeleg
         return [copyLink] + proposedServices
     }
 
-    /// Writes the link as both a URL and plain text.
     static func copy(_ url: URL, to pasteboard: NSPasteboard) {
         let link = url.absoluteString
         pasteboard.clearContents()

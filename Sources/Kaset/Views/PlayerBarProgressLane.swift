@@ -269,13 +269,10 @@ struct PlayerBarProgressLane: View {
         self.hoveredSegment = segment
     }
 
-    /// The segment whose `[start, end)` span contains the given progress fraction, or nil when the
-    /// fraction falls in a gap or outro past the last segment's end.
     private func segment(at fraction: Double) -> PlayerBarProgressSegment? {
         Self.segment(at: fraction, in: self.segments)
     }
 
-    /// Gap between adjacent segment pieces, in points. Split across the shared edge.
     private static let segmentGap: CGFloat = 3
     private static let segmentTooltipHorizontalPadding: CGFloat = 11
 
@@ -411,8 +408,6 @@ struct PlayerBarProgressLane: View {
                 .lineLimit(1)
         }
         .frame(maxWidth: Self.segmentTooltipContentMaxWidth(trackWidth: trackWidth), alignment: .leading)
-        // Ask the capped frame for its intrinsic width instead of accepting the seek bar's full
-        // proposal. Long labels still stop at the frame's maxWidth and truncate via lineLimit(1).
         .fixedSize(horizontal: true, vertical: true)
         .padding(.horizontal, Self.segmentTooltipHorizontalPadding)
         .padding(.vertical, 7)
@@ -427,7 +422,6 @@ struct PlayerBarProgressLane: View {
         }
     }
 
-    /// Leading edge for the tooltip so its centre tracks the segment, clamped inside the track.
     private func tooltipLeadingX(_ segment: PlayerBarProgressSegment, width: CGFloat) -> CGFloat {
         let center = CGFloat((segment.start + segment.end) / 2) * width
         let leading = center - self.tooltipSize.width / 2
@@ -435,9 +429,6 @@ struct PlayerBarProgressLane: View {
     }
 
     private func markerX(_ marker: PlayerBarProgressMarker, trackWidth: CGFloat, isHighlighted: Bool) -> CGFloat {
-        // Marker and thumb offsets are inside the visual-track ZStack. Gesture
-        // locations subtract `hitOutset` because the gesture is attached after
-        // padding expands the hit target; visual offsets do not include it.
         let markerWidth = self.markerWidth(isHighlighted: isHighlighted)
         return min(
             max(0, trackWidth * CGFloat(marker.fraction) - markerWidth / 2),
@@ -559,9 +550,6 @@ struct PlayerBarProgressSegmentGeometry: Equatable {
     let width: CGFloat
 }
 
-/// A contiguous span of the seek bar corresponding to one item, such as a mix track or video
-/// chapter. When a lane is given segments it renders a gapped track (one piece per segment) instead
-/// of the single continuous bar, and reveals the segment's label on hover.
 struct PlayerBarProgressSegment: Identifiable, Hashable {
     let id: String
     let start: Double
@@ -595,7 +583,6 @@ struct PlayerBarProgressSegment: Identifiable, Hashable {
         self.itemLabel = itemLabel
     }
 
-    /// Whether the given progress fraction falls within this segment.
     func contains(_ fraction: Double) -> Bool {
         fraction >= self.start && fraction < self.end
     }

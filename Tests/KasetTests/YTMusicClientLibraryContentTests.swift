@@ -1025,7 +1025,6 @@ private extension YTMusicClientLibraryRequestTests {
 }
 
 private enum LibraryRequestTestSupport {
-    /// URLSession may bridge `httpBody` to a stream before URLProtocol observes the request.
     static func bodyData(from request: URLRequest) throws -> Data {
         if let body = request.httpBody {
             return body

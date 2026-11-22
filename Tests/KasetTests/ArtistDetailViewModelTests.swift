@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for ArtistDetailViewModel using mock client.
 extension LibraryMutationSerialTests {
     @Suite(.tags(.viewModel), .timeLimit(.minutes(1)))
     @MainActor
@@ -105,7 +104,6 @@ extension LibraryMutationSerialTests {
                 libraryViewModel: self.libraryViewModel
             )
 
-            // Create an artist detail with "Unknown Artist" name
             let unknownArtist = Artist(
                 id: "UC-test-artist",
                 name: "Unknown Artist",
@@ -141,7 +139,6 @@ extension LibraryMutationSerialTests {
 
             await viewModel.load()
 
-            // Should use original artist name "Test Artist" instead of "Unknown Artist"
             #expect(viewModel.artistDetail?.name == "Test Artist")
             #expect(viewModel.artistDetail?.profileKind == .profile)
             #expect(viewModel.artistDetail?.monthlyAudience == "2.59M")
@@ -159,7 +156,6 @@ extension LibraryMutationSerialTests {
             await self.viewModel.load()
             #expect(self.viewModel.artistDetail?.songs.count == 5)
 
-            // Update mock to return different song count
             let newArtistDetail = TestFixtures.makeArtistDetail(
                 artist: TestFixtures.makeArtist(id: "UC-test-artist"),
                 songCount: 8
@@ -213,7 +209,7 @@ extension LibraryMutationSerialTests {
         func hasMoreSongsReturnsTrueWhenExceedsPreview() async {
             let artistDetail = TestFixtures.makeArtistDetail(
                 artist: TestFixtures.makeArtist(id: "UC-test-artist"),
-                songCount: 10 // More than previewSongCount
+                songCount: 10
             )
             self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
@@ -226,7 +222,7 @@ extension LibraryMutationSerialTests {
         func hasMoreSongsReturnsFalseWhenWithinPreview() async {
             let artistDetail = TestFixtures.makeArtistDetail(
                 artist: TestFixtures.makeArtist(id: "UC-test-artist"),
-                songCount: 3 // Less than previewSongCount
+                songCount: 3
             )
             self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
@@ -242,7 +238,7 @@ extension LibraryMutationSerialTests {
                 description: nil,
                 songs: [],
                 thumbnailURL: nil,
-                channelId: nil // No channel ID
+                channelId: nil
             )
             self.mockClient.artistDetails["UC-test-artist"] = artistDetail
 
@@ -352,7 +348,7 @@ extension LibraryMutationSerialTests {
             await self.viewModel.toggleSubscription()
 
             #expect(self.viewModel.subscriptionError != nil)
-            #expect(self.viewModel.artistDetail?.isSubscribed == false) // Unchanged
+            #expect(self.viewModel.artistDetail?.isSubscribed == false)
         }
 
         @Test("getAllSongs returns artist detail songs when no browse ID")
@@ -408,7 +404,6 @@ extension LibraryMutationSerialTests {
             _ = await self.viewModel.getAllSongs()
             _ = await self.viewModel.getAllSongs()
 
-            // Should only call API once
             #expect(self.mockClient.getArtistSongsBrowseIds.count == 1)
         }
     }

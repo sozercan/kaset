@@ -1,8 +1,3 @@
-// AccountSwitcherPopover.swift
-// Kaset
-//
-// Liquid Glass styled popover for switching between user accounts.
-
 import SwiftUI
 
 enum AccountSwitcherSignOutDisposition: Equatable {
@@ -12,8 +7,6 @@ enum AccountSwitcherSignOutDisposition: Equatable {
 
 @MainActor
 enum AccountSwitcherSignOutFlow {
-    /// AuthService owns durable preflight and its registered account preparation.
-    /// Callers must not prepare AccountService independently before this operation.
     static func perform(
         signOut: () async -> Bool
     ) async -> AccountSwitcherSignOutDisposition {
@@ -21,10 +14,6 @@ enum AccountSwitcherSignOutFlow {
     }
 }
 
-/// A Liquid Glass styled popover for switching between accounts.
-///
-/// Displays all available accounts (primary and brand accounts) and allows
-/// the user to switch between them.
 struct AccountSwitcherPopover: View {
     @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
@@ -35,7 +24,6 @@ struct AccountSwitcherPopover: View {
     @State private var isSigningOut = false
     @State private var signOutFailurePresented = false
 
-    /// Namespace for glass effect morphing.
     @Namespace private var popoverNamespace
 
     var body: some View {
@@ -176,16 +164,13 @@ struct AccountSwitcherPopover: View {
                                     do {
                                         try await self.accountService.switchAccount(to: account)
                                         self.dismiss()
-                                    } catch {
-                                        // Keep the popover open so the user can retry.
-                                    }
+                                    } catch {}
                                 }
                             }
                         )
                         .disabled(self.accountService.isLoading)
                         .accessibilityIdentifier(AccessibilityID.AccountSwitcher.accountRow(index: index))
 
-                        // Divider between accounts (not after last one)
                         if index < self.accountService.accounts.count - 1 {
                             Divider()
                                 .padding(.leading, 56)

@@ -5,7 +5,6 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct ScrobbleQueueTests {
-    /// Creates a temporary directory for queue file storage during tests.
     private func makeTemporaryDirectory() throws -> URL {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ScrobbleQueueTests-\(UUID().uuidString)")
@@ -13,12 +12,10 @@ struct ScrobbleQueueTests {
         return tempDir
     }
 
-    /// Cleans up a temporary directory after test use.
     private func cleanupDirectory(_ dir: URL) {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    /// Creates a test ScrobbleTrack with sensible defaults.
     private func makeTrack(
         title: String = "Test Song",
         artist: String = "Test Artist",
@@ -96,7 +93,7 @@ struct ScrobbleQueueTests {
 
         #expect(batch.count == 1)
         #expect(batch.first?.title == "Song 1")
-        #expect(queue.count == 2) // Not removed
+        #expect(queue.count == 2)
     }
 
     @Test("Dequeue respects limit")
@@ -165,12 +162,10 @@ struct ScrobbleQueueTests {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Write
         let queue1 = ScrobbleQueue(directory: dir)
         let track = self.makeTrack(title: "Persisted Song", artist: "Persisted Artist", album: "Persisted Album")
         queue1.enqueue(track)
 
-        // Read in new instance
         let queue2 = ScrobbleQueue(directory: dir)
 
         #expect(queue2.count == 1)
@@ -202,14 +197,12 @@ struct ScrobbleQueueTests {
 
         let queue = ScrobbleQueue(directory: dir)
 
-        // Add an old track (15 days ago)
         let oldTrack = self.makeTrack(
             title: "Old Song",
             timestamp: Date().addingTimeInterval(-15 * 24 * 60 * 60)
         )
         queue.enqueue(oldTrack)
 
-        // Add a recent track
         let recentTrack = self.makeTrack(title: "Recent Song", timestamp: Date())
         queue.enqueue(recentTrack)
 
@@ -227,7 +220,6 @@ struct ScrobbleQueueTests {
 
         let queue = ScrobbleQueue(directory: dir)
 
-        // Add a track from 13 days ago (should survive)
         let track = self.makeTrack(
             title: "Almost Expired",
             timestamp: Date().addingTimeInterval(-13 * 24 * 60 * 60)
@@ -302,7 +294,6 @@ struct ScrobbleQueueTests {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Queue should start empty when no file exists
         let queue = ScrobbleQueue(directory: dir)
         #expect(queue.isEmpty)
     }
@@ -312,11 +303,9 @@ struct ScrobbleQueueTests {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Write corrupt data
         let fileURL = dir.appendingPathComponent("scrobble-queue.json")
         try Data("not valid json {{[".utf8).write(to: fileURL)
 
-        // Queue should handle gracefully and start empty
         let queue = ScrobbleQueue(directory: dir)
         #expect(queue.isEmpty)
     }

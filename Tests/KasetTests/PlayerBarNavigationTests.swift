@@ -118,7 +118,6 @@ struct PlayerBarNavigationTests {
         window.contentView = NSHostingView(rootView: view)
         window.orderFrontRegardless()
 
-        // The first hosted window in a test process can take seconds to warm up.
         let deadline = Date().addingTimeInterval(30)
         while !isReady(), Date() < deadline {
             RunLoop.main.run(until: Date().addingTimeInterval(0.01))

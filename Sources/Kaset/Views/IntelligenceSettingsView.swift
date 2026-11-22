@@ -1,8 +1,6 @@
 import FoundationModels
 import SwiftUI
 
-/// Settings view for Apple Intelligence features.
-/// Allows users to enable/disable AI features and manage session state.
 @available(macOS 26.0, *)
 struct IntelligenceSettingsView: View {
     @State private var aiService = FoundationModelsService.shared
@@ -10,7 +8,6 @@ struct IntelligenceSettingsView: View {
     var body: some View {
         Form {
             Section {
-                // Availability status
                 HStack {
                     self.availabilityIcon
                     VStack(alignment: .leading, spacing: 2) {
@@ -24,8 +21,6 @@ struct IntelligenceSettingsView: View {
                 }
                 .padding(.vertical, 4)
 
-                // The only OS-level enable path — surfaced right under the
-                // availability status so a "Not Enabled" user can act on it.
                 Link(destination: URL(string: "x-apple.systempreferences:com.apple.preference.AppleIntelligence")!) {
                     HStack {
                         Text(String(localized: "Apple Intelligence & Siri Settings"))
@@ -54,7 +49,6 @@ struct IntelligenceSettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            // Command-bar keyboard shortcut reference.
             Section {
                 HStack {
                     Image(systemName: "command")
@@ -140,7 +134,6 @@ struct IntelligenceSettingsView: View {
         }
     }
 
-    /// Returns the appropriate icon for the unavailability reason.
     private func iconForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
@@ -156,7 +149,6 @@ struct IntelligenceSettingsView: View {
         }
     }
 
-    /// Returns a short title for the unavailability reason.
     private func titleForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {
@@ -172,7 +164,6 @@ struct IntelligenceSettingsView: View {
         }
     }
 
-    /// Returns a user-friendly description for the unavailability reason.
     private func descriptionForUnavailableReason(_ reason: some Any) -> String {
         let reasonString = String(describing: reason)
         if reasonString.contains("deviceNotSupported") {

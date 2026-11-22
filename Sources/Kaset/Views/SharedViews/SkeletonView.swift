@@ -1,10 +1,6 @@
 import SwiftUI
 
-/// A skeleton loading placeholder with shimmer animation.
-/// Use this to indicate content is loading while maintaining layout structure.
-/// Uses TimelineView for smooth, stutter-free continuous animation.
 struct SkeletonView: View {
-    /// The shape of the skeleton element.
     enum Shape {
         case rectangle(cornerRadius: CGFloat)
         case circle
@@ -19,9 +15,7 @@ struct SkeletonView: View {
         !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     }
 
-    /// Gradient for shimmer effect based on animation progress.
     private func shimmerGradient(progress: Double) -> LinearGradient {
-        // Progress goes from 0 to 1, we map it to gradient positions
         let startX = -1.0 + progress * 3.0
         let endX = startX + 1.0
         return LinearGradient(
@@ -35,7 +29,6 @@ struct SkeletonView: View {
         )
     }
 
-    /// Static gradient for reduced motion.
     private var staticGradient: some ShapeStyle {
         Color.primary.opacity(0.1)
     }
@@ -81,23 +74,19 @@ struct SkeletonView: View {
 }
 
 extension SkeletonView {
-    /// Rectangle skeleton with optional corner radius.
     static func rectangle(cornerRadius: CGFloat = 8) -> SkeletonView {
         SkeletonView(shape: .rectangle(cornerRadius: cornerRadius))
     }
 
-    /// Circle skeleton for avatars/thumbnails.
     static var circle: SkeletonView {
         SkeletonView(shape: .circle)
     }
 
-    /// Capsule skeleton for tags/chips.
     static var capsule: SkeletonView {
         SkeletonView(shape: .capsule)
     }
 }
 
-/// A skeleton placeholder for card layouts (thumbnail + text).
 struct SkeletonCardView: View {
     let width: CGFloat
     let height: CGFloat
@@ -109,22 +98,18 @@ struct SkeletonCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Thumbnail skeleton
             SkeletonView.rectangle(cornerRadius: 8)
                 .frame(width: self.width, height: self.height)
 
-            // Title skeleton
             SkeletonView.rectangle(cornerRadius: 4)
                 .frame(width: self.width * 0.8, height: 14)
 
-            // Subtitle skeleton
             SkeletonView.rectangle(cornerRadius: 4)
                 .frame(width: self.width * 0.5, height: 12)
         }
     }
 }
 
-/// A skeleton placeholder for list rows.
 struct SkeletonRowView: View {
     var showThumbnail: Bool = true
     var thumbnailSize: CGFloat = 48
@@ -154,7 +139,6 @@ struct SkeletonRowView: View {
     }
 }
 
-/// A skeleton placeholder for a horizontal section (like home sections).
 struct SkeletonSectionView: View {
     let cardCount: Int
     let cardWidth: CGFloat
@@ -168,11 +152,9 @@ struct SkeletonSectionView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Section title skeleton
             SkeletonView.rectangle(cornerRadius: 4)
                 .frame(width: 150, height: 20)
 
-            // Cards
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
                     ForEach(0 ..< self.cardCount, id: \.self) { _ in
@@ -186,7 +168,6 @@ struct SkeletonSectionView: View {
 
 #Preview {
     VStack(spacing: 32) {
-        // Individual skeletons
         HStack(spacing: 16) {
             SkeletonView.rectangle()
                 .frame(width: 100, height: 100)
@@ -198,14 +179,11 @@ struct SkeletonSectionView: View {
                 .frame(width: 80, height: 30)
         }
 
-        // Card skeleton
         SkeletonCardView()
 
-        // Row skeleton
         SkeletonRowView()
             .frame(maxWidth: 400)
 
-        // Section skeleton
         SkeletonSectionView(cardCount: 3)
     }
     .padding()

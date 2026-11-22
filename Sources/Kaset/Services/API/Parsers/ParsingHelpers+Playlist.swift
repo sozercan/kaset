@@ -1,7 +1,4 @@
 extension ParsingHelpers {
-    /// Extracts the playlist-item-specific `setVideoId`, required to remove the correct
-    /// occurrence of a track from a playlist (the same song can appear more than once).
-    /// Only present on playlist track rows, not search results or other song contexts.
     static func extractPlaylistSetVideoId(from data: [String: Any]) -> String? {
         if let playlistItemData = data["playlistItemData"] as? [String: Any],
            let playlistSetVideoId = playlistItemData["playlistSetVideoId"] as? String,

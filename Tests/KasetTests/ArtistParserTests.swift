@@ -3,7 +3,6 @@ import Testing
 @testable import Kaset
 
 // swiftlint:disable type_body_length file_length
-/// Tests for ArtistParser.
 @Suite(.tags(.parser))
 struct ArtistParserTests {
     @Test("parseArtistDetail extracts basic info")
@@ -340,23 +339,17 @@ struct ArtistParserTests {
         #expect(result.mixPlaylistId == "RDCLAK-mix-123")
     }
 
-    /// Loads and parses `artist_lofi_girl.json`, a snapshot of the artist page
-    /// for a channel-style artist (Lofi Girl). Asserts every non-default
-    /// shelf type the parser is now expected to surface.
     @Test("parseArtistDetail routes all artist-page shelves from real payload")
     func parseArtistDetailFromLofiGirlFixture() throws {
         let data = try Self.loadArtistFixture("artist_lofi_girl")
 
         let result = ArtistParser.parseArtistDetail(data, artistId: "UCSJ4gkVC6NrvII8umztf0Ow")
 
-        // Header
         #expect(result.name == "Lofi Girl")
         #expect(result.channelId == "UCSJ4gkVC6NrvII8umztf0Ow")
 
-        // Top songs
         #expect(!result.songs.isEmpty)
 
-        // Albums vs Singles split by shelf title
         #expect(!result.albums.isEmpty)
         #expect(!result.singles.isEmpty)
         for album in result.albums {
@@ -366,7 +359,6 @@ struct ArtistParserTests {
             #expect(single.id.hasPrefix("MPRE") || single.id.hasPrefix("OLAK"))
         }
 
-        // Latest episodes — at least one live stream must be present
         #expect(!result.episodes.isEmpty)
         for episode in result.episodes {
             #expect(!episode.videoId.isEmpty)
@@ -375,19 +367,16 @@ struct ArtistParserTests {
         let liveEpisodes = result.episodes.filter(\.isLive)
         #expect(!liveEpisodes.isEmpty, "Expected at least one live episode in the Lofi Girl fixture")
 
-        // Playlists by artist (VL browseIds)
         #expect(!result.playlistsByArtist.isEmpty)
         for playlist in result.playlistsByArtist {
             #expect(playlist.id.hasPrefix("VL") || playlist.id.hasPrefix("PL"))
         }
 
-        // Related artists (UC browseIds)
         #expect(!result.relatedArtists.isEmpty)
         for artist in result.relatedArtists {
             #expect(artist.id.hasPrefix("UC"))
         }
 
-        // Podcast shows on the artist page (MPSPP browseIds)
         #expect(!result.podcasts.isEmpty)
         for show in result.podcasts {
             #expect(show.id.hasPrefix("MPSPP"))
@@ -399,8 +388,6 @@ struct ArtistParserTests {
         let data = try Self.loadArtistFixture("artist_lofi_girl")
         let result = ArtistParser.parseArtistDetail(data, artistId: "UCSJ4gkVC6NrvII8umztf0Ow")
 
-        // Lofi Girl's Latest episodes shelf has a More button pointing to a
-        // MUSIC_PAGE_TYPE_ARTIST destination.
         let episodesMore = try #require(result.moreEndpoints[.episodes])
         #expect(episodesMore.pageType == .artist)
         #expect(episodesMore.browseId.hasPrefix("UC"))
@@ -426,8 +413,6 @@ struct ArtistParserTests {
 
         let episodes = ArtistParser.parseArtistEpisodesGrid(data)
 
-        // Full list behind the Latest-episodes "See all"; user-reported target
-        // video is item 39 of 92 in the captured HAR.
         #expect(episodes.count >= 50)
         for episode in episodes {
             #expect(!episode.videoId.isEmpty)
@@ -527,7 +512,6 @@ struct ArtistParserTests {
 
         var sectionContents: [[String: Any]] = []
 
-        // Add songs shelf
         if songs > 0 {
             sectionContents.append([
                 "musicShelfRenderer": [
@@ -537,7 +521,6 @@ struct ArtistParserTests {
             ])
         }
 
-        // Add albums carousel
         if albums > 0 {
             sectionContents.append([
                 "musicCarouselShelfRenderer": [
@@ -1205,9 +1188,6 @@ struct ArtistParserTests {
         ]
     }
 
-    /// Loads a JSON fixture bundled with the test target and decodes it to a
-    /// plain dictionary. Fixtures live in `Tests/KasetTests/Fixtures/` and are
-    /// exposed via `Bundle.module` by SwiftPM's `.process("Fixtures")` rule.
     private static func loadArtistFixture(_ name: String) throws -> [String: Any] {
         guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
             throw FixtureError.notFound(name)

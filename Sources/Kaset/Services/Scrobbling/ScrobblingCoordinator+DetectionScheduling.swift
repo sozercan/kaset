@@ -58,9 +58,6 @@ extension ScrobblingCoordinator {
         }
     }
 
-    /// Gives authoritative duration metadata a short grace period after a fallback parse. Once the
-    /// grace period completes, later duration observations resolve directly without starting more
-    /// timers, while tracklist bounds can independently prove a long mix.
     func scheduleAwaitingDurationConfirmation(for track: Song) {
         let videoId = track.videoId
         let expectedTitle = track.title

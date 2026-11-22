@@ -569,8 +569,6 @@ struct ScrobblingCoordinatorMixDurationResolutionTests {
         defer { coordinator.stopMonitoring() }
         await self.waitUntil { mockService.nowPlayingTracks.count == 1 }
 
-        // A queued old-track sample advances the bridge sequence immediately before metadata changes.
-        // The new metadata identity must still require the next sample, not merely this latest one.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 10,

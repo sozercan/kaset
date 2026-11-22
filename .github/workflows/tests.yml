@@ -37,19 +37,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 covers the Sequoia fallback paths (LegacyFallbackViews,
-        # `else` branches of LiquidGlassCompat). macos-26 covers the Tahoe
-        # Liquid Glass paths.
         os: [macos-26, macos-15]
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Select Xcode version
         run: |
           set -euo pipefail
-          # Swift 6.2 requires Xcode 26.x. Both runner images carry one or
-          # more Xcode 26.x installs; prefer the newest available.
           for candidate in \
             /Applications/Xcode_26.2.app \
             /Applications/Xcode_26.1.app \
@@ -71,7 +66,7 @@ jobs:
         run: swift --version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
@@ -83,13 +78,6 @@ jobs:
         run: rm -rf ~/Library/Caches/org.swift.swiftpm/artifacts
 
       - name: Run unit tests
-        # --disable-xctest avoids a swiftpm-xctest-helper segfault on macOS 15
-        # (Xcode 26 + Sequoia) during XCTest discovery. The unit suite is
-        # entirely Swift Testing; the only XCTest target is the manual
-        # ParserPerformanceTests, which is invoked separately via xcodebuild.
-        # Suites share process-wide app singletons, including the playback
-        # WebView. Serialize both runners so another suite cannot invalidate
-        # a test's document generation while its bridge events are queued.
         run: swift test -q --skip KasetUITests --disable-xctest --no-parallel
 
   macos_ui_tests:
@@ -99,12 +87,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-15 exercises Sequoia fallback UI paths; macos-26 exercises
-        # the full Tahoe Liquid Glass / Apple Intelligence UI paths.
         os: [macos-26, macos-15]
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
 
       - name: Select Xcode version
         run: |
@@ -130,7 +116,7 @@ jobs:
         run: xcodebuild -version
 
       - name: Cache SPM dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
             ~/Library/Caches/org.swift.swiftpm/spm-repositories
@@ -144,8 +130,6 @@ jobs:
       - name: Build app bundle for UI tests
         env:
           KASET_SIGNING: adhoc
-          # Xcode 26 actool cannot distill Icon Composer assets on macos-15
-          # runners, but UI tests only need a launchable bundle.
           KASET_SKIP_MAIN_ASSETS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
         run: Scripts/build-app.sh debug
 
@@ -155,7 +139,6 @@ jobs:
       - name: Install app for UI tests
         run: |
           sudo cp -R .build/app/Kaset.app /Applications/Kaset.app
-          # Register with Launch Services so XCUIApplication can find it
           /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f /Applications/Kaset.app
 
       - name: Run UI tests
@@ -173,7 +156,7 @@ jobs:
 
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: macOS-UITestResults-${{ matrix.os }}
           path: ./build/Logs/Test/*.xcresult

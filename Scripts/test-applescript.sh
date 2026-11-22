@@ -1,6 +1,4 @@
 #!/bin/bash
-# Kaset AppleScript Test Script
-# Tests all available AppleScript commands via osascript
 
 set -e
 
@@ -9,7 +7,6 @@ echo "Kaset AppleScript Commands Test"
 echo "========================================="
 echo ""
 
-# Check if Kaset is running
 if ! pgrep -x "Kaset" > /dev/null; then
     echo "⚠️  Kaset is not running. Starting it..."
     open -a Kaset
@@ -53,7 +50,7 @@ echo ""
 echo "9. Testing 'toggle mute'..."
 osascript -e 'tell application "Kaset" to toggle mute' && echo "   ✅ OK" || echo "   ❌ Failed"
 sleep 0.5
-osascript -e 'tell application "Kaset" to toggle mute' # Unmute
+osascript -e 'tell application "Kaset" to toggle mute'
 echo ""
 
 echo "10. Testing 'toggle shuffle'..."

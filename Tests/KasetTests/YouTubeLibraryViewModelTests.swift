@@ -73,7 +73,6 @@ struct YouTubeSubscriptionsViewModelTests {
         await sut.load()
 
         if case .error = sut.loadingState {
-            // expected
         } else {
             Issue.record("Expected error state, got \(sut.loadingState)")
         }
@@ -422,7 +421,6 @@ struct GuideParserTests {
             return
         }
 
-        // Captured signed out — must not mis-classify nav entries as channels.
         #expect(GuideParser.subscribedChannels(data).isEmpty)
     }
 }

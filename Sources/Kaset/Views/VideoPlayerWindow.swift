@@ -1,20 +1,16 @@
 import SwiftUI
 import WebKit
 
-/// Floating window for video playback.
 struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
 
     var body: some View {
-        // The Window controls the aspect ratio and min size;
-        // using .fit here can cause the webview to shrink/be letterboxed incorrectly during fast resize.
         VideoWebViewContainer(videoId: self.playerService.pendingPlayVideoId)
             .background(.black)
             .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
     }
 }
 
-/// NSViewRepresentable container for the video WebView.
 struct VideoWebViewContainer: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
@@ -54,7 +50,6 @@ struct VideoWebViewContainer: NSViewRepresentable {
     }
 }
 
-/// Custom NSView that observes frame changes and re-injects CSS.
 final class VideoContainerView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -75,10 +70,9 @@ final class VideoContainerView: NSView {
     private var refreshTask: Task<Void, Never>?
 
     @objc private func frameDidChange(_: Notification) {
-        // Debounce slightly to prevent JS overload during continuous resize
         self.refreshTask?.cancel()
         self.refreshTask = Task { @MainActor in
-            try? await Task.sleep(for: .nanoseconds(16_666_666)) // ~60fps
+            try? await Task.sleep(for: .nanoseconds(16_666_666))
             if !Task.isCancelled, SingletonPlayerWebView.shared.displayMode == .video {
                 SingletonPlayerWebView.shared.refreshVideoModeCSS()
             }

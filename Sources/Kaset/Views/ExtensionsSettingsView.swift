@@ -2,7 +2,6 @@ import AppKit
 import Foundation
 import SwiftUI
 
-/// Settings view for managing user-installed web extensions.
 struct ExtensionsSettingsView: View {
     @State private var manager = ExtensionsManager.shared
     @State private var showRestartAlert = false
@@ -15,7 +14,6 @@ struct ExtensionsSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // Glass Section
                 CompatGlassContainer(spacing: 0) {
                     VStack(alignment: .leading, spacing: 0) {
                         Text(String(localized: "Installed Extensions"))
@@ -66,7 +64,6 @@ struct ExtensionsSettingsView: View {
                     .compatGlass(in: .rect(cornerRadius: 14))
                 }
 
-                // Footer section
                 VStack(alignment: .leading, spacing: 6) {
                     Text(String(localized: "About Extensions"))
                         .font(.headline)
@@ -205,9 +202,6 @@ struct ExtensionsSettingsView: View {
         .padding(.horizontal, 16)
     }
 
-    /// Shows an NSOpenPanel to pick an extension directory.
-    /// `beginSheetModal` silently fails on SwiftUI Settings TabView windows,
-    /// so we use `runModal()` with explicit panel activation.
     private func presentOpenPanel() async {
         DiagnosticsLogger.extensions.info("presentOpenPanel() called")
 
@@ -246,8 +240,6 @@ struct ExtensionsSettingsView: View {
     private func restartApp() {
         DiagnosticsLogger.extensions.info("Restarting app...")
         let url = Bundle.main.bundleURL
-        // Use a shell script to wait a second after we terminate, ensuring we don't
-        // conflict with the existing process during re-launch.
         let shellScript = "sleep 0.5; open '\(url.path)'"
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/bin/sh")
@@ -257,7 +249,6 @@ struct ExtensionsSettingsView: View {
             NSApplication.shared.terminate(nil)
         } catch {
             DiagnosticsLogger.extensions.error("Failed to run restart script: \(error.localizedDescription)")
-            // Fallback to simple open
             let fallbackTask = Process()
             fallbackTask.executableURL = URL(fileURLWithPath: "/usr/bin/open")
             fallbackTask.arguments = [url.path]

@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// A two-segment glass capsule that flips the whole app between the
-/// YouTube Music and YouTube video experiences.
-///
-/// Lives at the bottom of both sidebars, just above the profile section.
 struct SourceToggleView: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
 
@@ -11,7 +7,6 @@ struct SourceToggleView: View {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @State private var settings = SettingsManager.shared
 
-    /// Namespace for the sliding selection highlight.
     @Namespace private var segmentNamespace
 
     var body: some View {
@@ -77,7 +72,6 @@ struct SourceToggleView: View {
         guard self.settings.appSource != source else { return }
 
         if source == .music {
-            // Pause a docked video in place — don't hand it to the pop-out.
             self.youtubePlayer.prepareForSourceSwitch()
         }
         withAnimation(.easeInOut(duration: 0.2)) {

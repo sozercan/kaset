@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for FoundationModelsService availability and session creation.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api), .serialized)
@@ -12,14 +11,11 @@ struct FoundationModelsServiceTests {
     func isAvailableFalseWhenDisabled() {
         let service = FoundationModelsService.shared
 
-        // Save original state
         let originalDisabled = service.isDisabledByUser
 
-        // Disable
         service.isDisabledByUser = true
         #expect(service.isAvailable == false)
 
-        // Restore
         service.isDisabledByUser = originalDisabled
     }
 
@@ -28,29 +24,22 @@ struct FoundationModelsServiceTests {
         let service = FoundationModelsService.shared
         let key = "intelligence.disabled"
 
-        // Save original state
         let originalDisabled = service.isDisabledByUser
         let originalDefault = UserDefaults.standard.bool(forKey: key)
 
-        // Set to true
         service.isDisabledByUser = true
         #expect(UserDefaults.standard.bool(forKey: key) == true)
 
-        // Set to false
         service.isDisabledByUser = false
         #expect(UserDefaults.standard.bool(forKey: key) == false)
 
-        // Restore
         service.isDisabledByUser = originalDisabled
         UserDefaults.standard.set(originalDefault, forKey: key)
     }
 
     @Test("isWarmedUp starts as false")
     func isWarmedUpInitiallyFalse() {
-        // Note: This tests the initial state behavior
-        // The shared instance may already be warmed up, so we just verify the property exists
         let service = FoundationModelsService.shared
-        // Just verify the property is accessible
         _ = service.isWarmedUp
     }
 
@@ -58,10 +47,8 @@ struct FoundationModelsServiceTests {
     func createCommandSessionNilWhenUnavailable() {
         let service = FoundationModelsService.shared
 
-        // Save original state
         let originalDisabled = service.isDisabledByUser
 
-        // Disable AI
         service.isDisabledByUser = true
 
         let session = service.createCommandSession(
@@ -71,7 +58,6 @@ struct FoundationModelsServiceTests {
 
         #expect(session == nil)
 
-        // Restore
         service.isDisabledByUser = originalDisabled
     }
 
@@ -79,17 +65,14 @@ struct FoundationModelsServiceTests {
     func createAnalysisSessionNilWhenUnavailable() {
         let service = FoundationModelsService.shared
 
-        // Save original state
         let originalDisabled = service.isDisabledByUser
 
-        // Disable AI
         service.isDisabledByUser = true
 
         let session = service.createAnalysisSession(instructions: "Test instructions")
 
         #expect(session == nil)
 
-        // Restore
         service.isDisabledByUser = originalDisabled
     }
 
@@ -97,17 +80,14 @@ struct FoundationModelsServiceTests {
     func createConversationalSessionNilWhenUnavailable() {
         let service = FoundationModelsService.shared
 
-        // Save original state
         let originalDisabled = service.isDisabledByUser
 
-        // Disable AI
         service.isDisabledByUser = true
 
         let session = service.createConversationalSession(instructions: "Test instructions")
 
         #expect(session == nil)
 
-        // Restore
         service.isDisabledByUser = originalDisabled
     }
 
@@ -115,7 +95,6 @@ struct FoundationModelsServiceTests {
     func refreshAvailabilityDoesNotThrow() {
         let service = FoundationModelsService.shared
 
-        // Should complete without error
         service.refreshAvailability()
     }
 }

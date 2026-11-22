@@ -1,20 +1,15 @@
 import Foundation
 import Observation
 
-/// View model for a moods/genres category detail view.
 @MainActor
 @Observable
 final class MoodCategoryViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Sections of content for this category.
     private(set) var sections: [HomeSection] = []
 
-    /// The category being displayed.
     let category: MoodCategory
 
-    /// The API client.
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -23,7 +18,6 @@ final class MoodCategoryViewModel {
         self.client = client
     }
 
-    /// Loads the category content.
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -49,7 +43,6 @@ final class MoodCategoryViewModel {
         }
     }
 
-    /// Refreshes the category content.
     func refresh() async {
         self.sections = []
         await self.load()

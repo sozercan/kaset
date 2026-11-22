@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Filter options for the Library view.
 enum LibraryFilter: String, CaseIterable, Identifiable {
     case all = "All"
     case playlists = "Playlists"
@@ -42,7 +41,6 @@ enum LibraryFilter: String, CaseIterable, Identifiable {
     }
 }
 
-/// Library view displaying the user's saved music and followed content.
 struct LibraryView: View {
     @State var viewModel: LibraryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -150,15 +148,11 @@ struct LibraryView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 20) {
-                // Filter chips
                 self.filterChips
 
-                // Combined grid with filtered content
                 self.libraryGrid
             }
             .padding(.vertical, 20)
-            // Inset the resting content while the scroll view stays edge-to-edge,
-            // so the grid extends under the floating glass sidebar.
             .detailScrollContentInset()
         }
     }
@@ -193,7 +187,6 @@ struct LibraryView: View {
         .buttonStyle(.plain)
     }
 
-    /// All library items combined and filtered.
     private var filteredItems: [LibraryItem] {
         var items: [LibraryItem] = []
 
@@ -311,7 +304,6 @@ struct LibraryView: View {
             self.navigationPath.append(playlist)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
                 CachedAsyncImage(url: playlist.thumbnailURL?.highQualityThumbnailURL) { image in
                     image
                         .resizable()
@@ -328,14 +320,12 @@ struct LibraryView: View {
                 .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
-                // Title
                 Text(playlist.title)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                // Track count
                 if let count = playlist.trackCount {
                     Text("\(count) songs", comment: "Playlist track count")
                         .font(.system(size: 11))
@@ -482,7 +472,6 @@ struct LibraryView: View {
             self.navigationPath.append(show)
         } label: {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
                 CachedAsyncImage(url: show.thumbnailURL) { image in
                     image
                         .resizable()
@@ -499,14 +488,12 @@ struct LibraryView: View {
                 .frame(width: self.libraryItemSize, height: self.libraryItemSize)
                 .clipShape(.rect(cornerRadius: 8))
 
-                // Title
                 Text(show.title)
                     .font(.system(size: 13, weight: .medium))
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
                     .frame(width: self.libraryItemSize, alignment: .topLeading)
 
-                // Author
                 if let author = show.author {
                     Text(author)
                         .font(.system(size: 11))
@@ -564,7 +551,6 @@ struct LibraryView: View {
     }
 }
 
-/// Represents a tile displayed in the combined Library grid.
 enum LibraryItem: Identifiable {
     case playlist(Playlist)
     case album(Album)

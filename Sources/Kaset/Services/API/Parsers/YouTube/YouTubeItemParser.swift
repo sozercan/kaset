@@ -1,18 +1,6 @@
 import Foundation
 
-/// Parses individual YouTube items from InnerTube responses.
-///
-/// YouTube is mid-migration between renderer generations (June 2026):
-/// - Search serves legacy `videoRenderer` / `channelRenderer`
-/// - Watch-next, channel pages, playlists, and playlist search serve the
-///   newer `lockupViewModel`
-///
-/// This parser handles both shapes so surfaces keep working as YouTube
-/// shifts more of them to view models.
 enum YouTubeItemParser {
-    /// Extracts a video from any known item wrapper
-    /// (`videoRenderer`, `gridVideoRenderer`, `compactVideoRenderer`,
-    /// `richItemRenderer`, or a video `lockupViewModel`).
     static func video(fromAnyItem item: [String: Any]) -> YouTubeVideo? {
         if let renderer = item["videoRenderer"] as? [String: Any]
             ?? item["gridVideoRenderer"] as? [String: Any]
@@ -36,7 +24,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Parses a legacy `videoRenderer` / `gridVideoRenderer` / `compactVideoRenderer`.
     static func video(fromVideoRenderer renderer: [String: Any]) -> YouTubeVideo? {
         guard let videoId = renderer["videoId"] as? String,
               let title = text(from: renderer["title"])
@@ -71,7 +58,6 @@ enum YouTubeItemParser {
         )
     }
 
-    /// Parses a `shortsLockupViewModel` (Shorts shelves in feeds and search).
     static func short(fromShortsLockup lockup: [String: Any]) -> YouTubeVideo? {
         let onTapCommand = (lockup["onTap"] as? [String: Any])?["innertubeCommand"]
             as? [String: Any]
@@ -99,8 +85,6 @@ enum YouTubeItemParser {
         )
     }
 
-    /// Whether a navigation container points at the Shorts player
-    /// (`reelWatchEndpoint` or a `/shorts/…` web URL).
     static func isShort(navigationContainer: Any?) -> Bool {
         guard let container = navigationContainer as? [String: Any] else { return false }
         if container["reelWatchEndpoint"] != nil {
@@ -113,7 +97,6 @@ enum YouTubeItemParser {
         return url?.hasPrefix("/shorts/") == true
     }
 
-    /// Parses a legacy `channelRenderer` from channel search results.
     static func channel(fromChannelRenderer renderer: [String: Any]) -> YouTubeChannel? {
         guard let channelId = renderer["channelId"] as? String,
               let name = text(from: renderer["title"])
@@ -121,9 +104,6 @@ enum YouTubeItemParser {
             return nil
         }
 
-        // June 2026 quirk: `subscriberCountText` carries the handle
-        // ("@veritasium") and `videoCountText` carries the subscriber count
-        // ("20.8M subscribers"). Assign by content, not by field name.
         let subscriberField = self.text(from: renderer["subscriberCountText"])
         let videoCountField = self.text(from: renderer["videoCountText"])
         let handle = [subscriberField, videoCountField]
@@ -143,7 +123,6 @@ enum YouTubeItemParser {
         )
     }
 
-    /// Parses a video `lockupViewModel` (watch-next, channel pages, playlists).
     static func video(fromLockup lockup: [String: Any]) -> YouTubeVideo? {
         guard (lockup["contentType"] as? String) == "LOCKUP_CONTENT_TYPE_VIDEO" else {
             return nil
@@ -163,7 +142,6 @@ enum YouTubeItemParser {
         }
 
         let metadataRowTexts = self.metadataRowTexts(of: metadata)
-        // Row 0 is typically the channel name; row 1 holds "X views · Y ago".
         let channelName = metadataRowTexts.first?.first
         let statsRow = metadataRowTexts.dropFirst().first ?? []
         let viewCountText = statsRow.first { $0.localizedCaseInsensitiveContains("view") }
@@ -189,7 +167,6 @@ enum YouTubeItemParser {
         )
     }
 
-    /// Portrait (taller-than-wide) lockup thumbnails indicate Shorts.
     private static func hasPortraitThumbnail(of lockup: [String: Any]) -> Bool {
         let sources = (
             ((lockup["contentImage"] as? [String: Any])?["thumbnailViewModel"]
@@ -205,7 +182,6 @@ enum YouTubeItemParser {
         return height > width
     }
 
-    /// Parses a playlist `lockupViewModel` (playlist search results, shelves).
     static func playlist(fromLockup lockup: [String: Any]) -> YouTubePlaylist? {
         guard (lockup["contentType"] as? String) == "LOCKUP_CONTENT_TYPE_PLAYLIST" else {
             return nil
@@ -236,8 +212,6 @@ enum YouTubeItemParser {
         )
     }
 
-    /// Extracts display text from InnerTube's three text encodings:
-    /// `{"simpleText": ...}`, `{"runs": [{"text": ...}]}`, and `{"content": ...}`.
     static func text(from value: Any?) -> String? {
         guard let dict = value as? [String: Any] else {
             return value as? String
@@ -259,7 +233,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Picks the largest thumbnail from a legacy `thumbnail.thumbnails` array.
     static func thumbnailURL(fromThumbnail value: Any?) -> URL? {
         guard let thumbnail = value as? [String: Any],
               let thumbnails = thumbnail["thumbnails"] as? [[String: Any]]
@@ -269,7 +242,6 @@ enum YouTubeItemParser {
         return self.bestSourceURL(from: thumbnails)
     }
 
-    /// Picks the largest image source from a lockup's `thumbnailViewModel`.
     static func thumbnailURL(fromLockup lockup: [String: Any]) -> URL? {
         guard let contentImage = lockup["contentImage"] as? [String: Any] else { return nil }
 
@@ -277,7 +249,6 @@ enum YouTubeItemParser {
             return self.bestSourceURL(from: sources)
         }
 
-        // Playlist and album lockups stack their poster behind a collection wrapper.
         let collection = contentImage["collectionThumbnailViewModel"] as? [String: Any]
         guard let sources = self.imageSources(
             fromThumbnailViewModel: collection?["primaryThumbnail"]
@@ -287,8 +258,6 @@ enum YouTubeItemParser {
         return self.bestSourceURL(from: sources)
     }
 
-    /// Extracts `image.sources` from a `thumbnailViewModel`, tolerating the
-    /// singly-nested form InnerTube uses for Shorts and collection lockups.
     static func imageSources(fromThumbnailViewModel value: Any?) -> [[String: Any]]? {
         guard let container = value as? [String: Any] else { return nil }
         if let sources = (container["image"] as? [String: Any])?["sources"] as? [[String: Any]] {
@@ -298,8 +267,6 @@ enum YouTubeItemParser {
         return (nested?["image"] as? [String: Any])?["sources"] as? [[String: Any]]
     }
 
-    /// Picks the largest entry from an array of `{url, width, height}` sources,
-    /// normalizing protocol-relative URLs.
     static func bestSourceURL(from sources: [[String: Any]]) -> URL? {
         let best = sources.max { lhs, rhs in
             ((lhs["width"] as? Int) ?? 0) < ((rhs["width"] as? Int) ?? 0)
@@ -311,7 +278,6 @@ enum YouTubeItemParser {
         return URL(string: urlString)
     }
 
-    /// The lockup's primary tap command (`watchEndpoint`/`browseEndpoint` container).
     private static func onTapCommand(of lockup: [String: Any]) -> [String: Any]? {
         (
             ((lockup["rendererContext"] as? [String: Any])?["commandContext"]
@@ -319,7 +285,6 @@ enum YouTubeItemParser {
         )?["innertubeCommand"] as? [String: Any]
     }
 
-    /// Metadata row texts: one inner array of part texts per row.
     private static func metadataRowTexts(of metadata: [String: Any]?) -> [[String]] {
         let rows = (
             (metadata?["metadata"] as? [String: Any])?["contentMetadataViewModel"]
@@ -335,14 +300,11 @@ enum YouTubeItemParser {
         }
     }
 
-    /// The channel browse ID from the lockup metadata's avatar/byline, when present.
     private static func channelBrowseId(of metadata: [String: Any]?) -> String? {
         guard let metadata else { return nil }
         return self.firstBrowseId(in: metadata, matchingPrefix: "UC")
     }
 
-    /// Duration or count badge text from the lockup's thumbnail overlay,
-    /// e.g. "17:10" for videos or "120 videos" for playlists.
     private static func thumbnailBadgeText(of lockup: [String: Any]) -> String? {
         let overlays = (
             (lockup["contentImage"] as? [String: Any])?["thumbnailViewModel"]
@@ -366,7 +328,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Depth-first search for the first `browseEndpoint.browseId` with the given prefix.
     private static func firstBrowseId(in value: Any, matchingPrefix prefix: String) -> String? {
         if let dict = value as? [String: Any] {
             if let browseEndpoint = dict["browseEndpoint"] as? [String: Any],
@@ -390,9 +351,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Resume-progress percent from a lockup's thumbnail overlay
-    /// (`progressBar`, a sibling of the `badges` key read by
-    /// `thumbnailBadgeText(of:)`). `nil` when the video is unwatched.
     private static func watchedPercent(ofLockup lockup: [String: Any]) -> Int? {
         let overlays = (
             (lockup["contentImage"] as? [String: Any])?["thumbnailViewModel"] as? [String: Any]
@@ -412,8 +370,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Resume-progress percent from a legacy `videoRenderer.thumbnailOverlays`
-    /// array (`thumbnailOverlayResumePlaybackRenderer.percentDurationWatched`).
     private static func watchedPercent(ofRenderer renderer: [String: Any]) -> Int? {
         guard let overlays = renderer["thumbnailOverlays"] as? [[String: Any]] else {
             return nil
@@ -431,10 +387,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    /// Coerces an InnerTube percent (Int or Double encoding) into a clamped
-    /// 1…100 Int. A non-positive percent means "no resume progress" (YouTube
-    /// emits this for unwatched/preview lockups), so it maps to `nil` and the
-    /// progress bar stays hidden.
     private static func percentValue(_ raw: Any?) -> Int? {
         guard let value = (raw as? Int) ?? (raw as? Double).map(Int.init) else {
             return nil

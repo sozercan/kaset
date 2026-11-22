@@ -2,7 +2,6 @@
 
 import SwiftUI
 
-/// Main application window with sidebar navigation and player bar.
 struct MainWindow: View { // swiftlint:disable:this type_body_length
     private static let accountResolutionGateTimeout: Duration = .seconds(2)
 
@@ -43,28 +42,20 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @Environment(\.showWhatsNew) private var showWhatsNew
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
-    /// Binding to navigation selection for keyboard shortcut control from parent.
     @Binding var navigationSelection: NavigationItem?
 
-    /// Binding to the YouTube (video) experience's navigation selection.
     @Binding var youtubeNavigationSelection: YouTubeNavigationItem?
 
-    /// Monotonic request from the View menu to refresh the active Home feed.
     @Binding var homeRefreshRequestID: Int
 
-    /// Whether startup guest playback cleanup has completed.
     @Binding var didCompleteStartupPlaybackCleanup: Bool
 
-    /// Shared API client used by all views and services.
     let client: any YTMusicClientProtocol
 
-    /// Shared YouTube (video) API client.
     let youtubeClient: any YouTubeClientProtocol
 
-    /// App-wide settings; drives the active content source (music vs. video).
     @State private var settings = SettingsManager.shared
 
-    /// View models for the YouTube experience (persist across source toggles).
     @State private var youtubeStore: YouTubeViewModelStore
 
     @State private var showLoginSheet = false
@@ -74,10 +65,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var contentResetID = UUID()
     @State private var guestRefreshTask: Task<Void, Never>?
     @State private var accountResolutionFailOpenGeneration: UInt64?
-    /// Whether authenticated content has been shown for the current signed-in
-    /// identity. Distinguishes the first account-scope resolution at startup
-    /// (nothing fetched yet) from a real switch away from content that was
-    /// already rendered under the unresolved primary scope.
     @State private var hasRenderedAuthenticatedContent = false
 
     @State private var homeViewModel: HomeViewModel?
@@ -91,14 +78,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     @State private var libraryViewModel: LibraryViewModel?
     @State private var historyViewModel: HistoryViewModel?
 
-    /// Navigation path for the Liked Music route.
     @State private var likedMusicNavigationPath = NavigationPath()
 
-    /// Navigation paths for pinned sidebar playlists/albums keyed by content ID.
     @State private var pinnedNavigationPaths: [String: NavigationPath] = [:]
 
-    /// Column visibility for NavigationSplitView. The main window is hidden rather than closed,
-    /// so this keeps the user's sidebar choice across focus changes and Dock restores.
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
 
     init(
@@ -133,7 +116,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         _historyViewModel = State(initialValue: HistoryViewModel(client: client))
     }
 
-    /// Access to the app delegate for persistent WebView.
     private var appDelegate: AppDelegate? {
         NSApplication.shared.delegate as? AppDelegate
     }
@@ -144,8 +126,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 NowPlayingManager.shared.configure(playerService: self.playerService)
             }
             .task(id: self.accountService.currentAccount?.id) {
-                // Keep PodcastsViewModel in sync with the active account so
-                // 404 / empty results are recorded against the right account.
                 let accountId = self.accountService.currentAccount?.id
                 if let accountId {
                     self.podcastsAvailability.activateAccount(accountId)
@@ -156,12 +136,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 )
             }
             .task(id: self.podcastsProbeTaskID) {
-                // Probe podcasts availability in the background when the
-                // initial account resolves for an authenticated session.
                 guard self.podcastsProbeTaskID != nil else { return }
-                // Brief delay so post-login cookies have a chance to settle
-                // into the data store the API client reads from. This does not
-                // block content rendering.
                 try? await Task.sleep(for: .milliseconds(200))
                 guard !Task.isCancelled else { return }
                 await self.podcastsAvailability.probe(
@@ -184,15 +159,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onChange(of: self.likeStatusManager.lastLikeEventBatch) { _, batch in
                 guard let batch, batch.accountID == self.likeStatusManager.activeAccountID else { return }
                 for event in batch.events {
-                    // Global sync 1: keep PlayerService.currentTrackLikeStatus in sync
                     if let currentVideoId = self.playerService.currentTrack?.videoId,
                        event.videoId == currentVideoId
                     {
                         self.playerService.currentTrackLikeStatus = event.status
                     }
 
-                    // Global sync 2: keep Liked Music list in sync when the active
-                    // Liked Music detail view is not already forwarding this event.
                     if self.navigationSelection != .likedMusic {
                         self.likedMusicViewModel?.handleLikeStatusChange(event)
                     }
@@ -203,15 +175,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 AppIntentsBridge.shared.updateLibrary(library)
             }
             .onChange(of: self.libraryViewModel?.currentAccountScopeGeneration) { oldGeneration, _ in
-                // An account switch empties the Library, possibly mid-load. Drop the previous
-                // account's snapshot now rather than when the new account's Library loads.
                 guard oldGeneration != nil else { return }
                 AppIntentsBridge.shared.updateLibrary(.empty)
             }
     }
 
-    /// The Library as Shortcuts, Siri, and Spotlight should see it: empty when no personal
-    /// account is signed in, and nil (keep the last snapshot) while it is still loading.
     private var appIntentsLibrary: AppIntentsLibrary? {
         guard !self.authService.state.isInitializing else { return nil }
         guard self.authService.hasPersonalAccount else { return .empty }
@@ -230,24 +198,17 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         message: String(localized: "Kaset could not read saved sign-in data. Retry to restore your session.")
                     )
                 } else if self.authService.state.isInitializing {
-                    // Show loading while checking login status to avoid guest-content flash
                     self.initializingView
                 } else if self.authService.hasPersonalAccount {
                     if self.canRenderAuthenticatedContent {
                         self.mainContent
                             .onAppear { self.hasRenderedAuthenticatedContent = true }
                     } else {
-                        // Give the initial account fetch a bounded chance to restore
-                        // the selected primary or brand account before requests start.
                         self.initializingView
                     }
                 } else if self.didCompleteStartupPlaybackCleanup {
-                    // Guest mode: public browsing/search/playback remains available
-                    // without login. Personal routes render sign-in prompts below.
                     self.mainContent
                 } else {
-                    // Hold restored account playback/queue metadata out of the
-                    // guest shell until startup cleanup has finished.
                     self.initializingView
                 }
             }
@@ -255,11 +216,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 DiagnosticsLogger.app.info("MainWindow: UI appeared")
             }
 
-            // Persistent WebView - eager once logged in, and mounted on demand for guest playback.
-            // Uses a SINGLETON WebView instance that persists for the app lifetime.
-            // Keep it as a hidden 1×1 anchor for audio playback; do not reveal a mini overlay.
-            // Keep authenticated Home available while restoration defers watch loading.
-            // Let the video or mini-player window own the WebView while visible.
             if !self.authService.isCookieRestoreUnavailable,
                !self.playerService.shouldHostPlaybackInMiniPlayer,
                Self.shouldMountPersistentPlayer(
@@ -287,10 +243,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
         }
         .overlay {
-            // Command bar overlay - dismisses when clicking outside
             if self.supportsCommandBarUI, self.isCommandBarPresented {
                 ZStack {
-                    // Background tap area to dismiss
                     Rectangle()
                         .fill(.clear)
                         .contentShape(Rectangle())
@@ -313,7 +267,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
         }
         .overlay(alignment: .top) {
-            // Error toast for account switching failures
             AccountErrorToast()
                 .padding(.top, 60)
         }
@@ -362,7 +315,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
             .onChange(of: self.showWhatsNew.wrappedValue) { _, newValue in
                 if newValue {
-                    // Manual trigger from Help menu — fetch exact-version release notes, bypass version store
                     Task { @MainActor in
                         await self.presentCurrentWhatsNew(respectingPresentedVersions: false)
                     }
@@ -411,19 +363,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.handleAccountScopeChange(oldAccountScope: oldAccountScope, newAccountScope: newAccountScope)
             }
             .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
-                // Re-point in-flight playback ONLY once the new session identity is
-                // verified (DATASYNC_ID confirmed). Driving this off the verified
-                // signal — rather than `currentAccount?.id` — avoids reloading the
-                // player under an unverified/primary identity on cold-launch brand
-                // restore, where `currentAccount` is set before its session pin lands.
-                // History is recorded by the playback WebViews' own stats pings, so a
-                // track/video still loaded under the previous identity must reload to
-                // record to the new account. The shared cookie session covers both.
                 guard let verifiedAccountId = self.accountService.verifiedAccountId else { return }
-                // Re-verifying the account already in use (every launch re-pins it) keeps
-                // the like scope: an account switch already invalidated like state through
-                // the account-scope change, and other content loaded before verification
-                // is kept too. Bumping it here only made Liked Music drop its pages mid-scroll.
                 let isReverification = self.accountService.currentAccount?.id == verifiedAccountId
                 self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
                 if self.youtubePlayerService.currentVideo != nil {
@@ -431,17 +371,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
             .onChange(of: self.podcastsAvailability.availability) { oldValue, newValue in
-                // If the user is sitting on the Podcasts tab when it flips
-                // unavailable, redirect to Home so they don't end up on a
-                // sidebar row that no longer exists.
                 if newValue == .unavailable, self.navigationSelection == .podcasts {
                     self.navigationSelection = .home
                 }
 
-                // Switching back from an unavailable account keeps the
-                // Podcasts VM reset/idle until the probe confirms the new
-                // account is available. Eagerly refresh then so the tab does
-                // not remain on the prior account's loaded-empty state.
                 if oldValue == .unavailable, newValue == .available {
                     Task { @MainActor in
                         await self.podcastsViewModel?.refresh()
@@ -453,13 +386,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     private func handleAccountScopeChange(oldAccountScope: String?, newAccountScope: String?) {
         let currentAccount = self.accountService.currentAccount
         let newAccountId = self.accountService.currentAccount?.id
-        // The first resolution after startup/login goes `nil -> scope` before
-        // any authenticated view has rendered, so nothing was fetched under a
-        // wrong scope: wire the scope up below but skip the switch teardown
-        // (cache wipe + refresh of every surface), which otherwise reloads
-        // Home right after its initial page and discards its continuation.
-        // Content rendered under the unresolved scope (fail-open timeout, or a
-        // retried account fetch) is a real switch and still refreshes.
         let isInitialScopeResolution = oldAccountScope == nil
             && newAccountScope != nil
             && !self.hasRenderedAuthenticatedContent
@@ -488,8 +414,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                       self.accountService.currentAccountScopeID == newAccountScope
                 else { return }
 
-                // These models also supply like and Library status to other views.
-                // Seed them without restarting Home or an already-visible tab.
                 async let likedMusicLoad: Void? = self.likedMusicViewModel?.ensureLoaded()
                 if let libraryViewModel = self.libraryViewModel,
                    libraryViewModel.loadingState == .idle
@@ -506,13 +430,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             guard newAccountId != nil else { return }
 
             self.historyViewModel?.reset()
-            // YouTube surfaces are account-scoped too.
             self.youtubeStore.resetForAccountChange()
 
-            // Brand accounts can have a different region than the
-            // primary. Re-probe in the background so the sidebar
-            // reflects the new account. The sidebar may briefly show
-            // the prior account's tab state until the probe lands.
             DiagnosticsLogger.auth.info("Account switched, refreshing content and current track metadata...")
 
             await withTaskGroup(of: Void.self) { group in
@@ -542,7 +461,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     private var mainContent: some View {
         ZStack(alignment: .trailing) {
-            // Main navigation content — sidebar and detail swap with the active source.
             NavigationSplitView(columnVisibility: self.$columnVisibility) {
                 if self.settings.appSource == .music {
                     Sidebar(
@@ -588,7 +506,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .id(self.contentResetID)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Right sidebar overlay - either lyrics or queue (mutually exclusive)
             self.rightSidebarOverlay(client: self.client)
 
             if self.playerService.showFullScreenPlayer, self.settings.appSource == .music {
@@ -630,14 +547,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private var supportsCommandBarUI: Bool {
-        // The command bar is a music/AI feature; it has no role in the
-        // YouTube experience, so the sparkle button hides there.
         PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.usesLegacyMacOS15UI)
             && self.settings.appSource == .music
             && self.hasPersonalAccount
     }
 
-    /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
     @ViewBuilder
     private func rightSidebarOverlay(client: any YTMusicClientProtocol) -> some View {
         let showRightSidebar = self.playerService.showLyrics || self.playerService.showQueue
@@ -663,7 +577,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
                 .frame(maxHeight: .infinity)
                 .padding(.top, 12)
-                .padding(.bottom, 76) // Space for PlayerBar
+                .padding(.bottom, 76)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
 
                 Spacer()
@@ -705,7 +619,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Returns the view for a specific navigation item.
     private func viewForNavigationItem(_ item: NavigationItem) -> some View { // swiftlint:disable:this cyclomatic_complexity
         Group {
             switch item {
@@ -832,7 +745,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// View shown while checking initial login status.
     private var initializingView: some View {
         VStack(spacing: 16) {
             CassetteIcon(size: 60)
@@ -848,7 +760,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         self.accountService.authenticationIdentityDidChange()
         switch newState {
         case .initializing:
-            // Still checking login status, do nothing
             break
         case .loggedOut:
             self.hasRenderedAuthenticatedContent = false
@@ -864,8 +775,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels()
                 self.youtubeStore.resetForAccountChange()
-                // Reset podcasts availability so the next sign-in re-probes
-                // the endpoint.
                 self.podcastsAvailability.reset()
             }
             if !isReauthTransition {
@@ -882,8 +791,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             self.guestRefreshTask = nil
             let shouldRefreshAuthenticatedContent = oldState == .loggingIn || oldState == .loggedOut
             if shouldRefreshAuthenticatedContent {
-                // Replace any mounted guest/expired models so in-flight responses
-                // cannot populate the authenticated shell after login or reauth.
                 self.client.resetSessionStateForAccountSwitch()
                 self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
@@ -892,17 +799,11 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
             }
             self.showLoginSheet = false
-            // Auto-present "What's New" — fetch from GitHub release notes
             if self.whatsNewToPresent == nil {
                 Task { @MainActor in
                     await self.presentCurrentWhatsNew()
                 }
             }
-            // KasetApp's state-keyed root task owns account loading for every
-            // authenticated transition, after startup playback cleanup.
-            // If we just completed login/reauth, refresh content. This handles
-            // the case where cookies were unavailable during initial load and
-            // preserved views that may currently hold auth-expired state.
             if shouldRefreshAuthenticatedContent {
                 let authGeneration = self.authService.accountIdentityGeneration
                 Task {
@@ -920,7 +821,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         let accountResolutionDeadline = clock.now + Self.accountResolutionGateTimeout
 
         do {
-            // Keep the existing post-login cookie propagation delay.
             try await Task.sleep(for: .milliseconds(500))
             while !self.accountService.didCompleteAccountResolution,
                   clock.now < accountResolutionDeadline
@@ -1013,8 +913,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func refreshAuthenticatedContent() async {
-        // Parallel initial data fetch for ~40% faster app launch. The podcasts
-        // probe is driven separately by the account-keyed task.
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
             group.addTask { await self.exploreViewModel?.refresh() }
@@ -1044,12 +942,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         )
     }
 
-    /// Refreshes only public guest-safe surfaces after sign-out so prior
-    /// account-personalized content is not left visible in the guest shell.
     private func refreshGuestContent() async {
-        // These view models are main-actor-bound observable UI state. Keep the
-        // refresh calls on the main actor instead of spawning task-group child
-        // tasks that capture `self` and mutate UI state off actor.
         await self.homeViewModel?.refresh()
         await self.exploreViewModel?.refresh()
         await self.chartsViewModel?.refresh()
@@ -1062,16 +955,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Refreshes all content when switching accounts.
-    ///
-    /// This method is called when the user switches between their primary account
-    /// and brand accounts, ensuring all views display content for the new account.
     private func refreshAllContent() async {
-        // Parallel refresh of all content views.
-        // The podcasts refresh is gated on the latest availability
-        // signal so a brand-account switch into a region without
-        // podcasts doesn't fire the spurious 404 the bug is about. The
-        // account-keyed task re-evaluates availability separately.
         let podcastsAvailable = self.podcastsAvailability.availability != .unavailable
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }

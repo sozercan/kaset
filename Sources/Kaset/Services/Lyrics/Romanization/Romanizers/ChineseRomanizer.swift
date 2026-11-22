@@ -1,6 +1,5 @@
 import Foundation
 
-/// Romanizes Chinese text to pinyin using macOS's built-in CFStringTokenizer.
 enum ChineseRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString

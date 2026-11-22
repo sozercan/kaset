@@ -2,7 +2,6 @@
 import Foundation
 @testable import Kaset
 
-/// A mock implementation of YTMusicClientProtocol for testing.
 @MainActor
 final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this type_body_length
     enum SearchEndpoint: Hashable {
@@ -320,11 +319,8 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
 
     var shouldThrowError: Error?
 
-    /// Per-call getSong errors, keyed by the one-based call ordinal.
     var getSongErrorsByCallCount: [Int: Error] = [:]
 
-    /// Per-seed radio errors: `getRadioQueue(videoId:)` throws the mapped error for that seed only,
-    /// so tests can simulate a transient failure on one seed while others succeed.
     var radioQueueErrors: [String: Error] = [:]
 
     func getHome(forceRefresh: Bool) async throws -> HomeResponse {
@@ -915,7 +911,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let error = shouldThrowError {
             throw error
         }
-        // Return artistSongsResponse if set, otherwise fall back to dictionary lookup
         if !self.artistSongsResponse.isEmpty {
             return self.artistSongsResponse
         }
@@ -1143,7 +1138,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let error = shouldThrowError {
             throw error
         }
-        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
         if showId.hasPrefix("MPSPP") {
             let suffix = String(showId.dropFirst(5))
             if suffix.isEmpty {
@@ -1172,7 +1166,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         if let error = shouldThrowError {
             throw error
         }
-        // Validate podcast show ID format (mirrors real YTMusicClient behavior)
         if showId.hasPrefix("MPSPP") {
             let suffix = String(showId.dropFirst(5))
             if suffix.isEmpty {
@@ -1341,7 +1334,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.accountsListResponse
     }
 
-    /// Resets all call tracking.
     func reset() { // swiftlint:disable:this function_body_length
         self.getHomeCalled = false
         self.getHomeCallCount = 0

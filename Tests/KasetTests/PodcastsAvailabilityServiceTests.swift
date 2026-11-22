@@ -45,9 +45,6 @@ struct PodcastsAvailabilityServiceTests {
 
         let result = await service.probe(for: "primary", using: client)
 
-        // Empty payload from a probe is not authoritative — leave the
-        // state alone. The lazy path will confirm via user-initiated
-        // load.
         #expect(result == .unknown)
         #expect(service.availability == .unknown)
     }
@@ -73,7 +70,6 @@ struct PodcastsAvailabilityServiceTests {
 
         let result = await service.probe(for: "primary", using: client)
 
-        // Transient failures must not flip a known-good state.
         #expect(result == .available)
         #expect(service.availability == .available)
     }

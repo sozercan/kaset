@@ -1,7 +1,5 @@
 import Foundation
 
-/// Verified playback captured while the coordinator is still determining whether a long video is
-/// a mix. Once chapters arrive, the progress ranges can be apportioned to their real sub-tracks.
 struct ProvisionalMixPlaybackHistory {
     struct Credit {
         var accumulatedPlayTime: TimeInterval = 0

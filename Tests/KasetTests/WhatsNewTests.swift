@@ -105,7 +105,6 @@ struct WhatsNewVersionStoreTests {
     private let defaults = UserDefaults(suiteName: "com.kaset.test.WhatsNewVersionStore")!
 
     init() {
-        // Clean up before each test suite run
         self.defaults.removePersistentDomain(forName: "com.kaset.test.WhatsNewVersionStore")
     }
 

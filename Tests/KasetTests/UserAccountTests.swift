@@ -1,8 +1,3 @@
-// UserAccountTests.swift
-// KasetTests
-//
-// Tests for UserAccount model using Swift Testing framework.
-
 import Foundation
 import Testing
 @testable import Kaset
@@ -116,7 +111,6 @@ struct UserAccountTests {
             isSelected: false
         )
 
-        // Selection is UI state; account identity remains the same.
         #expect(account1 == account2)
     }
 
@@ -156,7 +150,6 @@ struct UserAccountTests {
         set.insert(account2)
         set.insert(account3)
 
-        // account1 and account2 are equal, so set should have 2 elements
         #expect(set.count == 2)
     }
 
@@ -164,7 +157,6 @@ struct UserAccountTests {
         let account1 = MockUserAccountData.primaryAccount
         let account2 = MockUserAccountData.brandAccount
 
-        // Different accounts should (almost certainly) have different hashes
         #expect(account1.hashValue != account2.hashValue)
     }
 
@@ -290,8 +282,6 @@ enum MockUserAccountData {
         )
     }
 
-    /// Brand account that carries a server-issued signinURL, so a verified
-    /// session switch can be attempted in tests.
     static var brandAccountWithSigninURL: UserAccount {
         UserAccount.from(
             name: "Brand Account",

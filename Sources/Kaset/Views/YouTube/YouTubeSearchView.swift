@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// YouTube search: query field, result-kind filter, and mixed result list.
 struct YouTubeSearchView: View {
     @Bindable var viewModel: YouTubeSearchViewModel
     @FocusState private var isSearchFieldFocused: Bool

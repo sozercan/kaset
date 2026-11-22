@@ -1,11 +1,9 @@
 import Foundation
 import os
 
-/// Parser for the signed-in user's Library browse responses.
 enum LibraryContentParser {
     private static let logger = DiagnosticsLogger.api
 
-    /// One page of saved albums and the token for the next page, when present.
     struct LibraryAlbumsPage {
         let albums: [Album]
         let nextPages: [String]
@@ -28,7 +26,6 @@ enum LibraryContentParser {
         }
     }
 
-    /// Source used for saved-album content in a combined Library response.
     enum LibraryAlbumsSource {
         case dedicated
         case landingFallback
@@ -39,13 +36,11 @@ enum LibraryContentParser {
         }
     }
 
-    /// Source used for followed-artist content in a combined Library response.
     enum LibraryArtistsSource {
         case dedicated
         case landingFallback
     }
 
-    /// Parsed Library content from YouTube Music browse responses.
     struct LibraryContent {
         let playlists: [Playlist]
         let albums: [Album]
@@ -104,7 +99,6 @@ enum LibraryContentParser {
         self.parseLibraryContent(data).playlists
     }
 
-    /// Parses albums from the dedicated saved-albums browse response.
     static func parseLibraryAlbums(_ data: [String: Any]) -> [Album] {
         let pageAlbums = self.parseLibraryAlbumsPage(data).albums
         return self.mergedLibraryAlbums(
@@ -113,7 +107,6 @@ enum LibraryContentParser {
         )
     }
 
-    /// Parses the first saved-albums page and its continuation token.
     static func parseLibraryAlbumsPage(_ data: [String: Any]) -> LibraryAlbumsPage {
         let genericAlbums = self.parseLibraryContent(data).albums
         let rendererInputs = ResponseTreeSearch.dictionaries(named: "gridRenderer", in: data).map {
@@ -144,7 +137,6 @@ enum LibraryContentParser {
         return LibraryAlbumsPage(albums: [], nextPage: nil, isRecognized: false)
     }
 
-    /// Parses a saved-albums continuation response in legacy or append-action format.
     static func parseLibraryAlbumsContinuation(_ data: [String: Any]) -> LibraryAlbumsPage {
         if let gridContinuation = ResponseTreeSearch.firstDictionary(named: "gridContinuation", in: data) {
             guard let items = gridContinuation["items"] as? [[String: Any]] else {
@@ -197,7 +189,6 @@ enum LibraryContentParser {
         return LibraryAlbumsPage(albums: [], nextPage: nil, isRecognized: false)
     }
 
-    /// Parses library content from browse response, returning playlists, albums, artists, and podcast shows.
     static func parseLibraryContent(_ data: [String: Any]) -> LibraryContent {
         var playlists: [Playlist] = []
         var albums: [Album] = []
@@ -222,7 +213,6 @@ enum LibraryContentParser {
         )
     }
 
-    /// Merges library playlists using the dedicated endpoint as authoritative while retaining landing-only items.
     static func mergedLibraryPlaylists(dedicated dedicatedPlaylists: [Playlist], fallback fallbackPlaylists: [Playlist]) -> [Playlist] {
         var mergedPlaylists = dedicatedPlaylists
         var seenPlaylistKeys = Set(dedicatedPlaylists.map { LibraryContentIdentity.playlistKey(for: $0) })
@@ -236,7 +226,6 @@ enum LibraryContentParser {
         return mergedPlaylists
     }
 
-    /// Merges dedicated saved albums with any landing-page preview albums.
     static func mergedLibraryAlbums(dedicated dedicatedAlbums: [Album], fallback fallbackAlbums: [Album]) -> [Album] {
         var mergedAlbums = dedicatedAlbums
         var seenAlbumIDs = Set(dedicatedAlbums.map(\.id))
@@ -249,7 +238,6 @@ enum LibraryContentParser {
         return mergedAlbums
     }
 
-    /// Parses artists from the dedicated library artists browse response.
     static func parseLibraryArtists(_ data: [String: Any]) -> [Artist] {
         var artists: [Artist] = []
         var ignoredPlaylists: [Playlist] = []
@@ -269,7 +257,6 @@ enum LibraryContentParser {
         return LibraryContentIdentity.deduplicatedArtists(artists)
     }
 
-    /// Parses the uploaded songs browse endpoint into a virtual playlist tile for Library.
     static func parseUploadedSongsPlaylist(_ data: [String: Any]) -> Playlist? {
         let detail = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: Playlist.uploadedSongsBrowseID).detail
         guard !detail.tracks.isEmpty || (detail.trackCount ?? 0) > 0 else {
@@ -311,7 +298,6 @@ enum LibraryContentParser {
         artists: inout [Artist],
         podcastShows: inout [PodcastShow]
     ) {
-        // Try gridRenderer
         if let gridRenderer = sectionData["gridRenderer"] as? [String: Any],
            let items = gridRenderer["items"] as? [[String: Any]]
         {
@@ -333,7 +319,6 @@ enum LibraryContentParser {
             }
         }
 
-        // Try itemSectionRenderer > musicShelfRenderer
         if let itemSectionRenderer = sectionData["itemSectionRenderer"] as? [String: Any],
            let itemContents = itemSectionRenderer["contents"] as? [[String: Any]]
         {
@@ -352,7 +337,6 @@ enum LibraryContentParser {
             }
         }
 
-        // Try musicShelfRenderer directly
         if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
            let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
         {

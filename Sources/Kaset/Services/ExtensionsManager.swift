@@ -2,30 +2,21 @@ import Foundation
 import os
 import WebKit
 
-/// A user-managed web extension entry.
 struct ManagedExtension: Codable, Identifiable, Equatable {
-    /// Stable identifier (UUID string).
     let id: String
 
-    /// Display name shown in the Extensions settings UI.
     var name: String
 
-    /// Whether this extension is currently enabled.
     var isEnabled: Bool
 
-    /// Path to the local copy of the extension in Application Support.
     var relativePath: String
 
-    /// The options page path from manifest.json (e.g. "options.html")
     var optionsPath: String?
 
-    /// The popup path from manifest.json (e.g. "popup.html")
     var popupPath: String?
 
-    /// Local security-scoped bookmark for the cloned folder (needed for some sandbox processes)
     var localBookmark: Data?
 
-    /// Required access explicitly approved by the user; absent for legacy entries.
     var approvedPermissions: ExtensionPermissions?
 
     init(id: String = UUID().uuidString,
@@ -48,10 +39,6 @@ struct ManagedExtension: Codable, Identifiable, Equatable {
     }
 }
 
-/// Manages the list of user-installed web extensions.
-///
-/// Extensions are persisted as JSON in Application Support. Directory access
-/// is protected by security-scoped bookmarks so it survives app restarts.
 @MainActor
 @Observable
 final class ExtensionsManager {
@@ -60,7 +47,6 @@ final class ExtensionsManager {
     private let logger = DiagnosticsLogger.extensions
     private let persistenceURL: URL?
 
-    /// All managed extensions, in display order.
     private(set) var extensions: [ManagedExtension] = []
 
     private static var defaultPersistenceURL: URL? {
@@ -117,8 +103,6 @@ final class ExtensionsManager {
         try data.write(to: url, options: .atomic)
     }
 
-    /// Returns the resolved `URL`s for all enabled extensions, in order.
-    /// Starts security-scoped access — call `stopAllAccess()` when done.
     func resolvedURLs() -> [(id: String, url: URL)] {
         var result: [(id: String, url: URL)] = []
 
@@ -145,7 +129,6 @@ final class ExtensionsManager {
         return FileManager.default.fileExists(atPath: url.path) ? (url, false) : nil
     }
 
-    /// Parses resources without loading an extension context or executing its scripts.
     func permissionReview(id: String) async throws -> ExtensionPermissionReview {
         guard let ext = self.extensions.first(where: { $0.id == id }),
               let resource = self.resolvedResource(for: ext)
@@ -171,8 +154,6 @@ final class ExtensionsManager {
         let previous = self.extensions[index]
         self.extensions[index].approvedPermissions = review.permissions
         self.extensions[index].isEnabled = true
-        // An approval that isn't saved is lost on restart, and the extension stays off, so
-        // report the failure instead of telling the user to restart.
         do {
             try self.persist()
         } catch {
@@ -182,7 +163,6 @@ final class ExtensionsManager {
         }
     }
 
-    /// Must succeed before granting permissions or loading the parsed extension.
     func allowsLoading(_ permissions: ExtensionPermissions, id: String) -> Bool {
         guard let ext = self.extensions.first(where: { $0.id == id }), ext.isEnabled else { return false }
         guard ext.approvedPermissions == permissions else {
@@ -199,16 +179,10 @@ final class ExtensionsManager {
         self.save()
     }
 
-    /// Stops security-scoped access for all currently resolved extensions (obsolete).
     func stopAllAccess() {}
 
-    /// Adds an extension from a directory URL chosen by the user.
-    /// Creates a security-scoped bookmark for persistent access.
-    /// Adds an extension from a folder containing manifest.json.
-    /// Analyzes the manifest structure before attempting to copy.
     @discardableResult
     func addExtension(at url: URL) throws -> String {
-        // 1. Analyze the manifest first
         let manifestURL = url.appendingPathComponent("manifest.json")
         guard FileManager.default.fileExists(atPath: manifestURL.path) else {
             throw NSError(domain: "ExtensionsManager", code: 1, userInfo: [NSLocalizedDescriptionKey: "manifest.json not found in the selected folder."])
@@ -227,7 +201,6 @@ final class ExtensionsManager {
             throw NSError(domain: "ExtensionsManager", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not read or parse manifest.json."])
         }
 
-        // 2. Extract metadata
         let manifestName = (manifest["name"] as? String) ?? url.lastPathComponent
         let name = manifestName.hasPrefix("__MSG_") ? url.lastPathComponent : manifestName
         let manifestVersion = (manifest["manifest_version"] as? Int) ?? 0
@@ -245,7 +218,6 @@ final class ExtensionsManager {
 
         self.logger.info("Manifest Analysis: Name=\(name), V\(manifestVersion), Options=\(optionsPath ?? "none"), Popup=\(popupPath ?? "none")")
 
-        // 3. Perform Copy
         guard let extensionsDir = self.managedExtensionsDirectoryURL else {
             throw NSError(domain: "ExtensionsManager", code: 3, userInfo: [NSLocalizedDescriptionKey: "Could not determine the extensions storage location."])
         }
@@ -256,7 +228,6 @@ final class ExtensionsManager {
 
         try FileManager.default.copyItem(at: url, to: destURL)
 
-        // 4. Persistence
         let localBookmark = try? destURL.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil)
 
         let entry = ManagedExtension(
@@ -274,7 +245,6 @@ final class ExtensionsManager {
         return entry.id
     }
 
-    /// Removes an extension by its ID.
     func removeExtension(id: String) {
         guard let index = self.extensions.firstIndex(where: { $0.id == id }) else { return }
         let ext = self.extensions[index]
@@ -287,7 +257,6 @@ final class ExtensionsManager {
         self.save()
     }
 
-    /// Disables an extension. Enabling requires an explicit permission review.
     func disableExtension(id: String) {
         guard let idx = self.extensions.firstIndex(where: { $0.id == id }) else { return }
         self.extensions[idx].isEnabled = false

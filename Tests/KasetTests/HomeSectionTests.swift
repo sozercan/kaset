@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for HomeSection and HomeSectionItem.
 @Suite(.tags(.model))
 struct HomeSectionTests {
     @Test("Song item ID has correct prefix")

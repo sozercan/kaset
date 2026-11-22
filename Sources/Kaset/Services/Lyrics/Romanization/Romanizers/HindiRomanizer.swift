@@ -1,6 +1,5 @@
 import Foundation
 
-/// Romanizes Hindi (Devanagari) text using macOS's built-in CFStringTokenizer.
 enum HindiRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString

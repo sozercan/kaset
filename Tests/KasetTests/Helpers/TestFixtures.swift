@@ -1,7 +1,6 @@
 import Foundation
 @testable import Kaset
 
-/// Provides test fixtures for unit tests.
 enum TestFixtures {
     static func makeSong(
         id: String = "test-video-id",

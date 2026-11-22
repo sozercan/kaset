@@ -57,46 +57,32 @@ struct NowPlayingTracklistProviderTests {
         }
     }
 
-    /// Regression: the tracklist fetch is gated on track duration, which YouTube reports a beat after
-    /// the track object appears. A one-shot check at track-start always missed, so every mix silently
-    /// fell back to whole-video scrobbling. The provider must retry as duration settles, then fire
-    /// exactly once per video.
     @Test("Fetch is deferred until duration is known, then fires exactly once")
     func fetchDeferredUntilDurationKnown() async {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         let track = TestFixtures.makeSong(id: "mix1", title: "Long Mix", duration: nil)
 
-        // Duration unknown at track-start → no fetch.
         provider.update(track: track, duration: 0)
         #expect(mockYouTube.getWatchNextCallCount == 0)
 
-        // Duration becomes known and crosses the mix threshold → fetch fires.
         provider.update(track: track, duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
 
-        // Further duration churn must not re-fetch (latched once per video).
         provider.update(track: track, duration: 3601)
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount > 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
     }
 
-    /// Regression: a `Song` can be minted with a stale short `duration` (the previous item's, before
-    /// the WebView reports the new video's), so its baked-in duration stays below the mix gate. A
-    /// later fresh player-duration update that crosses the threshold must still trigger the fetch —
-    /// the stale baked-in value must not suppress it.
     @Test("A fresh player duration overrides a stale short baked-in track duration")
     func freshPlayerDurationOverridesStaleTrackDuration() async {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
-        // Baked-in duration is a stale short value (below the 10-minute gate).
         let track = TestFixtures.makeSong(id: "mix1", title: "Long Mix", duration: 180)
 
-        // Track-start with only the stale short duration → no fetch.
         provider.update(track: track, duration: 0)
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
 
-        // The WebView reports the real (long) duration → fetch must fire despite the stale track value.
         provider.update(track: track, duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
@@ -144,7 +130,6 @@ struct NowPlayingTracklistProviderTests {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         let track = TestFixtures.makeSong(id: "short1", title: "Regular Song", duration: nil)
 
-        // A 4-minute track never crosses the 10-minute mix threshold.
         provider.update(track: track, duration: 240)
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
@@ -164,8 +149,6 @@ struct NowPlayingTracklistProviderTests {
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
         #expect(mockYouTube.requestedWatchNextVideoIds == ["mix1"])
 
-        // The first request remains suspended while playback moves to another long mix. The new
-        // video must start its own parse immediately rather than waiting for the stale request.
         provider.update(track: TestFixtures.makeSong(id: "mix2", title: "Second Mix", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 2 }
 
@@ -183,18 +166,13 @@ struct NowPlayingTracklistProviderTests {
             }
         }
 
-        // A: mix1's fetch is held in-flight.
         provider.update(track: TestFixtures.makeSong(id: "mix1", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
-        // B: switch to mix2, cancelling and removing A's now-unobserved parser request.
         provider.update(track: TestFixtures.makeSong(id: "mix2", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 2 }
-        // A again: switching back must start a fresh mix1 request instead of joining cancelled work.
         provider.update(track: TestFixtures.makeSong(id: "mix1", duration: 3600), duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 3 }
 
-        // Releasing mix1 resumes both the cancelled original and the current replacement request.
-        // The current (replacement) generation must win; the stale one must not clear it.
         await mix1Gate.open()
         await self.waitUntil { provider.tracklist != nil }
         #expect(provider.tracklist?.videoId == "mix1")
@@ -250,8 +228,6 @@ struct NowPlayingTracklistProviderTests {
         #expect(provider.tracklist == nil)
     }
 
-    /// The provider is driven by PlayerService's `currentTrack`/`duration` observers, independent of
-    /// scrobbling. A change to either must reach the provider and resolve segments.
     @Test("PlayerService drives the provider when track and duration change")
     func playerServiceDrivesProvider() async {
         let (provider, _) = self.makeProvider(chapters: self.makeMixChapters())
@@ -265,50 +241,37 @@ struct NowPlayingTracklistProviderTests {
         #expect(provider.tracklist?.isMix == true)
     }
 
-    /// Regression: `play(song:)` sets `currentTrack` before the WebView bridge reports the new video,
-    /// so `duration` (and `playbackStateVideoId`) can still belong to the previous long item. A short
-    /// track following a long one must not inherit that stale duration and cross the mix gate.
     @Test("A short track following a long item does not inherit the previous duration for mix gating")
     func shortTrackAfterLongDoesNotInheritDuration() async {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         let player = PlayerService()
         player.setNowPlayingTracklistProvider(provider)
 
-        // A long mix is playing and the bridge has confirmed its duration → fetch fires.
         player.currentTrack = TestFixtures.makeSong(id: "mix1", title: "Long Mix", duration: nil)
         player.updatePlaybackState(isPlaying: false, progress: 0, duration: 3600, observedVideoId: "mix1")
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
 
-        // Switch to a short track before the bridge reports it: duration still holds 3600 and
-        // playbackStateVideoId still points at the mix, so the gate must not be crossed.
         player.currentTrack = TestFixtures.makeSong(id: "short1", title: "Regular Song", duration: nil)
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount >= 2 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
         #expect(provider.tracklist == nil)
     }
 
-    /// Regression: a video-id-only update is not an atomic playback observation. It must not certify
-    /// an existing duration that may still belong to the previous video; a same-value duration is
-    /// trusted only when the bridge reports the id and duration together.
     @Test("An ID-only update cannot certify an existing duration")
     func idOnlyUpdateCannotCertifyExistingDuration() async {
         let (provider, mockYouTube) = self.makeProvider(chapters: self.makeMixChapters())
         let player = PlayerService()
         player.setNowPlayingTracklistProvider(provider)
 
-        // Duration is already correct, but provenance hasn't been confirmed for this track yet.
         player.duration = 3600
         player.currentTrack = TestFixtures.makeSong(id: "mix1", title: "Long Mix", duration: nil)
         await self.waitUntil(timeout: .milliseconds(150)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
 
-        // Advancing only the id must not promote the existing duration.
         player.setPlaybackStateVideoId("mix1")
         await self.waitUntil(timeout: .milliseconds(150)) { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
 
-        // The bridge then reports the same duration atomically with the id. This must drive the fetch
-        // even though assigning the duration property again would not trigger didSet.
         player.recordPlaybackStateObservation(videoId: "mix1", duration: 3600)
         await self.waitUntil { mockYouTube.getWatchNextCallCount >= 1 }
         #expect(mockYouTube.getWatchNextCallCount == 1)
@@ -337,8 +300,6 @@ struct NowPlayingTracklistProviderTests {
         let player = PlayerService()
         player.setNowPlayingTracklistProvider(provider)
 
-        // A Song can outlive a stale persisted/API duration. Metadata alone must not launch the
-        // mix parse because a later bridge observation may prove that this video is actually short.
         player.currentTrack = TestFixtures.makeSong(id: "short1", duration: 3600)
         await self.waitUntil(timeout: .milliseconds(200)) { mockYouTube.getWatchNextCallCount > 0 }
         #expect(mockYouTube.getWatchNextCallCount == 0)
@@ -355,7 +316,6 @@ struct NowPlayingTracklistProviderTests {
         #expect(mockYouTube.getWatchNextCallCount == 0)
         #expect(provider.tracklist == nil)
 
-        // A later correlated long duration still re-drives the provider normally.
         player.updatePlaybackState(
             isPlaying: true,
             progress: 0,

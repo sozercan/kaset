@@ -2,7 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-/// Tests for the persisted app appearance override.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct AppAppearanceTests {
@@ -33,7 +32,6 @@ struct AppAppearanceTests {
         }
 
         let expectedNames: [AppAppearance: NSAppearance.Name] = [.light: .aqua, .dark: .darkAqua]
-        // End on the original value so every assignment is a real change.
         for appearance in AppAppearance.allCases.filter({ $0 != originalValue }) + [originalValue] {
             manager.appearance = appearance
             #expect(UserDefaults.standard.string(forKey: SettingsManager.Keys.appearance) == appearance.rawValue)

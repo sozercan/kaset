@@ -1,12 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// A single-line title that scrolls like a marquee when it overflows its width.
-///
-/// The scroll and the edge fades are Core Animation keyframe animations, so the render
-/// server draws every frame. Animated SwiftUI state here made the app re-render its whole
-/// window on every display refresh for as long as a long title scrolled (~20% CPU on any
-/// page).
 struct PlayerBarMarqueeText: View {
     let text: String
     let font: NSFont
@@ -20,7 +14,6 @@ struct PlayerBarMarqueeText: View {
             .frame(maxWidth: .infinity)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: self.text))
-            // The hosted view has no role of its own; without this it reads as AXUnknown.
             .accessibilityAddTraits(.isStaticText)
     }
 }
@@ -50,11 +43,6 @@ private struct PlayerBarMarqueeLabel: NSViewRepresentable {
     }
 }
 
-/// One repetition of the marquee: rest, scroll one copy's width, then fade back to rest.
-///
-/// The cycle starts right after the previous scroll's reset fade, so a repeating
-/// animation begun `resetFadeDuration` after the title appears waits the full
-/// `initialDelay` before its first scroll, like every later one.
 struct PlayerBarMarqueeCycle: Equatable {
     enum FadePhase: Equatable {
         case inactive
@@ -85,7 +73,6 @@ struct PlayerBarMarqueeCycle: Equatable {
     let scrollDuration: TimeInterval
     let leadingFadeDuration: TimeInterval
 
-    /// Nil when the text fits, or when Reduce Motion is on.
     init?(textWidth: CGFloat, containerWidth: CGFloat, reduceMotion: Bool) {
         guard !reduceMotion, containerWidth > 0, textWidth > containerWidth + 1 else { return nil }
         self.travel = textWidth + Self.copyGap
@@ -101,8 +88,6 @@ struct PlayerBarMarqueeCycle: Equatable {
         Self.initialDelay - Self.resetFadeDuration
     }
 
-    /// Distance scrolled toward the leading edge. Jumps back to 0 when the second copy
-    /// reaches the first copy's starting position.
     var offsetKeyframes: [Keyframe<CGFloat>] {
         let scrollEnd = self.restDuration + self.scrollDuration
         return [
@@ -114,7 +99,6 @@ struct PlayerBarMarqueeCycle: Equatable {
         ]
     }
 
-    /// Edge-fade phases; Core Animation eases between consecutive keyframes.
     var fadeKeyframes: [Keyframe<FadePhase>] {
         let leadingFadeEnd = self.restDuration + self.leadingFadeDuration
         let scrollEnd = self.restDuration + self.scrollDuration
@@ -130,8 +114,6 @@ struct PlayerBarMarqueeCycle: Equatable {
     }
 }
 
-/// Layer-backed marquee label: two text copies on a scrolling layer, clipped and faded
-/// by a gradient mask.
 final class PlayerBarMarqueeView: NSView {
     struct Configuration: Equatable {
         var text: String
@@ -144,7 +126,6 @@ final class PlayerBarMarqueeView: NSView {
     static let scrollAnimationKey = "marqueeScroll"
     static let fadeAnimationKey = "marqueeFade"
 
-    /// Room below the frame for descenders, which the title's line box overflows.
     private static let descenderAllowance: CGFloat = 3
 
     private let scrollLayer = CALayer()
@@ -152,7 +133,6 @@ final class PlayerBarMarqueeView: NSView {
     private let fadeMask = CAGradientLayer()
     private(set) var configuration: Configuration?
     private(set) var cycle: PlayerBarMarqueeCycle?
-    /// Set when the scroll must start over from rest even if `cycle` is unchanged.
     private var needsCycleRestart = true
     private var textSize: CGSize = .zero
 
@@ -186,7 +166,6 @@ final class PlayerBarMarqueeView: NSView {
         true
     }
 
-    /// Decorative: clicks and the context menu belong to the player bar underneath.
     override func hitTest(_: NSPoint) -> NSView? {
         nil
     }
@@ -206,7 +185,6 @@ final class PlayerBarMarqueeView: NSView {
                 textLayer.fontSize = configuration.font.pointSize
             }
             CATransaction.commit()
-            // Restart from rest for a new title.
             self.needsCycleRestart = true
         }
         self.needsLayout = true
@@ -219,7 +197,6 @@ final class PlayerBarMarqueeView: NSView {
         let width = self.bounds.width
         let textWidth = self.textSize.width
         let leadingX = configuration.isRightToLeft ? width - textWidth : 0
-        // Second copy trails the first by one gap, on the side the text scrolls toward.
         let copyStep = (textWidth + PlayerBarMarqueeCycle.copyGap) * (configuration.isRightToLeft ? -1 : 1)
 
         CATransaction.begin()
@@ -253,13 +230,11 @@ final class PlayerBarMarqueeView: NSView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
-        // The text color is dynamic; `updateLayer` re-resolves it.
         self.needsDisplay = true
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        // Animations do nothing off-window; start the cycle fresh on attach.
         self.needsCycleRestart = true
         self.needsLayout = true
     }
@@ -269,7 +244,6 @@ final class PlayerBarMarqueeView: NSView {
         self.needsLayout = true
     }
 
-    /// Starts, restarts, or stops the repeating animations when their inputs change.
     private func updateCycle() {
         guard let configuration else { return }
         let cycle = PlayerBarMarqueeCycle(

@@ -1,7 +1,6 @@
 import Foundation
 import os
 
-/// Parser for artist-related responses from YouTube Music API.
 enum ArtistParser { // swiftlint:disable:this type_body_length
     private static let logger = DiagnosticsLogger.api
 
@@ -12,7 +11,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         var playlists: [Playlist] = []
     }
 
-    /// Parses artist detail from browse response.
     static func parseArtistDetail(_ data: [String: Any], artistId: String) -> ArtistDetail { // swiftlint:disable:this function_body_length cyclomatic_complexity
         var buckets = ShelfBuckets()
         var songsSectionTitle: String?
@@ -21,10 +19,8 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         var songsBrowseId: String?
         var songsParams: String?
 
-        // Parse header
         let headerResult = self.parseArtistHeader(data, artistId: artistId)
 
-        // Parse content sections
         if let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
            let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -35,14 +31,12 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
            let sectionContents = sectionListRenderer["contents"] as? [[String: Any]]
         {
             for sectionData in sectionContents {
-                // Parse songs from musicShelfRenderer.
                 if let shelfRenderer = sectionData["musicShelfRenderer"] as? [String: Any],
                    let shelfContents = shelfRenderer["contents"] as? [[String: Any]]
                 {
                     songsSectionTitle = songsSectionTitle ?? ParsingHelpers.extractTitle(from: shelfRenderer)
                     buckets.songs.append(contentsOf: self.parseTracksFromItems(shelfContents))
 
-                    // Check if there are more songs available via bottomEndpoint.
                     if let bottomEndpoint = shelfRenderer["bottomEndpoint"] as? [String: Any],
                        let browseEndpoint = bottomEndpoint["browseEndpoint"] as? [String: Any],
                        let browseId = browseEndpoint["browseId"] as? String
@@ -55,8 +49,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                     }
                 }
 
-                // Parse carousel shelves — classify per-item by renderer + browseId/pageType,
-                // with the shelf title as a tiebreaker (e.g. Albums vs Singles & EPs).
                 if let carouselRenderer = sectionData["musicCarouselShelfRenderer"] as? [String: Any],
                    let carouselContents = carouselRenderer["contents"] as? [[String: Any]]
                 {
@@ -109,8 +101,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
                         }
                     }
 
-                    // Record the shelf's "See all" endpoint against the first
-                    // bucket an item landed in.
                     if let shelfKind,
                        let endpoint = self.extractShelfMoreEndpoint(from: carouselRenderer)
                     {
@@ -183,7 +173,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         )
     }
 
-    /// Accumulator for content routed out of artist-page carousel shelves.
     private struct ShelfBuckets {
         var songs: [Song] = []
         var albums: [Album] = []
@@ -195,7 +184,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         var moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint] = [:]
     }
 
-    /// Reads the shelf header title if present.
     private static func extractCarouselShelfTitle(from data: [String: Any]) -> String? {
         guard let header = data["header"] as? [String: Any],
               let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any]
@@ -205,10 +193,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return ParsingHelpers.extractTitle(from: basicHeader)
     }
 
-    /// Extracts the shelf's "See all" / "More" browse endpoint, if present.
-    /// Only returns endpoints whose `pageType` we recognize — unknown
-    /// pageTypes are dropped so the UI never surfaces a destination we
-    /// don't know how to render.
     private static func extractShelfMoreEndpoint(from data: [String: Any]) -> ShelfMoreEndpoint? {
         guard let header = data["header"] as? [String: Any],
               let basicHeader = header["musicCarouselShelfBasicHeaderRenderer"] as? [String: Any],
@@ -229,7 +213,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
         let params = browseEndpoint["params"] as? String
 
-        // The pageType lives under browseEndpointContextSupportedConfigs.
         guard let supportedConfigs = browseEndpoint["browseEndpointContextSupportedConfigs"] as? [String: Any],
               let musicConfig = supportedConfigs["browseEndpointContextMusicConfig"] as? [String: Any],
               let pageTypeRaw = musicConfig["pageType"] as? String,
@@ -241,11 +224,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return ShelfMoreEndpoint(browseId: browseId, params: params, pageType: pageType)
     }
 
-    /// Parses the "See all episodes" response for a `MUSIC_PAGE_TYPE_ARTIST`
-    /// destination — a single `gridRenderer` of `musicMultiRowListItemRenderer`
-    /// items. Reuses the same per-item shape that appears in the artist page's
-    /// Latest-episodes carousel, so `parseEpisodeFromMultiRowRenderer` does the
-    /// per-item work.
     static func parseArtistEpisodesGrid(_ data: [String: Any]) -> [ArtistEpisode] {
         guard let contents = data["contents"] as? [String: Any],
               let singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
@@ -277,8 +255,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return episodes
     }
 
-    /// Parses a discography browse response — a `gridRenderer` of
-    /// `musicTwoRowItemRenderer` album cards.
     static func parseArtistDiscography(_ data: [String: Any]) -> [Album] {
         guard let contents = data["contents"] as? [String: Any],
               let singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
@@ -310,23 +286,17 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return albums
     }
 
-    /// Returns `true` when a shelf title indicates a singles/EPs shelf.
     private static func shelfTitleIndicatesSingles(_ title: String?) -> Bool {
         guard let title = title?.lowercased() else { return false }
         return title.contains("single") || title.contains(" ep") || title.hasPrefix("ep")
     }
 
-    /// Routes a carousel item into the matching bucket based on its renderer
-    /// shape and (for album-shaped items) the shelf title. Returns the
-    /// `ArtistShelfKind` it matched (or `nil` if nothing applied) so the
-    /// caller can attribute the shelf's `moreContentButton` to the right kind.
     @discardableResult
     private static func classifyCarouselItem(
         _ itemData: [String: Any],
         shelfTitle: String?,
         buckets: inout ShelfBuckets
     ) -> ArtistShelfKind? {
-        // Episodes / video uploads on the artist channel (including live radios).
         if let multiRow = itemData["musicMultiRowListItemRenderer"] as? [String: Any],
            let episode = self.parseEpisodeFromMultiRowRenderer(multiRow)
         {
@@ -340,8 +310,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return nil
         }
 
-        // Podcast shows (MPSPP browseIds) are not regular artist pages and
-        // need their own model/parser.
         if let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
            let browseId = browseEndpoint["browseId"] as? String,
            browseId.hasPrefix("MPSPP")
@@ -354,8 +322,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         }
 
         guard let carouselItem = self.parseCarouselItemFromTwoRowRenderer(twoRow) else {
-            // Videos shelf (watchEndpoint with videoId) is intentionally deferred —
-            // see Phase 3a scope notes.
             return nil
         }
 
@@ -376,8 +342,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Parses a Latest-episodes item. Video ID lives under `onTap.watchEndpoint`
-    /// (not `navigationEndpoint`) for this renderer.
     private static func parseEpisodeFromMultiRowRenderer(_ data: [String: Any]) -> ArtistEpisode? {
         guard let onTap = data["onTap"] as? [String: Any],
               let watchEndpoint = onTap["watchEndpoint"] as? [String: Any],
@@ -494,7 +458,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         )
     }
 
-    /// Holds parsed header information for an artist.
     private struct HeaderParseResult {
         var name: String = "Unknown Artist"
         var description: String?
@@ -515,7 +478,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         result.channelId = artistId.hasPrefix("UC") ? artistId : nil
         result.profileKind = Artist.profileKind(forPageType: self.extractPageType(from: data))
 
-        // Try musicImmersiveHeaderRenderer (common for artist pages)
         if let header = data["header"] as? [String: Any],
            let immersiveHeader = header["musicImmersiveHeaderRenderer"] as? [String: Any]
         {
@@ -531,18 +493,15 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
             result.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: immersiveHeader)
 
-            // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: immersiveHeader, into: &result)
 
             if let monthlyListenerCount = immersiveHeader["monthlyListenerCount"] as? [String: Any] {
                 result.monthlyAudience = self.parseMonthlyAudience(from: monthlyListenerCount)
             }
 
-            // Parse startRadioButton for mix (personalized radio)
             self.parseStartRadioButton(from: immersiveHeader, into: &result)
         }
 
-        // Try musicVisualHeaderRenderer (alternative header format)
         if result.name == "Unknown Artist",
            let header = data["header"] as? [String: Any],
            let visualHeader = header["musicVisualHeaderRenderer"] as? [String: Any]
@@ -553,10 +512,8 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
             result.thumbnailURL = ParsingHelpers.extractThumbnailURL(from: visualHeader)
 
-            // Parse subscription button for channel ID and subscription status
             self.parseSubscriptionButton(from: visualHeader, into: &result)
 
-            // Parse startRadioButton for mix (personalized radio)
             self.parseStartRadioButton(from: visualHeader, into: &result)
         }
 
@@ -564,21 +521,17 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
     }
 
     private static func parseSubscriptionButton(from header: [String: Any], into result: inout HeaderParseResult) {
-        // Look for subscriptionButton in header
         if let subscriptionButton = header["subscriptionButton"] as? [String: Any],
            let subscribeButtonRenderer = subscriptionButton["subscribeButtonRenderer"] as? [String: Any]
         {
-            // Extract channel ID
             if let extractedChannelId = subscribeButtonRenderer["channelId"] as? String {
                 result.channelId = extractedChannelId
             }
 
-            // Check subscription status
             if let subscribed = subscribeButtonRenderer["subscribed"] as? Bool {
                 result.isSubscribed = subscribed
             }
 
-            // Extract subscriber count text
             if let shortSubscriberCountText = subscribeButtonRenderer["shortSubscriberCountText"] as? [String: Any],
                let runs = shortSubscriberCountText["runs"] as? [[String: Any]]
             {
@@ -604,7 +557,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             }
         }
 
-        // Alternative: look in menu for subscription status
         if let menu = header["menu"] as? [String: Any],
            let menuRenderer = menu["menuRenderer"] as? [String: Any],
            let items = menuRenderer["items"] as? [[String: Any]]
@@ -624,10 +576,7 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Parses the startRadioButton to extract mix playlist ID and video ID.
     private static func parseStartRadioButton(from header: [String: Any], into result: inout HeaderParseResult) {
-        // Look for startRadioButton in header
-        // Path: startRadioButton.buttonRenderer.navigationEndpoint.watchPlaylistEndpoint
         guard let startRadioButton = header["startRadioButton"] as? [String: Any],
               let buttonRenderer = startRadioButton["buttonRenderer"] as? [String: Any],
               let navigationEndpoint = buttonRenderer["navigationEndpoint"] as? [String: Any]
@@ -635,16 +584,13 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return
         }
 
-        // Try watchPlaylistEndpoint first (used by artist mix buttons)
         if let watchPlaylistEndpoint = navigationEndpoint["watchPlaylistEndpoint"] as? [String: Any] {
             if let playlistId = watchPlaylistEndpoint["playlistId"] as? String {
                 result.mixPlaylistId = playlistId
             }
-            // watchPlaylistEndpoint doesn't have videoId - API picks random start
             return
         }
 
-        // Fall back to watchEndpoint (used by some song radios)
         if let watchEndpoint = navigationEndpoint["watchEndpoint"] as? [String: Any] {
             if let playlistId = watchEndpoint["playlistId"] as? String {
                 result.mixPlaylistId = playlistId
@@ -663,11 +609,9 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return text
     }
 
-    /// Parses songs from artist songs browse response.
     static func parseArtistSongs(_ data: [String: Any]) -> [Song] {
         var songs: [Song] = []
 
-        // Try parsing from musicShelfRenderer in sectionListRenderer
         if let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
            let tabs = singleColumnBrowseResults["tabs"] as? [[String: Any]],
@@ -686,7 +630,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             }
         }
 
-        // Try parsing from musicPlaylistShelfRenderer (alternative format)
         if songs.isEmpty,
            let contents = data["contents"] as? [String: Any],
            let singleColumnBrowseResults = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
@@ -770,7 +713,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
            let runs = subtitleData["runs"] as? [[String: Any]]
         {
             if browseId.hasPrefix("MPRE") || browseId.hasPrefix("OLAK") {
-                // Year is typically the last item in subtitle
                 let year = runs.last?["text"] as? String
                 return .album(Album(
                     id: browseId,

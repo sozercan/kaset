@@ -198,8 +198,6 @@ enum WebPlaybackTransitionFallbackPolicy {
         lastAdvertisementProgressAt: ContinuousClock.Instant? = nil
     ) -> Duration? {
         guard isShowingAd else { return nil }
-        // A healthy ad can outlast the initial grace. Recover after its media
-        // clock stops advancing, rather than reloading in the middle of the ad.
         let progressDeadline = lastAdvertisementProgressAt?.advanced(by: self.advertisementStallGrace)
         let effectiveDeadline = max(deadline, progressDeadline ?? deadline)
         guard now < effectiveDeadline else { return nil }
@@ -219,22 +217,15 @@ enum WebPlaybackTransitionFallbackPolicy {
     }
 }
 
-/// A visible WebView that displays the YouTube Music player.
-/// This is required because YouTube Music won't initialize the video player
-/// without user interaction - autoplay is blocked in hidden WebViews.
-/// Uses SingletonPlayerWebView for the actual WebView instance.
 struct MiniPlayerWebView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
 
-    /// The video ID to play.
     let videoId: String
 
-    /// Callback for player state changes.
     var onStateChange: ((PlayerState) -> Void)?
 
-    /// Callback for metadata updates (title, artist, duration).
     var onMetadataChange: ((String, String, Double) -> Void)?
 
     enum PlayerState {
@@ -253,36 +244,28 @@ struct MiniPlayerWebView: NSViewRepresentable {
         let container = NSView(frame: .zero)
         container.wantsLayer = true
 
-        // Get or create the singleton WebView
         let webView = SingletonPlayerWebView.shared.getWebView(
             webKitManager: self.webKitManager,
             playerService: self.playerService,
             usesCookieFreeDataStore: self.authService.shouldUseCookieFreePlaybackDataStore
         )
 
-        // Remove existing handler if present to avoid duplicates, then add fresh one
-        // This handles the case where makeNSView is called multiple times
         let contentController = webView.configuration.userContentController
         contentController.removeScriptMessageHandler(forName: "miniPlayer")
         contentController.add(context.coordinator, name: "miniPlayer")
 
-        // Ensure WebView is in this container
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
 
-        // Load the video if needed
         SingletonPlayerWebView.shared.loadVideo(videoId: self.videoId)
 
         return container
     }
 
     func updateNSView(_ container: NSView, context _: Context) {
-        // Update WebView frame if needed
         SingletonPlayerWebView.shared.ensureInHierarchy(container: container)
     }
 
     static func dismantleNSView(_: NSView, coordinator _: Coordinator) {
-        // WebView is managed by SingletonPlayerWebView.shared - it persists
-        // Remove the message handler to avoid duplicate handlers
         SingletonPlayerWebView.shared.webView?.configuration.userContentController
             .removeScriptMessageHandler(forName: "miniPlayer")
     }
@@ -299,16 +282,13 @@ struct MiniPlayerWebView: NSViewRepresentable {
             self.onMetadataChange = onMetadataChange
         }
 
-        func webView(_: WKWebView, didFinish _: WKNavigation!) {
-            // Page loaded
-        }
+        func webView(_: WKWebView, didFinish _: WKNavigation!) {}
 
         func webView(_: WKWebView, didFail _: WKNavigation!, withError error: Error) {
             self.onStateChange?(.error(error.localizedDescription))
         }
 
         func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
-            // WebView content process crashed - attempt recovery by reloading
             DiagnosticsLogger.player.error("MiniPlayer WebView content process terminated, attempting reload")
             self.onStateChange?(.error("Player crashed, reloading..."))
             webView.reload()
@@ -338,18 +318,9 @@ struct MiniPlayerWebView: NSViewRepresentable {
     }
 }
 
-/// Manages a single WebView instance for the entire app lifetime.
-/// This ensures there's only ever ONE WebView playing audio.
-///
-/// Extensions provide:
-/// - Playback controls (SingletonPlayerWebView+PlaybackControls.swift)
-/// - Video mode CSS injection (SingletonPlayerWebView+VideoMode.swift)
-/// - Observer script (SingletonPlayerWebView+ObserverScript.swift)
 @MainActor
 // swiftlint:disable:next type_body_length
 final class SingletonPlayerWebView {
-    /// Media confirmation can take longer than three seconds while AirPlay changes
-    /// sources. Keep a bounded recovery window without reloading a healthy handoff.
     private static let routerNavigationFallbackDelay: Duration = .seconds(15)
 
     private struct PendingRouterNavigation {
@@ -401,7 +372,6 @@ final class SingletonPlayerWebView {
                 )
                 return
             case "TRACK_ENDED":
-                // Keep an uncertain occurrence unclaimed so a resolved retry can consume it.
                 guard body["mediaIdentityUncertain"] as? Bool != true else { return }
             case "TRACK_ENDED_IDENTITY_DEADLINE":
                 guard let expectedDocumentID = singleton.expectedBridgeDocumentID,
@@ -466,7 +436,6 @@ final class SingletonPlayerWebView {
 
     static let shared = SingletonPlayerWebView()
 
-    /// Creates an isolated wrapper for tests that exercise WebView lifecycle state.
     static func makeTestInstance(
         webView: WKWebView? = nil,
         documentGeneration: WebPlaybackDocumentGeneration = WebPlaybackDocumentGeneration()
@@ -508,22 +477,16 @@ final class SingletonPlayerWebView {
         return self.committedDocumentID ?? self.activeDocumentNavigationID ?? self.pendingDocumentID
     }
 
-    /// Current display mode for the WebView.
     enum DisplayMode {
-        case hidden // 1x1 for audio-only
-        case miniPlayer // 160x90 toast
-        case video // Full size in video window
+        case hidden
+        case miniPlayer
+        case video
     }
 
-    /// How `loadVideo` behaves when Swift already tracks a `videoId` (repeat-one vs queue drift recovery).
     enum VideoLoadStrategy: Equatable {
-        /// Skip navigation when `videoId` matches `currentVideoId`.
         case standard
-        /// Restart the tracked song in place. For another song, prefer the SPA router.
         case preferInPlaceWhenSameVideoId
-        /// Retry navigation through the SPA router even when Swift already tracks the requested ID.
         case preferRouterWhenSameVideoId
-        /// Reload when the tracked ID matches but the media is out of sync. For another song, prefer the SPA router.
         case forceFullPageWhenSameVideoId
 
         var requiresSameVideoNavigation: Bool {
@@ -581,16 +544,10 @@ final class SingletonPlayerWebView {
     private var hasStartedHomePreload = false
     private(set) var isHomePreloadSuppressedForDeferredRestore = false
 
-    /// Native timer that re-asserts the media-key override while backgrounded.
-    /// See `beginBackgroundMediaControlReassertion()`.
     var mediaControlReassertTimer: Timer?
 
-    /// Tracks if lyrics line-boundary polling should be active.
-    /// Used to restore polling after full-page navigation.
     var isLyricsPollActive = false
 
-    /// Last synced-lyrics line ranges supplied by the visible lyrics panel.
-    /// Used by the reload fallback so polling does not restart with an empty range list.
     private var lastLyricsLineRanges: [[String: Int]] = []
 
     private init() {
@@ -598,7 +555,6 @@ final class SingletonPlayerWebView {
         self.playbackAudioQuality = SettingsManager.shared.playbackAudioQuality
     }
 
-    /// Get or create the singleton WebView.
     func getWebView(
         webKitManager: WebKitManager,
         playerService: PlayerService,
@@ -618,7 +574,6 @@ final class SingletonPlayerWebView {
         self.logger.info("Creating singleton WebView")
         self.usesCookieFreeDataStore = usesCookieFreeDataStore
 
-        // Create coordinator
         let coordinator = Coordinator(playerService: playerService)
         self.coordinator = coordinator
 
@@ -626,17 +581,12 @@ final class SingletonPlayerWebView {
             websiteDataStore: usesCookieFreeDataStore ? .nonPersistent() : nil
         )
 
-        // Preserve feature-specific queue/SPA ingress checks while the main
-        // coordinator owns generation-scoped bridge decoding.
         let playbackBridgeMultiplexer = PlaybackBridgeMultiplexer(coordinator: coordinator)
         self.playbackBridgeMultiplexer = playbackBridgeMultiplexer
         configuration.userContentController.add(
             playbackBridgeMultiplexer,
             name: "singletonPlayer"
         )
-
-        // Dynamic startup state is refreshed before each full page load so the
-        // next document gets current volume/autoplay flags at document start.
 
         self.installUserScripts(
             on: configuration.userContentController,
@@ -709,7 +659,6 @@ final class SingletonPlayerWebView {
         )
     }
 
-    /// Ensures the WebView is in the given container's view hierarchy.
     func ensureInHierarchy(container: NSView) {
         guard let webView else { return }
         self.currentContainer = container
@@ -718,18 +667,11 @@ final class SingletonPlayerWebView {
         webView.removeFromSuperview()
         container.addSubview(webView)
 
-        // Use autoresizing to match container size (consistent with waitForValidBoundsAndInject)
         webView.translatesAutoresizingMaskIntoConstraints = true
         webView.frame = container.bounds
         webView.autoresizingMask = [.width, .height]
-
-        // Note: Don't re-inject CSS here if we're already in video mode.
-        // Re-injecting causes the YouTube UI to briefly flicker back in because it
-        // removes and re-creates our custom video container.
-        // updateDisplayMode(.video) handles the initial injection perfectly.
     }
 
-    /// Starts low-frequency line-boundary polling for synced lyrics.
     func startLyricsPoll(lineRanges: [[String: Int]]) {
         self.isLyricsPollActive = true
         self.lastLyricsLineRanges = lineRanges
@@ -738,18 +680,15 @@ final class SingletonPlayerWebView {
         self.webView?.evaluateJavaScript("if (window.startLyricsPoll) { window.startLyricsPoll(\(lineRangesJSON)); }")
     }
 
-    /// Backward-compatible fallback used after page reloads before the lyrics view re-supplies line boundaries.
     func startLyricsPoll() {
         self.startLyricsPoll(lineRanges: self.lastLyricsLineRanges)
     }
 
-    /// Stops high frequency polling for synced lyrics
     func stopLyricsPoll() {
         self.isLyricsPollActive = false
         self.webView?.evaluateJavaScript("if (window.stopLyricsPoll) { window.stopLyricsPoll(); }")
     }
 
-    /// Stops playback, blanks the page, and detaches the persistent music WebView.
     func tearDown() {
         self.coordinator?.playerService.updateAirPlayStatus(isConnected: false)
         let blankURL = self.beginBlankDocumentNavigation()
@@ -787,7 +726,6 @@ final class SingletonPlayerWebView {
         self.isHomePreloadSuppressedForDeferredRestore = false
     }
 
-    /// Recreates the playback WebView across a cookie-store boundary while preserving only active document identity.
     func rebuildForAuthDataStoreChange(usesCookieFreeDataStore: Bool) {
         guard self.usesCookieFreeDataStore != usesCookieFreeDataStore else { return }
         guard let webKitManager = self.webKitManager,
@@ -796,9 +734,6 @@ final class SingletonPlayerWebView {
             self.usesCookieFreeDataStore = usesCookieFreeDataStore
             return
         }
-        // A deferred restored session has not committed its pending watch
-        // document. Rebuilding must therefore leave the replacement WebView
-        // unlabeled and inert so explicit Resume routes to the persisted video.
         let isDeferredRestoredLoad = playerService.isPendingRestoredLoadDeferred
         let videoId = isDeferredRestoredLoad ? nil : self.currentVideoId
         let previousContainer = self.currentContainer
@@ -806,8 +741,6 @@ final class SingletonPlayerWebView {
         self.tearDown()
         self.isHomePreloadSuppressedForDeferredRestore = isDeferredRestoredLoad
 
-        // Restore a real active document identity before WebView creation so the
-        // ordinary home preload cannot race an immediate identity re-point.
         self.currentVideoId = videoId
         _ = self.getWebView(
             webKitManager: webKitManager,
@@ -819,9 +752,6 @@ final class SingletonPlayerWebView {
         }
     }
 
-    /// Load a video, stopping any currently playing audio first.
-    /// Note: Full page navigation destroys the video element; same-id restarts use ``restartInPlaceFromBeginning()`` when possible.
-    /// Preserve the document through the SPA router when possible to retain the AirPlay route.
     func loadVideo(videoId: String, strategy: VideoLoadStrategy = .standard) {
         guard let webView else {
             self.logger.error("loadVideo called but webView is nil")
@@ -891,9 +821,6 @@ final class SingletonPlayerWebView {
             return
         }
 
-        // Preserve the committed document generation while YouTube Music's SPA
-        // router swaps media in place. The observer's media generation and the
-        // native queue occurrence fence the handoff inside that document.
         let prepareScript = """
             (function() {
                 const video = document.querySelector('video');
@@ -1066,8 +993,6 @@ final class SingletonPlayerWebView {
         }
     }
 
-    /// The router owns media confirmation and its bounded full-page fallback.
-    /// Stale observations must not restart that recovery while it is in flight.
     func isRouterNavigationPending(for videoId: String) -> Bool {
         guard let pendingRouterNavigation = self.pendingRouterNavigation else { return false }
         return pendingRouterNavigation.videoId == videoId
@@ -1148,9 +1073,6 @@ final class SingletonPlayerWebView {
         )
     }
 
-    /// Returns the JS snippet that hands the autoplay intent to the freshly loaded
-    /// page's window. Restored sessions suppress autoplay so the reconcile path
-    /// resumes at the saved seek rather than at 0s.
     nonisolated static func autoplayIntentScript(isRestoringPlaybackSession: Bool) -> String {
         self.autoplayIntentScript(shouldAutoplay: !isRestoringPlaybackSession)
     }
@@ -1274,8 +1196,6 @@ final class SingletonPlayerWebView {
         let documentID = self.documentIDGeneration
         self.pendingDocumentID = documentID
 
-        // Autoplay intent must exist before media lifecycle events like `canplay`.
-        // `didFinish` is too late on fast or cached player loads.
         let pageBootstrapScript = WKUserScript(
             source: Self.pageBootstrapScript(
                 shouldAutoplay: shouldAutoplay,
@@ -1295,7 +1215,6 @@ final class SingletonPlayerWebView {
             forMainFrameOnly: true
         ))
 
-        // Keep the page preference in sync before any page script reads localStorage.
         let mediaControlBootstrapScript = WKUserScript(
             source: self.mediaControlBootstrapScript(),
             injectionTime: .atDocumentStart,
@@ -1310,7 +1229,6 @@ final class SingletonPlayerWebView {
         )
         contentController.addUserScript(playbackAudioQualityBootstrapScript)
 
-        // Inject mediaSession override at document end without allowing duplicate RAF loops.
         let mediaOverrideScript = WKUserScript(
             source: Self.mediaControlOverrideScript,
             injectionTime: .atDocumentEnd,
@@ -1318,7 +1236,6 @@ final class SingletonPlayerWebView {
         )
         contentController.addUserScript(mediaOverrideScript)
 
-        // Apply preferred playback audio quality at document end and after player recreation.
         let playbackAudioQualityOverrideScript = WKUserScript(
             source: Self.playbackAudioQualityOverrideScript,
             injectionTime: .atDocumentEnd,
@@ -1326,7 +1243,6 @@ final class SingletonPlayerWebView {
         )
         contentController.addUserScript(playbackAudioQualityOverrideScript)
 
-        // Inject observer script (at document end)
         let script = WKUserScript(
             source: Self.observerScript,
             injectionTime: .atDocumentEnd,
@@ -1365,9 +1281,6 @@ extension SingletonPlayerWebView {
         let shouldAutoResume: Bool
     }
 
-    /// Cancels every outstanding music navigation and makes any surviving
-    /// document inert. Used by explicit stop so a late commit/canplay callback
-    /// cannot resurrect playback after native state has been cleared.
     func cancelPendingPlayback() async {
         self.loadGeneration &+= 1
         self.invalidateDocumentNavigationState()
@@ -1406,7 +1319,6 @@ extension SingletonPlayerWebView {
         expectedDocumentID: Int?,
         messageType: String
     ) -> Bool {
-        // The coordinator fences media keys by committed generation and command time.
         messageType == "REMOTE_NEXT" || messageType == "REMOTE_PREVIOUS"
             || documentID == nil || documentID == expectedDocumentID
     }

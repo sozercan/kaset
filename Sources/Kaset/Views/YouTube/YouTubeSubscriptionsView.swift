@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Subscriptions surface: horizontal rail of subscribed channels above the
-/// subscriptions feed grid.
 struct YouTubeSubscriptionsView: View {
     let viewModel: YouTubeSubscriptionsViewModel
 
@@ -29,9 +27,6 @@ struct YouTubeSubscriptionsView: View {
             }
         }
         .navigationTitle(Text("Subscriptions", comment: "YouTube subscriptions title"))
-        // Keyed on the view-model identity so a cold-launch account swap (which
-        // rebuilds the model) re-fires the load instead of leaving the fresh,
-        // idle model stuck. See YouTubeHomeView for the full rationale.
         .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
@@ -68,9 +63,6 @@ struct YouTubeSubscriptionsView: View {
                                 }
                         }
                     }
-                    // Vertical grid: inset its resting content; the channel rail
-                    // above keeps its own edge-to-edge track so it slides under
-                    // the floating glass sidebar on macOS 26.
                     .padding(.horizontal, DetailContentLayout.horizontalInset)
                 }
             }
@@ -80,9 +72,6 @@ struct YouTubeSubscriptionsView: View {
 
     private var channelRail: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            // Outer spacing:0 so the leading/trailing Spacers produce an exact
-            // resting inset (no extra HStack spacing inflation); the rail track
-            // stays edge-to-edge and slides under the floating glass sidebar.
             HStack(spacing: 0) {
                 Spacer()
                     .frame(width: DetailContentLayout.horizontalInset)

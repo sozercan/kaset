@@ -3,9 +3,6 @@ import Testing
 @testable import Kaset
 
 extension PlayerServiceQueueTests {
-    /// Points queue persistence at a private defaults domain. Other suites run in
-    /// parallel and save or clear the shared standard-defaults queue keys, which
-    /// made assertions on the saved session flaky.
     private func isolatedQueuePersistence(
         for services: PlayerService...
     ) throws -> (defaults: UserDefaults, suiteName: String) {
@@ -67,13 +64,11 @@ extension PlayerServiceQueueTests {
             await authService.checkLoginStatus()
         }
         await cookieReadEntered.wait()
-        // Quitting can save the queue while the recovered cookie read is pending.
         restoredService.saveQueueForPersistence()
         #expect(defaults.data(forKey: "kaset.saved.playbackSession") == savedSession)
         await releaseCookieRead.open()
         await recovery.value
         #expect(await authService.checkLoginStatusForStartup(expectedState: authService.state))
-        // Authentication can publish before the root task performs startup cleanup.
         restoredService.saveQueueForPersistence()
         #expect(defaults.data(forKey: "kaset.saved.playbackSession") == savedSession)
         restoredService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: !restoresSession)
@@ -89,7 +84,6 @@ extension PlayerServiceQueueTests {
             #expect(restoredService.currentTrack?.id == songs[1].id)
             #expect(defaults.data(forKey: "kaset.saved.playbackSession") != nil)
             if wasGuestQueue {
-                // After startup, a later explicit login can own the preserved guest queue.
                 authService.completeLogin(sapisid: "mock-later-session")
                 restoredService.saveQueueForPersistence()
                 #expect(restoredService.restoredPlaybackSessionOwnerScope == PlayerService.playbackSessionScopeAuthenticated)

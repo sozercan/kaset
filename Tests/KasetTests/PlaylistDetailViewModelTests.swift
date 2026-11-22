@@ -3,7 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for PlaylistDetailViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 // swiftlint:disable:next type_body_length
@@ -205,7 +204,6 @@ struct PlaylistDetailViewModelTests {
             description: "continuation load to start"
         )
         loadMoreTask.cancel()
-        // Hold the response until the cancellation handler invalidates the load generation.
         await self.waitUntil(
             viewModel.loadingState == .loaded,
             description: "cancelled continuation to settle"
@@ -800,9 +798,7 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Concurrent paging callers coalesce: full load, no stall, no duplicate fetch")
     func concurrentPagingCoalesces() async {
-        // Small playlist (10 < threshold) so load() does NOT auto-page; we drive paging explicitly
-        // to exercise the single-flight wrapper with overlapping callers.
-        let initialTracks = TestFixtures.makeSongs(count: 10) // video-0...video-9
+        let initialTracks = TestFixtures.makeSongs(count: 10)
         let detail = PlaylistDetail(
             playlist: TestFixtures.makePlaylist(id: "VL-test-playlist"),
             tracks: initialTracks,
@@ -814,17 +810,12 @@ struct PlaylistDetailViewModelTests {
             (20 ..< 30).map { TestFixtures.makeSong(id: "video-\($0)") },
             (30 ..< 35).map { TestFixtures.makeSong(id: "video-\($0)") },
         ]
-        // Widen the overlap window so the concurrent callers genuinely race.
         self.mockClient.playlistContinuationDelay = .milliseconds(40)
 
         await self.viewModel.load()
         #expect(self.viewModel.hasMore)
         #expect(self.viewModel.playlistDetail?.tracks.count == 10)
 
-        // The completion loader plus two scroll-style loadMore() calls run concurrently. With the
-        // single-flight wrapper they coalesce onto the in-flight batch instead of colliding on
-        // `loadingState` (where the loser would return a spurious false that the resilient loop
-        // mis-reads as a stall and gives up on, leaving the queue stuck at a partial count).
         async let all: Void = self.viewModel.loadAllRemaining()
         async let more1: Void = self.viewModel.loadMore()
         async let more2: Void = self.viewModel.loadMore()
@@ -832,8 +823,6 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.viewModel.playlistDetail?.tracks.count == 35)
         #expect(self.viewModel.hasMore == false)
-        // Each of the 3 continuation batches is fetched exactly once — no batch skipped, and no
-        // duplicate fetch from a coalesced caller advancing the token twice.
         #expect(self.mockClient.getPlaylistContinuationCallCount == 3)
     }
 
@@ -1145,7 +1134,7 @@ struct PlaylistDetailViewModelTests {
         self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
         self.mockClient.playlistContinuationTracks["VL-test-playlist"] = [
             [
-                TestFixtures.makeSong(id: "video-0"), // Duplicate
+                TestFixtures.makeSong(id: "video-0"),
                 TestFixtures.makeSong(id: "new-track"),
             ],
         ]
@@ -1153,7 +1142,7 @@ struct PlaylistDetailViewModelTests {
         await self.viewModel.load()
         await self.viewModel.loadMore()
 
-        #expect(self.viewModel.playlistDetail?.tracks.count == 4) // 3 original + 1 new
+        #expect(self.viewModel.playlistDetail?.tracks.count == 4)
     }
 
     @Test("Load more stops on all duplicates")
@@ -1193,7 +1182,6 @@ struct PlaylistDetailViewModelTests {
             trackCount: 3
         )
         self.mockClient.playlistDetails["VL-test-playlist"] = playlistDetail
-        // No continuation tracks set
 
         await self.viewModel.load()
         #expect(self.viewModel.hasMore == false)
@@ -1553,7 +1541,6 @@ struct PlaylistDetailViewModelTests {
             description: "first Liked Music fetch to start"
         )
         let waiter = Task { await likedMusicViewModel.ensureLoaded() }
-        // Let the waiter reach the in-flight load before that load is invalidated.
         await Task.yield()
         await Task.yield()
 
@@ -1971,7 +1958,6 @@ struct PlaylistDetailViewModelTests {
         await self.viewModel.load()
         #expect(self.viewModel.playlistDetail?.tracks.count == 5)
 
-        // Update mock to return different track count
         let newPlaylistDetail = TestFixtures.makePlaylistDetail(
             playlist: TestFixtures.makePlaylist(id: "VL-test-playlist"),
             trackCount: 8
@@ -1985,7 +1971,6 @@ struct PlaylistDetailViewModelTests {
 
     @Test("Load uses original playlist info for unknown title")
     func loadUsesOriginalPlaylistInfoForUnknownTitle() async {
-        // Create a playlist detail with "Unknown Playlist" title
         let unknownPlaylist = Playlist(
             id: "test-playlist",
             title: "Unknown Playlist",
@@ -2003,7 +1988,6 @@ struct PlaylistDetailViewModelTests {
 
         await self.viewModel.load()
 
-        // Should use original playlist title "Test Playlist" instead of "Unknown Playlist"
         #expect(self.viewModel.playlistDetail?.id == "VL-test-playlist")
         #expect(self.viewModel.playlistDetail?.title == "Test Playlist")
     }

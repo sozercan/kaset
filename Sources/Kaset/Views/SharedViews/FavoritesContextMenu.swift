@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// Shared context menu items for adding/removing items from Favorites.
 @MainActor
 enum FavoritesContextMenu {
-    /// Creates a context menu button for toggling a song in/out of Favorites.
     static func menuItem(for song: Song, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(song: song),
@@ -12,7 +10,6 @@ enum FavoritesContextMenu {
         )
     }
 
-    /// Creates a context menu button for toggling an album in/out of Favorites.
     static func menuItem(for album: Album, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(album: album),
@@ -21,7 +18,6 @@ enum FavoritesContextMenu {
         )
     }
 
-    /// Creates a context menu button for toggling a playlist in/out of Favorites.
     static func menuItem(for playlist: Playlist, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(playlist: playlist),
@@ -30,7 +26,6 @@ enum FavoritesContextMenu {
         )
     }
 
-    /// Creates a context menu button for toggling an artist in/out of Favorites.
     static func menuItem(for artist: Artist, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(artist: artist),
@@ -39,7 +34,6 @@ enum FavoritesContextMenu {
         )
     }
 
-    /// Creates a context menu button for toggling a podcast show in/out of Favorites.
     static func menuItem(for podcastShow: PodcastShow, manager: FavoritesManager) -> some View {
         FavoriteContextMenuItem(
             isPinned: manager.isPinned(podcastShow: podcastShow),
@@ -48,7 +42,6 @@ enum FavoritesContextMenu {
         )
     }
 
-    /// Creates a context menu button for toggling a HomeSectionItem in/out of Favorites.
     @ViewBuilder
     static func menuItem(for item: HomeSectionItem, manager: FavoritesManager) -> some View {
         switch item {
@@ -63,7 +56,6 @@ enum FavoritesContextMenu {
         }
     }
 
-    /// Creates a context menu button for toggling a SearchResultItem in/out of Favorites.
     @ViewBuilder
     static func menuItem(for item: SearchResultItem, manager: FavoritesManager) -> some View {
         switch item {

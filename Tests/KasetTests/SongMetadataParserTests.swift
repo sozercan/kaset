@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SongMetadataParser.
 @Suite(.tags(.parser))
 struct SongMetadataParserTests {
     @Test("parse propagates explicit badge to Song")
@@ -240,7 +239,7 @@ struct SongMetadataParserTests {
 
         let duration = SongMetadataParser.parseDuration(from: renderer)
 
-        #expect(duration == 225) // 3 * 60 + 45
+        #expect(duration == 225)
     }
 
     @Test("parseDuration handles hour format")
@@ -255,7 +254,7 @@ struct SongMetadataParserTests {
 
         let duration = SongMetadataParser.parseDuration(from: renderer)
 
-        #expect(duration == 3750) // 1 * 3600 + 2 * 60 + 30
+        #expect(duration == 3750)
     }
 
     @Test("parseDuration returns nil when no length text")

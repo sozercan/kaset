@@ -18,13 +18,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Observer script for youtube.com watch pages.
-    ///
-    /// Posts event-driven `STATE_UPDATE` and `VIDEO_ENDED` messages to the
-    /// `youtubePlayer` bridge. Progress updates are driven by media events, with
-    /// forced final updates on pause/seek/end, so paused pages do not keep a 1 Hz
-    /// bridge loop alive. Also enforces the Kaset-managed volume target the same
-    /// way the music observer does.
     static var observerScript: String {
         """
         (function() {
@@ -234,8 +227,6 @@ extension YouTubeWatchWebView {
                     return;
                 }
                 const target = window.__kasetTargetVolume;
-                // YouTube persists its own mute state across sessions; Kaset
-                // owns audio, so unmute whenever our target volume is audible.
                 if (typeof target === 'number' && target > 0 && video.muted) {
                     video.muted = false;
                     const player = moviePlayer();
@@ -255,25 +246,14 @@ extension YouTubeWatchWebView {
                 }
             }
 
-            // Apply a pending resume-seek from a session-identity-switch reload.
-            // The <video> is created by the player JS after navigation and may
-            // not be seekable immediately, so this is called from attach() and
-            // media readiness/progress events until metadata is ready. Scoped to
-            // this document: window.__kasetPendingSeek is re-injected per page
-            // load, so it cannot leak into a later video.
             function applyPendingSeek(video) {
                 const target = window.__kasetPendingSeek;
                 if (typeof target !== 'number') { return; }
-                // An ad can expose the creative's video ID; never consume the
-                // requested content seek against advertisement media.
                 if (isAdShowing()) { return; }
                 if (video.readyState < 1 || !video.currentSrc) { return; }
                 const expectedVideoId = window.__kasetPendingSeekVideoId;
                 const boundVideoId = video.__kasetBoundVideoId || '';
                 if (expectedVideoId && boundVideoId !== expectedVideoId) {
-                    // Metadata can lead the physical media during SPA changes.
-                    // Keep the target armed until this element is actually bound
-                    // to the requested content occurrence.
                     return;
                 }
                 if (!video.seekable || video.seekable.length === 0) { return; }
@@ -328,8 +308,6 @@ extension YouTubeWatchWebView {
                         window.__kasetPendingSeekInFlightAttempt = null;
                         sendUpdate(true);
                     }
-                    // Re-assert once if the player clobbers currentTime back near 0,
-                    // then wait again before reporting success.
                     setTimeout(function() {
                         if (!stillOwnsSeekOperation()) return;
                         if (Math.abs(video.currentTime - resolvedTarget) > 1.5) {
@@ -482,13 +460,6 @@ extension YouTubeWatchWebView {
         """
     }
 
-    /// Stops the chrome-hiding extraction and drops its style elements.
-    ///
-    /// Consent, CAPTCHA and sign-in interstitials are deliberately allowed to
-    /// commit in this WebView so the user can clear them, but the
-    /// document-start blackout hides every element — and a `visibility:
-    /// hidden` element cannot be hit-tested, so the form is both invisible and
-    /// unclickable. Revealing the page is the only way out of that dead end.
     static var revealInterstitialScript: String {
         """
         (function() {
@@ -505,10 +476,6 @@ extension YouTubeWatchWebView {
         """
     }
 
-    /// Document-start blackout: the page is black from its very first paint
-    /// so YouTube's layout never flashes before extraction runs. Uses
-    /// element selectors only, so the extraction script's class-based
-    /// `.kaset-visible` chain (and caption whitelists) win once applied.
     static var blackoutScript: String {
         """
         (function() {
@@ -524,14 +491,6 @@ extension YouTubeWatchWebView {
         """
     }
 
-    /// Extraction script: hides all youtube.com chrome and leaves only the
-    /// video surface visible, so the WebView can dock into native views.
-    ///
-    /// Same ancestor-chain visibility approach as the music video mode
-    /// (`SingletonPlayerWebView+VideoMode`), targeting the watch-page DOM.
-    /// Defines `window.__kasetExtractVideo()` and runs it; `didFinish` calls
-    /// it again for cached/fast loads. Enforcement uses bounded RAF bursts plus
-    /// a DOM observer so steady state does not keep a per-frame loop alive.
     static var extractionScript: String {
         """
         (function() {
@@ -550,12 +509,10 @@ extension YouTubeWatchWebView {
                 }
 
                 style.textContent = `
-                    /* Hide everything by default */
                     html, body, * {
                         visibility: hidden !important;
                     }
 
-                    /* Show precisely the video's ancestor chain */
                     .kaset-visible {
                         visibility: visible !important;
                         opacity: 1 !important;
@@ -578,8 +535,6 @@ extension YouTubeWatchWebView {
                         object-fit: contain !important;
                     }
 
-                    /* Captions are overlay siblings of the video, not
-                       ancestors — keep them visible above it. */
                     .ytp-caption-window-container,
                     .ytp-caption-window-container *,
                     .caption-window, .caption-window * {
@@ -587,24 +542,18 @@ extension YouTubeWatchWebView {
                         z-index: 2147483647 !important;
                     }
 
-                    /* YouTube raises captions when its (invisible) controls
-                       show on hover — pin them to the bottom instead. */
                     .caption-window.ytp-caption-window-bottom {
                         bottom: 4% !important;
                         top: auto !important;
                         margin-bottom: 0 !important;
                     }
 
-                    /* Keep YouTube's own controls/overlays hidden */
                     .ytp-chrome-bottom, .ytp-chrome-top, .ytp-gradient-bottom,
                     .ytp-gradient-top, .ytp-ce-element, .ytp-cards-teaser,
                     .ytp-pause-overlay, .ytp-endscreen-content {
                         display: none !important;
                     }
 
-                    /* YouTube hides the cursor over an idle player
-                       (ytp-autohide sets cursor: none); the native app owns
-                       the cursor, so force it back everywhere. */
                     html, body, #movie_player, #movie_player *, video {
                         cursor: auto !important;
                     }
@@ -760,7 +709,6 @@ extension YouTubeWatchWebView {
 }
 
 extension YouTubeWatchWebView {
-    /// Toggles play/pause on the watch page's video element.
     func playPause() {
         self.webView?.evaluateJavaScript(
             """
@@ -782,7 +730,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Resumes playback.
     func play() {
         self.webView?.evaluateJavaScript(
             """
@@ -796,7 +743,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Pauses playback.
     func pause() {
         self.webView?.evaluateJavaScript(
             """
@@ -810,7 +756,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Seeks to a position in seconds.
     func seek(to time: Double) {
         guard time.isFinite, time >= 0 else { return }
         self.webView?.evaluateJavaScript(
@@ -824,7 +769,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Evaluates JavaScript that returns a string (nil on error).
     private func evaluateForString(_ script: String) async -> String? {
         guard let webView else { return nil }
         return await withCheckedContinuation { continuation in
@@ -834,9 +778,6 @@ extension YouTubeWatchWebView {
         }
     }
 
-    /// Encodes a Swift string as a safe JavaScript string literal (including the
-    /// surrounding quotes) so arbitrary contents can't break out of the literal
-    /// when interpolated into an `evaluateJavaScript` payload.
     static func jsStringLiteral(_ value: String) -> String {
         guard let data = try? JSONEncoder().encode(value),
               let json = String(data: data, encoding: .utf8)
@@ -846,7 +787,6 @@ extension YouTubeWatchWebView {
         return json
     }
 
-    /// Fetches the caption tracks the player offers.
     func availableCaptionTracks() async -> [YouTubeCaptionTrack] {
         guard let json = await self.evaluateForString(Self.availableCaptionTracksScript),
               let data = json.data(using: .utf8),
@@ -864,7 +804,6 @@ extension YouTubeWatchWebView {
         }
     }
 
-    /// Activates a caption track by preferred caption identifier (`vssId` when available, else language code), or turns captions off (nil).
     func setCaptionTrack(languageCode: String?) {
         self.webView?.evaluateJavaScript(Self.setCaptionTrackScript(languageCode: languageCode), completionHandler: nil)
     }
@@ -977,17 +916,7 @@ extension YouTubeWatchWebView {
         """
     }
 
-    /// The storyboard spec string for the current video, read from the player
-    /// response. Drives the ambient backdrop's fine-grained live color.
-    ///
-    /// Only returns a spec when the player response's own `videoId` matches
-    /// `expectedVideoId` — `window.ytInitialPlayerResponse` is the page-load
-    /// global and can still describe the *previous* video after a YouTube SPA
-    /// auto-advance, which would tint the new page with the old video's colors.
     func storyboardSpec(expectedVideoId: String?) async -> String? {
-        // JSON-encode the id into a safe JS string literal rather than raw
-        // string interpolation, so a quote/backslash/newline can't break out of
-        // the literal at the WKWebView trust boundary.
         let expectedLiteral = Self.jsStringLiteral(expectedVideoId ?? "")
         let script = """
         (function() {
@@ -1002,8 +931,6 @@ extension YouTubeWatchWebView {
                     response = window.ytInitialPlayerResponse;
                 }
                 if (!response || !response.storyboards) { return ''; }
-                // Reject a response that describes a different video than the
-                // one we're asking about (stale global after SPA navigation).
                 var details = response.videoDetails;
                 var responseId = details && details.videoId;
                 if (expected && responseId && responseId !== expected) { return ''; }
@@ -1020,7 +947,6 @@ extension YouTubeWatchWebView {
         return spec
     }
 
-    /// The language code of the player's active caption track (nil = off).
     func currentCaptionLanguageCode() async -> String? {
         let script = """
         (function() {
@@ -1036,7 +962,6 @@ extension YouTubeWatchWebView {
         return (code?.isEmpty == false) ? code : nil
     }
 
-    /// Fetches the quality levels the player offers.
     func availableQualityLevels() async -> [String] {
         let script = """
         (function() {
@@ -1056,7 +981,6 @@ extension YouTubeWatchWebView {
         return levels
     }
 
-    /// The player's current quality level.
     func currentQualityLevel() async -> String? {
         let script = """
         (function() {
@@ -1071,7 +995,6 @@ extension YouTubeWatchWebView {
         return (level?.isEmpty == false) ? level : nil
     }
 
-    /// Requests a playback quality level.
     func setQualityLevel(_ level: String) {
         let script = """
         (function() {
@@ -1085,7 +1008,6 @@ extension YouTubeWatchWebView {
         self.webView?.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Shows the system AirPlay picker for the watch page's video element.
     func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         guard let webView = self.webView else { return }
         AirPlayPickerAnchor.preparePicker(in: webView, at: screenPoint)
@@ -1102,7 +1024,6 @@ extension YouTubeWatchWebView {
         )
     }
 
-    /// Sets the playback volume (0...1) on the video element and player API.
     func setVolume(_ volume: Double) {
         let clamped = volume.isFinite ? min(max(volume, 0), 1) : 1.0
         self.webView?.evaluateJavaScript(

@@ -1,22 +1,18 @@
 import SwiftUI
 
-/// A custom cassette tape icon view.
 struct CassetteIcon: View {
     let size: CGFloat
 
     var body: some View {
         ZStack {
-            // Cassette body (rounded rectangle)
             RoundedRectangle(cornerRadius: self.size * 0.12)
                 .frame(width: self.size, height: self.size * 0.65)
 
-            // Inner window (darker area showing tape reels)
             RoundedRectangle(cornerRadius: self.size * 0.06)
                 .fill(.background.opacity(0.3))
                 .frame(width: self.size * 0.85, height: self.size * 0.35)
                 .offset(y: -self.size * 0.05)
 
-            // Left tape reel
             Circle()
                 .fill(.background.opacity(0.5))
                 .frame(width: self.size * 0.22, height: self.size * 0.22)
@@ -26,7 +22,6 @@ struct CassetteIcon: View {
                 .frame(width: self.size * 0.1, height: self.size * 0.1)
                 .offset(x: -self.size * 0.22, y: -self.size * 0.05)
 
-            // Right tape reel
             Circle()
                 .fill(.background.opacity(0.5))
                 .frame(width: self.size * 0.22, height: self.size * 0.22)
@@ -36,7 +31,6 @@ struct CassetteIcon: View {
                 .frame(width: self.size * 0.1, height: self.size * 0.1)
                 .offset(x: self.size * 0.22, y: -self.size * 0.05)
 
-            // Bottom label area
             RoundedRectangle(cornerRadius: self.size * 0.03)
                 .fill(.background.opacity(0.2))
                 .frame(width: self.size * 0.5, height: self.size * 0.1)

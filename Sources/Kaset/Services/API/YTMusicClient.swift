@@ -3,8 +3,6 @@ import CryptoKit
 import Foundation
 import os
 
-/// Identifies content types that support pagination via continuation tokens.
-/// Used internally by YTMusicClient to manage pagination state generically.
 enum PaginatedContentType: String, Hashable {
     case home = "FEmusic_home"
     case explore = "FEmusic_explore"
@@ -14,7 +12,6 @@ enum PaginatedContentType: String, Hashable {
     case podcasts = "FEmusic_podcasts"
     case history = "FEmusic_history"
 
-    /// Display name for logging.
     var displayName: String {
         switch self {
         case .home: "home"
@@ -28,7 +25,6 @@ enum PaginatedContentType: String, Hashable {
     }
 }
 
-/// Client for making authenticated requests to YouTube Music's internal API.
 @MainActor
 // swiftlint:disable:next type_body_length
 final class YTMusicClient: YTMusicClientProtocol {
@@ -39,31 +35,17 @@ final class YTMusicClient: YTMusicClientProtocol {
     private let cache: APICache
     private let logger = DiagnosticsLogger.api
 
-    /// Provider for the current brand account ID.
-    /// Set this after initialization to enable brand account API requests.
-    /// Returns nil for primary account, brand ID string for brand accounts.
     var brandIdProvider: (() -> String?)?
 
-    /// Provider for the selected account's opaque owner-and-account scope.
-    ///
-    /// Primary Google accounts all use the literal ID `"primary"`, so brand
-    /// identity alone cannot distinguish a different signed-in Google account.
-    /// AccountService supplies a collision-resistant scope derived from the
-    /// authenticated Google owner and selected YouTube identity.
     var accountScopeProvider: (() -> String?)?
 
-    /// YouTube Music API base URL.
     private static let baseURL = "https://music.youtube.com/youtubei/v1"
 
-    /// Client version for WEB_REMIX.
     private static let clientVersion = "1.20231204.01.00"
 
-    /// Centralized storage for continuation tokens keyed by content type.
     private var continuationTokens: [PaginatedContentType: String] = [:]
-    /// Invalidates older initial-page and continuation requests for the same surface.
     private var paginationEpochs: [PaginatedContentType: UInt64] = [:]
     private var continuationGeneration = 0
-    /// Separate continuation token for account-backed recommendation surfaces that reuse `FEmusic_home`.
     private var personalizedRecommendationsContinuationToken: String?
 
     init(
@@ -87,8 +69,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.cache = cache
     }
 
-    /// Fetches paginated content for the given content type.
-    /// Stores the continuation token for subsequent calls to `getContinuation`.
     private func fetchPaginatedContent(
         type: PaginatedContentType,
         ttl: TimeInterval? = APICache.TTL.home,
@@ -108,7 +88,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         let data = try await request("browse", body: body, ttl: ttl, bypassCache: bypassCache)
         let response = HomeResponseParser.parse(data)
 
-        // Store continuation token for progressive loading
         let token = HomeResponseParser.extractContinuationToken(from: data)
         let isCurrentRequest = generation == self.continuationGeneration
             && self.paginationEpochs[type] == paginationEpoch
@@ -121,8 +100,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches the next batch of sections for the given content type via continuation.
-    /// Returns nil if no more sections are available.
     private func fetchContinuation(type: PaginatedContentType) async throws -> [HomeSection]? {
         guard let token = continuationTokens[type] else {
             self.logger.debug("No \(type.displayName) continuation token available")
@@ -148,11 +125,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             self.logger.info("\(type.displayName.capitalized) continuation loaded: \(additionalSections.count) sections, hasMore: \(hasMore)")
             return additionalSections
         } catch is CancellationError {
-            // A cancelled request says nothing about the server-side page, so
-            // keep the token: the bottom-of-scroll sentinel is torn down (and
-            // its task cancelled) whenever a freshly appended page pushes it
-            // out of the lazy stack, and the next appearance must be able to
-            // retry the same continuation instead of ending pagination.
             throw CancellationError()
         } catch {
             self.logger.warning("Failed to fetch \(type.displayName) continuation: \(error.localizedDescription)")
@@ -165,29 +137,22 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Checks whether more sections are available for the given content type.
     private func hasMoreSections(for type: PaginatedContentType) -> Bool {
         self.continuationTokens[type] != nil
     }
 
-    /// Fetches the home page content (initial sections only for fast display).
-    /// Call `getHomeContinuation` to load additional sections progressively.
     func getHome(forceRefresh: Bool) async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .home, bypassCache: forceRefresh)
     }
 
-    /// Fetches the next batch of home sections via continuation.
-    /// Returns nil if no more sections are available.
     func getHomeContinuation() async throws -> [HomeSection]? {
         try await self.fetchContinuation(type: .home)
     }
 
-    /// Whether more home sections are available to load.
     var hasMoreHomeSections: Bool {
         self.hasMoreSections(for: .home)
     }
 
-    /// Fetches signed-in, account-backed recommendations without sharing pagination state with Home.
     func getPersonalizedRecommendations() async throws -> HomeResponse {
         self.logger.info("Fetching personalized recommendations")
 
@@ -208,7 +173,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches the next batch of signed-in recommendation sections.
     func getPersonalizedRecommendationsContinuation() async throws -> [HomeSection]? {
         guard let token = self.personalizedRecommendationsContinuationToken else {
             self.logger.debug("No personalized recommendations continuation token available")
@@ -237,78 +201,62 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Whether more signed-in recommendation sections are available to load.
     var hasMorePersonalizedRecommendationSections: Bool {
         self.personalizedRecommendationsContinuationToken != nil
     }
 
-    /// Fetches the explore page content (initial sections only for fast display).
     func getExplore() async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .explore)
     }
 
-    /// Fetches the next batch of explore sections via continuation.
     func getExploreContinuation() async throws -> [HomeSection]? {
         try await self.fetchContinuation(type: .explore)
     }
 
-    /// Whether more explore sections are available to load.
     var hasMoreExploreSections: Bool {
         self.hasMoreSections(for: .explore)
     }
 
-    /// Fetches the charts page content (initial sections only for fast display).
     func getCharts() async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .charts)
     }
 
-    /// Fetches the next batch of charts sections via continuation.
     func getChartsContinuation() async throws -> [HomeSection]? {
         try await self.fetchContinuation(type: .charts)
     }
 
-    /// Whether more charts sections are available to load.
     var hasMoreChartsSections: Bool {
         self.hasMoreSections(for: .charts)
     }
 
-    /// Fetches the moods and genres page content (initial sections only for fast display).
     func getMoodsAndGenres() async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .moodsAndGenres)
     }
 
-    /// Fetches the next batch of moods and genres sections via continuation.
     func getMoodsAndGenresContinuation() async throws -> [HomeSection]? {
         try await self.fetchContinuation(type: .moodsAndGenres)
     }
 
-    /// Whether more moods and genres sections are available to load.
     var hasMoreMoodsAndGenresSections: Bool {
         self.hasMoreSections(for: .moodsAndGenres)
     }
 
-    /// Fetches the new releases page content (initial sections only for fast display).
     func getNewReleases() async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .newReleases)
     }
 
-    /// Fetches the next batch of new releases sections via continuation.
     func getNewReleasesContinuation() async throws -> [HomeSection]? {
         try await self.fetchContinuation(type: .newReleases)
     }
 
-    /// Whether more new releases sections are available to load.
     var hasMoreNewReleasesSections: Bool {
         self.hasMoreSections(for: .newReleases)
     }
 
-    /// Fetches the history page content (initial sections only for fast display).
-    /// No cache — history changes with every song played.
     func getHistory() async throws -> HomeResponse {
         try await self.fetchPaginatedContent(type: .history, ttl: nil)
     }
 
-    /// Fetches the next batch of history sections via continuation.
     func getHistoryContinuation() async throws -> [HomeSection]? {
         guard let continuation = continuationTokens[.history] else {
             self.logger.debug("No history continuation token available")
@@ -337,12 +285,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Whether more history sections are available to load.
     var hasMoreHistorySections: Bool {
         self.hasMoreSections(for: .history)
     }
 
-    /// Fetches the podcasts page content (initial sections only for fast display).
     func getPodcasts() async throws -> [PodcastSection] {
         self.logger.info("Fetching podcasts page")
 
@@ -354,7 +300,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         let data = try await request("browse", body: body, ttl: APICache.TTL.home)
         let sections = PodcastParser.parseDiscovery(data)
 
-        // Store continuation token for progressive loading
         let token = HomeResponseParser.extractContinuationToken(from: data)
         if generation == self.continuationGeneration {
             self.continuationTokens[.podcasts] = token
@@ -365,7 +310,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return sections
     }
 
-    /// Fetches the next batch of podcasts sections via continuation.
     func getPodcastsContinuation() async throws -> [PodcastSection]? {
         guard let token = continuationTokens[.podcasts] else {
             self.logger.debug("No podcasts continuation token available")
@@ -394,12 +338,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Whether more podcasts sections are available to load.
     var hasMorePodcastsSections: Bool {
         self.hasMoreSections(for: .podcasts)
     }
 
-    /// Fetches details for a podcast show including its episodes.
     func getPodcastShow(browseId: String) async throws -> PodcastShowDetail {
         self.logger.info("Fetching podcast show: \(browseId)")
 
@@ -415,7 +357,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return showDetail
     }
 
-    /// Fetches more episodes for a podcast show via continuation.
     func getPodcastEpisodesContinuation(token: String) async throws -> PodcastEpisodesContinuation {
         self.logger.info("Fetching more podcast episodes via continuation")
 
@@ -426,7 +367,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return continuation
     }
 
-    /// Makes a continuation request for browse endpoints.
     private func requestContinuation(
         _ token: String,
         ttl: TimeInterval? = APICache.TTL.home,
@@ -438,14 +378,12 @@ final class YTMusicClient: YTMusicClientProtocol {
         return try await self.request("browse", body: body, ttl: ttl, authPolicy: authPolicy)
     }
 
-    /// Makes a continuation request for next/queue endpoints.
     private func requestContinuation(_ token: String, body additionalBody: [String: Any]) async throws -> [String: Any] {
         var body = additionalBody
         body["continuation"] = token
         return try await self.request("next", body: body)
     }
 
-    /// Searches for content.
     func search(query: String) async throws -> SearchResponse {
         self.logger.info("Searching for: \(query)")
 
@@ -459,7 +397,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for songs only (filtered search).
     func searchSongs(query: String) async throws -> [Song] {
         self.logger.info("Searching songs only for: \(query)")
 
@@ -474,8 +411,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return songs
     }
 
-    /// Filter params for YouTube Music search.
-    /// Pattern: EgWKAQ (base) + filter code + AWoMEA4QChADEAQQCRAF (no spelling correction)
     private enum SearchFilterParams {
         static let songs = "EgWKAQIIAWoMEA4QChADEAQQCRAF"
         static let videos = "EgWKAQIQAWoMEA4QChADEAQQCRAF"
@@ -483,16 +418,12 @@ final class YTMusicClient: YTMusicClientProtocol {
         static let artists = "EgWKAQIgAWoMEA4QChADEAQQCRAF"
         static let profiles = "EgWKAQJYAWoMEA4QChADEAQQCRAF"
         static let playlists = "EgWKAQIoAWoMEA4QChADEAQQCRAF"
-        /// Featured playlists (first-party YouTube Music curated playlists)
         static let featuredPlaylists = "EgeKAQQoADgBagwQDhAKEAMQBBAJEAU="
-        /// Community playlists (user-created playlists)
         static let communityPlaylists = "EgeKAQQoAEABagwQDhAKEAMQBBAJEAU="
-        /// Podcasts (podcast shows)
         static let podcasts = "EgWKAQJQAWoQEBAQCRAEEAMQBRAKEBUQEQ%3D%3D"
         static let episodes = "EgWKAQJIAWoMEA4QChADEAQQCRAF"
     }
 
-    /// Searches for videos only (filtered search with pagination).
     func searchVideos(query: String) async throws -> SearchResponse {
         self.logger.info("Searching videos only for: \(query)")
 
@@ -508,7 +439,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for albums only (filtered search with pagination).
     func searchAlbums(query: String) async throws -> SearchResponse {
         self.logger.info("Searching albums only for: \(query)")
 
@@ -523,7 +453,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for artists only (filtered search with pagination).
     func searchArtists(query: String) async throws -> SearchResponse {
         self.logger.info("Searching artists only for: \(query)")
 
@@ -538,7 +467,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for profiles only (filtered search with pagination).
     func searchProfiles(query: String) async throws -> SearchResponse {
         self.logger.info("Searching profiles only for: \(query)")
 
@@ -554,7 +482,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for playlists only (filtered search with pagination).
     func searchPlaylists(query: String) async throws -> SearchResponse {
         self.logger.info("Searching playlists only for: \(query)")
 
@@ -569,7 +496,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for featured playlists only (YouTube Music curated playlists).
     func searchFeaturedPlaylists(query: String) async throws -> SearchResponse {
         self.logger.info("Searching featured playlists only for: \(query)")
 
@@ -584,7 +510,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for community playlists only (user-created playlists).
     func searchCommunityPlaylists(query: String) async throws -> SearchResponse {
         self.logger.info("Searching community playlists only for: \(query)")
 
@@ -599,7 +524,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for podcasts only (podcast shows).
     func searchPodcasts(query: String) async throws -> SearchResponse {
         self.logger.info("Searching podcasts only for: \(query)")
 
@@ -614,7 +538,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for songs only with pagination support.
     func searchSongsWithPagination(query: String) async throws -> SearchResponse {
         self.logger.info("Searching songs with pagination for: \(query)")
 
@@ -629,7 +552,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Searches for podcast episodes only (filtered search with pagination).
     func searchEpisodes(query: String) async throws -> SearchResponse {
         self.logger.info("Searching podcast episodes only for: \(query)")
 
@@ -645,7 +567,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches the next batch of search results for an explicit continuation value.
     func getSearchContinuation(token: String) async throws -> SearchResponse {
         self.logger.info("Fetching search continuation")
         let generation = self.continuationGeneration
@@ -664,7 +585,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Clears cached continuation/session state when switching accounts.
     func resetSessionStateForAccountSwitch() {
         self.logger.info("Resetting client session state for account switch")
         self.continuationGeneration &+= 1
@@ -675,7 +595,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.likedSongsContinuationToken = nil
     }
 
-    /// Fetches search suggestions for autocomplete.
     func getSearchSuggestions(query: String) async throws -> [SearchSuggestion] {
         guard !query.isEmpty else {
             return []
@@ -687,14 +606,12 @@ final class YTMusicClient: YTMusicClientProtocol {
             "input": query,
         ]
 
-        // No caching for suggestions - they're ephemeral
         let data = try await request("music/get_search_suggestions", body: body)
         let suggestions = SearchSuggestionsParser.parse(data)
         self.logger.debug("Found \(suggestions.count) suggestions")
         return suggestions
     }
 
-    /// Fetches the user's library playlists.
     func getLibraryPlaylists() async throws -> [Playlist] {
         self.logger.info("Fetching library playlists")
 
@@ -708,7 +625,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlists
     }
 
-    /// Fetches the user's library content including playlists, artists, and podcast shows.
     func getLibraryContent() async throws -> PlaylistParser.LibraryContent {
         self.logger.info("Fetching library content")
         let accountScope = self.cacheScope(authenticated: true)
@@ -742,7 +658,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return content
     }
 
-    /// Fetches library playlists from the dedicated browse endpoint with graceful fallback to the library landing preview.
     private func fetchLibraryPlaylists(fallback fallbackPlaylists: [Playlist]) async throws -> [Playlist] {
         do {
             let playlistsData = try await self.request(
@@ -769,7 +684,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Fetches saved albums from the dedicated browse endpoint with graceful fallback to the Library landing preview.
     private func fetchLibraryAlbums(
         fallback fallbackAlbums: [Album]
     ) async throws -> ([Album], PlaylistParser.LibraryAlbumsSource) {
@@ -853,7 +767,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Fetches followed artists with graceful fallback to the library landing preview.
     private func fetchLibraryArtists(
         fallback fallbackArtists: [Artist]
     ) async throws -> ([Artist], PlaylistParser.LibraryArtistsSource) {
@@ -880,7 +793,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return (fallbackArtists, .landingFallback)
     }
 
-    /// Fetches the uploaded songs surface as a virtual playlist tile when the account has uploads.
     private func fetchUploadedSongsPlaylist() async throws -> Playlist? {
         do {
             let uploadedTracksData = try await self.request(
@@ -895,17 +807,12 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Continuation token for liked songs pagination.
     private var likedSongsContinuationToken: String?
 
-    /// Whether more liked songs are available to load.
     var hasMoreLikedSongs: Bool {
         self.likedSongsContinuationToken != nil
     }
 
-    /// Fetches the user's liked songs with pagination support.
-    /// Uses VLLM (Liked Music playlist) which returns all songs with proper pagination,
-    /// unlike FEmusic_liked_videos which is limited to ~13 songs.
     func getLikedSongs() async throws -> LikedSongsResponse {
         self.logger.info("Fetching liked songs via VLLM playlist")
 
@@ -916,16 +823,13 @@ final class YTMusicClient: YTMusicClientProtocol {
         let generation = self.continuationGeneration
         let data = try await request("browse", body: body, ttl: APICache.TTL.library)
 
-        // Use playlist parser since VLLM returns playlist format
         let playlistResponse = PlaylistParser.parsePlaylistWithContinuation(data, playlistId: LikedMusicPlaylist.id)
 
-        // Store continuation token for pagination
         if generation == self.continuationGeneration {
             self.likedSongsContinuationToken = playlistResponse.continuationToken
         }
         let hasMore = generation == self.continuationGeneration && playlistResponse.hasMore
 
-        // Convert to LikedSongsResponse format
         let response = LikedSongsResponse(
             songs: playlistResponse.detail.tracks,
             continuationToken: playlistResponse.continuationToken
@@ -935,8 +839,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches the next batch of liked songs via continuation.
-    /// Returns nil if no more songs are available.
     func getLikedSongsContinuation() async throws -> LikedSongsResponse? {
         guard let token = likedSongsContinuationToken else {
             self.logger.debug("No liked songs continuation token available")
@@ -948,7 +850,6 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         do {
             let continuationData = try await requestContinuation(token, authPolicy: .required)
-            // Use playlist continuation parser since VLLM returns playlist format
             let playlistResponse = PlaylistParser.parsePlaylistContinuation(continuationData)
             guard generation == self.continuationGeneration else {
                 self.logger.info("Discarding stale liked songs continuation after session reset")
@@ -957,7 +858,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             self.likedSongsContinuationToken = playlistResponse.continuationToken
             let hasMore = playlistResponse.hasMore
 
-            // Convert to LikedSongsResponse format
             let response = LikedSongsResponse(
                 songs: playlistResponse.tracks,
                 continuationToken: playlistResponse.continuationToken
@@ -972,11 +872,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Maps a playlist, album, or radio ID to the browse ID that loads it.
-    ///
-    /// - VL..., RD..., MPRE..., UC... and uploaded songs load as-is.
-    /// - PL... playlists and OLAK... album playlists need the VL prefix: a bare OLAK browse
-    ///   returns HTTP 400, while VLOLAK... lists the album's tracks without an album header.
     nonisolated static func playlistBrowseId(for id: String) -> String {
         let loadsAsIs = id == Playlist.uploadedSongsBrowseID
             || id.hasPrefix("VL")
@@ -986,7 +881,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return loadsAsIs ? id : "VL\(id)"
     }
 
-    /// Fetches playlist details including tracks with pagination support.
     func getPlaylist(id: String) async throws -> PlaylistTracksResponse {
         self.logger.info("Fetching playlist: \(id)")
 
@@ -1004,11 +898,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches all tracks for a playlist using the queue endpoint.
-    /// This returns all tracks in a single request without pagination.
-    /// More reliable for radio playlists (RDCLAK prefix) where continuation doesn't work correctly.
     func getPlaylistAllTracks(playlistId: String) async throws -> [Song] {
-        // Strip VL prefix if present since get_queue uses raw playlist ID
         let rawPlaylistId: String = if playlistId.hasPrefix("VL") {
             String(playlistId.dropFirst(2))
         } else {
@@ -1021,7 +911,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             "playlistId": rawPlaylistId,
         ]
 
-        // No caching for queue endpoint - we want fresh results each time
         let data = try await request("music/get_queue", body: body, ttl: nil)
 
         let tracks = PlaylistParser.parseQueueTracks(data)
@@ -1030,7 +919,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return tracks
     }
 
-    /// Fetches a batch of playlist tracks using the provided continuation token.
     func getPlaylistContinuation(token: String, requiresAuth: Bool) async throws -> PlaylistContinuationResponse {
         self.logger.info("Fetching playlist continuation")
 
@@ -1048,7 +936,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Fetches artist details including their songs and albums.
     func getArtist(id: String) async throws -> ArtistDetail {
         self.logger.info("Fetching artist: \(id)")
 
@@ -1063,7 +950,6 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         var detail = ArtistParser.parseArtistDetail(data, artistId: id)
 
-        // Artist page top songs don't include duration — fetch via queue endpoint (best-effort)
         let songsNeedingDuration = detail.songs.filter { $0.duration == nil }
         if !songsNeedingDuration.isEmpty {
             do {
@@ -1149,7 +1035,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return detail
     }
 
-    /// Fetches durations for a batch of video IDs using the queue endpoint.
     private func fetchSongDurations(videoIds: [String]) async throws -> [String: TimeInterval] {
         guard !videoIds.isEmpty else { return [:] }
 
@@ -1163,7 +1048,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         if let queueDatas = data["queueDatas"] as? [[String: Any]] {
             for queueData in queueDatas {
                 guard let content = queueData["content"] as? [String: Any] else { continue }
-                // Handle both direct and wrapped renderer structures
                 let renderer: [String: Any]? = if let direct = content["playlistPanelVideoRenderer"] as? [String: Any] {
                     direct
                 } else if let wrapper = content["playlistPanelVideoWrapperRenderer"] as? [String: Any],
@@ -1190,7 +1074,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return durations
     }
 
-    /// Fetches all songs for an artist using the songs browse endpoint.
     func getArtistSongs(browseId: String, params: String?) async throws -> [Song] {
         self.logger.info("Fetching artist songs: \(browseId)")
 
@@ -1209,7 +1092,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return songs
     }
 
-    /// Fetches an artist's full discography (`MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`).
     func getArtistDiscography(browseId: String, params: String?) async throws -> [Album] {
         self.logger.info("Fetching artist discography: \(browseId)")
 
@@ -1226,10 +1108,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return albums
     }
 
-    /// Fetches a filtered artist-page subset (`MUSIC_PAGE_TYPE_ARTIST`) — the
-    /// full Latest-episodes listing behind a shelf's "See all". The
-    /// authenticated response is a single `gridRenderer` of
-    /// `musicMultiRowListItemRenderer` items (including live streams).
     func getArtistEpisodesList(browseId: String, params: String?) async throws -> [ArtistEpisode] {
         self.logger.info("Fetching artist episodes list: \(browseId)")
 
@@ -1246,13 +1124,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         return episodes
     }
 
-    /// Fetches lyrics for a song by video ID.
-    /// - Parameter videoId: The video ID of the song
-    /// - Returns: Lyrics if available, or Lyrics.unavailable if not
     func getLyrics(videoId: String) async throws -> Lyrics {
         self.logger.info("Fetching lyrics for: \(videoId)")
 
-        // Step 1: Get the lyrics browse ID from the "next" endpoint
         let nextBody: [String: Any] = [
             "videoId": videoId,
             "enablePersistentPlaylistPanel": true,
@@ -1267,7 +1141,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             return .unavailable
         }
 
-        // Step 2: Fetch the actual lyrics using the browse ID
         let browseBody: [String: Any] = [
             "browseId": lyricsBrowseId,
         ]
@@ -1278,8 +1151,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return lyrics
     }
 
-    /// Fetches timed (synced) lyrics for a song from YouTube Music.
-    /// Checks the "next" endpoint for timedLyricsModel data, then falls back to browse endpoint for plain lyrics.
     func getTimedLyrics(videoId: String) async throws -> LyricResult {
         self.logger.info("Fetching timed lyrics for: \(videoId)")
 
@@ -1292,13 +1163,11 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let nextData = try await request("next", body: nextBody)
 
-        // Try to extract timed lyrics first
         if let synced = LyricsParser.extractTimedLyrics(from: nextData) {
             self.logger.info("Found timed lyrics for \(videoId): \(synced.lines.count) lines")
             return .synced(synced)
         }
 
-        // Fall back to plain lyrics via browse endpoint
         if let lyricsBrowseId = LyricsParser.extractLyricsBrowseId(from: nextData) {
             let browseBody: [String: Any] = [
                 "browseId": lyricsBrowseId,
@@ -1315,14 +1184,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         return .unavailable
     }
 
-    /// Fetches a radio queue (similar songs) based on a video ID.
-    /// Uses the "next" endpoint with a radio playlist ID (RDAMVM prefix).
-    /// - Parameter videoId: The seed video ID to base the radio on
-    /// - Returns: An array of songs forming the radio queue
     func getRadioQueue(videoId: String) async throws -> [Song] {
         self.logger.info("Fetching radio queue for: \(videoId)")
 
-        // Use RDAMVM prefix to request a radio mix based on the song
         let body: [String: Any] = [
             "videoId": videoId,
             "playlistId": "RDAMVM\(videoId)",
@@ -1337,12 +1201,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return result.songs
     }
 
-    /// Fetches a mix queue from a playlist ID (e.g., artist mix "RDEM...").
-    /// Uses the "next" endpoint with the provided playlist ID.
-    /// - Parameters:
-    ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
-    ///   - startVideoId: Optional starting video ID
-    /// - Returns: RadioQueueResult with songs and continuation token for infinite mix
     func getMixQueue(playlistId: String, startVideoId: String?) async throws -> RadioQueueResult {
         self.logger.info("Fetching mix queue for playlist: \(playlistId)")
 
@@ -1353,7 +1211,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             "tunerSettingValue": "AUTOMIX_SETTING_NORMAL",
         ]
 
-        // Add video ID if provided to start at a specific track
         if let videoId = startVideoId {
             body["videoId"] = videoId
         }
@@ -1364,9 +1221,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return result
     }
 
-    /// Fetches more songs for a mix queue using a continuation token.
-    /// - Parameter continuationToken: The continuation token from a previous getMixQueue call
-    /// - Returns: RadioQueueResult with additional songs and next continuation token
     func getMixQueueContinuation(continuationToken: String) async throws -> RadioQueueResult {
         self.logger.info("Fetching mix queue continuation")
 
@@ -1381,14 +1235,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         return result
     }
 
-    /// Fetches full song metadata including feedbackTokens for library management.
-    /// Uses the `next` endpoint to get track details with library status.
-    /// - Parameter videoId: The video ID of the song
-    /// - Returns: A Song with full metadata including feedbackTokens and inLibrary status
     func getSong(videoId: String) async throws -> Song {
         self.logger.info("Fetching song metadata: \(videoId)")
 
-        // Use the "next" endpoint which returns track info with feedbackTokens
         let body: [String: Any] = [
             "videoId": videoId,
             "enablePersistentPlaylistPanel": true,
@@ -1402,12 +1251,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return song
     }
 
-    /// Fetches content for a moods/genres category page.
-    /// These are browse pages that return sections of songs/playlists, not playlist tracks.
-    /// - Parameters:
-    ///   - browseId: The browse ID (e.g., "FEmusic_moods_and_genres_category")
-    ///   - params: Optional params for the category (extracted from navigation button)
-    /// - Returns: HomeResponse with sections for the category
     func getMoodCategory(browseId: String, params: String?) async throws -> HomeResponse {
         self.logger.info("Fetching mood category: \(browseId)")
 
@@ -1425,10 +1268,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Fetches the list of available accounts (primary + brand accounts).
-    /// Used for account switching functionality.
-    /// - Returns: AccountsListResponse containing all available accounts
-    /// - Throws: YTMusicError if not authenticated or request fails
     func fetchAccountsList(allowGuestMode: Bool) async throws -> AccountsListResponse {
         self.logger.info("Fetching accounts list")
 
@@ -1444,10 +1283,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return response
     }
 
-    /// Rates a song (like/dislike/indifferent).
-    /// - Parameters:
-    ///   - videoId: The video ID of the song to rate
-    ///   - rating: The rating to apply (like, dislike, or indifferent to remove rating)
     func rateSong(videoId: String, rating: LikeStatus) async throws {
         self.logger.info("Rating song \(videoId) with \(rating.rawValue)")
 
@@ -1455,7 +1290,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             "target": ["videoId": videoId],
         ]
 
-        // Endpoint varies by rating type
         let endpoint = switch rating {
         case .like:
             "like/like"
@@ -1468,12 +1302,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request(endpoint, body: body)
         self.logger.info("Successfully rated song \(videoId)")
 
-        // Invalidate mutation-affected caches in a single pass
         self.cache.invalidateMutationCaches()
     }
 
-    /// Adds or removes a song from the user's library.
-    /// - Parameter feedbackTokens: Tokens obtained from song metadata (use add token to add, remove token to remove)
     func editSongLibraryStatus(feedbackTokens: [String]) async throws {
         guard !feedbackTokens.isEmpty else {
             self.logger.warning("No feedback tokens provided for library edit")
@@ -1489,17 +1320,12 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("feedback", body: body)
         self.logger.info("Successfully edited library status")
 
-        // Invalidate mutation-affected caches in a single pass
         self.cache.invalidateMutationCaches()
     }
 
-    /// Adds a playlist to the user's library using the like/like endpoint.
-    /// This is equivalent to the "Add to Library" action in YouTube Music.
-    /// - Parameter playlistId: The playlist ID to add to library
     func subscribeToPlaylist(playlistId: String) async throws {
         self.logger.info("Adding playlist to library: \(playlistId)")
 
-        // Remove VL prefix if present for the API call
         let cleanId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
 
         let body: [String: Any] = [
@@ -1509,16 +1335,12 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("like/like", body: body)
         self.logger.info("Successfully added playlist \(playlistId) to library")
 
-        // Invalidate library cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
-    /// Permanently deletes one of the user's own playlists.
-    /// - Parameter playlistId: The playlist ID to delete
     func deletePlaylist(playlistId: String) async throws {
         self.logger.info("Deleting playlist: \(playlistId)")
 
-        // Remove VL prefix if present for the API call
         let cleanId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
 
         let body: [String: Any] = [
@@ -1531,8 +1353,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.cache.invalidateMutationCaches()
     }
 
-    /// Fetches the add-to-playlist menu for a song.
-    /// - Parameter videoId: The video ID of the song to add
     func getAddToPlaylistOptions(videoId: String) async throws -> AddToPlaylistMenu {
         self.logger.info("Fetching add-to-playlist options for song \(videoId)")
 
@@ -1546,13 +1366,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return menu
     }
 
-    /// Creates a playlist and optionally seeds it with songs.
-    /// - Parameters:
-    ///   - title: Playlist title.
-    ///   - description: Optional playlist description.
-    ///   - privacyStatus: Desired YouTube playlist privacy setting.
-    ///   - videoIds: Initial songs to add to the playlist.
-    /// - Returns: The newly-created playlist ID.
     func createPlaylist(
         title: String,
         description: String?,
@@ -1584,11 +1397,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlistId
     }
 
-    /// Adds a song to an existing playlist.
-    /// - Parameters:
-    ///   - videoId: The video ID to add
-    ///   - playlistId: The destination playlist ID
-    ///   - allowDuplicate: Reserved for future duplicate-confirmation UI; YouTube Music handles de-duping server-side.
     func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate _: Bool = false) async throws {
         self.logger.info("Adding song \(videoId) to playlist \(playlistId)")
 
@@ -1607,13 +1415,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.cache.invalidateMutationCaches()
     }
 
-    /// Removes a song from a playlist.
-    /// - Parameters:
-    ///   - videoId: The video ID to remove
-    ///   - setVideoId: The playlist-item-specific identifier YouTube Music assigns to
-    ///     each track occurrence, required to remove the correct instance (a song can
-    ///     appear more than once in a playlist).
-    ///   - playlistId: The playlist ID to remove from
     func removeSongFromPlaylist(videoId: String, setVideoId: String, playlistId: String) async throws {
         self.logger.info("Removing song \(videoId) from playlist \(playlistId)")
 
@@ -1633,13 +1434,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         self.cache.invalidateMutationCaches()
     }
 
-    /// Removes a playlist from the user's library using the like/removelike endpoint.
-    /// This is equivalent to the "Remove from Library" action in YouTube Music.
-    /// - Parameter playlistId: The playlist ID to remove from library
     func unsubscribeFromPlaylist(playlistId: String) async throws {
         self.logger.info("Removing playlist from library: \(playlistId)")
 
-        // Remove VL prefix if present for the API call
         let cleanId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
 
         let body: [String: Any] = [
@@ -1649,24 +1446,16 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("like/removelike", body: body)
         self.logger.info("Successfully removed playlist \(playlistId) from library")
 
-        // Invalidate library cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
-    /// Converts a podcast show ID (MPSPP prefix) to a playlist ID (PL prefix) for the like/unlike API.
-    /// - Podcast show IDs use "MPSPP" + "L" + {idSuffix}, e.g. "MPSPPLXz2p9...".
-    /// - The corresponding playlist ID is "PL" + {idSuffix}, e.g. "PLXz2p9...".
-    /// - We strip "MPSPP" (5 chars) leaving "LXz2p9...", then prepend "P" to get "PLXz2p9...".
-    /// - Parameter showId: The podcast show ID to convert
-    /// - Returns: The playlist ID for the like API
-    /// - Throws: YTMusicError.invalidInput if the ID format is invalid
     private func convertPodcastShowIdToPlaylistId(_ showId: String) throws -> String {
         guard showId.hasPrefix("MPSPP") else {
             self.logger.warning("ShowId does not have MPSPP prefix, using as-is: \(showId)")
             return showId
         }
 
-        let suffix = String(showId.dropFirst(5)) // "LXz2p9..."
+        let suffix = String(showId.dropFirst(5))
 
         guard !suffix.isEmpty else {
             self.logger.error("Invalid podcast show ID (missing suffix after MPSPP): \(showId)")
@@ -1678,13 +1467,9 @@ final class YTMusicClient: YTMusicClientProtocol {
             throw YTMusicError.invalidInput("Invalid podcast show ID format: \(showId)")
         }
 
-        return "P" + suffix // "P" + "LXz2p9..." = "PLXz2p9..."
+        return "P" + suffix
     }
 
-    /// Subscribes to a podcast show (adds to library).
-    /// This uses the like/like endpoint with the playlist ID (PL prefix).
-    /// Podcast shows have an MPSPP prefix that maps to PL for the like API.
-    /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func subscribeToPodcast(showId: String) async throws {
         self.logger.info("Subscribing to podcast: \(showId)")
 
@@ -1697,14 +1482,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("like/like", body: body)
         self.logger.info("Successfully subscribed to podcast \(showId)")
 
-        // Invalidate library cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
-    /// Unsubscribes from a podcast show (removes from library).
-    /// This uses the like/removelike endpoint with the playlist ID (PL prefix).
-    /// Podcast shows have an MPSPP prefix that maps to PL for the like API.
-    /// - Parameter showId: The podcast show ID (MPSPP prefix)
     func unsubscribeFromPodcast(showId: String) async throws {
         self.logger.info("Unsubscribing from podcast: \(showId)")
 
@@ -1718,13 +1498,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("like/removelike", body: body)
         self.logger.info("Successfully unsubscribed from podcast \(showId)")
 
-        // Invalidate library cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
-    /// Subscribes to an artist by channel ID.
-    /// This is equivalent to the "Subscribe" action in YouTube Music.
-    /// - Parameter channelId: The channel ID of the artist (e.g., UCxxxxx)
     func subscribeToArtist(channelId: String) async throws {
         self.logger.info("Subscribing to artist: \(channelId)")
 
@@ -1735,13 +1511,9 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("subscription/subscribe", body: body)
         self.logger.info("Successfully subscribed to artist \(channelId)")
 
-        // Invalidate artist cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
-    /// Unsubscribes from an artist by channel ID.
-    /// This is equivalent to the "Unsubscribe" action in YouTube Music.
-    /// - Parameter channelId: The channel ID of the artist (e.g., UCxxxxx)
     func unsubscribeFromArtist(channelId: String) async throws {
         self.logger.info("Unsubscribing from artist: \(channelId)")
 
@@ -1752,7 +1524,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         _ = try await self.request("subscription/unsubscribe", body: body)
         self.logger.info("Successfully unsubscribed from artist \(channelId)")
 
-        // Invalidate artist cache so UI updates
         self.cache.invalidate(matching: "browse:")
     }
 
@@ -1883,10 +1654,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         "stats/watchtime",
     ]
 
-    /// Builds authentication headers for API requests.
     private func buildAuthHeaders() async throws -> [String: String] {
-        // Snapshot cookies once per request; deriving the cookie header and SAPISID from
-        // the same snapshot avoids repeated WebKit cookie-store enumerations during API fanout.
         let authMaterial = await webKitManager.authMaterial(for: "youtube.com")
         self.logger.debug("Building auth headers - total cookies: \(authMaterial.totalCookieCount), youtube.com cookies: \(authMaterial.domainCookieCount)")
 
@@ -1900,7 +1668,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             throw YTMusicError.authExpired
         }
 
-        // Compute SAPISIDHASH
         let origin = WebKitManager.origin
         let timestamp = Int(Date().timeIntervalSince1970)
         let hashInput = "\(timestamp) \(sapisid) \(origin)"
@@ -1921,16 +1688,11 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
     }
 
-    /// Builds the standard context payload.
-    /// Includes `onBehalfOfUser` only for authenticated requests when a brand account is selected.
     private func buildContext(authenticated: Bool) -> [String: Any] {
         var userDict: [String: Any] = [
             "lockedSafetyMode": false,
         ]
 
-        // Add brand account ID only when this request is actually authenticated.
-        // Signed-out requests must look like a normal public YouTube Music web
-        // request and must not carry a stale delegated identity in the body.
         if authenticated, let brandId = self.brandIdProvider?() {
             userDict["onBehalfOfUser"] = brandId
             self.logger.debug("Using brand account: \(brandId)")
@@ -1960,7 +1722,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         ]
     }
 
-    /// Makes a request to the API with optional authentication, caching, and retry.
     private func request(
         _ endpoint: String,
         body: [String: Any],
@@ -1969,9 +1730,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil,
         allowGuestAuthentication: Bool = false
     ) async throws -> [String: Any] {
-        // Account and guest-mode transitions invalidate the shared API cache.
-        // Capture cache generation and logical request order before any auth or
-        // network await so stale responses cannot win after reentrant work.
         let cacheGeneration = self.cache.generation
         let cacheWriteTicket = ttl.flatMap { _ in
             self.cache.prepareWrite(cacheGeneration: cacheGeneration)
@@ -1987,7 +1745,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             allowGuestAuthentication: allowGuestAuthentication
         )
 
-        // Build request body with context so cache keys reflect the actual request.
         var fullBody = body
         fullBody["context"] = self.buildContext(authenticated: requestAuth.authenticated)
 
@@ -1995,7 +1752,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: cacheScope)
         self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
 
-        // Check cache first.
         if ttl != nil, !bypassCache, let cached = self.cache.get(key: cacheKey) {
             self.logger.debug("Cache hit for \(endpoint)")
             return cached
@@ -2005,7 +1761,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             self.cache.beginWrite(for: cacheKey, ticket: $0)
         }
 
-        // Execute with retry policy.
         let json = try await RetryPolicy.default.execute { [self] in
             try await self.performRequest(
                 endpoint,
@@ -2014,10 +1769,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             )
         }
 
-        // Cache only if no account/guest transition happened while the
-        // request was in flight. YTMusicClient and APICache are both
-        // @MainActor, so this comparison and the synchronous set below are
-        // atomic relative to invalidateAll().
         if let ttl, let cacheWrite {
             self.cache.setIfCurrent(
                 key: cacheKey,
@@ -2030,7 +1781,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         return json
     }
 
-    /// Performs the actual network request.
     private func performRequest(
         _ endpoint: String,
         fullBody: [String: Any],
@@ -2080,7 +1830,6 @@ final class YTMusicClient: YTMusicClientProtocol {
             self.logger.debug("Making request to \(endpoint) (missing context)")
         }
 
-        // Perform network I/O off the main thread
         let result = try await Self.performNetworkRequest(request: request, session: self.session)
         try self.validateAuthIdentity(
             authenticated: authenticated,
@@ -2088,13 +1837,8 @@ final class YTMusicClient: YTMusicClientProtocol {
             allowGuestAuthentication: allowGuestAuthentication
         )
 
-        // Handle errors back on main actor
         switch result {
         case let .success(data):
-            // Parse JSON synchronously - JSONSerialization is highly optimized
-            // and typically completes in <5ms even for large responses.
-            // The actual response parsing (in Parsers/) is more expensive
-            // but must happen on MainActor anyway for @Observable updates.
             guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                 throw YTMusicError.parseError(message: "Response is not a JSON object")
             }
@@ -2143,13 +1887,10 @@ final class YTMusicClient: YTMusicClientProtocol {
         }
     }
 
-    /// Resolves the current YouTube Music web client API key without storing a concrete key in source.
     private func resolveAPIKey() async throws -> String {
         try await self.apiKeyResolver.resolve()
     }
 
-    /// Result type for network request to avoid throwing across actor boundaries.
-    /// Uses Data (which is Sendable) instead of parsed JSON.
     private enum NetworkResult {
         case success(Data)
         case authError(statusCode: Int)
@@ -2157,8 +1898,6 @@ final class YTMusicClient: YTMusicClientProtocol {
         case networkError(Error)
     }
 
-    // Performs network request off the main thread.
-    // Returns raw Data to be parsed on the caller's actor.
     // swiftformat:disable:next modifierOrder
     nonisolated private static func performNetworkRequest(
         request: URLRequest,
@@ -2171,12 +1910,10 @@ final class YTMusicClient: YTMusicClientProtocol {
                 return .networkError(URLError(.badServerResponse))
             }
 
-            // Handle auth errors
             if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
                 return .authError(statusCode: httpResponse.statusCode)
             }
 
-            // Handle other HTTP errors
             guard (200 ... 299).contains(httpResponse.statusCode) else {
                 return .httpError(statusCode: httpResponse.statusCode)
             }
@@ -2188,7 +1925,6 @@ final class YTMusicClient: YTMusicClientProtocol {
     }
 }
 
-/// Resolves the YouTube Music web client's current Innertube API key without storing it in source.
 @MainActor
 final class YTMusicAPIKeyResolver {
     nonisolated static let environmentVariable = "KASET_YTMUSIC_API_KEY"
@@ -2247,11 +1983,6 @@ final class YTMusicAPIKeyResolver {
         do {
             var request = URLRequest(url: webClientURL)
             request.setValue(APISessionConfiguration.userAgent, forHTTPHeaderField: "User-Agent")
-            // The Innertube API key is public and needs no authentication. Do NOT send the user's
-            // cookie jar for this fetch: a stale/partial consent cookie lands the request on the EU
-            // consent interstitial (consent.youtube.com), whose HTML has no key, breaking every API
-            // call with "Data Error". A cookieless request with a pre-accepted SOCS consent cookie
-            // bypasses the consent wall and returns the real web client page.
             request.httpShouldHandleCookies = false
             request.setValue("SOCS=CAI", forHTTPHeaderField: "Cookie")
             let (data, response) = try await session.data(for: request)

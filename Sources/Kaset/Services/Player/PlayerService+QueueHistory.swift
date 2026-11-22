@@ -2,23 +2,19 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    /// Whether queue undo is available.
     var canUndoQueue: Bool {
         !self.queueUndoHistory.isEmpty
     }
 
-    /// Whether queue redo is available.
     var canRedoQueue: Bool {
         !self.queueRedoHistory.isEmpty
     }
 
-    /// Clears queue undo/redo history at account/privacy boundaries.
     func clearQueueUndoRedoHistory() {
         self.queueUndoHistory.removeAll()
         self.queueRedoHistory.removeAll()
     }
 
-    /// Records current queue state for undo (call before mutating queue). Clears redo. Keeps up to 10 states.
     func recordQueueStateForUndo() {
         self.recordQueueStateForUndo(self.makeQueueStateSnapshot())
     }
@@ -47,7 +43,6 @@ extension PlayerService {
         self.logger.debug("Recorded queue state for undo, undo count: \(self.queueUndoHistory.count)")
     }
 
-    /// Restores the previous queue state and aligns playback to its exact current entry.
     func undoQueue() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.undoQueue(intent: intent)
@@ -72,7 +67,6 @@ extension PlayerService {
         self.logger.info("Undid queue to \(state.entries.count) songs at index \(self.currentIndex)")
     }
 
-    /// Restores the next queue state after an undo and aligns playback to its exact current entry.
     func redoQueue() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.redoQueue(intent: intent)

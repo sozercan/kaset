@@ -26,9 +26,6 @@ enum LiveAuthCookieStoreClearer {
         let removeAllCookies: @MainActor () async -> Void
     }
 
-    /// Deletes login-session cookies, escalating to a store-wide cookie removal
-    /// only when `allowsCookieStoreFallback` is set. Rollback-safe callers must
-    /// disable it, because rollback restores only login-domain cookies.
     static func clear(
         maximumDeletePasses: Int = 3,
         allowsCookieStoreFallback: Bool = true,

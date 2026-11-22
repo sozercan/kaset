@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Unit tests for `YouTubeItemParser` with handcrafted renderer payloads.
 @Suite("YouTubeItemParser", .tags(.parser))
 struct YouTubeItemParserTests {
     @Test("Parses a videoRenderer with full metadata")
@@ -189,8 +188,6 @@ struct YouTubeItemParserTests {
         #expect(playlist.firstVideoId == "first1")
     }
 
-    /// Builds a minimal video `lockupViewModel` whose bottom overlay optionally
-    /// carries a duration badge and/or a resume `progressBar`.
     private func makeProgressLockup(
         badgeText: String? = "32:23",
         startPercent: Any? = nil
@@ -230,7 +227,6 @@ struct YouTubeItemParserTests {
         let lockup = self.makeProgressLockup(startPercent: nil)
         let video = try #require(YouTubeItemParser.video(fromLockup: lockup))
         #expect(video.watchedPercent == nil)
-        // Reading the sibling progressBar key must not disturb badge parsing.
         #expect(video.lengthText == "32:23")
     }
 
@@ -263,8 +259,6 @@ struct YouTubeItemParserTests {
 
     @Test("Parses a channelRenderer with swapped handle/subscriber fields")
     func parsesChannelRendererSwappedFields() throws {
-        // June 2026: subscriberCountText carries the handle and
-        // videoCountText carries the subscriber count.
         let renderer: [String: Any] = [
             "channelId": "UCabc",
             "title": ["simpleText": "Test Channel"],
@@ -282,7 +276,6 @@ struct YouTubeItemParserTests {
         #expect(channel.name == "Test Channel")
         #expect(channel.handle == "@testchannel")
         #expect(channel.subscriberCountText == "1M subscribers")
-        // Protocol-relative URL is normalized to https.
         #expect(channel.thumbnailURL?.absoluteString == "https://example.com/avatar.jpg")
     }
 
@@ -432,8 +425,6 @@ struct YouTubeItemParserTests {
         #expect(YouTubeItemParser.text(from: ["runs": [[String: Any]]()]) == nil)
     }
 
-    /// Guards the lockup thumbnail key paths against the shapes InnerTube
-    /// actually sends, which handwritten payloads have drifted from before.
     @Test("Recorded Shorts and playlist lockups yield thumbnails")
     func recordedLockupsYieldThumbnails() throws {
         let watchNext = try Self.loadFixture("youtube_watch_next")
@@ -467,7 +458,6 @@ struct YouTubeItemParserTests {
         return fixture
     }
 
-    /// Every dictionary stored under `key`, at any depth.
     static func collect(key: String, in value: Any) -> [[String: Any]] {
         var found: [[String: Any]] = []
         if let dict = value as? [String: Any] {

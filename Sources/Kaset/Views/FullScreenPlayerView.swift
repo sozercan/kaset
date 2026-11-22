@@ -1,10 +1,6 @@
 import SwiftUI
 
-/// Now-playing view that covers the main window, laid out like Apple Music's full screen
-/// player: artwork, track info and transport controls on the left, lyrics or the queue on
-/// the right, over a blurred copy of the artwork. Closing it reveals the untouched window below.
 struct FullScreenPlayerView: View {
-    /// Content shown beside the player column.
     enum SidePane {
         case lyrics
         case queue
@@ -55,15 +51,11 @@ struct FullScreenPlayerView: View {
         .animation(AppAnimation.standard, value: self.sidePane)
     }
 
-    /// Inset of the glass capsules from the window edges; it lines the top capsules up with
-    /// the traffic lights.
     private static let chromeInset: CGFloat = 8
 
-    /// Leading offset of the close capsule, just past the traffic lights.
     private static let windowControlsLeading: CGFloat = 78
 
     static func artworkSize(for size: CGSize, columnWidth: CGFloat) -> CGFloat {
-        // Leave room below the artwork for title, seek bar and controls.
         let byHeight = size.height - 330
         let byWidth = columnWidth - 120
         return max(180, min(byHeight, byWidth, 560))
@@ -97,14 +89,12 @@ struct FullScreenPlayerView: View {
 
             Group {
                 if self.playerService.isShowingAd {
-                    // The indicator bottom-aligns in a 30 pt frame; lift it onto the seek bar's line.
                     PlayerBarAdIndicator()
                         .padding(.top, -14)
                 } else {
                     MiniPlayerSeekSection(state: self.seekState, style: .nowPlaying)
                 }
             }
-            // Same height for both, so the controls below don't jump when an ad starts.
             .frame(height: 36, alignment: .top)
             .padding(.top, 18)
 
@@ -140,7 +130,6 @@ struct FullScreenPlayerView: View {
                     .foregroundStyle(.white)
                     .lineLimit(1)
 
-                // Closes the full screen view and lets the visible player bar open the artist page.
                 Button(action: self.openArtist) {
                     Text(self.subtitle)
                         .font(.system(size: fontSize))
@@ -193,8 +182,6 @@ struct FullScreenPlayerView: View {
                 isInLibrary: self.playerService.currentTrackInLibrary,
                 toggle: { self.playerService.toggleLibraryStatus() }
             ),
-            // The overlay has no navigation stack: artist pages go through the player bar,
-            // and albums have no such route.
             showsGoToArtist: true,
             showsGoToAlbum: false,
             navigate: { destination in
@@ -214,7 +201,6 @@ struct FullScreenPlayerView: View {
                 label: String(localized: "Shuffle"),
                 accessibilityValue: Self.shuffleAccessibilityValue(for: self.playerService.shuffleMode)
             ) {
-                // Same cycle as the player bar, so Smart Shuffle stays reachable here.
                 HapticService.toggle()
                 self.playerService.cycleShuffleMode()
             }
@@ -274,7 +260,6 @@ struct FullScreenPlayerView: View {
         }
     }
 
-    /// Close and mini player buttons, just past the traffic lights.
     private var windowControls: some View {
         HStack(spacing: 2) {
             NowPlayingGlassIconButton(systemName: "xmark", label: String(localized: "Close"), action: self.close)
@@ -378,7 +363,6 @@ struct FullScreenPlayerView: View {
         status == .like ? String(localized: "Liked") : String(localized: "Not liked")
     }
 
-    /// "Artist — Album", or just the artist when the album is unknown.
     static func subtitle(for track: Song) -> String {
         let artist = track.artistsDisplay.isEmpty ? String(localized: "Unknown Artist") : track.artistsDisplay
         guard let album = track.album?.title, !album.isEmpty else { return artist }

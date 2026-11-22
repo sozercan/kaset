@@ -36,9 +36,6 @@ func discoveryHelp() -> String {
     return lines.joined(separator: "\n")
 }
 
-/// A small read-only subset of InnerTube. In particular, browse + formData can
-/// update a taste profile, so checking the endpoint alone is not sufficient.
-/// Charts country selection is the only supported form, constrained separately.
 struct DiscoveryRequest {
     let endpoint: String
     let body: [String: Any]
@@ -171,8 +168,6 @@ struct DiscoveryNavigation {
     }
 }
 
-/// Stores replayable values only in memory. Reports contain schema names, counts,
-/// fixed UI labels, and browse-ID families, never response text or opaque values.
 struct DiscoveryAudit {
     private(set) var navigation: [DiscoveryNavigation] = []
     private(set) var renderers: [String: Int] = [:]
@@ -200,8 +195,6 @@ struct DiscoveryAudit {
     private var identities: Set<Data> = []
     private var visitedNodes = 0
 
-    /// Response dictionaries can be keyed by private IDs, even all-letter ones.
-    /// Extend this list only with verified, static schema names.
     private static let safeSchemaKeys: Set<String> = [
         "responseContext", "mainAppWebResponseContext", "loggedOut", "serviceTrackingParams", "service", "params",
         "key", "value", "visitorData", "trackingParams", "clickTrackingParams", "error", "code", "status", "message",
@@ -328,8 +321,6 @@ struct DiscoveryAudit {
         self.safeSchemaKeys.contains(key) ? key : "<key>"
     }
 
-    /// Only fixed error categories may leave the response. Server messages can
-    /// echo credentials or account data, including on failed requests.
     private static func describeAPIError(_ error: [String: Any]?) -> String? {
         guard let error else { return nil }
         let statuses: Set = [
@@ -391,8 +382,6 @@ struct DiscoveryAudit {
     ) {
         self.collectTranscript(dictionary)
         self.collectBrowseSelection(dictionary, source: source, label: label, request: request)
-        // Never execute service endpoints, form submissions, or command batches.
-        // Only these navigation payloads are projected onto known read-only fields.
         for key in ["browseEndpoint", "browseSectionListReloadEndpoint", "searchEndpoint", "watchEndpoint", "watchPlaylistEndpoint"] {
             guard let payload = dictionary[key] as? [String: Any], payload["formData"] == nil else { continue }
             let endpoint = key == "searchEndpoint" ? "search" : (key.hasPrefix("watch") ? "next" : "browse")
@@ -409,15 +398,12 @@ struct DiscoveryAudit {
             guard let payload = dictionary[key] as? [String: Any],
                   let continuation = (payload["continuation"] ?? payload["token"]) as? String
             else { continue }
-            // Retain the seed's context, especially video/playlist IDs for next.
             var body = request.body
             body["continuation"] = continuation
             self.append(endpoint: request.endpoint, body: body, source: key, label: label)
         }
     }
 
-    /// Signed-in Library selections bundle a browse read with persistence or
-    /// checkbox commands. Extract only the direct read from these UI wrappers.
     private mutating func collectBrowseSelection(
         _ dictionary: [String: Any], source: String, label: String?, request: DiscoveryRequest
     ) {
@@ -458,8 +444,6 @@ struct DiscoveryAudit {
         guard let payload = dictionary["getTranscriptEndpoint"] as? [String: Any],
               let params = payload["params"] as? String
         else { return }
-        // Extract only the read-only request from any surrounding UI command
-        // batch. No other command in that batch is executed.
         self.append(endpoint: "get_transcript", body: ["params": params], source: "getTranscriptEndpoint", label: nil)
     }
 
@@ -512,8 +496,6 @@ struct DiscoveryAudit {
                 var nestedLabel = label
                 if key.hasSuffix("Renderer") || key.hasSuffix("ViewModel") || (key.hasPrefix("music") && key.hasSuffix("Model")) {
                     self.renderers[safeKey, default: 0] += 1
-                    // Labels belong to UI metadata on this renderer only. A new
-                    // content renderer must not inherit its parent's heading.
                     nestedLabel = nil
                     if let renderer = nested as? [String: Any] {
                         self.rendererFields[safeKey, default: []].formUnion(renderer.keys.map(Self.schemaKey))
@@ -568,9 +550,6 @@ struct DiscoveryAudit {
                 {
                     self.pageTypes[type, default: 0] += 1
                 }
-                // Browse selections are extracted at their owning UI renderer.
-                // Other batch and service commands stay schema-only, except
-                // explicit transcript reads.
                 if ["serviceEndpoint", "defaultServiceEndpoint", "toggledServiceEndpoint", "commandExecutorCommand", "formData", "submitEndpoint", "acceptButton", "onDeselectedCommand"].contains(key) {
                     self.walkSchemaOnly(nested, path: nestedPath, depth: depth + 1)
                 } else {
@@ -730,8 +709,6 @@ func discoverAPI(
         else { throw DiscoveryError.unsupportedRequest }
         var request = try DiscoveryRequest(endpoint: endpoint, body: body)
         let mobileAccessToken = try mobileTokenFile.map { try loadMobileAccessToken(from: $0) }
-        // Freeze the cookie identity for the whole chain, including web configuration
-        // reads. An empty snapshot keeps a guest run from acquiring cookies later.
         let cookies = mobileAccessToken == nil ? loadCookiesFromAppBackup(from: cookieFile) ?? [] : []
         let cookieHeader = buildCookieHeader(from: cookies)
         let mobileCookieHeader = mobileCookieOnly ? cookieHeader : nil
@@ -791,8 +768,6 @@ func discoverAPI(
         record("Unsupported discovery request. See discover help for allowed endpoints and fields; only the chart country form is accepted.")
         succeeded = false
     } catch {
-        // URLSession errors can embed a URL containing the API key. Never print
-        // the underlying error or arbitrary server-provided error messages here.
         record("Discovery failed while reading the request or contacting YouTube. Sensitive error details are hidden.")
         succeeded = false
     }

@@ -2,14 +2,11 @@ import AppKit
 import XCTest
 @testable import Kaset
 
-/// Performance tests for image color extraction paths used by accent backgrounds.
 final class ColorExtractorPerformanceTests: XCTestCase {
     func testCachedPaletteRepeatAccessPerformance() throws {
         let url = try Self.writePNG(color: NSColor(calibratedRed: 0.72, green: 0.18, blue: 0.11, alpha: 1))
         defer { try? FileManager.default.removeItem(at: url) }
 
-        // Warm the ImageCache + palette cache once; the measured path represents
-        // repeated accent backgrounds for the same artwork during navigation.
         self.waitForAsync { _ = await ColorExtractor.cachedPalette(for: url, targetSize: CGSize(width: 32, height: 32)) }
 
         let options = XCTMeasureOptions()

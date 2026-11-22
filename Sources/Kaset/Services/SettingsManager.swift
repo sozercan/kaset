@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 
-/// Manages user preferences persisted via UserDefaults.
 @MainActor
 @Observable
 final class SettingsManager {
@@ -39,7 +38,6 @@ final class SettingsManager {
         #endif
     }
 
-    /// Available pages to launch the app with.
     enum LaunchPage: String, CaseIterable, Identifiable {
         case home
         case explore
@@ -67,7 +65,6 @@ final class SettingsManager {
             }
         }
 
-        /// Converts LaunchPage to NavigationItem for navigation.
         var navigationItem: NavigationItem {
             switch self {
             case .home: .home
@@ -77,12 +74,11 @@ final class SettingsManager {
             case .newReleases: .newReleases
             case .likedMusic: .likedMusic
             case .playlists: .library
-            case .lastUsed: .home // Fallback, actual value comes from lastUsedPage
+            case .lastUsed: .home
             }
         }
     }
 
-    /// Available language options for app UI localization.
     enum ContentLanguage: String, CaseIterable, Identifiable {
         case system
         case arabic
@@ -132,7 +128,6 @@ final class SettingsManager {
             }
         }
 
-        /// The language code for bundle lookup, or `nil` for the system default.
         var languageCode: String? {
             switch self {
             case .system: nil
@@ -149,10 +144,6 @@ final class SettingsManager {
             case .portuguese: "pt"
             case .russian: "ru"
             case .spanish: "es"
-            // Chinese is distinguished by script, not region, matching Apple's
-            // localization identifiers. Verified against the InnerTube API: these
-            // same codes are valid `hl` values and return correctly-scripted
-            // responses, so no separate API mapping is needed.
             case .simplifiedChinese: "zh-Hans"
             case .swedish: "sv"
             case .traditionalChinese: "zh-Hant"
@@ -161,14 +152,10 @@ final class SettingsManager {
             }
         }
 
-        /// The language code for YouTube Music API requests (`hl` parameter).
-        /// Returns the explicit language code or derives one from the system locale,
-        /// falling back to `"en"`.
         var apiLanguageCode: String {
             self.apiLanguageCode(for: Locale.current)
         }
 
-        /// Resolves the API language code against an injectable system locale.
         func apiLanguageCode(for systemLocale: Locale) -> String {
             if let languageCode = self.languageCode {
                 return languageCode
@@ -186,7 +173,6 @@ final class SettingsManager {
             }
         }
 
-        /// The locale matching this language selection.
         var locale: Locale {
             if let code = self.languageCode {
                 Locale(identifier: code)
@@ -196,7 +182,6 @@ final class SettingsManager {
         }
     }
 
-    /// Controls which buttons appear in the Now Playing widget (Control Center).
     enum MediaControlStyle: String, CaseIterable, Identifiable {
         case skipForwardBackward
         case nextPreviousTrack
@@ -213,7 +198,6 @@ final class SettingsManager {
         }
     }
 
-    /// Preferred audio quality for playback through the YouTube Music WebView.
     enum PlaybackAudioQuality: String, CaseIterable, Identifiable {
         case auto
         case low
@@ -234,7 +218,6 @@ final class SettingsManager {
         }
     }
 
-    /// App-wide light/dark override; `.system` follows macOS.
     var appearance: AppAppearance {
         didSet {
             guard self.appearance != oldValue else { return }
@@ -243,39 +226,33 @@ final class SettingsManager {
         }
     }
 
-    /// The active content source (YouTube Music or regular YouTube).
     var appSource: AppSource {
         didSet {
             UserDefaults.standard.set(self.appSource.rawValue, forKey: Keys.appSource)
         }
     }
 
-    /// Whether to show system notifications when the track changes.
     var showNowPlayingNotifications: Bool {
         didSet {
             UserDefaults.standard.set(self.showNowPlayingNotifications, forKey: Keys.showNowPlayingNotifications)
         }
     }
 
-    /// The default page to show when the app launches.
     var defaultLaunchPage: LaunchPage {
         didSet {
             UserDefaults.standard.set(self.defaultLaunchPage.rawValue, forKey: Keys.defaultLaunchPage)
         }
     }
 
-    /// Whether haptic feedback is enabled.
     var hapticFeedbackEnabled: Bool {
         didSet {
             UserDefaults.standard.set(self.hapticFeedbackEnabled, forKey: Keys.hapticFeedbackEnabled)
         }
     }
 
-    /// Whether to remember shuffle/repeat settings across app restarts.
     var rememberPlaybackSettings: Bool {
         didSet {
             UserDefaults.standard.set(self.rememberPlaybackSettings, forKey: Keys.rememberPlaybackSettings)
-            // Clear stale values when setting is disabled to prevent unexpected restoration
             if !self.rememberPlaybackSettings {
                 UserDefaults.standard.removeObject(forKey: "playerShuffleEnabled")
                 UserDefaults.standard.removeObject(forKey: "playerShuffleMode")
@@ -284,113 +261,92 @@ final class SettingsManager {
         }
     }
 
-    /// Which buttons to show in the Now Playing widget: skip forward/backward or next/previous track.
     var mediaControlStyle: MediaControlStyle {
         didSet {
             UserDefaults.standard.set(self.mediaControlStyle.rawValue, forKey: Keys.mediaControlStyle)
         }
     }
 
-    /// Preferred audio quality for playback through the YouTube Music WebView.
     var playbackAudioQuality: PlaybackAudioQuality {
         didSet {
             UserDefaults.standard.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
         }
     }
 
-    /// Per-service enabled flags stored as a dictionary.
     private var enabledServices: [String: Bool] {
         didSet {
             UserDefaults.standard.set(self.enabledServices, forKey: Keys.enabledServices)
         }
     }
 
-    /// Whether a specific scrobbling service is enabled by name.
     func isServiceEnabled(_ serviceName: String) -> Bool {
         self.enabledServices[serviceName] ?? false
     }
 
-    /// Sets the enabled state for a specific scrobbling service by name.
     func setServiceEnabled(_ serviceName: String, _ enabled: Bool) {
         self.enabledServices[serviceName] = enabled
     }
 
-    /// Whether Last.fm scrobbling is enabled (backward-compatible convenience).
     var lastFMEnabled: Bool {
         get { self.isServiceEnabled("Last.fm") }
         set { self.setServiceEnabled("Last.fm", newValue) }
     }
 
-    /// Percentage of track duration required before scrobbling (0.0–1.0).
     var scrobblePercentThreshold: Double {
         didSet {
             UserDefaults.standard.set(self.scrobblePercentThreshold, forKey: Keys.scrobblePercentThreshold)
         }
     }
 
-    /// Minimum seconds of play time before scrobbling (overrides percentage for long tracks).
     var scrobbleMinSeconds: TimeInterval {
         didSet {
             UserDefaults.standard.set(self.scrobbleMinSeconds, forKey: Keys.scrobbleMinSeconds)
         }
     }
 
-    /// The last page the user was on (for "Last Used" option).
     var lastUsedPage: LaunchPage = .home
 
-    /// Whether synced lyrics are preferred.
     var syncedLyricsEnabled: Bool {
         didSet {
             UserDefaults.standard.set(self.syncedLyricsEnabled, forKey: Keys.syncedLyricsEnabled)
         }
     }
 
-    /// Whether romanization of non-Latin lyrics is enabled.
     var romanizationEnabled: Bool {
         didSet {
             UserDefaults.standard.set(self.romanizationEnabled, forKey: Keys.romanizationEnabled)
         }
     }
 
-    /// Whether the mini player floats above other windows.
     var keepMiniPlayerOnTop: Bool {
         didSet {
             UserDefaults.standard.set(self.keepMiniPlayerOnTop, forKey: Keys.keepMiniPlayerOnTop)
         }
     }
 
-    /// Whether the regular YouTube video window floats above standard windows.
     var keepYouTubeVideoOnTop: Bool {
         didSet {
             UserDefaults.standard.set(self.keepYouTubeVideoOnTop, forKey: Keys.keepYouTubeVideoOnTop)
         }
     }
 
-    /// Default cadence: insert a burst of suggestions every N originals.
     static let smartShuffleSuggestEveryNDefault = 3
-    /// Valid range for the insert-every-N cadence.
     static let smartShuffleSuggestEveryNRange = 1 ... 6
-    /// Default number of suggestions inserted at each slot.
     static let smartShuffleBurstDefault = 1
-    /// Valid range for the per-insertion burst.
     static let smartShuffleBurstRange = 1 ... 5
-    /// Default number of suggestions to keep queued ahead of the current track.
     static let smartShuffleSuggestionsAheadDefault = 20
-    /// Valid range for how many suggestions to keep queued ahead.
     static let smartShuffleSuggestionsAheadRange = 5 ... 100
 
     private static func clamp(_ value: Int, to range: ClosedRange<Int>) -> Int {
         min(max(value, range.lowerBound), range.upperBound)
     }
 
-    /// Whether Smart Shuffle (the third shuffle state) is available from the shuffle button.
     var smartShuffleEnabled: Bool {
         didSet {
             UserDefaults.standard.set(self.smartShuffleEnabled, forKey: Keys.smartShuffleEnabled)
         }
     }
 
-    /// Smart Shuffle interleave cadence: insert a burst of suggestions every N songs (1...6).
     var smartShuffleSuggestEveryN: Int {
         didSet {
             let clamped = Self.clamp(self.smartShuffleSuggestEveryN, to: Self.smartShuffleSuggestEveryNRange)
@@ -401,7 +357,6 @@ final class SettingsManager {
         }
     }
 
-    /// Smart Shuffle burst: how many suggestions to insert at each slot (1...5).
     var smartShuffleBurst: Int {
         didSet {
             let clamped = Self.clamp(self.smartShuffleBurst, to: Self.smartShuffleBurstRange)
@@ -412,7 +367,6 @@ final class SettingsManager {
         }
     }
 
-    /// Smart Shuffle: how many suggestions to keep queued ahead of the current track (5...100).
     var smartShuffleSuggestionsAhead: Int {
         didSet {
             let clamped = Self.clamp(self.smartShuffleSuggestionsAhead, to: Self.smartShuffleSuggestionsAheadRange)
@@ -423,45 +377,30 @@ final class SettingsManager {
         }
     }
 
-    /// Whether the ambient color backdrop is shown on the YouTube watch page.
-    /// Applies to regular YouTube videos only, not the Music experience.
     var ambientBackdropEnabled: Bool {
         didSet {
             UserDefaults.standard.set(self.ambientBackdropEnabled, forKey: Keys.ambientBackdropEnabled)
         }
     }
 
-    /// The chosen ambient backdrop style when the feature is enabled.
     var ambientBackdropStyle: AmbientBackdropStyle {
         didSet {
             UserDefaults.standard.set(self.ambientBackdropStyle.rawValue, forKey: Keys.ambientBackdropStyle)
         }
     }
 
-    /// Whether a playing YouTube video pops out into the floating window when
-    /// the user navigates away from the inline watch view. When disabled,
-    /// playback stops instead. Applies to regular YouTube videos only, not the
-    /// Music experience.
     var popOutVideoOnNavigateAway: Bool {
         didSet {
             UserDefaults.standard.set(self.popOutVideoOnNavigateAway, forKey: Keys.popOutVideoOnNavigateAway)
         }
     }
 
-    /// Whether the YouTube player controls overlay the docked watch-page video,
-    /// auto-hiding like a regular video player, instead of sitting in the bar at
-    /// the bottom of the window. Applies to regular YouTube videos only, not the
-    /// Music experience.
     var showYouTubeControlsOnVideo: Bool {
         didSet {
             UserDefaults.standard.set(self.showYouTubeControlsOnVideo, forKey: Keys.showYouTubeControlsOnVideo)
         }
     }
 
-    /// The style the YouTube watch page should request: the chosen style when
-    /// enabled, `.off` when the feature is disabled. Runtime energy/accessibility
-    /// downgrades are applied inside `AmbientVideoBackdrop`, which observes those
-    /// external states directly.
     var resolvedAmbientStyle: AmbientBackdropStyle {
         Self.resolveAmbientStyle(
             enabled: self.ambientBackdropEnabled,
@@ -477,7 +416,6 @@ final class SettingsManager {
         return preferredStyle
     }
 
-    /// The language used for the app interface and API content.
     var contentLanguage: ContentLanguage {
         didSet {
             UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
@@ -487,14 +425,12 @@ final class SettingsManager {
     }
 
     #if DEBUG
-        /// Debug-only switch that forces the app to render macOS 15 fallback UI on newer OS versions.
         var useLegacyMacOS15UI: Bool {
             didSet {
                 UserDefaults.standard.set(self.useLegacyMacOS15UI, forKey: Keys.useLegacyMacOS15UI)
             }
         }
     #else
-        /// Release builds always use the native UI for the host OS.
         let useLegacyMacOS15UI = false
     #endif
 
@@ -511,17 +447,14 @@ final class SettingsManager {
     }
 
     private init() {
-        // Load persisted settings or use defaults
         self.appearance = Self.loadAppearance(from: UserDefaults.standard)
         self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
         self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
         self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
 
-        // Load per-service enabled flags, migrating from legacy lastFMEnabled if needed
         if let stored = UserDefaults.standard.dictionary(forKey: Keys.enabledServices) as? [String: Bool] {
             self.enabledServices = stored
         } else if let legacyEnabled = UserDefaults.standard.object(forKey: Keys.lastFMEnabled) as? Bool {
-            // Migrate from single-service flag to dictionary
             self.enabledServices = ["Last.fm": legacyEnabled]
         } else {
             self.enabledServices = [:]
@@ -533,7 +466,6 @@ final class SettingsManager {
         self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
         self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: UserDefaults.standard)
         self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
-        // Property observers do not fire for assignments in init, so clamp persisted values here too.
         self.smartShuffleSuggestEveryN = Self.clamp(
             UserDefaults.standard.object(forKey: Keys.smartShuffleSuggestEveryN) as? Int ?? Self.smartShuffleSuggestEveryNDefault,
             to: Self.smartShuffleSuggestEveryNRange
@@ -604,7 +536,6 @@ final class SettingsManager {
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)
 
-        // Persist migration from legacy lastFMEnabled key (must run after all properties initialized)
         if UserDefaults.standard.object(forKey: Keys.enabledServices) == nil,
            UserDefaults.standard.object(forKey: Keys.lastFMEnabled) != nil
         {
@@ -613,7 +544,6 @@ final class SettingsManager {
         }
     }
 
-    /// Returns the page to navigate to on launch based on settings.
     var launchPage: LaunchPage {
         switch self.defaultLaunchPage {
         case .lastUsed:
@@ -623,7 +553,6 @@ final class SettingsManager {
         }
     }
 
-    /// Returns the NavigationItem to use on app launch.
     var launchNavigationItem: NavigationItem {
         self.launchPage.navigationItem
     }

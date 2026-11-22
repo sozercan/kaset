@@ -1,47 +1,19 @@
-// ToastView.swift
-// Kaset
-//
-// A simple toast notification component for displaying transient messages.
-
 import SwiftUI
 
-/// A toast notification that auto-dismisses after a configurable duration.
-///
-/// ## Usage
-/// ```swift
-/// @State private var showError = false
-/// @State private var errorMessage: String?
-///
-/// .overlay(alignment: .top) {
-///     if showError, let message = errorMessage {
-///         ToastView(message: message, isError: true)
-///             .task {
-///                 // Auto-dismiss after 3 seconds
-///                 try? await Task.sleep(for: .seconds(3))
-///                 showError = false
-///             }
-///     }
-/// }
-/// ```
 struct ToastView: View {
-    /// The message to display in the toast.
     let message: String
 
-    /// Whether this is an error toast (uses red accent) or info toast.
     var isError: Bool = false
 
-    /// Called when the toast should be dismissed.
     var onDismiss: (() -> Void)?
 
     var body: some View {
         CompatGlassContainer(spacing: 0) {
             HStack(spacing: 10) {
-                // Icon
                 Image(systemName: self.isError ? "exclamationmark.triangle.fill" : "info.circle.fill")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(self.isError ? .red : .blue)
 
-                // Message
                 Text(self.message)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.primary)
@@ -49,7 +21,6 @@ struct ToastView: View {
 
                 Spacer(minLength: 0)
 
-                // Dismiss button
                 if let dismiss = self.onDismiss {
                     Button {
                         dismiss()
@@ -73,16 +44,12 @@ struct ToastView: View {
     }
 }
 
-/// A toast that observes AccountService errors and auto-dismisses.
-///
-/// Add this to MainWindow as an overlay to show account switching errors.
 struct AccountErrorToast: View {
     @Environment(AccountService.self) private var accountService
 
     @State private var isVisible = false
     @State private var dismissTask: Task<Void, Never>?
 
-    /// Duration before auto-dismiss in seconds.
     private let autoDismissDelay: Duration = .seconds(4)
 
     var body: some View {
@@ -108,7 +75,6 @@ struct AccountErrorToast: View {
         if let ytError = error as? YTMusicError {
             return ytError.localizedDescription
         }
-        // Use appropriate message based on error context
         if self.accountService.lastErrorWasFetch {
             return String(localized: "Failed to load accounts. Please try again.")
         }
@@ -116,12 +82,10 @@ struct AccountErrorToast: View {
     }
 
     private func show() {
-        // Cancel any existing dismiss task
         self.dismissTask?.cancel()
 
         self.isVisible = true
 
-        // Schedule auto-dismiss
         self.dismissTask = Task {
             try? await Task.sleep(for: self.autoDismissDelay)
             if !Task.isCancelled {

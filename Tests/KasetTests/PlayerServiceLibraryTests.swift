@@ -4,7 +4,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for PlayerService+Library extension (like/dislike/library actions).
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
@@ -30,7 +29,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         self.playerService.likeCurrentTrack()
 
-        // Allow time for any async task to complete
         try? await Task.sleep(for: .milliseconds(200))
 
         #expect(self.mockClient.rateSongCalled == false)
@@ -93,10 +91,8 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         self.playerService.likeCurrentTrack()
 
-        // Optimistic update should happen immediately
         #expect(self.playerService.currentTrackLikeStatus == .like)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
         let reverted = await self.waitUntilLikeStatus(.indifferent)
         #expect(reverted)
     }
@@ -378,7 +374,6 @@ struct PlayerServiceLibraryTests { // swiftlint:disable:this type_body_length
 
         #expect(self.playerService.currentTrackLikeStatus == .dislike)
 
-        // Wait for SongLikeStatusManager to call API, fail, rollback, and PlayerService to sync back.
         let reverted = await self.waitUntilLikeStatus(.indifferent)
         #expect(reverted)
     }

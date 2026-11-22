@@ -230,13 +230,11 @@ struct YouTubeWatchScriptTests {
             documentGeneration: 0,
             pendingSeek: 0
         ).contains("__kasetPendingSeek = 0.0"))
-        // No seek pending → no marker injected.
         #expect(!YouTubeWatchWebView.pageBootstrapScript(
             targetVolume: 1,
             documentGeneration: 0,
             pendingSeek: nil
         ).contains("__kasetPendingSeek"))
-        // Negative is not a valid seek position.
         #expect(!YouTubeWatchWebView.pageBootstrapScript(
             targetVolume: 1,
             documentGeneration: 0,
@@ -247,8 +245,6 @@ struct YouTubeWatchScriptTests {
     @Test("Observer applies the pending seek gated on a seekable element")
     func observerAppliesPendingSeekWhenReady() {
         let script = YouTubeWatchWebView.observerScript
-        // The seek is applied by the observer (not a one-shot at didFinish),
-        // gated on readyState so it survives YouTube creating <video> late.
         #expect(script.contains("__kasetPendingSeek"))
         #expect(script.contains("video.seekable.length === 0"))
         #expect(script.contains("boundVideoId !== expectedVideoId"))
@@ -373,8 +369,6 @@ struct YouTubeWatchScriptTests {
     @Test("Observer skips the pending seek while an ad is showing")
     func observerSkipsPendingSeekDuringAd() {
         let script = YouTubeWatchWebView.observerScript
-        // applyPendingSeek must bail on isAdShowing() so a preroll-ad element
-        // doesn't consume the seek and leave content starting from 0.
         #expect(script.contains("isAdShowing()"))
     }
 
@@ -488,9 +482,6 @@ struct YouTubeWatchScriptTests {
     func normalLoadClearsStalePendingSeek() {
         let webView = YouTubeWatchWebView.shared
         webView.pendingSeek = 99
-        // loadVideo (the non-reload path) must drop the leftover seek so it can't
-        // be injected into a different video. (No webView attached in tests, so
-        // the load is a no-op beyond clearing the field.)
         webView.loadVideo(videoId: "different-video")
         #expect(webView.pendingSeek == nil)
     }
