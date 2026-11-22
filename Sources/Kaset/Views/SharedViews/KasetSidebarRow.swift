@@ -12,6 +12,7 @@ struct KasetSidebarRow: View {
     let title: String
     let systemImage: String
     let isSelected: Bool
+    var isNowPlayingSource: Bool = false
     let action: () -> Void
 
     var body: some View {
@@ -20,7 +21,7 @@ struct KasetSidebarRow: View {
                 Text(self.title)
                     .lineLimit(1)
                     .fontWeight(self.isSelected ? .semibold : .regular)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(self.isNowPlayingSource ? PackageResourceLookup.brandAccent : .primary)
             } icon: {
                 Image(systemName: self.systemImage)
                     .foregroundStyle(PackageResourceLookup.brandAccent)
