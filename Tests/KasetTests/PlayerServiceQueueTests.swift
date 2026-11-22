@@ -1040,6 +1040,92 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         #expect(!self.playerService.isCurrentQueueLoad(generation))
         #expect(!self.playerService.isQueueLoading)
     }
+
+    @Test("A user append during a playlist load discards the radio refresh")
+    func userAppendDuringPlaylistLoadDiscardsRadioRefresh() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let generation = self.playerService.beginQueueLoading()
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
+        self.mockClient.beforeRadioQueueReturn = { [playerService] _ in
+            await playerService.appendToQueue([songs[2]])
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queue.map(\.videoId) == songs.prefix(3).map(\.videoId))
+        #expect(self.playerService.isCurrentQueueLoad(generation))
+        #expect(self.playerService.isQueueLoading)
+    }
+
+    @Test("A playlist load that finishes during a radio refresh does not discard the refresh")
+    func playlistLoadFinishingDuringRadioRefreshStillApplies() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let generation = self.playerService.beginQueueLoading()
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
+        self.mockClient.beforeRadioQueueReturn = { [playerService] _ in
+            await playerService.appendOriginalTracks([songs[2]])
+            await playerService.endQueueLoading(generation)
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
+        #expect(!self.playerService.isQueueLoading)
+    }
+
+    @Test("A Smart Shuffle fill that lands before a radio refresh does not discard the refresh")
+    func smartShuffleFillAheadOfRadioRefresh() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
+        }
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+
+        let counter = RadioCallCounter()
+        let fillGate = AsyncGate()
+        let fillBox = FillTaskBox()
+        self.mockClient.beforeRadioQueueReturn = { _ in
+            if await counter.next() == 1 {
+                await fillGate.wait()
+            } else {
+                await fillGate.open()
+                let fill = await MainActor.run { fillBox.task }
+                await fill?.value
+            }
+        }
+
+        self.playerService.setShuffleMode(.smart)
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        #expect(self.mockClient.getRadioQueueVideoIds.count == 1)
+        fillBox.task = self.playerService.smartShuffleFillTask
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, recommended.videoId])
+    }
+}
+
+private actor RadioCallCounter {
+    private var count = 0
+
+    func next() -> Int {
+        self.count += 1
+        return self.count
+    }
+}
+
+@MainActor
+private final class FillTaskBox {
+    var task: Task<Void, Never>?
 }
 
 extension PlayerServiceQueueTests {

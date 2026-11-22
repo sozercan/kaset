@@ -219,7 +219,7 @@ extension PlayerService {
                 at: insertAt
             )
             self.smartShuffleSeenSuggestionIds.formUnion(chosen.map(\.videoId))
-            self.setQueue(entries: updated)
+            self.applyAutomaticQueueChange { self.setQueue(entries: updated) }
             didInsert = true
         }
 
@@ -313,6 +313,16 @@ extension PlayerService {
         generation == self.queueLoadGeneration
     }
 
+    var userQueueMutationGeneration: Int {
+        self.queueMutationGeneration &- self.automaticQueueMutationCount
+    }
+
+    func applyAutomaticQueueChange(_ change: () -> Void) {
+        let before = self.queueMutationGeneration
+        change()
+        self.automaticQueueMutationCount &+= self.queueMutationGeneration &- before
+    }
+
     func reserveQueueMutation() -> Int {
         self.queueLoadGeneration
     }
@@ -336,7 +346,7 @@ extension PlayerService {
     func appendOriginalTracks(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         let newEntries = songs.map { QueueEntry(id: UUID(), song: $0) }
-        self.setQueue(entries: self.queueEntries + newEntries)
+        self.applyAutomaticQueueChange { self.setQueue(entries: self.queueEntries + newEntries) }
         if self.queueOrderBeforeShuffle != nil {
             self.queueOrderBeforeShuffle?.append(contentsOf: newEntries)
         }
@@ -357,10 +367,12 @@ extension PlayerService {
         self.isQueueLoading = false
         // Defensive: drop any suggestions generated before the full set loaded so the re-shuffle
         // operates on originals only and the fill regenerates a clean cadence against everything.
-        self.stripSuggestedEntries()
+        self.applyAutomaticQueueChange { self.stripSuggestedEntries() }
         self.resetSmartShuffleState()
         if self.shuffleMode != .off {
-            self.materializeShuffleQueueForCurrentTrack(recordUndo: false, storesOriginalOrder: false)
+            self.applyAutomaticQueueChange {
+                self.materializeShuffleQueueForCurrentTrack(recordUndo: false, storesOriginalOrder: false)
+            }
         } else {
             // Off mode neither re-shuffles nor fills, so persist the grown queue explicitly.
             self.saveQueueForPersistence()

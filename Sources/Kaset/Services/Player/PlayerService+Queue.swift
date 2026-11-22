@@ -142,12 +142,15 @@ extension PlayerService {
                 await self.resume(intent: intent)
                 guard self.acceptsMusicPlaybackIntent(intent) else { return }
             }
+            self.cancelSmartShuffleFill()
             await self.fetchAndApplyRadioQueue(
                 for: song.videoId,
                 seedEntryID: self.queueEntryIDOwningCurrentPlayback,
                 queueGeneration: self.queueLoadGeneration,
                 replacesUpcoming: true
             )
+            guard self.acceptsMusicPlaybackIntent(intent) else { return }
+            await self.fillSmartShuffleWindow()
             return
         }
         self.logger.info("Playing with radio: \(song.title)")
@@ -409,7 +412,7 @@ extension PlayerService {
 
         let sourceNavigationContext = self.playbackNavigationContext
         let sourceQueueMutationGeneration = self.queueMutationGeneration
-        let sourceQueueEntryIDs = self.queueEntries.map(\.id)
+        let sourceUserQueueMutationGeneration = self.userQueueMutationGeneration
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
@@ -427,14 +430,10 @@ extension PlayerService {
                 self.logger.info("Discarding stale radio queue after queue replacement")
                 return .superseded
             }
-            let onlyQueueLoadAppended = replacesUpcoming
-                && self.isQueueLoading
-                && self.queueEntries.count > sourceQueueEntryIDs.count
-                && self.queueEntries.prefix(sourceQueueEntryIDs.count).map(\.id) == sourceQueueEntryIDs
-            if replacesUpcoming || seedEntryID == nil,
-               self.queueMutationGeneration != sourceQueueMutationGeneration,
-               !onlyQueueLoadAppended
-            {
+            let userEditedQueue = replacesUpcoming
+                ? self.userQueueMutationGeneration != sourceUserQueueMutationGeneration
+                : seedEntryID == nil && self.queueMutationGeneration != sourceQueueMutationGeneration
+            if userEditedQueue {
                 self.logger.info("Discarding radio recommendations after a queue edit")
                 return .queueMutated
             }
