@@ -140,6 +140,7 @@ extension PlayerService {
         if self.currentTrack?.videoId == song.videoId {
             if self.state == .paused || self.state == .ended {
                 await self.resume(intent: intent)
+                guard self.acceptsMusicPlaybackIntent(intent) else { return }
             }
             await self.fetchAndApplyRadioQueue(
                 for: song.videoId,
