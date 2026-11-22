@@ -1,8 +1,6 @@
 import Foundation
 import YouTubeAskCore
 
-/// Opaque, in-memory identity for the confirmed primary account that owns one
-/// Ask conversation. The scope is never persisted, logged, or shown to users.
 struct YouTubeAskAccountBinding: Equatable, Sendable {
     fileprivate let scopeID: String
 

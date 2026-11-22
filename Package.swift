@@ -81,7 +81,6 @@ let package = Package(
                 .enableExperimentalFeature("StrictConcurrency"),
             ]
         ),
-        // Unit tests for the shared YouTube Ask core
         .testTarget(
             name: "YouTubeAskCoreTests",
             dependencies: ["YouTubeAskCore"],

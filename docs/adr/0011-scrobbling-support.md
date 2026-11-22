@@ -41,6 +41,12 @@ This means the app only needs to know the Worker URL. Even if discovered, caller
 
 A track is scrobbled when accumulated play time reaches **50% of duration** or **240 seconds**, whichever comes first. These values are configurable in Settings. Accumulated play time only counts actual playback (pauses and seeks do not inflate the counter).
 
+### Mix Tracks
+
+Mix scrobbling needs at least three entries and either explicit description tracklist intent or structured artist/title labels on at least half the entries. That keeps generic intro, verse, and podcast-navigation chapters from being submitted as songs. Split labels on a spaced ASCII hyphen or a typographic dash, not a bare ASCII hyphen that may belong to a title such as `Part-1`. When no artist is identified, the scrobble path can fall back to the mix uploader.
+
+An entry runs to its explicit end, the next entry, or the video's end. The latest timestamp established by a tracklist is also a lower bound for the video's duration when player metadata is not yet available. See [ADR-0029](0029-now-playing-tracklist-provider.md) for ownership of the now-playing tracklist.
+
 ### Authentication Flow
 
 1. App requests an auth token from the Worker (`GET /auth/token`)

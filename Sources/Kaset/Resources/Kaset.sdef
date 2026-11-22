@@ -2,7 +2,6 @@
 <!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
 <dictionary title="Kaset Terminology">
 
-    <!-- Standard Suite -->
     <suite name="Standard Suite" code="????" description="Common classes and commands for all applications.">
 
         <command name="quit" code="aevtquit" description="Quit the application.">
@@ -18,10 +17,8 @@
 
     </suite>
 
-    <!-- Kaset Suite -->
     <suite name="Kaset Suite" code="Kast" description="Commands and classes for controlling Kaset.">
 
-        <!-- Playback Commands -->
         <command name="play" code="Kastplay" description="Start or resume playback.">
             <cocoa class="KasetPlayCommand"/>
         </command>
@@ -87,7 +84,6 @@
             <direct-parameter type="integer" description="The 1-based index of the track in the queue to play."/>
         </command>
 
-        <!-- Queue Commands -->
         <command name="play videos" code="Kastpvds" description="Replace the queue with videos by their YouTube video IDs and start playback.">
             <cocoa class="KasetPlayVideosCommand"/>
             <direct-parameter description="The YouTube video IDs to queue, in order.">

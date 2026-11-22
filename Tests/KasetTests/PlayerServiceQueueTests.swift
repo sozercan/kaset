@@ -25,7 +25,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Reorder queue moves song from source to destination")
     func reorderQueue() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 5)
         await self.playerService.playQueue(songs, startingAt: 0)
 
@@ -37,7 +36,6 @@ struct PlayerServiceQueueTests {
         // Act - Move song at index 4 to index 1
         self.playerService.reorderQueue(from: IndexSet(integer: 4), to: 1)
 
-        // Assert
         #expect(self.playerService.queue[0].title == "Song 0")
         #expect(self.playerService.queue[1].title == "Song 4") // Moved song
         #expect(self.playerService.queue[2].title == "Song 1")
@@ -61,7 +59,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Reorder queue with invalid indices does nothing")
     func reorderQueueInvalidIndices() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 0)
         let originalOrder = self.playerService.queue.map(\.title)
@@ -221,7 +218,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Undo restores previous queue state")
     func undoQueue() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 0)
         let originalQueue = self.playerService.queue
@@ -233,14 +229,12 @@ struct PlayerServiceQueueTests {
 
         await self.playerService.undoQueue()
 
-        // Assert
         #expect(self.playerService.queue.count == originalQueue.count)
         #expect(self.playerService.queue[0].title == originalQueue[0].title)
     }
 
     @Test("Redo restores undone queue state")
     func redoQueue() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 0)
 
@@ -257,13 +251,11 @@ struct PlayerServiceQueueTests {
 
     @Test("Can undo returns correct state")
     func canUndo() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
 
         // Assert - Initially can't undo
         #expect(self.playerService.canUndoQueue == false)
 
-        // Act
         await self.playerService.playQueue(songs, startingAt: 0)
 
         // Assert - Can undo after state change
@@ -278,21 +270,18 @@ struct PlayerServiceQueueTests {
 
     @Test("Can redo returns correct state")
     func canRedo() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 0)
 
         // Assert - Initially can't redo
         #expect(self.playerService.canRedoQueue == false)
 
-        // Act
         self.playerService.clearQueue()
         await self.playerService.undoQueue()
 
         // Assert - Can redo after undo
         #expect(self.playerService.canRedoQueue == true)
 
-        // Act
         await self.playerService.redoQueue()
 
         // Assert - Can't redo anymore
@@ -343,11 +332,9 @@ struct PlayerServiceQueueTests {
 
     @Test("Save and restore queue persists data correctly")
     func queuePersistence() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 1)
 
-        // Act
         self.playerService.saveQueueForPersistence()
 
         // Create new service instance and restore
@@ -355,7 +342,6 @@ struct PlayerServiceQueueTests {
         newService.setYTMusicClient(self.mockClient)
         let restored = newService.restoreQueueFromPersistence()
 
-        // Assert
         #expect(restored == true)
         #expect(newService.queue.count == 3)
         #expect(newService.currentIndex == 1)
@@ -364,7 +350,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Save and restore playback session preserves paused resume state")
     func playbackSessionPersistence() async {
-        // Arrange
         var songs = TestFixtures.makeSongs(count: 3)
         songs[1].hasVideo = true
         songs[1].musicVideoType = .omv
@@ -374,14 +359,12 @@ struct PlayerServiceQueueTests {
         await self.playerService.playQueue(songs, startingAt: 1)
         self.playerService.updatePlaybackState(isPlaying: false, progress: 42, duration: 240)
 
-        // Act
         self.playerService.saveQueueForPersistence()
 
         let newService = PlayerService()
         newService.setYTMusicClient(self.mockClient)
         let restored = newService.restoreQueueFromPersistence()
 
-        // Assert
         #expect(restored == true)
         #expect(newService.currentIndex == 1)
         #expect(newService.currentTrack?.videoId == songs[1].videoId)
@@ -650,7 +633,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Resume on a restored session loads through the hidden persistent player")
     func resumeDeferredRestoredSession() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 2)
         self.playerService.applyRestoredPlaybackSession(
             queue: songs,
@@ -659,10 +641,8 @@ struct PlayerServiceQueueTests {
             duration: 240
         )
 
-        // Act
         await self.playerService.resume()
 
-        // Assert
         #expect(self.playerService.pendingPlayVideoId == songs[1].videoId)
         #expect(self.playerService.progress == 42)
         #expect(self.playerService.state == .loading)
@@ -701,12 +681,10 @@ struct PlayerServiceQueueTests {
 
     @Test("Clear saved queue removes persistence data")
     func clearSavedQueue() async {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(songs, startingAt: 0)
         self.playerService.saveQueueForPersistence()
 
-        // Act
         self.playerService.clearSavedQueue()
 
         // Create new service and try to restore
@@ -714,7 +692,6 @@ struct PlayerServiceQueueTests {
         newService.setYTMusicClient(self.mockClient)
         let restored = newService.restoreQueueFromPersistence()
 
-        // Assert
         #expect(restored == false)
         #expect(newService.queue.isEmpty)
     }
@@ -726,26 +703,21 @@ struct PlayerServiceQueueTests {
         UserDefaults.standard.set(0, forKey: "kaset.saved.queueIndex")
         UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
 
-        // Act
         let restored = self.playerService.restoreQueueFromPersistence()
 
-        // Assert
         #expect(restored == false)
     }
 
     @Test("Restore queue falls back to legacy queue payload when playback session is missing")
     func legacyQueuePersistenceFallback() throws {
-        // Arrange
         let songs = TestFixtures.makeSongs(count: 2)
         let queueData = try JSONEncoder().encode(songs)
         UserDefaults.standard.set(queueData, forKey: "kaset.saved.queue")
         UserDefaults.standard.set(1, forKey: "kaset.saved.queueIndex")
         UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
 
-        // Act
         let restored = self.playerService.restoreQueueFromPersistence()
 
-        // Assert
         #expect(restored == true)
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
@@ -768,17 +740,14 @@ struct PlayerServiceQueueTests {
 
         await playerService.playQueue([completeSong, incompleteSong], startingAt: 0)
 
-        // Act
         let needingEnrichment = self.playerService.identifySongsNeedingEnrichment()
 
-        // Assert
         #expect(needingEnrichment.count == 1)
         #expect(needingEnrichment[0].videoId == "incomplete")
     }
 
     @Test("Enrich queue metadata fetches and updates incomplete songs")
     func enrichQueueMetadata() async {
-        // Arrange
         let incompleteSong = Song(
             id: "test-id",
             title: "Loading...",
@@ -796,10 +765,8 @@ struct PlayerServiceQueueTests {
         self.mockClient.songResponses["test-id"] = enrichedSong
         await self.playerService.playQueue([incompleteSong], startingAt: 0)
 
-        // Act
         await self.playerService.enrichQueueMetadata()
 
-        // Assert
         #expect(self.mockClient.getSongCalled == true)
         #expect(self.playerService.queue[0].title == "Enriched Title")
         #expect(self.playerService.queue[0].artists[0].name == "Enriched Artist")
@@ -850,7 +817,6 @@ struct PlayerServiceQueueTests {
             videoId: "sug-1"
         )
 
-        // Act
         await self.playerService.enrichQueueMetadata()
 
         // Assert: metadata updated AND provenance preserved (not demoted to .queued).
@@ -865,7 +831,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Metadata enrichment updates queue during playback")
     func metadataEnrichmentDuringPlayback() async {
-        // Arrange
         let incompleteSong = Song(
             id: "playback-test",
             title: "Loading...",
@@ -896,7 +861,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Enrichment does not overwrite good data with worse data")
     func enrichmentPreservesGoodData() async {
-        // Arrange
         let completeSong = Song(
             id: "complete-id",
             title: "Good Title",
@@ -914,7 +878,6 @@ struct PlayerServiceQueueTests {
         self.mockClient.songResponses["complete-id"] = differentSong
         await self.playerService.playQueue([completeSong], startingAt: 0)
 
-        // Act
         await self.playerService.play(song: completeSong)
         try? await Task.sleep(for: .milliseconds(100))
 
@@ -925,7 +888,6 @@ struct PlayerServiceQueueTests {
 
     @Test("Metadata enrichment handles API errors gracefully")
     func enrichmentHandlesErrors() async {
-        // Arrange
         let incompleteSong = Song(
             id: "error-test",
             title: "Loading...",
@@ -946,13 +908,10 @@ struct PlayerServiceQueueTests {
 
     @Test("Toggle queue display mode switches between popup and side panel")
     func toggleQueueDisplayMode() {
-        // Arrange
         let initialMode = self.playerService.queueDisplayMode
 
-        // Act
         self.playerService.toggleQueueDisplayMode()
 
-        // Assert
         #expect(self.playerService.queueDisplayMode != initialMode)
 
         // Act again
@@ -964,13 +923,10 @@ struct PlayerServiceQueueTests {
 
     @Test("Queue display mode persists to UserDefaults")
     func queueDisplayModePersistence() {
-        // Arrange
         self.playerService.queueDisplayMode = .popup
 
-        // Act
         self.playerService.toggleQueueDisplayMode()
 
-        // Assert
         let savedMode = UserDefaults.standard.string(forKey: "kaset.queue.displayMode")
         #expect(savedMode == QueueDisplayMode.sidepanel.rawValue)
     }

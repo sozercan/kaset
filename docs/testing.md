@@ -196,6 +196,8 @@ Add `.timeLimit()` to async tests to prevent hangs:
 
 ## Environment Isolation
 
+Unit tests should use injected or temporary storage and avoid production account, cookie, notification, and Spotlight effects. [Issue #606](https://github.com/sozercan/kaset/issues/606) tracks replacing the remaining runtime test-host heuristics with explicit isolation. UI tests enter their mock-service mode through launch arguments and environment settings; a mock podcast HTTP 404 exercises regional discovery visibility without changing the user's account or region.
+
 ### Using MockURLProtocol
 
 For network testing without real API calls:

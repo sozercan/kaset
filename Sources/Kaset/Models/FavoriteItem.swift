@@ -1,13 +1,11 @@
 import CoreTransferable
 import Foundation
 
-/// An item pinned to Favorites.
 struct FavoriteItem: Identifiable, Codable {
     let id: UUID
     let pinnedAt: Date
     let itemType: ItemType
 
-    /// The type of item that can be pinned to Favorites.
     enum ItemType: Codable {
         case song(Song)
         case album(Album)
@@ -16,46 +14,38 @@ struct FavoriteItem: Identifiable, Codable {
         case podcastShow(PodcastShow)
     }
 
-    /// Creates a new FavoriteItem with current timestamp.
     init(itemType: ItemType) {
         self.id = UUID()
         self.pinnedAt = Date()
         self.itemType = itemType
     }
 
-    /// Creates a FavoriteItem with explicit ID and timestamp (for testing/restoration).
     init(id: UUID, pinnedAt: Date, itemType: ItemType) {
         self.id = id
         self.pinnedAt = pinnedAt
         self.itemType = itemType
     }
 
-    /// Creates a FavoriteItem from a Song.
     static func from(_ song: Song) -> FavoriteItem {
         FavoriteItem(itemType: .song(song))
     }
 
-    /// Creates a FavoriteItem from an Album.
     static func from(_ album: Album) -> FavoriteItem {
         FavoriteItem(itemType: .album(album))
     }
 
-    /// Creates a FavoriteItem from a Playlist.
     static func from(_ playlist: Playlist) -> FavoriteItem {
         FavoriteItem(itemType: .playlist(playlist))
     }
 
-    /// Creates a FavoriteItem from an Artist.
     static func from(_ artist: Artist) -> FavoriteItem {
         FavoriteItem(itemType: .artist(artist))
     }
 
-    /// Creates a FavoriteItem from a PodcastShow.
     static func from(_ podcastShow: PodcastShow) -> FavoriteItem {
         FavoriteItem(itemType: .podcastShow(podcastShow))
     }
 
-    /// Display title for the item.
     var title: String {
         switch self.itemType {
         case let .song(song):
@@ -71,7 +61,6 @@ struct FavoriteItem: Identifiable, Codable {
         }
     }
 
-    /// Subtitle (artist, author, etc.).
     var subtitle: String? {
         switch self.itemType {
         case let .song(song):
@@ -87,7 +76,6 @@ struct FavoriteItem: Identifiable, Codable {
         }
     }
 
-    /// Thumbnail URL.
     var thumbnailURL: URL? {
         switch self.itemType {
         case let .song(song):
@@ -103,8 +91,6 @@ struct FavoriteItem: Identifiable, Codable {
         }
     }
 
-    /// Unique content identifier for duplicate detection.
-    /// Uses videoId for songs, browseId for others.
     var contentId: String {
         switch self.itemType {
         case let .song(song):
@@ -120,7 +106,6 @@ struct FavoriteItem: Identifiable, Codable {
         }
     }
 
-    /// Type indicator for UI display.
     var typeLabel: String {
         switch self.itemType {
         case .song:
@@ -154,8 +139,6 @@ extension FavoriteItem: Transferable {
 }
 
 extension FavoriteItem {
-    /// Converts the FavoriteItem to a HomeSectionItem for display.
-    /// Returns nil for podcast shows since HomeSectionItem doesn't support podcasts.
     var asHomeSectionItem: HomeSectionItem? {
         switch self.itemType {
         case let .song(song):

@@ -1,8 +1,6 @@
 "Ad" = "Iklan";
 "Advertisement" = "Iklan";
 
-// Localizable.strings
-
 "%lld songs" = "%lld lagu";
 "%lld songs listened today" = "%lld lagu didengarkan hari ini";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"Live\" mengubah warna saat video diputar; yang lain tetap konstan";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "Video YouTube";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Tanya Gemini";
 "Ask about this video..." = "Tanyakan tentang video ini...";
 "Ask anything about this video..." = "Tanyakan apa saja tentang video ini...";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Respons Tanya Gemini siap";
 "New Ask Gemini chat ready" = "Chat Tanya Gemini baru siap";
 
-// Appearance
 "Appearance" = "Tampilan";
 "App Appearance" = "Tampilan Aplikasi";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Pilih mode terang atau gelap untuk Kaset, atau ikuti pengaturan macOS";
@@ -586,7 +582,6 @@
 "Light Mode" = "Mode Terang";
 "Dark Mode" = "Mode Gelap";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "Putar Musik";
 "Play Song" = "Putar Lagu";
 "Play Playlist" = "Putar Daftar Putar";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "Tidak dapat memutar “%@”.";
 "Couldn't rate “%@”." = "Tidak dapat memberi rating “%@”.";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "Ekstensi tidak dapat dibaca. Hapus lalu tambahkan lagi.";
 "The extension's access changed. Review it again before enabling it." = "Akses ekstensi telah berubah. Tinjau lagi sebelum mengaktifkannya.";
 "Extension Error" = "Kesalahan Ekstensi";

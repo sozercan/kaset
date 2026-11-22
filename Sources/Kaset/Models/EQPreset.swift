@@ -1,15 +1,5 @@
 import Foundation
 
-/// Built-in equalizer presets, modelled after Spotify's mobile preset list.
-///
-/// Each case carries a fixed gain table matching ``EQBand/defaultBands``
-/// (60 / 150 / 400 / 1 k / 2.4 k / 15 k Hz). The ``custom`` case represents
-/// "user has edited at least one band away from the active preset".
-///
-/// Values are derived from community-shared Spotify iOS preset tables; they
-/// reproduce the perceptual shape rather than match every dB exactly. All
-/// gains stay within ±12 dB so the UI sliders never saturate, and the
-/// equalizer's auto-trim + soft limiter handle headroom on top.
 enum EQPreset: String, CaseIterable, Identifiable, Codable {
     case flat
     case acoustic
@@ -39,7 +29,6 @@ enum EQPreset: String, CaseIterable, Identifiable, Codable {
         self.rawValue
     }
 
-    /// Localized display name shown in the preset picker.
     var displayName: String {
         switch self {
         case .flat: String(localized: "Flat")
@@ -68,11 +57,6 @@ enum EQPreset: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Gain values in dB for the six bands at 60 / 150 / 400 / 1 k / 2.4 k / 15 k Hz.
-    ///
-    /// Values follow the Spotify mobile preset tables, nudged slightly to
-    /// play well with our wider Q (≈0.5 on the mid peaking bands) so each
-    /// preset's character is recognisable without pushing the limiter.
     var bandGainsDB: [Float] {
         switch self {
         case .flat, .custom:
@@ -122,10 +106,6 @@ enum EQPreset: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    /// Presets shown in the picker, in declaration order: ``flat`` leads as
-    /// the neutral starting point, the rest are alphabetised to mirror
-    /// Spotify's UI. ``custom`` is appended elsewhere only when the user has
-    /// edited a preset's bands.
     static var pickerOrder: [EQPreset] {
         allCases.filter { $0 != .custom }
     }

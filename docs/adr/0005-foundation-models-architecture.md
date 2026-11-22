@@ -69,6 +69,8 @@ Button("Explain Lyrics") { ... }
 
 **Rationale**: Users without Apple Intelligence see a functional app without broken features. No error states for missing optional features.
 
+Read availability from the observable service during the render pass so SwiftUI updates the views when that status changes. The Foundation Models UI requires macOS 26 or later and is also hidden when the debug legacy-UI switch is active.
+
 ### 5. Error Handling
 
 `AIErrorHandler` provides user-friendly error messages:
