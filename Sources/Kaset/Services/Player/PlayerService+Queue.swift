@@ -139,6 +139,17 @@ extension PlayerService {
     func playWithRadio(song: Song, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let requestGeneration = self.beginPlaybackRequest()
+        if self.currentTrack?.videoId == song.videoId {
+            self.invalidateStaleQueueLoad()
+            self.invalidateMixContinuationRequest()
+            await self.fetchAndApplyRadioQueue(
+                for: song.videoId,
+                seedEntryID: self.queueEntryIDOwningCurrentPlayback,
+                queueGeneration: self.queueLoadGeneration,
+                replacesUpcoming: true
+            )
+            return
+        }
         self.logger.info("Playing with radio: \(song.title)")
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
@@ -387,7 +398,8 @@ extension PlayerService {
     func fetchAndApplyRadioQueue(
         for videoId: String,
         seedEntryID: UUID?,
-        queueGeneration: Int
+        queueGeneration: Int,
+        replacesUpcoming: Bool = false
     ) async -> RadioQueueFetchOutcome {
         guard self.isCurrentQueueLoad(queueGeneration) else { return .superseded }
         guard let client = self.ytMusicClient else {
@@ -414,10 +426,10 @@ extension PlayerService {
                 self.logger.info("Discarding stale radio queue after queue replacement")
                 return .superseded
             }
-            if seedEntryID == nil,
+            if replacesUpcoming || seedEntryID == nil,
                self.queueMutationGeneration != sourceQueueMutationGeneration
             {
-                self.logger.info("Using queue entries added while detached radio navigation was pending")
+                self.logger.info("Discarding radio recommendations after a queue edit")
                 return .queueMutated
             }
             guard !radioSongs.isEmpty else {
@@ -433,14 +445,14 @@ extension PlayerService {
             let existingEntries: [QueueEntry]
             if let seedEntryID {
                 guard self.queueEntryIDOwningCurrentPlayback == seedEntryID,
-                      let ownedEntry = self.queueEntries.first(where: { $0.id == seedEntryID }),
-                      ownedEntry.song.videoId == videoId
+                      let ownedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID }),
+                      self.queueEntries[ownedIndex].song.videoId == videoId
                 else {
                     self.logger.info("Logical seed changed, discarding radio queue")
                     return .superseded
                 }
-                seedEntry = ownedEntry
-                existingEntries = self.queueEntries
+                seedEntry = self.queueEntries[ownedIndex]
+                existingEntries = replacesUpcoming ? Array(self.queueEntries[...ownedIndex]) : self.queueEntries
             } else {
                 guard self.queueEntryIDOwningCurrentPlayback == nil,
                       self.activePlaybackQueueEntryID == nil
@@ -465,7 +477,12 @@ extension PlayerService {
             self.recordQueueStateForUndo()
             self.activePlaybackQueueEntryID = seedEntry.id
             let mergedEntries = existingEntries + relatedEntries
-            if self.shuffleEnabled {
+            if replacesUpcoming {
+                self.prepareForNewPlaybackContext()
+                self.mixContinuationToken = nil
+                self.queueOrderBeforeShuffle = self.shuffleEnabled ? mergedEntries : nil
+                self.setQueue(entries: self.shuffleEnabled ? existingEntries + relatedEntries.shuffled() : mergedEntries)
+            } else if self.shuffleEnabled {
                 let liveEntryIDs = Set(existingEntries.map(\.id))
                 var originalEntries = (self.queueOrderBeforeShuffle ?? []).filter {
                     liveEntryIDs.contains($0.id)

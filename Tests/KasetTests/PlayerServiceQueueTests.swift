@@ -23,6 +23,89 @@ struct PlayerServiceQueueTests {
         self.playerService.setYTMusicClient(self.mockClient)
     }
 
+    @Test("Refreshing radio preserves playback and replaces upcoming songs")
+    func refreshCurrentSongRadio() async {
+        let songs = TestFixtures.makeSongs(count: 5)
+        let seed = songs[1]
+        await self.playerService.playQueue(Array(songs.prefix(3)), startingAt: 1)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.playerService.pendingPlayVideoId = nil
+        let prefixIDs = self.playerService.queueEntryIDs.prefix(2)
+
+        for next in songs.suffix(2) {
+            self.mockClient.radioQueueSongs[seed.videoId] = [seed, next]
+            await self.playerService.playWithRadio(song: seed)
+
+            #expect(self.playerService.queueEntryIDs.prefix(2) == prefixIDs)
+            #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, seed.videoId, next.videoId])
+            #expect(self.playerService.progress == 42)
+            #expect(self.playerService.pendingPlayVideoId == nil)
+        }
+    }
+
+    @Test("Starting radio for a different seed starts its playback and replaces the queue")
+    func differentSeedRadio() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        self.mockClient.radioQueueSongs[songs[2].videoId] = Array(songs.suffix(2))
+
+        await self.playerService.playWithRadio(song: songs[2])
+
+        #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
+        #expect(self.playerService.pendingPlayVideoId == songs[2].videoId)
+        #expect(self.playerService.queue.map(\.videoId) == songs.suffix(2).map(\.videoId))
+    }
+
+    @Test("An empty or failed radio refresh preserves the queue and playback", arguments: [false, true])
+    func unavailableRadioRefresh(fails: Bool) async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.playerService.pendingPlayVideoId = nil
+        let entryIDs = self.playerService.queueEntryIDs
+        if fails {
+            self.mockClient.radioQueueErrors[songs[0].videoId] = URLError(.timedOut)
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queueEntryIDs == entryIDs)
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
+        #expect(self.playerService.state == .playing)
+        #expect(self.playerService.progress == 42)
+        #expect(self.playerService.pendingPlayVideoId == nil)
+    }
+
+    @Test("A queue edit during a radio refresh wins")
+    func editDuringRadioRefresh() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(3)), startingAt: 0)
+        let retainedIDs = Array(self.playerService.queueEntryIDs.prefix(2))
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[3]]
+        self.mockClient.beforeRadioQueueReturn = { [playerService] _ in
+            await playerService.removeFromQueue(at: 2)
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queueEntryIDs == retainedIDs)
+    }
+
+    @Test("Seeking during a radio refresh keeps the new position and applies recommendations")
+    func seekDuringRadioRefresh() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[2]]
+        self.mockClient.beforeRadioQueueReturn = { [playerService] _ in
+            await playerService.seek(to: 42)
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.progress == 42)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
+    }
+
     // MARK: - Queue Reordering Tests
 
     @Test("Reorder queue moves song from source to destination")
