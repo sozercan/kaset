@@ -758,6 +758,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                         path: self.$likedMusicNavigationPath,
                         for: .likedMusic
                     )
+                    .navigationSwipeBack(path: self.$likedMusicNavigationPath)
                 }
             case .library:
                 if self.requiresSignIn(item) {
@@ -825,6 +826,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .navigationDestinations(client: client)
         }
         .playerBarMusicNavigation(path: path)
+        .navigationSwipeBack(path: path)
         .environment(\.libraryViewModel, self.libraryViewModel)
         .environment(\.onPlaylistDeleted) {
             self.selectedSidebarPinnedItem = nil

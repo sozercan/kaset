@@ -89,6 +89,21 @@ struct SettingsManagerTests {
         #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.popOutVideoOnNavigateAway) == true)
     }
 
+    @Test("Swipe to Go Back is on unless turned off")
+    func swipeToGoBackLoading() throws {
+        let suiteName = "SettingsManagerTests.swipeToGoBack.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(SettingsManager.loadSwipeToGoBackEnabled(from: defaults) == true)
+
+        defaults.set(false, forKey: SettingsManager.Keys.swipeToGoBackEnabled)
+        #expect(SettingsManager.loadSwipeToGoBackEnabled(from: defaults) == false)
+
+        defaults.set(true, forKey: SettingsManager.Keys.swipeToGoBackEnabled)
+        #expect(SettingsManager.loadSwipeToGoBackEnabled(from: defaults) == true)
+    }
+
     @Test("Missing showYouTubeControlsOnVideo value loads as false")
     func missingShowYouTubeControlsOnVideoLoadsAsFalse() throws {
         let suiteName = "SettingsManagerTests.showYouTubeControlsOnVideo.missing.\(UUID().uuidString)"

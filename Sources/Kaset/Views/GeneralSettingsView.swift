@@ -57,6 +57,10 @@ struct GeneralSettingsView: View {
                 Toggle("Haptic Feedback", isOn: self.$settings.hapticFeedbackEnabled)
                     .help(String(localized: "Provide tactile feedback for actions on Force Touch trackpads"))
 
+                // Swipe to Go Back
+                Toggle(String(localized: "Swipe to Go Back"), isOn: self.$settings.swipeToGoBackEnabled)
+                    .help(String(localized: "Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings"))
+
                 // Default Launch Page
                 Picker(String(localized: "Default Page on Launch"), selection: self.$settings.defaultLaunchPage) {
                     ForEach(SettingsManager.LaunchPage.allCases) { page in

@@ -72744,6 +72744,218 @@
           }
         }
       }
+    },
+    "Swipe to Go Back": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اسحب للرجوع"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zum Zurückgehen wischen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deslizar para volver"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balayer pour revenir"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geser untuk Kembali"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scorri per tornare indietro"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "スワイプで戻る"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "쓸어서 뒤로 가기"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veeg om terug te gaan"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń, aby wrócić"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deslizar para voltar"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свайп для возврата назад"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svep för att gå tillbaka"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geri Gitmek için Kaydır"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Свайп для повернення назад"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "轻扫返回"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "滑動以返回"
+          }
+        }
+      }
+    },
+    "Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "اسحب إلى اليمين على لوحة التتبع للعودة إلى الصفحة السابقة، باستخدام إيماءة التنقل بين الصفحات من إعدادات النظام"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Auf dem Trackpad nach rechts wischen, um zur vorherigen Seite zurückzukehren – mit der Geste „Zwischen Seiten blättern“ aus den Systemeinstellungen"
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Desliza hacia la derecha en el trackpad para volver a la página anterior con el gesto «Deslizar entre páginas» de Ajustes del Sistema"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Balayez vers la droite sur le trackpad pour revenir à la page précédente, avec le geste « Balayer entre les pages » des Réglages Système"
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geser ke kanan pada trackpad untuk kembali ke halaman sebelumnya, menggunakan gerakan Gesek antarhalaman dari Pengaturan Sistem"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scorri verso destra sul trackpad per tornare alla pagina precedente, con il gesto «Scorri tra le pagine» di Impostazioni di Sistema"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "システム設定の「ページ間をスワイプ」ジェスチャで、トラックパッドを右にスワイプして前のページに戻ります"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "시스템 설정의 '페이지 간 쓸어넘기기' 제스처로 트랙패드에서 오른쪽으로 쓸어 이전 페이지로 돌아갑니다"
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Veeg naar rechts op het trackpad om terug te gaan naar de vorige pagina, met het gebaar 'Veeg tussen pagina's' uit Systeeminstellingen"
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przesuń w prawo na gładziku, aby wrócić do poprzedniej strony, gestem „Przesuwanie między stronami” z Ustawień systemowych"
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Deslize para a direita no trackpad para voltar à página anterior, com o gesto Deslizar entre páginas dos Ajustes do Sistema"
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Смахните вправо по трекпаду, чтобы вернуться на предыдущую страницу, жестом «Смахивание между страницами» из Системных настроек"
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Svep åt höger på styrplattan för att gå tillbaka till föregående sida med gesten Svep mellan sidor i Systeminställningar"
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sistem Ayarları'ndaki Sayfalar arasında kaydır hareketiyle izleme dörtgeninde sağa kaydırarak önceki sayfaya dönün"
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Змахніть праворуч на трекпеді, щоб повернутися на попередню сторінку, жестом «Змахування між сторінками» із Системних параметрів"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用“系统设置”中的“在页面之间轻扫”手势，在触控板上向右轻扫可返回上一页"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用「系統設定」中的「在頁面之間滑動」手勢，在觸控式軌跡板上向右滑動即可返回上一頁"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

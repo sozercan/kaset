@@ -51,6 +51,7 @@ struct NewReleasesView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .newReleases)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     private var contentView: some View {

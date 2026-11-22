@@ -689,3 +689,7 @@
 "Talk to a companion app" = "Связываться с приложением-компаньоном";
 "Request a connection to its companion app." = "Запрашивать подключение к своему приложению-компаньону.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Оно сможет читать и передавать информацию, которая отображается, пока вы вошли в аккаунт. Включайте его, только если доверяете ему.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "Свайп для возврата назад";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "Смахните вправо по трекпаду, чтобы вернуться на предыдущую страницу, жестом «Смахивание между страницами» из Системных настроек";

@@ -53,6 +53,7 @@ struct SearchView: View {
             }
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     private var searchBar: some View {

@@ -22,6 +22,7 @@ struct YouTubeContentView: View {
                         .youtubePagePlayerBarInset(keepsBar: selection == .shorts)
                         .youtubeNavigationDestinations(client: self.store.client)
                 }
+                .navigationSwipeBack(path: self.$store.navigationPath)
                 // Reset the drill-in stack when the sidebar selection changes.
                 .id(selection)
             } else {

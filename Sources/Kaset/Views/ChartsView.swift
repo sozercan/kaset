@@ -51,6 +51,7 @@ struct ChartsView: View {
             await self.viewModel.refresh()
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .charts)
+        .navigationSwipeBack(path: self.$navigationPath)
     }
 
     private var contentView: some View {

@@ -689,3 +689,7 @@
 "Talk to a companion app" = "도우미 앱과 통신";
 "Request a connection to its companion app." = "확장 프로그램의 도우미 앱에 연결을 요청합니다.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "로그인한 동안 표시되는 정보를 읽고 공유할 수 있습니다. 신뢰할 수 있는 경우에만 켜세요.";
+
+// Navigation swipe back
+"Swipe to Go Back" = "쓸어서 뒤로 가기";
+"Swipe right on the trackpad to return to the previous page, using the Swipe between pages gesture from System Settings" = "시스템 설정의 '페이지 간 쓸어넘기기' 제스처로 트랙패드에서 오른쪽으로 쓸어 이전 페이지로 돌아갑니다";
