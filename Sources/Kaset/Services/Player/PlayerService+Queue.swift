@@ -140,8 +140,8 @@ extension PlayerService {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let requestGeneration = self.beginPlaybackRequest()
         if self.currentTrack?.videoId == song.videoId {
-            self.invalidateStaleQueueLoad()
-            self.invalidateMixContinuationRequest()
+            // An applied refresh invalidates stale loads in fetchAndApplyRadioQueue via
+            // prepareForNewPlaybackContext(); an unapplied one keeps playlist paging alive.
             await self.fetchAndApplyRadioQueue(
                 for: song.videoId,
                 seedEntryID: self.queueEntryIDOwningCurrentPlayback,
@@ -409,6 +409,7 @@ extension PlayerService {
 
         let sourceNavigationContext = self.playbackNavigationContext
         let sourceQueueMutationGeneration = self.queueMutationGeneration
+        let sourceQueueEntryIDs = self.queueEntries.map(\.id)
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
@@ -426,8 +427,15 @@ extension PlayerService {
                 self.logger.info("Discarding stale radio queue after queue replacement")
                 return .superseded
             }
+            // Pages appended by an in-flight playlist load are not queue edits; the
+            // refresh replaces everything after the seed, including those pages.
+            let onlyQueueLoadAppended = replacesUpcoming
+                && self.isQueueLoading
+                && self.queueEntries.count > sourceQueueEntryIDs.count
+                && self.queueEntries.prefix(sourceQueueEntryIDs.count).map(\.id) == sourceQueueEntryIDs
             if replacesUpcoming || seedEntryID == nil,
-               self.queueMutationGeneration != sourceQueueMutationGeneration
+               self.queueMutationGeneration != sourceQueueMutationGeneration,
+               !onlyQueueLoadAppended
             {
                 self.logger.info("Discarding radio recommendations after a queue edit")
                 return .queueMutated

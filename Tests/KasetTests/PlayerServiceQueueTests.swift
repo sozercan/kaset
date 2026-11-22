@@ -4,9 +4,12 @@ import Foundation
 import Testing
 @testable import Kaset
 
+// MARK: - PlayerServiceQueueTests
+
 /// Tests for PlayerService queue operations, undo/redo, and metadata enrichment.
 @Suite(.serialized, .tags(.service))
 @MainActor
+// swiftlint:disable:next type_body_length
 struct PlayerServiceQueueTests {
     var playerService: PlayerService
     var mockClient: MockYTMusicClient
@@ -1066,5 +1069,74 @@ struct PlayerServiceQueueTests {
         // Assert
         let savedMode = UserDefaults.standard.string(forKey: "kaset.queue.displayMode")
         #expect(savedMode == QueueDisplayMode.sidepanel.rawValue)
+    }
+}
+
+// MARK: - PlayerServiceRadioRefreshQueueLoadTests
+
+/// Tests that a same-song radio refresh only stops in-flight playlist loading when it applies.
+@Suite(.serialized, .tags(.service))
+@MainActor
+struct PlayerServiceRadioRefreshQueueLoadTests {
+    var playerService: PlayerService
+    var mockClient: MockYTMusicClient
+
+    init() {
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.queue")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.queueIndex")
+        UserDefaults.standard.removeObject(forKey: "kaset.saved.playbackSession")
+        SingletonPlayerWebView.shared.currentVideoId = nil
+
+        self.mockClient = MockYTMusicClient()
+        self.playerService = PlayerService()
+        self.playerService.setYTMusicClient(self.mockClient)
+    }
+
+    @Test("An empty or failed radio refresh keeps an in-flight playlist load alive", arguments: [false, true])
+    func unavailableRadioRefreshKeepsQueueLoad(fails: Bool) async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let generation = self.playerService.beginQueueLoading()
+        let entryIDs = self.playerService.queueEntryIDs
+        if fails {
+            self.mockClient.radioQueueErrors[songs[0].videoId] = URLError(.timedOut)
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.isCurrentQueueLoad(generation))
+        #expect(self.playerService.isQueueLoading)
+        #expect(self.playerService.queueEntryIDs == entryIDs)
+    }
+
+    @Test("An applied radio refresh stops an in-flight playlist load")
+    func appliedRadioRefreshStopsQueueLoad() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let generation = self.playerService.beginQueueLoading()
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
+        #expect(!self.playerService.isCurrentQueueLoad(generation))
+        #expect(!self.playerService.isQueueLoading)
+    }
+
+    @Test("A playlist page appended during a radio refresh does not discard the refresh")
+    func playlistPageDuringRadioRefreshStillApplies() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let generation = self.playerService.beginQueueLoading()
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
+        self.mockClient.beforeRadioQueueReturn = { [playerService] _ in
+            await playerService.appendOriginalTracks([songs[2]])
+        }
+
+        await self.playerService.playWithRadio(song: songs[0])
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
+        #expect(!self.playerService.isCurrentQueueLoad(generation))
+        #expect(!self.playerService.isQueueLoading)
     }
 }
