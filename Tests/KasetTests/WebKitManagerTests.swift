@@ -3,8 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - WebKitManagerTests
-
 /// Tests for WebKitManager.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -730,8 +728,6 @@ struct WebKitManagerTests {
         #expect(resolvedURL == nil)
     }
 
-    // MARK: - DATASYNC_ID Identity Matching
-
     @Test("Brand DATASYNC_ID matches when first half equals brand pageId")
     func dataSyncIdMatchesBrand() {
         // "<delegatedSessionId>||<userSessionId>" — delegated half is the brand.
@@ -774,8 +770,6 @@ struct WebKitManagerTests {
         #expect(WebKitManager.dataSyncId("garbage-no-separator", matches: nil) == false)
     }
 }
-
-// MARK: - InMemoryCookieArchiveStorage
 
 private final class InMemoryCookieArchiveStorage: @unchecked Sendable {
     private let lock = NSLock()

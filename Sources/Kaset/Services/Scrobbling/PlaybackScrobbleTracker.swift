@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - PlaybackScrobbleTracker
-
 /// Accumulates verified play time for a single playable item — a whole track or one sub-track
 /// within a mix — and decides when it has been played enough to scrobble.
 ///

@@ -2,8 +2,6 @@
 
 import Foundation
 
-// MARK: - Web Queue Sync
-
 @MainActor
 extension PlayerService {
     private static let queueNavigationInFlightProtectionGrace: Duration = .seconds(20)

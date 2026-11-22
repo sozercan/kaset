@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - AmbientBackdropStyle
-
 /// The visual style of the YouTube watch-page ambient backdrop.
 ///
 /// Shared between `SettingsManager` (persistence) and `AmbientVideoBackdrop`

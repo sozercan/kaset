@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerBarSeekHoldTests
-
 @Suite(.tags(.model))
 struct PlayerBarSeekHoldTests {
     @Test("begin holds the requested target for display")

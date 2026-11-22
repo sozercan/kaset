@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - MusicPlaybackOccurrence
-
 /// Identifies one playback of one Music media element.
 ///
 /// Web occurrences are scoped to a committed document generation. Native

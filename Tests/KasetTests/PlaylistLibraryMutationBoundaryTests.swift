@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - Playlist mutation boundary tests
-
 extension LibraryMutationSerialTests.LibraryMutationActionsTests {
     @Test("Library mutations resume immediately after an empty account boundary")
     func mutationsResumeImmediatelyAfterEmptyAccountBoundary() async throws {

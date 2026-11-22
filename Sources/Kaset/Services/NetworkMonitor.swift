@@ -2,8 +2,6 @@ import Foundation
 import Network
 import Observation
 
-// MARK: - NetworkMonitor
-
 /// Monitors network connectivity using NWPathMonitor.
 /// Uses system callbacks for real-time updates (no polling needed).
 /// Note: NWPathMonitor requires DispatchQueue - no async/await API available from Apple.

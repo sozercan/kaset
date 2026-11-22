@@ -6,8 +6,6 @@ import Testing
 /// `remove from queue`). Kept in the serialized `ScriptCommandsTests` suite because every
 /// test swaps `PlayerService.shared`.
 extension ScriptCommandsTests {
-    // MARK: - PlayVideosCommand Tests
-
     @Test("PlayVideos sets error when PlayerService is nil")
     func playVideosSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -225,8 +223,6 @@ extension ScriptCommandsTests {
         #expect(playerService.queue.map(\.videoId) == ["v1", "v2"])
     }
 
-    // MARK: - AddToQueueCommand Tests
-
     @Test("AddToQueue sets error when PlayerService is nil")
     func addToQueueSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -357,8 +353,6 @@ extension ScriptCommandsTests {
         #expect(playerService.queue.map(\.videoId) == ["v1", "n1", "v2"])
     }
 
-    // MARK: - RemoveFromQueueCommand Tests
-
     @Test("RemoveFromQueue sets error when PlayerService is nil")
     func removeFromQueueSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -486,8 +480,6 @@ extension ScriptCommandsTests {
         #expect(playerService.queue.map(\.videoId) == ["a"])
     }
 }
-
-// MARK: - InvalidScriptParameter
 
 /// Invalid direct parameters for the queue-by-ID scripting commands.
 enum InvalidScriptParameter: CaseIterable {

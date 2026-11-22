@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - MusicPlaybackIntent
-
 /// Opaque ownership token for one native Music playback intent.
 ///
 /// Web document/media generations reject stale bridge traffic. This token is the
@@ -10,8 +8,6 @@ import Foundation
 struct MusicPlaybackIntent: Equatable {
     let generation: UInt64
 }
-
-// MARK: - MusicRemoteTransportCommand
 
 enum MusicRemoteTransportCommand: Equatable {
     case play
@@ -23,8 +19,6 @@ enum MusicRemoteTransportCommand: Equatable {
     case absoluteSeek(position: TimeInterval)
 }
 
-// MARK: - MusicPlaybackReservation
-
 /// A non-mutating snapshot reserved before parsing or API resolution. It can be
 /// claimed exactly while no newer native playback intent has been created.
 struct MusicPlaybackReservation: Equatable {
@@ -35,29 +29,21 @@ struct MusicPlaybackReservation: Equatable {
     let videoID: String?
 }
 
-// MARK: - MusicQueueMetadataOwner
-
 enum MusicQueueMetadataOwner: Equatable {
     case active
     case none
     case entry(UUID)
 }
 
-// MARK: - MusicAccountMutationOwner
-
 struct MusicAccountMutationOwner: Hashable {
     let accountID: String
     let sessionGeneration: UInt64
 }
 
-// MARK: - MusicLibraryConfirmedState
-
 struct MusicLibraryConfirmedState: Equatable {
     let isInLibrary: Bool
     let feedbackTokens: FeedbackTokens?
 }
-
-// MARK: - MusicPlaybackRestoreClock
 
 struct MusicPlaybackRestoreClock: Equatable {
     let progress: TimeInterval

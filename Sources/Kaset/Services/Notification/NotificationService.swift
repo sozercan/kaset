@@ -33,8 +33,6 @@ final class NotificationService {
         self.startObserving()
     }
 
-    // MARK: - Authorization
-
     private func requestAuthorization() {
         // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)
         guard Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests else { return }
@@ -48,8 +46,6 @@ final class NotificationService {
             }
         }
     }
-
-    // MARK: - Observation
 
     private func startObserving() {
         guard !self.isObservationActive else { return }
@@ -213,8 +209,6 @@ final class NotificationService {
         self.loadingResolutionTask?.cancel()
         self.clearLoadingResolutionCheck()
     }
-
-    // MARK: - Notification
 
     private func postTrackNotification(_ track: Song) async {
         // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)

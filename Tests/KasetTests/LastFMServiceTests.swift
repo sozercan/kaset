@@ -2,13 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - LastFMServiceTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct LastFMServiceTests {
-    // MARK: - Initialization
-
     @Test("Initial state is disconnected")
     func initialState() throws {
         let service = try LastFMService(
@@ -52,8 +48,6 @@ struct LastFMServiceTests {
         #expect(service.authState == .disconnected)
     }
 
-    // MARK: - Disconnect
-
     @Test("Disconnect clears auth state")
     func disconnect() async throws {
         let prefix = "test.lastfm.\(UUID().uuidString)"
@@ -75,8 +69,6 @@ struct LastFMServiceTests {
         #expect(store.getLastFMSessionKey() == nil)
         #expect(store.getLastFMUsername() == nil)
     }
-
-    // MARK: - ScrobbleError
 
     @Test("ScrobbleError has localized descriptions")
     func errorDescriptions() throws {
@@ -102,8 +94,6 @@ struct LastFMServiceTests {
         #expect(error.errorDescription?.contains("30") == true)
     }
 
-    // MARK: - ScrobbleAuthState
-
     @Test("ScrobbleAuthState isConnected")
     func authStateIsConnected() {
         #expect(ScrobbleAuthState.disconnected.isConnected == false)
@@ -119,8 +109,6 @@ struct LastFMServiceTests {
         #expect(ScrobbleAuthState.connected(username: "testuser").username == "testuser")
         #expect(ScrobbleAuthState.error("fail").username == nil)
     }
-
-    // MARK: - Scrobble without session throws
 
     @Test("Scrobble without session throws sessionExpired")
     func scrobbleWithoutSession() async throws {
@@ -160,8 +148,6 @@ struct LastFMServiceTests {
         }
     }
 
-    // MARK: - Empty scrobble batch
-
     @Test("Scrobble empty array returns empty results")
     func scrobbleEmptyArray() async throws {
         let prefix = "test.lastfm.\(UUID().uuidString)"
@@ -182,8 +168,6 @@ struct LastFMServiceTests {
         store.removeLastFMCredentials()
     }
 
-    // MARK: - ValidateSession without credentials
-
     @Test("ValidateSession returns false without session key")
     func validateSessionNoKey() async throws {
         let service = try LastFMService(
@@ -194,8 +178,6 @@ struct LastFMServiceTests {
         let valid = try await service.validateSession()
         #expect(valid == false)
     }
-
-    // MARK: - Response Parsing (Fix #3: corrected metadata)
 
     @Test("parseScrobbleResponse reads corrected name from #text, not flag")
     func parseScrobbleResponseCorrectedMetadata() {
@@ -346,8 +328,6 @@ struct LastFMServiceTests {
         #expect(!results[1].accepted)
     }
 }
-
-// MARK: - ScrobbleError + Equatable
 
 extension ScrobbleError: Equatable {
     public static func == (lhs: ScrobbleError, rhs: ScrobbleError) -> Bool {

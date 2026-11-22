@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - Player Bar Volume Overlay Host
-
 extension View {
     /// Presents the volume capsule in a borderless child panel so it remains
     /// interactive outside the player bar's compact safe-area inset.
@@ -18,8 +16,6 @@ extension View {
         )
     }
 }
-
-// MARK: - PlayerBarVolumeOverlayModifier
 
 private struct PlayerBarVolumeOverlayModifier<Overlay: View>: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
@@ -42,8 +38,6 @@ private struct PlayerBarVolumeOverlayModifier<Overlay: View>: ViewModifier {
         }
     }
 }
-
-// MARK: - PlayerBarVolumeOverlayAnchor
 
 private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
     @Binding var isPresented: Bool
@@ -259,8 +253,6 @@ private struct PlayerBarVolumeOverlayAnchor: NSViewRepresentable {
     }
 }
 
-// MARK: - PlayerBarVolumeOverlayRoot
-
 private struct PlayerBarVolumeOverlayRoot: View {
     let overlay: AnyView
 
@@ -276,16 +268,12 @@ private struct PlayerBarVolumeOverlayRoot: View {
     }
 }
 
-// MARK: - PlayerBarVolumeOverlayHostingView
-
 @MainActor
 private final class PlayerBarVolumeOverlayHostingView: NSHostingView<PlayerBarVolumeOverlayRoot> {
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
         true
     }
 }
-
-// MARK: - PlayerBarVolumeOverlayAnchorView
 
 @MainActor
 private final class PlayerBarVolumeOverlayAnchorView: NSView {
@@ -330,8 +318,6 @@ private final class PlayerBarVolumeOverlayAnchorView: NSView {
         NotificationCenter.default.removeObserver(self)
     }
 }
-
-// MARK: - PlayerBarVolumeOverlayMetrics
 
 private enum PlayerBarVolumeOverlayMetrics {
     static let contentSize = CGSize(width: 46, height: 168)

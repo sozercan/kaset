@@ -2,8 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-// MARK: - MiniPlayerWindowControllerTests
-
 @Suite("Mini player playback hosting", .serialized, .tags(.service))
 @MainActor
 struct MiniPlayerWindowControllerTests {
@@ -75,8 +73,6 @@ struct MiniPlayerWindowControllerTests {
         return window
     }
 }
-
-// MARK: - MiniPlayerTestWindow
 
 @MainActor
 private final class MiniPlayerTestWindow: NSWindow {

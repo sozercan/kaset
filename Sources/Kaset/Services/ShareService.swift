@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Shareable
-
 /// Protocol for items that can be shared with a URL and formatted text.
 protocol Shareable {
     /// The title to display in share text.
@@ -24,8 +22,6 @@ extension Shareable {
     }
 }
 
-// MARK: - Song + Shareable
-
 extension Song: Shareable {
     var shareTitle: String {
         self.title
@@ -43,8 +39,6 @@ extension Song: Shareable {
     }
 }
 
-// MARK: - Playlist + Shareable
-
 extension Playlist: Shareable {
     var shareTitle: String {
         self.title
@@ -61,8 +55,6 @@ extension Playlist: Shareable {
         return URL(string: "https://music.youtube.com/playlist?list=\(encodedId)")
     }
 }
-
-// MARK: - Album + Shareable
 
 extension Album: Shareable {
     var shareTitle: String {
@@ -83,8 +75,6 @@ extension Album: Shareable {
     }
 }
 
-// MARK: - Artist + Shareable
-
 extension Artist: Shareable {
     var shareTitle: String {
         self.name
@@ -104,8 +94,6 @@ extension Artist: Shareable {
         return URL(string: "https://music.youtube.com/channel/\(encodedId)")
     }
 }
-
-// MARK: - PodcastShow + Shareable
 
 extension PodcastShow: Shareable {
     var shareTitle: String {

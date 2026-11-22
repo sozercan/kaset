@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - SingletonPlayerVideoModeScriptTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct SingletonPlayerVideoModeScriptTests {
@@ -250,8 +248,6 @@ struct SingletonPlayerVideoModeScriptTests {
         }
     }
 }
-
-// MARK: - TestScriptError
 
 private enum TestScriptError: Error {
     case javaScriptException(String)

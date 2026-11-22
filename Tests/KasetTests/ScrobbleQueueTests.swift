@@ -37,8 +37,6 @@ struct ScrobbleQueueTests {
         )
     }
 
-    // MARK: - Basic Operations
-
     @Test("Empty queue has zero count")
     func emptyQueue() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -85,8 +83,6 @@ struct ScrobbleQueueTests {
         #expect(queue.pendingTracks[2].title == "Song 3")
     }
 
-    // MARK: - Dequeue
-
     @Test("Dequeue returns items without removing them")
     func dequeueDoesNotRemove() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -131,8 +127,6 @@ struct ScrobbleQueueTests {
         #expect(batch.count == 2)
     }
 
-    // MARK: - Mark Completed
-
     @Test("MarkCompleted removes specified tracks")
     func markCompletedRemovesTracks() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -165,8 +159,6 @@ struct ScrobbleQueueTests {
 
         #expect(queue.count == 1)
     }
-
-    // MARK: - Persistence
 
     @Test("Queue persists across instances")
     func persistenceRoundTrip() throws {
@@ -202,8 +194,6 @@ struct ScrobbleQueueTests {
         let queue2 = ScrobbleQueue(directory: dir)
         #expect(queue2.pendingTracks.first?.timestamp == timestamp)
     }
-
-    // MARK: - Pruning
 
     @Test("PruneExpired removes scrobbles older than 14 days")
     func pruneExpiredTracks() throws {
@@ -260,8 +250,6 @@ struct ScrobbleQueueTests {
         #expect(pruned == 0)
     }
 
-    // MARK: - Clear
-
     @Test("Clear removes all items")
     func clearRemovesAll() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -291,8 +279,6 @@ struct ScrobbleQueueTests {
         #expect(queue2.isEmpty)
     }
 
-    // MARK: - ScrobbleTrack from Song
-
     @Test("ScrobbleTrack initializes from Song correctly")
     func scrobbleTrackFromSong() {
         let song = TestFixtures.makeSong(
@@ -310,8 +296,6 @@ struct ScrobbleQueueTests {
         #expect(track.videoId == "abc123")
         #expect(track.timestamp == timestamp)
     }
-
-    // MARK: - Edge Cases
 
     @Test("Queue handles missing file gracefully")
     func missingFileGraceful() throws {

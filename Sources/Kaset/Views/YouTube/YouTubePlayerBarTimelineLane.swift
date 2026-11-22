@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubePlayerBarTimelineLane
-
 /// The YouTube player bar's seek lane. This is the only YouTube player bar view that
 /// observes `YouTubePlayerService.progress`, so each playback tick re-evaluates just this
 /// lane instead of the whole bar. Nothing outside the lane reads its seek state, so the

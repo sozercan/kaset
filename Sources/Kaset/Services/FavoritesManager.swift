@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - FavoritesManager
-
 /// Manages Favorites persistence and state, scoped per account.
 @MainActor
 @Observable
@@ -419,8 +417,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Load & Save
-
     private func load(scopeID: String) {
         if self.skipPersistence {
             self.items = self.itemsByScope[scopeID] ?? []
@@ -827,8 +823,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         )
     }
 
-    // MARK: - Actions
-
     func add(_ item: FavoriteItem) {
         guard self.canMutate else { return }
         guard !self.isPinned(contentId: item.contentId) else { return }
@@ -868,8 +862,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     func isPinned(contentId: String) -> Bool {
         self.items.contains { $0.contentId == contentId }
     }
-
-    // MARK: - Testing Support
 
     private func loadMockData() {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockFavoritesKey),

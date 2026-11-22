@@ -53,8 +53,6 @@ struct NewReleasesView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .newReleases)
     }
 
-    // MARK: - Views
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
@@ -107,8 +105,6 @@ struct NewReleasesView: View {
             }
         )
     }
-
-    // MARK: - Actions
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,

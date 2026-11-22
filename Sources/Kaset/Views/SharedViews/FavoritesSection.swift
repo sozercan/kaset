@@ -1,8 +1,6 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - FavoritesSection
-
 /// A horizontal scrolling section displaying pinned Favorites items.
 /// Supports drag-and-drop reordering and context menu actions.
 struct FavoritesSection: View {
@@ -60,8 +58,6 @@ struct FavoritesSection: View {
             }
     }
 
-    // MARK: - Actions
-
     private func handleTap(_ item: FavoriteItem) {
         switch item.itemType {
         case let .song(song):
@@ -103,8 +99,6 @@ struct FavoritesSection: View {
         return true
     }
 
-    // MARK: - Context Menu
-
     @ViewBuilder
     private func contextMenu(for item: FavoriteItem) -> some View {
         let client = self.playerService.ytMusicClient
@@ -143,8 +137,6 @@ struct FavoritesSection: View {
         }
     }
 }
-
-// MARK: - FavoriteItemCard
 
 /// A card view for a single Favorites item.
 private struct FavoriteItemCard: View {
@@ -260,8 +252,6 @@ private struct FavoriteItemCard: View {
         }
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     let manager = FavoritesManager(skipLoad: true)

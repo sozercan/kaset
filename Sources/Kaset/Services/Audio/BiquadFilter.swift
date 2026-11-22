@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - BiquadFilter
-
 /// Real-time-safe biquad filter (RBJ cookbook) supporting peaking, low-shelf
 /// and high-shelf modes with **per-sample coefficient smoothing**.
 ///
@@ -16,8 +14,6 @@ import Foundation
 /// Implemented as **Transposed Direct Form II** for better numerical
 /// stability at low frequencies than Direct Form I.
 final class BiquadFilter {
-    // MARK: - Coefficients (current, ramped toward target each sample)
-
     // Coefficients are `Double` so round-off doesn't leak into the cascade
     // quantization noise. Only the per-sample Float ↔ Double conversion at
     // the input/output of the biquad happens at Float precision.
@@ -44,8 +40,6 @@ final class BiquadFilter {
     /// 44.1–96 kHz and stays inaudible across that range.
     private let smoothingAlpha: Double = 0.004
 
-    // MARK: - State (z^-1, z^-2 per channel)
-
     // State variables are `Double` rather than `Float` so round-off
     // error doesn't accumulate audibly across a 6-biquad cascade. Input
     // and output samples stay `Float` — only the feedback state (where
@@ -55,8 +49,6 @@ final class BiquadFilter {
     private var leftZ2: Double = 0
     private var rightZ1: Double = 0
     private var rightZ2: Double = 0
-
-    // MARK: - Coefficient setters (call from main thread)
 
     /// Updates coefficients for a peaking EQ section.
     func setPeakingEQ(frequency: Float, q: Float, gainDB: Float, sampleRate: Float) {
@@ -144,8 +136,6 @@ final class BiquadFilter {
         ))
     }
 
-    // MARK: - Render
-
     /// Processes `frameCount` frames of non-interleaved stereo audio in
     /// place, slewing coefficients toward their targets per sample.
     func processNonInterleavedStereo(
@@ -230,8 +220,6 @@ final class BiquadFilter {
         self.leftZ1 = z1
         self.leftZ2 = z2
     }
-
-    // MARK: - Private
 
     /// Pre-normalised RBJ terms shared by every coefficient setter.
     private struct CommonTerms {

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - NowPlayingTracklistProvider
-
 /// Owns the sub-track breakdown (a `MixTracklist`) of the currently-playing item and the machinery
 /// that fetches it for playback UI. It is the segmented seek bar's source of truth for "what are the
 /// sub-tracks of the now-playing video." `ScrobblingCoordinator` retains a separate classification

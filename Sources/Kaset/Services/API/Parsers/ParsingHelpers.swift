@@ -1,8 +1,6 @@
 import CryptoKit
 import Foundation
 
-// MARK: - ParsingHelpers
-
 /// Provides common utility methods for parsing YouTube Music API responses.
 enum ParsingHelpers {
     private static let artistPageTypes: Set<String> = [
@@ -10,8 +8,6 @@ enum ParsingHelpers {
         "MUSIC_PAGE_TYPE_USER_CHANNEL",
         "MUSIC_PAGE_TYPE_LIBRARY_ARTIST",
     ]
-
-    // MARK: - Stable ID Generation
 
     /// Generates a stable, deterministic ID from content components.
     /// This avoids SwiftUI identity churn caused by UUID() regeneration on refresh.

@@ -97,8 +97,6 @@ enum HomeResponseParser {
         return nil
     }
 
-    // MARK: - Section Parsing
-
     static func parseHomeSection(_ data: [String: Any]) -> HomeSection? {
         // Try musicCarouselShelfRenderer (most common - horizontal carousels)
         if let carouselRenderer = data["musicCarouselShelfRenderer"] as? [String: Any] {
@@ -299,8 +297,6 @@ enum HomeResponseParser {
         // Check if this is a chart section based on title, not renderer type
         return HomeSection(id: stableId, title: title, items: sectionItems, isChart: ParsingHelpers.isChartSection(title))
     }
-
-    // MARK: - Item Parsing
 
     static func parseHomeSectionItem(_ data: [String: Any]) -> HomeSectionItem? {
         // Try musicTwoRowItemRenderer (albums, playlists)
@@ -504,8 +500,6 @@ enum HomeResponseParser {
             return .artist(artist)
         }
     }
-
-    // MARK: - Helpers
 
     /// Extracts a stable ID from a HomeSectionItem for identity purposes.
     private static func extractItemId(_ item: HomeSectionItem) -> String {

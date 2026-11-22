@@ -3,8 +3,6 @@ import XCTest
 /// UI tests for the SearchView.
 @MainActor
 final class SearchViewUITests: KasetUITestCase {
-    // MARK: - Search Field
-
     func testSearchFieldExists() {
         launchDefault()
 
@@ -48,8 +46,6 @@ final class SearchViewUITests: KasetUITestCase {
         XCTAssertTrue(clearButton.waitForExistence(timeout: 3), "Clear button should appear")
     }
 
-    // MARK: - Empty State
-
     func testEmptyStateShownInitially() {
         launchDefault()
 
@@ -59,8 +55,6 @@ final class SearchViewUITests: KasetUITestCase {
         let emptyStateText = app.staticTexts["Search for your favorite music"]
         XCTAssertTrue(waitForElement(emptyStateText, timeout: 5), "Empty state text should be visible")
     }
-
-    // MARK: - Search Execution
 
     func testSearchSubmitTriggersSearch() {
         launchWithMockSearch(songCount: 5)
@@ -77,8 +71,6 @@ final class SearchViewUITests: KasetUITestCase {
         // The search should be triggered
         Thread.sleep(forTimeInterval: 1) // Brief wait for state change
     }
-
-    // MARK: - Filter Chips
 
     func testFilterChipsExistAfterSearch() {
         launchWithMockSearch(songCount: 5)
@@ -100,8 +92,6 @@ final class SearchViewUITests: KasetUITestCase {
         // If results exist, filters should appear
     }
 
-    // MARK: - Keyboard Navigation
-
     func testSearchFieldIsFocusedOnAppear() {
         launchDefault()
 
@@ -117,8 +107,6 @@ final class SearchViewUITests: KasetUITestCase {
         // Verify text was entered
         XCTAssertEqual(searchField.value as? String, "quick search")
     }
-
-    // MARK: - Navigation Integration
 
     func testSearchNavigationTitle() {
         launchDefault()

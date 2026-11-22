@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - PlayerBarMarqueeText
-
 /// A single-line title that scrolls like a marquee when it overflows its width.
 ///
 /// The scroll and the edge fades are Core Animation keyframe animations, so the render
@@ -26,8 +24,6 @@ struct PlayerBarMarqueeText: View {
             .accessibilityAddTraits(.isStaticText)
     }
 }
-
-// MARK: - PlayerBarMarqueeLabel
 
 private struct PlayerBarMarqueeLabel: NSViewRepresentable {
     let text: String
@@ -53,8 +49,6 @@ private struct PlayerBarMarqueeLabel: NSViewRepresentable {
         proposal.replacingUnspecifiedDimensions()
     }
 }
-
-// MARK: - PlayerBarMarqueeCycle
 
 /// One repetition of the marquee: rest, scroll one copy's width, then fade back to rest.
 ///
@@ -135,8 +129,6 @@ struct PlayerBarMarqueeCycle: Equatable {
         ]
     }
 }
-
-// MARK: - PlayerBarMarqueeView
 
 /// Layer-backed marquee label: two text copies on a scrolling layer, clipped and faded
 /// by a gradient mask.

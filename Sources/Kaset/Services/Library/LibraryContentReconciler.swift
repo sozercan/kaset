@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LibraryContentSnapshot
-
 /// Visible Library content plus the ID indexes that power membership checks.
 struct LibraryContentSnapshot {
     var playlists: [Playlist]
@@ -38,8 +36,6 @@ struct LibraryContentSnapshot {
         self.hasVisibleContent || self.albumsSource != nil
     }
 }
-
-// MARK: - LibraryContentReconciler
 
 /// Reconciles optimistic local Library mutations with eventually-consistent backend snapshots.
 ///

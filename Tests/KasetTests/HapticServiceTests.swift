@@ -4,8 +4,6 @@ import Testing
 /// Unit tests for HapticService.
 @Suite(.tags(.service))
 struct HapticServiceTests {
-    // MARK: - FeedbackType Pattern Mapping Tests
-
     @Test("Playback action uses generic pattern")
     func playbackActionPattern() {
         // Verify the FeedbackType maps correctly
@@ -42,8 +40,6 @@ struct HapticServiceTests {
         let feedbackType = HapticService.FeedbackType.error
         #expect(feedbackType == .error)
     }
-
-    // MARK: - All FeedbackType Cases
 
     @Test("All feedback types are defined", arguments: [
         HapticService.FeedbackType.playbackAction,

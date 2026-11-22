@@ -8,13 +8,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - AccountServiceTests
-
 @Suite(.serialized)
 // swiftlint:disable:next type_body_length
 struct AccountServiceTests {
-    // MARK: - Initial State Tests
-
     @Test @MainActor func initialStateIsEmpty() {
         let services = Self.createService()
 
@@ -598,8 +594,6 @@ struct AccountServiceTests {
         #expect(ends.isEmpty)
     }
 
-    // MARK: - Switch Account Tests
-
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
         let services = Self.createService()
 
@@ -675,8 +669,6 @@ struct AccountServiceTests {
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [nil])
         #expect(services.account.verifiedAccountId == primaryAccount.id)
     }
-
-    // MARK: - Session-Switch Gating Tests
 
     @Test @MainActor func switchAccountVerifiesSessionIdentityWithBrandId() async throws {
         let mockWebKit = MockWebKitManager()
@@ -1736,8 +1728,6 @@ struct AccountServiceTests {
         #expect(services.account.currentBrandId == "123456789012345678901")
     }
 
-    // MARK: - Persistence Tests
-
     @Test @MainActor func switchAccountPersistsSelection() async throws {
         let services = Self.createService()
 
@@ -1775,8 +1765,6 @@ struct AccountServiceTests {
         UserDefaults.standard.removeObject(forKey: "selectedBrandId")
     }
 
-    // MARK: - Clear Accounts Tests
-
     @Test @MainActor func clearAccountsResetsState() async {
         let services = Self.createService()
 
@@ -1801,8 +1789,6 @@ struct AccountServiceTests {
         #expect(SongLikeStatusManager.shared.activeAccountID == "primary")
         #expect(SongLikeStatusManager.shared.status(for: "cached-video") == nil)
     }
-
-    // MARK: - Error Handling Tests
 
     @Test @MainActor func cancelledAccountFetchDoesNotResolveOrPublishError() async {
         let services = Self.createService()
@@ -1833,8 +1819,6 @@ struct AccountServiceTests {
         #expect(services.account.lastError == nil)
     }
 
-    // MARK: - Computed Properties Tests
-
     @Test @MainActor func currentBrandIdReturnsNilForPrimaryAccount() async {
         let services = Self.createService()
 
@@ -1853,8 +1837,6 @@ struct AccountServiceTests {
 
         #expect(services.account.currentBrandId == "123456789012345678901")
     }
-
-    // MARK: - Helper Methods
 
     @MainActor
     private static func createService(favoritesOwnerDefaults: UserDefaults? = nil) -> TestServices {
@@ -1933,16 +1915,12 @@ struct AccountServiceTests {
     }
 }
 
-// MARK: - TestServices
-
 /// Helper struct to avoid large tuple violation.
 private struct TestServices {
     let account: AccountService
     let client: MockYTMusicClient
     let auth: AuthService
 }
-
-// MARK: - AsyncReleaseGate
 
 /// A one-shot async gate: callers `await wait()` until `release()` is called or
 /// the awaiting task is cancelled. Cancellation-aware so a gated mock pin that

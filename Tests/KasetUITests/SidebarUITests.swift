@@ -3,8 +3,6 @@ import XCTest
 /// UI tests for sidebar navigation.
 @MainActor
 final class SidebarUITests: KasetUITestCase {
-    // MARK: - Navigation Items Visible
-
     func testSidebarShowsAllNavigationItems() {
         launchDefault()
 
@@ -21,8 +19,6 @@ final class SidebarUITests: KasetUITestCase {
         XCTAssertTrue(likedMusicItem.exists, "Liked Music item should exist")
         XCTAssertTrue(playlistsItem.exists, "Playlists item should exist")
     }
-
-    // MARK: - Navigation Selection
 
     func testNavigateToHome() {
         launchDefault()
@@ -77,8 +73,6 @@ final class SidebarUITests: KasetUITestCase {
         let navigationTitle = app.staticTexts["Library"]
         XCTAssertTrue(waitForElement(navigationTitle), "Library navigation title should be visible")
     }
-
-    // MARK: - Navigation Persistence
 
     func testNavigationPersistsAfterSwitching() {
         launchDefault()

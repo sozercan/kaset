@@ -2,20 +2,14 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PodcastsAvailabilityServiceTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PodcastsAvailabilityServiceTests {
-    // MARK: - Initial state
-
     @Test
     func initialAvailabilityIsUnknown() {
         let service = PodcastsAvailabilityService()
         #expect(service.availability == .unknown)
     }
-
-    // MARK: - Probe outcomes
 
     @Test
     func probeWithNonEmptySectionsMarksAvailable() async {
@@ -84,8 +78,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .available)
     }
 
-    // MARK: - Account/session invalidation
-
     @Test
     func late404ProbeDoesNotOverrideNewerAccountAvailability() async {
         let service = PodcastsAvailabilityService()
@@ -137,8 +129,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .unknown)
     }
 
-    // MARK: - Lazy signals
-
     @Test
     func markUnavailableUpdatesState() {
         let service = PodcastsAvailabilityService()
@@ -157,8 +147,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .available)
     }
 
-    // MARK: - Reset
-
     @Test
     func resetClearsAvailability() {
         let service = PodcastsAvailabilityService()
@@ -170,8 +158,6 @@ struct PodcastsAvailabilityServiceTests {
         #expect(service.availability == .unknown)
     }
 }
-
-// MARK: - AsyncSignal
 
 @MainActor
 private final class AsyncSignal {

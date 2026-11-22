@@ -1,8 +1,6 @@
 import Foundation
 import Sparkle
 
-// MARK: - UpdaterService
-
 /// Manages application updates via Sparkle framework.
 ///
 /// This service wraps Sparkle's `SPUStandardUpdaterController` to provide

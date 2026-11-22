@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YouTubeChannel
-
 /// A YouTube channel as it appears in search results and on watch pages.
 struct YouTubeChannel: Identifiable, Hashable {
     let channelId: String
@@ -33,8 +31,6 @@ struct YouTubeChannel: Identifiable, Hashable {
         self.thumbnailURL = thumbnailURL
     }
 }
-
-// MARK: - YouTubeChannelDetail
 
 /// A channel page: metadata plus the videos visible on the landing tab.
 struct YouTubeChannelDetail: Hashable {

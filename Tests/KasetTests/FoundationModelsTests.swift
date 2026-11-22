@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlaylistChangesTests
-
 @available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct PlaylistChangesTests {
@@ -97,8 +95,6 @@ struct PlaylistChangesTests {
     }
 }
 
-// MARK: - LyricsSummaryTests
-
 @available(macOS 26.0, *)
 @Suite(.tags(.model))
 struct LyricsSummaryTests {
@@ -152,8 +148,6 @@ struct LyricsSummaryTests {
         #expect(summary.themes.count <= 5)
     }
 }
-
-// MARK: - FoundationModelsBudgetTests
 
 @available(macOS 26.0, *)
 @Suite(.tags(.model))

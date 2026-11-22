@@ -5,8 +5,6 @@ import Testing
 /// Tests for Podcast model types.
 @Suite(.tags(.model))
 struct PodcastModelTests {
-    // MARK: - PodcastShow Tests
-
     struct PodcastShowTests {
         @Test("hasNavigableId returns true for MPSPP prefix")
         func hasNavigableIdWithMPSPPPrefix() {
@@ -80,8 +78,6 @@ struct PodcastModelTests {
         }
     }
 
-    // MARK: - PodcastEpisode Tests
-
     struct PodcastEpisodeTests {
         @Test("formattedDuration returns MM:SS for short duration")
         func formattedDurationShort() {
@@ -152,8 +148,6 @@ struct PodcastModelTests {
         }
     }
 
-    // MARK: - PodcastSection Tests
-
     struct PodcastSectionTests {
         @Test("PodcastSection is Identifiable with id")
         func identifiableById() {
@@ -165,8 +159,6 @@ struct PodcastModelTests {
             #expect(section.id == "section1")
         }
     }
-
-    // MARK: - PodcastSectionItem Tests
 
     struct PodcastSectionItemTests {
         @Test("show case returns show id")
@@ -228,8 +220,6 @@ struct PodcastModelTests {
         }
     }
 
-    // MARK: - PodcastShowDetail Tests
-
     struct PodcastShowDetailTests {
         @Test("hasMore returns true when continuationToken exists")
         func hasMoreWithToken() {
@@ -264,8 +254,6 @@ struct PodcastModelTests {
             )
         }
     }
-
-    // MARK: - PodcastEpisodesContinuation Tests
 
     struct PodcastEpisodesContinuationTests {
         @Test("hasMore returns true when continuationToken exists")

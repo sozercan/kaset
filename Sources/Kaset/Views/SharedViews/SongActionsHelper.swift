@@ -2,8 +2,6 @@ import AppKit
 import Foundation
 import SwiftUI
 
-// MARK: - SongActionsHelper
-
 /// Helper for common song actions like liking, disliking, adding to library, and queue management.
 @MainActor
 enum SongActionsHelper {
@@ -440,8 +438,6 @@ enum SongActionsHelper {
         LibraryMutationActions.invalidateResponseCaches()
     }
 
-    // MARK: - Queue Actions
-
     /// Adds a song to play next (immediately after current track).
     static func addToQueueNext(_ song: Song, playerService: PlayerService) {
         playerService.insertNextInQueue([song])
@@ -495,8 +491,6 @@ enum SongActionsHelper {
         playerService.appendToQueue(preparedSongs)
         DiagnosticsLogger.ui.info("Added \(preparedSongs.count) songs to end of queue")
     }
-
-    // MARK: - Album Queue Actions
 
     /// Adds an album's songs to play next (immediately after current track).
     static func addAlbumToQueueNext(

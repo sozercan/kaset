@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PodcastsView
-
 /// Podcasts discovery view displaying podcast shows and episodes.
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
@@ -57,8 +55,6 @@ struct PodcastsView: View {
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .podcasts)
     }
-
-    // MARK: - Views
 
     private var contentView: some View {
         ScrollView {
@@ -116,8 +112,6 @@ struct PodcastsView: View {
         }
     }
 
-    // MARK: - Actions
-
     private func playEpisode(_ episode: PodcastEpisode) {
         // Create a Song from the episode to play via WebView
         let song = Song(
@@ -134,8 +128,6 @@ struct PodcastsView: View {
         }
     }
 }
-
-// MARK: - PodcastShowCard
 
 private struct PodcastShowCard: View {
     let show: PodcastShow
@@ -176,8 +168,6 @@ private struct PodcastShowCard: View {
         }
     }
 }
-
-// MARK: - PodcastEpisodeCard
 
 private struct PodcastEpisodeCard: View {
     let episode: PodcastEpisode
@@ -243,8 +233,6 @@ private struct PodcastEpisodeCard: View {
         .buttonStyle(.plain)
     }
 }
-
-// MARK: - PodcastShowView
 
 /// Detail view for a podcast show with its episodes.
 struct PodcastShowView: View {
@@ -506,8 +494,6 @@ struct PodcastShowView: View {
     }
 }
 
-// MARK: - PodcastEpisodeRow
-
 struct PodcastEpisodeRow: View {
     let episode: PodcastEpisode
     let action: () -> Void
@@ -574,8 +560,6 @@ struct PodcastEpisodeRow: View {
     }
 }
 
-// MARK: - AllEpisodesDestination
-
 /// Navigation destination for the all episodes view.
 struct AllEpisodesDestination: Hashable {
     let show: PodcastShow
@@ -590,8 +574,6 @@ struct AllEpisodesDestination: Hashable {
         lhs.show.id == rhs.show.id
     }
 }
-
-// MARK: - AllEpisodesView
 
 /// View displaying all episodes of a podcast show with infinite scroll pagination.
 struct AllEpisodesView: View {

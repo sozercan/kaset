@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ScrobbleServiceProtocol
-
 /// Protocol defining the interface for a scrobbling service backend.
 /// Enables dependency injection, mocking, and future service implementations (ListenBrainz, Libre.fm).
 @MainActor
@@ -33,8 +31,6 @@ protocol ScrobbleServiceProtocol: Sendable {
     /// Called on app launch to resume previous sessions without user interaction.
     func restoreSession()
 }
-
-// MARK: - ScrobbleTrack
 
 /// A track prepared for scrobbling, containing the metadata needed by scrobbling services.
 struct ScrobbleTrack: Codable, Identifiable, Equatable {
@@ -90,8 +86,6 @@ struct ScrobbleTrack: Codable, Identifiable, Equatable {
     }
 }
 
-// MARK: - ScrobbleAuthState
-
 /// Represents the authentication state of a scrobbling service.
 enum ScrobbleAuthState: Equatable {
     /// Not connected to the service.
@@ -122,8 +116,6 @@ enum ScrobbleAuthState: Equatable {
         return nil
     }
 }
-
-// MARK: - ScrobbleError
 
 /// Errors that can occur during scrobbling operations.
 enum ScrobbleError: Error, LocalizedError {
@@ -166,8 +158,6 @@ enum ScrobbleError: Error, LocalizedError {
         }
     }
 }
-
-// MARK: - ScrobbleResult
 
 /// Result of a single scrobble submission.
 struct ScrobbleResult {

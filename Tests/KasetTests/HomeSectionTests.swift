@@ -5,8 +5,6 @@ import Testing
 /// Tests for HomeSection and HomeSectionItem.
 @Suite(.tags(.model))
 struct HomeSectionTests {
-    // MARK: - HomeSectionItem ID Tests
-
     @Test("Song item ID has correct prefix")
     func songItemId() {
         let song = Song(
@@ -61,8 +59,6 @@ struct HomeSectionTests {
         #expect(item.id == "artist-artist111")
     }
 
-    // MARK: - HomeSectionItem Title Tests
-
     @Test("Song item returns song title")
     func songItemTitle() {
         let song = Song(
@@ -116,8 +112,6 @@ struct HomeSectionTests {
         let item = HomeSectionItem.artist(artist)
         #expect(item.title == "Famous Artist")
     }
-
-    // MARK: - HomeSectionItem Subtitle Tests
 
     @Test("Song item subtitle shows artists")
     func songItemSubtitle() {
@@ -235,8 +229,6 @@ struct HomeSectionTests {
         #expect(item.homeCardSubtitle == "Artist One, Artist Two")
     }
 
-    // MARK: - HomeSectionItem ThumbnailURL Tests
-
     @Test("Song item returns song thumbnail")
     func songItemThumbnailURL() {
         let url = URL(string: "https://example.com/song.jpg")
@@ -295,8 +287,6 @@ struct HomeSectionTests {
         #expect(item.thumbnailURL == url)
     }
 
-    // MARK: - HomeSectionItem VideoId Tests
-
     @Test("Song item returns videoId")
     func songItemVideoId() {
         let song = Song(
@@ -334,8 +324,6 @@ struct HomeSectionTests {
         #expect(item.videoId == nil)
     }
 
-    // MARK: - HomeSectionItem BrowseId Tests
-
     @Test("Song item has no browseId")
     func songItemBrowseId() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -363,8 +351,6 @@ struct HomeSectionTests {
         let item = HomeSectionItem.artist(artist)
         #expect(item.browseId == "artist789")
     }
-
-    // MARK: - HomeSectionItem Extraction Tests
 
     @Test("Playlist item extracts playlist")
     func playlistItemExtraction() {
@@ -400,8 +386,6 @@ struct HomeSectionTests {
         #expect(item.album == nil)
     }
 
-    // MARK: - HomeSection Tests
-
     @Test("HomeSection initializes correctly")
     func homeSectionInit() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -420,8 +404,6 @@ struct HomeSectionTests {
         let section = HomeSection(id: "charts", title: "Top Charts", items: [], isChart: true)
         #expect(section.isChart)
     }
-
-    // MARK: - HomeResponse Tests
 
     @Test("HomeResponse is empty with no sections")
     func homeResponseIsEmptyWithNoSections() {

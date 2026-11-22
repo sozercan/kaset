@@ -2,15 +2,11 @@ import AppIntents
 import CoreSpotlight
 import Foundation
 
-// MARK: - LibrarySpotlightIndex
-
 /// Where Library entities are indexed. Abstracted so tests do not touch the user's index.
 protocol LibrarySpotlightIndex: Sendable {
     /// Replaces every indexed playlist and album with these.
     func replaceAll(playlists: [PlaylistEntity], albums: [AlbumEntity]) async throws
 }
-
-// MARK: - CoreSpotlightLibraryIndex
 
 struct CoreSpotlightLibraryIndex: LibrarySpotlightIndex {
     func replaceAll(playlists: [PlaylistEntity], albums: [AlbumEntity]) async throws {
@@ -25,8 +21,6 @@ struct CoreSpotlightLibraryIndex: LibrarySpotlightIndex {
         }
     }
 }
-
-// MARK: - SpotlightLibraryIndexer
 
 /// Keeps Spotlight's copy of the Library in step with the signed-in account.
 ///

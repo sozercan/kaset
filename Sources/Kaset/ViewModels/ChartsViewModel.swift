@@ -120,8 +120,6 @@ final class ChartsViewModel {
         }
     }
 
-    // MARK: - Private Helpers
-
     private var hasMoreSectionsForCurrentSource: Bool {
         self.client.hasMoreChartsSections
     }

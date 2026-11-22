@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - HomeSection
-
 /// Represents a section on the YouTube Music home page.
 struct HomeSection: Identifiable, Hashable {
     let id: String
@@ -18,8 +16,6 @@ struct HomeSection: Identifiable, Hashable {
         self.isChart = isChart
     }
 }
-
-// MARK: - HomeSectionItem
 
 /// An item within a home section (can be song, album, playlist, or artist).
 enum HomeSectionItem: Identifiable, Hashable {

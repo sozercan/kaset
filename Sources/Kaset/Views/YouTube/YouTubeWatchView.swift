@@ -2,8 +2,6 @@
 
 import SwiftUI
 
-// MARK: - YouTubeWatchView
-
 /// Watch page for a YouTube video: the extracted video surface with native
 /// controls, metadata, and the related list.
 ///
@@ -162,8 +160,6 @@ struct YouTubeWatchView: View {
         return YouTubeAskPlayerOffset.milliseconds(for: self.youtubePlayer.progress)
     }
 
-    // MARK: - Video Surface
-
     /// Whether this view currently presents the live playback surface.
     private var presentsLiveSurface: Bool {
         self.youtubePlayer.currentVideo?.videoId == self.video.videoId
@@ -275,8 +271,6 @@ struct YouTubeWatchView: View {
         )
     }
 
-    // MARK: - Metadata
-
     private var metadataSection: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(self.viewModel.data.videoTitle ?? self.video.title)
@@ -362,8 +356,6 @@ struct YouTubeWatchView: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscribeButton)
     }
 
-    // MARK: - Chapters
-
     private var chaptersSection: some View {
         YouTubeChaptersSection(
             chapters: self.viewModel.data.chapters,
@@ -409,8 +401,6 @@ struct YouTubeWatchView: View {
         return currentTime < self.viewModel.data.chapters[nextIndex].startTime
     }
 
-    // MARK: - Related Column
-
     private var relatedColumn: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Related", comment: "Related videos section header")
@@ -447,8 +437,6 @@ struct YouTubeWatchView: View {
             }
         }
     }
-
-    // MARK: - Comments
 
     private var commentsSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -563,8 +551,6 @@ struct YouTubeWatchView: View {
     }
 }
 
-// MARK: - CommentThread
-
 /// A comment with its action row (like/dislike, replies) and, when
 /// expanded, its indented reply thread.
 private struct CommentThread: View {
@@ -647,8 +633,6 @@ private struct CommentThread: View {
         }
     }
 }
-
-// MARK: - CommentRow
 
 /// One comment: avatar, author + time, text, and working like/dislike.
 /// The author (avatar/name) navigates to their channel.
@@ -754,8 +738,6 @@ private struct CommentRow: View {
     }
 }
 
-// MARK: - YouTubeChaptersSection
-
 /// Watch-page chapters. The carousel hugs the cards, and the header collapses it.
 struct YouTubeChaptersSection: View {
     let chapters: [YouTubeChapter]
@@ -834,8 +816,6 @@ struct YouTubeChaptersSection: View {
     }
 }
 
-// MARK: - ChapterCard
-
 private struct ChapterCard: View {
     let chapter: YouTubeChapter
     let isActive: Bool
@@ -896,8 +876,6 @@ private struct ChapterCard: View {
     }
 }
 
-// MARK: - RelatedVideoRow
-
 /// Compact related-rail row sized for the right column.
 private struct RelatedVideoRow: View {
     let video: YouTubeVideo
@@ -935,8 +913,6 @@ private struct RelatedVideoRow: View {
         .accessibilityElement(children: .combine)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let watchSurface = "youtubeContent.watchSurface"

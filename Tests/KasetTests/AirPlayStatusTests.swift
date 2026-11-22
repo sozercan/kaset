@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - AirPlayStatusTests
-
 @Suite("AirPlay connection reporting", .tags(.service))
 @MainActor
 struct AirPlayStatusTests {

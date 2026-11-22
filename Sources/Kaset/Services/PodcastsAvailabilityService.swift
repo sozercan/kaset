@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - PodcastsAvailabilityService
-
 /// Tracks whether the YouTube Music Podcasts discovery surface is
 /// available for the current session. YouTube does not offer the surface
 /// in every region, and `FEmusic_podcasts` returns HTTP 404 in those
@@ -32,8 +30,6 @@ final class PodcastsAvailabilityService {
 
     init() {}
 
-    // MARK: - Account scope
-
     /// Records the currently-active account without changing the visible
     /// availability state. This invalidates in-flight probes from the
     /// previous account so a late completion cannot mutate the new
@@ -45,8 +41,6 @@ final class PodcastsAvailabilityService {
         self.accountScope = scope
         self.generation += 1
     }
-
-    // MARK: - Probing
 
     /// Calls `client.getPodcasts()` and updates `availability` based on
     /// the result. Used by the background launch probe and by the account
@@ -100,8 +94,6 @@ final class PodcastsAvailabilityService {
         }
     }
 
-    // MARK: - Lazy signals (from PodcastsViewModel)
-
     /// Marks podcasts as unavailable based on a user-initiated load
     /// that hit 404 or returned an empty payload. The signal is applied
     /// only when it still belongs to the active account.
@@ -120,8 +112,6 @@ final class PodcastsAvailabilityService {
         self.generation += 1
         self.availability = .available
     }
-
-    // MARK: - Lifecycle
 
     /// Resets state so the next sign-in re-probes. Called on logout.
     func reset() {

@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - SyncedLyricsBridgeScriptTests
-
 @Suite(.serialized, .tags(.service))
 struct SyncedLyricsBridgeScriptTests {
     @Test("Synced lyrics display bucket follows current line")
@@ -313,8 +311,6 @@ struct SyncedLyricsBridgeScriptTests {
         }
     }
 }
-
-// MARK: - TestScriptError
 
 private enum TestScriptError: Error {
     case javaScriptException(String)

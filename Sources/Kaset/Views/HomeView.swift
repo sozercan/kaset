@@ -52,8 +52,6 @@ struct HomeView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .home)
     }
 
-    // MARK: - Views
-
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
@@ -133,8 +131,6 @@ struct HomeView: View {
         )
     }
 
-    // MARK: - Context Menu
-
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,
               SongActionsHelper.canQuickPlayPlaylist(playlist)
@@ -160,8 +156,6 @@ struct HomeView: View {
         )
     }
 
-    // MARK: - Image Prefetching
-
     private static let thumbnailDisplaySize = CGSize(width: 160, height: 160)
 
     private func prefetchImagesAsync(for section: HomeSection) async {
@@ -177,8 +171,6 @@ struct HomeView: View {
             maxConcurrent: 2
         )
     }
-
-    // MARK: - Actions
 
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {

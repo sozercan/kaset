@@ -1,8 +1,6 @@
 import Foundation
 import FoundationModels
 
-// MARK: - CommandBarParseResult
-
 /// Stage-1 command-bar parse result.
 ///
 /// This is intentionally narrower than `MusicIntent`: it is only responsible for
@@ -121,8 +119,6 @@ struct CommandBarParseResult: Equatable {
         }
     }
 }
-
-// MARK: - CommandBarAction
 
 @available(macOS 26.0, *)
 @Generable

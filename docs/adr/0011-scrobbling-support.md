@@ -30,6 +30,8 @@ Implement scrobbling with three layers:
 A lightweight Cloudflare Worker proxies all Last.fm API calls:
 - The app sends unsigned JSON requests to the Worker
 - The Worker adds `api_key` and computes `api_sig` (MD5 of sorted params + shared secret)
+- The Worker requests JSON with `format=json` but excludes `format` from the signature, as required by the Last.fm signing protocol.
+- Batch scrobbles use Last.fm's indexed parameter names (for example, `artist[0]`) and include at most 50 tracks.
 - The Worker forwards signed requests to `ws.audioscrobbler.com/2.0/`
 - API key and shared secret live **only** in the Worker's environment variables — never in the app binary
 
@@ -68,3 +70,7 @@ Session keys are stored in macOS Keychain using the Security framework (`kSecCla
 ### Neutral
 - Queue file size is negligible (each scrobble entry is ~200 bytes; 1000 pending scrobbles < 200KB)
 - Scrobbles older than 14 days are automatically pruned (Last.fm rejects them anyway)
+
+## References
+
+- [Last.fm API signing protocol](https://www.last.fm/api/authspec#_8-signing-calls)

@@ -3,8 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - LoginPasskeySuppressionTests
-
 /// Tests for LoginPasskeySuppression.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -70,8 +68,6 @@ struct LoginPasskeySuppressionTests {
         #expect(errorDescription == "NotAllowedError: Passkeys are not available in this app.")
     }
 
-    // MARK: - Helpers
-
     private static func makeSuppressedWebView() -> WKWebView {
         let manager = WebKitManager.makeTestInstance()
         let configuration = manager.createSessionSwitchWebViewConfiguration()
@@ -89,8 +85,6 @@ struct LoginPasskeySuppressionTests {
         )
     }
 }
-
-// MARK: - NavigationWaiter
 
 /// Awaits the completion of a single `loadHTMLString` navigation.
 ///

@@ -3,8 +3,6 @@ import Foundation
 
 /// Provides test fixtures for unit tests.
 enum TestFixtures {
-    // MARK: - Songs
-
     static func makeSong(
         id: String = "test-video-id",
         title: String = "Test Song",
@@ -34,8 +32,6 @@ enum TestFixtures {
         }
     }
 
-    // MARK: - Albums
-
     static func makeAlbum(
         id: String = "MPRE-test-album",
         title: String = "Test Album",
@@ -54,8 +50,6 @@ enum TestFixtures {
         )
     }
 
-    // MARK: - Artists
-
     static func makeArtist(
         id: String = "UC123",
         name: String = "Test Artist",
@@ -68,8 +62,6 @@ enum TestFixtures {
             profileKind: profileKind
         )
     }
-
-    // MARK: - Playlists
 
     static func makePlaylist(
         id: String = "VL-test-playlist",
@@ -101,8 +93,6 @@ enum TestFixtures {
             libraryTargetId: libraryTargetId
         )
     }
-
-    // MARK: - Artist Details
 
     static func makeArtistDetail(
         artist: Artist? = nil,
@@ -154,8 +144,6 @@ enum TestFixtures {
         )
     }
 
-    // MARK: - Home Sections
-
     static func makeHomeSection(
         id: String = UUID().uuidString,
         title: String = "Test Section",
@@ -181,8 +169,6 @@ enum TestFixtures {
         )
     }
 
-    // MARK: - Search Response
-
     static func makeSearchResponse(
         songCount: Int = 5,
         albumCount: Int = 2,
@@ -202,8 +188,6 @@ enum TestFixtures {
             }
         )
     }
-
-    // MARK: - Podcasts
 
     static func makePodcastShow(
         id: String = "MPSPPLXz2p9test123",

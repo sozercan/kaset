@@ -3,8 +3,6 @@ import XCTest
 /// UI tests for the LikedMusicView.
 @MainActor
 final class LikedMusicViewUITests: KasetUITestCase {
-    // MARK: - Basic Display
-
     func testLikedMusicViewDisplaysTitle() {
         launchDefault()
 
@@ -24,8 +22,6 @@ final class LikedMusicViewUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(title, timeout: 10))
     }
 
-    // MARK: - Navigation
-
     func testLikedMusicNavigationFromSidebar() {
         launchDefault()
 
@@ -34,8 +30,6 @@ final class LikedMusicViewUITests: KasetUITestCase {
         let title = app.staticTexts["Liked Music"]
         XCTAssertTrue(waitForElement(title))
     }
-
-    // MARK: - Player Bar Integration
 
     func testLikedMusicViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)

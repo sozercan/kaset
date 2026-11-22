@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YouTubePlaylist
-
 /// A regular YouTube playlist as it appears in search results and library lists.
 struct YouTubePlaylist: Identifiable, Hashable {
     let playlistId: String
@@ -33,8 +31,6 @@ struct YouTubePlaylist: Identifiable, Hashable {
         self.firstVideoId = firstVideoId
     }
 }
-
-// MARK: - YouTubePlaylistDetail
 
 /// A playlist page: metadata plus its videos.
 struct YouTubePlaylistDetail: Hashable {

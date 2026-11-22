@@ -1,8 +1,6 @@
 import Foundation
 import Security
 
-// MARK: - KeychainCredentialStore
-
 /// Thin Keychain wrapper for storing scrobbling service credentials.
 /// Uses `kSecClassGenericPassword` with `kSecAttrAccessibleAfterFirstUnlock`.
 @MainActor
@@ -14,8 +12,6 @@ final class KeychainCredentialStore {
     init(servicePrefix: String = "com.sertacozercan.Kaset") {
         self.servicePrefix = servicePrefix
     }
-
-    // MARK: - Public API
 
     /// Saves the Last.fm session key to Keychain.
     func saveLastFMSessionKey(_ sessionKey: String) throws {
@@ -42,8 +38,6 @@ final class KeychainCredentialStore {
         self.delete(key: "lastFMSessionKey")
         self.delete(key: "lastFMUsername")
     }
-
-    // MARK: - Private Helpers
 
     private func save(key: String, value: String) throws {
         guard let data = value.data(using: .utf8) else {
@@ -117,8 +111,6 @@ final class KeychainCredentialStore {
         SecItemDelete(query as CFDictionary)
     }
 }
-
-// MARK: - KeychainError
 
 /// Errors that can occur during Keychain operations.
 enum KeychainError: Error, LocalizedError {

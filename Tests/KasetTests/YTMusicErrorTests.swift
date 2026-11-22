@@ -5,8 +5,6 @@ import Testing
 /// Extended tests for YTMusicError.
 @Suite(.tags(.model))
 struct YTMusicErrorTests {
-    // MARK: - Error Description Tests
-
     @Test("authExpired has correct description")
     func authExpiredDescription() {
         let error = YTMusicError.authExpired
@@ -56,8 +54,6 @@ struct YTMusicErrorTests {
         #expect(error.errorDescription == "An unexpected error occurred")
     }
 
-    // MARK: - Recovery Suggestion Tests
-
     @Test("authExpired suggests signing in")
     func authExpiredRecoverySuggestion() {
         let error = YTMusicError.authExpired
@@ -100,8 +96,6 @@ struct YTMusicErrorTests {
         #expect(error.recoverySuggestion == "Try again later.")
     }
 
-    // MARK: - Requires Reauth Tests
-
     @Test(
         "Auth errors require reauth",
         arguments: [
@@ -138,8 +132,6 @@ struct YTMusicErrorTests {
     func unknownErrorDoesNotRequireReauth() {
         #expect(!YTMusicError.unknown(message: "Error").requiresReauth)
     }
-
-    // MARK: - Debug Description Tests
 
     @Test("networkError debug description contains error type")
     func networkErrorDebugDescription() {

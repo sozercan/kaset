@@ -1,5 +1,3 @@
-// MARK: - Playback Audio Quality Scripts
-
 extension SingletonPlayerWebView {
     static func playbackAudioQualityBootstrapScript(
         quality: SettingsManager.PlaybackAudioQuality

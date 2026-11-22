@@ -16,8 +16,6 @@ struct PlayerServiceTests {
         self.playerService = PlayerService()
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle")
     func initialState() {
         #expect(self.playerService.state == .idle)
@@ -32,8 +30,6 @@ struct PlayerServiceTests {
     func isPlayingProperty() {
         #expect(self.playerService.isPlaying == false)
     }
-
-    // MARK: - PlaybackState Tests
 
     @Test("PlaybackState equality")
     func playbackStateEquatable() {
@@ -67,8 +63,6 @@ struct PlayerServiceTests {
     func playbackStateIsPlaying(state: PlayerService.PlaybackState, expected: Bool) {
         #expect(state.isPlaying == expected)
     }
-
-    // MARK: - Queue Tests
 
     @Test("Queue initially empty")
     func queueInitiallyEmpty() {
@@ -142,8 +136,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.showMiniPlayer == false)
     }
 
-    // MARK: - Shuffle and Repeat Mode Tests
-
     @Test("Toggle shuffle")
     func toggleShuffle() {
         #expect(self.playerService.shuffleEnabled == false)
@@ -169,8 +161,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.repeatMode == .off)
     }
 
-    // MARK: - Volume Tests
-
     @Test("Is muted initially false")
     func isMuted() {
         #expect(self.playerService.isMuted == false)
@@ -193,8 +183,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.volume == 0.7)
         #expect(UserDefaults.standard.double(forKey: "playerVolume") == 0.7)
     }
-
-    // MARK: - Queue Tests
 
     @Test("Play queue sets queue")
     func playQueueSetsQueue() async {
@@ -287,8 +275,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.currentMusicPlaybackOccurrence == occurrence)
     }
 
-    // MARK: - User Interaction Tests
-
     @Test("hasUserInteractedThisSession initially false")
     func hasUserInteractedThisSessionInitiallyFalse() {
         #expect(self.playerService.hasUserInteractedThisSession == false)
@@ -313,14 +299,10 @@ struct PlayerServiceTests {
         #expect(self.playerService.state == .playing)
     }
 
-    // MARK: - Pending Play Video Tests
-
     @Test("pendingPlayVideoId initially nil")
     func pendingPlayVideoIdInitiallyNil() {
         #expect(self.playerService.pendingPlayVideoId == nil)
     }
-
-    // MARK: - Mini Player State Tests
 
     @Test("Mini player initially hidden")
     func miniPlayerInitiallyHidden() {
@@ -429,8 +411,6 @@ struct PlayerServiceTests {
         #expect(UserDefaults.standard.bool(forKey: SettingsManager.Keys.keepMiniPlayerOnTop) == false)
     }
 
-    // MARK: - Queue/Lyrics Mutual Exclusivity Tests
-
     @Test("showQueue initially false")
     func showQueueInitiallyFalse() {
         #expect(self.playerService.showQueue == false)
@@ -473,8 +453,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.showLyrics == false)
     }
 
-    // MARK: - Clear Queue Tests
-
     @Test("Clear queue with no current track")
     func clearQueueWithNoCurrentTrack() {
         self.playerService.clearQueue()
@@ -499,8 +477,6 @@ struct PlayerServiceTests {
         #expect(self.playerService.queue.first?.videoId == "v2")
         #expect(self.playerService.currentIndex == 0)
     }
-
-    // MARK: - Full Screen Player Tests
 
     @Test("Full screen player starts hidden")
     func fullScreenPlayerStartsHidden() {

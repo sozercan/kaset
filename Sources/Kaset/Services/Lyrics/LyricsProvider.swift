@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LyricsSearchInfo
-
 /// Information needed to search for lyrics.
 struct LyricsSearchInfo {
     let title: String
@@ -10,8 +8,6 @@ struct LyricsSearchInfo {
     let duration: TimeInterval? // seconds
     let videoId: String
 }
-
-// MARK: - LyricsProvider
 
 /// Protocol all lyrics providers conform to.
 protocol LyricsProvider: Sendable {

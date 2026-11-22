@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeSearchViewModelTests
-
 @Suite("YouTubeSearchViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeSearchViewModelTests {

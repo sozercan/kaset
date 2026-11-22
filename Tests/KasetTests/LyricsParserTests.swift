@@ -5,8 +5,6 @@ import Testing
 /// Tests for LyricsParser.
 @Suite(.tags(.parser))
 struct LyricsParserTests {
-    // MARK: - Extract Lyrics Browse ID Tests
-
     @Test("extractLyricsBrowseId returns nil for empty data")
     func extractBrowseIdEmptyData() {
         let data: [String: Any] = [:]
@@ -70,8 +68,6 @@ struct LyricsParserTests {
         #expect(result.lines[0].timeInMs == 1234)
         #expect(result.lines[0].duration == 567)
     }
-
-    // MARK: - Parse Lyrics Tests
 
     @Test("parse returns unavailable for empty data")
     func parseEmptyData() {
@@ -156,8 +152,6 @@ struct LyricsParserTests {
 
         #expect(result == .unavailable)
     }
-
-    // MARK: - Test Helpers
 
     /// Creates a mock "next" endpoint response with tabs.
     private static func makeNextResponse(tabs: [[String: Any]]) -> [String: Any] {

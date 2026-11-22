@@ -59,8 +59,6 @@ struct AppIntentsBridgeTests {
         SingletonPlayerWebView.shared.currentVideoId = nil
     }
 
-    // MARK: - Readiness
-
     @Test("Not ready before configuration, startup, or while auth initializes")
     func readinessGate() {
         #expect(!AppIntentsBridge().isReady)
@@ -95,8 +93,6 @@ struct AppIntentsBridgeTests {
         let bridge = self.makeBridge(startupComplete: false)
         #expect(await !bridge.waitUntilReady())
     }
-
-    // MARK: - Transport
 
     @Test("Transport commands report nothing playing before startup completes")
     func transportBeforeStartup() {
@@ -145,8 +141,6 @@ struct AppIntentsBridgeTests {
         restored.pendingPlayVideoId = "restored"
         #expect(NowPlayingManager.hasTransportTarget(player: restored, routesToYouTubeVideo: false))
     }
-
-    // MARK: - Rating
 
     @Test("Rating without a current track reports nothing playing")
     func ratingWithoutTrack() async {
@@ -232,8 +226,6 @@ struct AppIntentsBridgeTests {
         #expect(client.rateSongRatings == [.like, .like])
         #expect(player.currentTrackLikeStatus == .indifferent)
     }
-
-    // MARK: - Playback
 
     @Test("The best song is the first playable result")
     func bestSongSkipsUnplayable() {
@@ -441,8 +433,6 @@ struct AppIntentsBridgeTests {
         client.getSongErrors = [URLError(.notConnectedToInternet)]
         #expect(await bridge.song(videoId: "offline") == nil)
     }
-
-    // MARK: - Library
 
     @Test("Library changes are published once per distinct snapshot")
     func libraryPublishesChanges() {

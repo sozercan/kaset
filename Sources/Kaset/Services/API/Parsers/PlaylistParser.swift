@@ -264,8 +264,6 @@ enum PlaylistParser {
         contents.compactMap { self.parseTrackItem($0, fallbackThumbnailURL: nil) }
     }
 
-    // MARK: - Continuation Token Extraction
-
     /// Extracts continuation token from playlist browse response (handles multiple renderer types).
     private static func extractPlaylistContinuationToken(from data: [String: Any]) -> String? {
         guard let contents = data["contents"] as? [String: Any] else {
@@ -504,8 +502,6 @@ enum PlaylistParser {
 
         return nil
     }
-
-    // MARK: - Header Parsing
 
     private static func parsePlaylistHeader(_ data: [String: Any]) -> HeaderData {
         var header = HeaderData()
@@ -843,8 +839,6 @@ enum PlaylistParser {
         return amount.allSatisfy(\.isNumber)
     }
 
-    // MARK: - Track Parsing
-
     private static func parsePlaylistTracks(_ data: [String: Any], fallbackThumbnailURL: URL?) -> [Song] {
         var tracks: [Song] = []
 
@@ -1039,8 +1033,6 @@ enum PlaylistParser {
         return tracks
     }
 
-    // MARK: - Helper Parsers
-
     private static func parsePlaylistFromTwoRowRenderer(_ data: [String: Any]) -> Playlist? {
         guard let navigationEndpoint = data["navigationEndpoint"] as? [String: Any],
               let browseEndpoint = navigationEndpoint["browseEndpoint"] as? [String: Any],
@@ -1085,8 +1077,6 @@ enum PlaylistParser {
             canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
     }
-
-    // MARK: - Add to Playlist Parsing
 
     /// Parses the response from `playlist/get_add_to_playlist`.
     static func parseAddToPlaylistMenu(_ data: [String: Any]) -> AddToPlaylistMenu {

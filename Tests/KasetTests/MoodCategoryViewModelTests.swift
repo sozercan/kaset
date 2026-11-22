@@ -18,8 +18,6 @@ struct MoodCategoryViewModelTests {
         self.viewModel = MoodCategoryViewModel(category: category, client: self.mockClient)
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle")
     func initialStateIsIdle() {
         #expect(self.viewModel.loadingState == .idle)
@@ -32,8 +30,6 @@ struct MoodCategoryViewModelTests {
         #expect(self.viewModel.category.browseId == "FEmusic_moods_and_genres_category")
         #expect(self.viewModel.category.params == "chill-params")
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets sections and loaded state")
     func loadSuccessSetsData() async {
@@ -107,8 +103,6 @@ struct MoodCategoryViewModelTests {
         #expect(self.viewModel.sections.count == 1)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears sections and reloads")
     func refreshClearsAndReloads() async {
         // Initial load
@@ -130,8 +124,6 @@ struct MoodCategoryViewModelTests {
         #expect(self.viewModel.sections.count == 2)
         #expect(self.viewModel.sections[0].title == "Refreshed 1")
     }
-
-    // MARK: - Client Exposure Tests
 
     @Test("Client is exposed for navigation")
     func clientIsExposed() {

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Playlist
-
 /// Represents a playlist from YouTube Music.
 struct Playlist: Identifiable, Codable, Hashable {
     static let uploadedSongsBrowseID = "FEmusic_library_privately_owned_tracks"
@@ -162,16 +160,12 @@ extension Playlist {
     }
 }
 
-// MARK: - AddToPlaylistMenu
-
 /// Menu data returned by YouTube Music for adding a song to playlists.
 struct AddToPlaylistMenu: Codable, Hashable {
     let title: String?
     let options: [AddToPlaylistOption]
     let canCreatePlaylist: Bool
 }
-
-// MARK: - AddToPlaylistOption
 
 /// A playlist option in the add-to-playlist menu.
 struct AddToPlaylistOption: Identifiable, Codable, Hashable {
@@ -187,16 +181,12 @@ struct AddToPlaylistOption: Identifiable, Codable, Hashable {
     }
 }
 
-// MARK: - PlaylistPrivacyStatus
-
 /// YouTube playlist privacy values used when creating/editing playlists.
 enum PlaylistPrivacyStatus: String, Codable, Hashable, CaseIterable {
     case `public` = "PUBLIC"
     case unlisted = "UNLISTED"
     case `private` = "PRIVATE"
 }
-
-// MARK: - PlaylistDetail
 
 /// Detailed playlist information including tracks.
 struct PlaylistDetail: Identifiable {
@@ -261,8 +251,6 @@ struct PlaylistDetail: Identifiable {
     }
 }
 
-// MARK: - LikedSongsResponse
-
 /// Response from the liked songs API, including pagination support.
 struct LikedSongsResponse {
     /// The liked songs returned in this response.
@@ -277,8 +265,6 @@ struct LikedSongsResponse {
     }
 }
 
-// MARK: - PlaylistTracksResponse
-
 /// Response from the playlist tracks API, including pagination support.
 struct PlaylistTracksResponse {
     /// The playlist detail with header info and initial tracks.
@@ -292,8 +278,6 @@ struct PlaylistTracksResponse {
         self.continuationToken != nil
     }
 }
-
-// MARK: - PlaylistContinuationResponse
 
 /// Response from a playlist continuation request.
 struct PlaylistContinuationResponse {

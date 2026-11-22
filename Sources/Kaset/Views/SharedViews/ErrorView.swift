@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - ErrorView
-
 /// Reusable error view with title, message, and optional retry action.
 /// Uses native `ContentUnavailableView` for platform-consistent styling.
 @available(macOS 14.0, *)

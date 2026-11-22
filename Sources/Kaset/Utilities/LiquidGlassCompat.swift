@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - CompatGlassTransition
-
 // Liquid Glass compatibility shims so the app can build and run on macOS 15
 // (Sequoia) while preserving the Liquid Glass look on macOS 26+ (Tahoe).
 //
@@ -45,8 +43,6 @@ extension View {
     }
 }
 
-// MARK: - CompatGlassModifier
-
 private struct CompatGlassModifier<S: Shape>: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -82,8 +78,6 @@ private struct CompatGlassModifier<S: Shape>: ViewModifier {
     }
 }
 
-// MARK: - CompatGlassIDModifier
-
 private struct CompatGlassIDModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -98,8 +92,6 @@ private struct CompatGlassIDModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - CompatGlassTransitionModifier
 
 private struct CompatGlassTransitionModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -118,8 +110,6 @@ private struct CompatGlassTransitionModifier: ViewModifier {
     }
 }
 
-// MARK: - CompatGlassProminentButtonModifier
-
 private struct CompatGlassProminentButtonModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
 
@@ -131,8 +121,6 @@ private struct CompatGlassProminentButtonModifier: ViewModifier {
         }
     }
 }
-
-// MARK: - CompatGlassContainer
 
 struct CompatGlassContainer<Content: View>: View {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI
@@ -148,8 +136,6 @@ struct CompatGlassContainer<Content: View>: View {
         }
     }
 }
-
-// MARK: - CompatTranslucentSidebarModifier
 
 private struct CompatTranslucentSidebarModifier: ViewModifier {
     @Environment(\.usesLegacyMacOS15UI) private var usesLegacyMacOS15UI

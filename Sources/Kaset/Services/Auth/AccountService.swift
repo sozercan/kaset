@@ -59,8 +59,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
         var provisionalKind: ProvisionalKind?
     }
 
-    // MARK: - Dependencies
-
     private let ytMusicClient: any YTMusicClientProtocol
     private let authService: AuthService
     private let favoritesOwnerDefaults: UserDefaults?
@@ -73,8 +71,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// lightweight constructions can omit it; when nil, switching falls back to
     /// local-state-only (history will not record to brand accounts).
     private let webKitManager: (any WebKitManagerProtocol)?
-
-    // MARK: - Published State
 
     /// All available accounts (primary + brand accounts).
     private(set) var accounts: [UserAccount] = []
@@ -112,8 +108,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
     /// Incremented each time an error occurs, to trigger toast re-display.
     private(set) var errorSequence: Int = 0
 
-    // MARK: - Computed Properties
-
     /// Returns `true` if the user has multiple accounts (brand accounts available).
     var hasBrandAccounts: Bool {
         self.accounts.count > 1
@@ -146,8 +140,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
         self.accountBoundaryDidEnd = didEnd
         self.accountBoundaryDrain = drain
     }
-
-    // MARK: - Private
 
     private let logger = DiagnosticsLogger.auth
     private let selectedBrandIdKey = "selectedBrandId"
@@ -631,8 +623,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
         try await navigation.value
     }
 
-    // MARK: - Initialization
-
     /// Creates an AccountService with the required dependencies.
     ///
     /// - Parameters:
@@ -658,8 +648,6 @@ final class AccountService { // swiftlint:disable:this type_body_length
             await self?.prepareForSignOut()
         }
     }
-
-    // MARK: - Public Methods
 
     /// Fetches the list of available accounts from the API.
     ///

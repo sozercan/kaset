@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - YouTubeSearchViewModel
-
 /// View model for YouTube search.
 @MainActor
 @Observable
@@ -281,21 +279,15 @@ final class YouTubeSearchViewModel {
     }
 }
 
-// MARK: - SearchContext
-
 private struct SearchContext: Equatable {
     let query: String
     let filter: YouTubeSearchFilter
 }
 
-// MARK: - SearchRequest
-
 private struct SearchRequest: Equatable {
     let context: SearchContext
     let generation: Int
 }
-
-// MARK: - PaginationRequest
 
 private struct PaginationRequest: Equatable {
     let context: SearchContext
@@ -303,15 +295,11 @@ private struct PaginationRequest: Equatable {
     let continuation: String
 }
 
-// MARK: - StartedSearch
-
 private struct StartedSearch {
     let task: Task<Void, Never>
     let request: SearchRequest
     let didCreate: Bool
 }
-
-// MARK: - StartedPagination
 
 private struct StartedPagination {
     let task: Task<Void, Never>

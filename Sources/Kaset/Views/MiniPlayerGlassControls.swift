@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - MiniPlayerGlassIconLabel
-
 struct MiniPlayerGlassIconLabel: View {
     let systemName: String
     let isActive: Bool

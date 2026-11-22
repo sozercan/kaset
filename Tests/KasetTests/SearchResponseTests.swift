@@ -5,8 +5,6 @@ import Testing
 /// Tests for SearchResponse and SearchResultItem.
 @Suite(.tags(.model))
 struct SearchResponseTests {
-    // MARK: - SearchResultItem ID Tests
-
     @Test(
         "Result item ID prefix",
         arguments: [
@@ -62,8 +60,6 @@ struct SearchResponseTests {
         )
     }
 
-    // MARK: - SearchResultItem Title Tests
-
     @Test("Song result item title")
     func songResultItemTitle() {
         let song = Song(id: "1", title: "My Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -91,8 +87,6 @@ struct SearchResponseTests {
         let item = SearchResultItem.playlist(playlist)
         #expect(item.title == "My Playlist")
     }
-
-    // MARK: - SearchResultItem Subtitle Tests
 
     @Test("Song result item subtitle joins artists")
     func songResultItemSubtitle() {
@@ -124,8 +118,6 @@ struct SearchResponseTests {
         let item = SearchResultItem.playlist(playlist)
         #expect(item.subtitle == "Playlist Author")
     }
-
-    // MARK: - SearchResultItem ThumbnailURL Tests
 
     @Test("Song result item thumbnail URL")
     func songResultItemThumbnailURL() {
@@ -159,8 +151,6 @@ struct SearchResponseTests {
         #expect(item.thumbnailURL == url)
     }
 
-    // MARK: - SearchResultItem ResultType Tests
-
     @Test("Result item result type")
     func resultItemResultType() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
@@ -175,8 +165,6 @@ struct SearchResponseTests {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
         #expect(SearchResultItem.playlist(playlist).resultType == "Playlist")
     }
-
-    // MARK: - SearchResultItem VideoId Tests
 
     @Test("Song result item has video ID")
     func songResultItemVideoId() {
@@ -236,8 +224,6 @@ struct SearchResponseTests {
         #expect(episodeItem.songPayload == episode.playbackSong)
         #expect(episodeItem.subtitle == "Jul 19, 2026 • Show")
     }
-
-    // MARK: - SearchResponse Tests
 
     @Test("Audiobook results preserve semantic type and album-compatible metadata")
     func audiobookResultMetadata() {

@@ -89,8 +89,6 @@ struct LocalizationCatalogParityTests {
         )
     }
 
-    // MARK: - Helpers
-
     /// `Sources/Kaset/Resources`, resolved from this file rather than a bundle:
     /// the catalog is deliberately excluded from the target's resources.
     static var resourcesDirectory: URL {

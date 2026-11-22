@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SingletonPlayerWebView Media Controls
-
 extension SingletonPlayerWebView {
     /// Updates the current page and the bootstrap state used by future page loads.
     func setMediaControlStyle(useNextPrev: Bool) {
@@ -201,8 +199,6 @@ extension SingletonPlayerWebView {
         })();
         """
     }
-
-    // MARK: - Playback Audio Quality
 
     /// Updates the current page and the bootstrap state used by future page loads.
     func setPlaybackAudioQuality(_ quality: SettingsManager.PlaybackAudioQuality) {

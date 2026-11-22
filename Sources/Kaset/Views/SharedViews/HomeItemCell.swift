@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - HomeItemCell
-
 /// Native card as a single layer-backed view with no backing store of its
 /// own. Everything static — title, subtitle, explicit badge, chart rank, like
 /// button — is a cached bitmap on a sublayer; the artwork and its hover lift
@@ -231,8 +229,6 @@ final class HomeItemCell: NSView {
         self.menuProvider?() ?? super.menu(for: event)
     }
 
-    // MARK: Configuration
-
     func configure(
         item: HomeSectionItem,
         rank: Int?,
@@ -326,8 +322,6 @@ final class HomeItemCell: NSView {
         self.activateAction?()
         return true
     }
-
-    // MARK: Keyboard
 
     /// Like AppKit's own buttons, cards join the key view loop only under Full
     /// Keyboard Access: with hundreds of cards alive, unconditional first-responder
@@ -460,8 +454,6 @@ final class HomeItemCell: NSView {
         return candidates.compactMap(\.self).filter { seen.insert($0).inserted }
     }
 
-    // MARK: Like status
-
     /// Like status is observed once per shelf (see `HomeItemShelfView`) and
     /// pushed here, rather than registering an observation per card.
     func setLiked(_ liked: Bool) {
@@ -481,8 +473,6 @@ final class HomeItemCell: NSView {
             SongActionsHelper.likeSong(song, likeStatusManager: manager)
         }
     }
-
-    // MARK: Hover
 
     func setHovered(_ hovered: Bool, animated: Bool) {
         guard hovered != self.isHovered || !animated else { return }
@@ -517,8 +507,6 @@ final class HomeItemCell: NSView {
             self.playOverlay = overlay
         }
     }
-
-    // MARK: Drawing
 
     private static let titleFont = NSFont.systemFont(ofSize: 13, weight: .medium)
     private static let subtitleFont = NSFont.systemFont(ofSize: 11)
@@ -662,8 +650,6 @@ final class HomeItemCell: NSView {
     }
 }
 
-// MARK: - HomeItemArtworkLayers
-
 /// Artwork layer stack: a lift layer (scale + shadow on hover) containing a
 /// rounded, clipping content layer with the placeholder gradient, the
 /// placeholder icon, and the decoded bitmap (aspect fill for square artwork,
@@ -792,8 +778,6 @@ private final class HomeItemArtworkLayers {
         CATransaction.commit()
     }
 
-    // MARK: Placeholder
-
     private static func placeholderSymbol(for item: HomeSectionItem) -> String {
         switch item {
         case .song: item.isVideoSong ? "play.rectangle" : "music.note"
@@ -844,8 +828,6 @@ private final class HomeItemArtworkLayers {
         return tinted
     }
 }
-
-// MARK: - HomeItemLayerImage
 
 @MainActor
 private enum HomeItemLayerImage {

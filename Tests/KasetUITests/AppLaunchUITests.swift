@@ -3,8 +3,6 @@ import XCTest
 /// UI tests that verify the app launches correctly.
 @MainActor
 final class AppLaunchUITests: KasetUITestCase {
-    // MARK: - App Launch
-
     func testAppLaunchesSuccessfully() {
         launchDefault()
 
@@ -35,8 +33,6 @@ final class AppLaunchUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(homeTitle, timeout: 10), "Home should be the default view")
     }
 
-    // MARK: - Window Properties
-
     func testWindowHasMinimumSize() {
         launchDefault()
 
@@ -50,8 +46,6 @@ final class AppLaunchUITests: KasetUITestCase {
         XCTAssertGreaterThanOrEqual(window.height, 600, "Window height should be at least 600")
     }
 
-    // MARK: - UI Test Mode Verification
-
     func testAppRunsInUITestMode() {
         // This test verifies the app responds to UI test launch arguments
         app.launchArguments.append("-UITestMode")
@@ -62,8 +56,6 @@ final class AppLaunchUITests: KasetUITestCase {
         let sidebarItem = app.outlineRows.firstMatch
         XCTAssertTrue(waitForElement(sidebarItem, timeout: 10), "Should skip auth and show main content")
     }
-
-    // MARK: - Mock Data Loading
 
     func testAppAcceptsMockEnvironmentVariables() {
         // Configure mock home data
@@ -86,8 +78,6 @@ final class AppLaunchUITests: KasetUITestCase {
         let sidebar = app.outlineRows.firstMatch
         XCTAssertTrue(waitForElement(sidebar, timeout: 10))
     }
-
-    // MARK: - Keyboard Shortcuts
 
     func testKeyboardShortcutNavigation() {
         launchDefault()

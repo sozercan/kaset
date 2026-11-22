@@ -1,14 +1,10 @@
 import Foundation
 
-// MARK: - TimedWord
-
 /// A single timed word for karaoke mode.
 struct TimedWord: Equatable {
     let timeInMs: Int
     let word: String
 }
-
-// MARK: - SyncedLyricLine
 
 /// A single timed lyric line.
 struct SyncedLyricLine: Identifiable, Equatable {
@@ -24,8 +20,6 @@ struct SyncedLyricLine: Identifiable, Equatable {
     /// Romanized version of text (nil if already Latin or romanization disabled).
     var romanizedText: String?
 }
-
-// MARK: - SyncedLyrics
 
 /// Represents synced lyrics with per-line timestamps.
 struct SyncedLyrics: Equatable {
@@ -94,8 +88,6 @@ struct SyncedLyrics: Equatable {
         }
     }
 }
-
-// MARK: - LyricResult
 
 /// Unified lyrics result that can hold either synced or plain lyrics.
 enum LyricResult: Equatable {

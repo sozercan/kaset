@@ -2,8 +2,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - AirPlayNavigationTests
-
 @Suite("AirPlay navigation continuity", .serialized, .tags(.service))
 @MainActor
 struct AirPlayNavigationTests {
@@ -182,8 +180,6 @@ struct AirPlayNavigationTests {
         return singleton
     }
 }
-
-// MARK: - RecordingPlaybackWebView
 
 @MainActor
 private final class RecordingPlaybackWebView: WKWebView {

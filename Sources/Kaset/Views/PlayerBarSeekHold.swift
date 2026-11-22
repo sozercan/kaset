@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - PlayerBarSeekHold
-
 struct PlayerBarSeekHold: Equatable {
     private static let timeoutMilliseconds = 2200
 

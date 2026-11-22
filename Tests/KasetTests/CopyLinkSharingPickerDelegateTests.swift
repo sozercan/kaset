@@ -2,8 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-// MARK: - CopyLinkSharingPickerDelegateTests
-
 @Suite("Share picker Copy Link", .tags(.service))
 @MainActor
 struct CopyLinkSharingPickerDelegateTests {

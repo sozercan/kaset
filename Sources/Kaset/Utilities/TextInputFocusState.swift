@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - TextInputFocusState
-
 /// Tracks whether a text field is first responder so playback menu shortcuts defer to editing.
 @MainActor
 @Observable

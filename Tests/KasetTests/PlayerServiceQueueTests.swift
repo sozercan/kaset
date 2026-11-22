@@ -23,8 +23,6 @@ struct PlayerServiceQueueTests {
         self.playerService.setYTMusicClient(self.mockClient)
     }
 
-    // MARK: - Queue Reordering Tests
-
     @Test("Reorder queue moves song from source to destination")
     func reorderQueue() async {
         // Arrange
@@ -221,8 +219,6 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.currentTrack?.videoId == "video-3")
     }
 
-    // MARK: - Undo/Redo Tests
-
     @Test("Undo restores previous queue state")
     func undoQueue() async {
         // Arrange
@@ -344,8 +340,6 @@ struct PlayerServiceQueueTests {
         // Assert - Queue unchanged after 10 undos
         #expect(self.playerService.queue.count == queueAfter10Undos)
     }
-
-    // MARK: - Queue Persistence Tests
 
     @Test("Save and restore queue persists data correctly")
     func queuePersistence() async {
@@ -761,8 +755,6 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.state == .paused)
     }
 
-    // MARK: - Metadata Enrichment Tests
-
     @Test("Identify songs needing enrichment detects missing metadata")
     func identifySongsNeedingEnrichment() async {
         // Arrange - Create songs with incomplete metadata
@@ -951,8 +943,6 @@ struct PlayerServiceQueueTests {
         #expect(self.playerService.queue[0].title == "Loading...")
         #expect(self.mockClient.getSongCalled == true)
     }
-
-    // MARK: - Queue Display Mode Tests
 
     @Test("Toggle queue display mode switches between popup and side panel")
     func toggleQueueDisplayMode() {

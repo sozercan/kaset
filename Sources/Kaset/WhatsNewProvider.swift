@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - WhatsNewProvider
-
 /// Provides "What's New" entries from GitHub release notes, with a static fallback.
 enum WhatsNewProvider {
     /// GitHub repo for fetching release notes.
@@ -38,8 +36,6 @@ enum WhatsNewProvider {
             learnMoreURL: URL(string: "https://github.com/sozercan/kaset/releases")
         ),
     ]
-
-    // MARK: - Fetch from GitHub
 
     /// Fetches release notes pinned to the current app version from GitHub.
     /// Falls back only to a static entry for that exact version.
@@ -78,8 +74,6 @@ enum WhatsNewProvider {
 
         return self.fallbackCollection.first { $0.version == currentVersion }
     }
-
-    // MARK: - GitHub API
 
     private static func fetchFromGitHub(
         for version: WhatsNew.Version,

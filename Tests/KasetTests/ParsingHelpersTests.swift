@@ -5,8 +5,6 @@ import Testing
 /// Tests for the ParsingHelpers.
 @Suite(.tags(.parser))
 struct ParsingHelpersTests {
-    // MARK: - Chart Section Detection
-
     @Test(
         "Chart section detection returns true for chart titles",
         arguments: ["Top Charts", "Weekly Top 50", "Trending Now", "Daily Top 100"]
@@ -22,8 +20,6 @@ struct ParsingHelpersTests {
     func isChartSectionWithNonChart(title: String) {
         #expect(ParsingHelpers.isChartSection(title) == false)
     }
-
-    // MARK: - Explicit Badge Detection
 
     @Test("extractIsExplicit returns true for MUSIC_EXPLICIT_BADGE in badges array")
     func extractIsExplicitFromBadges() {
@@ -74,8 +70,6 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.extractIsExplicit(from: data) == false)
     }
 
-    // MARK: - URL Normalization
-
     @Test("Normalize URL adds https to protocol-relative URL")
     func normalizeURLWithProtocolRelative() {
         let result = ParsingHelpers.normalizeURL("//example.com/image.jpg")
@@ -87,8 +81,6 @@ struct ParsingHelpersTests {
         let result = ParsingHelpers.normalizeURL("https://example.com/image.jpg")
         #expect(result == "https://example.com/image.jpg")
     }
-
-    // MARK: - Playlist Occurrence ID Extraction
 
     @Test("Playlist occurrence ID prefers playlistItemData")
     func extractPlaylistSetVideoIdFromPlaylistItemData() {
@@ -147,8 +139,6 @@ struct ParsingHelpersTests {
         #expect(ParsingHelpers.extractPlaylistSetVideoId(from: data) == nil)
     }
 
-    // MARK: - Thumbnail Extraction
-
     @Test("Extract thumbnails from musicThumbnailRenderer")
     func extractThumbnailsFromMusicThumbnailRenderer() {
         let data: [String: Any] = [
@@ -177,8 +167,6 @@ struct ParsingHelpersTests {
         let thumbnails = ParsingHelpers.extractThumbnails(from: data)
         #expect(thumbnails.isEmpty)
     }
-
-    // MARK: - Title Extraction
 
     @Test("Extract title from standard title key")
     func extractTitle() {
@@ -214,8 +202,6 @@ struct ParsingHelpersTests {
         let title = ParsingHelpers.extractTitle(from: data)
         #expect(title == nil)
     }
-
-    // MARK: - Artist Extraction
 
     @Test("Extract artists from subtitle runs")
     func extractArtists() {
@@ -427,8 +413,6 @@ struct ParsingHelpersTests {
         #expect(artists.map(\.name) == ["Fixture Creator"])
     }
 
-    // MARK: - Video ID Extraction
-
     @Test("Extract video ID from playlistItemData")
     func extractVideoIdFromPlaylistItemData() {
         let data: [String: Any] = [
@@ -471,8 +455,6 @@ struct ParsingHelpersTests {
         #expect(videoId == "overlay123")
     }
 
-    // MARK: - Browse ID Extraction
-
     @Test("Extract browse ID from navigation endpoint")
     func extractBrowseId() {
         let data: [String: Any] = [
@@ -484,8 +466,6 @@ struct ParsingHelpersTests {
         let browseId = ParsingHelpers.extractBrowseId(from: data)
         #expect(browseId == "VLPL12345")
     }
-
-    // MARK: - Duration Parsing
 
     @Test(
         "Parse duration string to seconds",
@@ -518,8 +498,6 @@ struct ParsingHelpersTests {
         let duration = ParsingHelpers.extractDurationFromFlexColumns(self.makeAccessibilityOverlayRow(label: label))
         #expect(duration == expectedSeconds)
     }
-
-    // MARK: - Flex Column Extraction
 
     @Test("Extract title from flex columns")
     func extractTitleFromFlexColumns() {
@@ -604,8 +582,6 @@ struct ParsingHelpersTests {
         #expect(artists.first?.name == "Artist Name")
         #expect(artists.first?.id == "UC123")
     }
-
-    // MARK: - Duration from Flex Columns (Artist Page)
 
     @Test("Extract duration from combined flex column runs (artist top songs)")
     func extractDurationFromCombinedFlexRuns() {

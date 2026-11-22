@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - AnimationCache
-
 /// Tracks which items have already been animated to avoid re-triggering on view reappear.
 /// Uses a global set since @State resets when the view is recreated.
 @MainActor
@@ -30,8 +28,6 @@ private enum AnimationCache {
         self.animatedItems.removeAll()
     }
 }
-
-// MARK: - StaggeredAppearanceModifier
 
 /// A view modifier that animates content appearance with a staggered delay.
 /// Tracks already-animated items to avoid re-triggering animations on reappear.
@@ -93,8 +89,6 @@ extension View {
     }
 }
 
-// MARK: - FadeInModifier
-
 /// A view modifier for smooth fade-in transitions.
 struct FadeInModifier: ViewModifier {
     @State private var opacity: Double = 0
@@ -127,8 +121,6 @@ extension View {
         modifier(FadeInModifier(duration: duration, delay: delay))
     }
 }
-
-// MARK: - PulseModifier
 
 /// A view modifier that applies a pulsing scale animation.
 /// Uses TimelineView for smooth, stutter-free continuous animation.
@@ -173,8 +165,6 @@ extension View {
         modifier(PulseModifier(minScale: minScale, maxScale: maxScale, duration: duration))
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     VStack(spacing: 24) {

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarMetadataButton
-
 struct PlayerBarMetadataButton: View {
     let text: String
     let isEnabled: Bool
@@ -25,8 +23,6 @@ struct PlayerBarMetadataButton: View {
         }
     }
 }
-
-// MARK: - PlayerBarMetadataLinkLabel
 
 private struct PlayerBarMetadataLinkLabel: View {
     let text: String
@@ -61,8 +57,6 @@ private struct PlayerBarMetadataLinkLabel: View {
         }
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

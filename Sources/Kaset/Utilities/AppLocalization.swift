@@ -1,8 +1,6 @@
 import Foundation
 import SwiftUI
 
-// MARK: - AppLocalization
-
 enum AppLocalization {
     /// The base resource bundle discovered at launch.
     static let baseBundle = PackageResourceLookup.localizationBundle ?? Bundle.main
@@ -92,8 +90,6 @@ extension String {
     }
 }
 
-// MARK: - LocalizedNavigationTitleModifier
-
 /// Re-evaluates the navigation title when the app language changes.
 /// Uses `Bundle.localizedString(forKey:value:table:)` because `AppLocalization.bundle`
 /// may be a resolved `.lproj` sub-bundle, and this method reads strings from it directly.
@@ -112,8 +108,6 @@ extension View {
         self.modifier(LocalizedNavigationTitleModifier(key: key))
     }
 }
-
-// MARK: - Bundle Localization Override
 
 extension Bundle {
     /// Redirects SwiftUI views (`Text`, `Button`, `Label`, etc.) to use

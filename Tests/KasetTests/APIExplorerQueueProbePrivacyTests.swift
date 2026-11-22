@@ -84,8 +84,8 @@ struct APIExplorerQueueProbePrivacyTests {
         )
         let queueProbe = try Self.section(
             in: source,
-            startingWith: "// MARK: - QueueProbeSong",
-            endingBefore: "// MARK: - Commands"
+            startingWith: "private struct QueueProbeSong {",
+            endingBefore: "let authRequiredEndpoints = Set("
         )
         let outputWriter = try Self.section(
             in: source,

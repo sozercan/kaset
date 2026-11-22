@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarNavigationAction
-
 struct PlayerBarNavigationAction: @unchecked Sendable {
     var openArtist: ((Artist) -> Void)?
     var openAlbum: ((Playlist) -> Void)?
@@ -24,8 +22,6 @@ extension EnvironmentValues {
     @Entry var playerBarCurrentArtistID: String?
 }
 
-// MARK: - PlayerBarCurrentRoute
-
 /// Matches player bar link targets against the album or artist page hosting the player bar,
 /// so links to the page already on screen stay inert.
 enum PlayerBarCurrentRoute {
@@ -46,8 +42,6 @@ enum PlayerBarCurrentRoute {
     }
 }
 
-// MARK: - PlayerBarMusicNavigationModifier
-
 private struct PlayerBarMusicNavigationModifier: ViewModifier {
     @Binding var navigationPath: NavigationPath
 
@@ -66,8 +60,6 @@ extension View {
         self.modifier(PlayerBarMusicNavigationModifier(navigationPath: path))
     }
 }
-
-// MARK: - SidebarReselectNavigationModifier
 
 private struct SidebarReselectNavigationModifier: ViewModifier {
     @Binding var navigationPath: NavigationPath

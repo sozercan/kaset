@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchResponse
-
 /// Response from a YouTube Music search query.
 ///
 /// `items` is the canonical representation so mixed search preserves YouTube
@@ -131,8 +129,6 @@ struct SearchResponse {
         self.init(items: items, continuationToken: value)
     }
 }
-
-// MARK: - SearchResultItem
 
 /// A semantically typed YouTube Music search result.
 enum SearchResultItem: Identifiable, Hashable {

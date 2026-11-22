@@ -17,8 +17,6 @@ struct PlayerServiceMixTests {
         self.playerService.confirmPlaybackStarted()
     }
 
-    // MARK: - playWithMix Tests
-
     @Test("playWithMix does nothing without client")
     func playWithMixNoClient() async {
         let service = PlayerService()
@@ -37,8 +35,6 @@ struct PlayerServiceMixTests {
 
         #expect(self.playerService.queue.isEmpty)
     }
-
-    // MARK: - fetchMoreMixSongsIfNeeded Tests
 
     @Test("fetchMoreMixSongsIfNeeded does nothing without continuation token")
     func fetchMoreMixSongsNoToken() async {
@@ -118,8 +114,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.count == 20)
     }
 
-    // MARK: - Queue Management Tests
-
     @Test("clearQueue clears mixContinuationToken")
     func clearQueueClearsContinuationToken() async {
         self.playerService.mixContinuationToken = "some-token"
@@ -141,8 +135,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.mixContinuationToken == nil)
     }
 
-    // MARK: - playWithRadio Tests
-
     @Test("playWithRadio clears mixContinuationToken")
     func playWithRadioClearsContinuationToken() async {
         self.playerService.mixContinuationToken = "some-token"
@@ -163,8 +155,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.first?.videoId == "radio-seed")
         #expect(self.playerService.currentIndex == 0)
     }
-
-    // MARK: - insertNextInQueue Tests
 
     @Test("insertNextInQueue inserts songs after current track")
     func insertNextInQueue() async {
@@ -193,8 +183,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.count == 3)
     }
 
-    // MARK: - appendToQueue Tests
-
     @Test("appendToQueue adds songs to end")
     func appendToQueue() async {
         let queue = TestFixtures.makeSongs(count: 2)
@@ -221,8 +209,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue.count == 2)
     }
 
-    // MARK: - removeFromQueue Tests
-
     @Test("removeFromQueue removes songs by video ID")
     func removeFromQueue() async {
         let queue = TestFixtures.makeSongs(count: 5)
@@ -248,8 +234,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.currentTrack?.videoId == "video-2")
         #expect(self.playerService.currentIndex == 0)
     }
-
-    // MARK: - reorderQueue Tests
 
     @Test("reorderQueue changes order based on video IDs")
     func reorderQueue() async {
@@ -305,8 +289,6 @@ struct PlayerServiceMixTests {
         #expect(self.playerService.queue[2].videoId == "video-2")
         #expect(self.playerService.currentIndex == 0)
     }
-
-    // MARK: - shuffleQueue Tests
 
     @Test("shuffleQueue keeps current track at front")
     func shuffleQueueKeepsCurrentAtFront() async {

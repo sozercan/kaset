@@ -1,8 +1,6 @@
 import SwiftUI
 import WebKit
 
-// MARK: - YouTubeWatchSurfaceView
-
 /// Hosts the extracted YouTube video surface (the watch WebView) inside a
 /// native view. Used by both the inline WatchView and the floating window;
 /// whichever is on screen reparents the singleton WebView into itself.
@@ -35,8 +33,6 @@ struct YouTubeWatchSurfaceView: NSViewRepresentable {
     }
 }
 
-// MARK: - YouTubeWatchSurfaceAttachment
-
 @MainActor
 enum YouTubeWatchSurfaceAttachment {
     @discardableResult
@@ -55,8 +51,6 @@ enum YouTubeWatchSurfaceAttachment {
         return true
     }
 }
-
-// MARK: - YouTubeWatchContainerView
 
 /// Custom NSView that keeps the WebView sized with the container.
 final class YouTubeWatchContainerView: NSView {

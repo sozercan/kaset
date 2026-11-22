@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SmartShuffleFeatureGate
-
 @MainActor
 private final class SmartShuffleFeatureGate {
     var isEnabled: Bool
@@ -12,8 +10,6 @@ private final class SmartShuffleFeatureGate {
         self.isEnabled = isEnabled
     }
 }
-
-// MARK: - PlayerServiceSmartShuffleTests
 
 @Suite(.serialized, .tags(.service))
 @MainActor

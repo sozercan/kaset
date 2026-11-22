@@ -1,8 +1,6 @@
 import SwiftUI
 import WebKit
 
-// MARK: - VideoPlayerWindow
-
 /// Floating window for video playback.
 struct VideoPlayerWindow: View {
     @Environment(PlayerService.self) private var playerService
@@ -15,8 +13,6 @@ struct VideoPlayerWindow: View {
             .accessibilityIdentifier(AccessibilityID.VideoWindow.container)
     }
 }
-
-// MARK: - VideoWebViewContainer
 
 /// NSViewRepresentable container for the video WebView.
 struct VideoWebViewContainer: NSViewRepresentable {
@@ -58,8 +54,6 @@ struct VideoWebViewContainer: NSViewRepresentable {
     }
 }
 
-// MARK: - VideoContainerView
-
 /// Custom NSView that observes frame changes and re-injects CSS.
 final class VideoContainerView: NSView {
     override init(frame frameRect: NSRect) {
@@ -96,8 +90,6 @@ final class VideoContainerView: NSView {
         NotificationCenter.default.removeObserver(self)
     }
 }
-
-// MARK: - Preview
 
 #Preview {
     VideoPlayerWindow()

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeExploreView
-
 /// Explore surface: public destination feeds (Gaming, News, Sports, …) —
 /// YouTube's successors to the retired Trending page.
 struct YouTubeExploreView: View {
@@ -74,8 +72,6 @@ struct YouTubeExploreView: View {
         }
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let exploreCategory = "youtubeContent.exploreCategory"

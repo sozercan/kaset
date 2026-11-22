@@ -1,8 +1,6 @@
 import Foundation
 import SwiftUI
 
-// MARK: - LikeDislikeContextMenu
-
 /// Reusable context menu items for like/dislike actions.
 struct LikeDislikeContextMenu: View {
     let song: Song
@@ -50,8 +48,6 @@ struct LikeDislikeContextMenu: View {
     }
 }
 
-// MARK: - AddToQueueContextMenu
-
 /// Reusable context menu items for adding songs to the queue.
 struct AddToQueueContextMenu: View {
     let song: Song
@@ -71,8 +67,6 @@ struct AddToQueueContextMenu: View {
         }
     }
 }
-
-// MARK: - AddToPlaylistContextMenu
 
 /// Reusable context-menu submenu for adding a song to one of the user's playlists.
 struct AddToPlaylistContextMenu: View {

@@ -1,8 +1,6 @@
 import Foundation
 import FoundationModels
 
-// MARK: - AIError
-
 /// User-friendly errors for AI operations.
 ///
 /// These errors provide actionable messages that can be displayed directly to users,
@@ -92,8 +90,6 @@ enum AIError: LocalizedError {
         }
     }
 }
-
-// MARK: - AIErrorHandler
 
 /// Handles Foundation Models errors and converts them to user-friendly messages.
 ///

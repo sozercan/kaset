@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarVerticalSlider
-
 struct PlayerBarVerticalSlider: View {
     @Binding var value: Double
 
@@ -126,8 +124,6 @@ struct PlayerBarVerticalSlider: View {
         )
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

@@ -33,8 +33,6 @@ struct LoginWebView: NSViewRepresentable {
         // No updates needed
     }
 
-    // MARK: - Coordinator
-
     class Coordinator: NSObject, WKNavigationDelegate {
         var onNavigationToYouTubeMusic: (() -> Void)?
 

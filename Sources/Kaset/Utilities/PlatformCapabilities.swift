@@ -1,5 +1,3 @@
-// MARK: - PlatformCapabilities
-
 /// Runtime feature gates for APIs that are unavailable on older macOS versions.
 enum PlatformCapabilities {
     /// Foundation Models-backed features require macOS 26+.

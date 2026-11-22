@@ -3,8 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - AppDelegateWindowLifecycleTests
-
 @Suite("AppDelegate window lifecycle", .serialized)
 @MainActor
 struct AppDelegateWindowLifecycleTests {
@@ -91,14 +89,10 @@ struct AppDelegateWindowLifecycleTests {
     }
 }
 
-// MARK: - WeakWindowReference
-
 @MainActor
 private final class WeakWindowReference {
     weak var window: NSWindow?
 }
-
-// MARK: - MainWindowLifecycleSpy
 
 @MainActor
 private final class MainWindowLifecycleSpy: NSWindow {

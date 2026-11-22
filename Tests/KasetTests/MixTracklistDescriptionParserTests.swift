@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MixTracklistDescriptionParserTests
-
 @Suite(.tags(.model))
 struct MixTracklistDescriptionParserTests {
     @MainActor

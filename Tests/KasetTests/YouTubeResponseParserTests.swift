@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - Fixture Loading
-
 /// Loads a captured YouTube API fixture from the test bundle.
 private func loadYouTubeFixture(_ name: String) throws -> [String: Any] {
     guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {
@@ -16,14 +14,10 @@ private func loadYouTubeFixture(_ name: String) throws -> [String: Any] {
     return dict
 }
 
-// MARK: - YouTubeFixtureError
-
 private enum YouTubeFixtureError: Error {
     case notFound(String)
     case invalidJSON(String)
 }
-
-// MARK: - YouTubeSearchParserTests
 
 @Suite("YouTubeSearchParser", .tags(.parser))
 struct YouTubeSearchParserTests {
@@ -70,8 +64,6 @@ struct YouTubeSearchParserTests {
         #expect(!first.title.isEmpty)
     }
 }
-
-// MARK: - YouTubeFeedParserTests
 
 @Suite("YouTubeFeedParser", .tags(.parser))
 struct YouTubeFeedParserTests {
@@ -130,8 +122,6 @@ struct YouTubeFeedParserTests {
         let result = YouTubeFeedParser.deduplicate([video1, video2, video1])
         #expect(result.map(\.videoId) == ["a", "b"])
     }
-
-    // MARK: - Home chips & shelves
 
     /// A chip spec for `makeHomeResponse` (struct, not a tuple, to satisfy the
     /// large_tuple lint rule).
@@ -268,8 +258,6 @@ struct YouTubeFeedParserTests {
         }
     }
 }
-
-// MARK: - WatchNextParserTests
 
 @Suite("WatchNextParser", .tags(.parser))
 struct WatchNextParserTests {
@@ -584,8 +572,6 @@ struct WatchNextParserTests {
     }
 }
 
-// MARK: - ChannelPageParserTests
-
 @Suite("ChannelPageParser", .tags(.parser))
 struct ChannelPageParserTests {
     @Test("Parses channel metadata and landing videos from a captured browse response")
@@ -602,8 +588,6 @@ struct ChannelPageParserTests {
     }
 }
 
-// MARK: - YouTubePlaylistPageParserTests
-
 @Suite("YouTubePlaylistPageParser", .tags(.parser))
 struct YouTubePlaylistPageParserTests {
     @Test("Parses playlist title and videos from a captured browse response")
@@ -618,8 +602,6 @@ struct YouTubePlaylistPageParserTests {
         #expect(detail.playlist.firstVideoId == detail.videos.first?.videoId)
     }
 }
-
-// MARK: - YouTubeCommentsParserTests
 
 @Suite("YouTubeCommentsParser", .tags(.parser))
 struct YouTubeCommentsParserTests {

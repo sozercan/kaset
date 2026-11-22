@@ -4,14 +4,10 @@ import MediaPlayer
 import Observation
 import os
 
-// MARK: - RemoteMusicCommandDirection
-
 enum RemoteMusicCommandDirection: Equatable {
     case forward
     case backward
 }
-
-// MARK: - RemoteMusicCommandPayload
 
 enum RemoteMusicCommandPayload: Equatable {
     case play
@@ -25,16 +21,12 @@ enum RemoteMusicCommandPayload: Equatable {
     case absoluteSeek(position: TimeInterval)
 }
 
-// MARK: - CapturedRemoteMusicCommand
-
 struct CapturedRemoteMusicCommand: Equatable {
     let sequence: UInt64
     let issuedAtMilliseconds: Double
     let admittedAt: ContinuousClock.Instant
     let payload: RemoteMusicCommandPayload
 }
-
-// MARK: - RemoteMusicCommandIngress
 
 /// Thread-safe callback inbox for native media commands. Callback order and clocks
 /// are captured synchronously before any MainActor scheduling can reorder delivery.
@@ -114,8 +106,6 @@ final class RemoteMusicCommandIngress: @unchecked Sendable {
     }
 }
 
-// MARK: - NowPlayingManager
-
 /// Manages remote-command routing and the app's Now Playing ownership.
 /// WebKit publishes the rich card during confirmed playback; Kaset publishes tagged minimal
 /// metadata during paused or loading gaps so media keys continue routing to the active source.
@@ -145,8 +135,6 @@ final class NowPlayingManager {
     nonisolated static let nativeClaimServiceIdentifier = "com.sertacozercan.Kaset.native-now-playing-claim"
 
     private init() {}
-
-    // MARK: - Now Playing Claim
 
     enum NativeClaimPlaybackState: Equatable, Sendable {
         case playing
@@ -368,8 +356,6 @@ final class NowPlayingManager {
     private func syncPlaybackAudioQualitySetting() {
         SingletonPlayerWebView.shared.setPlaybackAudioQuality(self.settings.playbackAudioQuality)
     }
-
-    // MARK: - Remote Commands
 
     private func setupRemoteCommands() {
         guard self.playerService != nil else { return }

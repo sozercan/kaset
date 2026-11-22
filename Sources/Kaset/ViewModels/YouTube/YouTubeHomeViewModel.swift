@@ -630,8 +630,6 @@ final class YouTubeHomeViewModel {
         }
     }
 
-    // MARK: - Sections
-
     /// Started-but-unfinished videos from watch history (deduped, capped), or
     /// `nil` on failure / when nothing is resumable. Used by full Home loads,
     /// where a failed history fetch should simply omit the rail. The post-watch
@@ -668,8 +666,6 @@ final class YouTubeHomeViewModel {
             kind: .continueWatching
         )
     }
-
-    // MARK: - Continue Watching Refresh
 
     /// Outcome of one cache-bypassed Continue Watching rebuild attempt, so the
     /// retry logic can tell "history changed" from "history was unchanged" from
@@ -816,8 +812,6 @@ final class YouTubeHomeViewModel {
     private static func railIdentity(_ section: YouTubeHomeSection) -> [String] {
         section.videos.map { video in "\(video.videoId):\(video.watchedPercent ?? 0)" }
     }
-
-    // MARK: - Topic Rails
 
     private enum TopicFetchOutcome {
         case section(YouTubeHomeSection)

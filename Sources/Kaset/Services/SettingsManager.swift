@@ -8,8 +8,6 @@ final class SettingsManager {
     static let shared = SettingsManager()
     nonisolated static let defaultAmbientBackdropStyle: AmbientBackdropStyle = .soft
 
-    // MARK: - Settings Keys
-
     enum Keys {
         static let appearance = "settings.appearance"
         static let appSource = "settings.appSource"
@@ -40,8 +38,6 @@ final class SettingsManager {
             static let useLegacyMacOS15UI = "settings.debug.useLegacyMacOS15UI"
         #endif
     }
-
-    // MARK: - Launch Page Options
 
     /// Available pages to launch the app with.
     enum LaunchPage: String, CaseIterable, Identifiable {
@@ -85,8 +81,6 @@ final class SettingsManager {
             }
         }
     }
-
-    // MARK: - Content Language
 
     /// Available language options for app UI localization.
     enum ContentLanguage: String, CaseIterable, Identifiable {
@@ -202,8 +196,6 @@ final class SettingsManager {
         }
     }
 
-    // MARK: - Media Control Style
-
     /// Controls which buttons appear in the Now Playing widget (Control Center).
     enum MediaControlStyle: String, CaseIterable, Identifiable {
         case skipForwardBackward
@@ -220,8 +212,6 @@ final class SettingsManager {
             }
         }
     }
-
-    // MARK: - Playback Audio Quality
 
     /// Preferred audio quality for playback through the YouTube Music WebView.
     enum PlaybackAudioQuality: String, CaseIterable, Identifiable {
@@ -243,8 +233,6 @@ final class SettingsManager {
             }
         }
     }
-
-    // MARK: - Settings Properties
 
     /// App-wide light/dark override; `.system` follows macOS.
     var appearance: AppAppearance {
@@ -378,8 +366,6 @@ final class SettingsManager {
         }
     }
 
-    // MARK: - Smart Shuffle defaults & ranges (single source of truth)
-
     /// Default cadence: insert a burst of suggestions every N originals.
     static let smartShuffleSuggestEveryNDefault = 3
     /// Valid range for the insert-every-N cadence.
@@ -512,8 +498,6 @@ final class SettingsManager {
         let useLegacyMacOS15UI = false
     #endif
 
-    // MARK: - Initialization
-
     static func loadKeepYouTubeVideoOnTop(from defaults: UserDefaults) -> Bool {
         defaults.object(forKey: Keys.keepYouTubeVideoOnTop) as? Bool ?? false
     }
@@ -628,8 +612,6 @@ final class SettingsManager {
             UserDefaults.standard.removeObject(forKey: Keys.lastFMEnabled)
         }
     }
-
-    // MARK: - Computed Properties
 
     /// Returns the page to navigate to on launch based on settings.
     var launchPage: LaunchPage {

@@ -1,10 +1,6 @@
 import WebKit
 
-// MARK: - YouTubeWatchWebView.Coordinator
-
 extension YouTubeWatchWebView {
-    // MARK: - Coordinator
-
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         let playerService: YouTubePlayerService
 

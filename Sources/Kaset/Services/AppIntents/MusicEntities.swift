@@ -1,8 +1,6 @@
 import AppIntents
 import Foundation
 
-// MARK: - SongEntity
-
 /// A YouTube Music song, as Shortcuts, Siri, and Spotlight see it.
 struct SongEntity: AppEntity {
     static let typeDisplayRepresentation: TypeDisplayRepresentation = "Song"
@@ -53,8 +51,6 @@ struct SongEntity: AppEntity {
     }
 }
 
-// MARK: - SongEntityQuery
-
 struct SongEntityQuery: EntityStringQuery {
     /// Resolves saved Shortcuts parameters from the queue, or YouTube Music for other songs.
     /// Playback needs only the video ID, so a failed lookup still resolves, with placeholder metadata.
@@ -80,8 +76,6 @@ struct SongEntityQuery: EntityStringQuery {
         return Array(queue.filter(\.isPlayable).prefix(25)).map(SongEntity.init(song:))
     }
 }
-
-// MARK: - PlaylistEntity
 
 /// A playlist, indexed in Spotlight when it is in the signed-in account's Library.
 struct PlaylistEntity: IndexedEntity {
@@ -127,8 +121,6 @@ struct PlaylistEntity: IndexedEntity {
     }
 }
 
-// MARK: - PlaylistEntityQuery
-
 struct PlaylistEntityQuery: EntityStringQuery {
     /// Playlists offered without a search: Liked Music, then the Library.
     @MainActor
@@ -162,8 +154,6 @@ struct PlaylistEntityQuery: EntityStringQuery {
         Self.knownPlaylists.map(PlaylistEntity.init(playlist:))
     }
 }
-
-// MARK: - AlbumEntity
 
 /// An album, indexed in Spotlight when it is saved to the signed-in account's Library.
 struct AlbumEntity: IndexedEntity {
@@ -210,8 +200,6 @@ struct AlbumEntity: IndexedEntity {
     }
 }
 
-// MARK: - AlbumEntityQuery
-
 struct AlbumEntityQuery: EntityStringQuery {
     @MainActor
     func entities(for identifiers: [AlbumEntity.ID]) async throws -> [AlbumEntity] {
@@ -239,8 +227,6 @@ struct AlbumEntityQuery: EntityStringQuery {
         AppIntentsBridge.shared.library.playableAlbums.map(AlbumEntity.init(album:))
     }
 }
-
-// MARK: - AppIntentsSearch
 
 /// Matching helpers shared by the entity queries.
 enum AppIntentsSearch {

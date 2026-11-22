@@ -3,8 +3,6 @@ import Foundation
 import os
 import YouTubeAskCore
 
-// MARK: - YouTubeClient
-
 /// Client for making authenticated requests to regular YouTube's internal
 /// InnerTube API (`www.youtube.com/youtubei/v1`, `WEB` client).
 ///
@@ -101,8 +99,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         // app selects the fixed WEB profile; isolated clients and tests default off.
         self.askRequestProfile = askFeatureEnabled ? .fixedProduction : nil
     }
-
-    // MARK: - Home Feed
 
     func getHomeFeed() async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube home feed")
@@ -268,8 +264,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return YouTubeFeedParser.parseContinuation(data)
     }
 
-    // MARK: - Search
-
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
         self.logger.info("Searching YouTube (filter: \(filter.rawValue))")
 
@@ -304,8 +298,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let data = try await self.request("search", body: ["continuation": continuation])
         return YouTubeSearchParser.parseContinuation(data)
     }
-
-    // MARK: - Watch
 
     func getWatchNext(videoId: String) async throws -> WatchNextData {
         self.logger.info("Fetching watch-next data")
@@ -393,8 +385,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let body: [String: Any] = ["actions": [action]]
         _ = try await self.request("comment/perform_comment_action", body: body, retry: false)
     }
-
-    // MARK: - Browse
 
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         self.logger.info("Fetching YouTube channel page")
@@ -486,8 +476,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return feed.shorts.filter { seen.insert($0.videoId).inserted }
     }
 
-    // MARK: - Subscriptions & Library
-
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube subscriptions feed")
 
@@ -529,8 +517,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return YouTubeFeedParser.collectPlaylists(data)
     }
 
-    // MARK: - Actions
-
     func rateVideo(videoId: String, rating: YouTubeRating) async throws {
         self.logger.info("Rating YouTube video")
 
@@ -570,8 +556,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         _ = try await self.request("browse/edit_playlist", body: body, retry: false)
         self.cache.invalidate(matching: Self.cachePrefix)
     }
-
-    // MARK: - Request Core
 
     private enum RequestAuthPolicy {
         case optional
@@ -1037,8 +1021,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         }
     }
 
-    // MARK: - Ask Request Identity
-
     private struct AskRevisionKey: Hashable {
         let conversationID: UUID
         let revision: UInt64
@@ -1202,8 +1184,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             throw CancellationError()
         }
     }
-
-    // MARK: - Nonisolated Network Helper
 
     /// Result type for network requests to avoid throwing across actor boundaries.
     private enum NetworkResult {

@@ -17,8 +17,6 @@ final class VideoUITests: KasetUITestCase {
         }
     }
 
-    // MARK: - Video Button Visibility
-
     func testVideoButtonVisibleWhenNoVideo() {
         // Launch with player but no video support
         launchWithMockPlayer(isPlaying: true, hasVideo: false)
@@ -49,8 +47,6 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should have 'Video' accessibility label")
     }
-
-    // MARK: - Video Button Interaction
 
     func testVideoButtonIsClickable() {
         launchWithMockPlayerWithVideo(isPlaying: true)
@@ -91,8 +87,6 @@ final class VideoUITests: KasetUITestCase {
         let afterSecondClickValue = videoButton.value as? String ?? ""
         XCTAssertEqual(afterSecondClickValue, "Off", "Video should be off after second click")
     }
-
-    // MARK: - Video Window Tests
 
     func testVideoWindowOpensOnButtonClick() throws {
         try self.skipVideoWindowAssertionsOnMacOS15()
@@ -186,8 +180,6 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertFalse(videoWindow.exists, "Video window should close when video button clicked again")
     }
 
-    // MARK: - Video Button State Persistence
-
     func testVideoButtonPersistsAcrossNavigation() {
         launchWithMockPlayerWithVideo(isPlaying: true)
 
@@ -205,8 +197,6 @@ final class VideoUITests: KasetUITestCase {
         videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForElement(videoButton), "Video button should be visible on Explore")
     }
-
-    // MARK: - Video Primary Action
 
     func testVideoPrimaryActionOpensWindow() throws {
         try self.skipVideoWindowAssertionsOnMacOS15()

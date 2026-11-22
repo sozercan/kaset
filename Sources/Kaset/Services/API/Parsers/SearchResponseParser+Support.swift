@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SearchResponseParser Support
-
 extension SearchResponseParser {
     static func splitMetadataText(_ text: String) -> [String] {
         text.replacingOccurrences(of: "·", with: "•")

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - QueueView
-
 /// Right sidebar panel displaying the playback queue.
 struct QueueView: View {
     @Environment(PlayerService.self) private var playerService
@@ -30,8 +28,6 @@ struct QueueView: View {
         .compatGlassTransition(.materialize)
         .accessibilityIdentifier(AccessibilityID.Queue.container)
     }
-
-    // MARK: - Header
 
     private var headerView: some View {
         HStack {
@@ -68,8 +64,6 @@ struct QueueView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
-
-    // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
@@ -133,8 +127,6 @@ struct QueueView: View {
         .accessibilityIdentifier(AccessibilityID.Queue.scrollView)
     }
 }
-
-// MARK: - QueueRowView
 
 private struct QueueRowView: View {
     let song: Song

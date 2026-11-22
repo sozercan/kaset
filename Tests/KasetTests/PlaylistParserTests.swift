@@ -6,7 +6,6 @@ import Testing
 /// Tests for the PlaylistParser.
 @Suite(.tags(.parser))
 struct PlaylistParserTests { // swiftlint:disable:this type_body_length
-    // MARK: - Library Playlists
 
     @Test("Parse empty library playlists response")
     func parseLibraryPlaylistsEmpty() {
@@ -622,8 +621,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(artists.map(\.name) == ["Duplicate Artist"])
     }
 
-    // MARK: - Playlist Detail
-
     @Test("Parse playlist detail with header")
     func parsePlaylistDetailWithMusicDetailHeader() {
         let data = self.makePlaylistDetailData(
@@ -1060,8 +1057,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(response.hasMore == true)
     }
 
-    // MARK: - Album Detection
-
     @Test(
         "Album detection based on ID prefix",
         arguments: [
@@ -1076,8 +1071,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         let detail = PlaylistParser.parsePlaylistDetail(data, playlistId: playlistId)
         #expect(detail.isAlbum == expectedIsAlbum)
     }
-
-    // MARK: - Continuation Parsing
 
     @Test("Parse 2025 continuation format with onResponseReceivedActions")
     func parsePlaylistContinuation2025Format() {
@@ -1162,8 +1155,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(response.hasMore == false)
         #expect(response.continuationToken == nil)
     }
-
-    // MARK: - Add to Playlist
 
     @Test("Parse add-to-playlist menu from known option renderers")
     func parseAddToPlaylistMenuKnownOptionRenderers() {
@@ -1363,8 +1354,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
         #expect(menu.options.map(\.isSelected) == [true, true, true])
     }
 
-    // MARK: - Created Playlist
-
     @Test("Parse created playlist ID from top-level field")
     func parseCreatedPlaylistIdTopLevel() {
         let data: [String: Any] = [
@@ -1472,8 +1461,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
 
         #expect(playlistId == nil)
     }
-
-    // MARK: - Helpers
 
     private func makeAddToPlaylistOptionData(id: String, title: String, checkStatus: String) -> [String: Any] {
         [

@@ -2,13 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - RadioQueueParserTests
-
 /// Tests for RadioQueueParser.
 @Suite(.tags(.parser))
 struct RadioQueueParserTests {
-    // MARK: - Parse Initial Response Tests
-
     @Test("Parse empty data returns empty result")
     func parseEmptyData() {
         let data: [String: Any] = [:]
@@ -95,8 +91,6 @@ struct RadioQueueParserTests {
         #expect(result.songs[0].title == "Wrapped Song")
     }
 
-    // MARK: - Parse Continuation Response Tests
-
     @Test("Parse continuation empty data returns empty result")
     func parseContinuationEmptyData() {
         let data: [String: Any] = [:]
@@ -132,8 +126,6 @@ struct RadioQueueParserTests {
         #expect(result.songs.count == 2)
         #expect(result.continuationToken == nil)
     }
-
-    // MARK: - Test Helpers
 
     /// Creates a mock radio queue response with the specified number of songs.
     @Test("Parse radio queue propagates explicit badge")
@@ -189,13 +181,9 @@ struct RadioQueueParserTests {
     }
 }
 
-// MARK: - RadioQueueLikeStatusParserTests
-
 /// Tests for row-local rating state carried in radio queue menus.
 @Suite(.tags(.parser))
 struct RadioQueueLikeStatusParserTests {
-    // MARK: - Like Status Tests
-
     @Test("Parse radio queue inverts a remove-like action into a liked state")
     func parseRadioQueueInvertsRemoveLikeAction() {
         let liked = Self.makePanelVideoRendererWithRatingToggle(

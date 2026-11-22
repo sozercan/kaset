@@ -33,8 +33,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return (String(components[1]), index)
     }
 
-    // MARK: - Response Stubs
-
     var homeResponse: HomeResponse = .init(sections: [])
     var homeContinuationSections: [[HomeSection]] = []
     var personalizedRecommendationsResponse: HomeResponse = .init(sections: [])
@@ -137,14 +135,10 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var accountsListStartedGate: AsyncGate?
     var accountsListReleaseGate: AsyncGate?
 
-    // MARK: - Call Tracking
-
     private(set) var getSongCalled = false
     private(set) var getSongVideoIds: [String] = []
     private(set) var getPlaylistContinuationReturnCount = 0
     private(set) var fetchAccountsListCallCount = 0
-
-    // MARK: - Continuation State
 
     private var _homeContinuationIndex = 0
     private var _personalizedRecommendationsContinuationIndex = 0
@@ -191,8 +185,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     var hasMoreLikedSongs: Bool {
         self._likedSongsContinuationIndex < self.likedSongsContinuationSongs.count
     }
-
-    // MARK: - Call Tracking
 
     private(set) var getHomeCalled = false
     private(set) var getHomeCallCount = 0
@@ -326,8 +318,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     private(set) var moodCategoryBrowseIds: [String] = []
     private(set) var moodCategoryParams: [String?] = []
 
-    // MARK: - Error Simulation
-
     var shouldThrowError: Error?
 
     /// Per-call getSong errors, keyed by the one-based call ordinal.
@@ -336,8 +326,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
     /// Per-seed radio errors: `getRadioQueue(videoId:)` throws the mapped error for that seed only,
     /// so tests can simulate a transient failure on one seed while others succeed.
     var radioQueueErrors: [String: Error] = [:]
-
-    // MARK: - Protocol Implementation
 
     func getHome(forceRefresh: Bool) async throws -> HomeResponse {
         self.getHomeCalled = true
@@ -1352,8 +1340,6 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         }
         return self.accountsListResponse
     }
-
-    // MARK: - Helper Methods
 
     /// Resets all call tracking.
     func reset() { // swiftlint:disable:this function_body_length

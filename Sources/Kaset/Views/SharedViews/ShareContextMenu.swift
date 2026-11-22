@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - ShareContextMenu
-
 /// Shared context menu items for sharing items via NSSharingServicePicker.
 /// Uses native macOS sharing services for proper popup positioning in context menus.
 @MainActor
@@ -161,8 +159,6 @@ enum ShareContextMenu {
         }
     }
 }
-
-// MARK: - CopyLinkSharingPickerDelegate
 
 /// Puts Copy Link first in the share picker, since macOS does not always offer a copy action for URLs.
 /// Stateless and nonisolated: the link comes from the picker's items, so one instance serves every picker.

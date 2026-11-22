@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - EQSettings
-
 /// Persistent user-facing equalizer settings.
 ///
 /// Designed to mirror Spotify's mobile equalizer:

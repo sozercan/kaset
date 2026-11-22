@@ -3,8 +3,6 @@ import Foundation
 import Observation
 import os
 
-// MARK: - PlaylistDetailViewModel
-
 /// View model for the PlaylistDetailView.
 @MainActor
 @Observable

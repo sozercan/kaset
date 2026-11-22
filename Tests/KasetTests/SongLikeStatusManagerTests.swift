@@ -17,8 +17,6 @@ struct SongLikeStatusManagerTests {
         self.manager.setClient(nil)
     }
 
-    // MARK: - Status Query Tests
-
     @Test("status for videoId returns nil when not cached")
     func statusForVideoIdReturnsNilWhenNotCached() {
         let status = self.manager.status(for: "unknown-video")
@@ -87,8 +85,6 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.isLiked(song) == false)
     }
 
-    // MARK: - Rating Action Tests
-
     @Test("like updates cache and calls API")
     func likeUpdatesCacheAndCallsAPI() async {
         let song = TestFixtures.makeSong(id: "test-video")
@@ -131,8 +127,6 @@ struct SongLikeStatusManagerTests {
 
         #expect(self.manager.status(for: "test-video") == .indifferent)
     }
-
-    // MARK: - Liked Music Reconciliation Tests
 
     @Test("Overlapping Liked Music requests keep a stale unlike filtered until each finishes")
     func overlappingLikedMusicRequestsKeepStaleUnlikeFiltered() async {
@@ -449,8 +443,6 @@ struct SongLikeStatusManagerTests {
         #expect(self.manager.status(for: song.videoId, accountID: accountID) == .dislike)
     }
 
-    // MARK: - Error Handling Tests
-
     @Test("like reverts cache on API failure")
     func likeRevertsCacheOnFailure() async {
         let song = TestFixtures.makeSong(id: "test-video")
@@ -700,8 +692,6 @@ struct SongLikeStatusManagerTests {
         // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .like)
     }
-
-    // MARK: - Cache Management Tests
 
     @Test("setStatus updates cache")
     func setStatusUpdatesCache() {

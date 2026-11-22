@@ -2,16 +2,12 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - FoundationModelsServiceTests
-
 /// Tests for FoundationModelsService availability and session creation.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api), .serialized)
 @MainActor
 struct FoundationModelsServiceTests {
-    // MARK: - Availability Tests
-
     @Test("isAvailable returns false when disabled by user")
     func isAvailableFalseWhenDisabled() {
         let service = FoundationModelsService.shared
@@ -57,8 +53,6 @@ struct FoundationModelsServiceTests {
         // Just verify the property is accessible
         _ = service.isWarmedUp
     }
-
-    // MARK: - Session Creation Tests
 
     @Test("createCommandSession returns nil when unavailable")
     func createCommandSessionNilWhenUnavailable() {
@@ -116,8 +110,6 @@ struct FoundationModelsServiceTests {
         // Restore
         service.isDisabledByUser = originalDisabled
     }
-
-    // MARK: - Availability Refresh Test
 
     @Test("refreshAvailability does not throw")
     func refreshAvailabilityDoesNotThrow() {

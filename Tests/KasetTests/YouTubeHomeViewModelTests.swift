@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeHomeViewModelTests
-
 @Suite("YouTubeHomeViewModel", .serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct YouTubeHomeViewModelTests {
@@ -93,8 +91,6 @@ struct YouTubeHomeViewModelTests {
         #expect(self.mockClient.getHistoryForceRefreshCount == 1)
         #expect(self.sut.loadingState == .loaded)
     }
-
-    // MARK: - Sections
 
     @Test("Continue Watching keeps only videos started but not finished")
     func continueWatchingFiltersByProgress() async {

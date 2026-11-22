@@ -1,8 +1,6 @@
 import CoreTransferable
 import Foundation
 
-// MARK: - FavoriteItem
-
 /// An item pinned to Favorites.
 struct FavoriteItem: Identifiable, Codable {
     let id: UUID
@@ -32,8 +30,6 @@ struct FavoriteItem: Identifiable, Codable {
         self.itemType = itemType
     }
 
-    // MARK: - Convenience Initializers
-
     /// Creates a FavoriteItem from a Song.
     static func from(_ song: Song) -> FavoriteItem {
         FavoriteItem(itemType: .song(song))
@@ -58,8 +54,6 @@ struct FavoriteItem: Identifiable, Codable {
     static func from(_ podcastShow: PodcastShow) -> FavoriteItem {
         FavoriteItem(itemType: .podcastShow(podcastShow))
     }
-
-    // MARK: - Display Properties
 
     /// Display title for the item.
     var title: String {
@@ -143,8 +137,6 @@ struct FavoriteItem: Identifiable, Codable {
     }
 }
 
-// MARK: Hashable
-
 extension FavoriteItem: Hashable {
     static func == (lhs: FavoriteItem, rhs: FavoriteItem) -> Bool {
         lhs.contentId == rhs.contentId
@@ -155,15 +147,11 @@ extension FavoriteItem: Hashable {
     }
 }
 
-// MARK: Transferable
-
 extension FavoriteItem: Transferable {
     static var transferRepresentation: some TransferRepresentation {
         CodableRepresentation(for: FavoriteItem.self, contentType: .data)
     }
 }
-
-// MARK: - HomeSectionItem Conversion
 
 extension FavoriteItem {
     /// Converts the FavoriteItem to a HomeSectionItem for display.

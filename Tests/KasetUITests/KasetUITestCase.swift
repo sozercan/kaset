@@ -1,7 +1,5 @@
 @preconcurrency import XCTest
 
-// MARK: - TestAccessibilityID
-
 /// Accessibility identifiers matching those in AccessibilityID enum.
 /// Duplicated here to avoid import issues with the app target.
 enum TestAccessibilityID {
@@ -52,16 +50,12 @@ enum TestAccessibilityID {
         static let fallbackPanel = "lyrics.fallbackPanel"
     }
 
-    // MARK: - Sidebar Profile
-
     enum SidebarProfile {
         static let container = "sidebarProfile"
         static let profileButton = "sidebarProfile.profileButton"
         static let loadingState = "sidebarProfile.loading"
         static let loggedOutState = "sidebarProfile.loggedOut"
     }
-
-    // MARK: - Account Switcher
 
     enum AccountSwitcher {
         static let container = "accountSwitcher"
@@ -76,16 +70,12 @@ enum TestAccessibilityID {
     }
 }
 
-// MARK: - KasetUITestCase
-
 /// Base class for Kaset UI tests.
 /// Provides common setup, launch configuration, and helper methods.
 @MainActor
 class KasetUITestCase: XCTestCase {
     /// The application under test.
     var app: XCUIApplication!
-
-    // MARK: - Setup / Teardown
 
     override func setUpWithError() throws {
         try super.setUpWithError()
@@ -117,8 +107,6 @@ class KasetUITestCase: XCTestCase {
         self.app = nil
         try super.tearDownWithError()
     }
-
-    // MARK: - Launch Helpers
 
     /// Launches the app with mock home sections.
     func launchWithMockHome(sectionCount: Int = 3, itemsPerSection: Int = 5) {
@@ -220,8 +208,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    // MARK: - Wait Helpers
-
     /// Waits for an element to exist with a timeout.
     @discardableResult
     func waitForElement(
@@ -278,8 +264,6 @@ class KasetUITestCase: XCTestCase {
         }
         return true
     }
-
-    // MARK: - Navigation Helpers
 
     /// Navigates to a sidebar item by accessibility identifier.
     func navigateToSidebarItem(_ accessibilityID: String) {

@@ -8,8 +8,6 @@ struct MusicSettingsView: View {
 
     var body: some View {
         Form {
-            // MARK: - Now Playing Section
-
             Section {
                 Toggle("Show Now Playing Notifications", isOn: self.$settings.showNowPlayingNotifications)
                     .help(String(localized: "Show a notification when a new track starts playing"))
@@ -29,8 +27,6 @@ struct MusicSettingsView: View {
             } header: {
                 Text(String(localized: "Now Playing"))
             }
-
-            // MARK: - Smart Shuffle Section
 
             Section {
                 Toggle("Enable Smart Shuffle", isOn: self.$settings.smartShuffleEnabled)
@@ -62,8 +58,6 @@ struct MusicSettingsView: View {
                 Text(String(localized: "Smart Shuffle"))
             }
 
-            // MARK: - Audio Section
-
             Section {
                 Picker(String(localized: "Playback Audio Quality"), selection: self.$settings.playbackAudioQuality) {
                     ForEach(SettingsManager.PlaybackAudioQuality.allCases) { quality in
@@ -74,8 +68,6 @@ struct MusicSettingsView: View {
             } header: {
                 Text(String(localized: "Audio"))
             }
-
-            // MARK: - Lyrics Section
 
             Section {
                 Toggle("Enable Synced Lyrics", isOn: self.$settings.syncedLyricsEnabled)

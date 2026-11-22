@@ -49,8 +49,6 @@ struct TopSongsView: View {
         }
     }
 
-    // MARK: - Views
-
     private var songsListView: some View {
         ScrollView {
             LazyVStack(spacing: 0) {
@@ -69,8 +67,6 @@ struct TopSongsView: View {
             .detailScrollContentInset()
         }
     }
-
-    // MARK: - Song Row
 
     private func songRow(_ song: Song, index: Int) -> some View {
         HoverObservingRow { isHovered in
@@ -136,8 +132,6 @@ struct TopSongsView: View {
             )
         }
     }
-
-    // MARK: - Actions
 
     private func playSongInQueue(startingAt index: Int) {
         Task {

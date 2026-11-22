@@ -10,8 +10,6 @@ import XCTest
 ///   -only-testing:KasetTests/ParserPerformanceTests
 /// ```
 final class ParserPerformanceTests: XCTestCase {
-    // MARK: - HomeResponseParser Performance
-
     func testHomeParsingPerformance() {
         // Given: A realistic home response with multiple sections
         let data = self.makeHomeResponseData(sectionCount: 10, itemsPerSection: 20)
@@ -31,8 +29,6 @@ final class ParserPerformanceTests: XCTestCase {
             _ = HomeResponseParser.parseHomeSection(sectionData)
         }
     }
-
-    // MARK: - SearchResponseParser Performance
 
     func testSearchParsingPerformance() {
         // Given: A mixed search response
@@ -54,8 +50,6 @@ final class ParserPerformanceTests: XCTestCase {
         }
     }
 
-    // MARK: - PlaylistParser Performance
-
     func testPlaylistDetailParsingPerformance() {
         // Given: A playlist with many tracks
         let data = self.makePlaylistDetailData(trackCount: 100)
@@ -76,8 +70,6 @@ final class ParserPerformanceTests: XCTestCase {
         }
     }
 
-    // MARK: - ArtistParser Performance
-
     func testArtistDetailParsingPerformance() {
         // Given: An artist with many songs and albums
         let data = self.makeArtistDetailData(songCount: 50, albumCount: 20)
@@ -87,8 +79,6 @@ final class ParserPerformanceTests: XCTestCase {
             _ = ArtistParser.parseArtistDetail(data, artistId: "UCTestArtist")
         }
     }
-
-    // MARK: - Regex-heavy Parser Performance
 
     func testAccessibilityDurationFallbackPerformance() {
         // Given: Rows that only expose duration in accessibility labels.
@@ -115,8 +105,6 @@ final class ParserPerformanceTests: XCTestCase {
             XCTAssertNotNil(LRCParser.parse(raw))
         }
     }
-
-    // MARK: - Helpers: Home Response
 
     private func makeHomeResponseData(sectionCount: Int, itemsPerSection: Int) -> [String: Any] {
         var sections: [[String: Any]] = []
@@ -220,8 +208,6 @@ final class ParserPerformanceTests: XCTestCase {
         ]
     }
 
-    // MARK: - Helpers: Search Response
-
     private func makeSearchResponseData(songs: Int, albums: Int, artists: Int, playlists: Int) -> [String: Any] {
         var contents: [[String: Any]] = []
 
@@ -316,8 +302,6 @@ final class ParserPerformanceTests: XCTestCase {
             ]
         }
     }
-
-    // MARK: - Helpers: Playlist
 
     private func makePlaylistDetailData(trackCount: Int) -> [String: Any] {
         var tracks: [[String: Any]] = []
@@ -423,8 +407,6 @@ final class ParserPerformanceTests: XCTestCase {
             ],
         ]
     }
-
-    // MARK: - Helpers: Artist
 
     private func makeArtistDetailData(songCount: Int, albumCount: Int) -> [String: Any] {
         var songItems: [[String: Any]] = []

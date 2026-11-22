@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - NowPlayingCapsuleSlider
-
 /// Thin, knobless horizontal slider used by the Now Playing view for seeking and volume.
 /// It thickens while hovered or dragged.
 struct NowPlayingCapsuleSlider: View {
@@ -106,8 +104,6 @@ struct NowPlayingCapsuleSlider: View {
     }
 }
 
-// MARK: - NowPlayingGlassIconButton
-
 /// Icon button that sits inside one of the Now Playing view's glass capsules.
 /// When selected it shows a filled white circle behind a dark glyph.
 struct NowPlayingGlassIconButton: View {
@@ -145,8 +141,6 @@ struct NowPlayingGlassIconButton: View {
         return self.tint ?? .white.opacity(0.92)
     }
 }
-
-// MARK: - NowPlayingVolumeControl
 
 /// AirPlay button, volume slider and mute toggle shown in the Now Playing view's top-right
 /// glass capsule.

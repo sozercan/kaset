@@ -32,8 +32,6 @@
     });
   }
 
-  // Copy buttons. The status region announces the result, since each
-  // button's aria-label hides its visible "Copied" text from screen readers.
   var copyStatus = document.getElementById("copy-status");
   document.querySelectorAll(".copy").forEach(function (button) {
     button.addEventListener("click", function () {
@@ -50,7 +48,6 @@
     });
   });
 
-  // Latest release: version label and direct DMG link.
   fetch("https://api.github.com/repos/sozercan/kaset/releases/latest", {
     headers: { Accept: "application/vnd.github+json" },
   })
@@ -76,6 +73,5 @@
       }
     })
     .catch(function () {
-      // Keep the generic /releases/latest links.
     });
 })();

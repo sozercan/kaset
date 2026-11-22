@@ -5,8 +5,6 @@ import Testing
 /// Unit tests for `YouTubeItemParser` with handcrafted renderer payloads.
 @Suite("YouTubeItemParser", .tags(.parser))
 struct YouTubeItemParserTests {
-    // MARK: - videoRenderer
-
     @Test("Parses a videoRenderer with full metadata")
     func parsesVideoRenderer() throws {
         let renderer: [String: Any] = [
@@ -84,8 +82,6 @@ struct YouTubeItemParserTests {
         let video = try #require(YouTubeItemParser.video(fromVideoRenderer: renderer))
         #expect(video.isLive)
     }
-
-    // MARK: - lockupViewModel
 
     @Test("Parses a video lockupViewModel")
     func parsesVideoLockup() throws {
@@ -193,8 +189,6 @@ struct YouTubeItemParserTests {
         #expect(playlist.firstVideoId == "first1")
     }
 
-    // MARK: - Watched progress
-
     /// Builds a minimal video `lockupViewModel` whose bottom overlay optionally
     /// carries a duration badge and/or a resume `progressBar`.
     private func makeProgressLockup(
@@ -267,8 +261,6 @@ struct YouTubeItemParserTests {
         #expect(video.watchedPercent == 100)
     }
 
-    // MARK: - channelRenderer
-
     @Test("Parses a channelRenderer with swapped handle/subscriber fields")
     func parsesChannelRendererSwappedFields() throws {
         // June 2026: subscriberCountText carries the handle and
@@ -293,10 +285,6 @@ struct YouTubeItemParserTests {
         // Protocol-relative URL is normalized to https.
         #expect(channel.thumbnailURL?.absoluteString == "https://example.com/avatar.jpg")
     }
-
-    // MARK: - Text extraction
-
-    // MARK: - Shorts
 
     @Test("Detects Shorts from reel endpoints and /shorts/ URLs")
     func detectsShorts() throws {
@@ -444,8 +432,6 @@ struct YouTubeItemParserTests {
         #expect(YouTubeItemParser.text(from: ["runs": [[String: Any]]()]) == nil)
     }
 
-    // MARK: - Recorded payloads
-
     /// Guards the lockup thumbnail key paths against the shapes InnerTube
     /// actually sends, which handwritten payloads have drifted from before.
     @Test("Recorded Shorts and playlist lockups yield thumbnails")
@@ -468,8 +454,6 @@ struct YouTubeItemParserTests {
             #expect(YouTubeItemParser.thumbnailURL(fromLockup: lockup) != nil)
         }
     }
-
-    // MARK: - Fixture Helpers
 
     static func loadFixture(_ name: String) throws -> [String: Any] {
         guard let url = Bundle.module.url(forResource: name, withExtension: "json") else {

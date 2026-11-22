@@ -5,8 +5,6 @@ import Testing
 /// Tests for the PodcastParser.
 @Suite(.tags(.parser))
 struct PodcastParserTests {
-    // MARK: - parseDiscovery Tests
-
     @Test("Parse empty response returns empty sections")
     func parseEmptyResponse() {
         let data: [String: Any] = [:]
@@ -37,8 +35,6 @@ struct PodcastParserTests {
         #expect(sections.count == 2)
     }
 
-    // MARK: - parseContinuation Tests
-
     @Test("Parse empty continuation returns empty sections")
     func parseEmptyContinuation() {
         let data: [String: Any] = [:]
@@ -52,8 +48,6 @@ struct PodcastParserTests {
         let sections = PodcastParser.parseContinuation(data)
         #expect(sections.count == 2)
     }
-
-    // MARK: - parseShowDetail Tests
 
     @Test("Parse empty show detail returns placeholder show")
     func parseEmptyShowDetail() {
@@ -118,8 +112,6 @@ struct PodcastParserTests {
         #expect(detail.hasMore == true)
     }
 
-    // MARK: - parseEpisodesContinuation Tests
-
     @Test("Parse empty episodes continuation")
     func parseEmptyEpisodesContinuation() {
         let data: [String: Any] = [:]
@@ -145,8 +137,6 @@ struct PodcastParserTests {
         #expect(continuation.hasMore == false)
     }
 
-    // MARK: - isPodcastShow Tests
-
     @Test("isPodcastShow returns true for MPSPP prefix")
     func isPodcastShowWithMPSPPPrefix() {
         #expect(PodcastParser.isPodcastShow("MPSPP12345") == true)
@@ -158,8 +148,6 @@ struct PodcastParserTests {
         #expect(PodcastParser.isPodcastShow("UC12345") == false)
         #expect(PodcastParser.isPodcastShow("MPRE12345") == false)
     }
-
-    // MARK: - Test Data Helpers
 
     private func makeDiscoveryData(withCarousel: Bool, withShelf: Bool) -> [String: Any] {
         var sections: [[String: Any]] = []

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerServiceDurationPersistenceTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceDurationPersistenceTests {
@@ -58,8 +56,6 @@ struct PlayerServiceDurationPersistenceTests {
         return try JSONDecoder().decode(PersistedPlaybackClock.self, from: data)
     }
 }
-
-// MARK: - PersistedPlaybackClock
 
 private struct PersistedPlaybackClock: Decodable {
     let progress: TimeInterval

@@ -2,8 +2,6 @@ import AppKit
 import Foundation
 import SwiftUI
 
-// MARK: - ExtensionsSettingsView
-
 /// Settings view for managing user-installed web extensions.
 struct ExtensionsSettingsView: View {
     @State private var manager = ExtensionsManager.shared
@@ -149,8 +147,6 @@ struct ExtensionsSettingsView: View {
         }
     }
 
-    // MARK: - Extension Row
-
     private func extensionRow(_ ext: ManagedExtension) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "puzzlepiece.extension.fill")
@@ -208,8 +204,6 @@ struct ExtensionsSettingsView: View {
         .padding(.vertical, 12)
         .padding(.horizontal, 16)
     }
-
-    // MARK: - Helpers
 
     /// Shows an NSOpenPanel to pick an extension directory.
     /// `beginSheetModal` silently fails on SwiftUI Settings TabView windows,
@@ -272,8 +266,6 @@ struct ExtensionsSettingsView: View {
         }
     }
 }
-
-// MARK: - ExtensionPermissionReviewView
 
 private struct ExtensionPermissionReviewView: View {
     let review: ExtensionPermissionReview

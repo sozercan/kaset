@@ -1,8 +1,6 @@
 import CoreFoundation
 import Foundation
 
-// MARK: - WebPlaybackTrackedNavigation
-
 struct WebPlaybackTrackedNavigation: Equatable {
     let generation: UInt64
     var pendingSeek: Double?
@@ -15,14 +13,10 @@ struct WebPlaybackTrackedNavigation: Equatable {
     }
 }
 
-// MARK: - WebPlaybackCancelledNavigation
-
 struct WebPlaybackCancelledNavigation {
     let generation: UInt64
     let shouldReportFailure: Bool
 }
-
-// MARK: - WebPlaybackNavigationFailure
 
 enum WebPlaybackNavigationFailure {
     private static let webKitErrorDomain = "WebKitErrorDomain"
@@ -37,8 +31,6 @@ enum WebPlaybackNavigationFailure {
             && error.code == Self.frameLoadInterruptedByPolicyChange
     }
 }
-
-// MARK: - WebPlaybackDocumentGeneration
 
 /// Tracks which WebView document is allowed to mutate native playback state.
 ///

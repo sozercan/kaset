@@ -2,8 +2,6 @@ import AppKit
 import SwiftUI
 import WebKit
 
-// MARK: - AirPlayPickerAnchor
-
 /// Resolves the control's current position for mouse, keyboard, and accessibility activation.
 @MainActor
 final class AirPlayPickerAnchor {
@@ -39,8 +37,6 @@ final class AirPlayPickerAnchor {
         }
     }
 }
-
-// MARK: - AirPlayPickerAnchorView
 
 struct AirPlayPickerAnchorView: NSViewRepresentable {
     let anchor: AirPlayPickerAnchor

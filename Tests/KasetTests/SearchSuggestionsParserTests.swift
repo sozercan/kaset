@@ -5,8 +5,6 @@ import Testing
 /// Tests for SearchSuggestionsParser.
 @Suite(.tags(.parser))
 struct SearchSuggestionsParserTests {
-    // MARK: - Empty Response Tests
-
     @Test("Parse empty response returns empty array")
     func parseEmptyResponse() {
         let data: [String: Any] = [:]
@@ -20,8 +18,6 @@ struct SearchSuggestionsParserTests {
         let suggestions = SearchSuggestionsParser.parse(data)
         #expect(suggestions.isEmpty)
     }
-
-    // MARK: - Valid Response Tests
 
     @Test("Parse single suggestion")
     func parseSingleSuggestion() {
@@ -177,8 +173,6 @@ struct SearchSuggestionsParserTests {
         #expect(suggestions.first?.query == "recent search")
     }
 
-    // MARK: - Edge Cases
-
     @Test("Empty suggestion text is skipped")
     func parseEmptySuggestionTextIsSkipped() {
         let data: [String: Any] = [
@@ -251,8 +245,6 @@ struct SearchSuggestionsParserTests {
         #expect(suggestions.isEmpty)
     }
 
-    // MARK: - SearchSuggestion Model Tests
-
     @Test("Suggestions have unique IDs")
     func suggestionHasUniqueId() {
         let suggestion1 = SearchSuggestion(query: "test")
@@ -277,8 +269,6 @@ struct SearchSuggestionsParserTests {
 
         #expect(set.contains(suggestion))
     }
-
-    // MARK: - Helpers
 
     private func makeSuggestionsResponse(queries: [String]) -> [String: Any] {
         let suggestionItems = queries.map { query in
