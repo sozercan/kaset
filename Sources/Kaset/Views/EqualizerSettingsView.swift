@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - EqualizerSettingsView
-
 /// Settings tab for the equalizer, styled after Spotify's mobile EQ:
 /// a curve overlay riding on top of six vertical band sliders, a preset
 /// picker, a preamp slider, and a master toggle.
@@ -124,8 +122,6 @@ struct EqualizerSettingsView: View {
     }
 }
 
-// MARK: - EQStatusRow
-
 /// Two-line status row matching the visual language of
 /// ``IntelligenceSettingsView`` — an icon, a headline, and a subtitle.
 /// When the failure suggests a permission denial, a deep-link button
@@ -168,8 +164,6 @@ private struct EQStatusRow: View {
         }
         .padding(.vertical, 4)
     }
-
-    // MARK: - Status mapping
 
     private var iconName: String {
         switch self.status {
@@ -222,8 +216,6 @@ private struct EQStatusRow: View {
     }
 }
 
-// MARK: - EQCurveAndSlidersView
-
 /// The visual heart of the EQ tab: a frequency-response curve drawn over a
 /// row of vertical band sliders.
 private struct EQCurveAndSlidersView: View {
@@ -264,8 +256,6 @@ private struct EQCurveAndSlidersView: View {
     }
 }
 
-// MARK: - EQBandSlider
-
 /// Single band: vertical slider with frequency label below and live-updating
 /// gain label above.
 private struct EQBandSlider: View {
@@ -295,8 +285,6 @@ private struct EQBandSlider: View {
         }
     }
 }
-
-// MARK: - EQCurveShape
 
 /// Smooth frequency-response curve fitted through the current band gains.
 ///

@@ -1,11 +1,7 @@
 import Testing
 @testable import Kaset
 
-// MARK: - ScriptDetectorTests
-
 struct ScriptDetectorTests {
-    // MARK: isLatinOnly
-
     @Test("Latin-only text is detected correctly")
     func latinOnly() {
         #expect(ScriptDetector.isLatinOnly("Hello world") == true)
@@ -22,8 +18,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.isLatinOnly("নমস্কার") == false)
         #expect(ScriptDetector.isLatinOnly("नमस्ते") == false)
     }
-
-    // MARK: hasJapanese
 
     @Test("Hiragana is detected as Japanese")
     func hiraganaIsJapanese() {
@@ -45,8 +39,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.hasJapanese("안녕하세요") == false)
     }
 
-    // MARK: hasKorean
-
     @Test("Hangul syllables are detected as Korean")
     func hangulIsKorean() {
         #expect(ScriptDetector.hasKorean("안녕하세요") == true)
@@ -57,8 +49,6 @@ struct ScriptDetectorTests {
     func japaneseIsNotKorean() {
         #expect(ScriptDetector.hasKorean("こんにちは") == false)
     }
-
-    // MARK: hasChinese
 
     @Test("CJK without kana is detected as Chinese")
     func cjkWithoutKanaIsChinese() {
@@ -71,8 +61,6 @@ struct ScriptDetectorTests {
         // "日本語の" = "日本語" (kanji) + "の" (hiragana) — presence of kana marks it Japanese
         #expect(ScriptDetector.hasChinese("日本語の") == false)
     }
-
-    // MARK: dominantScript
 
     @Test("dominantScript returns .japanese for kana text")
     func dominantJapanese() {
@@ -99,8 +87,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.dominantScript("ขอบคุณ") == .thai)
     }
 }
-
-// MARK: - KoreanRomanizerTests
 
 struct KoreanRomanizerTests {
     @Test("Simple Korean syllable romanizes correctly")
@@ -153,8 +139,6 @@ struct KoreanRomanizerTests {
     }
 }
 
-// MARK: - ThaiRomanizerTests
-
 struct ThaiRomanizerTests {
     @Test("Thai romanizer safely handles clustered characters")
     func clusteredCharacters() throws {
@@ -162,8 +146,6 @@ struct ThaiRomanizerTests {
         #expect(!result.isEmpty)
     }
 }
-
-// MARK: - JapaneseRomanizerTests
 
 struct JapaneseRomanizerTests {
     @Test("Latin tokens are preserved inside mixed Japanese text")
@@ -173,8 +155,6 @@ struct JapaneseRomanizerTests {
         #expect(result.contains("kisu") == false)
     }
 }
-
-// MARK: - BengaliRomanizerTests
 
 struct BengaliRomanizerTests {
     @Test("Pure Bengali romanizes to non-empty text")
@@ -218,8 +198,6 @@ struct BengaliRomanizerTests {
         #expect(result.contains("❤️"))
     }
 }
-
-// MARK: - TextCanonicalizerTests
 
 struct TextCanonicalizerTests {
     @Test("Collapses multiple spaces")
@@ -271,8 +249,6 @@ struct TextCanonicalizerTests {
         #expect(result == "hello world")
     }
 }
-
-// MARK: - RomanizationServiceTests
 
 @Suite(.tags(.model))
 @MainActor
@@ -332,8 +308,6 @@ struct RomanizationServiceTests {
         #expect(service.romanizeAll(lyrics).isEmpty)
     }
 }
-
-// MARK: - SyncedLyricLineRomanizationTests
 
 @Suite(.tags(.model))
 struct SyncedLyricLineRomanizationTests {

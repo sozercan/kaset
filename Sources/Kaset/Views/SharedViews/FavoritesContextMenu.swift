@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - FavoritesContextMenu
-
 /// Shared context menu items for adding/removing items from Favorites.
 @MainActor
 enum FavoritesContextMenu {
@@ -84,8 +82,6 @@ enum FavoritesContextMenu {
         }
     }
 }
-
-// MARK: - FavoriteContextMenuItem
 
 private struct FavoriteContextMenuItem: View {
     let isPinned: Bool

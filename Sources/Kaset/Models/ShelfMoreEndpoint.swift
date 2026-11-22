@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ArtistShelfKind
-
 /// Identifies which carousel shelf an artist-page More/See-all endpoint belongs to.
 ///
 /// Shelves are matched by renderer shape + browseId prefix at parse time
@@ -19,8 +17,6 @@ enum ArtistShelfKind: Hashable {
     case podcasts
     case relatedArtists
 }
-
-// MARK: - ShelfMoreEndpoint
 
 /// A browse endpoint captured from a carousel shelf's `moreContentButton`.
 ///

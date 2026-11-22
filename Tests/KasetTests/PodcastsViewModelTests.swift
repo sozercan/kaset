@@ -13,16 +13,12 @@ struct PodcastsViewModelTests {
         self.viewModel = PodcastsViewModel(client: self.mockClient)
     }
 
-    // MARK: - Initial State
-
     @Test
     func initialStateIsIdleWithEmptySections() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Load
 
     @Test
     func loadSuccessSetsSections() async {
@@ -90,8 +86,6 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.sections.first?.title == "Original")
     }
 
-    // MARK: - Refresh
-
     @Test
     func refreshClearsSectionsAndReloads() async {
         let initialSection = PodcastSection(
@@ -117,8 +111,6 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.first?.title == "Refreshed")
     }
-
-    // MARK: - Continuation Loading
 
     @Test
     func initialLoadDoesNotDrainContinuations() async {
@@ -170,8 +162,6 @@ struct PodcastsViewModelTests {
         #expect(self.mockClient.getPodcastsContinuationCallCount == 0)
     }
 
-    // MARK: - Empty State
-
     @Test
     func loadWithEmptySectionsShowsLoaded() async {
         self.mockClient.podcastsSections = []
@@ -181,8 +171,6 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.isEmpty)
     }
-
-    // MARK: - Region availability integration
 
     @Test
     func loadHTTP404MarksAvailabilityUnavailableAndLandsLoaded() async {

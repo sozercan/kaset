@@ -1,7 +1,5 @@
 import CoreGraphics
 
-// MARK: - PlayerBarLayout
-
 /// Shared sizing constants for the audio and video player bars.
 enum PlayerBarLayout {
     private static let sidebarWidth: CGFloat = 220

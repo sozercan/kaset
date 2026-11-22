@@ -4,13 +4,9 @@ import Foundation
 import Observation
 import os
 
-// MARK: - NativeQueueMaintenanceContext
-
 enum NativeQueueMaintenanceContext {
     @TaskLocal static var isApplyingQueueMutation = false
 }
-
-// MARK: - PlayerService
 
 /// Controls music playback via a hidden WKWebView.
 @MainActor
@@ -113,8 +109,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         case expanded
         case lyrics
     }
-
-    // MARK: - Observable State
 
     /// Current playback state.
     var state: PlaybackState = .idle
@@ -500,8 +494,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Whether AirPlay is currently connected (playing to a wireless target).
     var isAirPlayConnected: Bool = false
 
-    // MARK: - Internal Properties (for extensions)
-
     let logger = DiagnosticsLogger.player
     var ytMusicClient: (any YTMusicClientProtocol)?
     var authService: AuthService?
@@ -636,8 +628,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     /// Suppresses scheduler churn for queue writes that are produced by the enrichment pass itself.
     @ObservationIgnored var isApplyingQueueEnrichmentResult = false
 
-    // MARK: - Initialization
-
     override init() {
         super.init()
         self.observeNowPlayingLikeStatus()
@@ -707,8 +697,6 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         // state already needs enrichment and a client is available.
         self.startQueueEnrichmentService()
     }
-
-    // MARK: - Controlled Mutators
 
     /// Stores the pre-mute volume through a narrow API instead of exposing a writable property.
     func rememberVolumeBeforeMute(_ value: Double) {

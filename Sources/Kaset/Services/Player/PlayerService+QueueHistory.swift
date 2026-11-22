@@ -2,8 +2,6 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    // MARK: - Queue Undo / Redo
-
     /// Whether queue undo is available.
     var canUndoQueue: Bool {
         !self.queueUndoHistory.isEmpty

@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - PersistentPlayerView
-
 /// A SwiftUI anchor for the singleton WebView.
 /// The WebView is created once, kept attached while audio playback is pending,
 /// and normally rendered as a hidden 1×1 view.
@@ -70,8 +68,6 @@ struct PersistentPlayerView: NSViewRepresentable {
         }
     }
 }
-
-// MARK: - MiniPlayerWindow
 
 struct MiniPlayerWindow: View {
     private enum Layout {

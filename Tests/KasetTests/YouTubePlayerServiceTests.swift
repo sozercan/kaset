@@ -3,8 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MockYouTubeWatchPlaybackController
-
 /// Records playback commands without touching a real WebView.
 @MainActor
 final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling {
@@ -142,8 +140,6 @@ final class MockYouTubeWatchPlaybackController: YouTubeWatchPlaybackControlling 
     }
 }
 
-// MARK: - BooleanBox
-
 @MainActor
 private final class BooleanBox {
     var value: Bool
@@ -152,8 +148,6 @@ private final class BooleanBox {
         self.value = value
     }
 }
-
-// MARK: - YouTubePlayerServiceTests
 
 @Suite("YouTubePlayerService", .serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
@@ -1958,8 +1952,6 @@ extension YouTubePlayerServiceTests {
         #expect(controller.pendingRecoverySeeks == [42])
     }
 }
-
-// MARK: - PlaybackArbiterTests
 
 @Suite("PlaybackArbiter", .serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor

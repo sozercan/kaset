@@ -3,8 +3,6 @@ import os
 import SwiftUI
 import WebKit
 
-// MARK: - WebPlaybackIdentityTransition
-
 enum WebPlaybackIdentityTransition {
     struct ObservationOrder {
         let observerEpoch: Double
@@ -168,8 +166,6 @@ enum WebPlaybackIdentityTransition {
     }
 }
 
-// MARK: - MusicHomePreloadPolicy
-
 enum MusicHomePreloadPolicy {
     nonisolated static func shouldPreload(
         isRunningUnitTests: Bool,
@@ -183,8 +179,6 @@ enum MusicHomePreloadPolicy {
             && currentVideoId == nil
     }
 }
-
-// MARK: - WebPlaybackTransitionFallbackPolicy
 
 enum WebPlaybackTransitionFallbackPolicy {
     static let advertisementStallGrace: Duration = .seconds(15)
@@ -224,8 +218,6 @@ enum WebPlaybackTransitionFallbackPolicy {
         ) != nil
     }
 }
-
-// MARK: - MiniPlayerWebView
 
 /// A visible WebView that displays the YouTube Music player.
 /// This is required because YouTube Music won't initialize the video player
@@ -295,8 +287,6 @@ struct MiniPlayerWebView: NSViewRepresentable {
             .removeScriptMessageHandler(forName: "miniPlayer")
     }
 
-    // MARK: - Coordinator
-
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var onStateChange: ((PlayerState) -> Void)?
         var onMetadataChange: ((String, String, Double) -> Void)?
@@ -347,8 +337,6 @@ struct MiniPlayerWebView: NSViewRepresentable {
         }
     }
 }
-
-// MARK: - SingletonPlayerWebView
 
 /// Manages a single WebView instance for the entire app lifetime.
 /// This ensures there's only ever ONE WebView playing audio.

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - Song + CustomTestStringConvertible
-
 /// Provides readable test descriptions for Song in test failure logs.
 ///
 /// When a test fails involving a Song, Swift Testing will display:
@@ -15,8 +13,6 @@ extension Song: CustomTestStringConvertible {
         return "\"\(title)\" by \(artistsText) (\(durationText))"
     }
 }
-
-// MARK: - Playlist + CustomTestStringConvertible
 
 /// Provides readable test descriptions for Playlist in test failure logs.
 ///
@@ -30,8 +26,6 @@ extension Playlist: CustomTestStringConvertible {
     }
 }
 
-// MARK: - Album + CustomTestStringConvertible
-
 /// Provides readable test descriptions for Album in test failure logs.
 ///
 /// When a test fails involving an Album, Swift Testing will display:
@@ -44,8 +38,6 @@ extension Album: CustomTestStringConvertible {
     }
 }
 
-// MARK: - Artist + CustomTestStringConvertible
-
 /// Provides readable test descriptions for Artist in test failure logs.
 ///
 /// When a test fails involving an Artist, Swift Testing will display:
@@ -56,8 +48,6 @@ extension Artist: CustomTestStringConvertible {
     }
 }
 
-// MARK: - PlaylistDetail + CustomTestStringConvertible
-
 /// Provides readable test descriptions for PlaylistDetail in test failure logs.
 extension PlaylistDetail: CustomTestStringConvertible {
     public var testDescription: String {
@@ -66,8 +56,6 @@ extension PlaylistDetail: CustomTestStringConvertible {
         return "\"\(title)\" [\(typeText)] (\(trackText))"
     }
 }
-
-// MARK: - HomeSectionItem + CustomTestStringConvertible
 
 /// Provides readable test descriptions for HomeSectionItem in test failure logs.
 extension HomeSectionItem: CustomTestStringConvertible {
@@ -84,8 +72,6 @@ extension HomeSectionItem: CustomTestStringConvertible {
         }
     }
 }
-
-// MARK: - FavoriteItem + CustomTestStringConvertible
 
 /// Provides readable test descriptions for FavoriteItem in test failure logs.
 extension FavoriteItem: CustomTestStringConvertible {
@@ -105,8 +91,6 @@ extension FavoriteItem: CustomTestStringConvertible {
     }
 }
 
-// MARK: - PodcastShow + CustomTestStringConvertible
-
 /// Provides readable test descriptions for PodcastShow in test failure logs.
 extension PodcastShow: CustomTestStringConvertible {
     public var testDescription: String {
@@ -114,8 +98,6 @@ extension PodcastShow: CustomTestStringConvertible {
         return "Podcast: \"\(title)\"\(authorText)"
     }
 }
-
-// MARK: - PodcastEpisode + CustomTestStringConvertible
 
 /// Provides readable test descriptions for PodcastEpisode in test failure logs.
 extension PodcastEpisode: CustomTestStringConvertible {
@@ -125,8 +107,6 @@ extension PodcastEpisode: CustomTestStringConvertible {
         return "Episode: \"\(title)\"\(showText)\(durationText)"
     }
 }
-
-// MARK: - PodcastSectionItem + CustomTestStringConvertible
 
 /// Provides readable test descriptions for PodcastSectionItem in test failure logs.
 extension PodcastSectionItem: CustomTestStringConvertible {
@@ -139,8 +119,6 @@ extension PodcastSectionItem: CustomTestStringConvertible {
         }
     }
 }
-
-// MARK: - SearchResultItem + CustomTestStringConvertible
 
 /// Provides readable test descriptions for SearchResultItem in test failure logs.
 extension SearchResultItem: CustomTestStringConvertible {

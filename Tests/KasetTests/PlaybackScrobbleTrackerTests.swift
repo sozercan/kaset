@@ -18,8 +18,6 @@ struct PlaybackScrobbleTrackerTests {
         .init(percent: percent, minSeconds: minSeconds, allowsUnknownDuration: allowsUnknownDuration)
     }
 
-    // MARK: - Accumulation
-
     @Test("First observation establishes a baseline without accumulating")
     func firstObservationIsBaseline() {
         var tracker = self.makeTracker()
@@ -79,8 +77,6 @@ struct PlaybackScrobbleTrackerTests {
         #expect(abs(tracker.accumulatedPlayTime - 1) < 0.001)
     }
 
-    // MARK: - Threshold
-
     @Test("Percent threshold qualifies at half of a known duration")
     func percentThreshold() {
         var tracker = self.makeTracker()
@@ -127,8 +123,6 @@ struct PlaybackScrobbleTrackerTests {
         #expect(tracker.meetsThreshold(duration: nil, thresholds: self.thresholds(allowsUnknownDuration: false)) == false)
         #expect(tracker.meetsThreshold(duration: nil, thresholds: self.thresholds(allowsUnknownDuration: true)))
     }
-
-    // MARK: - Latches & Reset
 
     @Test("Scrobbled and now-playing flags latch")
     func latches() {

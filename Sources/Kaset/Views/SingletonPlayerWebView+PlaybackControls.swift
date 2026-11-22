@@ -1,7 +1,5 @@
 import WebKit
 
-// MARK: - SingletonPlayerWebView Playback Controls Extension
-
 extension SingletonPlayerWebView {
     /// Enables/disables startup autoplay blocking inside the observer script.
     func setAutoplayBlocked(_ blocked: Bool) {

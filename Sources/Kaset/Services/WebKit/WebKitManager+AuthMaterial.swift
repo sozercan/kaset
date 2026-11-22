@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - WebKitManager Auth Material
-
 extension WebKitManager {
     nonisolated struct AuthMaterial: Equatable {
         let cookieHeader: String?

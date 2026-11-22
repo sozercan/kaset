@@ -3,8 +3,6 @@ import XCTest
 /// UI tests for the HomeView.
 @MainActor
 final class HomeViewUITests: KasetUITestCase {
-    // MARK: - Basic Display
-
     func testHomeViewDisplaysTitle() {
         launchWithMockHome()
 
@@ -26,8 +24,6 @@ final class HomeViewUITests: KasetUITestCase {
         let homeTitle = app.staticTexts["Home"]
         XCTAssertTrue(waitForElement(homeTitle, timeout: 10))
     }
-
-    // MARK: - Content Display
 
     func testHomeViewDisplaysSections() {
         launchWithMockHome(sectionCount: 3, itemsPerSection: 5)
@@ -53,8 +49,6 @@ final class HomeViewUITests: KasetUITestCase {
         scrollView.swipeDown()
     }
 
-    // MARK: - Player Bar Presence
-
     func testHomeViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)
 
@@ -67,8 +61,6 @@ final class HomeViewUITests: KasetUITestCase {
         ).firstMatch
         XCTAssertTrue(waitForElement(playPauseButton, timeout: 10), "Player bar should show play/pause button")
     }
-
-    // MARK: - Navigation from Home
 
     func testCanNavigateFromHomeToOtherViews() {
         launchWithMockHome()

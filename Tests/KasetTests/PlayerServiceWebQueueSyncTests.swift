@@ -4,8 +4,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - PlayerServiceWebQueueSyncTests
-
 /// Web queue sync, next/previous stack, repeat-one, metadata drift, and radio-related PlayerService tests.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -18,8 +16,6 @@ struct PlayerServiceWebQueueSyncTests {
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
         self.playerService = PlayerService()
     }
-
-    // MARK: - Forward skip / Previous stack
 
     @Test("Previous seeks to start first when progress > 3; second Previous undoes next skip")
     func previousSeeksToStartBeforeUndoingForwardSkip() async {
@@ -330,8 +326,6 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.injectedWebQueueVideoId == "v2")
         #expect(self.playerService.pendingWebQueueInjectionVideoId == nil)
     }
-
-    // MARK: - Next with Shuffle Tests
 
     @Test("Next with repeat one advances to the following queue song")
     func nextWithRepeatOneAdvancesToFollowingQueueSong() async {

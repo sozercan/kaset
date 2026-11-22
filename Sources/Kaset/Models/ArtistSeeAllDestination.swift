@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - ArtistSeeAllDestination
-
 /// Navigation destination for an artist shelf's "See all" affordance.
 ///
 /// A single destination type covers both `MUSIC_PAGE_TYPE_ARTIST_DISCOGRAPHY`

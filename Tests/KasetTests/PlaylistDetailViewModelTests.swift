@@ -67,16 +67,12 @@ struct PlaylistDetailViewModelTests {
         Issue.record("Timed out waiting for \(description)")
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle with no playlist detail")
     func initialState() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.playlistDetail == nil)
         #expect(self.viewModel.hasMore == false)
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets playlist detail")
     func loadSuccess() async {
@@ -128,8 +124,6 @@ struct PlaylistDetailViewModelTests {
         #expect(viewModel.playlistDetail?.tracks.first?.isPlayable == false)
         #expect(viewModel.playlistDetail?.tracks.last == queueOnlyTrack)
     }
-
-    // MARK: - Track Removal Tests
 
     @Test("Optimistic track removal removes the matching track and confirms successfully")
     func optimisticTrackRemovalRemovesMatch() async throws {
@@ -963,8 +957,6 @@ struct PlaylistDetailViewModelTests {
         #expect(viewModel.playlistDetail?.libraryTargetId == "OLAK-route-album")
     }
 
-    // MARK: - Load More Tests
-
     @Test("Load more appends tracks")
     func loadMoreAppendsTracks() async {
         let playlistDetail = TestFixtures.makePlaylistDetail(
@@ -1211,8 +1203,6 @@ struct PlaylistDetailViewModelTests {
         #expect(self.mockClient.getPlaylistContinuationCalled == false)
     }
 
-    // MARK: - Liked Music Live Sync Tests
-
     @Test("Liked Music live sync removes song after unlike")
     func likedMusicLiveSyncRemovesSongAfterUnlike() async {
         let tracks = [
@@ -1389,8 +1379,6 @@ struct PlaylistDetailViewModelTests {
         #expect(self.mockClient.getSongVideoIds.contains(videoId))
         #expect(likedMusicViewModel.playlistDetail?.tracks.isEmpty == true)
     }
-
-    // MARK: - Liked Music Reconciliation Regression Tests
 
     @Test("Loaded unlike is counted once when an in-flight continuation returns the removed track")
     func loadedUnlikeIsCountedOnceAcrossContinuationOverlap() async {
@@ -1972,8 +1960,6 @@ struct PlaylistDetailViewModelTests {
         #expect(viewModel.hasMore == false)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears detail and reloads")
     func refreshClearsDetailAndReloads() async {
         let playlistDetail = TestFixtures.makePlaylistDetail(
@@ -1996,8 +1982,6 @@ struct PlaylistDetailViewModelTests {
 
         #expect(self.viewModel.playlistDetail?.tracks.count == 8)
     }
-
-    // MARK: - Fallback Tests
 
     @Test("Load uses original playlist info for unknown title")
     func loadUsesOriginalPlaylistInfoForUnknownTitle() async {

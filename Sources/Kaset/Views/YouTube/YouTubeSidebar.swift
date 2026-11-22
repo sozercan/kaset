@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeSidebar
-
 /// Sidebar navigation for the YouTube (video) experience.
 ///
 /// Mirrors the music `Sidebar` structure so toggling sources feels native:
@@ -73,8 +71,6 @@ struct YouTubeSidebar: View {
         HapticService.navigation()
     }
 }
-
-// MARK: - AccessibilityID.YouTubeSidebar
 
 extension AccessibilityID {
     enum YouTubeSidebar {

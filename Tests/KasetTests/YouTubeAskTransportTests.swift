@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeAskTransportTests
-
 @Suite("YouTube Ask transport", .serialized, .tags(.api))
 struct YouTubeAskTransportTests {
     private static let maximumResponseBytes = 32 * 1024 * 1024
@@ -238,8 +236,6 @@ struct YouTubeAskTransportTests {
         """#.utf8
     )
 }
-
-// MARK: - AskTransportURLProtocol
 
 private final class AskTransportURLProtocol: URLProtocol {
     typealias Handler = (AskTransportURLProtocol) -> Void

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LikeStatusEvent
-
 /// Represents a like status change event for reactive UI updates.
 struct LikeStatusEvent: Equatable {
     let videoId: String
@@ -28,8 +26,6 @@ struct LikeStatusEvent: Equatable {
     }
 }
 
-// MARK: - LikeStatusEventBatch
-
 struct LikeStatusEventBatch: Equatable {
     let accountID: String
     let events: [LikeStatusEvent]
@@ -46,15 +42,11 @@ struct LikeStatusEventBatch: Equatable {
     }
 }
 
-// MARK: - LikedMusicRequestSnapshot
-
 struct LikedMusicRequestSnapshot: Equatable {
     let accountID: String
     let scopeGeneration: UInt64
     let requestID: UInt64
 }
-
-// MARK: - LikedMusicReconciliation
 
 struct LikedMusicReconciliation {
     let tracks: [Song]
@@ -63,8 +55,6 @@ struct LikedMusicReconciliation {
     let localOverlayVideoIDs: Set<String>
     let newLikedMembershipVideoIDs: Set<String>
 }
-
-// MARK: - SongLikeStatusManager
 
 /// Manages like/dislike status for songs across the app.
 /// This service caches like statuses locally and syncs with the YouTube Music API.
@@ -139,8 +129,6 @@ final class SongLikeStatusManager {
 
     init() {}
 
-    // MARK: - Configuration
-
     /// Sets the client to use for API calls.
     /// - Parameter client: The YTMusic client, or `nil` to clear the override.
     func setClient(_ client: (any YTMusicClientProtocol)?) {
@@ -164,8 +152,6 @@ final class SongLikeStatusManager {
         self.lastLikeEventBatch = nil
         DiagnosticsLogger.api.debug("SongLikeStatusManager: Switched cache scope to account \(resolvedAccountID)")
     }
-
-    // MARK: - Status Queries
 
     /// Gets the cached like status for a song.
     /// - Parameter videoId: The video ID of the song.
@@ -313,8 +299,6 @@ final class SongLikeStatusManager {
             newLikedMembershipVideoIDs: newLikedMembershipVideoIDs
         )
     }
-
-    // MARK: - Rating Actions
 
     /// Likes a song.
     /// - Parameters:
@@ -571,8 +555,6 @@ final class SongLikeStatusManager {
             ? rollbackStatus
             : (self.status(for: song.videoId, accountID: mutation.accountID) ?? .indifferent)
     }
-
-    // MARK: - Cache Management
 
     /// Updates the cache with a known status (e.g., from API response).
     /// - Parameters:

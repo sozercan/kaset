@@ -2,14 +2,10 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - LibraryMutationSerialTests
-
 /// Serializes every suite that exercises LibraryMutationActions' process-wide
 /// mutation coordinator. Separate `.serialized` suites may still run concurrently.
 @Suite(.serialized)
 struct LibraryMutationSerialTests {}
-
-// MARK: LibraryMutationSerialTests.LibraryMutationActionsTests
 
 extension LibraryMutationSerialTests {
     @Suite(.tags(.viewModel), .timeLimit(.minutes(1)))

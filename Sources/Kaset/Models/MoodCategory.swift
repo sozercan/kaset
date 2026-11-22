@@ -1,14 +1,10 @@
 import Foundation
 import SwiftUI
 
-// MARK: - MoodCategoryEndpoint
-
 struct MoodCategoryEndpoint: Codable, Hashable {
     let browseId: String
     let params: String?
 }
-
-// MARK: - MoodCategory
 
 /// Represents a moods/genres category that can be navigated to.
 /// Unlike playlists, these are browse endpoints that return sections of content.

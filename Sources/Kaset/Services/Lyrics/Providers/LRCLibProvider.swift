@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LRCLibModel
-
 struct LRCLibModel: Decodable {
     let id: Int
     let trackName: String?
@@ -12,8 +10,6 @@ struct LRCLibModel: Decodable {
     let plainLyrics: String?
     let syncedLyrics: String?
 }
-
-// MARK: - LRCLibProvider
 
 final class LRCLibProvider: LyricsProvider {
     let name = "LRCLib"

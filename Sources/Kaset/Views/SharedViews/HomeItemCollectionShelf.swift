@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - HomeItemShelfSection
-
 // A header plus a horizontal shelf of ``HomeSectionItem`` cards for the Home,
 // Explore, Charts, New Releases and Moods pages. Only the header is SwiftUI: the
 // shelf is a plain `NSScrollView` of single-view native cards, with native glass
@@ -86,8 +84,6 @@ extension HomeItemShelfSection where MenuContent == EmptyView {
     }
 }
 
-// MARK: - HomeItemCollectionShelf
-
 /// Thin SwiftUI wrapper around ``HomeItemShelfView``.
 struct HomeItemCollectionShelf: NSViewRepresentable {
     let items: [HomeSectionItem]
@@ -140,8 +136,6 @@ struct HomeItemCollectionShelf: NSViewRepresentable {
         ))
     }
 }
-
-// MARK: - HomeItemShelfView
 
 /// The AppKit shelf: a horizontal `NSScrollView` whose document view owns one
 /// ``HomeItemCell`` per item for the shelf's lifetime. A shelf holds at most a
@@ -272,8 +266,6 @@ final class HomeItemShelfView: NSObject {
         self.observationTick.value += 1
     }
 
-    // MARK: Configuration
-
     func apply(_ configuration: Configuration) {
         // Card widths depend on item metadata, so a same-ID item that gains or
         // loses video mode is a layout change too.
@@ -375,8 +367,6 @@ final class HomeItemShelfView: NSObject {
         self.pushLikedState()
     }
 
-    // MARK: Like status
-
     private var likeObservationGeneration = 0
     private var observedSongIDs: [String] = []
     private let observationTick = ObservationTick()
@@ -431,8 +421,6 @@ final class HomeItemShelfView: NSObject {
         self.configuration.action(self.configuration.items[index], index)
     }
 
-    // MARK: Hover
-
     /// Resolves which cell (if any) is under `point` in document coordinates
     /// and moves the hover state there. Driven by mouse moves and by
     /// scroll-bounds changes, so cells that slide out from under a stationary
@@ -458,8 +446,6 @@ final class HomeItemShelfView: NSObject {
         self.updateHover(at: inside ? point : nil)
         self.containerView.setHovering(inside)
     }
-
-    // MARK: Overflow + paging
 
     private func scrollGeometryDidChange() {
         guard !self.isLayingOutCells else { return }
@@ -516,8 +502,6 @@ final class HomeItemShelfView: NSObject {
     }
 }
 
-// MARK: - ObservationTick
-
 /// An observable counter read inside a tracked closure so that bumping it
 /// fires — and thereby disposes — an otherwise one-shot observation.
 @MainActor
@@ -525,8 +509,6 @@ final class HomeItemShelfView: NSObject {
 private final class ObservationTick {
     var value = 0
 }
-
-// MARK: - HomeItemShelfDocumentView
 
 /// Flipped document view holding the shelf's cell views; owns the single
 /// tracking area used for hover and turns clicks into item activations.

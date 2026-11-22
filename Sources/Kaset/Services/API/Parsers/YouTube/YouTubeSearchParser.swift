@@ -63,8 +63,6 @@ enum YouTubeSearchParser {
         return response
     }
 
-    // MARK: - Private
-
     /// The primary result sections
     /// (`contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents`).
     private static func primarySections(of data: [String: Any]) -> [[String: Any]] {

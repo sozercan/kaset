@@ -2,8 +2,6 @@ import AppKit
 import Testing
 @testable import Kaset
 
-// MARK: - NowPlayingAnimationTests
-
 /// The equalizer and the player bar marquee animate with Core Animation, so the
 /// render server drives their frames; these tests pin the animation setup.
 @Suite(.tags(.model))
@@ -44,8 +42,6 @@ struct NowPlayingAnimationTests {
             isRightToLeft: false
         )
     }
-
-    // MARK: Equalizer
 
     @Test("Playing bars repeat in Core Animation while in a window")
     func equalizerAnimatesInWindow() {
@@ -96,8 +92,6 @@ struct NowPlayingAnimationTests {
         #expect(view.hitTest(NSPoint(x: 7, y: 7)) == nil)
     }
 
-    // MARK: Marquee cycle
-
     @Test("Titles that fit, or Reduce Motion, never scroll")
     func marqueeCycleOnlyForOverflow() {
         #expect(PlayerBarMarqueeCycle(textWidth: 100, containerWidth: 110, reduceMotion: false) == nil)
@@ -130,8 +124,6 @@ struct NowPlayingAnimationTests {
             #expect(zip(keyframes, keyframes.dropFirst()).allSatisfy { $0 <= $1 })
         }
     }
-
-    // MARK: Marquee view
 
     @Test("Overflowing titles scroll in Core Animation; fitting titles stay put")
     func marqueeViewAnimatesOnlyOverflow() throws {

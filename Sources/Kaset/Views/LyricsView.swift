@@ -1,8 +1,6 @@
 import FoundationModels
 import SwiftUI
 
-// MARK: - LyricsPollLease
-
 /// Lyrics views can be on screen at the same time (main window sidebar, Now Playing, mini
 /// player) and share the playback WebView's lyrics poll, so only the last one to disappear
 /// stops it.
@@ -21,8 +19,6 @@ enum LyricsPollLease {
         }
     }
 }
-
-// MARK: - LyricsView
 
 /// Right sidebar panel displaying lyrics for the current track.
 @available(macOS 26.0, *)
@@ -110,8 +106,6 @@ struct LyricsView: View {
         }
     }
 
-    // MARK: - Header
-
     private var headerView: some View {
         HStack {
             Text(String(localized: "Lyrics"))
@@ -152,8 +146,6 @@ struct LyricsView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
     }
-
-    // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
@@ -418,8 +410,6 @@ struct LyricsView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-
-    // MARK: - Data Loading
 
     @MainActor
     private func loadLyrics(for videoId: String) async {

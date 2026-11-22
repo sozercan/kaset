@@ -39,8 +39,6 @@ enum ChannelPageParser {
         )
     }
 
-    // MARK: - Private
-
     /// Extracts "@handle" from "http://www.youtube.com/@handle".
     private static func handle(fromVanityURL url: String?) -> String? {
         guard let last = url?.split(separator: "/").last, last.hasPrefix("@") else {

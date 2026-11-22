@@ -23,8 +23,6 @@ enum GuideParser {
         return channels.filter { seen.insert($0.channelId).inserted }
     }
 
-    // MARK: - Private
-
     private static func firstSubscriptionsSection(in value: Any) -> [String: Any]? {
         if let dict = value as? [String: Any] {
             if let section = dict["guideSubscriptionsSectionRenderer"] as? [String: Any] {

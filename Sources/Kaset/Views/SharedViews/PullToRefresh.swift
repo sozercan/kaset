@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PullToRefreshState
-
 struct PullToRefreshState: Equatable {
     enum Phase: Equatable {
         case idle
@@ -101,8 +99,6 @@ struct PullToRefreshState: Equatable {
         self.phase = self.pullDistance <= Self.restTolerance ? .idle : .settling
     }
 }
-
-// MARK: - PullToRefreshModifier
 
 private struct PullToRefreshModifier: ViewModifier {
     @State private var state = PullToRefreshState()

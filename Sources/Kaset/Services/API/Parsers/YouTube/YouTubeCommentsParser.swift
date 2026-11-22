@@ -28,8 +28,6 @@ enum YouTubeCommentsParser {
         )
     }
 
-    // MARK: - Entity Payloads (2024+ format)
-
     private static func commentsFromEntityPayloads(_ data: [String: Any]) -> [YouTubeComment] {
         let updates = data["frameworkUpdates"] as? [String: Any]
         let batch = updates?["entityBatchUpdate"] as? [String: Any]
@@ -165,8 +163,6 @@ enum YouTubeCommentsParser {
         )
     }
 
-    // MARK: - Legacy Renderers
-
     private static func commentsFromLegacyRenderers(_ data: [String: Any]) -> [YouTubeComment] {
         var comments: [YouTubeComment] = []
         Self.collectLegacy(in: data, into: &comments)
@@ -208,8 +204,6 @@ enum YouTubeCommentsParser {
             likeCountText: YouTubeItemParser.text(from: renderer["voteCount"])
         )
     }
-
-    // MARK: - Continuation & Create Params
 
     /// The next comments page token: the last continuation among the
     /// appended items (reply continuations come earlier within threads).

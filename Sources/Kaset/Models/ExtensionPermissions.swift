@@ -1,8 +1,6 @@
 import Foundation
 import WebKit
 
-// MARK: - ExtensionPermissions
-
 /// The access Kaset grants when loading an extension. Optional permissions are excluded.
 struct ExtensionPermissions: Codable, Equatable {
     let permissions: [String]
@@ -97,23 +95,17 @@ struct ExtensionPermissions: Codable, Equatable {
     }
 }
 
-// MARK: - ExtensionAccessDescription
-
 struct ExtensionAccessDescription: Equatable {
     let symbol: String
     let title: String
     let detail: String
 }
 
-// MARK: - ExtensionPermissionReview
-
 struct ExtensionPermissionReview: Identifiable {
     let id: String
     let name: String
     let permissions: ExtensionPermissions
 }
-
-// MARK: - ExtensionConsentError
 
 enum ExtensionConsentError: LocalizedError {
     case unavailable

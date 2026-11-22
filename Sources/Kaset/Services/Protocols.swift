@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - WebKitManagerProtocol
-
 /// Protocol defining the interface for WebKit cookie and data management.
 /// Enables dependency injection and mocking for tests.
 @MainActor
@@ -97,8 +95,6 @@ protocol WebKitManagerProtocol: AnyObject, Sendable {
     /// switch cannot be verified.
     func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws
 }
-
-// MARK: - YTMusicClientProtocol
 
 /// Protocol defining the interface for YouTube Music API operations.
 /// Enables dependency injection and mocking for tests.
@@ -364,13 +360,9 @@ extension YTMusicClientProtocol {
     }
 }
 
-// MARK: - LoginAttemptID
-
 struct LoginAttemptID: Equatable, Sendable {
     let rawValue: UInt64
 }
-
-// MARK: - AuthServiceProtocol
 
 /// Protocol defining the interface for authentication operations.
 /// Enables dependency injection and mocking for tests.
@@ -435,8 +427,6 @@ protocol AuthServiceProtocol: AnyObject, Sendable {
     ) async -> Bool?
 }
 
-// MARK: - PlayerServiceProtocol
-
 /// Protocol defining the interface for playback control.
 /// Enables dependency injection and mocking for tests.
 @MainActor
@@ -497,8 +487,6 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Whether the current track is in the user's library.
     var currentTrackInLibrary: Bool { get }
-
-    // MARK: - Playback Control
 
     /// Plays a track by video ID.
     func play(videoId: String) async
@@ -610,8 +598,6 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
     /// Appends songs to the end of the queue.
     func appendToQueue(_ songs: [Song])
 
-    // MARK: - Like/Library Actions
-
     /// Likes the current track.
     func likeCurrentTrack()
 
@@ -620,8 +606,6 @@ protocol PlayerServiceProtocol: AnyObject, Sendable {
 
     /// Toggles the library status of the current track.
     func toggleLibraryStatus()
-
-    // MARK: - State Updates
 
     /// Records that the WebView observer has confirmed playback has started.
     func confirmPlaybackStarted()

@@ -62,7 +62,6 @@
 --enable sortImports
 --enable unusedArguments
 --enable wrapMultilineStatementBraces
---enable markTypes
 --enable extensionAccessControl
 --enable redundantParens
 --enable redundantReturn

@@ -1,15 +1,11 @@
 import Foundation
 import WebKit
 
-// MARK: - CookieRestoreResult
-
 enum CookieRestoreResult: Equatable, Sendable {
     case ready
     case unavailable
     case failed
 }
-
-// MARK: - Startup Cookie Restoration
 
 extension WebKitManager {
     var canPersistAuthCookies: Bool {

@@ -53,8 +53,6 @@ struct MoodsAndGenresView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
     }
 
-    // MARK: - Views
-
     @ViewBuilder
     private var contentView: some View {
         if self.viewModel.sections.isEmpty {
@@ -120,8 +118,6 @@ struct MoodsAndGenresView: View {
             }
         )
     }
-
-    // MARK: - Actions
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,

@@ -68,8 +68,6 @@ struct AccountRowView: View {
         .accessibilityHint("Double-tap to switch to this account")
     }
 
-    // MARK: - Avatar View
-
     private var avatarView: some View {
         Group {
             if let thumbnailURL = account.thumbnailURL {
@@ -98,8 +96,6 @@ struct AccountRowView: View {
             }
     }
 
-    // MARK: - Type Label
-
     private var typeLabel: some View {
         Text(self.account.typeLabel)
             .font(.caption2)
@@ -107,8 +103,6 @@ struct AccountRowView: View {
             .foregroundStyle(.tertiary)
             .fixedSize()
     }
-
-    // MARK: - Background
 
     @ViewBuilder
     private var rowBackground: some View {
@@ -127,8 +121,6 @@ struct AccountRowView: View {
         }
     }
 
-    // MARK: - Accessibility
-
     private var accessibilityLabel: String {
         var label = self.account.name
 
@@ -145,8 +137,6 @@ struct AccountRowView: View {
         return label
     }
 }
-
-// MARK: - Preview
 
 #Preview("Primary Account - Selected") {
     let account = UserAccount(

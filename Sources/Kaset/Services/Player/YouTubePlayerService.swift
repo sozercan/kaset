@@ -3,14 +3,10 @@ import AppKit
 import Foundation
 import Observation
 
-// MARK: - YouTubePlaybackOccurrence
-
 struct YouTubePlaybackOccurrence: Hashable {
     let documentGeneration: UInt64
     let mediaGeneration: UInt64
 }
-
-// MARK: - YouTubeWatchPlaybackControlling
 
 /// Playback command surface backing `YouTubePlayerService`.
 /// The real implementation is `YouTubeWatchWebView`; tests inject a recorder.
@@ -40,8 +36,6 @@ protocol YouTubeWatchPlaybackControlling: AnyObject {
     func tearDown()
 }
 
-// MARK: - YouTubeWatchWebView + YouTubeWatchPlaybackControlling
-
 extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
     func prepare(webKitManager: WebKitManager, playerService: YouTubePlayerService, usesCookieFreeDataStore: Bool) {
         _ = self.getWebView(
@@ -52,8 +46,6 @@ extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
     }
 }
 
-// MARK: - YouTubePlayerService
-
 /// Playback state and control for regular YouTube videos.
 ///
 /// Parallel to `PlayerService` (music) — that service is untouched. The
@@ -63,8 +55,6 @@ extension YouTubeWatchWebView: YouTubeWatchPlaybackControlling {
 @MainActor
 @Observable
 final class YouTubePlayerService {
-    // MARK: - State
-
     /// The video currently loaded for playback (nil when playback is closed).
     private(set) var currentVideo: YouTubeVideo?
 
@@ -297,15 +287,11 @@ final class YouTubePlayerService {
     /// Set once by KasetApp; optional so unit tests don't need it.
     @ObservationIgnored var youtubeClient: (any YouTubeClientProtocol)?
 
-    // MARK: - Hooks
-
     /// Called right before video playback starts (PlaybackArbiter pauses music).
     var playbackWillStart: (() -> Void)?
 
     /// Called when the current video finishes (WatchView advances to related).
     var onVideoEnded: ((String?) -> Void)?
-
-    // MARK: - Dependencies
 
     private let webKitManager: WebKitManager
     let playbackController: any YouTubeWatchPlaybackControlling
@@ -330,8 +316,6 @@ final class YouTubePlayerService {
         self.shouldPopOutOnNavigateAway = shouldPopOutOnNavigateAway
         self.playbackLoadingTimeout = playbackLoadingTimeout
     }
-
-    // MARK: - Commands
 
     /// Starts playback of a video, docked inline.
     func play(video: YouTubeVideo, usesCookieFreeDataStore: Bool = false, startAt: Double? = nil) {
@@ -740,8 +724,6 @@ final class YouTubePlayerService {
         self.playbackController.tearDown()
     }
 
-    // MARK: - Surface Placement
-
     /// Moves the surface to the floating video window.
     func popOutToWindow() {
         guard self.currentVideo != nil else { return }
@@ -766,8 +748,6 @@ final class YouTubePlayerService {
     func consumePopInRequest() {
         self.popInRequest = nil
     }
-
-    // MARK: - Skipping
 
     /// Supplies up-next candidates (the watch page's related list).
     func setUpNext(_ videos: [YouTubeVideo]) {
@@ -935,8 +915,6 @@ final class YouTubePlayerService {
         self.clearRelativeSeekCoalescingTarget()
     }
 
-    // MARK: - Watch Later
-
     /// Adds/removes the current video from Watch Later (optimistic with rollback).
     func toggleWatchLater() async {
         guard let video = self.currentVideo, let client = self.youtubeClient else { return }
@@ -954,8 +932,6 @@ final class YouTubePlayerService {
             self.isInWatchLater = wasInWatchLater
         }
     }
-
-    // MARK: - Captions & Quality
 
     /// Loads the caption tracks and quality levels the watch page offers.
     /// Retries briefly — the captions module often isn't ready the moment
@@ -1059,14 +1035,10 @@ final class YouTubePlayerService {
         HapticService.toggle()
     }
 
-    // MARK: - AirPlay
-
     /// Shows the system AirPlay picker for the video element.
     func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         self.playbackController.showAirPlayPicker(at: screenPoint)
     }
-
-    // MARK: - Rating
 
     /// Toggles a like on the current video (optimistic with rollback).
     func toggleLike() async {
@@ -1168,8 +1140,6 @@ extension YouTubePlayerService {
             self.stop()
         }
     }
-
-    // MARK: - Bridge Callbacks
 
     /// A `STATE_UPDATE` payload from the watch page observer script.
     struct PlaybackUpdate {

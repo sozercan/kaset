@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - MiniPlayerSeekState
-
 /// Seek state owned by `MiniPlayerWindow` and shared by its per-layout seek sections, so a
 /// pending seek hold survives panel layout changes. The window must not read these
 /// properties in `body`, or progress ticks re-evaluate the whole window again.
@@ -22,8 +20,6 @@ final class MiniPlayerSeekState {
         }
     }
 }
-
-// MARK: - MiniPlayerSeekSection
 
 /// Mini player seek slider and elapsed/remaining labels.
 ///

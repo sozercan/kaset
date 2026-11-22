@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - EqualizerServiceTests
-
 /// Tests for `EqualizerService`. Uses a mock `EqualizerAudioEngineProtocol`
 /// so the real Core Audio process tap is never touched.
 @Suite(.serialized, .tags(.service))
@@ -70,8 +68,6 @@ struct EqualizerServiceTests {
         return false
     }
 
-    // MARK: - Preset application
-
     @Test("Applying a preset replaces every band gain")
     func applyPresetReplacesBands() {
         let harness = Self.makeService()
@@ -93,8 +89,6 @@ struct EqualizerServiceTests {
             #expect(gain >= EQSettings.minGainDB && gain <= EQSettings.maxGainDB)
         }
     }
-
-    // MARK: - Single-band edits
 
     @Test("setGain snaps the active preset to .custom")
     func setGainSnapsToCustom() {
@@ -127,8 +121,6 @@ struct EqualizerServiceTests {
         #expect(service.settings.bandGainsDB == original)
     }
 
-    // MARK: - Preamp
-
     @Test("setPreamp does not change the active preset")
     func setPreampPreservesPreset() {
         let harness = Self.makeService()
@@ -138,8 +130,6 @@ struct EqualizerServiceTests {
         #expect(service.settings.preset == .pop)
         #expect(service.settings.preampDB == -3)
     }
-
-    // MARK: - Reset
 
     @Test("reset returns to flat bands but preserves isEnabled")
     func resetPreservesEnabledState() {
@@ -153,8 +143,6 @@ struct EqualizerServiceTests {
         #expect(service.settings.bandGainsDB.allSatisfy { $0 == 0 })
         #expect(service.settings.isEnabled == true)
     }
-
-    // MARK: - Engine lifecycle
 
     @Test("Successful start applies settings to the engine")
     func startAppliesSettings() {
@@ -471,8 +459,6 @@ struct EqualizerServiceTests {
         #expect(service.lastFailure == nil)
     }
 
-    // MARK: - Persistence
-
     @Test("Settings round-trip through UserDefaults")
     func persistenceRoundTrip() async {
         let harness = Self.makeService()
@@ -512,8 +498,6 @@ struct EqualizerServiceTests {
         #expect(revived.settings.bandGainsDB.count == EQBand.defaultBands.count)
         #expect(revived.settings.bandGainsDB.prefix(3) == [1, 2, 3])
     }
-
-    // MARK: - Tap silence verification
 
     @Test("Silent tap while active playback barely advances does not infer permission denial")
     func shortSilentPlaybackDoesNotInferPermissionDenial() async {

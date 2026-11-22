@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeShortsView
-
 /// The Shorts experience: a vertical pager that autoplays one short at a
 /// time. Scrolling up advances to the next short, scrolling down returns
 /// to the previous one (snap paging).
@@ -63,8 +61,6 @@ struct YouTubeShortsView: View {
         }
     }
 
-    // MARK: - Pager
-
     private var pager: some View {
         ScrollView(.vertical) {
             LazyVStack(spacing: 0) {
@@ -121,8 +117,6 @@ struct YouTubeShortsView: View {
         self.youtubePlayer.stop()
     }
 }
-
-// MARK: - ShortPage
 
 /// One full-height page of the Shorts pager: the live 9:16 surface when
 /// active, otherwise the thumbnail; title/channel overlaid at the bottom.
@@ -195,8 +189,6 @@ private struct ShortPage: View {
         .allowsHitTesting(false)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let shortsPager = "youtubeContent.shortsPager"

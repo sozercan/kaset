@@ -258,8 +258,6 @@ final class APICache {
         return (self.cache.count, expired)
     }
 
-    // MARK: - Private Helpers
-
     /// Evicts all expired entries from the cache.
     private func evictExpiredEntries() {
         self.cache = self.cache.filter { !$0.value.isExpired }

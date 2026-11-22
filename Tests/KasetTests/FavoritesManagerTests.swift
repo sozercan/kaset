@@ -14,8 +14,6 @@ struct FavoritesManagerTests {
         self.manager.setActiveAccountScopeID("test-scope")
     }
 
-    // MARK: - Basic Operations
-
     @Test("Initial state is empty")
     func initialState() {
         #expect(self.manager.items.isEmpty)
@@ -104,8 +102,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items[1].title == "First Song")
     }
 
-    // MARK: - Remove Operations
-
     @Test("Remove by contentId succeeds")
     func removeByContentId() {
         let song = TestFixtures.makeSong(id: "remove-test")
@@ -127,8 +123,6 @@ struct FavoritesManagerTests {
 
         #expect(self.manager.items.count == 1)
     }
-
-    // MARK: - Toggle Operations
 
     @Test("Toggle adds then removes")
     func toggleAddsAndRemoves() {
@@ -157,8 +151,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.isPinned(podcastShow: podcastShow) == false)
         #expect(self.manager.items.isEmpty)
     }
-
-    // MARK: - Move Operations
 
     @Test("Move item changes position")
     func moveItem() {
@@ -217,8 +209,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items[2].title == "Song 3")
     }
 
-    // MARK: - isPinned Checks
-
     @Test("isPinned returns correct state")
     func isPinnedReturnsCorrectState() {
         let song = TestFixtures.makeSong(id: "pinned-test")
@@ -231,8 +221,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.isPinned(song: song) == true)
         #expect(self.manager.isPinned(contentId: song.videoId) == true)
     }
-
-    // MARK: - Clear All
 
     @Test("Clear all removes all items")
     func clearAllRemovesAll() {
@@ -247,8 +235,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items.isEmpty)
         #expect(self.manager.isVisible == false)
     }
-
-    // MARK: - Account Scope
 
     @Test("Switching accounts isolates favorites")
     func switchingAccountsIsolatesFavorites() {
@@ -753,8 +739,6 @@ struct FavoritesManagerTests {
         #expect(diskManager.items.isEmpty)
         #expect(try Data(contentsOf: scopedURL) == unreadableData)
     }
-
-    // MARK: - FavoriteItem Model Tests
 
     @Test("FavoriteItem contentId returns correct value")
     func favoriteItemContentId() {

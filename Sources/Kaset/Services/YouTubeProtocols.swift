@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YouTubeClientProtocol
-
 /// Protocol for the regular YouTube (video) API client.
 ///
 /// Parallel to `YTMusicClientProtocol` but mapped to YouTube's content
@@ -11,8 +9,6 @@ import Foundation
 protocol YouTubeClientProtocol: Sendable {
     /// Clears client-held pagination/session state when auth/account mode changes.
     func resetSessionStateForAccountSwitch()
-
-    // MARK: Home feed
 
     /// Fetches the recommended home feed (`FEwhat_to_watch`).
     func getHomeFeed() async throws -> YouTubeFeed
@@ -42,8 +38,6 @@ protocol YouTubeClientProtocol: Sendable {
     /// topic-filtered feed for a home rail.
     func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed
 
-    // MARK: Search
-
     /// Searches YouTube with an optional result-kind filter.
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse
 
@@ -52,8 +46,6 @@ protocol YouTubeClientProtocol: Sendable {
 
     /// Fetches the next page for an explicit search continuation token.
     func getSearchContinuation(continuation: String) async throws -> YouTubeSearchResponse?
-
-    // MARK: Watch
 
     /// Fetches watch-page companion data (metadata + related videos).
     func getWatchNext(videoId: String) async throws -> WatchNextData
@@ -92,8 +84,6 @@ protocol YouTubeClientProtocol: Sendable {
     /// Performs a comment toolbar action (like/dislike) by action token.
     func performCommentAction(_ action: String) async throws
 
-    // MARK: Browse
-
     /// Fetches a channel page by `UC…` channel ID.
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail
 
@@ -112,8 +102,6 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches the next page of an account-scoped browse feed by continuation token.
     func getPrivateFeedContinuation(continuation: String) async throws -> YouTubeFeed
 
-    // MARK: Subscriptions & Library
-
     /// Fetches the subscriptions feed (`FEsubscriptions`).
     func getSubscriptionsFeed() async throws -> YouTubeFeed
 
@@ -129,8 +117,6 @@ protocol YouTubeClientProtocol: Sendable {
     /// Fetches the signed-in user's playlists.
     func getUserPlaylists() async throws -> [YouTubePlaylist]
 
-    // MARK: Actions
-
     /// Rates a video (like / dislike / remove rating).
     func rateVideo(videoId: String, rating: YouTubeRating) async throws
 
@@ -143,8 +129,6 @@ protocol YouTubeClientProtocol: Sendable {
     /// Removes a video from Watch Later.
     func removeFromWatchLater(videoId: String) async throws
 }
-
-// MARK: - YouTubeClientProtocol Convenience
 
 extension YouTubeClientProtocol {
     /// Fetches watch history using the cache (the default for normal loads).

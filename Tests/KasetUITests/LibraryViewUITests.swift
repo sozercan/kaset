@@ -3,8 +3,6 @@ import XCTest
 /// UI tests for the LibraryView.
 @MainActor
 final class LibraryViewUITests: KasetUITestCase {
-    // MARK: - Basic Display
-
     func testLibraryViewDisplaysTitle() {
         launchDefault()
 
@@ -24,8 +22,6 @@ final class LibraryViewUITests: KasetUITestCase {
         let title = app.staticTexts["Library"]
         XCTAssertTrue(waitForElement(title, timeout: 10))
     }
-
-    // MARK: - Playlist Display
 
     func testLibraryViewWithMockPlaylists() {
         launchWithMockLibrary(playlistCount: 5)
@@ -49,8 +45,6 @@ final class LibraryViewUITests: KasetUITestCase {
         scrollView.swipeDown()
     }
 
-    // MARK: - Navigation Integration
-
     func testLibraryNavigationFromSidebar() {
         launchDefault()
 
@@ -60,8 +54,6 @@ final class LibraryViewUITests: KasetUITestCase {
         let title = app.staticTexts["Library"]
         XCTAssertTrue(waitForElement(title))
     }
-
-    // MARK: - Player Bar Integration
 
     func testLibraryViewShowsPlayerBar() {
         launchWithMockPlayer(isPlaying: true)

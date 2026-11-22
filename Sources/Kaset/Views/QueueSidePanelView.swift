@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - QueueSidePanelView
-
 struct QueueSidePanelView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
@@ -87,8 +85,6 @@ struct QueueSidePanelView: View {
     }
 }
 
-// MARK: - QueueListControllerRepresentable
-
 struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let entries: [QueueEntry]
     let currentIndex: Int
@@ -159,8 +155,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         )
     }
 
-    // MARK: - View Controller
-
     @MainActor
     class QueueListViewController: NSViewController {
         var tableView: DraggableTableView?
@@ -212,8 +206,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }
         }
     }
-
-    // MARK: - Coordinator
 
     @MainActor
     class Coordinator: NSObject, NSTableViewDelegate, NSTableViewDataSource {
@@ -407,8 +399,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             return proposedRow == sourceRow || proposedRow == sourceRow + 1
         }
 
-        // MARK: - Context Menu
-
         func tableView(_: NSTableView, menuForRow row: Int, event _: NSEvent) -> NSMenu? {
             guard row >= 0, let entry = entries[safe: row] else { return nil }
             let song = entry.song
@@ -488,8 +478,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
     }
 }
-
-// MARK: - DraggableTableView
 
 @MainActor
 class DraggableTableView: NSTableView {
@@ -724,8 +712,6 @@ class DraggableTableView: NSTableView {
     }
 }
 
-// MARK: - QueueSidePanelHeader
-
 private struct QueueSidePanelHeader: View {
     @Environment(PlayerService.self) private var playerService
 
@@ -774,8 +760,6 @@ private struct QueueSidePanelHeader: View {
         .padding(.vertical, 14)
     }
 }
-
-// MARK: - Preview
 
 #Preview("Queue Side Panel") {
     let playerService = PlayerService()

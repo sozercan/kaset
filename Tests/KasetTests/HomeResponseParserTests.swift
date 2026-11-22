@@ -393,8 +393,6 @@ struct HomeResponseParserTests {
         }
     }
 
-    // MARK: - Helpers
-
     private func makeHomeResponseData(sectionCount: Int) -> [String: Any] {
         var sections: [[String: Any]] = []
 

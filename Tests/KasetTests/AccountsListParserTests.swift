@@ -6,11 +6,7 @@
 import Testing
 @testable import Kaset
 
-// MARK: - AccountsListParserTests
-
 struct AccountsListParserTests {
-    // MARK: - Empty/Invalid Response Tests
-
     @Test func parsesEmptyResponse() {
         let json: [String: Any] = [:]
         let result = AccountsListParser.parse(json)
@@ -35,8 +31,6 @@ struct AccountsListParserTests {
 
         #expect(result.accounts.isEmpty)
     }
-
-    // MARK: - Single Account Tests
 
     @Test func parsesSingleAccount() {
         let json = MockAccountsListData.singleAccountResponse
@@ -69,8 +63,6 @@ struct AccountsListParserTests {
         #expect(account.isSelected == false)
     }
 
-    // MARK: - Multiple Accounts Tests
-
     @Test func parsesMultipleAccounts() {
         let json = MockAccountsListData.multipleAccountsResponse
         let result = AccountsListParser.parse(json)
@@ -99,8 +91,6 @@ struct AccountsListParserTests {
         #expect(selected?.isSelected == true)
     }
 
-    // MARK: - Email Extraction Tests
-
     @Test func extractsGoogleEmail() {
         let json = MockAccountsListData.singleAccountResponse
         let result = AccountsListParser.parse(json)
@@ -115,8 +105,6 @@ struct AccountsListParserTests {
         #expect(result.googleEmail == nil)
         #expect(result.accounts.count == 1)
     }
-
-    // MARK: - Missing Fields Tests
 
     @Test func handlesMissingHandle() {
         let json = MockAccountsListData.accountWithoutHandle
@@ -144,8 +132,6 @@ struct AccountsListParserTests {
         #expect(result.accounts.isEmpty)
     }
 
-    // MARK: - Account Type Identification Tests
-
     @Test func identifiesPrimaryAccount() {
         let json = MockAccountsListData.singleAccountResponse
         let result = AccountsListParser.parse(json)
@@ -166,8 +152,6 @@ struct AccountsListParserTests {
         #expect(account.typeLabel == "Brand")
     }
 
-    // MARK: - Default Values Tests
-
     @Test func defaultsIsSelectedToFalse() {
         let json = MockAccountsListData.accountWithoutIsSelected
         let result = AccountsListParser.parse(json)
@@ -175,8 +159,6 @@ struct AccountsListParserTests {
         #expect(result.accounts.count == 1)
         #expect(result.accounts[0].isSelected == false)
     }
-
-    // MARK: - signinURL Resolution Tests
 
     @Test func resolvesRootRelativeSigninURL() {
         let url = AccountsListParser.resolveSigninURL("/signin?action_handle_signin=true&pageid=123&authuser=0")
@@ -228,11 +210,7 @@ struct AccountsListParserTests {
     }
 }
 
-// MARK: - MockAccountsListData
-
 enum MockAccountsListData {
-    // MARK: - Single Account Responses
-
     static var singleAccountResponse: [String: Any] {
         wrapInResponse(
             sections: [accountSection(
@@ -255,8 +233,6 @@ enum MockAccountsListData {
             )]
         )
     }
-
-    // MARK: - Multiple Accounts Response
 
     static var brandWithSigninURL: [String: Any] {
         wrapInResponse(
@@ -298,8 +274,6 @@ enum MockAccountsListData {
             )]
         )
     }
-
-    // MARK: - Missing Fields Responses
 
     static var responseWithoutEmail: [String: Any] {
         wrapInResponse(
@@ -367,8 +341,6 @@ enum MockAccountsListData {
             )]
         )
     }
-
-    // MARK: - Helper Methods
 
     private static func wrapInResponse(sections: [[String: Any]]) -> [String: Any] {
         [

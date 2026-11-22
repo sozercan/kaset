@@ -2,15 +2,11 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - AIErrorTests
-
 /// Tests for AIError enum and its properties.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
 struct AIErrorTests {
-    // MARK: - Error Description Tests
-
     @Test("contextWindowExceeded has correct description")
     func contextWindowExceededDescription() {
         let error = AIError.contextWindowExceeded
@@ -56,8 +52,6 @@ struct AIErrorTests {
         let error = AIError.unknown(underlying: underlying)
         #expect(error.errorDescription?.contains("Something failed") == true)
     }
-
-    // MARK: - Recovery Suggestion Tests
 
     @Test("contextWindowExceeded has recovery suggestion")
     func contextWindowExceededRecovery() {
@@ -106,8 +100,6 @@ struct AIErrorTests {
         #expect(error.recoverySuggestion?.contains("restart") == true)
     }
 
-    // MARK: - shouldDisplay Tests
-
     @Test("contextWindowExceeded should display")
     func contextWindowExceededShouldDisplay() {
         let error = AIError.contextWindowExceeded
@@ -151,15 +143,11 @@ struct AIErrorTests {
     }
 }
 
-// MARK: - AIErrorHandlerTests
-
 /// Tests for AIErrorHandler utility methods.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
 struct AIErrorHandlerTests {
-    // MARK: - handle() Tests
-
     @Test("Handle CancellationError returns cancelled")
     func handleCancellationError() {
         let error = CancellationError()
@@ -184,8 +172,6 @@ struct AIErrorHandlerTests {
         }
     }
 
-    // MARK: - userMessage() Tests
-
     @Test("userMessage includes description")
     func userMessageIncludesDescription() {
         let error = AIError.contextWindowExceeded
@@ -209,8 +195,6 @@ struct AIErrorHandlerTests {
 
         #expect(message.contains("cancelled"))
     }
-
-    // MARK: - handleAndMessage() Tests
 
     @Test("handleAndMessage returns nil for cancelled")
     func handleAndMessageCancelledReturnsNil() {

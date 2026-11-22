@@ -1,5 +1,3 @@
-// swiftlint:disable file_length
-
 import Foundation
 import os
 
@@ -185,8 +183,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         )
     }
 
-    // MARK: - Shelf Classification
-
     /// Accumulator for content routed out of artist-page carousel shelves.
     private struct ShelfBuckets {
         var songs: [Song] = []
@@ -245,8 +241,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return ShelfMoreEndpoint(browseId: browseId, params: params, pageType: pageType)
     }
 
-    // MARK: - Episodes list (ARTIST pageType with 304-char params)
-
     /// Parses the "See all episodes" response for a `MUSIC_PAGE_TYPE_ARTIST`
     /// destination — a single `gridRenderer` of `musicMultiRowListItemRenderer`
     /// items. Reuses the same per-item shape that appears in the artist page's
@@ -282,8 +276,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         }
         return episodes
     }
-
-    // MARK: - Discography (ARTIST_DISCOGRAPHY pageType)
 
     /// Parses a discography browse response — a `gridRenderer` of
     /// `musicTwoRowItemRenderer` album cards.
@@ -383,8 +375,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
             return .relatedArtists
         }
     }
-
-    // MARK: - Item Parsers (carousel)
 
     /// Parses a Latest-episodes item. Video ID lives under `onTap.watchEndpoint`
     /// (not `navigationEndpoint`) for this renderer.
@@ -504,8 +494,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         )
     }
 
-    // MARK: - Header Parsing
-
     /// Holds parsed header information for an artist.
     private struct HeaderParseResult {
         var name: String = "Unknown Artist"
@@ -575,8 +563,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         return result
     }
 
-    // MARK: - Subscription Parsing
-
     private static func parseSubscriptionButton(from header: [String: Any], into result: inout HeaderParseResult) {
         // Look for subscriptionButton in header
         if let subscriptionButton = header["subscriptionButton"] as? [String: Any],
@@ -638,8 +624,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Start Radio Button Parsing
-
     /// Parses the startRadioButton to extract mix playlist ID and video ID.
     private static func parseStartRadioButton(from header: [String: Any], into result: inout HeaderParseResult) {
         // Look for startRadioButton in header
@@ -678,8 +662,6 @@ enum ArtistParser { // swiftlint:disable:this type_body_length
 
         return text
     }
-
-    // MARK: - Content Parsing
 
     /// Parses songs from artist songs browse response.
     static func parseArtistSongs(_ data: [String: Any]) -> [Song] {

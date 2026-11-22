@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeSubscriptionsView
-
 /// Subscriptions surface: horizontal rail of subscribed channels above the
 /// subscriptions feed grid.
 struct YouTubeSubscriptionsView: View {
@@ -132,8 +130,6 @@ struct YouTubeSubscriptionsView: View {
         .accessibilityIdentifier(AccessibilityID.YouTubeContent.subscriptionsRail)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let subscriptionsRail = "youtubeContent.subscriptionsRail"

@@ -5,8 +5,6 @@ import Foundation
 // playback WebView lives in the main window, and a cold launch has to finish restoring
 // sign-in state first (`AppIntentsBridge.waitUntilReady`).
 
-// MARK: - PlayMusicIntent
-
 struct PlayMusicIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Music"
     static let description = IntentDescription("Searches YouTube Music and plays the best matching song, followed by its radio.")
@@ -30,8 +28,6 @@ struct PlayMusicIntent: AudioPlaybackIntent {
     }
 }
 
-// MARK: - PlaySongIntent
-
 struct PlaySongIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Song"
     static let description = IntentDescription("Plays a song in Kaset, followed by its radio.")
@@ -50,8 +46,6 @@ struct PlaySongIntent: AudioPlaybackIntent {
         return .result()
     }
 }
-
-// MARK: - PlayPlaylistIntent
 
 /// Also the `OpenIntent` for playlists, so choosing one in Spotlight plays it.
 struct PlayPlaylistIntent: AudioPlaybackIntent, OpenIntent {
@@ -73,8 +67,6 @@ struct PlayPlaylistIntent: AudioPlaybackIntent, OpenIntent {
     }
 }
 
-// MARK: - PlayAlbumIntent
-
 /// Also the `OpenIntent` for albums, so choosing one in Spotlight plays it.
 struct PlayAlbumIntent: AudioPlaybackIntent, OpenIntent {
     static let title: LocalizedStringResource = "Play Album"
@@ -94,8 +86,6 @@ struct PlayAlbumIntent: AudioPlaybackIntent, OpenIntent {
         return .result()
     }
 }
-
-// MARK: - PlayLikedMusicIntent
 
 struct PlayLikedMusicIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play Liked Music"

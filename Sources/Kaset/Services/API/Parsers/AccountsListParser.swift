@@ -7,8 +7,6 @@ import Foundation
 enum AccountsListParser {
     private static let logger = DiagnosticsLogger.api
 
-    // MARK: - Public API
-
     /// Parses the accounts list API response.
     ///
     /// - Parameter json: The raw JSON response from the accounts list API.
@@ -59,8 +57,6 @@ enum AccountsListParser {
         self.logger.debug("AccountsListParser: Parsed \(accounts.count) accounts")
         return AccountsListResponse(googleEmail: googleEmail, accounts: accounts)
     }
-
-    // MARK: - Private Helpers
 
     /// Extracts the Google email from the account section header.
     private static func extractGoogleEmail(from accountSection: [String: Any]) -> String? {

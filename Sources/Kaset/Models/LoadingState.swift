@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LoadingState
-
 /// Shared loading state for ViewModels.
 enum LoadingState {
     case idle
@@ -10,8 +8,6 @@ enum LoadingState {
     case loadingMore
     case error(LoadingError)
 }
-
-// MARK: - LoadingError
 
 /// Wraps error information for display in views.
 /// Provides user-friendly messages and retry capability.
@@ -57,8 +53,6 @@ struct LoadingError {
         self.underlyingError = nil
     }
 }
-
-// MARK: - LoadingState + Equatable
 
 extension LoadingState: Equatable {
     static func == (lhs: LoadingState, rhs: LoadingState) -> Bool {

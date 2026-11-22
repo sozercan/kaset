@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - NowPlayingQueueView
-
 /// Up Next list for the full screen Now Playing view: borderless rows over the blurred
 /// artwork backdrop, played tracks dimmed above the current one, which is scrolled to the top.
 struct NowPlayingQueueView: View {
@@ -124,8 +122,6 @@ struct NowPlayingQueueView: View {
         }
     }
 }
-
-// MARK: - NowPlayingQueueRow
 
 struct NowPlayingQueueRow: View {
     enum Position {

@@ -9,8 +9,6 @@ import Testing
 /// credits menu, as `MPTC` + the audio video ID.
 @Suite(.tags(.parser))
 struct PlaylistParserAudioTrackTests {
-    // MARK: - Parser
-
     @Test("Music-video album rows expose the audio recording from their credits entry")
     func musicVideoRowResolvesAudioTrackVideoId() {
         let data = self.makeAlbumData(rows: [
@@ -54,8 +52,6 @@ struct PlaylistParserAudioTrackTests {
         #expect(detail.tracks.first?.audioTrackVideoId == nil)
     }
 
-    // MARK: - Helper
-
     @Test("Credits entries are matched by page type, not by menu label")
     func creditsEntryMatchedByPageTypeUnderAnyLanguage() {
         let renderer = Self.makeRowRenderer(
@@ -94,8 +90,6 @@ struct PlaylistParserAudioTrackTests {
 
         #expect(ParsingHelpers.extractTrackCreditsVideoId(from: renderer) == nil)
     }
-
-    // MARK: - Model
 
     @Test("Preferred audio video ID falls back to the row's own video ID")
     func preferredAudioVideoIdFallsBack() {
@@ -142,8 +136,6 @@ struct PlaylistParserAudioTrackTests {
         #expect(queued.map(\.audioTrackVideoId) == ["qCDPprTDkJE"])
         #expect(queued.map(\.preferredAudioVideoId) == ["qCDPprTDkJE"])
     }
-
-    // MARK: - Fixtures
 
     private struct Row {
         let videoId: String

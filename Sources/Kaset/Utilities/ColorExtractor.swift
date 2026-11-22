@@ -2,8 +2,6 @@ import AppKit
 import CoreGraphics
 import SwiftUI
 
-// MARK: - ColorExtractor
-
 /// Extracts dominant colors from images for UI accent backgrounds.
 enum ColorExtractor {
     /// Represents a weighted color sample for averaging.
@@ -133,8 +131,6 @@ enum ColorExtractor {
         }.value
     }
 
-    // MARK: - Private Helpers
-
     private static func createBitmapContext(width: Int, height: Int) -> CGContext? {
         CGContext(
             data: nil,
@@ -201,8 +197,6 @@ enum ColorExtractor {
         )
     }
 }
-
-// MARK: - ColorPaletteCache
 
 /// Shared palette cache backed by `ImageCache`, with an injectable image cache so
 /// tests can verify network coalescing without touching the app-wide singleton.

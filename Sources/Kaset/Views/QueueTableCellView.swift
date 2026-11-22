@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - QueueCellActions
-
 struct QueueCellActions {
     let onPlay: () -> Void
     let onRemove: () -> Void
@@ -10,8 +8,6 @@ struct QueueCellActions {
     let allowsLikeAction: Bool
     let isLiked: Bool
 }
-
-// MARK: - QueueTableCellView
 
 class QueueTableCellView: NSView {
     private static let horizontalPadding: CGFloat = 12
@@ -355,8 +351,6 @@ class QueueTableCellView: NSView {
         self.layer?.backgroundColor = NSColor.clear.cgColor
     }
 }
-
-// MARK: - WaveformView
 
 class WaveformView: NSView {
     var isAnimating: Bool = false {

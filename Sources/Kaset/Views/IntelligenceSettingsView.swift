@@ -96,8 +96,6 @@ struct IntelligenceSettingsView: View {
         .localizedNavigationTitle("Intelligence")
     }
 
-    // MARK: - Computed Properties
-
     private var isSystemAvailable: Bool {
         self.aiService.availability == .available
     }
@@ -141,8 +139,6 @@ struct IntelligenceSettingsView: View {
             String(localized: "Unable to determine availability")
         }
     }
-
-    // MARK: - Unavailability Reason Helpers
 
     /// Returns the appropriate icon for the unavailability reason.
     private func iconForUnavailableReason(_ reason: some Any) -> String {

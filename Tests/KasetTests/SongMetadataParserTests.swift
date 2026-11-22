@@ -5,8 +5,6 @@ import Testing
 /// Tests for SongMetadataParser.
 @Suite(.tags(.parser))
 struct SongMetadataParserTests {
-    // MARK: - Parse Top-Level Tests
-
     @Test("parse propagates explicit badge to Song")
     func parsePropagatesExplicitBadge() throws {
         let panelRenderer: [String: Any] = [
@@ -50,8 +48,6 @@ struct SongMetadataParserTests {
         #expect(song.isExplicit == true)
     }
 
-    // MARK: - Parse Title Tests
-
     @Test("parseTitle extracts title from renderer")
     func parseTitleExtractsTitle() {
         let renderer: [String: Any] = [
@@ -88,8 +84,6 @@ struct SongMetadataParserTests {
 
         #expect(result == "Unknown")
     }
-
-    // MARK: - Parse Artists Tests
 
     @Test("parseArtists extracts single artist")
     func parseArtistsSingleArtist() {
@@ -194,8 +188,6 @@ struct SongMetadataParserTests {
         #expect(artists.isEmpty)
     }
 
-    // MARK: - Parse Thumbnail Tests
-
     @Test("parseThumbnail extracts URL")
     func parseThumbnailExtractsURL() {
         let renderer: [String: Any] = [
@@ -236,8 +228,6 @@ struct SongMetadataParserTests {
         #expect(url == nil)
     }
 
-    // MARK: - Parse Duration Tests
-
     @Test("parseDuration extracts duration")
     func parseDurationExtractsDuration() {
         let renderer: [String: Any] = [
@@ -276,8 +266,6 @@ struct SongMetadataParserTests {
 
         #expect(duration == nil)
     }
-
-    // MARK: - Parse Menu Data Tests
 
     @Test("parseMenuData extracts like status")
     func parseMenuDataExtractsLikeStatus() {
@@ -397,8 +385,6 @@ struct SongMetadataParserTests {
         #expect(result.feedbackTokens == nil)
     }
 
-    // MARK: - Extract Panel Video Renderer Tests
-
     @Test("extractPanelVideoRenderer extracts direct renderer")
     func extractPanelVideoRendererDirect() throws {
         let data = Self.makeNextResponseWithRenderer([
@@ -439,8 +425,6 @@ struct SongMetadataParserTests {
             _ = try SongMetadataParser.extractPanelVideoRenderer(from: data, videoId: "test")
         }
     }
-
-    // MARK: - Test Helpers
 
     private static func makeRendererWithArtists(_ artists: [(name: String, id: String)]) -> [String: Any] {
         let runs: [[String: Any]] = artists.map { artist in

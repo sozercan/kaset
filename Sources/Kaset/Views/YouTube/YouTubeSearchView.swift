@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeSearchView
-
 /// YouTube search: query field, result-kind filter, and mixed result list.
 struct YouTubeSearchView: View {
     @Bindable var viewModel: YouTubeSearchViewModel
@@ -39,8 +37,6 @@ struct YouTubeSearchView: View {
         }
         .navigationTitle(Text("Search", comment: "YouTube search title"))
     }
-
-    // MARK: - Header
 
     private var searchHeader: some View {
         VStack(spacing: 10) {
@@ -97,8 +93,6 @@ struct YouTubeSearchView: View {
             Text("Find videos, channels, and playlists.", comment: "YouTube search empty state")
         }
     }
-
-    // MARK: - Results
 
     private var resultsList: some View {
         ScrollView {
@@ -158,8 +152,6 @@ struct YouTubeSearchView: View {
             .padding(.top, 8)
     }
 }
-
-// MARK: - AccessibilityID Additions
 
 extension AccessibilityID.YouTubeContent {
     static let searchField = "youtubeContent.searchField"

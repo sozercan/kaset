@@ -40,8 +40,6 @@ final class ScrobbleQueue {
         self.loadFromDisk()
     }
 
-    // MARK: - Queue Operations
-
     /// Adds a track to the end of the queue and persists to disk.
     func enqueue(_ track: ScrobbleTrack) {
         self.items.append(track)
@@ -88,8 +86,6 @@ final class ScrobbleQueue {
         self.logger.info("Queue cleared")
     }
 
-    // MARK: - Persistence
-
     /// Saves the current queue to disk.
     func save() {
         self.saveToDisk()
@@ -127,8 +123,6 @@ final class ScrobbleQueue {
             self.items = []
         }
     }
-
-    // MARK: - Default Directory
 
     private static func defaultDirectory() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!

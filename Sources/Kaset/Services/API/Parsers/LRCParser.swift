@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - LRCParser
-
 enum LRCParser {
     static func parse(_ raw: String) -> SyncedLyrics? {
         var unmergedLines: [SyncedLyricLine] = []

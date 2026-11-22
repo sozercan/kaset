@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackRequestDedupTests
-
 @Suite("Music playback request deduplication", .serialized, .tags(.service))
 @MainActor
 struct MusicPlaybackRequestDedupTests {
@@ -491,8 +489,6 @@ struct MusicPlaybackRequestDedupTests {
         playerService.isShowingAd = true
     }
 }
-
-// MARK: - PlaybackRequestCounter
 
 private actor PlaybackRequestCounter {
     private var count = 0

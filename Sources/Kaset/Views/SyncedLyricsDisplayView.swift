@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SyncedLyricsDisplayView
-
 struct SyncedLyricsDisplayView: View {
     let lyrics: SyncedLyrics
     let currentLineIndex: Int?
@@ -67,8 +65,6 @@ struct SyncedLyricsDisplayView: View {
         return line.timeInMs <= self.effectiveDisplayTimeMs ? .previous : .upcoming
     }
 }
-
-// MARK: - SyncedLineView
 
 struct SyncedLineView: View {
     let line: SyncedLyricLine

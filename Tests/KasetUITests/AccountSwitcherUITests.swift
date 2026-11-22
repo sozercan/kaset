@@ -6,8 +6,6 @@ import XCTest
 /// > ⚠️ **Ask permission before running UI tests** — UI tests launch the app and can be disruptive.
 @MainActor
 final class AccountSwitcherUITests: KasetUITestCase {
-    // MARK: - Profile Display Tests
-
     /// Verifies the profile section appears at bottom of sidebar when logged in.
     func testProfileSectionDisplaysWhenLoggedIn() {
         // Launch with mock accounts to simulate logged-in state
@@ -56,8 +54,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
             }
         }
     }
-
-    // MARK: - Popover Tests
 
     /// Verifies tapping profile opens account switcher popover when multiple accounts exist.
     func testTappingProfileOpensPopoverWhenMultipleAccounts() {
@@ -197,8 +193,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
         XCTAssertTrue(secondRow.exists, "Second account row should exist (brand account)")
     }
 
-    // MARK: - Account Switching Tests
-
     /// Verifies switching accounts updates the profile display.
     func testSwitchingAccountUpdatesProfile() {
         self.launchWithMockAccounts(accountCount: 2, includeBrandAccount: true)
@@ -293,8 +287,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
             "Library content should show loading or refreshed state after account switch"
         )
     }
-
-    // MARK: - Dismiss Tests
 
     /// Verifies clicking outside popover dismisses it.
     func testClickingOutsideDismissesPopover() {
@@ -392,8 +384,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
         )
     }
 
-    // MARK: - Accessibility Tests
-
     /// Verifies profile button has appropriate accessibility label.
     func testProfileButtonHasAccessibilityLabel() {
         self.launchWithMockAccounts(accountCount: 2)
@@ -427,8 +417,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
         // This test primarily verifies the button is accessible
         XCTAssertTrue(profileButton.isEnabled, "Profile button should be enabled")
     }
-
-    // MARK: - Error Handling Tests
 
     /// Verifies error state is handled gracefully when account switch fails.
     func testAccountSwitchErrorShowsGracefulFallback() {
@@ -467,8 +455,6 @@ final class AccountSwitcherUITests: KasetUITestCase {
             "Profile button should still exist after failed account switch"
         )
     }
-
-    // MARK: - Launch Helpers
 
     /// Launches the app with mock accounts for testing.
     /// - Parameters:

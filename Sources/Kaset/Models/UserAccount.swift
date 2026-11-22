@@ -18,8 +18,6 @@ import Foundation
 /// - `thumbnailURL`: From `accountPhoto.thumbnails[0].url`
 /// - `isSelected`: From `isSelected`
 public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
-    // MARK: - Properties
-
     /// Unique identifier for the account.
     /// Uses `brandId` for brand accounts, "primary" for the main account.
     public let id: String
@@ -50,8 +48,6 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
     /// Whether this account is currently selected/active.
     public let isSelected: Bool
 
-    // MARK: - Computed Properties
-
     /// Returns `true` if this is the primary Google account (not a brand account).
     public var isPrimary: Bool {
         self.brandId == nil
@@ -71,8 +67,6 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
     var cacheIdentity: String {
         [self.id, self.handle ?? "", self.name].joined(separator: "\u{1F}")
     }
-
-    // MARK: - Initialization
 
     /// Creates a new UserAccount instance.
     ///
@@ -101,8 +95,6 @@ public struct UserAccount: Identifiable, Equatable, Sendable, Hashable {
         self.isSelected = isSelected
         self.signinURL = signinURL
     }
-
-    // MARK: - Factory Methods
 
     /// Creates a UserAccount from API response fields.
     ///

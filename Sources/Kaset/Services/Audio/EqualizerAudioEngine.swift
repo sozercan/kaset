@@ -2,8 +2,6 @@ import AudioToolbox
 import CoreAudio
 import Foundation
 
-// MARK: - EqualizerAudioEngine
-
 /// HAL-level duplex implementation of the Kaset equalizer.
 ///
 /// An `AudioDeviceIOProcID` is registered directly on the aggregate
@@ -25,8 +23,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     /// exposes today, and biquads operate per channel.
     private static let tapChannelCount: Int = 2
 
-    // MARK: - Public state
-
     private(set) var isRunning: Bool = false
 
     // swiftformat:disable modifierOrder
@@ -35,8 +31,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
     nonisolated(unsafe) private(set) var hasObservedAudio: Bool = false
     // swiftformat:enable modifierOrder
 
-    // MARK: - Private — HAL I/O
-
     private let tapHelper = ProcessTapHelper()
 
     /// HAL I/O proc registered on the aggregate device.
@@ -44,8 +38,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
     /// Format derived from the aggregate device's nominal sample rate.
     private var renderFormat: AudioStreamBasicDescription?
-
-    // MARK: - Private — DSP
 
     /// One biquad per EQ band, all cascaded on every frame.
     private let filters: [BiquadFilter]
@@ -79,8 +71,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
 
     private let logger = DiagnosticsLogger.equalizer
 
-    // MARK: - Init
-
     init(bands: [EQBand] = EQBand.defaultBands) {
         self.bands = bands
         self.filters = bands.map { _ in BiquadFilter() }
@@ -99,8 +89,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             }
         }
     }
-
-    // MARK: - Lifecycle
 
     /// Brings the tap, aggregate device, and HAL I/O proc up.
     ///
@@ -240,8 +228,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             }
         }
     }
-
-    // MARK: - Render (called on HAL I/O thread)
 
     /// HAL I/O proc body. RT-thread: no allocations, no blocking.
     func performRender(
@@ -429,8 +415,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         return (left * g, right * g)
     }
 
-    // MARK: - Format helper
-
     private static func stereoFloat32NonInterleaved(sampleRate: Float64) -> AudioStreamBasicDescription {
         let bytesPerSample = UInt32(MemoryLayout<Float>.size)
         return AudioStreamBasicDescription(
@@ -447,8 +431,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
             mReserved: 0
         )
     }
-
-    // MARK: - Errors
 
     enum StartFailure: Error {
         case tap(ProcessTapHelper.StartFailure)
@@ -497,8 +479,6 @@ final class EqualizerAudioEngine: EqualizerAudioEngineProtocol {
         }
     }
 }
-
-// MARK: - C render callback
 
 // C-convention trampoline that lets Core Audio's `AudioDeviceIOProc`
 // invoke the Swift engine. The seven-parameter signature is dictated by

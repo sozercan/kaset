@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - YouTubeVideoWindowLevelPolicy
-
 /// Deterministic presentation policy for the regular YouTube pop-out.
 /// Desired state lives in `SettingsManager`; the controller decides when it is
 /// safe to apply that state to the live AppKit window.
@@ -59,8 +57,6 @@ enum YouTubeVideoWindowLevelPolicy {
     }
 }
 
-// MARK: - YouTubeVideoWindowFullscreenPhase
-
 enum YouTubeVideoWindowFullscreenPhase: Equatable {
     case windowed
     case entering
@@ -71,8 +67,6 @@ enum YouTubeVideoWindowFullscreenPhase: Equatable {
         self != .windowed
     }
 }
-
-// MARK: - YouTubeVideoWindowController
 
 /// Manages the floating window that hosts the YouTube video surface when
 /// it is popped out of the inline watch view (or when the user navigates
@@ -409,8 +403,6 @@ final class YouTubeVideoWindowController {
     }
 }
 
-// MARK: - YouTubeVideoWindowFullscreenIntentState
-
 struct YouTubeVideoWindowFullscreenIntentState: Equatable {
     private(set) var returnsInlineOnExit = false
 
@@ -428,8 +420,6 @@ struct YouTubeVideoWindowFullscreenIntentState: Equatable {
         return shouldReturn
     }
 }
-
-// MARK: - YouTubeVideoWindowFrameAutosaveState
 
 /// Pure fullscreen transition state for the floating window's frame autosave
 /// name. AppKit can fail fullscreen entry after `willEnterFullScreen`, so both
@@ -458,8 +448,6 @@ struct YouTubeVideoWindowFrameAutosaveState: Equatable {
         }
     }
 }
-
-// MARK: - YouTubeVideoWindowResizeGuard
 
 /// Window delegate that keeps the floating video window at 16:9 and never lets
 /// it shrink below a safe floor.
@@ -551,8 +539,6 @@ final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
         return clampedFrame.size
     }
 }
-
-// MARK: - YouTubeVideoWindowContent
 
 /// Floating window content: corner-to-corner video with hover-revealed player
 /// chrome and a dedicated top drag region above the WebView.

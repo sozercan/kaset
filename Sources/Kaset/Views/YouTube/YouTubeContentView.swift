@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - YouTubeContentView
-
 /// Detail-column router for the YouTube (video) experience.
 ///
 /// Mirrors `MainWindow.detailView`/`viewForNavigationItem` on the music side.
@@ -159,8 +157,6 @@ struct YouTubeContentView: View {
     }
 }
 
-// MARK: - YouTubeNavigationItem
-
 /// Sidebar destinations for the YouTube (video) experience.
 ///
 /// Mirrors the music side's `NavigationItem`, mapped to YouTube's content
@@ -235,8 +231,6 @@ enum YouTubeNavigationItem: String, Hashable, CaseIterable, Identifiable {
         }
     }
 }
-
-// MARK: - AccessibilityID.YouTubeContent
 
 extension AccessibilityID {
     enum YouTubeContent {}

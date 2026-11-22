@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - CassetteIcon
-
 /// A custom cassette tape icon view.
 struct CassetteIcon: View {
     let size: CGFloat

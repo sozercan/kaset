@@ -10,8 +10,6 @@ import Foundation
 /// This parser handles both shapes so surfaces keep working as YouTube
 /// shifts more of them to view models.
 enum YouTubeItemParser {
-    // MARK: - Dispatch
-
     /// Extracts a video from any known item wrapper
     /// (`videoRenderer`, `gridVideoRenderer`, `compactVideoRenderer`,
     /// `richItemRenderer`, or a video `lockupViewModel`).
@@ -37,8 +35,6 @@ enum YouTubeItemParser {
 
         return nil
     }
-
-    // MARK: - Legacy Renderers
 
     /// Parses a legacy `videoRenderer` / `gridVideoRenderer` / `compactVideoRenderer`.
     static func video(fromVideoRenderer renderer: [String: Any]) -> YouTubeVideo? {
@@ -147,8 +143,6 @@ enum YouTubeItemParser {
         )
     }
 
-    // MARK: - Lockup View Models
-
     /// Parses a video `lockupViewModel` (watch-next, channel pages, playlists).
     static func video(fromLockup lockup: [String: Any]) -> YouTubeVideo? {
         guard (lockup["contentType"] as? String) == "LOCKUP_CONTENT_TYPE_VIDEO" else {
@@ -242,8 +236,6 @@ enum YouTubeItemParser {
         )
     }
 
-    // MARK: - Shared Text/Thumbnail Helpers
-
     /// Extracts display text from InnerTube's three text encodings:
     /// `{"simpleText": ...}`, `{"runs": [{"text": ...}]}`, and `{"content": ...}`.
     static func text(from value: Any?) -> String? {
@@ -318,8 +310,6 @@ enum YouTubeItemParser {
         }
         return URL(string: urlString)
     }
-
-    // MARK: - Private Lockup Helpers
 
     /// The lockup's primary tap command (`watchEndpoint`/`browseEndpoint` container).
     private static func onTapCommand(of lockup: [String: Any]) -> [String: Any]? {
@@ -400,8 +390,6 @@ enum YouTubeItemParser {
         return nil
     }
 
-    // MARK: - Watched Progress
-
     /// Resume-progress percent from a lockup's thumbnail overlay
     /// (`progressBar`, a sibling of the `badges` key read by
     /// `thumbnailBadgeText(of:)`). `nil` when the video is unwatched.
@@ -453,8 +441,6 @@ enum YouTubeItemParser {
         }
         return value > 0 ? min(value, 100) : nil
     }
-
-    // MARK: - Badges
 
     private static func hasLiveBadge(_ badges: Any?) -> Bool {
         guard let badges = badges as? [[String: Any]] else { return false }

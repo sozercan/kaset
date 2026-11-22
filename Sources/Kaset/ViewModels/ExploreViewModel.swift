@@ -122,8 +122,6 @@ final class ExploreViewModel {
         }
     }
 
-    // MARK: - Private Helpers
-
     private var hasMoreSectionsForCurrentSource: Bool {
         self.client.hasMoreExploreSections
     }

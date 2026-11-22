@@ -744,8 +744,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.shouldResumeAfterInterruption)
     }
 
-    // MARK: - Play From Queue Tests
-
     @Test("Play from queue valid index")
     func playFromQueueValidIndex() async {
         let songs = [
@@ -801,8 +799,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentTrack?.videoId == song.videoId)
         #expect(self.playerService.currentMusicPlaybackIntent == intent)
     }
-
-    // MARK: - Play With Radio Tests
 
     @Test("Play with radio starts playback immediately")
     func playWithRadioStartsPlaybackImmediately() async {
@@ -982,8 +978,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queue.count == 1)
         #expect(self.playerService.queue.first?.videoId == "lonely-video")
     }
-
-    // MARK: - Manual Seek to End Tests
 
     @Test("Manual seek to end of track advances to next queue song")
     func manualSeekToEndAdvancesQueue() async {

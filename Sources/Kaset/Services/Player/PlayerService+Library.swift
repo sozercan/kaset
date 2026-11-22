@@ -1,13 +1,9 @@
 import Foundation
 
-// MARK: - MusicLibraryMutationState
-
 struct MusicLibraryMutationState {
     let generation: UInt64
     var confirmedState: MusicLibraryConfirmedState?
 }
-
-// MARK: - LibraryMutationRequest
 
 private struct LibraryMutationRequest {
     /// Nil resolves the add token from metadata within the serialized request.
@@ -18,8 +14,6 @@ private struct LibraryMutationRequest {
     let accountSessionGeneration: UInt64
     let expectedState: MusicLibraryConfirmedState
 }
-
-// MARK: - CurrentTrackLikeStatusEvidence
 
 private struct CurrentTrackLikeStatusEvidence {
     let cached: LikeStatus?

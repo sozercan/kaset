@@ -13,16 +13,12 @@ struct NewReleasesViewModelTests {
         self.viewModel = NewReleasesViewModel(client: self.mockClient)
     }
 
-    // MARK: - Initial State Tests
-
     @Test("Initial state is idle")
     func initialStateIsIdle() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Load Tests
 
     @Test("Load success sets sections and loaded state")
     func loadSuccessSetsData() async {
@@ -78,8 +74,6 @@ struct NewReleasesViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
     }
 
-    // MARK: - Background Continuation Tests
-
     @Test("Initial load does not drain continuations")
     func initialLoadDoesNotDrainContinuations() async {
         self.mockClient.newReleasesResponse = HomeResponse(sections: [
@@ -132,8 +126,6 @@ struct NewReleasesViewModelTests {
         #expect(self.viewModel.hasMoreSections == false)
     }
 
-    // MARK: - Refresh Tests
-
     @Test("Refresh clears sections and reloads")
     func refreshClearsAndReloads() async {
         // Initial load
@@ -172,8 +164,6 @@ struct NewReleasesViewModelTests {
 
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Client Exposure Tests
 
     @Test("Client is exposed for navigation")
     func clientIsExposed() {

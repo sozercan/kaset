@@ -13,8 +13,6 @@ import XCTest
 /// 3. Regressions in the fallback views being silently dead-coded.
 @MainActor
 final class MacOS15FallbackUITests: KasetUITestCase {
-    // MARK: - App Launch
-
     /// Establishes that the app boots at all on the host OS. If this test
     /// fails on macos-15, every other macOS-15 finding is unreliable.
     func testAppLaunchesOnHostOS() {
@@ -31,8 +29,6 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             XCTAssertTrue(true, "Running on macOS 15: ultraThinMaterial fallback live")
         }
     }
-
-    // MARK: - Playlist Detail (SimplePlaylistDetailView on macOS 15)
 
     /// Navigates Library → first playlist. On macOS 15 this opens
     /// `SimplePlaylistDetailView`; on macOS 26 it opens `PlaylistDetailView`.
@@ -89,8 +85,6 @@ final class MacOS15FallbackUITests: KasetUITestCase {
         )
     }
 
-    // MARK: - Lyrics Panel (SimpleLyricsView on macOS 15)
-
     /// Toggles the lyrics panel from the player bar. On macOS 15 this should
     /// surface `SimpleLyricsView` (with the Apple-Intelligence-unavailable
     /// footnote); on macOS 26 the full lyrics view.
@@ -123,8 +117,6 @@ final class MacOS15FallbackUITests: KasetUITestCase {
             )
         }
     }
-
-    // MARK: - Mini Player Glass Effects
 
     /// The mini player makes heavy use of `compatGlass` modifiers. On macOS
     /// 15 these resolve to `.ultraThinMaterial`; on macOS 26 to real

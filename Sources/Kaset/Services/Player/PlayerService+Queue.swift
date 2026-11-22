@@ -1,8 +1,6 @@
 // swiftlint:disable file_length
 import Foundation
 
-// MARK: - Queue Management
-
 @MainActor
 extension PlayerService {
     /// Plays a queue of songs starting at the specified index.
@@ -1041,8 +1039,6 @@ extension PlayerService {
         self.logger.info("Appended \(songs.count) songs to queue")
         self.saveQueueForPersistence()
     }
-
-    // MARK: - Queue Persistence
 
     /// Serialized playback session persisted across launches.
     private struct PersistedPlaybackSession: Codable, Hashable {

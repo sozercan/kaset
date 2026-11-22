@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarProgressLane
-
 struct PlayerBarProgressLane: View {
     let fraction: Double
     let accent: Color
@@ -277,8 +275,6 @@ struct PlayerBarProgressLane: View {
         Self.segment(at: fraction, in: self.segments)
     }
 
-    // MARK: - Segmented Track
-
     /// Gap between adjacent segment pieces, in points. Split across the shared edge.
     private static let segmentGap: CGFloat = 3
     private static let segmentTooltipHorizontalPadding: CGFloat = 11
@@ -393,8 +389,6 @@ struct PlayerBarProgressLane: View {
             currentSegment: self.currentSegment
         )
     }
-
-    // MARK: - Segment Tooltip
 
     private func segmentTooltip(_ segment: PlayerBarProgressSegment, trackWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -546,8 +540,6 @@ struct PlayerBarProgressLane: View {
     }
 }
 
-// MARK: - PlayerBarProgressMarker
-
 struct PlayerBarProgressMarker: Identifiable, Hashable {
     let id: String
     let fraction: Double
@@ -562,14 +554,10 @@ struct PlayerBarProgressMarker: Identifiable, Hashable {
     }
 }
 
-// MARK: - PlayerBarProgressSegmentGeometry
-
 struct PlayerBarProgressSegmentGeometry: Equatable {
     let x: CGFloat
     let width: CGFloat
 }
-
-// MARK: - PlayerBarProgressSegment
 
 /// A contiguous span of the seek bar corresponding to one item, such as a mix track or video
 /// chapter. When a lane is given segments it renders a gapped track (one piece per segment) instead

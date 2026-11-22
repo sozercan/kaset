@@ -1,8 +1,6 @@
 import Foundation
 import os
 
-// MARK: - MixTracklistParser
-
 /// Parses tracklists for long mix videos using a two-tier approach:
 /// 1. YouTube chapters (structured API data)
 /// 2. Description timestamps (regex over timestamped tracklist lines)
@@ -215,8 +213,6 @@ final class MixTracklistParser {
         return ParseResult(tracklist: nil, cacheEntry: .noTracklist)
     }
 
-    // MARK: - Tier 1: Chapter Extraction
-
     private func parseFromChapters(
         _ watchNextData: WatchNextData,
         videoId: String
@@ -240,8 +236,6 @@ final class MixTracklistParser {
         let tracklist = MixTracklist(videoId: videoId, entries: entries, source: .chapters)
         return tracklist.isMix ? tracklist : nil
     }
-
-    // MARK: - Tier 2: Description Timestamp Extraction
 
     private struct DescriptionLine {
         let lineIndex: Int
@@ -580,8 +574,6 @@ final class MixTracklistParser {
         let result = lhs.addingReportingOverflow(rhs)
         return result.overflow ? nil : result.partialValue
     }
-
-    // MARK: - Cache Management
 
     /// Clears the cache for a specific video, forcing a re-parse on next access.
     func invalidate(videoId: String) {

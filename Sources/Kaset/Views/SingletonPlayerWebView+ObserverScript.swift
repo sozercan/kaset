@@ -1,7 +1,5 @@
 // swiftlint:disable file_length
 
-// MARK: - SingletonPlayerWebView Observer Script Extension
-
 extension SingletonPlayerWebView {
     /// Returns a wall-clock timestamp with sub-millisecond precision when WebKit exposes it.
     /// Native intent fences use the same epoch, while `Date.now()` remains a safe fallback.

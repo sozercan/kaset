@@ -2,13 +2,9 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - NowPlayingTracklistProviderTests
-
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct NowPlayingTracklistProviderTests {
-    // MARK: - Fixtures
-
     private func makeWatchNextData(chapters: [YouTubeChapter]) -> WatchNextData {
         WatchNextData(
             videoTitle: "Long Mix",
@@ -60,8 +56,6 @@ struct NowPlayingTracklistProviderTests {
             try? await Task.sleep(for: .milliseconds(10))
         }
     }
-
-    // MARK: - Fetch Gating
 
     /// Regression: the tracklist fetch is gated on track duration, which YouTube reports a beat after
     /// the track object appears. A one-shot check at track-start always missed, so every mix silently
@@ -228,8 +222,6 @@ struct NowPlayingTracklistProviderTests {
         #expect(mockYouTube.getWatchNextCallCount == 0)
     }
 
-    // MARK: - Result
-
     @Test("A parsed mix is exposed as a tracklist with resolvable entries")
     func exposesParsedTracklist() async throws {
         let (provider, _) = self.makeProvider(chapters: self.makeMixChapters(count: 3))
@@ -257,8 +249,6 @@ struct NowPlayingTracklistProviderTests {
         provider.update(track: short, duration: 200)
         #expect(provider.tracklist == nil)
     }
-
-    // MARK: - Driver Integration
 
     /// The provider is driven by PlayerService's `currentTrack`/`duration` observers, independent of
     /// scrobbling. A change to either must reach the provider and resolve segments.

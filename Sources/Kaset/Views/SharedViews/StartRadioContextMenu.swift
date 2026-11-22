@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - StartRadioContextMenu
-
 /// Shared context menu item for starting radio from a song.
 @MainActor
 enum StartRadioContextMenu {

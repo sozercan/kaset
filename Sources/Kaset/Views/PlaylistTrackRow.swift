@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlaylistTrackRow
-
 /// A single track row in a playlist or album detail view.
 ///
 /// Shows track number/now-playing indicator, thumbnail (for non-album views),

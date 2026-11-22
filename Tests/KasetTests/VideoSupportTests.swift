@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - VideoSupportTests
-
 /// Tests for Video Support functionality.
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -16,8 +14,6 @@ struct VideoSupportTests {
         self.playerService = PlayerService()
     }
 
-    // MARK: - Initial State Tests
-
     @Test("currentTrackHasVideo initially false")
     func currentTrackHasVideoInitiallyFalse() {
         #expect(self.playerService.currentTrackHasVideo == false)
@@ -27,8 +23,6 @@ struct VideoSupportTests {
     func showVideoInitiallyFalse() {
         #expect(self.playerService.showVideo == false)
     }
-
-    // MARK: - Video Availability Tests
 
     @Test("updateVideoAvailability sets hasVideo correctly")
     func updateVideoAvailabilitySetsHasVideo() {
@@ -40,8 +34,6 @@ struct VideoSupportTests {
         self.playerService.updateVideoAvailability(hasVideo: false)
         #expect(self.playerService.currentTrackHasVideo == false)
     }
-
-    // MARK: - Video Window Behavior Tests
 
     @Test("showVideo stays open even when hasVideo becomes false")
     func showVideoStaysOpenWhenHasVideoChanges() {
@@ -78,8 +70,6 @@ struct VideoSupportTests {
         self.playerService.updateVideoAvailability(hasVideo: true)
         #expect(self.playerService.showVideo == true, "Video window should stay open")
     }
-
-    // MARK: - Model Tests
 
     @Test("Song.hasVideo property exists and defaults to nil")
     func songHasVideoPropertyExists() {
@@ -122,8 +112,6 @@ struct VideoSupportTests {
         #expect(songWithoutVideo.hasVideo == false)
     }
 
-    // MARK: - Display Mode Tests
-
     @Test("SingletonPlayerWebView DisplayMode enum has all cases")
     func displayModeEnumHasAllCases() {
         let hidden = SingletonPlayerWebView.DisplayMode.hidden
@@ -136,8 +124,6 @@ struct VideoSupportTests {
         #expect(video == .video)
     }
 }
-
-// MARK: - YouTubeVideoWindowFullscreenIntentStateTests
 
 @Suite(.tags(.service))
 struct YouTubeVideoWindowFullscreenIntentStateTests {
@@ -164,8 +150,6 @@ struct YouTubeVideoWindowFullscreenIntentStateTests {
     }
 }
 
-// MARK: - YouTubeVideoWindowFrameAutosaveStateTests
-
 @Suite(.tags(.service))
 struct YouTubeVideoWindowFrameAutosaveStateTests {
     private let autosaveName = "KasetYouTubeVideoWindow"
@@ -191,8 +175,6 @@ struct YouTubeVideoWindowFrameAutosaveStateTests {
         #expect(state.currentName == self.autosaveName)
     }
 }
-
-// MARK: - YouTubeVideoWindowResizeGuardTests
 
 @Suite(.tags(.service))
 @MainActor

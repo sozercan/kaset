@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - KasetSidebarRow
-
 /// A stable Apple-Music-style sidebar row.
 ///
 /// SwiftUI's source-list `NavigationLink` chrome changes when the sidebar list

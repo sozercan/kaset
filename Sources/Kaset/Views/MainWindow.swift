@@ -2,8 +2,6 @@
 
 import SwiftUI
 
-// MARK: - MainWindow
-
 /// Main application window with sidebar navigation and player bar.
 struct MainWindow: View { // swiftlint:disable:this type_body_length
     private static let accountResolutionGateTimeout: Duration = .seconds(2)
@@ -81,8 +79,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// (nothing fetched yet) from a real switch away from content that was
     /// already rendered under the unresolved primary scope.
     @State private var hasRenderedAuthenticatedContent = false
-
-    // MARK: - Cached ViewModels (persist across tab switches)
 
     @State private var homeViewModel: HomeViewModel?
     @State private var exploreViewModel: ExploreViewModel?
@@ -453,8 +449,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 }
             }
     }
-
-    // MARK: - Main Content
 
     private func handleAccountScopeChange(oldAccountScope: String?, newAccountScope: String?) {
         let currentAccount = self.accountService.currentAccount
@@ -1095,8 +1089,6 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 }
 
-// MARK: - PinnedNavigationPathLifecycleModifier
-
 private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
     @Binding var navigationSelection: NavigationItem?
     @Binding var selectedPinnedItem: SidebarPinnedItem?
@@ -1121,8 +1113,6 @@ private struct PinnedNavigationPathLifecycleModifier: ViewModifier {
             }
     }
 }
-
-// MARK: - NavigationItem
 
 enum NavigationItem: String, Hashable, CaseIterable, Identifiable {
     case home = "Home"

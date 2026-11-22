@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - HoverUnderlineNavigationLink
-
 /// A navigation link that underlines its label on hover.
 ///
 /// Used for artist names and other inline navigation targets in track rows and headers.

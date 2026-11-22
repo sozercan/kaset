@@ -26,16 +26,12 @@ import Foundation
 /// }
 /// ```
 public struct AccountsListResponse: Sendable {
-    // MARK: - Properties
-
     /// The Google email address associated with the primary account.
     /// Extracted from the response header.
     public let googleEmail: String?
 
     /// All available accounts (primary and brand accounts).
     public let accounts: [UserAccount]
-
-    // MARK: - Computed Properties
 
     /// The currently selected/active account.
     /// Returns the first account where `isSelected` is true, or nil if none selected.
@@ -48,8 +44,6 @@ public struct AccountsListResponse: Sendable {
     public var hasMultipleAccounts: Bool {
         self.accounts.count > 1
     }
-
-    // MARK: - Initialization
 
     /// Creates a new AccountsListResponse.
     ///

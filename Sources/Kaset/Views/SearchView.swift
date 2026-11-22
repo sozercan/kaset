@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - SearchView
-
 /// Search view for finding music.
 struct SearchView: View {
     @State var viewModel: SearchViewModel
@@ -56,8 +54,6 @@ struct SearchView: View {
         }
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .search)
     }
-
-    // MARK: - Search Bar
 
     private var searchBar: some View {
         VStack(spacing: 12) {
@@ -219,8 +215,6 @@ struct SearchView: View {
         }
         .buttonStyle(.chip(isSelected: self.viewModel.selectedFilter == filter))
     }
-
-    // MARK: - Content
 
     @ViewBuilder
     private var contentView: some View {
@@ -415,8 +409,6 @@ struct SearchView: View {
             )
         }
     }
-
-    // MARK: - Helpers
 
     private func iconForItem(_ item: SearchResultItem) -> String {
         switch item {

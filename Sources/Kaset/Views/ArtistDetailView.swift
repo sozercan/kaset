@@ -52,8 +52,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Views
-
     private func contentView(_ detail: ArtistDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -589,8 +587,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Actions
-
     private func playMix(playlistId: String, startVideoId: String?) {
         let intent = self.playerService.beginMusicPlaybackIntent()
         Task {
@@ -629,8 +625,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             intent: intent
         )
     }
-
-    // MARK: - Episodes Section (Latest episodes / live radios)
 
     private func episodesSection(_ episodes: [ArtistEpisode]) -> some View {
         CarouselShelfSection(
@@ -703,8 +697,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Singles & EPs Section
-
     private func singlesSection(_ singles: [Album]) -> some View {
         CarouselShelfSection(
             accessibilityLabel: String(localized: "Singles & EPs"),
@@ -722,8 +714,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             }
         }
     }
-
-    // MARK: - Playlists by Artist Section
 
     private func playlistsByArtistSection(_ playlists: [Playlist]) -> some View {
         CarouselShelfSection(
@@ -764,8 +754,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             }
         }
     }
-
-    // MARK: - Podcasts Section
 
     private func podcastsSection(_ podcasts: [PodcastShow]) -> some View {
         CarouselShelfSection(
@@ -810,8 +798,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                 .frame(width: 140, alignment: .leading)
         }
     }
-
-    // MARK: - Related Artists Section
 
     private func relatedArtistsSection(_ artists: [Artist]) -> some View {
         CarouselShelfSection(
@@ -869,8 +855,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private var hasPersonalAccount: Bool {
         self.authService.hasPersonalAccount
     }
-
-    // MARK: - Section Header with Optional See-all
 
     private func sectionHeader(title: String, shelfKind: ArtistShelfKind) -> some View {
         HStack {

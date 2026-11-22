@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - CarouselShelf
-
 /// A native horizontal shelf with glass paging controls. The scroll track runs
 /// edge-to-edge so items scroll under the floating Liquid Glass sidebar on
 /// macOS 26 (Apple's "Extending horizontal scrolling under a sidebar" pattern).
@@ -100,8 +98,6 @@ struct CarouselShelf<Content: View>: View {
     }
 }
 
-// MARK: - CarouselShelfHover
-
 /// Whether the pointer is over a ``CarouselShelf``, set by its `.onHover`.
 /// Observable, so a change re-renders only the paging controls, not the shelf
 /// content. (``HomeItemCollectionShelf`` tracks hover natively for its own
@@ -111,8 +107,6 @@ struct CarouselShelf<Content: View>: View {
 final class CarouselShelfHover {
     var isHovering = false
 }
-
-// MARK: - CarouselShelfPagingControls
 
 /// The glass paging arrows of ``CarouselShelf``, their hover/focus prominence,
 /// and the shelf's accessibility container. ``HomeItemCollectionShelf`` draws
@@ -196,8 +190,6 @@ struct CarouselShelfPagingControls: ViewModifier {
         String(localized: "Scrolls this shelf by one page")
     }
 }
-
-// MARK: - CarouselShelfSection
 
 /// A reusable section that renders a header and a horizontal ``CarouselShelf`` of items.
 struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header: View, ItemContent: View>: View {
@@ -301,8 +293,6 @@ extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.El
     }
 }
 
-// MARK: - CarouselShelfScrollMetrics
-
 private struct CarouselShelfScrollMetrics: Equatable {
     var contentOffsetX: CGFloat = 0
     var viewportWidth: CGFloat = 0
@@ -325,16 +315,12 @@ private struct CarouselShelfScrollMetrics: Equatable {
     }
 }
 
-// MARK: - CarouselShelfMetricsStore
-
 /// Holds the latest scroll geometry without participating in SwiftUI
 /// invalidation (deliberately not `@Observable`).
 @MainActor
 private final class CarouselShelfMetricsStore {
     var metrics = CarouselShelfScrollMetrics()
 }
-
-// MARK: - CarouselShelfOverflow
 
 /// The only geometry-derived facts the shelf body renders from.
 struct CarouselShelfOverflow: Equatable {
@@ -348,8 +334,6 @@ struct CarouselShelfOverflow: Equatable {
         self.trailing = metrics.remainingContentWidth > 1
     }
 }
-
-// MARK: - CarouselShelfDirection
 
 enum CarouselShelfDirection: Hashable {
     case leading

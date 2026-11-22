@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - YTMusicError
-
 /// Unified error type for YouTube Music operations.
 enum YTMusicError: LocalizedError {
     /// Authentication has expired or is invalid.
@@ -150,8 +148,6 @@ enum YTMusicError: LocalizedError {
         }
     }
 }
-
-// MARK: CustomDebugStringConvertible
 
 /// Make the underlying error's description accessible for logging
 extension YTMusicError: CustomDebugStringConvertible {

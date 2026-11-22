@@ -15,8 +15,6 @@ struct GeneralSettingsView: View {
         @Bindable var updater = self.updaterService
 
         Form {
-            // MARK: - Account Section
-
             Section {
                 // Account status
                 HStack {
@@ -43,8 +41,6 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Account"))
             }
 
-            // MARK: - Appearance Section
-
             Section {
                 Picker(String(localized: "App Appearance"), selection: self.$settings.appearance) {
                     ForEach(AppAppearance.allCases) { appearance in
@@ -55,8 +51,6 @@ struct GeneralSettingsView: View {
             } header: {
                 Text(String(localized: "Appearance"))
             }
-
-            // MARK: - Behavior Section
 
             Section {
                 // Haptic Feedback
@@ -73,8 +67,6 @@ struct GeneralSettingsView: View {
                 Text(String(localized: "Behavior"))
             }
 
-            // MARK: - Language Section
-
             Section {
                 // Content Language
                 Picker(String(localized: "Content Language"), selection: self.$settings.contentLanguage) {
@@ -86,8 +78,6 @@ struct GeneralSettingsView: View {
             } header: {
                 Text(String(localized: "Language"))
             }
-
-            // MARK: - Storage Section
 
             Section {
                 // Image Cache
@@ -113,8 +103,6 @@ struct GeneralSettingsView: View {
 
             #if DEBUG
 
-                // MARK: - Debug Section
-
                 Section {
                     Toggle(String(localized: "Use Legacy macOS 15 UI"), isOn: self.$settings.useLegacyMacOS15UI)
                         .help(String(localized: "Force macOS 15 fallback views and materials while running on macOS 26+ for compatibility debugging"))
@@ -126,8 +114,6 @@ struct GeneralSettingsView: View {
                     Text(String(localized: "Debug"))
                 }
             #endif
-
-            // MARK: - Updates Section
 
             Section {
                 Toggle("Automatically check for updates", isOn: $updater.automaticChecksEnabled)
@@ -155,8 +141,6 @@ struct GeneralSettingsView: View {
             } header: {
                 Text(String(localized: "Updates"))
             }
-
-            // MARK: - About Section
 
             Section {
                 HStack {
@@ -202,8 +186,6 @@ struct GeneralSettingsView: View {
         }
     }
 
-    // MARK: - Computed Properties
-
     private var accountStatusText: String {
         self.authService.state.isLoggedIn ? String(localized: "Signed in to YouTube") : String(localized: "Not signed in")
     }
@@ -213,8 +195,6 @@ struct GeneralSettingsView: View {
         let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? ""
         return build.isEmpty ? version : "\(version) (\(build))"
     }
-
-    // MARK: - Actions
 
     private func updateCacheSize() async {
         let size = await ImageCache.shared.diskCacheSize()

@@ -62,8 +62,6 @@ final class LastFMService: ScrobbleServiceProtocol {
         authPollingTask?.cancel()
     }
 
-    // MARK: - Authentication
-
     /// Restores authentication state from Keychain on app launch.
     func restoreSession() {
         if let sessionKey = self.credentialStore.getLastFMSessionKey(),
@@ -203,8 +201,6 @@ final class LastFMService: ScrobbleServiceProtocol {
         }
     }
 
-    // MARK: - Auth Helpers
-
     private func getAuthToken() async throws -> String {
         let url = self.workerBaseURL.appendingPathComponent("auth/token")
         let (data, _) = try await self.session.data(from: url)
@@ -302,8 +298,6 @@ final class LastFMService: ScrobbleServiceProtocol {
         }
     }
 
-    // MARK: - Network Helpers
-
     // swiftformat:disable modifierOrder
     nonisolated private func postJSON(endpoint: String, bodyData: Data, baseURL: URL) async throws -> [String: Any] {
         let url = baseURL.appendingPathComponent(endpoint)
@@ -352,8 +346,6 @@ final class LastFMService: ScrobbleServiceProtocol {
             throw ScrobbleError.invalidResponse("Worker error: \(errorMessage)")
         }
     }
-
-    // MARK: - Response Parsing
 
     // swiftformat:disable modifierOrder
     nonisolated static func parseScrobbleResponse(

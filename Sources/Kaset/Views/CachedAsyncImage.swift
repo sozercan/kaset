@@ -1,13 +1,9 @@
 import SwiftUI
 
-// MARK: - CachedAsyncImageRequest
-
 private struct CachedAsyncImageRequest: Equatable {
     let url: URL?
     let targetSize: CGSize
 }
-
-// MARK: - CachedAsyncImageTaskID
 
 /// Restarts the load task when a memory-cache hit stops being available (evicted),
 /// so a view showing a cached image never needs to copy it into its own state.
@@ -15,8 +11,6 @@ private struct CachedAsyncImageTaskID: Equatable {
     let request: CachedAsyncImageRequest
     let isMemoryHit: Bool
 }
-
-// MARK: - CachedAsyncImage
 
 /// A cached version of AsyncImage that uses ImageCache.
 /// Includes a smooth crossfade transition when the image loads.
@@ -92,8 +86,6 @@ struct CachedAsyncImage<Content: View, Placeholder: View>: View {
         }
     }
 }
-
-// MARK: - SizedProgressView
 
 /// A simple ProgressView wrapper with proper sizing to avoid AppKit constraint warnings.
 struct SizedProgressView: View {

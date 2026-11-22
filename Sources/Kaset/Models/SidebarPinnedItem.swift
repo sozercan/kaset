@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - SidebarPinnedItem
-
 /// A playlist-like item pinned directly to the app sidebar.
 struct SidebarPinnedItem: Identifiable, Codable, Hashable {
     let itemType: ItemType

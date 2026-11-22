@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - WhatsNew
-
 /// Represents a "What's New" entry for a specific app version.
 struct WhatsNew: Identifiable {
     /// The app version this entry corresponds to.
@@ -38,8 +36,6 @@ struct WhatsNew: Identifiable {
     }
 }
 
-// MARK: WhatsNew.Version
-
 extension WhatsNew {
     /// A semantic version with major, minor, and patch components.
     struct Version: Hashable, Comparable, Codable, CustomStringConvertible {
@@ -60,8 +56,6 @@ extension WhatsNew {
             Version(major: self.major, minor: self.minor, patch: 0)
         }
 
-        // MARK: Comparable
-
         static func < (lhs: Version, rhs: Version) -> Bool {
             if lhs.major != rhs.major {
                 return lhs.major < rhs.major
@@ -74,8 +68,6 @@ extension WhatsNew {
             }
             return self.compareSuffix(lhs.suffix, rhs.suffix)
         }
-
-        // MARK: CustomStringConvertible
 
         var description: String {
             "\(self.major).\(self.minor).\(self.patch)\(self.suffix)"
@@ -93,8 +85,6 @@ extension WhatsNew {
         }
     }
 }
-
-// MARK: - WhatsNew.Version + ExpressibleByStringLiteral
 
 extension WhatsNew.Version: ExpressibleByStringLiteral {
     private struct ParsedComponents {
@@ -147,8 +137,6 @@ extension WhatsNew.Version: ExpressibleByStringLiteral {
     }
 }
 
-// MARK: - Version+current
-
 extension WhatsNew.Version {
     /// Retrieves the current app version from the main bundle's `CFBundleShortVersionString`.
     static func current(in bundle: Bundle = .main) -> WhatsNew.Version {
@@ -156,8 +144,6 @@ extension WhatsNew.Version {
         return .init(stringLiteral: versionString)
     }
 }
-
-// MARK: - WhatsNew.Feature
 
 extension WhatsNew {
     /// A single feature to display in the "What's New" sheet.

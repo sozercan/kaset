@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Album
-
 /// Represents an album from YouTube Music.
 struct Album: Identifiable, Codable, Hashable {
     let id: String

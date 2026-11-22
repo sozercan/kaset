@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - QueueEntry
-
 struct QueueEntry: Identifiable, Hashable {
     /// Where a queue entry came from. `suggested` marks Smart Shuffle recommendations.
     enum Source: String, Hashable, Codable {
@@ -15,8 +13,6 @@ struct QueueEntry: Identifiable, Hashable {
     var source: Source = .queued
 }
 
-// MARK: - QueuePlaybackContext
-
 /// Identifies the queue occurrence and explicit playback generation that owns async navigation work.
 struct QueuePlaybackContext: Equatable {
     let entryID: UUID?
@@ -25,14 +21,10 @@ struct QueuePlaybackContext: Equatable {
     let navigationGeneration: Int
 }
 
-// MARK: - PlaybackNavigationContext
-
 struct PlaybackNavigationContext: Equatable {
     let requestGeneration: Int
     let navigationGeneration: Int
 }
-
-// MARK: - RadioQueueFetchOutcome
 
 enum RadioQueueFetchOutcome: Equatable {
     case applied
@@ -40,8 +32,6 @@ enum RadioQueueFetchOutcome: Equatable {
     case queueMutated
     case superseded
 }
-
-// MARK: - PendingNativeQueueAdvance
 
 struct PendingNativeQueueAdvance: Equatable {
     let sourceEntryID: UUID?
@@ -51,8 +41,6 @@ struct PendingNativeQueueAdvance: Equatable {
     let generation: Int
     let fallbackDeadline: ContinuousClock.Instant
 }
-
-// MARK: - QueueState
 
 struct QueueState {
     enum PlaybackOwner: Equatable {

@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - MixTrackEntry
-
 /// A single sub-track within a long mix video (e.g., a DJ set or compilation).
 /// Each entry maps a time range within the video to an artist and title,
 /// enabling per-sub-track scrobbling instead of scrobbling the entire mix as one track.
@@ -81,8 +79,6 @@ struct MixTrackEntry: Identifiable, Hashable {
         return (artist.isEmpty ? nil : artist, title)
     }
 }
-
-// MARK: - MixTracklist
 
 /// A parsed tracklist for a long mix video, containing sub-tracks with timestamps.
 /// Used by `ScrobblingCoordinator` to scrobble individual tracks within a mix

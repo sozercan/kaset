@@ -61,8 +61,6 @@ import Darwin
 import Dispatch
 import Foundation
 
-// MARK: - Configuration
-
 let apiKeyEnvironmentVariable = "KASET_YTMUSIC_API_KEY"
 let webClientURL = URL(string: "https://music.youtube.com")!
 nonisolated(unsafe) var cachedAPIKey: String?
@@ -122,8 +120,6 @@ private func effectivePort(for url: URL) -> Int? {
     default: return nil
     }
 }
-
-// MARK: - BoundedResponseDataDelegate
 
 private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegate, @unchecked Sendable {
     private let scheme: String?
@@ -317,8 +313,6 @@ private final class BoundedResponseDataDelegate: NSObject, URLSessionDataDelegat
     }
 }
 
-// MARK: - Cookie Management
-
 /// Locates the authoritative cookie archive without reading its contents.
 func selectedCookieBackupFile(
     appSupport: URL? = FileManager.default.urls(
@@ -472,8 +466,6 @@ func buildSIDAuthorizationHeader(
     }
     return values.isEmpty ? nil : values.joined(separator: " ")
 }
-
-// MARK: - API Key Resolution
 
 private func webClientConfigurationRequest(timeout: TimeInterval? = nil) -> URLRequest {
     var request = URLRequest(url: activeWebClientURL)
@@ -644,8 +636,6 @@ func isValidClientVersion(_ value: String) -> Bool {
         }
 }
 
-// MARK: - MusicMobileRequestProfile
-
 /// Mobile Home uses element models that the WEB_REMIX client does not request.
 /// This profile is scoped to read-only discovery, not production playback.
 struct MusicMobileRequestProfile {
@@ -795,8 +785,6 @@ func hasUsableAuthMaterial() -> Bool {
     return getSAPISID(from: cookies) != nil && buildCookieHeader(from: cookies) != nil
 }
 
-// MARK: - APIWireResponse
-
 struct APIWireResponse {
     let data: Data
     let statusCode: Int
@@ -805,8 +793,6 @@ struct APIWireResponse {
 
 private let maximumWireResponseBytes = 32 * 1024 * 1024
 private let maximumConfigurationResponseBytes = 8 * 1024 * 1024
-
-// MARK: - ResponseSizeLimitError
 
 struct ResponseSizeLimitError: LocalizedError {
     let maximumBytes: Int
@@ -945,8 +931,6 @@ func makeRequest(endpoint: String, body: [String: Any], authenticated: Bool = fa
 
     return (json, response.statusCode)
 }
-
-// MARK: - Response Analysis
 
 func joinedRunsText(_ data: [String: Any]?) -> String? {
     guard let data,
@@ -1155,8 +1139,6 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
     return output
 }
 
-// MARK: - PlaylistSetVideoIdSourceCounts
-
 private struct PlaylistSetVideoIdSourceCounts {
     var playlistItemData = 0
     var playlistEditEndpoint = 0
@@ -1202,8 +1184,6 @@ private func playlistSetVideoIdSourceSummary(_ data: [String: Any]) -> String {
       • playlistEditEndpoint ACTION_REMOVE_VIDEO setVideoId: \(counts.playlistEditEndpoint)
     """
 }
-
-// MARK: - ChapterProbeItem
 
 private struct ChapterProbeItem: Hashable {
     let videoId: String?
@@ -1447,8 +1427,6 @@ private func chapterProbeSummary(_ data: [String: Any], limit: Int = 8) -> Strin
     return output
 }
 
-// MARK: - LibraryFeedbackProbeItem
-
 private struct LibraryFeedbackProbeItem: Hashable {
     enum Kind: String {
         case single
@@ -1592,16 +1570,12 @@ private func albumLibraryTargetSummary(_ data: [String: Any]) -> String {
     return "\n💾 Album library target:\n  • Found \(targets.count) unique OLAK playlist target(s) for album mutations\n"
 }
 
-// MARK: - QueueRatingAudit
-
 private struct QueueRatingAudit {
     var rowCount = 0
     var rowsWithDirectStatus = 0
     var ratingToggleCount = 0
     var toggleShapes: [String: Int] = [:]
 }
-
-// MARK: - QueueRatingEndpointAudit
 
 private struct QueueRatingEndpointAudit {
     let status: String
@@ -1826,8 +1800,6 @@ func analyzeResponse(
     return output
 }
 
-// MARK: - QueueProbeSong
-
 private struct QueueProbeSong {
     let videoId: String
     let title: String
@@ -2011,8 +1983,6 @@ func probeQueue(videoId: String, playlistId: String? = nil, verbose: Bool = fals
         print("❌ Queue probe failed (error code: \((error as NSError).code))")
     }
 }
-
-// MARK: - Commands
 
 /// Known endpoints that require authentication
 let authRequiredEndpoints = Set([
@@ -2235,8 +2205,6 @@ func exploreAction(
         print("❌ Error: \(error.localizedDescription)")
     }
 }
-
-// MARK: - PrivateInputLimits
 
 private enum PrivateInputLimits {
     static let bodyBytes = 2 * 1024 * 1024
@@ -3022,8 +2990,6 @@ func checkAuthStatus() {
     }
 }
 
-// MARK: - Account Discovery
-
 /// Discovers all available accounts (primary + brand accounts) by probing authuser indices
 func discoverAccounts(verbose: Bool) async {
     print("🔍 Discovering Accounts")
@@ -3188,8 +3154,6 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
         return nil
     }
 }
-
-// MARK: - Brand Account Discovery
 
 /// Read-only mechanism pre-check for issue #277 (brand history recording).
 /// Follows the brand signin redirect on an EPHEMERAL `URLSession` seeded from
@@ -4052,8 +4016,6 @@ func analyzeSavedResponse(at path: String) {
         print("❌ Failed to analyze saved response: \(error.localizedDescription)")
     }
 }
-
-// MARK: - Main Entry Point
 
 private func commandLineOptionValue(
     after index: Int,

@@ -1,7 +1,5 @@
 import Testing
 
-// MARK: - Custom Test Tags
-
 /// Custom test tags for categorizing and filtering tests.
 ///
 /// Tags enable running subsets of tests based on category, which is useful for:

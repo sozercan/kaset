@@ -2,8 +2,6 @@ import os
 import SwiftUI
 import WebKit
 
-// MARK: - YouTubeWatchWebView
-
 /// Manages the single WebView used for regular YouTube video playback.
 ///
 /// Parallel to `SingletonPlayerWebView` (music) but tuned to youtube.com
@@ -332,8 +330,6 @@ final class YouTubeWatchWebView {
 }
 
 extension YouTubeWatchWebView {
-    // MARK: - User Scripts
-
     private func beginBlankDocumentNavigation() -> URL? {
         self.documentNavigations.removeAll()
         self.cancelledDocumentNavigations.removeAll()

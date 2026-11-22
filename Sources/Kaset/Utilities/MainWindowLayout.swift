@@ -1,7 +1,5 @@
 import AppKit
 
-// MARK: - MainWindowLayout
-
 /// Shared sizing contract for Kaset's primary app window.
 ///
 /// SwiftUI's `.frame(minWidth:minHeight:)` documents the layout floor for the

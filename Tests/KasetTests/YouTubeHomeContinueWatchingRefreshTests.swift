@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - YouTubeHomeContinueWatchingRefreshTests
-
 /// Covers the post-watch Continue Watching rail refresh: returning to Home after
 /// watching a video rebuilds only that rail (a finished video drops out, a
 /// partially-watched one appears or updates its progress), gated on the player's
@@ -529,8 +527,6 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         #expect(self.mockClient.getHistoryForceRefreshCount == 1) // the preserved generation forced a refetch
     }
 }
-
-// MARK: - RefreshTestGate
 
 /// A one-shot async gate: `wait()` suspends until `open()` is called. Local to
 /// this suite (the one in YouTubeHomeViewModelTests is file-private there).
