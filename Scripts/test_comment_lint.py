@@ -63,6 +63,17 @@ class CommentLexerTests(unittest.TestCase):
         for item in found:
             self.assertTrue(source.startswith(item.text, item.start))
 
+    def test_javascript_regex_after_control_statement_is_not_a_comment(self):
+        source = (
+            r"if (enabled && ready()) /https?:\/\//.test(url);" "\n"
+            "const quotient = value.if() / a / b; // note\n"
+        )
+        self.assertEqual([item.text for item in comments("site.js", source)], ["// note"])
+
+    def test_shell_ansi_c_quoted_text_can_contain_hashes(self):
+        source = r"value=$'don\'t # literal' # note" "\n"
+        self.assertEqual([item.text for item in comments("test.sh", source)], ["# note"])
+
 
 class CommentRatchetTests(unittest.TestCase):
     def setUp(self):

@@ -21,10 +21,15 @@ YAML_BLOCK = re.compile(
     rf"^(?P<indent> *)(?:(?P<sequence>-[ \t]+)?(?:{QUOTES}|[^:#]+):[ \t]+|-[ \t]+)"
     r"[|>](?:[1-9][+-]?|[+-][1-9]?)?[ \t]*(?:#.*)?$"
 )
-JS_REGEX = (
-    r"(?:\b(?:return|throw|case|yield)\b|=>|[=(,:;!&|?{\[])\s*"
-    r"/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\\[\n])+/[a-z]*"
+JS_TOKENS = re.compile(
+    rf"{QUOTES}|`(?:\\[\s\S]|[^`\\])*`|{SLASHES}|[\w$]+|=>|\+\+|--|\S"
 )
+JS_REGEX = re.compile(r"/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\\[\n])+/[a-z]*")
+JS_CONDITIONS = {"if", "while", "for", "with"}
+JS_REGEX_PREFIXES = {
+    "(", "[", "{", "=", ",", ":", ";", "!", "&", "|", "?", "+", "-", "*", "%", "^", "~", "/", "=>",
+    "return", "throw", "case", "yield", "typeof", "void", "delete", "else", "do",
+}
 HEREDOC = r"(?<!<)<<-?[ \t]*['\"]?(?P<delimiter>\w+)['\"]?(?P<tail>[^\n]*)\n[\s\S]*?^\t*(?P=delimiter)$"
 RUBY_LEX = """
 source = STDIN.read.force_encoding(Encoding::UTF_8)
@@ -39,13 +44,12 @@ end)
 """
 
 LEXERS = {
-    "javascript": re.compile(rf"{QUOTES}|`(?:\\[\s\S]|[^`\\])*`|{JS_REGEX}|{SLASHES}"),
     "strings": re.compile(rf"{QUOTES}|{SLASHES}"),
     "css": re.compile(rf"{QUOTES}|(?P<comment>/\*[\s\S]*?\*/)"),
     "markup": re.compile(
         rf"<!\[CDATA\[[\s\S]*?\]\]>|(?P<comment><!--[\s\S]*?-->)|<(?:{QUOTES}|[^\"'<>])*>",
     ),
-    "shell": re.compile(rf"{HEREDOC}|{DOUBLE}|'[^']*'|\\[^\n]|{HASH}", re.MULTILINE),
+    "shell": re.compile(rf"{HEREDOC}|{DOUBLE}|\${SINGLE}|'[^']*'|\\[^\n]|{HASH}", re.MULTILINE),
     "hash": re.compile(rf"{QUOTES}|{HASH}"),
     "config": re.compile(rf"{CONFIG_QUOTES}|{CONFIG_HASH}"),
     "applescript": re.compile(rf"{DOUBLE}|(?P<comment>\(\*[\s\S]*?\*\)|--[^\n]*|\#[^\n]*)"),
@@ -138,6 +142,28 @@ def ruby_comments(source):
             start = None
 
 
+def javascript_comments(source):
+    offset = 0
+    allow_regex = True
+    pending_condition = False
+    previous = ""
+    parentheses = []
+    while match := JS_TOKENS.search(source, offset):
+        offset = match.end()
+        if match["comment"] is not None:
+            yield Comment(match.start(), match["comment"])
+            continue
+        token = match[0]
+        if token == "/" and allow_regex and (literal := JS_REGEX.match(source, match.start())):
+            offset = literal.end()
+            token = literal[0]
+        if token == "(":
+            parentheses.append(pending_condition)
+        allow_regex = parentheses.pop() if token == ")" and parentheses else token in JS_REGEX_PREFIXES
+        pending_condition = token in JS_CONDITIONS and previous != "."
+        previous = token
+
+
 def language(path):
     if path.startswith(".agents/skills/autoreview/"):
         return None
@@ -186,6 +212,8 @@ def comments(path, source):
         found = python_comments(source)
     elif kind == "ruby":
         found = ruby_comments(source)
+    elif kind == "javascript":
+        found = javascript_comments(source)
     elif kind in LEXERS:
         scan_source = mask_yaml_literal_blocks(source) if path.endswith((".yaml", ".yml")) else source
         found = lexical_comments(kind, scan_source)
