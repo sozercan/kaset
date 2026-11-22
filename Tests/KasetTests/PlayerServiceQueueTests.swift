@@ -1276,4 +1276,69 @@ extension PlayerServiceQueueTests {
         #expect(self.playerService.progress == 42)
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
     }
+
+    @Test("Same-song radio refresh keeps admitting a prior track-end event")
+    func sameSongRadioRefreshAdmitsPriorTrackEnd() async throws {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = self.playerService.currentMusicPlaybackIntent
+        let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
+
+        await self.playerService.playWithRadio(song: songs[0])
+        let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
+        #expect(!self.playerService.acceptsMusicBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+        #expect(self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+        #expect(self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: self.playerService.currentMusicPlaybackIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Different-song radio rejects a prior track-end event")
+    func differentSongRadioRejectsPriorTrackEnd() async throws {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = self.playerService.currentMusicPlaybackIntent
+        let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        self.mockClient.radioQueueSongs[songs[2].videoId] = [songs[2], songs[3]]
+
+        await self.playerService.playWithRadio(song: songs[2])
+        let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(!self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+        #expect(!self.playerService.acceptsMusicTerminalBridgeEvent(
+            intent: self.playerService.currentMusicPlaybackIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await self.playerService.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(self.playerService.currentIndex == 0)
+        #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
+    }
 }

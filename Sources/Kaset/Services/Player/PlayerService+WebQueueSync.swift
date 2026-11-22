@@ -906,7 +906,12 @@ extension PlayerService {
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
-        guard shouldContinue(), self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard shouldContinue(),
+              self.acceptedTrackEndContinuationIntent(
+                  originalIntent: intent,
+                  occurrence: playbackOccurrence ?? self.currentMusicPlaybackOccurrence
+              ) != nil
+        else { return }
         if identityResolutionTimedOut {
             guard observedVideoId == nil,
                   playbackOccurrence?.documentGeneration != nil,

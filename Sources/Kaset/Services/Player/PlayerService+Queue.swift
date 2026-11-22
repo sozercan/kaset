@@ -127,10 +127,16 @@ extension PlayerService {
         return loadGeneration
     }
 
+    func beginRadioPlaybackIntent(for song: Song) -> MusicPlaybackIntent {
+        self.beginMusicPlaybackIntent(
+            allowsPriorTerminalEvent: self.currentTrack?.videoId == song.videoId
+        )
+    }
+
     /// Plays a song and fetches similar songs (radio queue) in the background.
     /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async {
-        let intent = self.beginMusicPlaybackIntent()
+        let intent = self.beginRadioPlaybackIntent(for: song)
         await self.playWithRadio(song: song, intent: intent)
     }
 
