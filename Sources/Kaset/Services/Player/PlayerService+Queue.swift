@@ -358,7 +358,7 @@ extension PlayerService {
             let newSongs = result.songs.filter { !existingIDs.contains($0.videoId) }
             if !newSongs.isEmpty {
                 let updatedEntries = self.queueEntries + newSongs.map { QueueEntry(id: UUID(), song: $0) }
-                self.setQueue(entries: updatedEntries)
+                self.applyAutomaticQueueChange { self.setQueue(entries: updatedEntries) }
                 self.logger.info("Added \(newSongs.count) new songs to queue, total: \(self.queue.count)")
             }
 

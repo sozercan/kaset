@@ -1112,6 +1112,39 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, recommended.videoId])
     }
+
+    @Test("A mix continuation that lands during a radio refresh does not discard the refresh")
+    func mixContinuationDuringRadioRefreshStillApplies() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        self.playerService.mixContinuationToken = "mix-continuation"
+        self.mockClient.mixQueueContinuationResult = RadioQueueResult(
+            songs: [songs[2]],
+            continuationToken: "next-mix-continuation"
+        )
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+
+        let userMutationGenerationBeforeAppend = self.playerService.userQueueMutationGeneration
+        let refreshTask = Task { @MainActor [playerService] in
+            await playerService.playWithRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        #expect(self.mockClient.getRadioQueueVideoIds == [songs[0].videoId])
+
+        await self.playerService.fetchMoreMixSongsIfNeeded()
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId, songs[2].videoId])
+        #expect(self.playerService.userQueueMutationGeneration == userMutationGenerationBeforeAppend)
+
+        await radioGate.open()
+        await refreshTask.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
+        #expect(self.playerService.mixContinuationToken == nil)
+    }
 }
 
 private actor RadioCallCounter {
