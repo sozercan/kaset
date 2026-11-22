@@ -70,6 +70,20 @@ class CommentLexerTests(unittest.TestCase):
         )
         self.assertEqual([item.text for item in comments("site.js", source)], ["// note"])
 
+    def test_javascript_keyword_properties_can_be_division_operands(self):
+        examples = (
+            "const quotient = value.delete / divisor /* note */;\n",
+            "const quotient = value?.delete / divisor /* note */;\n",
+            "class Example { #delete; value() { return this.#delete / divisor /* note */; } }\n",
+        )
+        for source in examples:
+            with self.subTest(source=source):
+                self.assertEqual([item.text for item in comments("site.js", source)], ["/* note */"])
+
+    def test_javascript_spread_does_not_behave_like_property_access(self):
+        source = "const chars = [...typeof /[//]/]; // note\n"
+        self.assertEqual([item.text for item in comments("site.js", source)], ["// note"])
+
     def test_shell_ansi_c_quoted_text_can_contain_hashes(self):
         source = r"value=$'don\'t # literal' # note" "\n"
         self.assertEqual([item.text for item in comments("test.sh", source)], ["# note"])

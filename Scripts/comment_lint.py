@@ -22,14 +22,14 @@ YAML_BLOCK = re.compile(
     r"[|>](?:[1-9][+-]?|[+-][1-9]?)?[ \t]*(?:#.*)?$"
 )
 JS_TOKENS = re.compile(
-    rf"{QUOTES}|`(?:\\[\s\S]|[^`\\])*`|{SLASHES}|[\w$]+|=>|\+\+|--|\S"
+    rf"{QUOTES}|`(?:\\[\s\S]|[^`\\])*`|{SLASHES}|\#?[\w$]+|\.{{3}}|\?\.|=>|\+\+|--|\S"
 )
 JS_REGEX = re.compile(r"/(?![/*])(?:\\[^\n]|\[(?:\\[^\n]|[^\]\\\n])*\]|[^/\\\[\n])+/[a-z]*")
 JS_CONDITIONS = {"if", "while", "for", "with"}
 JS_REGEX_PREFIXES = {
-    "(", "[", "{", "=", ",", ":", ";", "!", "&", "|", "?", "+", "-", "*", "%", "^", "~", "/", "=>",
-    "return", "throw", "case", "yield", "typeof", "void", "delete", "else", "do",
+    "(", "[", "{", "=", ",", ":", ";", "!", "&", "|", "?", "+", "-", "*", "%", "^", "~", "/", "=>", "...",
 }
+JS_REGEX_KEYWORDS = {"return", "throw", "case", "yield", "typeof", "void", "delete", "else", "do"}
 HEREDOC = r"(?<!<)<<-?[ \t]*['\"]?(?P<delimiter>\w+)['\"]?(?P<tail>[^\n]*)\n[\s\S]*?^\t*(?P=delimiter)$"
 RUBY_LEX = """
 source = STDIN.read.force_encoding(Encoding::UTF_8)
@@ -159,8 +159,12 @@ def javascript_comments(source):
             token = literal[0]
         if token == "(":
             parentheses.append(pending_condition)
-        allow_regex = parentheses.pop() if token == ")" and parentheses else token in JS_REGEX_PREFIXES
-        pending_condition = token in JS_CONDITIONS and previous != "."
+        property_access = previous in {".", "?."}
+        if token == ")" and parentheses:
+            allow_regex = parentheses.pop()
+        else:
+            allow_regex = token in JS_REGEX_PREFIXES or (not property_access and token in JS_REGEX_KEYWORDS)
+        pending_condition = not property_access and token in JS_CONDITIONS
         previous = token
 
 
