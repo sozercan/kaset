@@ -146,6 +146,7 @@
 "Drag to reorder" = "拖动以重新排序";
 "E" = "E";
 "Edit" = "编辑";
+"Edit search" = "编辑搜索内容";
 "Electronic" = "电子";
 "Enable %@ Scrobbling" = "启用 %@ Scrobbling";
 "Enable AI Features" = "启用 AI 功能";
@@ -176,6 +177,7 @@
 "Featured playlists" = "精选播放列表";
 "Fetch and display real-time synced lyrics when available" = "在有歌词时获取并显示实时同步歌词";
 "Filter" = "筛选";
+"Find in playlist" = "在播放列表中查找";
 "Find songs, albums, artists, and playlists" = "查找歌曲、专辑、艺人和播放列表";
 "Find videos, channels, and playlists." = "查找视频、频道和播放列表。";
 "Flat" = "平直";
@@ -322,6 +324,7 @@
 "No subscription videos" = "暂无订阅视频";
 "No uploaded songs yet" = "尚无上传的歌曲";
 "No videos" = "暂无视频";
+"Not all tracks loaded. Results may be incomplete." = "未能加载全部曲目，结果可能不完整。";
 "Not Enabled" = "未启用";
 "Not Playing" = "未在播放";
 "Not Supported" = "不支持";

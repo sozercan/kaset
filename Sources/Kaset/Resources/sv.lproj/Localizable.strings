@@ -141,6 +141,7 @@
 "Number %lld, %@" = "Nummer %1$lld, %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "t.ex. ta bort långsamma låtar, ordna om efter energi…";
 "Edit" = "Redigera";
+"Edit search" = "Redigera sökning";
 "Electronic" = "Elektronisk";
 "Enable %@ Scrobbling" = "Aktivera %@-scrobbling";
 "Enable AI Features" = "Aktivera AI-funktioner";
@@ -170,6 +171,7 @@
 "Featured playlists" = "Utvalda spellistor";
 "Fetch and display real-time synced lyrics when available" = "Hämta och visa synkroniserad sångtext i realtid när den är tillgänglig";
 "Filter" = "Filter";
+"Find in playlist" = "Sök i spellistan";
 "Find songs, albums, artists, and playlists" = "Hitta låtar, album, artister och spellistor";
 "Find videos, channels, and playlists." = "Hitta videor, kanaler och spellistor.";
 "Flat" = "Platt";
@@ -313,6 +315,7 @@
 "No subscription videos" = "Inga prenumerationsvideor";
 "No uploaded songs yet" = "Inga uppladdade låtar än";
 "No videos" = "Inga videor";
+"Not all tracks loaded. Results may be incomplete." = "Vissa spår kunde inte läsas in. Resultaten kan vara ofullständiga.";
 "Not connected" = "Inte ansluten";
 "Not disliked" = "Inte ogillad";
 "Not Enabled" = "Inte aktiverat";

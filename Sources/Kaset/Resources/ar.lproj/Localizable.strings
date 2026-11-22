@@ -141,6 +141,7 @@
 "Number %lld, %@" = "رقم %1$lld، %2$@";
 "e.g., Remove slow songs, reorder by energy..." = "مثال: أزل الأغاني البطيئة، أعد الترتيب حسب الحيوية...";
 "Edit" = "تعديل";
+"Edit search" = "تعديل البحث";
 "Electronic" = "إلكتروني";
 "Enable %@ Scrobbling" = "تفعيل السكروبلنغ لـ %@";
 "Enable AI Features" = "تفعيل ميزات الذكاء الاصطناعي";
@@ -170,6 +171,7 @@
 "Featured playlists" = "قوائم تشغيل مميزة";
 "Fetch and display real-time synced lyrics when available" = "جلب وعرض كلمات الأغاني المتزامنة في الوقت الفعلي عند توفرها";
 "Filter" = "تصفية";
+"Find in playlist" = "البحث في قائمة التشغيل";
 "Find songs, albums, artists, and playlists" = "ابحث عن أغاني وألبومات وفنانين وقوائم تشغيل";
 "Find videos, channels, and playlists." = "اعثر على الفيديوهات والقنوات وقوائم التشغيل.";
 "Flat" = "مسطح";
@@ -313,6 +315,7 @@
 "No subscription videos" = "لا توجد فيديوهات اشتراكات";
 "No uploaded songs yet" = "لا توجد أغانٍ مرفوعة بعد";
 "No videos" = "لا توجد فيديوهات";
+"Not all tracks loaded. Results may be incomplete." = "لم يتم تحميل كل المقطوعات. قد تكون النتائج غير مكتملة.";
 "Not connected" = "غير متصل";
 "Not disliked" = "غير مرفوض";
 "Not Enabled" = "غير مفعّل";
