@@ -645,7 +645,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     /// Right sidebar overlay showing either lyrics or queue as glass panels (mutually exclusive).
     @ViewBuilder
     private func rightSidebarOverlay(client: any YTMusicClientProtocol) -> some View {
-        let showRightSidebar = self.playerService.showLyrics || self.playerService.showQueue
+        let showRightSidebar = self.settings.appSource == .music
+            && (self.playerService.showLyrics || self.playerService.showQueue)
 
         if showRightSidebar {
             VStack {

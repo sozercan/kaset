@@ -479,11 +479,13 @@ struct KasetApp: App {
 
                 // Lyrics - ⌘L
                 Button(self.playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
+                    guard self.settings.appSource == .music else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
                         self.playerService.showLyrics.toggle()
                     }
                 }
                 .keyboardShortcut("l", modifiers: .command)
+                .disabled(self.settings.appSource != .music)
             }
 
             // Navigation commands - replace default sidebar toggle
