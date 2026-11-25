@@ -1,6 +1,5 @@
 import Foundation
 
-/// Shared loading state for ViewModels.
 enum LoadingState {
     case idle
     case loading
@@ -9,15 +8,12 @@ enum LoadingState {
     case error(LoadingError)
 }
 
-/// Wraps error information for display in views.
-/// Provides user-friendly messages and retry capability.
 struct LoadingError {
     let title: String
     let message: String
     let isRetryable: Bool
     let underlyingError: (any Error)?
 
-    /// Creates a LoadingError from any Error.
     init(from error: any Error) {
         if let ytError = error as? YTMusicError {
             self.title = ytError.userFriendlyTitle
@@ -37,7 +33,6 @@ struct LoadingError {
         }
     }
 
-    /// Creates a LoadingError with a simple message.
     init(message: String, isRetryable: Bool = true) {
         self.title = "Error"
         self.message = message
@@ -45,7 +40,6 @@ struct LoadingError {
         self.underlyingError = nil
     }
 
-    /// Creates a LoadingError with title and message.
     init(title: String, message: String, isRetryable: Bool = true) {
         self.title = title
         self.message = message

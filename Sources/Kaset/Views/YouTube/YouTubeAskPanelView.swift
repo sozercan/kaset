@@ -143,9 +143,6 @@ private final class YouTubeAskEscapeMonitorView: NSView {
     }
 }
 
-/// Floating, watch-scoped Ask Gemini panel. It presents YouTube-generated
-/// messages and server-issued suggestions in the same compact shell as the
-/// music command bar.
 struct YouTubeAskPanelView: View {
     private static let headerReservedHeight: CGFloat = 58
 
@@ -241,8 +238,6 @@ struct YouTubeAskPanelView: View {
     }
 
     private var preferredFocusTarget: FocusTarget? {
-        // A renewed composer command belongs to the latest conversation
-        // revision and should regain focus even after earlier transcript turns.
         if self.viewModel.acceptsFreeTextInput {
             return .input
         }

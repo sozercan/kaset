@@ -56,6 +56,28 @@ class CommentLexerTests(unittest.TestCase):
         source = "- message: |- # note\n    # literal\n  value: >\n    # literal\n  tail: value # tail\n"
         self.assertEqual([item.text for item in comments("test.yml", source)], ["# note", "# tail"])
 
+    def test_workflows_allow_exact_versions_for_sha_pins(self):
+        sha = "a" * 40
+        source = f"      - uses: owner/action@{sha} # v1.2.3\n        uses: owner/repo/path@{sha} # v2.0.0\n"
+        for extension in ("yml", "yaml"):
+            self.assertEqual(comments(f".github/workflows/test.{extension}", source), [])
+        self.assertEqual(len(comments("outside.yml", source)), 2)
+
+    def test_other_workflow_comments_are_counted(self):
+        pin = f"owner/action@{'a' * 40}"
+        examples = (
+            (f"uses: {pin} # v1", "# v1"),
+            (f"uses: {pin} # v1.2", "# v1.2"),
+            (f"uses: {pin} # v01.2.3", "# v01.2.3"),
+            (f"uses: {pin} # v1.2.3 workaround", "# v1.2.3 workaround"),
+            ("uses: owner/action@v1.2.3 # v1.2.3", "# v1.2.3"),
+            (f"name: {pin} # v1.2.3", "# v1.2.3"),
+            ("# v1.2.3", "# v1.2.3"),
+        )
+        for source, expected in examples:
+            with self.subTest(source=source):
+                self.assertEqual([item.text for item in comments(".github/workflows/test.yml", source)], [expected])
+
     def test_ruby_recognizes_comments_without_a_space_and_document_blocks(self):
         source = 'pattern = /a#b/\nvalue = "é"# note\n=begin\nblock\n=end\n'
         found = comments("Cask.rb", source)

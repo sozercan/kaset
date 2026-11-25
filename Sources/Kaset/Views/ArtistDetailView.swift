@@ -1,8 +1,5 @@
-// swiftlint:disable file_length
-
 import SwiftUI
 
-/// Detail view for an artist showing their songs and albums.
 struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     let artist: Artist
     @State var viewModel: ArtistDetailViewModel
@@ -55,22 +52,17 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     private func contentView(_ detail: ArtistDetail) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Header
                 self.headerView(detail)
                     .padding(.horizontal, DetailContentLayout.horizontalInset)
 
                 Divider()
                     .padding(.horizontal, DetailContentLayout.horizontalInset)
 
-                // Songs section (vertical list — inset like other non-shelf content)
                 if !detail.songs.isEmpty {
                     self.songsSection()
                         .padding(.horizontal, DetailContentLayout.horizontalInset)
                 }
 
-                // Latest episodes (includes live radio streams). Episodes are
-                // kept out of orderedSections because they use their own card
-                // layout and route.
                 if !detail.episodes.isEmpty {
                     self.episodesSection(detail.episodes)
                 }
@@ -91,8 +83,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         }
                     }
                 } else {
-                    // Fallback for older/parser-test ArtistDetail values that do
-                    // not populate orderedSections.
                     if !detail.albums.isEmpty {
                         self.albumsSection(detail.albums)
                     }
@@ -110,23 +100,17 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
                 }
 
-                // Podcast shows owned by this artist.
                 if !detail.podcasts.isEmpty {
                     self.podcastsSection(detail.podcasts)
                 }
             }
             .padding(.vertical, 24)
         }
-        // The ScrollView stays edge-to-edge: non-scrolling content is inset via
-        // padding above, while horizontal shelves pass `contentInset` so their
-        // tracks reach the under-sidebar band and slide under the floating glass
-        // on macOS 26. The accent backdrop (ignores safe area) refracts through.
         .topFade(style: .contentMask)
     }
 
     private func headerView(_ detail: ArtistDetail) -> some View {
         HStack(alignment: .top, spacing: 20) {
-            // Thumbnail
             CachedAsyncImage(url: detail.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
@@ -143,7 +127,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             .frame(width: 180, height: 180)
             .clipShape(.circle)
 
-            // Info
             VStack(alignment: .leading, spacing: 8) {
                 if let headerTypeLabel = self.headerTypeLabel(for: detail) {
                     Text(headerTypeLabel)
@@ -173,7 +156,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
                 HStack(spacing: 12) {
                     if detail.profileKind == .artist {
-                        // Shuffle button - shuffles all artist's songs (fetches if needed)
                         Button {
                             let intent = self.playerService.beginMusicPlaybackIntent()
                             Task {
@@ -187,10 +169,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         .disabled(detail.songs.isEmpty && !detail.hasMoreSongs)
                     }
 
-                    // Mix button - plays personalized radio with mix of artists
-                    // Only shown if mix data is available from the API
-                    // Passing nil for startVideoId lets the API pick a random starting point on the server
-                    // in addition to client-side shuffling applied when the mix tracks are played
                     if let mixPlaylistId = detail.mixPlaylistId {
                         Button {
                             self.playMix(playlistId: mixPlaylistId, startVideoId: nil)
@@ -201,7 +179,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                         .controlSize(.large)
                     }
 
-                    // Subscribe button
                     if detail.channelId != nil, self.hasPersonalAccount {
                         self.subscribeButton(detail)
                     }
@@ -211,7 +188,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Returns the text for the subscribe button.
     private func subscribeButtonText(_ detail: ArtistDetail) -> String {
         let baseText = detail.isSubscribed
             ? (detail.subscribedButtonText ?? String(localized: "Subscribed"))
@@ -284,7 +260,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
                 Spacer()
 
-                // See all button - navigates to full top songs view
                 if self.viewModel.hasMoreSongs, let detail = viewModel.artistDetail {
                     NavigationLink(value: TopSongsDestination(
                         artistId: detail.id,
@@ -315,17 +290,14 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Song row for top songs section - fetches all songs and plays as queue.
     private func topSongRow(_ song: Song, index: Int) -> some View {
         HoverObservingRow { isHovered in
             Button {
                 self.playTopSong(song, displayedIndex: index)
             } label: {
                 HStack(spacing: 12) {
-                    // Thumbnail
                     SongThumbnailView(song: song, size: 40, cornerRadius: 4)
 
-                    // Title (with optional explicit badge)
                     HStack(spacing: 6) {
                         Text(song.title)
                             .font(.system(size: 14))
@@ -337,14 +309,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Artist column
                     Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(width: 150, alignment: .leading)
 
-                    // Album column (if available)
                     if let album = song.album {
                         Text(album.title)
                             .font(.system(size: 14))
@@ -356,10 +326,8 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
                             .frame(width: 150, alignment: .leading)
                     }
 
-                    // Favorite toggle
                     LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.hasPersonalAccount)
 
-                    // Duration
                     Text(song.durationDisplay)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
@@ -479,7 +447,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
 
     private func albumCard(_ album: Album) -> some View {
         VStack(alignment: .leading, spacing: 8) {
-            // Thumbnail
             CachedAsyncImage(url: album.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 140, height: 140)) { image in
                 image
                     .resizable()
@@ -496,14 +463,12 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
             .frame(width: 140, height: 140)
             .clipShape(.rect(cornerRadius: 8))
 
-            // Title
             Text(album.title)
                 .font(.system(size: 12, weight: .medium))
                 .lineLimit(2)
                 .multilineTextAlignment(.leading)
                 .frame(width: 140, alignment: .leading)
 
-            // Year
             if let year = album.year {
                 Text(year)
                     .font(.system(size: 11))
@@ -611,7 +576,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Fetches all artist songs and plays them shuffled.
     private func shuffleAllSongs(intent: MusicPlaybackIntent) async {
         let allSongs = await self.viewModel.getAllSongs()
         guard !allSongs.isEmpty,
@@ -880,9 +844,6 @@ struct ArtistDetailView: View { // swiftlint:disable:this type_body_length
     ) -> some View {
         switch more.pageType {
         case .playlist:
-            // Playlist-backed See-all destinations reuse the existing
-            // `Playlist` navigation route so `PlaylistDetailView` can render
-            // the full list.
             NavigationLink(value: Playlist(
                 id: more.browseId,
                 title: sectionTitle,

@@ -3,11 +3,6 @@ import Foundation
 import os
 import WebKit
 
-/// Browser-tab identity for Kaset-owned playback WebViews exposed to WebKit Web Extensions.
-///
-/// Kaset does not have browser tabs in its UI, but WebKit's extension runtime still
-/// needs a tab/window model so content scripts and extension APIs can resolve the
-/// `WKWebView` they operate on.
 enum WebExtensionHostedWebViewRole: String {
     case musicPlayer
     case youtubeWatch

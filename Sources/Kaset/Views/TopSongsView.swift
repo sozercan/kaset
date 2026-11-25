@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// View displaying all top songs for an artist.
 struct TopSongsView: View {
     @State var viewModel: TopSongsViewModel
     @Environment(PlayerService.self) private var playerService
@@ -13,7 +12,6 @@ struct TopSongsView: View {
                 if self.viewModel.songs.isEmpty {
                     LoadingView(String(localized: "Loading songs..."))
                 } else {
-                    // Show existing songs while loading more
                     self.songsListView
                         .overlay(alignment: .top) {
                             if self.viewModel.loadingState == .loading {
@@ -62,8 +60,6 @@ struct TopSongsView: View {
                 }
             }
             .padding(.vertical, 16)
-            // Edge-to-edge with a resting inset so the list extends under the
-            // floating glass sidebar; the accent backdrop refracts through it.
             .detailScrollContentInset()
         }
     }
@@ -74,10 +70,8 @@ struct TopSongsView: View {
                 self.playSongInQueue(startingAt: index)
             } label: {
                 HStack(spacing: 12) {
-                    // Thumbnail
                     SongThumbnailView(song: song, size: 44, cornerRadius: 4)
 
-                    // Title (with optional explicit badge)
                     HStack(spacing: 6) {
                         Text(song.title)
                             .font(.system(size: 14))
@@ -89,14 +83,12 @@ struct TopSongsView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // Artist column
                     Text(song.artistsDisplay)
                         .font(.system(size: 14))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .frame(width: 150, alignment: .leading)
 
-                    // Album column (if available)
                     if let album = song.album {
                         Text(album.title)
                             .font(.system(size: 14))
@@ -108,10 +100,8 @@ struct TopSongsView: View {
                             .frame(width: 180)
                     }
 
-                    // Favorite toggle
                     LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
 
-                    // Duration
                     Text(song.durationDisplay)
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)

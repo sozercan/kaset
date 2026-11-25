@@ -1,14 +1,11 @@
 import Foundation
 
-/// A regular YouTube playlist as it appears in search results and library lists.
 struct YouTubePlaylist: Identifiable, Hashable {
     let playlistId: String
     let title: String
     let channelName: String?
-    /// Display video count, e.g. "120 videos".
     let videoCountText: String?
     let thumbnailURL: URL?
-    /// First video, used for quick-play.
     let firstVideoId: String?
 
     var id: String {
@@ -32,7 +29,6 @@ struct YouTubePlaylist: Identifiable, Hashable {
     }
 }
 
-/// A playlist page: metadata plus its videos.
 struct YouTubePlaylistDetail: Hashable {
     let playlist: YouTubePlaylist
     let videos: [YouTubeVideo]

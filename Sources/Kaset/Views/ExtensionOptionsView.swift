@@ -1,14 +1,12 @@
 import SwiftUI
 import WebKit
 
-/// A view that displays the options page of a WebKit extension.
 struct ExtensionOptionsView: NSViewRepresentable {
     let page: WebKitManager.ExtensionPage
 
     func makeNSView(context: Context) -> WKWebView {
         let config = (self.page.configuration.copy() as? WKWebViewConfiguration) ?? self.page.configuration
 
-        // Inject script to pipe console to native
         let consoleProxyScript = WKUserScript(
             source: """
             (function() {
@@ -49,7 +47,6 @@ struct ExtensionOptionsView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context _: Context) {
         if webView.url != self.page.url, !webView.isLoading {
-            // Tiny delay to ensure WebKit's internal extension registry has catch up with the ID
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(100))
                 DiagnosticsLogger.extensions.info("ExtensionOptionsView loading URL: \(self.page.url.absoluteString)")

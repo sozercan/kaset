@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Settings view for scrobbling services.
-/// Iterates all registered services from the coordinator, rendering a reusable row for each.
 struct ScrobblingSettingsView: View {
     @Environment(ScrobblingCoordinator.self) private var coordinator
 
@@ -27,7 +25,6 @@ struct ScrobblingSettingsView: View {
     }
 }
 
-/// A reusable settings row for any scrobbling service backend.
 struct ScrobbleServiceRow: View {
     let service: any ScrobbleServiceProtocol
     @State private var settings = SettingsManager.shared
@@ -39,7 +36,6 @@ struct ScrobbleServiceRow: View {
                 Text(self.enableScrobblingToggleLabel)
             }
 
-            // Connection status
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(String(localized: "Account"))
@@ -58,7 +54,6 @@ struct ScrobbleServiceRow: View {
         }
     }
 
-    /// Localized “Enable (service) Scrobbling” using `%@` so translators can reorder the service name.
     private var enableScrobblingToggleLabel: String {
         let format = String(
             localized: String.LocalizationValue("Enable %@ Scrobbling"),

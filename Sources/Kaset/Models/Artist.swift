@@ -6,7 +6,6 @@ enum ArtistProfileKind: String, Codable, Hashable {
     case unknown
 }
 
-/// Represents an artist from YouTube Music.
 struct Artist: Identifiable, Codable, Hashable {
     let id: String
     let name: String
@@ -47,14 +46,10 @@ struct Artist: Identifiable, Codable, Hashable {
         self.profileKind = rawProfileKind.flatMap(ArtistProfileKind.init(rawValue:)) ?? .unknown
     }
 
-    /// Whether this artist has a valid navigable ID.
-    /// Valid artist IDs are YouTube channel IDs ("UC...") and library artist browse IDs ("MPLAUC...").
-    /// Generated IDs (UUIDs with hyphens, SHA256 hashes) are not navigable.
     var hasNavigableId: Bool {
         Self.isNavigableId(self.id)
     }
 
-    /// Whether this value is transient display metadata rather than a resolved artist identity.
     var isUnresolvedPlaceholder: Bool {
         if self.hasNavigableId {
             return false
@@ -66,7 +61,6 @@ struct Artist: Identifiable, Codable, Hashable {
             || trimmedName.caseInsensitiveCompare("Unknown Artist") == .orderedSame
     }
 
-    /// The public channel ID for this artist, if one can be derived.
     var publicChannelId: String? {
         Self.publicChannelId(for: self.id)
     }
@@ -89,7 +83,6 @@ extension Artist {
         self.isChannelId(id) || self.isLibraryArtistBrowseId(id)
     }
 
-    /// Converts a navigable artist ID into the public artist channel ID used by share URLs and subscriptions.
     static func publicChannelId(for id: String) -> String? {
         if self.isChannelId(id) {
             return id
@@ -144,11 +137,9 @@ extension Artist {
         return nil
     }
 
-    /// Creates an Artist from YouTube Music API response data.
     init?(from data: [String: Any]) {
         let name = (data["name"] as? String) ?? "Unknown Artist"
 
-        // Artist ID is optional for inline references
         let artistId = (data["id"] as? String) ?? (data["browseId"] as? String) ?? Self.inlineId(for: name)
 
         self.id = artistId
@@ -156,7 +147,6 @@ extension Artist {
         self.subtitle = data["subtitle"] as? String
         self.profileKind = Self.profileKind(forPageType: Self.extractPageType(from: data))
 
-        // Parse thumbnail
         if let thumbnails = data["thumbnails"] as? [[String: Any]],
            let lastThumbnail = thumbnails.last,
            let urlString = lastThumbnail["url"] as? String

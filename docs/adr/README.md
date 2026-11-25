@@ -76,3 +76,11 @@ What becomes easier or more difficult because of this change?
 | [0039](0039-shared-item-context-menus.md) | Shared context menus per item type | Accepted |
 | [0040](0040-core-animation-for-repeating-animations.md) | Core Animation for repeating animations | Accepted |
 | [0041](0041-non-destructive-session-loss.md) | Non-destructive session loss | Accepted |
+| [0042](0042-ratchet-source-comments.md) | Ratchet Source Comments | Accepted |
+| [0043](0043-website-progressive-enhancement.md) | Accessible and Resilient Website | Accepted |
+| [0044](0044-image-cache-and-palette-work.md) | Share Artwork Downloads Without Serializing Decodes | Accepted |
+| [0045](0045-packaged-build-and-ci-contracts.md) | Preserve Packaged App Contracts Across Toolchains | Accepted |
+| [0046](0046-native-service-lifecycle-contracts.md) | Keep Native Service Ownership Explicit | Accepted |
+| [0047](0047-view-and-viewmodel-invariants.md) | View and ViewModel Invariants | Accepted |
+| [0048](0048-test-fixture-and-isolation-invariants.md) | Test Fixture and Isolation Invariants | Accepted |
+| [0049](0049-api-contract-invariants.md) | API Request, Cache, and Pagination Invariants | Accepted |

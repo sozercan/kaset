@@ -1,13 +1,5 @@
 import AppKit
 
-/// Hosts the shelf's scroll view and its two paging arrows.
-///
-/// The arrows are native glass (`NSGlassEffectView`) rather than SwiftUI
-/// `.glassEffect()`: SwiftUI re-resolves every glass element's context on each
-/// frame it moves, and with an arrow on every visible shelf that was most of the
-/// remaining cost of scrolling the page. Core Animation composites the native
-/// glass without main-thread work. Arrows sit on physical sides; the shelf maps
-/// them to leading/trailing for paging and right-to-left layouts.
 @MainActor
 final class HomeItemShelfContainerView: NSView {
     enum Side {
@@ -17,7 +9,6 @@ final class HomeItemShelfContainerView: NSView {
 
     static let arrowSize: CGFloat = 38
 
-    /// Called with the physical side of the arrow that was pressed.
     var pageHandler: ((Side) -> Void)?
 
     private weak var scrollView: NSScrollView?
@@ -41,22 +32,15 @@ final class HomeItemShelfContainerView: NSView {
         }
     }
 
-    /// Shelf label used in the arrows' accessibility labels, and whether to use
-    /// the macOS 15 material instead of glass.
     func configure(shelfLabel: String, usesLegacyMaterial: Bool) {
         for arrow in [self.leftArrow, self.rightArrow] {
             arrow.configure(shelfLabel: shelfLabel, usesLegacyMaterial: usesLegacyMaterial)
         }
     }
 
-    /// Shows or hides each arrow; `animated` fades and scales them like the
-    /// SwiftUI transition they replace.
     func setArrows(left: Bool, right: Bool, animated: Bool) {
         self.leftArrow.setVisible(left, animated: animated)
         self.rightArrow.setVisible(right, animated: animated)
-        // Paging to an end hides the focused arrow. Hand focus to the other
-        // one; once hidden, AppKit would move it to the next key view,
-        // outside the shelf.
         if self.leftArrow.isFocused, !left, right {
             self.window?.makeFirstResponder(self.rightArrow)
         } else if self.rightArrow.isFocused, !right, left {
@@ -64,7 +48,6 @@ final class HomeItemShelfContainerView: NSView {
         }
     }
 
-    /// Physical arrow, for tests.
     func arrow(_ side: Side) -> HomeItemShelfArrowView {
         side == .left ? self.leftArrow : self.rightArrow
     }
@@ -76,23 +59,18 @@ final class HomeItemShelfContainerView: NSView {
         }
     }
 
-    /// Pointer over the shelf raises both arrows to full prominence.
     func setHovering(_ hovering: Bool) {
         guard hovering != self.isHovering else { return }
         self.isHovering = hovering
         self.updateProminence()
     }
 
-    /// Hovering the shelf or focusing either arrow raises both, like the
-    /// SwiftUI controls.
     private func updateProminence() {
         let prominent = self.isHovering || self.leftArrow.isFocused || self.rightArrow.isFocused
         self.leftArrow.setShelfProminent(prominent)
         self.rightArrow.setShelfProminent(prominent)
     }
 
-    /// A trackpad swipe that starts on an arrow still scrolls the shelf (or,
-    /// for vertical gestures, the page via the document view's routing).
     override func scrollWheel(with event: NSEvent) {
         if let documentView = self.scrollView?.documentView {
             documentView.scrollWheel(with: event)
@@ -106,20 +84,14 @@ final class HomeItemShelfContainerView: NSView {
         self.scrollView?.frame = self.bounds
         let size = Self.arrowSize
         let y = (self.bounds.height - size) / 2
-        // Sit at the resting inset (not the column edge) so the arrows clear the
-        // floating-sidebar band, mirroring the SwiftUI controls.
         self.leftArrow.frame = NSRect(x: self.contentInset + 4, y: y, width: size, height: size)
         self.rightArrow.frame = NSRect(x: self.bounds.width - self.contentInset - 4 - size, y: y, width: size, height: size)
     }
 }
 
-/// One paging arrow: a glass circle with a chevron. Handles its own clicks,
-/// Return/Space under Full Keyboard Access, focus ring and accessibility, so
-/// the glass and chevron subviews stay passive.
 @MainActor
 final class HomeItemShelfArrowView: NSView {
     var pressHandler: ((HomeItemShelfContainerView.Side) -> Void)?
-    /// Called when this arrow gains or loses keyboard focus.
     var focusHandler: (() -> Void)?
     private(set) var isVisible = false
     private(set) var isFocused = false
@@ -159,7 +131,6 @@ final class HomeItemShelfArrowView: NSView {
         nil
     }
 
-    /// Runs on every representable update, so both halves skip unchanged values.
     func configure(shelfLabel: String, usesLegacyMaterial: Bool) {
         if shelfLabel != self.shelfLabel {
             self.shelfLabel = shelfLabel
@@ -221,7 +192,6 @@ final class HomeItemShelfArrowView: NSView {
         } completionHandler: { [weak self] in
             MainActor.assumeIsolated {
                 guard let self, !self.isVisible else { return }
-                // Hidden arrows leave hit testing and the key view loop.
                 self.isHidden = true
             }
         }
@@ -258,18 +228,14 @@ final class HomeItemShelfArrowView: NSView {
         }
     }
 
-    /// Shadow under the glass, matching the SwiftUI arrow's resting and
-    /// prominent shadows.
     private func applyProminence() {
         guard let layer else { return }
         let prominent = self.hasProminence
         layer.shadowOpacity = prominent ? 0.18 : 0.10
         layer.shadowRadius = prominent ? 10 : 8
-        // Layer y points up in this unflipped view, so a downward shadow is negative.
         layer.shadowOffset = CGSize(width: 0, height: prominent ? -4 : -3)
     }
 
-    /// Scales around the center; AppKit pins view layers' anchor at the origin.
     private func setScale(_ scale: CGFloat) {
         let center = CGPoint(x: self.bounds.midX, y: self.bounds.midY)
         var transform = CATransform3DMakeTranslation(center.x, center.y, 0)
@@ -286,16 +252,11 @@ final class HomeItemShelfArrowView: NSView {
         self.setScale(self.isVisible ? self.restingScale : 0.9)
     }
 
-    /// The glass and chevron are decoration; the arrow itself takes every event.
     override func hitTest(_ point: NSPoint) -> NSView? {
-        // `point` is in the superview's coordinates. Only a showing arrow's
-        // circle is the button: clicks during the fade-out and in the frame's
-        // corners reach the card beneath.
         guard self.isVisible, self.circleContains(self.convert(point, from: self.superview)) else { return nil }
         return self
     }
 
-    /// Whether `point`, in this view's coordinates, is inside the circle.
     private func circleContains(_ point: NSPoint) -> Bool {
         let radius = self.bounds.width / 2
         let dx = point.x - self.bounds.midX
@@ -326,8 +287,6 @@ final class HomeItemShelfArrowView: NSView {
         self.pressHandler?(self.side)
     }
 
-    /// A leaf button: the chevron's image cell would otherwise be exposed as
-    /// an unlabeled image inside it.
     override func accessibilityChildren() -> [Any]? {
         []
     }
@@ -339,8 +298,6 @@ final class HomeItemShelfArrowView: NSView {
     }
 
     override var acceptsFirstResponder: Bool {
-        // Keyboard focus only: an arrow focused by a click would keep Space,
-        // which then pages instead of toggling Play/Pause.
         NSApp.isFullKeyboardAccessEnabled && self.isVisible && NSApp.currentEvent?.type != .leftMouseDown
     }
 
@@ -373,14 +330,13 @@ final class HomeItemShelfArrowView: NSView {
         guard self.window?.firstResponder === self, event.keyCode == 49,
               event.modifierFlags.isDisjoint(with: [.command, .control, .option, .shift])
         else { return super.performKeyEquivalent(with: event) }
-        // Focused controls handle Space before the app's Play/Pause shortcut.
         self.press()
         return true
     }
 
     override func keyDown(with event: NSEvent) {
         switch event.keyCode {
-        case 36, 76, 49: // Return, Enter, Space
+        case 36, 76, 49:
             self.press()
         default:
             super.keyDown(with: event)

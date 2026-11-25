@@ -2,7 +2,6 @@ import AppKit
 import SwiftUI
 import WebKit
 
-/// Resolves the control's current position for mouse, keyboard, and accessibility activation.
 @MainActor
 final class AirPlayPickerAnchor {
     fileprivate weak var view: NSView?
@@ -13,13 +12,9 @@ final class AirPlayPickerAnchor {
         return window.convertPoint(toScreen: view.convert(center, to: nil))
     }
 
-    /// Updates WebKit's native picker anchor before requesting the device list.
     static func preparePicker(in webView: WKWebView, at screenPoint: CGPoint?) {
         guard let screenPoint, let window = webView.window, let contentView = window.contentView else { return }
 
-        // WebKit treats its last native mouse position as content-view coordinates,
-        // including a flipped SwiftUI host. A zero-click mouse-up updates that point
-        // without pressing any of YouTube's controls. See ADR-0010 for the WebKit paths.
         let windowPoint = window.convertPoint(fromScreen: screenPoint)
         let pickerPoint = contentView.convert(windowPoint, from: nil)
         if let event = NSEvent.mouseEvent(

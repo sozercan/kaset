@@ -1,6 +1,5 @@
 import Foundation
 
-/// Sendable JSON representation used across the app and API Explorer targets.
 package indirect enum YouTubeAskJSONValue: Equatable, Sendable {
     case object([String: YouTubeAskJSONValue])
     case array([YouTubeAskJSONValue])

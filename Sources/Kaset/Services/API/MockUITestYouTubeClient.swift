@@ -1,7 +1,5 @@
 import Foundation
 
-/// A mock implementation of YouTubeClientProtocol for UI testing.
-/// Returns deterministic fixture data so UI tests never hit the network.
 @MainActor
 final class MockUITestYouTubeClient: YouTubeClientProtocol {
     private let isAskGeminiEligible: Bool
@@ -17,10 +15,7 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         false
     }
 
-    func resetSessionStateForAccountSwitch() {
-        // This mock retains no transient Ask conversation state. Eligibility is
-        // launch configuration and must survive normal account-scope resets.
-    }
+    func resetSessionStateForAccountSwitch() {}
 
     func getHomeFeed() async throws -> YouTubeFeed {
         YouTubeFeed(videos: Self.sampleVideos, continuation: nil)
@@ -283,8 +278,6 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
         ),
     ]
 
-    /// History fixture including partially-watched videos so the Continue
-    /// Watching rail renders under UI-test mode (watchedPercent within 1…95).
     private static let sampleHistoryVideos = [
         YouTubeVideo(
             videoId: "mock-history-1",
@@ -306,7 +299,6 @@ final class MockUITestYouTubeClient: YouTubeClientProtocol {
             publishedText: "2 days ago",
             watchedPercent: 80
         ),
-        // Fully watched: excluded from Continue Watching, present in history.
         YouTubeVideo(
             videoId: "mock-history-3",
             title: "Mock History Three",

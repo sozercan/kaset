@@ -1,8 +1,3 @@
-// AccountsListParserTests.swift
-// KasetTests
-//
-// Tests for AccountsListParser using Swift Testing framework.
-
 import Testing
 @testable import Kaset
 
@@ -70,13 +65,11 @@ struct AccountsListParserTests {
         #expect(result.accounts.count == 3)
         #expect(result.hasMultipleAccounts == true)
 
-        // Verify primary account
         let primaryAccount = result.accounts.first { $0.isPrimary }
         #expect(primaryAccount != nil)
         #expect(primaryAccount?.name == "Test User")
         #expect(primaryAccount?.id == "primary")
 
-        // Verify brand accounts
         let brandAccounts = result.accounts.filter { !$0.isPrimary }
         #expect(brandAccounts.count == 2)
     }

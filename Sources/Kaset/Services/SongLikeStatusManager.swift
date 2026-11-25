@@ -1,6 +1,5 @@
 import Foundation
 
-/// Represents a like status change event for reactive UI updates.
 struct LikeStatusEvent: Equatable {
     let videoId: String
     let status: LikeStatus
@@ -56,8 +55,6 @@ struct LikedMusicReconciliation {
     let newLikedMembershipVideoIDs: Set<String>
 }
 
-/// Manages like/dislike status for songs across the app.
-/// This service caches like statuses locally and syncs with the YouTube Music API.
 @MainActor
 @Observable
 final class SongLikeStatusManager {
@@ -87,24 +84,17 @@ final class SongLikeStatusManager {
         var protectedRequestIDs: Set<UInt64>
     }
 
-    /// Shared singleton instance.
     static let shared = SongLikeStatusManager()
 
     private static let primaryAccountID = "primary"
     static let guestAccountID = "guest"
 
-    /// Bumped on every cache mutation so observers (the now-playing like status) can
-    /// re-resolve when likes are (re)seeded. The Liked Music seed can land after a track
-    /// already resolved to `.indifferent`, and the cache is cleared then refilled across
-    /// login identity switches — a one-shot read at track load misses it.
     private(set) var cacheGeneration: UInt64 = 0
 
-    /// Cache of account ID to (video ID to like status).
     private var statusCacheByAccount: [String: [String: LikeStatus]] = [:] {
         didSet { self.cacheGeneration &+= 1 }
     }
 
-    /// Monotonic latest-operation revisions scoped by account and video ID.
     private var sessionGeneration: UInt64 = 0
     private(set) var requestScopeGeneration: UInt64 = 0
     private var likedMusicRequestCounter: UInt64 = 0
@@ -117,31 +107,23 @@ final class SongLikeStatusManager {
     @ObservationIgnored private var ratingMutationTails: [String: Task<Result<Void, any Error>, Never>] = [:]
     @ObservationIgnored private var ratingMutationTailRevisions: [String: UInt64] = [:]
 
-    /// Currently active account scope for cache lookups.
     private(set) var activeAccountID = SongLikeStatusManager.primaryAccountID
 
-    /// The most recent like status change event, for reactive observation by views.
     private(set) var lastLikeEvent: LikeStatusEvent?
     private(set) var lastLikeEventBatch: LikeStatusEventBatch?
 
-    /// Reference to the YTMusic client for API calls.
     private var client: (any YTMusicClientProtocol)?
 
     init() {}
 
-    /// Sets the client to use for API calls.
-    /// - Parameter client: The YTMusic client, or `nil` to clear the override.
     func setClient(_ client: (any YTMusicClientProtocol)?) {
         self.client = client
     }
 
-    /// The currently configured client override.
     var currentClient: (any YTMusicClientProtocol)? {
         self.client
     }
 
-    /// Updates the active account scope used for cache lookups and writes.
-    /// - Parameter accountID: The active account identifier, or `nil` for the primary account.
     func setActiveAccountID(_ accountID: String?) {
         let resolvedAccountID = Self.resolvedAccountID(accountID)
         guard self.activeAccountID != resolvedAccountID else { return }
@@ -153,30 +135,18 @@ final class SongLikeStatusManager {
         DiagnosticsLogger.api.debug("SongLikeStatusManager: Switched cache scope to account \(resolvedAccountID)")
     }
 
-    /// Gets the cached like status for a song.
-    /// - Parameter videoId: The video ID of the song.
-    /// - Returns: The cached status, or nil if not cached.
     func status(for videoId: String) -> LikeStatus? {
         self.status(for: videoId, accountID: self.activeAccountID)
     }
 
-    /// Gets the like status for a song, using the song's own status as fallback.
-    /// - Parameter song: The song to check.
-    /// - Returns: The status from cache, song property, or nil.
     func status(for song: Song) -> LikeStatus? {
         self.status(for: song.videoId) ?? song.likeStatus
     }
 
-    /// Checks if a song is liked.
-    /// - Parameter song: The song to check.
-    /// - Returns: True if the song is liked.
     func isLiked(_ song: Song) -> Bool {
         self.status(for: song) == .like
     }
 
-    /// Checks if a song is disliked.
-    /// - Parameter song: The song to check.
-    /// - Returns: True if the song is disliked.
     func isDisliked(_ song: Song) -> Bool {
         self.status(for: song) == .dislike
     }
@@ -300,12 +270,6 @@ final class SongLikeStatusManager {
         )
     }
 
-    /// Likes a song.
-    /// - Parameters:
-    ///   - song: The song to like.
-    ///   - accountID: Optional account scope override.
-    ///   - client: Optional client override.
-    /// - Returns: The final status after the request settles.
     @discardableResult
     func like(
         _ song: Song,
@@ -315,12 +279,6 @@ final class SongLikeStatusManager {
         await self.enqueueRating(song, status: .like, accountID: accountID, client: client).value
     }
 
-    /// Unlikes a song (removes rating).
-    /// - Parameters:
-    ///   - song: The song to unlike.
-    ///   - accountID: Optional account scope override.
-    ///   - client: Optional client override.
-    /// - Returns: The final status after the request settles.
     @discardableResult
     func unlike(
         _ song: Song,
@@ -330,12 +288,6 @@ final class SongLikeStatusManager {
         await self.enqueueRating(song, status: .indifferent, accountID: accountID, client: client).value
     }
 
-    /// Dislikes a song.
-    /// - Parameters:
-    ///   - song: The song to dislike.
-    ///   - accountID: Optional account scope override.
-    ///   - client: Optional client override.
-    /// - Returns: The final status after the request settles.
     @discardableResult
     func dislike(
         _ song: Song,
@@ -345,12 +297,6 @@ final class SongLikeStatusManager {
         await self.enqueueRating(song, status: .dislike, accountID: accountID, client: client).value
     }
 
-    /// Undislikes a song (removes rating).
-    /// - Parameters:
-    ///   - song: The song to undislike.
-    ///   - accountID: Optional account scope override.
-    ///   - client: Optional client override.
-    /// - Returns: The final status after the request settles.
     @discardableResult
     func undislike(
         _ song: Song,
@@ -360,9 +306,6 @@ final class SongLikeStatusManager {
         await self.enqueueRating(song, status: .indifferent, accountID: accountID, client: client).value
     }
 
-    /// Registers a rating mutation synchronously, then returns its completion task.
-    /// Submission-time registration preserves user action order even when callers
-    /// await the result from unstructured tasks.
     func enqueueRating(
         _ song: Song,
         status: LikeStatus,
@@ -556,10 +499,6 @@ final class SongLikeStatusManager {
             : (self.status(for: song.videoId, accountID: mutation.accountID) ?? .indifferent)
     }
 
-    /// Updates the cache with a known status (e.g., from API response).
-    /// - Parameters:
-    ///   - videoId: The video ID.
-    ///   - status: The like status.
     @discardableResult
     func setStatus(_ status: LikeStatus, for videoId: String) -> Bool {
         let accountID = self.activeAccountID
@@ -570,22 +509,10 @@ final class SongLikeStatusManager {
         return true
     }
 
-    /// Updates the visible cache without advancing the API-confirmed rollback baseline.
-    ///
-    /// Reactive consumers use this for optimistic rating events that may still fail.
     func setCachedStatus(_ status: LikeStatus, for videoId: String) {
         self.setStatus(status, for: videoId, accountID: self.activeAccountID)
     }
 
-    /// Updates the cache with the same known status for multiple songs.
-    ///
-    /// This is used by bulk API response normalization paths (for example Liked
-    /// Music loads) so a large response mutates the per-account cache once
-    /// instead of repeatedly copying it for each track.
-    /// - Parameters:
-    ///   - status: The like status to cache.
-    ///   - videoIds: The video IDs to update.
-    ///   - accountID: Optional account scope override.
     func setStatus(_ status: LikeStatus, for videoIds: some Sequence<String>, accountID: String? = nil) {
         let resolvedAccountID = accountID.map(Self.resolvedAccountID) ?? self.activeAccountID
         var cache = self.statusCacheByAccount[resolvedAccountID] ?? [:]
@@ -601,7 +528,6 @@ final class SongLikeStatusManager {
         self.statusCacheByAccount[resolvedAccountID] = cache
     }
 
-    /// Clears all cached statuses.
     func clearCache() {
         self.requestScopeGeneration &+= 1
         self.sessionGeneration &+= 1

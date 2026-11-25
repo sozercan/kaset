@@ -1,24 +1,11 @@
 import AppKit
 import SwiftUI
 
-/// Show/hide policy for the player controls overlaid on the docked watch-page
-/// video (Settings → YouTube → Show Controls on Video). Without that setting
-/// the bar sits in the bottom inset below.
 enum YouTubeInlineControlsVisibility {
-    /// How long the pointer can rest over a playing video (with no key
-    /// presses) before the controls fade out.
     static let idleDelay: Duration = .seconds(3)
 
-    /// Height the bar occupies, on the video or as the bottom inset (the 52pt
-    /// capsule plus its 8pt bottom padding).
     static let controlsRegionHeight: CGFloat = 60
 
-    /// Like a regular video player: visible while paused, for `idleDelay`
-    /// after the pointer moves over the video or a key is pressed, while the
-    /// pointer rests on the controls, and while one of the bar's menus or its
-    /// volume capsule is open. Assistive navigation (VoiceOver, or Tabbing with
-    /// Keyboard Navigation) keeps them visible: hidden controls can't be
-    /// reached by focus.
     static func shouldShow(
         isPlaying: Bool,
         isRecentlyActive: Bool,
@@ -33,40 +20,18 @@ enum YouTubeInlineControlsVisibility {
             || isAssistiveNavigationActive
     }
 
-    /// Whether the bottom strip of a video the controls would occupy lies fully
-    /// inside the scroll view. A tall 16:9 video in a wide window can be mostly
-    /// visible with that strip below the fold, so the whole-video fraction is
-    /// not enough to hand the controls over.
-    ///
-    /// - Parameters:
-    ///   - visibleBounds: the scroll view's bounds in the video's local
-    ///     coordinates; `nil` outside a scroll view.
-    ///   - bottomInset: height of the bottom bar while it is shown. Its
-    ///     `safeAreaInset` shrinks `visibleBounds`, so adding it back keeps the
-    ///     answer independent of which bar is showing; otherwise the bar could
-    ///     hide the strip it is waiting on and never hand the controls back.
     static func isControlsRegionVisible(
         videoSize: CGSize,
         visibleBounds: CGRect?,
         bottomInset: CGFloat = 0
     ) -> Bool {
         guard let visibleBounds else { return true }
-        // A point of slack absorbs fractional layout rounding at either edge.
         return visibleBounds.minY <= videoSize.height - self.controlsRegionHeight + 1
             && visibleBounds.maxY + bottomInset >= videoSize.height - 1
     }
 }
 
 extension View {
-    /// Attaches the YouTube player bar to the bottom of a navigable view.
-    ///
-    /// Applied to EVERY YouTube view (roots and pushed destinations) —
-    /// views pushed onto a `NavigationStack` do not inherit a parent's
-    /// `safeAreaInset`, the same rule the music side follows with
-    /// `PlayerBar` (see docs/architecture.md).
-    ///
-    /// - Parameter isHidden: lets the watch page drop the bar while its docked
-    ///   video carries the controls instead.
     func youtubePlayerBarInset(isHidden: Bool = false) -> some View {
         safeAreaInset(edge: .bottom, spacing: 0) {
             if !isHidden {
@@ -75,14 +40,6 @@ extension View {
         }
     }
 
-    /// Attaches the bar to a YouTube page without a watch video of its own
-    /// (feeds, search, channels, playlists). With Show Controls on Video on,
-    /// these pages drop it: they never host a docked video. Opening a video
-    /// pushes the watch page, and one still playing when you leave it moves
-    /// to the pop-out window, which carries its own controls.
-    ///
-    /// - Parameter keepsBar: Shorts keeps the bar regardless, since its
-    ///   vertical pager has no controls of its own.
     func youtubePagePlayerBarInset(keepsBar: Bool = false) -> some View {
         self.modifier(YouTubePagePlayerBarInsetModifier(keepsBar: keepsBar))
     }
@@ -101,9 +58,6 @@ private struct YouTubePagePlayerBarInsetModifier: ViewModifier {
 }
 
 extension View {
-    /// Overlays the YouTube player bar on the docked watch-page video. The bar
-    /// appears when the pointer moves over the video or a key is pressed, and
-    /// fades out (hiding the cursor) after a few idle seconds of playback.
     func youtubeInlineVideoControls(isEnabled: Bool) -> some View {
         self.modifier(YouTubeInlineVideoControlsModifier(isEnabled: isEnabled))
     }
@@ -117,15 +71,11 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
     @Environment(YouTubePlayerService.self) private var youtubePlayer
     @Environment(\.accessibilityVoiceOverEnabled) private var isVoiceOverEnabled
 
-    /// Updated on every pointer move without re-rendering; only the idle task
-    /// and hover handling read it.
     @State private var activity = UserActivity()
     @State private var isRecentlyActive = false
     @State private var isPointerOverControls = false
     @State private var isVolumeOverlayPresented = false
     @State private var isMenuOpen = false
-    /// Set by Tab with Keyboard Navigation on, when focus may be in the bar;
-    /// cleared once the pointer moves over the video again.
     @State private var isKeyboardNavigating = false
 
     func body(content: Content) -> some View {
@@ -162,8 +112,6 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
                 switch phase {
                 case let .active(location):
                     self.activity.isPointerInside = true
-                    // Hover can re-report an unchanged location (layout under a
-                    // resting pointer); only real movement counts as activity.
                     guard location != self.activity.lastPointerLocation else { return }
                     self.activity.lastPointerLocation = location
                     self.isKeyboardNavigating = false
@@ -177,17 +125,12 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
             .task(id: self.isEnabled && self.isRecentlyActive) {
                 await self.hideWhenIdle()
             }
-            // The captions and quality menus track in their own run loop, so the
-            // pointer stops reporting movement while one is open. Only a menu
-            // opened from the bar counts, not the menu bar or a context menu.
             .onReceive(NotificationCenter.default.publisher(for: NSMenu.didBeginTrackingNotification)) { _ in
                 self.isMenuOpen = self.isPointerOverControls
             }
             .onReceive(NotificationCenter.default.publisher(for: NSMenu.didEndTrackingNotification)) { _ in
                 self.isMenuOpen = false
             }
-            // Give the pointer a fresh idle window after a menu or the volume
-            // capsule closes, rather than hiding the bar the instant it does.
             .onChange(of: self.isMenuOpen) { _, isOpen in
                 if !isOpen, self.activity.isPointerInside {
                     self.registerActivity()
@@ -198,15 +141,11 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
                     self.registerActivity()
                 }
             }
-            // Hide the cursor with the controls, whether they fade from idleness
-            // or because playback resumed while the pointer was already resting.
             .onChange(of: self.showsControls) { _, shows in
                 if !shows, self.isEnabled, self.activity.isPointerInside, NSApp.isActive {
                     NSCursor.setHiddenUntilMouseMoves(true)
                 }
             }
-            // Removing the bar tears down its menus and volume capsule without
-            // reporting their dismissal, so reset the interaction state here.
             .onChange(of: self.isEnabled) { _, isEnabled in
                 if !isEnabled {
                     self.resetInteractionState()
@@ -248,9 +187,6 @@ private struct YouTubeInlineVideoControlsModifier: ViewModifier {
         }
     }
 
-    /// Clears recent activity once the pointer and keyboard have rested for
-    /// `idleDelay`. Activity only advances the timestamp, so this loop re-arms
-    /// itself instead of restarting a task on every event.
     private func hideWhenIdle() async {
         guard self.isEnabled, self.isRecentlyActive else { return }
         while true {
@@ -271,9 +207,6 @@ private final class UserActivity {
     var isPointerInside = false
 }
 
-/// Reports key presses in its window, except while text input has focus
-/// (the comment composer, search), so the keyboard can reveal the inline
-/// controls the way pointer movement does. Events pass through untouched.
 private struct YouTubeKeyActivityMonitor: NSViewRepresentable {
     let onKeyDown: @MainActor (NSEvent) -> Void
 

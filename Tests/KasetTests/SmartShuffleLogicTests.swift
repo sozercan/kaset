@@ -26,14 +26,12 @@ struct SmartShuffleLogicTests {
     @Test("nextSuggestionSlot seeds from the everyN-th original counting from the current track")
     func slotBasicCadence() {
         let entries = ["A", "B", "C", "D", "E", "F"].map { self.entry($0) }
-        // Counting A,B,C from index 0 reaches everyN=3 at C (index 2); the suggestion goes after C.
         #expect(PlayerService.nextSuggestionSlot(in: entries, afterIndex: 0, everyN: 3, exhaustedSeeds: []) == 2)
     }
 
     @Test("nextSuggestionSlot counts from the current track, not the queue start")
     func slotCountsFromCurrent() {
         let entries = ["A", "B", "C", "D", "E", "F"].map { self.entry($0) }
-        // Current at index 2 (C); counting C,D with everyN=2 seeds from D (index 3).
         #expect(PlayerService.nextSuggestionSlot(in: entries, afterIndex: 2, everyN: 2, exhaustedSeeds: []) == 3)
     }
 
@@ -45,7 +43,6 @@ struct SmartShuffleLogicTests {
 
     @Test("nextSuggestionSlot skips a gap already filled with a suggestion (idempotent)")
     func slotSkipsFilledGap() {
-        // A,B,C,[S],D,E,F — the gap after C is already filled, so the next slot is after F.
         let entries = [
             self.entry("A"), self.entry("B"), self.entry("C"),
             self.entry("S", source: .suggested),
@@ -57,7 +54,6 @@ struct SmartShuffleLogicTests {
     @Test("nextSuggestionSlot skips a slot whose seed is exhausted")
     func slotSkipsExhaustedSeed() {
         let entries = ["A", "B", "C", "D", "E", "F"].map { self.entry($0) }
-        // C is the natural everyN=3 seed but is exhausted, so the scan advances to the next slot (F).
         #expect(PlayerService.nextSuggestionSlot(in: entries, afterIndex: 0, everyN: 3, exhaustedSeeds: ["C"]) == 5)
     }
 

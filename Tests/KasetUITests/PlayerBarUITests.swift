@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the PlayerBar.
 @MainActor
 final class PlayerBarUITests: KasetUITestCase {
     func testPlayerBarVisibleWithCurrentTrack() {
@@ -8,8 +7,6 @@ final class PlayerBarUITests: KasetUITestCase {
 
         navigateToHome()
 
-        // Player bar should be visible when there's a current track
-        // Look for the play/pause button
         let playPauseButton = app.buttons.matching(
             NSPredicate(format: "label CONTAINS 'Play' OR label CONTAINS 'Pause'")
         ).firstMatch
@@ -217,8 +214,6 @@ final class PlayerBarUITests: KasetUITestCase {
 
     func testPlayerBarPersistsAcrossNavigation() {
         launchWithMockPlayer(isPlaying: true)
-
-        // Navigate to different views and verify player bar is present
 
         navigateToHome()
         var playPause = app.buttons.matching(

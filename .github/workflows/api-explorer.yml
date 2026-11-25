@@ -29,7 +29,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Select Xcode version
         run: sudo xcode-select -s /Applications/Xcode_26.2.app/Contents/Developer
@@ -55,28 +55,24 @@ jobs:
           set -euo pipefail
           OUT=$(swift run -c release -q api-explorer list)
           echo "$OUT"
-          # Sanity: list output should mention at least one well-known browseId.
           echo "$OUT" | grep -q "FEmusic_home" \
             || { echo "ERROR: 'list' output missing FEmusic_home"; exit 1; }
 
       - name: Smoke-test - auth status (offline, expect 'not authenticated')
         run: |
           set -euo pipefail
-          # CI has no Kaset cookie backup, so this should report no auth and exit 0.
           OUT=$(swift run -c release -q api-explorer auth)
           echo "$OUT"
 
       - name: Smoke-test - browse FEmusic_home (unauthenticated)
         run: |
           set -euo pipefail
-          # Hits real YouTube Music API. Network flakiness is possible; retry once.
           run_browse() {
             swift run -c release -q api-explorer browse FEmusic_home
           }
           OUT=$(run_browse) || { sleep 5; OUT=$(run_browse); }
           echo "$OUT"
 
-          # Validate basic response shape so we catch silent API drift.
           echo "$OUT" | grep -q "HTTP 200" \
             || { echo "ERROR: expected 'HTTP 200' from FEmusic_home"; exit 1; }
           echo "$OUT" | grep -q "singleColumnBrowseResultsRenderer" \

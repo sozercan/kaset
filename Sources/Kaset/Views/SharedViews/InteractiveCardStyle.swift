@@ -1,26 +1,16 @@
 import SwiftUI
 
-/// A button style that provides hover and press feedback for card-like elements.
-/// Scales up on hover, scales down on press, and shows a subtle shadow.
 struct InteractiveCardStyle: ButtonStyle {
-    /// Whether to show shadow on hover.
     var showShadow: Bool = true
 
-    /// Scale factor when hovering.
     var hoverScale: CGFloat = 1.02
 
-    /// Scale factor when pressed.
     var pressScale: CGFloat = 0.98
 
-    /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
     @State private var isHovering = false
 
-    /// Hover tracking is skipped entirely when hovering has no visual effect.
-    /// Each `.onHover` adds a responder that SwiftUI hit-tests on every pointer
-    /// move — including during scrolling — so cards that layer their own hover
-    /// treatment on top of this style shouldn't pay for a second one.
     private var tracksHover: Bool {
         self.showShadow || self.hoverScale != 1
     }
@@ -53,19 +43,13 @@ struct InteractiveCardStyle: ButtonStyle {
     }
 }
 
-/// A button style for list rows with hover background highlight.
 struct InteractiveRowStyle: ButtonStyle {
-    /// Corner radius for the hover background.
     var cornerRadius: CGFloat = 8
 
-    /// Hover background color.
     var hoverColor: Color = .primary.opacity(0.06)
 
-    /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
-    /// Hover state from a parent that already tracks hover. When set, the style skips its
-    /// own hover tracker, which adds up across the rows of a long list.
     var isHovered: Bool?
 
     @State private var isHovering = false
@@ -99,12 +83,9 @@ struct InteractiveRowStyle: ButtonStyle {
     }
 }
 
-/// A button style that provides subtle press feedback for icon buttons.
 struct PressableButtonStyle: ButtonStyle {
-    /// Scale factor when pressed.
     var pressScale: CGFloat = 0.9
 
-    /// Optional haptic feedback type to trigger on press.
     var hapticFeedback: HapticService.FeedbackType?
 
     func makeBody(configuration: Configuration) -> some View {
@@ -120,7 +101,6 @@ struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-/// A button style for filter chips with scale and background animation.
 struct ChipButtonStyle: ButtonStyle {
     var isSelected: Bool
 
@@ -138,12 +118,10 @@ struct ChipButtonStyle: ButtonStyle {
 }
 
 extension ButtonStyle where Self == InteractiveCardStyle {
-    /// Interactive card style with hover scale and shadow effects.
     static var interactiveCard: InteractiveCardStyle {
         InteractiveCardStyle()
     }
 
-    /// Interactive card style with custom parameters.
     static func interactiveCard(
         showShadow: Bool = true,
         hoverScale: CGFloat = 1.02,
@@ -160,13 +138,10 @@ extension ButtonStyle where Self == InteractiveCardStyle {
 }
 
 extension ButtonStyle where Self == InteractiveRowStyle {
-    /// Interactive row style with hover background.
     static var interactiveRow: InteractiveRowStyle {
         InteractiveRowStyle()
     }
 
-    /// Interactive row style with custom corner radius, optional haptic feedback, and an
-    /// optional hover state supplied by a parent that already tracks hover.
     static func interactiveRow(
         cornerRadius: CGFloat = 8,
         hapticFeedback: HapticService.FeedbackType? = nil,
@@ -177,19 +152,16 @@ extension ButtonStyle where Self == InteractiveRowStyle {
 }
 
 extension ButtonStyle where Self == PressableButtonStyle {
-    /// Pressable button style with scale feedback.
     static var pressable: PressableButtonStyle {
         PressableButtonStyle()
     }
 
-    /// Pressable button style with optional haptic feedback.
     static func pressable(hapticFeedback: HapticService.FeedbackType?) -> PressableButtonStyle {
         PressableButtonStyle(hapticFeedback: hapticFeedback)
     }
 }
 
 extension ButtonStyle where Self == ChipButtonStyle {
-    /// Chip button style for filter chips.
     static func chip(isSelected: Bool) -> ChipButtonStyle {
         ChipButtonStyle(isSelected: isSelected)
     }
@@ -197,10 +169,7 @@ extension ButtonStyle where Self == ChipButtonStyle {
 
 #Preview {
     VStack(spacing: 20) {
-        // Card style preview
-        Button {
-            // Action
-        } label: {
+        Button {} label: {
             VStack {
                 Rectangle()
                     .fill(.blue.gradient)
@@ -212,10 +181,7 @@ extension ButtonStyle where Self == ChipButtonStyle {
         }
         .buttonStyle(.interactiveCard)
 
-        // Row style preview
-        Button {
-            // Action
-        } label: {
+        Button {} label: {
             HStack {
                 Circle()
                     .fill(.green)
@@ -228,10 +194,7 @@ extension ButtonStyle where Self == ChipButtonStyle {
         .buttonStyle(.interactiveRow)
         .frame(width: 200)
 
-        // Pressable button preview
-        Button {
-            // Action
-        } label: {
+        Button {} label: {
             Image(systemName: "play.fill")
                 .font(.title)
         }

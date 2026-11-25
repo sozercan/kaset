@@ -1,23 +1,15 @@
 import Foundation
 import Observation
 
-/// View model for the signed-in user's YouTube playlists list.
 @MainActor
 @Observable
 final class YouTubePlaylistsViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// The user's playlists.
     private(set) var playlists: [YouTubePlaylist] = []
 
-    /// Invalidates stale in-flight loads when a newer one starts
-    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
 
-    /// The single in-flight load, shared by concurrent `load()` callers so
-    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
-    /// playlists request.
     private var loadTask: Task<Void, Never>?
 
     let client: any YouTubeClientProtocol
@@ -57,8 +49,6 @@ final class YouTubePlaylistsViewModel {
             self.loadingState = .loaded
         } catch {
             guard runID == self.loadGeneration else { return }
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return

@@ -70,8 +70,6 @@ struct APIExplorerQueueProbePrivacyTests {
         #expect(error.contains("Queue probe failed (error code: 17)"))
     }
 
-    /// Compile the real CLI functions once with only network and cookie loading replaced.
-    /// This keeps the test offline without adding a test-only command to API Explorer.
     private static func harnessSource() throws -> String {
         let sourceURL = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
@@ -222,7 +220,6 @@ struct APIExplorerQueueProbePrivacyTests {
     }
 
     // swiftformat:disable redundantStaticSelf
-    /// Compare container structure without relying on names or ordering of redacted object keys.
     private static func diagnosticShape(_ value: Any) -> String {
         if let object = value as? [String: Any] {
             return "{\(object.values.map(Self.diagnosticShape).sorted().joined(separator: ","))}"

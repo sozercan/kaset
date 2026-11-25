@@ -2,11 +2,6 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    /// Clears active playback UI/WebView state when startup resolves to guest mode.
-    ///
-    /// Unlike explicit sign-out, this preserves only persisted sessions that are
-    /// known to have been created in guest mode. Legacy/unknown sessions are
-    /// cleared because they may contain account-owned listening metadata.
     func clearPlaybackForGuestStartup() {
         self.hasResolvedStartupPlaybackOwnership = true
         self.logger.info("Clearing active playback state for guest startup")
@@ -18,9 +13,6 @@ extension PlayerService {
         self.logger.info("Preserving restored guest-owned playback session")
     }
 
-    /// Clears guest-owned restored playback when startup resolves to a signed-in
-    /// account. Guest Mode itself is not persisted, so a guest-owned restore must
-    /// not silently move onto the authenticated playback store.
     func clearGuestPlaybackForAuthenticatedStartup() {
         self.hasResolvedStartupPlaybackOwnership = true
         guard self.restoredPlaybackSessionOwnerScope == Self.playbackSessionScopeGuest else { return }
@@ -29,7 +21,6 @@ extension PlayerService {
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
-    /// Synchronously clears playback, queue, and WebView state at the sign-out privacy boundary.
     func clearPlaybackForSignOut() {
         self.hasResolvedStartupPlaybackOwnership = true
         self.logger.info("Clearing playback state for sign-out")
@@ -87,7 +78,6 @@ extension PlayerService {
         }
     }
 
-    /// Stops playback and clears state.
     func stop() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.stop(intent: intent)
@@ -144,8 +134,6 @@ extension PlayerService {
         self.isStoppingPlayback = false
     }
 
-    /// Stops current or pending playback and clears the queue under one intent.
-    /// A newer playback that starts while Web cancellation suspends wins.
     func stopAndClearQueue() async {
         let intent = self.beginMusicPlaybackIntent()
         await self.stopAndClearQueue(intent: intent)

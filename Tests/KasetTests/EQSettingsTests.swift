@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for `EQSettings` (clamping, automatic headroom trim, JSON
-/// round-tripping through the persistence layer).
 @Suite(.tags(.model))
 struct EQSettingsTests {
     @Test("clampGains caps every band at maxGainDB")

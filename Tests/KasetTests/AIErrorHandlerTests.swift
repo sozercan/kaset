@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for AIError enum and its properties.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
@@ -143,7 +142,6 @@ struct AIErrorTests {
     }
 }
 
-/// Tests for AIErrorHandler utility methods.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
@@ -154,7 +152,6 @@ struct AIErrorHandlerTests {
         let result = AIErrorHandler.handle(error)
 
         if case .cancelled = result {
-            // Success
         } else {
             Issue.record("Expected .cancelled, got \(result)")
         }

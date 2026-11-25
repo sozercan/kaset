@@ -3,18 +3,11 @@ import Foundation
 
 @MainActor
 extension PlayerService {
-    /// Plays a queue of songs starting at the specified index.
     func playQueue(_ songs: [Song], startingAt index: Int = 0) async {
         guard !songs.isEmpty else { return }
         await self.playQueue(songs, startingAt: index, deferringSmartShuffleFill: false)
     }
 
-    /// Plays a queue of songs starting at the specified index.
-    ///
-    /// - Parameter deferringSmartShuffleFill: When true, the trailing Smart Shuffle fill is skipped
-    ///   and a deferred-load generation is returned so the caller can grow the queue to the full playlist
-    ///   before suggestions are generated (via ``appendOriginalTracks(_:)`` + ``endQueueLoading(_:)``).
-    /// - Returns: The deferred-load generation when deferring, otherwise nil.
     @discardableResult
     func playQueue(_ songs: [Song], startingAt index: Int = 0, deferringSmartShuffleFill: Bool) async -> Int? {
         guard !songs.isEmpty else { return nil }
@@ -43,8 +36,6 @@ extension PlayerService {
         return await self.startInstalledQueue(installedQueue)
     }
 
-    /// A queue replaced by ``installQueue(_:startingAt:deferringSmartShuffleFill:intent:)`` that has not
-    /// started playing yet.
     struct InstalledQueue {
         let intent: MusicPlaybackIntent
         let playbackContextGeneration: Int
@@ -52,8 +43,6 @@ extension PlayerService {
         let loadGeneration: Int?
     }
 
-    /// Replaces the queue without starting playback, so callers that must not let later commands see the
-    /// old queue can install it synchronously and start it with ``startInstalledQueue(_:)``.
     func installQueue(
         _ songs: [Song],
         startingAt index: Int,
@@ -98,8 +87,6 @@ extension PlayerService {
         )
     }
 
-    /// Starts playing a queue installed by ``installQueue(_:startingAt:deferringSmartShuffleFill:intent:)``.
-    /// Does nothing if newer playback has taken over since the queue was installed.
     @discardableResult
     func startInstalledQueue(_ installedQueue: InstalledQueue) async -> Int? {
         let playbackContextGeneration = installedQueue.playbackContextGeneration
@@ -127,8 +114,6 @@ extension PlayerService {
         return loadGeneration
     }
 
-    /// Plays a song and fetches similar songs (radio queue) in the background.
-    /// The queue will be populated with similar songs from YouTube Music's radio feature.
     func playWithRadio(song: Song) async {
         let intent = self.beginMusicPlaybackIntent()
         await self.playWithRadio(song: song, intent: intent)
@@ -176,12 +161,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Plays an artist mix from a mix playlist ID.
-    /// Fetches a fresh randomized queue from the API each time.
-    /// Supports infinite mix - automatically fetches more songs as you approach the end.
-    /// - Parameters:
-    ///   - playlistId: The mix playlist ID (e.g., "RDEM..." for artist mix)
-    ///   - startVideoId: Optional video ID to start with. If nil, API picks a random starting point.
     func playWithMix(
         playlistId: String,
         startVideoId: String?,
@@ -200,7 +179,6 @@ extension PlayerService {
         }
 
         do {
-            // Fetch mix queue from API
             let result = try await client.getMixQueue(playlistId: playlistId, startVideoId: startVideoId)
             guard !result.songs.isEmpty else {
                 self.logger.warning("Mix queue returned empty")
@@ -217,24 +195,16 @@ extension PlayerService {
             let priorQueueState = self.makeQueueStateSnapshot()
             let playbackContextGeneration = self.beginPlaybackRequest()
 
-            // Store continuation token for infinite mix
             self.mixContinuationToken = result.continuationToken
             self.mixContinuationRequiresAuth = continuationRequiresAuth
 
-            // Shuffle the queue to get a different order each time
-            // YouTube's API returns a personalized but consistent order per session,
-            // so we shuffle to give the user variety on each Mix button click
             let shuffledSongs = result.songs.shuffled()
             let shuffledEntries = shuffledSongs.map { QueueEntry(id: UUID(), song: $0) }
             self.recordQueueStateForUndo(priorQueueState)
 
-            // The mix is confirmed non-empty: now supersede any in-flight deferred load and reset
-            // smart-shuffle (done here, not before the await, so a failed/empty mix that returns
-            // without replacing the queue does not prematurely stand down an active playlist load).
             self.prepareForNewPlaybackContext()
             let queueGeneration = self.queueLoadGeneration
 
-            // Set up the queue and play the first song
             self.setQueue(entries: shuffledEntries)
             self.queueOrderBeforeShuffle = nil
             self.currentIndex = 0
@@ -262,8 +232,6 @@ extension PlayerService {
         }
     }
 
-    /// Fetches more songs for the current mix when approaching the end of the queue.
-    /// This enables "infinite mix" behavior like YouTube Music web.
     func fetchMoreMixSongsIfNeeded(
         queueGeneration suppliedQueueGeneration: Int? = nil,
         shouldApplyResult: @MainActor () -> Bool = { true }
@@ -309,7 +277,6 @@ extension PlayerService {
         }
         let requestQueueMutationGeneration = self.queueMutationGeneration
 
-        // Fetch more when we're within 10 songs of the end.
         guard songsRemaining <= 10, self.isCurrentQueueLoad(queueGeneration) else {
             return
         }
@@ -364,13 +331,11 @@ extension PlayerService {
     private func finishMixContinuationFetch(requestID: UUID, didHandleResult: Bool) {
         guard self.finishMixContinuationRequest(requestID) else { return }
         if didHandleResult {
-            // Coalesced callers share success or failure; only a discarded owner needs replacement.
             self.mixContinuationCompletionGeneration &+= 1
         }
         self.resumeMixContinuationFetchWaiters()
     }
 
-    /// Fetches radio queue and applies it while preserving the logical playback owner.
     @discardableResult
     func fetchAndApplyRadioQueue(for videoId: String) async -> RadioQueueFetchOutcome {
         await self.fetchAndApplyRadioQueue(
@@ -506,7 +471,6 @@ extension PlayerService {
 
     // swiftlint:enable cyclomatic_complexity function_body_length
 
-    /// Stops playback and clears the entire queue. Records state for undo.
     func clearQueueEntirely() async {
         await self.stopAndClearQueue()
     }
@@ -530,7 +494,6 @@ extension PlayerService {
         self.clearSavedQueue()
     }
 
-    /// Clears the playback queue except for the currently playing track.
     func clearQueue() {
         self.beginMusicPlaybackIntent(allowsPriorTerminalEvent: true)
         self.invalidatePendingPlaybackSelectionRequests()
@@ -538,7 +501,6 @@ extension PlayerService {
         self.cancelDeferredQueueWork()
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
-        // Clear mix continuation since queue is being manually cleared
         self.mixContinuationToken = nil
         self.prepareForNewPlaybackContext()
 
@@ -549,7 +511,6 @@ extension PlayerService {
             self.saveQueueForPersistence()
             return
         }
-        // Keep only the current track
         let currentEntryID = self.queueEntryIDOwningCurrentPlayback
         self.setQueue([currentTrack], entryIDs: currentEntryID.map { [$0] })
         self.queueOrderBeforeShuffle = nil
@@ -558,7 +519,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Plays a song from the queue at the specified index.
     func playFromQueue(at index: Int) async {
         guard self.queueEntries.indices.contains(index) else { return }
         let intent = self.beginMusicPlaybackIntent()
@@ -600,8 +560,6 @@ extension PlayerService {
         await self.playFromQueue(at: index, intent: intent)
     }
 
-    /// Inserts songs immediately after the current track.
-    /// - Parameter songs: The songs to insert into the queue.
     func insertNextInQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         self.clearForwardSkipNavigationStack()
@@ -614,7 +572,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Whether the queue contains the same song more than once.
     var queueHasDuplicateEntries: Bool {
         var seenVideoIds = Set<String>()
         for song in self.queue where !seenVideoIds.insert(song.videoId).inserted {
@@ -623,8 +580,6 @@ extension PlayerService {
         return false
     }
 
-    /// Removes the queue entry at the given index, leaving other occurrences of the same song intact.
-    /// - Parameter index: The queue index to remove.
     func removeFromQueue(at index: Int) {
         guard self.queueEntries.indices.contains(index) else { return }
         self.clearForwardSkipNavigationStack()
@@ -645,8 +600,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Removes songs from the queue by stable entry IDs.
-    /// - Parameter entryIDs: Set of queue entry IDs to remove.
     func removeFromQueue(entryIDs: Set<UUID>) {
         guard !entryIDs.isEmpty else { return }
 
@@ -681,7 +634,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Removes later duplicate songs from the queue, keeping the first occurrence of each video ID.
     func removeDuplicateQueueEntries() {
         guard self.queueHasDuplicateEntries else { return }
 
@@ -788,8 +740,6 @@ extension PlayerService {
         self.currentIndex = min(self.currentIndex, max(0, self.queueEntries.count - 1))
     }
 
-    /// Removes songs from the queue by video ID.
-    /// - Parameter videoIds: Set of video IDs to remove.
     func removeFromQueue(videoIds: Set<String>) {
         let indicesToRemove = self.queueEntries.enumerated()
             .filter { videoIds.contains($0.element.song.videoId) }
@@ -812,8 +762,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Reorders one logical queue entry before another entry, or to the end when `beforeEntryID` is nil.
-    /// Entry IDs keep drag/drop stable when the queue changes between gesture start and drop.
     func reorderQueue(entryID: UUID, before beforeEntryID: UUID?) {
         guard entryID != self.queueEntryIDOwningCurrentPlayback,
               let sourceIndex = self.queueEntries.firstIndex(where: { $0.id == entryID })
@@ -849,11 +797,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Reorders the queue by moving items from source indices to destination offset.
-    /// Used for drag-and-drop reordering; does not allow moving the current track.
-    /// - Parameters:
-    ///   - source: Indices of items to move.
-    ///   - destination: Index where items will be placed (after removal from source).
     func reorderQueue(from source: IndexSet, to destination: Int) {
         guard !source.contains(self.currentIndex) else {
             self.logger.warning("Cannot reorder: cannot move current track")
@@ -866,7 +809,6 @@ extension PlayerService {
         let currentEntryID = self.currentQueueEntryID
         updatedEntries.move(fromOffsets: source, toOffset: destination)
 
-        // Adjust currentIndex if needed (current track moved in the array)
         if let currentEntryID,
            let newCurrentIndex = updatedEntries.firstIndex(where: { $0.id == currentEntryID })
         {
@@ -878,8 +820,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Reorders the queue based on a new order of video IDs.
-    /// - Parameter videoIds: The new order of video IDs.
     func reorderQueue(videoIds: [String]) {
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()
@@ -899,7 +839,6 @@ extension PlayerService {
 
         self.setQueue(entries: reorderedEntries)
 
-        // Update currentIndex to match current track's new position
         if let currentEntryID,
            let newIndex = reorderedEntries.firstIndex(where: { $0.id == currentEntryID })
         {
@@ -912,14 +851,11 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Shuffles the queue, keeping the current track in place at the front.
     func shuffleQueue() {
         self.beginMusicPlaybackIntent(allowsPriorTerminalEvent: true)
         self.materializeShuffleQueueForCurrentTrack(recordUndo: true, storesOriginalOrder: false)
     }
 
-    /// Reorders the queue into the actual shuffled playback order.
-    /// Keeps the current track first so the visible "next up" order matches playback.
     func materializeShuffleQueueForCurrentTrack(recordUndo: Bool, storesOriginalOrder: Bool) {
         guard self.queue.count > 1 else { return }
         self.materializeShuffleQueue(
@@ -930,7 +866,6 @@ extension PlayerService {
         )
     }
 
-    /// Reorders the provided entries into a shuffled playback order.
     func materializeShuffleQueue(
         entries: [QueueEntry],
         startingAt index: Int,
@@ -950,7 +885,6 @@ extension PlayerService {
             self.queueOrderBeforeShuffle = entries
         }
 
-        // Remove current track, shuffle the rest, put current track at front
         var shuffledEntries = entries
         let safeIndex = min(max(index, 0), shuffledEntries.count - 1)
         let currentEntry = shuffledEntries.remove(at: safeIndex)
@@ -963,7 +897,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Restores the queue order captured before shuffle was enabled.
     func restoreQueueOrderBeforeShuffle(recordUndo: Bool) {
         guard let snapshot = self.queueOrderBeforeShuffle, !snapshot.isEmpty else {
             self.queueOrderBeforeShuffle = nil
@@ -982,10 +915,6 @@ extension PlayerService {
            let currentEntry = currentEntriesByID[currentEntryID],
            let currentPosition = currentEntries.firstIndex(where: { $0.id == currentEntryID })
         {
-            // The current Smart Shuffle suggestion is not in the original-order snapshot. Keep
-            // originals that were already behind the playhead before it, then insert the current
-            // suggestion, then restore the remaining originals in playlist order so Next continues
-            // through the unplayed playlist instead of skipping it.
             let originalIDsBeforeCurrent = Set(
                 currentEntries[..<currentPosition]
                     .filter { snapshotEntryIDs.contains($0.id) }
@@ -1030,8 +959,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Adds songs to the end of the queue.
-    /// - Parameter songs: The songs to append to the queue.
     func appendToQueue(_ songs: [Song]) {
         guard !songs.isEmpty else { return }
         self.recordQueueStateForUndo()
@@ -1040,7 +967,6 @@ extension PlayerService {
         self.saveQueueForPersistence()
     }
 
-    /// Serialized playback session persisted across launches.
     private struct PersistedPlaybackSession: Codable, Hashable {
         let queue: [Song]
         let entrySources: [QueueEntry.Source]?
@@ -1056,7 +982,6 @@ extension PlayerService {
         let preShuffleEntryIndices: [Int]?
     }
 
-    /// UserDefaults keys for queue persistence (no expiry; saved queue is kept until overwritten or cleared).
     private static let savedQueueKey = "kaset.saved.queue"
     private static let savedQueueIndexKey = "kaset.saved.queueIndex"
     private static let savedPlaybackSessionKey = "kaset.saved.playbackSession"
@@ -1086,7 +1011,6 @@ extension PlayerService {
     }
 
     // swiftlint:disable function_body_length
-    /// Saves the current queue to UserDefaults for restoration on next launch.
     func saveQueueForPersistence(
         ownerScopeOverride: String? = nil,
         syncWebQueue shouldSyncWebQueue: Bool = true
@@ -1108,8 +1032,6 @@ extension PlayerService {
 
         self.suppressNextEmptyQueuePersistence = false
 
-        // Smart Shuffle suggestions are ephemeral (regenerated from live context), so never
-        // persist them. Strip before saving, keeping the currently-playing track if it is one.
         let activeQueueEntryID = self.queueEntryIDOwningCurrentPlayback
         let persistedEntries: [QueueEntry]
         let currentID: UUID?
@@ -1144,8 +1066,6 @@ extension PlayerService {
         }
         defer {
             if shouldSyncWebQueue {
-                // Queue synchronization follows the live queue, including ephemeral
-                // Smart Shuffle entries, even when the persisted payload is unchanged.
                 self.syncWebQueue()
             }
         }
@@ -1230,7 +1150,6 @@ extension PlayerService {
         return min(max(self.currentIndex, 0), entries.count - 1)
     }
 
-    /// Resolves the persisted clock without borrowing metadata from a different queue occurrence.
     private func resolvedPersistenceDuration(
         queuedTrack: Song?,
         ownedQueueTrack: Song?
@@ -1239,9 +1158,6 @@ extension PlayerService {
         let primaryDuration = self.bestKnownDuration(for: persistenceTrack)
         guard primaryDuration <= 0 else { return primaryDuration }
 
-        // WebView metadata can temporarily replace the same queue song without a duration. Retain
-        // the queue/API duration only from the exact entry that owns playback, bypassing observation
-        // precedence because reaching this branch already proved no positive observation exists.
         return self.positiveMetadataDuration(for: ownedQueueTrack)
     }
 
@@ -1292,10 +1208,7 @@ extension PlayerService {
         self.playbackNavigationGeneration &+= 1
     }
 
-    /// Re-tags a restored/persisted playback session after crossing a playback
-    /// privacy boundary without otherwise changing the queue payload.
     func updateRestoredPlaybackSessionOwnerScope(_ ownerScope: String?) {
-        // A data-store reload can precede the root task's startup privacy decision.
         guard !self.shouldPreserveRestoredPlaybackOwnership else { return }
         self.restoredPlaybackSessionOwnerScope = ownerScope
 
@@ -1326,8 +1239,6 @@ extension PlayerService {
         }
     }
 
-    /// Restores the queue from UserDefaults if available.
-    /// - Returns: True if queue was restored, false otherwise.
     @discardableResult
     func restoreQueueFromPersistence() -> Bool {
         let decoder = JSONDecoder()
@@ -1440,21 +1351,16 @@ extension PlayerService {
         return restoredEntries.isEmpty ? nil : restoredEntries
     }
 
-    /// After restoring a saved session in smart mode, regenerates the (ephemeral, never-persisted)
-    /// suggestion window so it is present without requiring a manual track advance. Best effort: a
-    /// no-op until a client is attached and while the queue is still loading.
     private func fillSmartShuffleWindowAfterRestoreIfNeeded() {
         guard self.shuffleMode == .smart else { return }
         self.scheduleSmartShuffleFillForCurrentQueue()
     }
 
-    /// Clears the saved queue from UserDefaults.
     func clearSavedQueue() {
         self.removeSavedPlaybackSession()
         self.logger.info("Cleared saved queue")
     }
 
-    /// Restores the legacy queue/index payload when no playback session is available.
     private func restoreLegacyQueueFromPersistence(using decoder: JSONDecoder) -> Bool {
         guard let queueData = self.queuePersistenceDefaults.data(forKey: self.savedQueueKey),
               let savedIndex = self.queuePersistenceDefaults.object(forKey: self.savedQueueIndexKey) as? Int
@@ -1495,7 +1401,6 @@ extension PlayerService {
         }
     }
 
-    /// Removes all persisted queue/session payloads.
     private func removeSavedPlaybackSession() {
         self.queuePersistenceDefaults.removeObject(forKey: self.savedQueueKey)
         self.queuePersistenceDefaults.removeObject(forKey: self.savedQueueIndexKey)
@@ -1504,9 +1409,6 @@ extension PlayerService {
         self.lastSavedPlaybackSessionSignature = nil
     }
 
-    /// Resolves the queue index from saved metadata.
-    /// Prefers the persisted index when it is valid so duplicate tracks restore to the exact entry.
-    /// Falls back to the saved video ID only for legacy or invalid payloads.
     private func resolvedPersistedQueueIndex(
         savedIndex: Int,
         currentVideoId: String?,

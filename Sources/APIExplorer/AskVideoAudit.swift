@@ -1,9 +1,6 @@
 import Foundation
 import YouTubeAskCore
 
-/// A parity profile is eligible for selection only when YouTube explicitly
-/// confirms the request was handled as signed in. A missing marker is not
-/// equivalent to `loggedOut: false` and must fail closed.
 func askParityHasConfirmedSignedInState(_ loggedOut: Bool?) -> Bool {
     loggedOut == false
 }
@@ -310,10 +307,6 @@ private func askParityServerLoggedOutState(
         collectLoggedOutValues(in: root, depth: 0)
     }
 
-    // Any explicit logged-out marker rejects the response, including a
-    // conflicting stream that also contains `loggedOut: false`. If traversal
-    // was truncated, a lone signed-in marker cannot prove the unseen remainder
-    // is safe, so the result remains unknown and fails closed.
     if foundLoggedOut {
         return true
     }
@@ -376,10 +369,6 @@ private func askParityContext(
         "osVersion": "10_15_7",
         "platform": "DESKTOP",
         "userAgent": askParityUserAgent,
-        // Minutes from UTC, UTC-behind negative — the same value YouTube's web client
-        // sends (its JS `-Date.getTimezoneOffset()`). Mirrors
-        // `InnerTubeSupport.utcOffsetMinutes(for:)`, inlined because APIExplorer cannot
-        // import the Kaset executable target.
         "utcOffsetMinutes": TimeZone.current.secondsFromGMT() / 60,
     ]
     if profile.usesVisitorData {
@@ -558,9 +547,6 @@ private func evaluateAskParityPanel(
         isAskSummaryLabel(suggestion.label)
     }
 
-    // Even when `next` already exposes the summary chip, parity still requires
-    // a read-only panel continuation so the exact `get_panel` transport used by
-    // live suggestions is validated without submitting that chip.
     guard let panelCommand = bootstrap.panelCommand else {
         report.failureCategory = .panelCommandUnavailable
         return AskParityEvaluation(report: report, passed: false)
@@ -1434,9 +1420,6 @@ private func captureAskFreeTextRequestSnapshot() async throws -> AskFreeTextRequ
         throw AskFreeTextValidationError.requestSnapshotUnavailable
     }
 
-    // Configuration discovery can await network I/O. Re-read the authoritative
-    // cookie export and account selectors before sealing the snapshot so a
-    // concurrent logout or account change cannot produce a mixed request.
     let finalBackingState: AskFreeTextBackingState
     do {
         finalBackingState = try currentAskFreeTextBackingState()

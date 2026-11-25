@@ -1,27 +1,19 @@
 import Foundation
 
-/// A single timed word for karaoke mode.
 struct TimedWord: Equatable {
     let timeInMs: Int
     let word: String
 }
 
-/// A single timed lyric line.
 struct SyncedLyricLine: Identifiable, Equatable {
     let id = UUID()
-    /// Timestamp in milliseconds when this line starts.
     let timeInMs: Int
-    /// Duration in milliseconds (time until next line).
     var duration: Int
-    /// The lyric text for this line.
     let text: String
-    /// Optional word-level timing for karaoke mode.
     let words: [TimedWord]?
-    /// Romanized version of text (nil if already Latin or romanization disabled).
     var romanizedText: String?
 }
 
-/// Represents synced lyrics with per-line timestamps.
 struct SyncedLyrics: Equatable {
     let lines: [SyncedLyricLine]
     let source: String
@@ -39,7 +31,6 @@ struct SyncedLyrics: Equatable {
             if line.timeInMs > timeMs {
                 return .upcoming
             }
-            // If the time passed the start time + duration, it's previous
             if timeMs - line.timeInMs >= line.duration, line.duration > 0 {
                 return .previous
             }
@@ -51,10 +42,6 @@ struct SyncedLyrics: Equatable {
         self.lineStatuses(at: timeMs).lastIndex(of: .current)
     }
 
-    /// Returns the display-update bucket for a playback timestamp.
-    ///
-    /// The synced lyrics UI only changes when the current line changes (or no line is active), so
-    /// WebView bridge traffic can be coalesced to this value instead of publishing raw 10 Hz time.
     func displayBucket(at timeMs: Int) -> Int {
         let ranges = self.bridgeLineRanges
         guard !ranges.isEmpty else { return -1 }
@@ -73,7 +60,6 @@ struct SyncedLyrics: Equatable {
         return -(ranges.count + 1)
     }
 
-    /// Compact line timing ranges passed to the playback WebView for line-boundary bridge updates.
     var bridgeLineRanges: [[String: Int]] {
         self.lines.indices.map { index in
             let line = self.lines[index]
@@ -89,7 +75,6 @@ struct SyncedLyrics: Equatable {
     }
 }
 
-/// Unified lyrics result that can hold either synced or plain lyrics.
 enum LyricResult: Equatable {
     case synced(SyncedLyrics)
     case plain(Lyrics)

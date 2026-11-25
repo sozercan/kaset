@@ -2,11 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for resolving the audio recording behind music-video album rows.
-///
-/// Some albums are returned with every track row typed `MUSIC_VIDEO_TYPE_OMV`.
-/// YouTube Music still advertises each track's audio recording in the row's
-/// credits menu, as `MPTC` + the audio video ID.
 @Suite(.tags(.parser))
 struct PlaylistParserAudioTrackTests {
     @Test("Music-video album rows expose the audio recording from their credits entry")
@@ -189,8 +184,6 @@ struct PlaylistParserAudioTrackTests {
         musicVideoType: String = "MUSIC_VIDEO_TYPE_OMV",
         creditsLabel: String = "View song credits"
     ) -> [String: Any] {
-        // Album rows carry no top-level navigationEndpoint; the play overlay holds
-        // the watch endpoint, matching live `browse` responses for MPRE albums.
         var renderer: [String: Any] = [
             "playlistItemData": ["videoId": videoId],
             "overlay": [

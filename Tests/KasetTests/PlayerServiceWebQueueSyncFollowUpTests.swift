@@ -1,5 +1,4 @@
 // swiftlint:disable file_length
-// Both merge sides add independent queue-sync regressions; keep them together in this follow-up suite.
 
 import Foundation
 import Testing
@@ -1515,9 +1514,6 @@ extension PlayerServiceWebQueueSyncTests {
         )
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)
 
-        // A verified-identity signal must NOT force-load a deferred restored
-        // session (which would clear the explicit-resume gate and load the
-        // playback page + stats before the user resumes).
         self.playerService.reloadCurrentTrackForIdentitySwitch()
 
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)

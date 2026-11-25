@@ -2,9 +2,7 @@ import AppIntents
 import CoreSpotlight
 import Foundation
 
-/// Where Library entities are indexed. Abstracted so tests do not touch the user's index.
 protocol LibrarySpotlightIndex: Sendable {
-    /// Replaces every indexed playlist and album with these.
     func replaceAll(playlists: [PlaylistEntity], albums: [AlbumEntity]) async throws
 }
 
@@ -22,15 +20,9 @@ struct CoreSpotlightLibraryIndex: LibrarySpotlightIndex {
     }
 }
 
-/// Keeps Spotlight's copy of the Library in step with the signed-in account.
-///
-/// The index is replaced wholesale: Library snapshots are small, and replacing avoids leaving
-/// another account's items behind after a switch or sign-out (an empty Library clears it).
 @MainActor
 final class SpotlightLibraryIndexer {
-    /// Library loads publish several snapshots in quick succession.
     static let defaultDebounce: Duration = .seconds(1)
-    /// A failed replacement is retried after this delay, doubling each time.
     static let defaultRetryDelay: Duration = .seconds(5)
     static let maxAttempts = 3
 
@@ -61,7 +53,6 @@ final class SpotlightLibraryIndexer {
         previousTask?.cancel()
         self.pendingTask = Task { [index, debounce, retryDelay, logger] in
             try? await Task.sleep(for: debounce)
-            // Wait even when superseded, so the next snapshot cannot overlap a replacement still in flight.
             await previousTask?.value
             var delay = retryDelay
             for attempt in 1 ... Self.maxAttempts {
@@ -80,7 +71,6 @@ final class SpotlightLibraryIndexer {
         }
     }
 
-    /// Waits for the latest scheduled replacement. For tests.
     func waitForPendingUpdate() async {
         await self.pendingTask?.value
     }

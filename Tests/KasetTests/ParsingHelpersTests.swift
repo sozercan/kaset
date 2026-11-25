@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the ParsingHelpers.
 @Suite(.tags(.parser))
 struct ParsingHelpersTests {
     @Test(
@@ -470,8 +469,8 @@ struct ParsingHelpersTests {
     @Test(
         "Parse duration string to seconds",
         arguments: [
-            ("3:45", 225.0), // 3 * 60 + 45
-            ("1:30:00", 5400.0), // 1 * 3600 + 30 * 60
+            ("3:45", 225.0),
+            ("1:30:00", 5400.0),
         ]
     )
     func parseDuration(input: String, expectedSeconds: TimeInterval) {
@@ -585,8 +584,6 @@ struct ParsingHelpersTests {
 
     @Test("Extract duration from combined flex column runs (artist top songs)")
     func extractDurationFromCombinedFlexRuns() {
-        // Artist page top songs have duration as the last run in a combined flex column:
-        // "Artist • Album • 4:55"
         let data: [String: Any] = [
             "flexColumns": [
                 [
@@ -611,7 +608,7 @@ struct ParsingHelpersTests {
         ]
 
         let duration = ParsingHelpers.extractDurationFromFlexColumns(data)
-        #expect(duration == 295.0) // 4 * 60 + 55
+        #expect(duration == 295.0)
     }
 
     @Test("Linked duration-looking flex run is skipped")

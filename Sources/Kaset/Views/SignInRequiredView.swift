@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Lightweight empty state for routes that need a YouTube account.
-/// Guest mode still supports public browsing/search/playback, while personal
-/// collections and mutations route here until the user signs in.
 struct SignInRequiredView: View {
     let title: String
     let message: String

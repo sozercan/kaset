@@ -1,91 +1,67 @@
 import XCTest
 @testable import Kaset
 
-/// Performance tests for API response parsers.
-///
-/// These tests use `measure {}` blocks to track parsing performance.
-/// Run after modifying parsers to ensure no regressions:
-/// ```bash
-/// xcodebuild test -scheme Kaset -destination 'platform=macOS' \
-///   -only-testing:KasetTests/ParserPerformanceTests
-/// ```
 final class ParserPerformanceTests: XCTestCase {
     func testHomeParsingPerformance() {
-        // Given: A realistic home response with multiple sections
         let data = self.makeHomeResponseData(sectionCount: 10, itemsPerSection: 20)
 
-        // When/Then: Measure parsing time
         measure {
             _ = HomeResponseParser.parse(data)
         }
     }
 
     func testHomeSectionParsingPerformance() {
-        // Given: A single complex section
         let sectionData = self.makeCarouselSectionData(itemCount: 50)
 
-        // When/Then: Measure single section parsing
         measure {
             _ = HomeResponseParser.parseHomeSection(sectionData)
         }
     }
 
     func testSearchParsingPerformance() {
-        // Given: A mixed search response
         let data = self.makeSearchResponseData(songs: 20, albums: 10, artists: 10, playlists: 10)
 
-        // When/Then: Measure parsing time
         measure {
             _ = SearchResponseParser.parse(data)
         }
     }
 
     func testSearchSongsOnlyPerformance() {
-        // Given: Search results with many songs
         let data = self.makeSearchResponseData(songs: 100, albums: 0, artists: 0, playlists: 0)
 
-        // When/Then: Measure song-heavy parsing
         measure {
             _ = SearchResponseParser.parse(data)
         }
     }
 
     func testPlaylistDetailParsingPerformance() {
-        // Given: A playlist with many tracks
         let data = self.makePlaylistDetailData(trackCount: 100)
 
-        // When/Then: Measure parsing time
         measure {
             _ = PlaylistParser.parsePlaylistDetail(data, playlistId: "VLTestPlaylist")
         }
     }
 
     func testLibraryPlaylistsParsingPerformance() {
-        // Given: Library with many playlists
         let data = self.makeLibraryResponseData(playlistCount: 50)
 
-        // When/Then: Measure parsing time
         measure {
             _ = PlaylistParser.parseLibraryPlaylists(data)
         }
     }
 
     func testArtistDetailParsingPerformance() {
-        // Given: An artist with many songs and albums
         let data = self.makeArtistDetailData(songCount: 50, albumCount: 20)
 
-        // When/Then: Measure parsing time
         measure {
             _ = ArtistParser.parseArtistDetail(data, artistId: "UCTestArtist")
         }
     }
 
     func testAccessibilityDurationFallbackPerformance() {
-        // Given: Rows that only expose duration in accessibility labels.
         let rows = self.makeAccessibilityDurationRows(count: 1000)
         _ = ParsingHelpers.extractDurationFromFlexColumns(rows[0])
 
-        // When/Then: Measure duration extraction without network/UI work.
         measure {
             var total: TimeInterval = 0
             for row in rows {
@@ -96,11 +72,9 @@ final class ParserPerformanceTests: XCTestCase {
     }
 
     func testLRCParsingPerformance() {
-        // Given: Mixed line-level and word-level synced lyric data.
         let raw = self.makeLRCData(lineCount: 600)
         XCTAssertNotNil(LRCParser.parse(raw))
 
-        // When/Then: Measure LRC parsing throughput.
         measure {
             XCTAssertNotNil(LRCParser.parse(raw))
         }

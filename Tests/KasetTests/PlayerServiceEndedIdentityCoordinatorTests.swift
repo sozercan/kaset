@@ -125,7 +125,6 @@ extension PlayerServiceWebQueueSyncTests {
     func webLikeStatusWaitsForPlayerBarToCatchUp() async throws {
         self.playerService.setSongLikeStatusManager(SongLikeStatusManager())
         try await self.withEndedIdentityCoordinator(preparePendingHandoff: false) { coordinator, context, documentGeneration in
-            // The harness's track-change update came from a bar without like controls.
             #expect(self.playerService.currentTrackLikeStatus == .indifferent)
 
             for likeStatus in ["LIKE", "INDIFFERENT"] {

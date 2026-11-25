@@ -1,8 +1,6 @@
 "Ad" = "广告";
 "Advertisement" = "广告";
 
-// Localizable.strings
-
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "“实时”会随视频播放变换颜色，其他样式则保持不变";
 "%lld songs" = "%lld 首歌曲";
 "%lld songs listened today" = "今日已听 %lld 首歌曲";
@@ -576,7 +574,6 @@
 "songs" = "首歌曲";
 "tracks" = "首曲目";
 
-// Appearance
 "Appearance" = "外观";
 "App Appearance" = "应用外观";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "为 Kaset 选择浅色或深色模式，或跟随 macOS 设置";
@@ -584,7 +581,6 @@
 "Light Mode" = "浅色模式";
 "Dark Mode" = "深色模式";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "播放音乐";
 "Play Song" = "播放歌曲";
 "Play Playlist" = "播放播放列表";
@@ -631,7 +627,6 @@
 "Couldn't play “%@”." = "无法播放“%@”。";
 "Couldn't rate “%@”." = "无法评价“%@”。";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "无法读取扩展。请将其移除后重新添加。";
 "The extension's access changed. Review it again before enabling it." = "扩展的访问权限已更改。请在启用前重新审核。";
 "Extension Error" = "扩展错误";

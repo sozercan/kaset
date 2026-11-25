@@ -1,10 +1,6 @@
 import Foundation
 @testable import Kaset
 
-/// In-memory stub of `EqualizerAudioEngineProtocol` so
-/// `EqualizerServiceTests` can exercise the service's state machine
-/// without touching Core Audio. Lives in `Helpers/` because multiple
-/// suites may grow to need it.
 final class MockEqualizerAudioEngine: EqualizerAudioEngineProtocol {
     var startResult: Result<Void, EqualizerAudioEngine.StartFailure>
     private(set) var startCallCount = 0
@@ -12,8 +8,6 @@ final class MockEqualizerAudioEngine: EqualizerAudioEngineProtocol {
     private(set) var lastAppliedSettings: EQSettings?
     private var running = false
 
-    /// Tests can flip this to simulate a tap that succeeds at start time
-    /// but never delivers audio (the silence-detection path).
     var hasObservedAudio: Bool = true
 
     init(startResult: Result<Void, EqualizerAudioEngine.StartFailure> = .success(())) {

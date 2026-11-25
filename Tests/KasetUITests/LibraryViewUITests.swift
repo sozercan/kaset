@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the LibraryView.
 @MainActor
 final class LibraryViewUITests: KasetUITestCase {
     func testLibraryViewDisplaysTitle() {
@@ -8,7 +7,6 @@ final class LibraryViewUITests: KasetUITestCase {
 
         navigateToLibrary()
 
-        // Verify Library title is displayed
         let title = app.staticTexts["Library"]
         XCTAssertTrue(waitForElement(title), "Library title should be visible")
     }
@@ -18,7 +16,6 @@ final class LibraryViewUITests: KasetUITestCase {
 
         navigateToLibrary()
 
-        // Should eventually show content or loading
         let title = app.staticTexts["Library"]
         XCTAssertTrue(waitForElement(title, timeout: 10))
     }
@@ -28,7 +25,6 @@ final class LibraryViewUITests: KasetUITestCase {
 
         navigateToLibrary()
 
-        // The view should show playlists
         let scrollView = app.scrollViews.firstMatch
         XCTAssertTrue(waitForElement(scrollView, timeout: 10))
     }
@@ -48,7 +44,6 @@ final class LibraryViewUITests: KasetUITestCase {
     func testLibraryNavigationFromSidebar() {
         launchDefault()
 
-        // Navigate to Library via sidebar using accessibility identifier
         navigateToLibrary()
 
         let title = app.staticTexts["Library"]

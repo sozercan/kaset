@@ -1,10 +1,6 @@
 import AppIntents
 import Foundation
 
-// Transport intents go through the media-key path (`NowPlayingManager`), so they control
-// whichever source the media keys would, music or video. They run without bringing Kaset
-// forward; when Kaset was not running, nothing is loaded and they report that.
-
 struct TogglePlaybackIntent: AudioPlaybackIntent {
     static let title: LocalizedStringResource = "Play or Pause"
     static let description = IntentDescription("Pauses Kaset if it is playing, otherwise resumes playback.")

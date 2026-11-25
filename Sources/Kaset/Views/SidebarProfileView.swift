@@ -1,14 +1,5 @@
-// SidebarProfileView.swift
-// Kaset
-//
-// Profile section displayed at the bottom of the sidebar for account management.
-
 import SwiftUI
 
-/// A profile section displayed at the bottom of the sidebar.
-///
-/// Shows the current user's account info with an option to switch accounts
-/// if brand accounts are available.
 struct SidebarProfileView: View {
     @Environment(AccountService.self) private var accountService
     @Environment(AuthService.self) private var authService
@@ -36,10 +27,8 @@ struct SidebarProfileView: View {
                 self.showingAccountSwitcher = true
             } label: {
                 HStack(spacing: 10) {
-                    // Avatar
                     self.avatarView(for: account)
 
-                    // Name and handle
                     VStack(alignment: .leading, spacing: 2) {
                         Text(account.name)
                             .font(.system(size: 13, weight: .medium))
@@ -56,7 +45,6 @@ struct SidebarProfileView: View {
 
                     Spacer()
 
-                    // Chevron indicator for account/guest switching.
                     if self.accountService.hasBrandAccounts || self.authService.state.isLoggedIn {
                         Image(systemName: "chevron.up.chevron.down")
                             .font(.system(size: 10, weight: .medium))
@@ -75,12 +63,8 @@ struct SidebarProfileView: View {
                     .environment(self.accountService)
             }
         } else if self.accountService.isLoading {
-            // Loading state only while account data is actively being fetched.
-            // If auth is stale but there is no current account, show the guest
-            // sign-in affordance instead of a permanent skeleton.
             self.loadingStateView
         } else if self.accountService.lastError != nil {
-            // Error state - show retry option
             self.errorStateView
         } else {
             self.missingAccountContent

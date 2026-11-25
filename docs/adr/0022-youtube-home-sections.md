@@ -54,6 +54,9 @@ additive.**
   `videos` grid (an isolated `withTaskGroup` fetches all topic feeds in
   parallel, preserving chip order); per-section failures are logged and the
   section omitted, never failing the page.
+- Deserialize the home response once and parse the flat feed, topic chips, and
+  titled shelves from that shared document. Keep Shorts separate from regular
+  video grids.
 - **The view** renders `sections` as `CarouselShelfSection` rails (the same
   generic shelf the music home uses) above the existing recommendation grid,
   reusing `VideoCard` as-is. The grid keeps its infinite-scroll pagination.

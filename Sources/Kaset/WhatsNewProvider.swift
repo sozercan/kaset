@@ -1,12 +1,9 @@
 import Foundation
 
-/// Provides "What's New" entries from GitHub release notes, with a static fallback.
 enum WhatsNewProvider {
-    /// GitHub repo for fetching release notes.
     private static let owner = "sozercan"
     private static let repo = "kaset"
 
-    /// Static fallback entries used when the network is unavailable.
     static let fallbackCollection: [WhatsNew] = [
         WhatsNew(
             version: "1.0.0",
@@ -37,8 +34,6 @@ enum WhatsNewProvider {
         ),
     ]
 
-    /// Fetches release notes pinned to the current app version from GitHub.
-    /// Falls back only to a static entry for that exact version.
     static func fetchWhatsNew(
         for currentVersion: WhatsNew.Version = .current(),
         store: WhatsNewVersionStore = WhatsNewVersionStore(),
@@ -49,12 +44,10 @@ enum WhatsNewProvider {
             return nil
         }
 
-        // Try fetching from GitHub releases
         if let dynamic = await fetchFromGitHub(for: currentVersion, session: session) {
             return dynamic
         }
 
-        // Fall back to static collection
         return Self.staticWhatsNew(
             for: currentVersion,
             store: store,
@@ -62,7 +55,6 @@ enum WhatsNewProvider {
         )
     }
 
-    /// Version-gating against the static fallback collection (synchronous).
     static func staticWhatsNew(
         for currentVersion: WhatsNew.Version = .current(),
         store: WhatsNewVersionStore = WhatsNewVersionStore(),
@@ -97,7 +89,6 @@ enum WhatsNewProvider {
         return nil
     }
 
-    /// Returns semantically equivalent tag spellings without considering another app version.
     private static func releaseTags(for version: WhatsNew.Version) -> [String] {
         let canonicalCore = "\(version.major).\(version.minor).\(version.patch)"
         let suffix = version.description.dropFirst(canonicalCore.count)
@@ -115,7 +106,6 @@ enum WhatsNewProvider {
         return tags
     }
 
-    /// Fetches a release by tag — useful for testing a specific version.
     static func fetchForTag(_ tag: String, session: URLSession = .shared) async -> WhatsNew? {
         let urlString = "https://api.github.com/repos/\(Self.owner)/\(Self.repo)/releases/tags/\(tag)"
         guard let url = URL(string: urlString) else { return nil }
@@ -167,8 +157,6 @@ enum WhatsNewProvider {
         )
     }
 
-    /// Cleans up GitHub release body by extracting the preferred changelog section
-    /// when present, while stripping wrapper sections that the sheet UI doesn't need.
     private static func cleanReleaseBody(_ body: String) -> String {
         let hiddenHeadings: Set = [
             "whats new",
@@ -232,7 +220,6 @@ enum WhatsNewProvider {
 
             if let hiddenSectionLevel {
                 if let heading, heading.level <= hiddenSectionLevel {
-                    // Resume at the next sibling heading and evaluate it normally.
                 } else {
                     index += 1
                     continue
@@ -267,7 +254,6 @@ enum WhatsNewProvider {
             previousWasBlank = isBlank
         }
 
-        // Trim leading/trailing blank lines
         while collapsedResult.first?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == true {
             collapsedResult.removeFirst()
         }

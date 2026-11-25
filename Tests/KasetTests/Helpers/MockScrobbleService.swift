@@ -1,7 +1,6 @@
 import Foundation
 @testable import Kaset
 
-/// Mock implementation of ScrobbleServiceProtocol for testing.
 @MainActor
 final class MockScrobbleService: ScrobbleServiceProtocol {
     let serviceName = "Mock"
@@ -82,7 +81,6 @@ final class MockScrobbleService: ScrobbleServiceProtocol {
         self.authState = .disconnected
     }
 
-    /// Total number of individual tracks scrobbled across all batches.
     var totalScrobbledTracks: Int {
         self.scrobbledBatches.reduce(0) { $0 + $1.count }
     }

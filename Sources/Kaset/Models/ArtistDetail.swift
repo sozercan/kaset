@@ -25,7 +25,6 @@ struct ArtistDetailSection: Identifiable, Hashable {
     }
 }
 
-/// Contains detailed artist information including their songs.
 struct ArtistDetail {
     let artist: Artist
     let description: String?
@@ -33,43 +32,23 @@ struct ArtistDetail {
     let songsSectionTitle: String?
     let orderedSections: [ArtistDetailSection]
     let albums: [Album]
-    /// Singles & EPs, which use the same renderer as albums but live in their
-    /// own shelf on the artist page. Empty when the artist has none.
     let singles: [Album]
-    /// Latest episodes / video uploads on the artist's channel. Includes live
-    /// radio streams (`isLive == true`).
     let episodes: [ArtistEpisode]
-    /// Playlists curated by this artist (e.g. "Playlists by Lofi Girl").
     let playlistsByArtist: [Playlist]
-    /// Related artists from the "Fans might also like" shelf.
     let relatedArtists: [Artist]
-    /// Podcast shows the artist owns (`MPSPP…` browseIds).
     let podcasts: [PodcastShow]
-    /// Per-shelf "See all" endpoints captured from each `moreContentButton`.
-    /// Sparse: shelves without a More button are absent from the map.
     let moreEndpoints: [ArtistShelfKind: ShelfMoreEndpoint]
     let thumbnailURL: URL?
-    /// The channel ID for subscription operations (e.g., UCxxxxx).
     let channelId: String?
-    /// Whether the user is subscribed to this artist.
     var isSubscribed: Bool
-    /// Localized subscriber count text from the API (e.g., "54.5K" or locale-specific equivalent).
     let subscriberCount: String?
-    /// Localized button label for the subscribed state.
     let subscribedButtonText: String?
-    /// Localized button label for the unsubscribed state.
     let unsubscribedButtonText: String?
-    /// Localized monthly audience text from the API (e.g., "2.59M monthly audience").
     let monthlyAudience: String?
-    /// Whether there are more songs available beyond what's loaded.
     let hasMoreSongs: Bool
-    /// Browse ID for loading all songs (e.g., from "More songs" button).
     let songsBrowseId: String?
-    /// Params for loading all songs.
     let songsParams: String?
-    /// Playlist ID for Mix (personalized radio), e.g., "RDEM...".
     let mixPlaylistId: String?
-    /// Starting video ID for Mix.
     let mixVideoId: String?
 
     var id: String {

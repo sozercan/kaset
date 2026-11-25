@@ -29,29 +29,22 @@ struct YouTubeInlineControlsVisibilityTests {
     @Test("Controls region counts as visible only when its whole strip is in the scroll view")
     func controlsRegionVisibility() {
         let video = CGSize(width: 1600, height: 900)
-        // Top of the page, viewport taller than the video.
         #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 1000)
         ))
-        // Tall video in a short window: most of it shows, but its bottom
-        // strip is below the fold.
         #expect(!YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 700)
         ))
-        // Scrolled down until the strip passes under the top edge.
         #expect(!YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: 870, width: 1600, height: 700)
         ))
-        // Scrolled so the strip sits just inside the top edge.
         #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: 840, width: 1600, height: 700)
         ))
-        // The bottom bar's inset shrinks the viewport by 60pt; adding it back
-        // gives the same answer as with the bar hidden, so it can't lock itself in.
         #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 880),
@@ -61,7 +54,6 @@ struct YouTubeInlineControlsVisibilityTests {
             videoSize: video,
             visibleBounds: CGRect(x: 0, y: -20, width: 1600, height: 880)
         ))
-        // Outside a scroll view there is nothing to scroll away from.
         #expect(YouTubeInlineControlsVisibility.isControlsRegionVisible(
             videoSize: video,
             visibleBounds: nil

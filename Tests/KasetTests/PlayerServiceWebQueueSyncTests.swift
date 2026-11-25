@@ -4,7 +4,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Web queue sync, next/previous stack, repeat-one, metadata drift, and radio-related PlayerService tests.
 @Suite(.serialized, .tags(.service))
 @MainActor
 // swiftlint:disable:next type_body_length
@@ -93,9 +92,6 @@ struct PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
 
-        // YouTube can emit stale metadata for the previous video while Kaset's
-        // manual navigation load is still in flight. Multiple stale frames must
-        // not be allowed to realign the native queue back to the old song.
         let recoveryGeneration = self.playerService.queueNavigationRecoveryGeneration
         self.playerService.updateTrackMetadata(
             title: "Song 1",
@@ -140,9 +136,6 @@ struct PlayerServiceWebQueueSyncTests {
         )
         let recoveryGeneration = self.playerService.queueNavigationRecoveryGeneration
 
-        // Stale old-song metadata can still arrive after the intended video was
-        // briefly confirmed. It must not be treated as a legitimate native
-        // in-queue move back to the previous item.
         self.playerService.updateTrackMetadata(
             title: "Song 1",
             artist: "",
@@ -561,14 +554,10 @@ struct PlayerServiceWebQueueSyncTests {
         await playerService.playQueue(songs, startingAt: 0)
         self.playerService.toggleShuffle()
 
-        // Simulate calling next which sets isKasetInitiatedPlayback
         await self.playerService.next()
 
-        // Get the song that Kaset intended to play
         let intendedSong = self.playerService.queue[self.playerService.currentIndex]
 
-        // Simulate YouTube loading a DIFFERENT track (not from our queue)
-        // This should trigger a re-play of the intended track
         self.playerService.updateTrackMetadata(
             title: "YouTube Autoplay Song",
             artist: "Random Artist",
@@ -576,7 +565,6 @@ struct PlayerServiceWebQueueSyncTests {
             videoId: "youtube-autoplay"
         )
 
-        // Give async correction task time to run
         try? await Task.sleep(for: .milliseconds(100))
 
         #expect(self.playerService.currentTrack?.videoId == intendedSong.videoId)

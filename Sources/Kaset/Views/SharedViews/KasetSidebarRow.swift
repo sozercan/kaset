@@ -1,13 +1,5 @@
 import SwiftUI
 
-/// A stable Apple-Music-style sidebar row.
-///
-/// SwiftUI's source-list `NavigationLink` chrome changes when the sidebar list
-/// becomes the active control: selected rows switch to the system accent fill
-/// and symbols become selected-text colored. Kaset drives detail content from
-/// explicit selection state, so use a plain button row with our own selected
-/// background and brand-accent symbol instead of relying on `NavigationLink`'s
-/// active/inactive source-list styling.
 struct KasetSidebarRow: View {
     let title: String
     let systemImage: String

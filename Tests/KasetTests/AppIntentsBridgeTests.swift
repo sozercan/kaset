@@ -5,7 +5,6 @@ import Testing
 @Suite("App Intents bridge", .serialized, .tags(.service))
 @MainActor
 struct AppIntentsBridgeTests {
-    /// Mutable flags the bridge reads through its closures.
     @MainActor
     private final class Environment {
         var isAuthInitializing = false
@@ -22,8 +21,6 @@ struct AppIntentsBridgeTests {
         environment: Environment = Environment(),
         startupComplete: Bool = true
     ) -> AppIntentsBridge {
-        // Like requests run through the player's status manager. A private one keeps
-        // these tests from racing other suites over `SongLikeStatusManager.shared`.
         playerService.setSongLikeStatusManager(SongLikeStatusManager())
         let bridge = AppIntentsBridge()
         bridge.startupTimeout = .milliseconds(300)
@@ -77,7 +74,6 @@ struct AppIntentsBridgeTests {
     @Test("Waiting returns once startup completes")
     func waitResumesWhenStartupCompletes() async {
         let bridge = self.makeBridge(startupComplete: false)
-        // Generous: the full suite runs many async tests concurrently.
         bridge.startupTimeout = .seconds(10)
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(50))
@@ -218,7 +214,6 @@ struct AppIntentsBridgeTests {
         player.currentTrackLikeStatus = .indifferent
         let bridge = self.makeBridge(playerService: player, client: client)
 
-        // The player-bar like is still in flight when the intent asks for the same rating.
         player.likeCurrentTrack()
         await #expect(throws: AppIntentsError.ratingFailed(title: "Pending")) {
             try await bridge.rateCurrentSong(.like)
@@ -341,7 +336,6 @@ struct AppIntentsBridgeTests {
         client.playlistContinuationTracks[playlist.id] = [["more-1", "more-2"].map { TestFixtures.makeSong(id: $0) }]
         let releaseContinuation = AsyncGate()
         client.beforePlaylistContinuationReturn = { _ in await releaseContinuation.wait() }
-        // Lets a regression that waits for paging finish, and fail, instead of hanging.
         let safetyRelease = Task {
             try? await Task.sleep(for: .seconds(2))
             await releaseContinuation.open()
@@ -440,7 +434,6 @@ struct AppIntentsBridgeTests {
         let bridge = self.makeBridge(environment: environment)
         let library = AppIntentsLibrary(playlists: [TestFixtures.makePlaylist()], albums: [])
 
-        // The first snapshot always publishes, even when empty, so a stale index gets cleared.
         bridge.updateLibrary(.empty)
         bridge.updateLibrary(library)
         bridge.updateLibrary(library)

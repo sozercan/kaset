@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for HomeViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct HomeViewModelTests {

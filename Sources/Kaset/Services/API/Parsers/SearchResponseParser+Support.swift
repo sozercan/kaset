@@ -152,7 +152,6 @@ extension SearchResponseParser {
                 numberText.append(".")
                 sawDecimalSeparator = true
             } else if !sawDigit, character.isWhitespace {
-                // Permit leading whitespace already preserved by unusual Unicode spacing.
             } else {
                 break
             }

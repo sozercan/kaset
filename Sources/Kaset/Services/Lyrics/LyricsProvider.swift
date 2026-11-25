@@ -1,15 +1,13 @@
 import Foundation
 
-/// Information needed to search for lyrics.
 struct LyricsSearchInfo {
     let title: String
     let artist: String
     let album: String?
-    let duration: TimeInterval? // seconds
+    let duration: TimeInterval?
     let videoId: String
 }
 
-/// Protocol all lyrics providers conform to.
 protocol LyricsProvider: Sendable {
     var name: String { get }
     func search(info: LyricsSearchInfo) async -> LyricResult

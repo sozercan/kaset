@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the command bar presentation.
 @MainActor
 final class CommandBarUITests: KasetUITestCase {
     func testCommandBarOpensWithKeyboardShortcutAndDismissesViaOverlay() throws {
@@ -8,14 +7,12 @@ final class CommandBarUITests: KasetUITestCase {
             throw XCTSkip("The command bar requires macOS 26.")
         }
 
-        // The command bar requires Music mode and the macOS 26 layout.
         self.app.launchArguments += [
             "-settings.appSource", "music",
             "-settings.debug.useLegacyMacOS15UI", "NO",
         ]
         self.launchDefault()
 
-        // A launch can leave only the menu bar; open the main window explicitly.
         self.app.activate()
         self.app.typeKey("0", modifierFlags: .command)
 
@@ -46,7 +43,6 @@ final class CommandBarUITests: KasetUITestCase {
             "Command bar input should stay focused on presentation.\n\(self.app.debugDescription)"
         )
 
-        // Click beside the centered command bar to exercise outside-click dismissal.
         window.coordinate(withNormalizedOffset: CGVector(dx: 0.95, dy: 0.5)).click()
 
         XCTAssertTrue(self.waitForElementToDisappear(input), "Command bar should dismiss after clicking the overlay")

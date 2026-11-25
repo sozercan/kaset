@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-/// In-memory observation key for watch-page account changes. The raw scope is
-/// never persisted or rendered; it only restarts the Ask bootstrap request.
 struct YouTubeAskAccountScopeObservation: Hashable, Sendable {
     let authenticationGeneration: UInt64
     let hasPersonalAccount: Bool
@@ -25,23 +23,16 @@ extension YouTubeAskAccountScopeObservation: CustomStringConvertible, CustomDebu
     }
 }
 
-/// View model for the YouTube watch page (metadata + related videos).
 @MainActor
 @Observable
 final class YouTubeWatchViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Watch-page companion data.
     private(set) var data: WatchNextData = .empty
 
-    /// Watch-scoped Ask Gemini state. The child owns all of its request tasks
-    /// and opaque conversation state.
     let ask: YouTubeAskViewModel
 
     let video: YouTubeVideo
-    /// Invalidates stale in-flight loads when a newer one starts
-    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
     private var lastAskAccountScope: YouTubeAskAccountScopeObservation?
 
@@ -54,36 +45,21 @@ final class YouTubeWatchViewModel {
         self.ask = YouTubeAskViewModel(videoID: video.videoId, client: client)
     }
 
-    // Like/dislike and Watch Later live on YouTubePlayerService so the
-    // player bar (inline and pop-out) owns them.
-
-    /// Whether the user is subscribed to the channel (seeded from watch-next).
     private(set) var isSubscribed = false
 
-    /// Loaded comments (top-level threads).
     private(set) var comments: [YouTubeComment] = []
 
-    /// Whether comments are currently loading.
     private(set) var isLoadingComments = false
 
-    /// Token for the next comments page.
     private var commentsContinuation: String?
     private var commentsGeneration = 0
 
-    /// The single in-flight comments page, shared by concurrent callers so a
-    /// SwiftUI watch-task restart adopts the initial request instead of
-    /// cancelling it with the outer task or issuing a duplicate request.
     private var commentsLoadTask: Task<CommentsLoadOutcome, Never>?
 
-    /// Distinguishes watch initialization from explicit comment pagination.
-    /// Once the first page reaches a terminal result, repeated watch-task runs
-    /// preserve loaded watch/Ask state without automatically fetching page two.
     private var didCompleteInitialCommentsLoad = false
 
-    /// Params for posting a comment (nil = signed out / disabled).
     private(set) var createCommentParams: String?
 
-    /// Whether a comment is currently being posted.
     private(set) var isPostingComment = false
 
     var canLoadMoreComments: Bool {
@@ -94,15 +70,11 @@ final class YouTubeWatchViewModel {
         self.createCommentParams != nil
     }
 
-    /// Comments the user liked/disliked this session (display state only —
-    /// undo tokens aren't tracked, so actions are one-shot).
     private(set) var likedComments: Set<String> = []
     private(set) var dislikedComments: Set<String> = []
 
-    /// Loaded reply threads by parent comment ID.
     private(set) var repliesByComment: [String: [YouTubeComment]] = [:]
 
-    /// Parent comments whose replies are currently loading.
     private(set) var loadingReplies: Set<String> = []
 
     func load(accountScope: YouTubeAskAccountScopeObservation? = nil) async {
@@ -139,8 +111,6 @@ final class YouTubeWatchViewModel {
         } catch {
             guard generation == self.loadGeneration else { return }
             self.ask.cancelAndDiscard()
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return
@@ -150,10 +120,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// A scope publication can reset the shared client after a watch response
-    /// parses but before its final identity fence. Retry that read-only `next`
-    /// request once when the outer route task and load generation are still
-    /// current. Panel materialization and suggestion submission are never retried.
     private func loadWatchPageWithIdentityRetry(
         generation: Int
     ) async throws -> YouTubeWatchPage {
@@ -171,7 +137,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Invalidates the current route load and discards all Ask state.
     func cancel() {
         self.loadGeneration += 1
         self.commentsLoadTask?.cancel()
@@ -213,22 +178,15 @@ final class YouTubeWatchViewModel {
         case unavailable
     }
 
-    /// Loads the first comments page once for watch initialization. A restarted
-    /// outer `.task` coalesces onto the stored page request, while later task
-    /// runs remain no-ops after that first page reaches a terminal result.
     private func loadInitialCommentsIfNeeded() async {
         guard !self.didCompleteInitialCommentsLoad else { return }
         _ = await self.loadCommentsPage()
     }
 
-    /// Loads the next page of comments.
     func loadMoreComments() async {
         _ = await self.loadCommentsPage()
     }
 
-    /// Coalesces every caller for the current comments page onto one
-    /// unstructured task. The task survives cancellation of an awaiting SwiftUI
-    /// `.task`; only an explicit route/account reset cancels it.
     private func loadCommentsPage() async -> CommentsLoadOutcome {
         if let existing = self.commentsLoadTask {
             return await existing.value
@@ -295,7 +253,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Toggles a like on a comment (likes, or removes an existing like).
     func likeComment(_ comment: YouTubeComment) async {
         let isLiked = self.likedComments.contains(comment.id)
         guard let action = isLiked ? comment.unlikeAction : comment.likeAction else {
@@ -318,7 +275,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Toggles a dislike on a comment (dislikes, or removes an existing one).
     func dislikeComment(_ comment: YouTubeComment) async {
         let isDisliked = self.dislikedComments.contains(comment.id)
         guard let action = isDisliked ? comment.undislikeAction : comment.dislikeAction else {
@@ -341,7 +297,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Loads a comment's reply thread.
     func loadReplies(for comment: YouTubeComment) async {
         guard let continuation = comment.repliesContinuation,
               self.repliesByComment[comment.id] == nil,
@@ -360,7 +315,6 @@ final class YouTubeWatchViewModel {
         do {
             let page = try await self.client.getComments(continuation: continuation)
             guard generation == self.commentsGeneration else { return }
-            // Reply pages can echo the parent; drop it.
             self.repliesByComment[comment.id] = page.comments.filter { $0.id != comment.id }
         } catch {
             if error is CancellationError {
@@ -371,7 +325,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Posts a top-level comment; returns true on success.
     func postComment(text: String) async -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let params = self.createCommentParams, !self.isPostingComment else {
@@ -398,7 +351,6 @@ final class YouTubeWatchViewModel {
         }
     }
 
-    /// Subscribes/unsubscribes the channel (optimistic with rollback).
     func toggleSubscribed() async {
         guard let channel = self.data.channel else { return }
         let generation = self.loadGeneration

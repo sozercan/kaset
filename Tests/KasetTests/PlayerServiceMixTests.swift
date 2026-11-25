@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for PlayerService+Queue mix functionality.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceMixTests {
@@ -13,14 +12,12 @@ struct PlayerServiceMixTests {
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
         self.playerService.setYTMusicClient(self.mockClient)
-        // Enable hasUserInteractedThisSession to avoid mini player popup
         self.playerService.confirmPlaybackStarted()
     }
 
     @Test("playWithMix does nothing without client")
     func playWithMixNoClient() async {
         let service = PlayerService()
-        // No client set
 
         await service.playWithMix(playlistId: "RDEM123", startVideoId: nil)
 
@@ -29,8 +26,6 @@ struct PlayerServiceMixTests {
 
     @Test("playWithMix handles empty mix queue")
     func playWithMixEmptyQueue() async {
-        // MockYTMusicClient returns empty by default
-
         await self.playerService.playWithMix(playlistId: "RDEM123", startVideoId: nil)
 
         #expect(self.playerService.queue.isEmpty)
@@ -110,7 +105,6 @@ struct PlayerServiceMixTests {
 
         await self.playerService.fetchMoreMixSongsIfNeeded()
 
-        // No change expected since we're at the beginning
         #expect(self.playerService.queue.count == 20)
     }
 
@@ -226,10 +220,8 @@ struct PlayerServiceMixTests {
         let queue = TestFixtures.makeSongs(count: 5)
         await self.playerService.playQueue(queue, startingAt: 2)
 
-        // Remove songs before current index
         self.playerService.removeFromQueue(videoIds: Set(["video-0", "video-1"]))
 
-        // Current track should now be at index 0
         #expect(self.playerService.queue.count == 3)
         #expect(self.playerService.currentTrack?.videoId == "video-2")
         #expect(self.playerService.currentIndex == 0)
@@ -253,10 +245,8 @@ struct PlayerServiceMixTests {
         let queue = TestFixtures.makeSongs(count: 3)
         await self.playerService.playQueue(queue, startingAt: 0)
 
-        // Current track is video-0 at index 0
         self.playerService.reorderQueue(videoIds: ["video-2", "video-1", "video-0"])
 
-        // Current track should now be at index 2
         #expect(self.playerService.currentTrack?.videoId == "video-0")
         #expect(self.playerService.currentIndex == 2)
     }
@@ -266,10 +256,8 @@ struct PlayerServiceMixTests {
         let queue = TestFixtures.makeSongs(count: 4)
         await self.playerService.playQueue(queue, startingAt: 1)
 
-        // [video-0, video-1*, video-2, video-3] - current is video-1 at index 1
         self.playerService.reorderQueue(from: IndexSet(integer: 0), to: 3)
 
-        // move(fromOffsets:toOffset:) inserts before toOffset: [video-1, video-2, video-0, video-3]
         #expect(self.playerService.queue[0].videoId == "video-1")
         #expect(self.playerService.queue[1].videoId == "video-2")
         #expect(self.playerService.queue[2].videoId == "video-0")

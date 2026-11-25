@@ -2,13 +2,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-/// Construction-level tests for the legacy fallback views used on macOS 15.
-///
-/// SwiftUI views can't have their `body` evaluated outside of a hosting
-/// renderer, so these tests are deliberately narrow: they verify the view
-/// values can be constructed with realistic inputs and that the stored
-/// properties survive `init`. The end-to-end behavior is covered by the
-/// matching UI tests in `KasetUITests` running on the macos-15 CI leg.
 @MainActor
 @Suite(.tags(.model))
 struct LegacyFallbackViewsTests {

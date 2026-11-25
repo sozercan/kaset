@@ -1,11 +1,5 @@
 import AppKit
 
-/// Shared sizing contract for Kaset's primary app window.
-///
-/// SwiftUI's `.frame(minWidth:minHeight:)` documents the layout floor for the
-/// view hierarchy, while this helper applies the same floor to the underlying
-/// `NSWindow` so live resizing and restored autosaved frames cannot shrink the
-/// window below the point where the sidebar/player controls remain usable.
 enum MainWindowLayout {
     static let autosaveName = "KasetMainWindow"
     static let windowTitle = "Kaset"
@@ -13,14 +7,12 @@ enum MainWindowLayout {
     static let minimumHeight: CGFloat = 600
     static let defaultWidth: CGFloat = 1100
     static let defaultHeight: CGFloat = 760
-    /// Shared top inset for the Music command bar and YouTube Ask panel.
     static let aiTaskSurfaceTopPadding: CGFloat = 72
 
     static var minimumContentSize: NSSize {
         NSSize(width: minimumWidth, height: minimumHeight)
     }
 
-    /// Returns true for windows that are known to be the primary app window.
     static func isPrimaryWindowIdentity(title: String, frameAutosaveName: String) -> Bool {
         frameAutosaveName == self.autosaveName || title == self.windowTitle
     }
@@ -30,7 +22,6 @@ enum MainWindowLayout {
         self.isPrimaryWindowIdentity(title: window.title, frameAutosaveName: window.frameAutosaveName)
     }
 
-    /// Applies the primary-window sizing contract to an AppKit window.
     @MainActor
     static func configure(_ window: NSWindow) {
         guard self.isPrimaryWindow(window) else { return }
@@ -38,8 +29,6 @@ enum MainWindowLayout {
         self.configureKnownPrimaryWindow(window)
     }
 
-    /// Applies the primary-window contract when the caller already owns the
-    /// main SwiftUI scene and does not need title-based discovery.
     @MainActor
     static func configureKnownPrimaryWindow(_ window: NSWindow) {
         if window.frameAutosaveName.isEmpty {
@@ -50,7 +39,6 @@ enum MainWindowLayout {
         self.expandIfNeeded(window)
     }
 
-    /// Pure clamp used by both AppKit configuration and tests.
     static func clampedContentSize(_ contentSize: NSSize) -> NSSize {
         NSSize(
             width: max(contentSize.width, self.minimumWidth),
@@ -73,8 +61,6 @@ enum MainWindowLayout {
         ).size
         var clampedFrame = currentFrame
         clampedFrame.size = clampedFrameSize
-        // Keep the titlebar/top edge anchored when expanding a stale restored
-        // frame, so the window does not jump downward on launch/reopen.
         clampedFrame.origin.y = currentFrame.maxY - clampedFrameSize.height
 
         let constrainedFrame = window.constrainFrameRect(clampedFrame, to: window.screen)

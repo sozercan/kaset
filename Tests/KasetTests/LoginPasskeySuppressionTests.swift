@@ -3,7 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-/// Tests for LoginPasskeySuppression.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct LoginPasskeySuppressionTests {
@@ -28,9 +27,6 @@ struct LoginPasskeySuppressionTests {
 
     @Test("WebAuthn API is exposed in a plain WebView", .timeLimit(.minutes(1)))
     func webAuthnExposedWithoutSuppression() async throws {
-        // Baseline guard: if WKWebView ever stops exposing WebAuthn on its
-        // own, the suppression script becomes redundant and the passkey
-        // handling should be revisited.
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .nonPersistent()
         let webView = WKWebView(frame: .zero, configuration: configuration)
@@ -75,8 +71,6 @@ struct LoginPasskeySuppressionTests {
     }
 
     private static func loadBlankPage(in webView: WKWebView) async throws {
-        // WebAuthn is only exposed in secure contexts, so give the local page
-        // an https origin; no network request is made for the page itself.
         let waiter = NavigationWaiter()
         try await waiter.waitForLoad(
             of: webView,
@@ -86,11 +80,6 @@ struct LoginPasskeySuppressionTests {
     }
 }
 
-/// Awaits the completion of a single `loadHTMLString` navigation.
-///
-/// Cancellation-aware so the suite's `timeLimit` trait can end a stuck
-/// navigation instead of suspending the test run indefinitely, and treats
-/// WebContent process termination as a failure rather than waiting forever.
 @MainActor
 private final class NavigationWaiter: NSObject, WKNavigationDelegate {
     private struct ContentProcessTerminatedError: Error {}

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for NotificationService track-change observation.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct NotificationServiceTests {
@@ -15,17 +14,12 @@ struct NotificationServiceTests {
     }
 
     private func waitForObservationDelivery() async {
-        // Event-driven observation should deliver on the next main-actor turns,
-        // without waiting for the old 500ms polling interval.
         for _ in 0 ..< 5 {
             await Task.yield()
         }
         try? await Task.sleep(for: .milliseconds(50))
     }
 
-    /// Polls until `condition` holds, bounded by a deadline that tolerates slow CI
-    /// runners — a fixed wait races with Observation delivery and the service's
-    /// loading-resolution poll loop.
     private func waitForObservationDelivery(until condition: @autoclosure @MainActor () -> Bool) async {
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(2))
@@ -114,11 +108,9 @@ struct NotificationServiceTests {
         await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-1")
         #expect(self.notificationService.lastNotifiedTrackId == "song-1")
 
-        // Set a different track, then back to the same one
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-2", title: "Second Song")
         await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "song-2")
 
-        // The lastNotifiedTrackId should now be song-2, meaning song-1 wasn't skipped
         #expect(self.notificationService.lastNotifiedTrackId == "song-2")
     }
 
@@ -133,13 +125,11 @@ struct NotificationServiceTests {
 
     @Test("notifies when loading track resolves and playback starts")
     func notifiesAfterLoadingResolves() async {
-        // First set loading placeholder
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Loading...")
         self.playerService.state = .loading
         await self.waitForObservationDelivery()
         #expect(self.notificationService.lastNotifiedTrackId == nil)
 
-        // The resolved metadata should notify once playback actually starts.
         self.playerService.currentTrack = TestFixtures.makeSong(id: "song-1", title: "Real Song")
         self.playerService.state = .playing
 
@@ -186,7 +176,6 @@ struct NotificationServiceTests {
     func serviceRemainsActiveBetweenEvents() async {
         #expect(self.notificationService.isObserving)
 
-        // And still detects changes without a polling delay.
         self.playerService.currentTrack = TestFixtures.makeSong(id: "late-song", title: "Late Song")
         self.playerService.state = .playing
         await self.waitForObservationDelivery(until: self.notificationService.lastNotifiedTrackId == "late-song")

@@ -178,8 +178,6 @@ struct HomeRefreshCacheTests {
         _ = try await seedTask.value
         try #require(client.hasMoreHomeSections)
 
-        // The bottom-of-scroll sentinel's task gets cancelled when a freshly
-        // appended page pushes it out of the lazy stack mid-request.
         let cancelledTask = Task {
             try await client.getHomeContinuation()
         }

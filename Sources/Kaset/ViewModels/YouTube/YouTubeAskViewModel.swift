@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import YouTubeAskCore
 
-/// Owns one watch-scoped Ask Gemini conversation and every task that can mutate it.
 @MainActor
 @Observable
 final class YouTubeAskViewModel {
@@ -77,9 +76,6 @@ final class YouTubeAskViewModel {
             && trimmedInput.utf8.count <= YouTubeAskLimits.maximumUserInputBytes
     }
 
-    /// Replaces all prior state with a fresh watch-page bootstrap. The toolbar
-    /// action remains hidden until eligibility is known, and presenting the panel
-    /// materializes it lazily.
     func seed(_ bootstrap: YouTubeAskBootstrap?) {
         self.cancelCurrentOperation()
         self.bootstrap = bootstrap
@@ -206,8 +202,6 @@ final class YouTubeAskViewModel {
         }
     }
 
-    /// Prepares a fresh bootstrap and conversation transactionally. A usable
-    /// current conversation stays visible unless the new one is fully ready.
     func startNewChat() {
         guard self.canStartNewChat, !self.isBusy else { return }
 
@@ -250,8 +244,6 @@ final class YouTubeAskViewModel {
         }
     }
 
-    /// Cancels in-flight work and removes all visible and opaque conversation
-    /// state. Called when the watch route or its account/auth scope goes away.
     func cancelAndDiscard() {
         self.cancelCurrentOperation()
         self.bootstrap = nil

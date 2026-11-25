@@ -3,16 +3,11 @@ import os
 import Security
 import WebKit
 
-/// Manages WebKit data store for persistent cookies and session management.
 @MainActor
 @Observable
 final class WebKitManager: NSObject, WebKitManagerProtocol {
-    /// Shared singleton instance.
     static let shared = WebKitManager(dataStore: .default(), restoresCookies: true, loadsExtensions: true)
 
-    /// Creates an isolated manager for unit tests. The cookie archive queue is private to the
-    /// instance and backed by in-memory storage, so parallel suites cannot clear or overwrite
-    /// each other's archive through the process-wide `CookieArchiveWriteQueue.shared`.
     static func makeTestInstance(
         cookieArchiveStorage: CookieArchiveStorage = .inMemory()
     ) -> WebKitManager {
@@ -24,72 +19,51 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         )
     }
 
-    /// The persistent website data store used across all WebViews.
     let dataStore: WKWebsiteDataStore
 
-    /// Serializes archive reads and writes for this manager's cookies. Defaults to the
-    /// process-wide queue so production keeps a single archive; tests inject their own.
     let cookieArchiveQueue: CookieArchiveWriteQueue
 
-    /// Timestamp of the last cookie change (for observation).
     private(set) var cookiesDidChange: Date = .distantPast
 
     func recordCookieChange() {
         self.cookiesDidChange = Date()
     }
 
-    /// Flag to prevent cookie backups while restoring from Keychain.
     var isRestoringCookies = false
 
-    /// Flag to prevent observer-driven backups while auth cookies are being cleared.
     var isClearingAuthCookies = false
 
-    /// Serializes and coalesces every auth-cookie/data clearing operation.
     let authCookieClearCoordinator = AuthCookieClearCoordinator()
 
-    /// Task for debouncing cookie change handling.
     var cookieDebounceTask: Task<Void, Never>?
 
-    /// Coalesces callers that require the latest cookie snapshot to be persisted.
     var forcedCookieBackupTask: Task<Bool, Never>?
 
-    /// Suppresses observer-driven persistence while a login baseline is captured.
     var isPreparingLoginCookieBackup = false
 
-    /// Suppresses observer-driven persistence while a login backup is staged.
     var activeLoginCookieBackupTransaction: CookieBackupTransaction?
 
-    /// Whether transaction setup failed to restore its prior durable state.
     var loginCookieBackupSetupRequiresCleanup = false
 
-    /// Records cookie changes delivered while a forced snapshot is being persisted.
     var forcedCookieBackupDirty = false
 
-    /// Coalesces startup restoration and retries after temporary storage failures.
     var initialCookieRestoreTask: Task<CookieRestoreResult, Never>?
 
-    /// Authentication and archive writes stay blocked until restoration is resolved.
     var initialCookieRestoreResult: CookieRestoreResult = .ready
 
-    /// Invalidates startup restores and backups that began before an auth-cookie clear.
     var authCookieOperationFence = AuthCookieOperationFence()
 
-    /// Minimum interval between cookie backup operations (in seconds).
     static let cookieDebounceInterval: Duration = .seconds(5)
 
-    /// The YouTube Music origin URL.
     static let origin = "https://music.youtube.com"
 
     @MainActor
     let webExtensionController = WKWebExtensionController()
 
-    /// Required cookie name for authentication.
     nonisolated static let authCookieName = "__Secure-3PAPISID"
 
-    /// Fallback cookie name (non-secure version).
     nonisolated static let fallbackAuthCookieName = "SAPISID"
 
-    /// Custom user agent to appear as Safari to avoid "browser not supported" errors.
     static let userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
 
     let logger = DiagnosticsLogger.webKit
@@ -116,11 +90,8 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         super.init()
 
-        // Observe cookie changes
         self.dataStore.httpCookieStore.add(self)
 
-        // Restore auth cookies on startup.
-        // Keychain is the source of truth; in DEBUG builds we also export to cookies.dat for tooling.
         if restoresCookies, !UITestConfig.isRunningUnitTests {
             self.startInitialCookieRestore()
         }
@@ -138,7 +109,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         }
     }
 
-    /// Returns `true` if any web extension is currently loaded.
     var isExtensionLoaded: Bool {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -148,7 +118,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return false
     }
 
-    /// Number of currently loaded extensions.
     var loadedExtensionCount: Int {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -158,7 +127,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return 0
     }
 
-    /// Returns the version string of the first loaded extension, if any.
     var extensionVersion: String? {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -168,7 +136,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return nil
     }
 
-    /// Loads all enabled extensions from `ExtensionsManager`.
     func loadExtensions(using manager: ExtensionsManager = .shared) async {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -187,7 +154,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         #endif
     }
 
-    /// Loads a single web extension from a directory URL.
     @available(macOS 14.0, *)
     private func loadSingleExtension(at url: URL, id: String, manager: ExtensionsManager) async {
         do {
@@ -197,9 +163,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
                 return
             }
             let context = WKWebExtensionContext(for: webExtension)
-            // WebKit generates a new context identifier by default, which would
-            // move extension storage and webkit-extension:// origins every launch.
-            // Use Kaset's persisted managed-extension ID as the stable host identity.
             context.uniqueIdentifier = id
 
             self.extensionContexts[id] = context
@@ -248,7 +211,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return patterns
     }
 
-    /// Creates a WebView configuration using the shared persistent data store by default.
     func createWebViewConfiguration(websiteDataStore: WKWebsiteDataStore? = nil) -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = websiteDataStore ?? self.dataStore
@@ -262,17 +224,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         configuration.preferences.isElementFullscreenEnabled = true
         configuration.mediaTypesRequiringUserActionForPlayback = []
 
-        // Enable AirPlay for streaming to Apple TV, HomePod, etc.
         configuration.allowsAirPlayForMediaPlayback = true
 
         return configuration
     }
 
-    /// Registers a Kaset-owned playback WebView as a browser tab for Web Extensions.
-    ///
-    /// WebKit can attach a `WKWebExtensionController` to a `WKWebViewConfiguration`,
-    /// but content injection and tab-scoped APIs also require the app to expose a
-    /// lightweight `WKWebExtensionTab`/`WKWebExtensionWindow` model.
     func registerExtensionHostWebView(_ webView: WKWebView, role: WebExtensionHostedWebViewRole) {
         #if compiler(>=5.9)
             if #available(macOS 15.4, *) {
@@ -329,13 +285,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         #endif
     }
 
-    /// Creates the minimal WebView configuration used for the login sheet and
-    /// hidden account-switch navigations. It deliberately shares only the
-    /// website data store (cookies) and does not attach the app's
-    /// `WKWebExtensionController`, so enabled extensions/content scripts cannot
-    /// observe credential-bearing signin URLs. It also suppresses WebAuthn
-    /// passkey detection so Google's sign-in falls back to flows that can
-    /// succeed in an embedded WebView (ADR-0033).
     func createSessionSwitchWebViewConfiguration() -> WKWebViewConfiguration {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = self.dataStore
@@ -343,14 +292,12 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return configuration
     }
 
-    /// Metadata required to present an extension-owned page in a dedicated web view.
     struct ExtensionPage: Identifiable {
         let id: String
         let url: URL
         let configuration: WKWebViewConfiguration
     }
 
-    /// Resolves the options or popup page for a loaded extension.
     func extensionPage(forExtensionId id: String) -> ExtensionPage? {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -374,12 +321,10 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return nil
     }
 
-    /// Gets the options page URL for a loaded extension by its Kaset internal ID.
     func optionsPageURL(forExtensionId id: String) -> URL? {
         self.extensionPage(forExtensionId: id)?.url
     }
 
-    /// Gets the options page URL for a loaded extension by name (deprecated/fallback).
     func optionsPageURL(forExtensionNamed name: String) -> URL? {
         #if compiler(>=5.9)
             if #available(macOS 14.0, *) {
@@ -414,19 +359,15 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return URL(string: normalizedPath, relativeTo: rootURL)?.absoluteURL
     }
 
-    /// Retrieves all cookies from the HTTP cookie store.
     func getAllCookies() async -> [HTTPCookie] {
         await self.dataStore.httpCookieStore.allCookies()
     }
 
-    /// Gets cookies for a specific domain.
-    /// Uses proper domain matching: exact match or cookie domain with leading dot matches subdomains.
     func getCookies(for domain: String) async -> [HTTPCookie] {
         let allCookies = await getAllCookies()
         return Self.cookies(allCookies, matching: domain)
     }
 
-    /// Builds a Cookie header string for the given domain.
     func cookieHeader(for domain: String) async -> String? {
         let cookies = await getCookies(for: domain)
         guard !cookies.isEmpty else { return nil }
@@ -435,19 +376,15 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return headerFields["Cookie"]
     }
 
-    /// Retrieves the SAPISID cookie value used for authentication.
-    /// Checks both secure and non-secure cookie variants.
     func getSAPISID() async -> String? {
         let cookies = await getCookies(for: "youtube.com")
         let allCookies = await getAllCookies()
         self.logger.debug("Checking for SAPISID - total cookies: \(allCookies.count), youtube.com cookies: \(cookies.count)")
 
-        // Try secure cookie first, then fallback to non-secure
         let secureCookie = cookies.first { $0.name == Self.authCookieName }
         let fallbackCookie = cookies.first { $0.name == Self.fallbackAuthCookieName }
 
         if let cookie = secureCookie ?? fallbackCookie {
-            // Log cookie expiration for debugging session issues
             if let expiresDate = cookie.expiresDate {
                 let formatter = DateFormatter()
                 formatter.dateStyle = .short
@@ -471,14 +408,11 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return nil
     }
 
-    /// Checks if the required authentication cookies exist.
     func hasAuthCookies() async -> Bool {
         let sapisid = await getSAPISID()
         return sapisid != nil
     }
 
-    /// Logs all authentication-related cookies for debugging.
-    /// Call this when troubleshooting login persistence issues.
     func logAuthCookies() async {
         let cookies = await getCookies(for: "youtube.com")
         let authCookieNames = ["SAPISID", "__Secure-3PAPISID", "SID", "HSID", "SSID", "APISID", "__Secure-1PAPISID"]
@@ -507,7 +441,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         self.logger.info("==============================")
     }
 
-    /// Clears only authentication cookies, preserving public WebKit cache/data.
     @discardableResult
     func clearAuthCookies() async -> Bool {
         await self.authCookieClearCoordinator.run(scope: .authenticationCookies) { [weak self] in
@@ -523,9 +456,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 
         await self.fenceAuthCookieOperationsAndInvalidateBackup()
 
-        // Invalidate once more after the initial fence so no operation that was
-        // already queued before it can leave a durable stale snapshot. All live
-        // verification happens after this final persistence suspension.
         let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
 
         let didClearLiveCookies = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: true)
@@ -536,8 +466,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return didClear
     }
 
-    /// Deletes live login-session cookies from WebKit without touching the
-    /// persisted archive or its restore policy.
     func deleteLiveLoginSessionCookies(allowsCookieStoreFallback: Bool) async -> Bool {
         let result = await LiveAuthCookieStoreClearer.clear(
             allowsCookieStoreFallback: allowsCookieStoreFallback,
@@ -565,7 +493,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         return result.didClear
     }
 
-    /// Clears all website data (cookies, cache, etc.).
     @discardableResult
     func clearAllData() async -> Bool {
         await self.authCookieClearCoordinator.run(scope: .allWebsiteData) { [weak self] in
@@ -585,8 +512,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
         await self.fenceAuthCookieOperationsAndInvalidateBackup()
         await self.dataStore.removeData(ofTypes: allTypes, modifiedSince: dateFrom)
 
-        // Repeat the invalidation after WebKit finishes clearing to close the
-        // window for any already-enqueued observer or backup work.
         let didInvalidatePersistedCookies = await self.cookieArchiveQueue.invalidateAndDelete()
         let remainingCookies = await self.dataStore.httpCookieStore.allCookies()
         let didClearLiveCookies = !remainingCookies.contains(where: KeychainCookieStorage.isLoginDomainCookie)
@@ -622,7 +547,6 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
 #if compiler(>=5.9)
     @available(macOS 14.0, *)
     extension WebKitManager: WKWebExtensionControllerDelegate {
-        /// Runtime requests cannot expand the access approved in Settings.
         func webExtensionController(_: WKWebExtensionController, promptForPermissions _: Set<WKWebExtension.Permission>, in _: (any WKWebExtensionTab)?, for _: WKWebExtensionContext) async -> (Set<WKWebExtension.Permission>, Date?) {
             ([], nil)
         }
@@ -647,13 +571,9 @@ final class WebKitManager: NSObject, WebKitManagerProtocol {
     }
 #endif
 
-/// Errors raised while switching the WebView session's active delegated identity.
 enum SessionSwitchError: LocalizedError {
-    /// The page loaded but its `DATASYNC_ID` did not reflect the expected identity.
     case identityNotApplied(expectedBrandId: String?)
-    /// The switch navigation failed to load.
     case navigationFailed(underlying: String)
-    /// The switch did not complete within the allotted time.
     case timedOut
 
     var errorDescription: String? {
@@ -669,27 +589,6 @@ enum SessionSwitchError: LocalizedError {
 }
 
 extension WebKitManager {
-    /// Switches the shared cookie session's active delegated identity by
-    /// navigating a transient WebView to a server-issued account-switch URL.
-    ///
-    /// History is recorded by the playback page's own stats pings, which
-    /// attribute to the identity baked into the served document's
-    /// `ytcfg.DATASYNC_ID` (`"<delegatedSessionId>||<userSessionId>"` for a brand,
-    /// `"<userSessionId>||"` for primary). Navigating the brand's `signinUrl`
-    /// (which carries `&pageid=<brandId>`) re-points that identity for the single
-    /// shared `WKWebsiteDataStore`, so subsequent watch loads — and their history
-    /// pings — attribute to the brand.
-    ///
-    /// The method is verification-gated: it reads `DATASYNC_ID` after the
-    /// navigation settles and throws ``SessionSwitchError/identityNotApplied(expectedBrandId:)``
-    /// unless the result matches `expectedBrandId` (or, for `nil`, an empty
-    /// delegated half indicating the primary identity). Callers should perform
-    /// this switch *before* committing the new account so a failure can be
-    /// surfaced and reverted rather than silently recording to the wrong account.
-    ///
-    /// - Parameters:
-    ///   - signinURL: The server-issued `accountSigninToken.signinUrl`.
-    ///   - expectedBrandId: The brand pageId to verify, or `nil` for the primary.
     func switchSessionIdentity(to signinURL: URL, expectedBrandId: String?) async throws {
         self.logger.info("Switching session identity (expecting \(expectedBrandId ?? "primary"))")
         guard AccountsListParser.isAllowedSigninURL(signinURL) else {
@@ -700,7 +599,6 @@ extension WebKitManager {
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.customUserAgent = Self.userAgent
 
-        // Keep the navigation driver alive for the lifetime of the load.
         let driver = SessionSwitchNavigationDriver()
         webView.navigationDelegate = driver
 
@@ -709,8 +607,6 @@ extension WebKitManager {
             webView.stopLoading()
         }
 
-        // Bail before mutating the shared cookie session if already cancelled
-        // (e.g. a stale launch pin superseded by a newer switch).
         try Task.checkCancellation()
 
         do {
@@ -723,11 +619,6 @@ extension WebKitManager {
             throw SessionSwitchError.navigationFailed(underlying: error.localizedDescription)
         }
 
-        // The page's ytcfg may be emitted slightly after didFinish; poll briefly.
-        // Note: the navigation above is the session MUTATION; this poll is
-        // read-only verification. Correctness across concurrent pins relies on
-        // ordering (the surviving navigation runs last), not on cancellation —
-        // stopLoading() cannot revert cookies already set mid-redirect.
         for attempt in 0 ..< 5 {
             if let dataSyncId = try? await Self.readDataSyncId(from: webView),
                Self.dataSyncId(dataSyncId, matches: expectedBrandId)
@@ -736,7 +627,6 @@ extension WebKitManager {
                 return
             }
             if attempt < 4 {
-                // Use a throwing sleep so cancellation breaks the poll loop.
                 try await Task.sleep(for: .milliseconds(400))
             }
         }
@@ -745,7 +635,6 @@ extension WebKitManager {
         throw SessionSwitchError.identityNotApplied(expectedBrandId: expectedBrandId)
     }
 
-    /// Reads `ytcfg.DATASYNC_ID` from a loaded WebView.
     private static func readDataSyncId(from webView: WKWebView) async throws -> String? {
         let script = """
         (function() {
@@ -764,25 +653,13 @@ extension WebKitManager {
         return result as? String
     }
 
-    /// Returns `true` when a `DATASYNC_ID` reflects the expected identity.
-    ///
-    /// `DATASYNC_ID` is `"<delegatedSessionId>||<userSessionId>"` for a brand
-    /// (delegated/secondary channel) and `"<userSessionId>||"` for the primary
-    /// account — i.e. the primary has a non-empty first half and an empty second
-    /// half. A blank or malformed value (e.g. `""` or `"||"`, which the page JS
-    /// returns when `ytcfg` has not populated yet) is treated as *no match* for
-    /// either identity, so an unread page never falsely "verifies" as primary.
     static func dataSyncId(_ dataSyncId: String, matches expectedBrandId: String?) -> Bool {
-        // A well-formed value has exactly two "||"-separated halves with a
-        // non-empty first half (the user/delegated session id).
         let parts = dataSyncId.components(separatedBy: "||")
         guard parts.count == 2, !parts[0].isEmpty else {
             return false
         }
         let firstHalf = parts[0]
         let hasUserSessionSuffix = !parts[1].isEmpty
-        // delegatedSessionId is present only for a secondary (brand) identity:
-        // "<delegated>||<user>". Primary is "<user>||" (empty second half).
         let delegatedSessionId: String? = hasUserSessionSuffix ? firstHalf : nil
         if let expectedBrandId {
             return delegatedSessionId == expectedBrandId
@@ -791,10 +668,6 @@ extension WebKitManager {
     }
 }
 
-/// Drives a one-shot navigation to completion for ``WebKitManager/switchSessionIdentity(to:expectedBrandId:)``.
-///
-/// Bridges `WKNavigationDelegate` callbacks into a single awaitable result and
-/// enforces a timeout so a hung redirect chain cannot block the switch forever.
 @MainActor
 private final class SessionSwitchNavigationDriver: NSObject, WKNavigationDelegate {
     private var continuation: CheckedContinuation<Void, Error>?
@@ -804,8 +677,6 @@ private final class SessionSwitchNavigationDriver: NSObject, WKNavigationDelegat
     func load(_ url: URL, in webView: WKWebView, timeout: Duration) async throws {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                // The enclosing Task may have been cancelled between the call and
-                // this body running; bail out immediately if so.
                 if Task.isCancelled {
                     continuation.resume(throwing: CancellationError())
                     return
@@ -819,8 +690,6 @@ private final class SessionSwitchNavigationDriver: NSObject, WKNavigationDelegat
                 webView.load(URLRequest(url: url))
             }
         } onCancel: {
-            // Cooperative cancellation: resolve promptly with CancellationError so
-            // a stale pin does not block a newer switch for the full navigation.
             Task { @MainActor [weak self] in
                 self?.complete(with: .failure(CancellationError()))
             }

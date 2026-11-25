@@ -2,14 +2,12 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for PlayerService.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct PlayerServiceTests {
     var playerService: PlayerService
 
     init() {
-        // Reset UserDefaults to ensure clean initial state for tests
         UserDefaults.standard.removeObject(forKey: "playerVolume")
         UserDefaults.standard.removeObject(forKey: "playerVolumeBeforeMute")
         UserDefaults.standard.removeObject(forKey: SettingsManager.Keys.keepMiniPlayerOnTop)

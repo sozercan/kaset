@@ -2,7 +2,6 @@ import AppKit
 import Foundation
 import SwiftUI
 
-/// Helper for common song actions like liking, disliking, adding to library, and queue management.
 @MainActor
 enum SongActionsHelper {
     static var artistLibraryReconciliationRetryDelays: [Duration] {
@@ -10,12 +9,10 @@ enum SongActionsHelper {
         set { LibraryMutationActions.artistReconciliationRetryDelays = newValue }
     }
 
-    /// Whether a playlist card should expose direct playback.
     static func canQuickPlayPlaylist(_ playlist: Playlist) -> Bool {
         playlist.resolvedMoodCategoryEndpoint == nil
     }
 
-    /// Likes a song via the API (does not play the song).
     static func likeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
         Task {
@@ -23,7 +20,6 @@ enum SongActionsHelper {
         }
     }
 
-    /// Unlikes a song (removes the like rating) via the API.
     static func unlikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
         Task {
@@ -31,7 +27,6 @@ enum SongActionsHelper {
         }
     }
 
-    /// Dislikes a song via the API (does not play the song).
     static func dislikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
         Task {
@@ -39,7 +34,6 @@ enum SongActionsHelper {
         }
     }
 
-    /// Undislikes a song (removes the dislike rating) via the API.
     static func undislikeSong(_ song: Song, likeStatusManager: SongLikeStatusManager) {
         let activeAccountID = likeStatusManager.activeAccountID
         Task {
@@ -47,13 +41,11 @@ enum SongActionsHelper {
         }
     }
 
-    /// Adds a song to the library without changing playback or queue ownership.
     @discardableResult
     static func addToLibrary(_ song: Song, playerService: PlayerService) -> Task<Void, Never> {
         playerService.addToLibrary(song: song)
     }
 
-    /// Adds a song to a playlist.
     static func addSongToPlaylist(
         _ song: Song,
         playlist: AddToPlaylistOption,
@@ -62,7 +54,6 @@ enum SongActionsHelper {
         await LibraryMutationActions.addSongToPlaylist(song, playlist: playlist, client: client)
     }
 
-    /// Adds a playlist to the library.
     static func addPlaylistToLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -77,7 +68,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Removes a playlist from the library.
     static func removePlaylistFromLibrary(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -102,7 +92,6 @@ enum SongActionsHelper {
         }
     }
 
-    /// Adds an album to the library using its album playlist target.
     static func addAlbumToLibrary(
         _ album: Album,
         targetPlaylistId: String,
@@ -119,7 +108,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Removes an album from the library using its album playlist target.
     static func removeAlbumFromLibrary(
         _ album: Album,
         targetPlaylistId: String,
@@ -136,7 +124,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Plays a playlist immediately, replacing the current queue.
     static func playPlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -149,7 +136,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Permanently deletes a playlist owned by the user.
     static func deletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -166,9 +152,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Shows a confirmation dialog before permanently deleting a playlist owned by the user.
-    /// Deletion is optimistic: `onConfirm` fires immediately and the playlist is removed from
-    /// the sidebar and library up front, then restored with an error alert if the API call fails.
     static func confirmDeletePlaylist(
         _ playlist: Playlist,
         client: any YTMusicClientProtocol,
@@ -328,9 +311,6 @@ enum SongActionsHelper {
                 Self.invalidateLibraryResponseCaches()
                 LibraryMutationBroadcaster.shared.playlistCreated(playlist)
 
-                // Library browse responses can lag briefly behind a successful playlist creation.
-                // Refresh in the background, but keep the optimistic playlist visible if the
-                // cache/backend still returns a stale snapshot.
                 try? await Task.sleep(for: .milliseconds(500))
                 guard !Task.isCancelled, request.isValid() else {
                     LibraryMutationBroadcaster.shared.discardCreatedPlaylist(playlist)
@@ -378,7 +358,6 @@ enum SongActionsHelper {
         }
     }
 
-    /// Subscribes to a podcast show (adds to library).
     static func subscribeToPodcast(
         _ show: PodcastShow,
         client: any YTMusicClientProtocol,
@@ -391,7 +370,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Unsubscribes from a podcast show (removes from library).
     static func unsubscribeFromPodcast(
         _ show: PodcastShow,
         client: any YTMusicClientProtocol,
@@ -404,7 +382,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Subscribes to an artist (adds to library).
     static func subscribeToArtist(
         _ artist: Artist,
         channelId: String,
@@ -419,7 +396,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Unsubscribes from an artist (removes from library).
     static func unsubscribeFromArtist(
         _ artist: Artist,
         channelId: String,
@@ -438,22 +414,16 @@ enum SongActionsHelper {
         LibraryMutationActions.invalidateResponseCaches()
     }
 
-    /// Adds a song to play next (immediately after current track).
     static func addToQueueNext(_ song: Song, playerService: PlayerService) {
         playerService.insertNextInQueue([song])
         DiagnosticsLogger.ui.info("Added song to play next: \(song.title)")
     }
 
-    /// Adds a song to the end of the queue.
     static func addToQueueLast(_ song: Song, playerService: PlayerService) {
         playerService.appendToQueue([song])
         DiagnosticsLogger.ui.info("Added song to end of queue: \(song.title)")
     }
 
-    /// Adds multiple songs (e.g., from an album) to play next.
-    /// - Parameters:
-    ///   - fallbackArtist: Artist name to use when songs have empty artists (e.g., album author)
-    ///   - fallbackAlbum: Album info to use when songs don't have album metadata (e.g., album title/cover)
     static func addSongsToQueueNext(
         _ songs: [Song],
         playerService: PlayerService,
@@ -471,10 +441,6 @@ enum SongActionsHelper {
         DiagnosticsLogger.ui.info("Added \(preparedSongs.count) songs to play next")
     }
 
-    /// Adds multiple songs (e.g., from an album) to the end of the queue.
-    /// - Parameters:
-    ///   - fallbackArtist: Artist name to use when songs have empty artists (e.g., album author)
-    ///   - fallbackAlbum: Album info to use when songs don't have album metadata (e.g., album title/cover)
     static func addSongsToQueueLast(
         _ songs: [Song],
         playerService: PlayerService,
@@ -492,7 +458,6 @@ enum SongActionsHelper {
         DiagnosticsLogger.ui.info("Added \(preparedSongs.count) songs to end of queue")
     }
 
-    /// Adds an album's songs to play next (immediately after current track).
     static func addAlbumToQueueNext(
         _ album: Album,
         client: any YTMusicClientProtocol,
@@ -505,7 +470,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Adds an album's songs to the end of the queue.
     static func addAlbumToQueueLast(
         _ album: Album,
         client: any YTMusicClientProtocol,
@@ -518,7 +482,6 @@ enum SongActionsHelper {
         )
     }
 
-    /// Plays an album immediately, replacing the current queue.
     static func playAlbum(
         _ album: Album,
         client: any YTMusicClientProtocol,

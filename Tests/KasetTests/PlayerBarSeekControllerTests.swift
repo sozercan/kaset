@@ -67,7 +67,6 @@ struct PlayerBarSeekControllerTests {
     }
 }
 
-/// Records whether an observation fired; only touched on the main actor in these tests.
 private final class ObservationFlag: @unchecked Sendable {
     var fired = false
 }

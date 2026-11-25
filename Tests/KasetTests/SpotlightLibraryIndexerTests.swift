@@ -5,7 +5,6 @@ import Testing
 @Suite("Spotlight Library indexer", .serialized, .tags(.service))
 @MainActor
 struct SpotlightLibraryIndexerTests {
-    /// Records replacements instead of touching the user's Spotlight index.
     private actor RecordingIndex: LibrarySpotlightIndex {
         private(set) var replacements: [(playlists: [String], albums: [String])] = []
 
@@ -14,7 +13,6 @@ struct SpotlightLibraryIndexerTests {
         }
     }
 
-    /// Fails the first `failures` replacements.
     private actor FlakyIndex: LibrarySpotlightIndex {
         private var failures: Int
         private(set) var attempts = 0
@@ -32,7 +30,6 @@ struct SpotlightLibraryIndexerTests {
         }
     }
 
-    /// Holds the first replacement open and records how many ever overlap.
     private actor GatedIndex: LibrarySpotlightIndex {
         let firstStarted = AsyncGate()
         let releaseFirst = AsyncGate()
@@ -144,7 +141,6 @@ struct SpotlightLibraryIndexerTests {
         await index.firstStarted.wait()
         indexer.update(self.makeLibrary(playlistIDs: ["PL-superseded"]))
         indexer.update(self.makeLibrary(playlistIDs: ["PL-latest"]))
-        // Gives an unserialized replacement time to start before the first one finishes.
         try? await Task.sleep(for: .milliseconds(50))
         await index.releaseFirst.open()
         await indexer.waitForPendingUpdate()

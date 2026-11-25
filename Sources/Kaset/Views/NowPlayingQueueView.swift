@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Up Next list for the full screen Now Playing view: borderless rows over the blurred
-/// artwork backdrop, played tracks dimmed above the current one, which is scrolled to the top.
 struct NowPlayingQueueView: View {
     @Environment(PlayerService.self) private var playerService
 
@@ -80,7 +78,6 @@ struct NowPlayingQueueView: View {
             }
             .scrollIndicators(.hidden)
             .mask {
-                // Fade rows out under the bottom edge instead of clipping them.
                 LinearGradient(
                     stops: [.init(color: .black, location: 0.9), .init(color: .clear, location: 1)],
                     startPoint: .top,

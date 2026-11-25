@@ -1,21 +1,14 @@
 import SwiftUI
 
-/// The Liquid Glass player bar for inline and detached YouTube playback.
 struct YouTubePlayerBar: View {
     private static let brandAccent = PackageResourceLookup.brandAccent
     private static let fullVideoDetailsWidth: CGFloat = 294
     private static let compactVideoDetailsWidth: CGFloat = 141
-    /// Full view, Watch Later, AirPlay, captions, quality, PiP, and padding.
     private static let baseYouTubeOptionsWidth: CGFloat = 210
-    /// One 28pt option button plus its 6pt spacing.
     private static let optionButtonSlotWidth: CGFloat = 28 + 6
 
-    /// Below this the details block would collide with the transport controls.
-    /// Only the resizable detached window reaches this narrow layout.
     private static let baseHiddenVideoDetailsBreakpoint: CGFloat = 580
 
-    /// Keeps the progress lane off the capsule's rounded left end once the
-    /// details block is gone, matching the options' visual inset on the right.
     private static let hiddenDetailsLeadingInset: CGFloat = 16
 
     private struct ChapterProgressSpan {
@@ -33,7 +26,6 @@ struct YouTubePlayerBar: View {
     private let isDetachedWindow: Bool
     private let onVolumeOverlayChange: (Bool) -> Void
 
-    /// Namespace for glass effect morphing.
     @Namespace private var playerNamespace
 
     @State private var settings = SettingsManager.shared
@@ -278,8 +270,6 @@ struct YouTubePlayerBar: View {
                 }
             }
             .padding(.top, 18)
-            // Match the music player's segmented lane layering so chapter tooltips stay above
-            // transport controls without intercepting their clicks.
             .zIndex(1)
 
             self.youtubeTransportControls
@@ -578,9 +568,6 @@ struct YouTubePlayerBar: View {
         )
     }
 
-    /// Converts YouTube's chapter starts and optional bounds into the same normalized spans used by
-    /// the music player's segmented mix seek bar. Marker data remains separate so chapter snapping
-    /// and the existing metadata preview continue to work while segment visuals are active.
     static func chapterProgressSegments(
         chapters: [YouTubeChapter],
         duration: TimeInterval
@@ -638,7 +625,6 @@ struct YouTubePlayerBar: View {
         self.youtubePlayer.currentVideo?.isLive == true
     }
 
-    /// A live stream can report a finite DVR duration, so duration alone does not enable seeking.
     private var canSeek: Bool {
         self.youtubePlayer.duration > 0 && !self.youtubePlayer.isShowingAd && !self.isLive
     }
@@ -722,7 +708,6 @@ extension YouTubePlayerBar {
             + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
     }
 
-    /// Sized to the buttons shown, so no Watch Later leaves no dead gap.
     static func optionsWidth(showsFloatOnTopControl: Bool, showsWatchLaterControl: Bool) -> CGFloat {
         self.baseYouTubeOptionsWidth
             + (showsFloatOnTopControl ? self.optionButtonSlotWidth : 0)
