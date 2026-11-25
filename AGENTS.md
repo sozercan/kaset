@@ -13,7 +13,7 @@ Kaset is a native macOS client for YouTube Music and YouTube, written in Swift 6
 - **Extend the API explorer instead of writing one-off scripts.** API exploration and debugging tooling belongs in `Sources/APIExplorer/main.swift` so the next person can reuse it.
 - **Keep standard macOS shortcuts.** Don't rebind `⌘M`, `⌘W`, `⌘Q`, `⌘H`, or `⌘,` unless the human asks. For media shortcuts, follow macOS and Apple Music conventions and update `docs/keyboard-shortcuts.md`.
 - **Record significant design changes** as an ADR in `docs/adr/`.
-- **Don't add source comments.** Delete legacy comments when safe, move durable rationale into ADRs, and track workarounds as issues instead of explaining them in code. Run `python3 Scripts/comment_lint.py --base "$(git merge-base HEAD origin/main)"` to check a branch targeting `main`.
+- **Don't add source comments.** Delete legacy comments when safe, move durable rationale into ADRs, and track workarounds as issues instead of explaining them in code. Keep the exact `# vX.Y.Z` release annotation on each SHA-pinned GitHub Actions `uses:` entry. Run `python3 Scripts/comment_lint.py --base "$(git merge-base HEAD origin/main)"` to check a branch targeting `main`.
 
 ## Working Style
 

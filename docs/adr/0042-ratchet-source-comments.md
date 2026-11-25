@@ -10,7 +10,7 @@ Kaset already has thousands of source comments. Deleting all of them at once ris
 
 ## Decision
 
-Ban new prose comments and prohibit edits to legacy ones. Keep the code readable through its names and structure. Delete tautologies and stale comments, track implementation debt as issues, and preserve durable decisions in ADRs. Allow required interpreter and package headers; don't add new linter-suppression comments.
+Ban new prose comments and prohibit edits to legacy ones. Keep the code readable through its names and structure. Delete tautologies and stale comments, track implementation debt as issues, and preserve durable decisions in ADRs. Allow required interpreter and package headers; don't add new linter-suppression comments. Exempt exact `# vX.Y.Z` annotations on SHA-pinned `uses:` entries in `.github/workflows/` so readers can identify the pinned release without replacing the SHA with a mutable tag. Verify the release against the SHA when updating the annotation; the ratchet checks only its format.
 
 CI compares each changed file's comment text and multiplicity against the PR base (or the previous main-branch commit on push). Deletions and indentation changes pass; adding a comment, duplicating it, or replacing it fails even if the total falls. A Git-detected rename inherits the original file's comments. There is no checked-in allowance to update.
 

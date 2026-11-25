@@ -21,6 +21,10 @@ YAML_BLOCK = re.compile(
     rf"^(?P<indent> *)(?:(?P<sequence>-[ \t]+)?(?:{QUOTES}|[^:#]+):[ \t]+|-[ \t]+)"
     r"[|>](?:[1-9][+-]?|[+-][1-9]?)?[ \t]*(?:#.*)?$"
 )
+ACTION_RELEASE_ANNOTATION = re.compile(
+    r" *(?:- +)?uses: +[\w.-]+(?:/[\w.-]+)+@[0-9a-f]{40} +# v"
+    r"(?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){2}[ \t]*"
+)
 JS_TOKENS = re.compile(
     rf"{QUOTES}|`(?:\\[\s\S]|[^`\\])*`|{SLASHES}|\#?[\w$]+|\.{{3}}|\?\.|=>|\+\+|--|\S"
 )
@@ -208,6 +212,12 @@ def required_header(path, kind, comment):
     return is_script and re.match(r"#![ \t]*/", comment.text) is not None
 
 
+def action_release_annotation(source, comment):
+    line_start = source.rfind("\n", 0, comment.start) + 1
+    line_end = comment.start + len(comment.text)
+    return ACTION_RELEASE_ANNOTATION.fullmatch(source, line_start, line_end) is not None
+
+
 def comments(path, source):
     kind = language(path)
     if kind == "swift":
@@ -224,7 +234,11 @@ def comments(path, source):
     else:
         return []
 
-    return [comment for comment in found if not required_header(path, kind, comment)]
+    workflow = path.endswith((".yaml", ".yml")) and Path(path).parent == Path(".github/workflows")
+    return [
+        comment for comment in found
+        if not required_header(path, kind, comment) and not (workflow and action_release_annotation(source, comment))
+    ]
 
 
 def run(*arguments, source=None):
