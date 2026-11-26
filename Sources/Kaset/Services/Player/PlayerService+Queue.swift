@@ -131,7 +131,7 @@ extension PlayerService {
             return
         }
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        _ = self.beginPlaybackRequest()
+        let requestGeneration = self.beginPlaybackRequest()
         if self.state == .paused || self.state == .ended {
             await self.resume(intent: intent)
             guard self.acceptsMusicPlaybackIntent(intent) else { return }
@@ -142,7 +142,9 @@ extension PlayerService {
             queueGeneration: self.queueLoadGeneration,
             replacesUpcoming: true
         )
-        guard outcome == .applied, self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard outcome == .applied else { return }
+        self.currentEpisode = nil
+        guard self.isCurrentPlaybackRequest(requestGeneration) else { return }
         await self.fillSmartShuffleWindow()
     }
 

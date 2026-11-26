@@ -180,7 +180,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
     @Test("A shuffled radio refresh keeps the original order of the retained songs")
     func shuffledRadioRefreshKeepsOriginalOrder() async {
         let songs = TestFixtures.makeSongs(count: 4)
-        let recommended = TestFixtures.makeSong(id: "rec-1")
+        let recommended = (1 ... 3).map { TestFixtures.makeSong(id: "rec-\($0)") }
         await self.playerService.playQueue(songs, startingAt: 0)
         let entries = self.playerService.queueEntries
         self.playerService.shuffleMode = .on
@@ -188,18 +188,58 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         self.playerService.setQueue(entries: [entries[2], entries[1], entries[0], entries[3]])
         self.playerService.currentIndex = 2
         self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
-        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0]] + recommended
 
         await self.playerService.startRadio(song: songs[0])
-        #expect(self.playerService.queue.map(\.videoId) == [
-            songs[2].videoId, songs[1].videoId, songs[0].videoId, recommended.videoId,
-        ])
+
+        #expect(Array(self.playerService.queueEntryIDs.prefix(3)) == [entries[2].id, entries[1].id, entries[0].id])
+        #expect(Set(self.playerService.queue.dropFirst(3).map(\.videoId)) == Set(recommended.map(\.videoId)))
 
         self.playerService.setShuffleMode(.off)
 
-        #expect(self.playerService.queue.map(\.videoId) == [
-            songs[0].videoId, songs[1].videoId, songs[2].videoId, recommended.videoId,
-        ])
+        #expect(Array(self.playerService.queueEntryIDs.prefix(3)) == [entries[0].id, entries[1].id, entries[2].id])
+        #expect(self.playerService.queue.map(\.videoId) == songs.prefix(3).map(\.videoId) + recommended.map(\.videoId))
+    }
+
+    @Test("Seeking during a Smart Shuffle radio refresh still fills suggestions")
+    func seekDuringSmartShuffleRadioRefreshFills() async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        let suggested = TestFixtures.makeSong(id: "suggested-1")
+        self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
+        }
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        self.mockClient.radioQueueSongs[recommended.videoId] = [suggested]
+        self.mockClient.beforeRadioQueueReturn = { [playerService, mockClient] videoId in
+            guard videoId == songs[0].videoId else { return }
+            await MainActor.run { mockClient.beforeRadioQueueReturn = nil }
+            await playerService.seek(to: 60)
+        }
+
+        await self.playerService.startRadio(song: songs[0])
+
+        #expect(self.playerService.queueEntries.contains {
+            $0.song.videoId == suggested.videoId && $0.source == .suggested
+        })
+    }
+
+    @Test("Start Radio on a playing artist episode leaves episode mode")
+    func startRadioOnEpisodeClearsEpisode() async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue([songs[0]], startingAt: 0)
+        self.playerService.currentEpisode = ArtistEpisode(videoId: songs[0].videoId, title: "Episode")
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[1]]
+
+        await self.playerService.startRadio(song: songs[0])
+
+        #expect(self.playerService.currentEpisode == nil)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId])
     }
 
     @Test("A mix continuation that lands during a radio refresh does not discard the refresh")
