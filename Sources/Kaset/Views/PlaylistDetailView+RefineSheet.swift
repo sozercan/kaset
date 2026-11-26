@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - RefinePlaylistSheet
-
 @available(macOS 26.0, *)
 struct RefinePlaylistSheet: View {
     let tracks: [Song]

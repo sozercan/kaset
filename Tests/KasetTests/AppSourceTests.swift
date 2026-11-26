@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the AppSource model and its SettingsManager persistence.
 @Suite("AppSource", .serialized, .tags(.model))
 @MainActor
 struct AppSourceTests {

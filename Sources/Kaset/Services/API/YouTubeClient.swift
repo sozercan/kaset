@@ -3,19 +3,6 @@ import Foundation
 import os
 import YouTubeAskCore
 
-// MARK: - YouTubeClient
-
-/// Client for making authenticated requests to regular YouTube's internal
-/// InnerTube API (`www.youtube.com/youtubei/v1`, `WEB` client).
-///
-/// Parallel to `YTMusicClient` by design: the request scaffolding is
-/// intentionally duplicated rather than shared so the proven music path
-/// stays untouched. The critical difference is the origin — SAPISIDHASH
-/// and the `Origin`/`Referer`/`X-Origin` headers must all use
-/// `https://www.youtube.com`, not the music origin.
-///
-/// Unlike the music client, no API key is attached: the `key=` query
-/// parameter is no longer required by InnerTube (confirmed June 2026).
 @MainActor
 final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this type_body_length
     private let authService: AuthService
@@ -27,37 +14,21 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     private let askRequestProfile: YouTubeAskRequestProfile?
     private let logger = DiagnosticsLogger.api
 
-    /// Provider for the current brand account ID (mirrors `YTMusicClient`).
     var brandIdProvider: (() -> String?)?
 
-    /// Provider for the current account identity used only to scope cache keys.
-    ///
-    /// `brandIdProvider` is nil for primary accounts, so personalized YouTube
-    /// caches also need the selected account identity to avoid reusing primary
-    /// account responses across sign-in/account changes.
     var accountCacheIdentityProvider: (() -> String?)?
 
-    /// Provider for a verified primary-account scope eligible for Ask Gemini.
-    /// `nil` covers signed-out, guest, unresolved, and brand-account states.
     var askAccountBindingProvider: (() -> YouTubeAskAccountBinding?)?
 
-    /// YouTube API base URL.
     private static let baseURL = "https://www.youtube.com/youtubei/v1"
 
-    /// Request origin — also the SAPISIDHASH input origin.
     static let origin = "https://www.youtube.com"
 
-    /// Client version for WEB (live value observed June 2026; InnerTube
-    /// accepts moderately stale versions).
     private static let clientVersion = YouTubeAskRequestProfile.productionClientVersion
 
-    /// Cache-key prefix so YouTube entries never collide with music
-    /// invalidation patterns ("browse:", "next:", …).
     private static let cachePrefix = "yt:"
 
     private var homeContinuation: String?
-    /// Advances whenever a new initial Home request starts, invalidating any
-    /// older initial-page or continuation cursor publication.
     private var homePaginationEpoch: UInt64 = 0
     private var searchContinuation: String?
     private var askSessionGeneration: UInt64 = 0
@@ -97,12 +68,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         self.cache = cache
         self.askTransport = YouTubeAskTransport(configuration: resolvedSession.configuration)
         self.askMessageIDGenerator = askMessageIDGenerator ?? YouTubeAskMessageIDGenerator()
-        // Ask remains an explicit construction-time capability. The production
-        // app selects the fixed WEB profile; isolated clients and tests default off.
         self.askRequestProfile = askFeatureEnabled ? .fixedProduction : nil
     }
-
-    // MARK: - Home Feed
 
     func getHomeFeed() async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube home feed")
@@ -130,9 +97,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         self.homeContinuation = nil
 
         let bundle = try await self.homeBundle(forceRefresh: forceRefresh)
-        // The detached parse is not cancelled when the Home view model is
-        // discarded (account switch). Don't mutate shared client state after
-        // cancellation — the providers may already have moved to the new account.
         try Task.checkCancellation()
         if paginationEpoch == self.homePaginationEpoch {
             self.homeContinuation = bundle.feed.continuation
@@ -143,16 +107,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return bundle
     }
 
-    /// Loads + parses the shared `FEwhat_to_watch` bundle. The 2 MB deserialize
-    /// + walk always runs OFF the main actor (`parseHomeBundle` on a detached
-    /// task), which also validates the payload — it throws on non-JSON — so the
-    /// raw bytes are cached only after a successful parse, with no main-actor
-    /// deserialize and no redundant second parse. Home and Shorts share this so
-    /// the response and its cache entry are reused.
     private func homeBundle(forceRefresh: Bool) async throws -> YouTubeHomeBundle {
         let homeBody: [String: Any] = ["browseId": "FEwhat_to_watch"]
-        // Capture cache generation and logical request order before auth awaits.
-        // The scoped key is resolved afterward from the actual auth result.
         let cacheGeneration = self.cache.generation
         let cacheWriteTicket = self.cache.prepareWrite(cacheGeneration: cacheGeneration)
         defer {
@@ -177,8 +133,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         }
 
         let data = try await self.requestData("browse", body: homeBody, requestAuth: homeAuth)
-        // Parse off-main; this throws on a non-JSON 200, so we never cache bytes
-        // that don't parse.
         let bundle = try await Self.parseHomeBundle(from: data)
         try self.validateAuthIdentity(
             authenticated: homeAuth.authenticated,
@@ -186,8 +140,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
         try Task.checkCancellation()
 
-        // Cache only if no account switch / sign-out happened during the fetch
-        // (key AND generation unchanged).
         if let cacheKey,
            cacheKey == self.homeDataCacheKey(body: homeBody, authenticated: homeAuth.authenticated),
            let cacheWrite
@@ -202,8 +154,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return bundle
     }
 
-    /// Off-actor parse of the home bundle, kept on a detached task so the 2 MB
-    /// deserialize + walk does not block the main actor.
     private static func parseHomeBundle(from data: Data) async throws -> YouTubeHomeBundle {
         try await Task.detached(priority: .userInitiated) {
             try YouTubeFeedParser.parseHomeBundle(from: data)
@@ -228,8 +178,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     }
 
     func getHomeChips() async throws -> [YouTubeHomeChip] {
-        // Chips ride along in the home feed response; the shared TTL means this
-        // is a cache hit right after the home grid loads (cf. getShorts()).
         let data = try await self.request(
             "browse",
             body: ["browseId": "FEwhat_to_watch"],
@@ -241,7 +189,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     }
 
     func getHomeShelves() async throws -> [YouTubeHomeSection] {
-        // Same cached home response; extracts the response's own titled shelves.
         let data = try await self.request(
             "browse",
             body: ["browseId": "FEwhat_to_watch"],
@@ -253,12 +200,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
     }
 
     func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed {
-        // A chip browse uses the same `browse` continuation wire shape as
-        // pagination, but returns a fresh topic-filtered grid (reload
-        // semantics) with its own trailing continuation token. Cached (keyed on
-        // the continuation token via the request body) so returning to Home
-        // shows its rails immediately instead of re-fetching every topic over
-        // the network — which made the rows "snap" in well after the grid.
         let data = try await self.request(
             "browse",
             body: ["continuation": continuation],
@@ -267,8 +208,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
         return YouTubeFeedParser.parseContinuation(data)
     }
-
-    // MARK: - Search
 
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
         self.logger.info("Searching YouTube (filter: \(filter.rawValue))")
@@ -304,8 +243,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let data = try await self.request("search", body: ["continuation": continuation])
         return YouTubeSearchParser.parseContinuation(data)
     }
-
-    // MARK: - Watch
 
     func getWatchNext(videoId: String) async throws -> WatchNextData {
         self.logger.info("Fetching watch-next data")
@@ -393,8 +330,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         let body: [String: Any] = ["actions": [action]]
         _ = try await self.request("comment/perform_comment_action", body: body, retry: false)
     }
-
-    // MARK: - Browse
 
     func getChannel(channelId: String) async throws -> YouTubeChannelDetail {
         self.logger.info("Fetching YouTube channel page")
@@ -486,8 +421,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return feed.shorts.filter { seen.insert($0.videoId).inserted }
     }
 
-    // MARK: - Subscriptions & Library
-
     func getSubscriptionsFeed() async throws -> YouTubeFeed {
         self.logger.info("Fetching YouTube subscriptions feed")
 
@@ -529,8 +462,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return YouTubeFeedParser.collectPlaylists(data)
     }
 
-    // MARK: - Actions
-
     func rateVideo(videoId: String, rating: YouTubeRating) async throws {
         self.logger.info("Rating YouTube video")
 
@@ -570,8 +501,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         _ = try await self.request("browse/edit_playlist", body: body, retry: false)
         self.cache.invalidate(matching: Self.cachePrefix)
     }
-
-    // MARK: - Request Core
 
     private enum RequestAuthPolicy {
         case optional
@@ -666,10 +595,7 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         "comment/perform_comment_action",
     ]
 
-    /// Builds authentication headers with the YouTube (not music) origin.
     private func buildAuthHeaders() async throws -> [String: String] {
-        // Snapshot cookies once per request; deriving the cookie header and SAPISID from
-        // the same snapshot avoids repeated WebKit cookie-store enumerations during API fanout.
         let authMaterial = await webKitManager.authMaterial(for: "youtube.com")
         self.logger.debug("Building YouTube auth headers - total cookies: \(authMaterial.totalCookieCount), youtube.com cookies: \(authMaterial.domainCookieCount)")
 
@@ -696,15 +622,11 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             "Origin": Self.origin,
             "Referer": Self.origin,
             "Content-Type": "application/json",
-            // Kaset's account model is primary + brand accounts: selection is
-            // expressed via context.user.onBehalfOfUser (brandIdProvider), not
-            // the authuser index — same contract as YTMusicClient.
             "X-Goog-AuthUser": "0",
             "X-Origin": Self.origin,
         ]
     }
 
-    /// Builds the standard `WEB` client context payload.
     private func buildContext(authenticated: Bool) -> [String: Any] {
         var userDict: [String: Any] = [
             "lockedSafetyMode": false,
@@ -732,7 +654,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         ]
     }
 
-    /// Makes a request with optional authentication, caching, and retry.
     private func request(
         _ endpoint: String,
         body: [String: Any],
@@ -741,8 +662,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         bypassCache: Bool = false,
         authPolicy explicitAuthPolicy: RequestAuthPolicy? = nil
     ) async throws -> [String: Any] {
-        // Capture generation and logical request order before auth-header awaits
-        // so invalidations and later requests still reject stale writes.
         let cacheGeneration = self.cache.generation
         let cacheWriteTicket = ttl.flatMap { _ in
             self.cache.prepareWrite(cacheGeneration: cacheGeneration)
@@ -793,9 +712,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             )
         }
 
-        // Only cache if no account switch / sign-out happened during the request
-        // (the cache generation is unchanged); otherwise this could write the
-        // previous account's private data under a still-`pending` scope.
         if let ttl, let cacheKey, let cacheWrite {
             self.cache.setIfCurrent(
                 key: cacheKey,
@@ -813,21 +729,8 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return "account=\(accountIdentity);brand=\(brand)"
     }
 
-    /// Stable account identity used to scope cache keys before the real account
-    /// loads. On cold launch `accountCacheIdentityProvider` is empty until
-    /// `fetchAccounts()` (a network call) resolves — previously that disabled
-    /// caching entirely, so the home feed/chips/shelves all ran as cold ~2 MB
-    /// misses. Scoping to a fixed `"pending"` identity instead lets the cold
-    /// window reuse its own responses. It cannot leak across accounts: the
-    /// `nil → resolved` account transition runs `APICache.invalidateAll()` and
-    /// rebuilds the YouTube view models (`MainWindow` account `onChange`), so the
-    /// pending entries are cleared the moment a real identity lands.
     private static let pendingAccountScope = "pending"
 
-    /// Derives the cache key for an endpoint+body. Authenticated entries are
-    /// scoped to the resolved account identity (or `pendingAccountScope` during
-    /// cold launch); signed-out entries use a distinct guest scope.
-    /// Returns `nil` only when the call is not cacheable (`ttl == nil`).
     private func cacheKey(
         forEndpoint endpoint: String,
         body: [String: Any],
@@ -849,11 +752,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
     }
 
-    /// Like `request()`, but returns the raw response bytes instead of a
-    /// deserialized `[String: Any]`. Used for the ~2 MB home feed so the caller
-    /// can deserialize and parse off the main actor. Caching is the caller's
-    /// responsibility (it caches the bytes only after a successful parse, so a
-    /// transient non-JSON 200 can't poison the cache).
     private func requestData(
         _ endpoint: String,
         body: [String: Any],
@@ -891,7 +789,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
     }
 
-    /// Cache key for the raw home-bundle bytes.
     private func homeDataCacheKey(body: [String: Any], authenticated: Bool) -> String? {
         var fullBody = body
         fullBody["context"] = self.buildContext(authenticated: authenticated)
@@ -903,12 +800,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         )
     }
 
-    /// Returns cached raw home bytes for an already-scoped `key`.
-    ///
-    /// The caller resolves optional auth before constructing this key, so guest
-    /// and authenticated Home responses live in separate cache scopes. The key
-    /// is captured before network awaits so stale account/sign-out completions
-    /// cannot write through a later scope.
     private func cachedHomeData(key: String) -> Data? {
         if let cached = self.cache.getData(key: key) {
             self.logger.debug("Cache hit (data) for \(Self.cachePrefix)browse")
@@ -917,7 +808,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         return nil
     }
 
-    /// Performs the actual network request.
     private func performRequest(
         _ endpoint: String,
         fullBody: [String: Any],
@@ -978,8 +868,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         }
     }
 
-    /// Like `performRequest`, but returns the raw response bytes (no
-    /// deserialize) so the caller can parse off the main actor.
     private func performRequestData(
         _ endpoint: String,
         fullBody: [String: Any],
@@ -1036,8 +924,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
             throw YTMusicError.networkError(underlying: error)
         }
     }
-
-    // MARK: - Ask Request Identity
 
     private struct AskRevisionKey: Hashable {
         let conversationID: UUID
@@ -1203,9 +1089,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         }
     }
 
-    // MARK: - Nonisolated Network Helper
-
-    /// Result type for network requests to avoid throwing across actor boundaries.
     private enum NetworkResult {
         case success(Data)
         case authError(statusCode: Int)
@@ -1213,7 +1096,6 @@ final class YouTubeClient: YouTubeClientProtocol { // swiftlint:disable:this typ
         case networkError(Error)
     }
 
-    // Performs network request off the main thread.
     // swiftformat:disable:next modifierOrder
     nonisolated private static func performNetworkRequest(
         request: URLRequest,

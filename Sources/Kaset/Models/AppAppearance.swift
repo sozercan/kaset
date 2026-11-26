@@ -1,6 +1,5 @@
 import AppKit
 
-/// A persisted appearance preference, independent of the macOS setting.
 enum AppAppearance: String, CaseIterable, Identifiable {
     case system
     case light
@@ -31,7 +30,6 @@ enum AppAppearance: String, CaseIterable, Identifiable {
         }
     }
 
-    /// Applies this preference app-wide. A nil AppKit appearance keeps tracking the system.
     @MainActor
     func apply() {
         NSApplication.shared.appearance = self.nsAppearance

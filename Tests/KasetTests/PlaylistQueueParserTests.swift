@@ -5,8 +5,6 @@ import Testing
 struct PlaylistQueueParserTests {
     @Test("Curated playlist queues preserve linked artists from long bylines", arguments: [false, true])
     func preservesLinkedArtists(wrapped: Bool) throws {
-        // Shapes observed in Chill R&B and Country Summer via music/get_queue.
-        // The short bylines are display-only, and the long bylines carry artist links.
         let chill: [String: Any] = [
             "videoId": "chill-track",
             "title": ["runs": [["text": "Chill Track"]]],

@@ -2,15 +2,10 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MusicIntentTests
-
-/// Tests for MusicIntent query building and parsing logic.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
 struct MusicIntentTests {
-    // MARK: - buildSearchQuery Tests
-
     @Test("Simple query returns query as-is")
     func simpleQueryReturnsAsIs() {
         let intent = MusicIntent(
@@ -217,8 +212,6 @@ struct MusicIntentTests {
         #expect(result.contains("rock") || result.contains("upbeat"))
     }
 
-    // MARK: - queryDescription Tests
-
     @Test("queryDescription returns mood and genre")
     func queryDescriptionMoodAndGenre() {
         let intent = MusicIntent(
@@ -291,8 +284,6 @@ struct MusicIntentTests {
         let description = intent.queryDescription()
         #expect(description == "some random search")
     }
-
-    // MARK: - suggestedContentSource Tests
 
     @Test("Artist-specific query suggests search")
     func artistSpecificSuggestsSearch() {
@@ -414,8 +405,6 @@ struct MusicIntentTests {
     }
 }
 
-// MARK: - MusicActionTests
-
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))
@@ -432,8 +421,6 @@ struct MusicActionTests {
         #expect(MusicAction.allCases.count == 10)
     }
 }
-
-// MARK: - ContentSourceTests
 
 @available(macOS 26.0, *)
 

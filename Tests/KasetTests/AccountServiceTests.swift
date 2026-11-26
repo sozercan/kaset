@@ -1,20 +1,12 @@
 // swiftlint:disable file_length
-// AccountServiceTests.swift
-// KasetTests
-//
-// Tests for AccountService using Swift Testing framework.
 
 import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - AccountServiceTests
-
 @Suite(.serialized)
 // swiftlint:disable:next type_body_length
 struct AccountServiceTests {
-    // MARK: - Initial State Tests
-
     @Test @MainActor func initialStateIsEmpty() {
         let services = Self.createService()
 
@@ -42,7 +34,6 @@ struct AccountServiceTests {
     @Test @MainActor func hasBrandAccountsReturnsFalseForSingleAccount() async {
         let services = Self.createService()
 
-        // Populate with single account via fetchAccounts
         await Self.populateAccounts(services, accounts: [MockUserAccountData.primaryAccount])
 
         #expect(services.account.hasBrandAccounts == false)
@@ -51,7 +42,6 @@ struct AccountServiceTests {
     @Test @MainActor func hasBrandAccountsReturnsTrueForMultipleAccounts() async {
         let services = Self.createService()
 
-        // Populate with multiple accounts via fetchAccounts
         await Self.populateAccounts(services, accounts: [
             MockUserAccountData.primaryAccount,
             MockUserAccountData.brandAccount,
@@ -598,8 +588,6 @@ struct AccountServiceTests {
         #expect(ends.isEmpty)
     }
 
-    // MARK: - Switch Account Tests
-
     @Test @MainActor func switchAccountUpdatesCurrentAccount() async throws {
         let services = Self.createService()
 
@@ -612,7 +600,6 @@ struct AccountServiceTests {
 
         #expect(services.account.currentAccount == primaryAccount)
 
-        // Switch to brand account
         try await services.account.switchAccount(to: brandAccount)
 
         #expect(services.account.currentAccount == brandAccount)
@@ -630,10 +617,8 @@ struct AccountServiceTests {
         )
         await Self.populateAccounts(services, accounts: [primaryAccount])
 
-        // Attempt to switch to the same account
         try await services.account.switchAccount(to: primaryAccount)
 
-        // Should still be the same account (no error thrown)
         #expect(services.account.currentAccount == primaryAccount)
     }
 
@@ -676,8 +661,6 @@ struct AccountServiceTests {
         #expect(services.account.verifiedAccountId == primaryAccount.id)
     }
 
-    // MARK: - Session-Switch Gating Tests
-
     @Test @MainActor func switchAccountVerifiesSessionIdentityWithBrandId() async throws {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
@@ -691,7 +674,6 @@ struct AccountServiceTests {
 
         try await services.account.switchAccount(to: brandAccount)
 
-        // The verified session switch must run, scoped to the brand's pageId.
         #expect(mockWebKit.switchSessionIdentityCalled == true)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
         #expect(services.account.currentAccount == brandAccount)
@@ -746,8 +728,6 @@ struct AccountServiceTests {
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
         #expect(services.account.currentAccount == primaryAccount)
 
-        // The switch must throw and leave the previous account active so the user
-        // is never silently recording history to the wrong account.
         await #expect(throws: SessionSwitchError.self) {
             try await services.account.switchAccount(to: brandAccount)
         }
@@ -756,7 +736,6 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func failedSwitchRollsSessionBackToPreviousIdentity() async throws {
-        // Previous account is a brand WITH a signinURL so a rollback is possible.
         let previous = MockUserAccountData.brandAccountWithSigninURL
         let target = UserAccount.from(
             name: "Other Brand", handle: "@other", brandId: "222222222222222222222",
@@ -768,14 +747,12 @@ struct AccountServiceTests {
         await Self.populateAccounts(services, accounts: [previous, target], selectedIndex: 0)
         #expect(services.account.currentAccount?.id == previous.id)
 
-        // Forward switch verification fails; rollback (2nd call) succeeds.
         mockWebKit.switchSessionIdentityErrorQueue = [SessionSwitchError.identityNotApplied(expectedBrandId: target.brandId), nil]
 
         await #expect(throws: SessionSwitchError.self) {
             try await services.account.switchAccount(to: target)
         }
 
-        // Native reverts AND the session is re-pinned to the previous identity.
         #expect(services.account.currentAccount?.id == previous.id)
         #expect(mockWebKit.switchSessionIdentityCallCount >= 2)
         #expect(Array(mockWebKit.switchSessionIdentityExpectedBrandIds.prefix(2)) == [target.brandId, previous.brandId])
@@ -1037,9 +1014,6 @@ struct AccountServiceTests {
 
         try await services.account.switchAccount(to: newer)
 
-        // The newer switch must cancel the in-flight rollback before it can
-        // complete after the newer navigation and re-point the shared session
-        // back to the previous account.
         #expect(services.account.currentAccount?.id == newer.id)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [target.brandId, previous.brandId, newer.brandId])
         #expect(mockWebKit.switchSessionIdentityCompletedBrandIds == [newer.brandId])
@@ -1052,8 +1026,6 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func preSwitchFailureDoesNotRollBackSession() async throws {
-        // A target lacking signinURL throws BEFORE any session navigation, so no
-        // rollback should run (the session was never touched).
         let previous = MockUserAccountData.brandAccountWithSigninURL
         let target = UserAccount.from(
             name: "Other Brand", handle: "@other", brandId: "222222222222222222222",
@@ -1074,7 +1046,6 @@ struct AccountServiceTests {
 
     @Test @MainActor func manualSwitchCancelsInFlightLaunchPinAndWinsLast() async throws {
         let mockWebKit = MockWebKitManager()
-        // Hold the launch pin in flight until released, so it overlaps the switch.
         let released = AsyncReleaseGate()
         mockWebKit.switchSessionIdentityGate = { await released.wait() }
         let services = Self.createService(webKitManager: mockWebKit)
@@ -1084,17 +1055,13 @@ struct AccountServiceTests {
             signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
         )
         let brand = MockUserAccountData.brandAccountWithSigninURL
-        // Cold-launch restore of the brand → schedules the gated launch pin.
         UserDefaults.standard.set(brand.id, forKey: "selectedBrandId")
         defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary, brand])
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
 
-        // Now switch to primary while the launch pin is still gated. switchAccount
-        // must cancel+await the pin (which returns via CancellationError) and then
-        // run its own switch — so the LAST recorded URL is the primary's.
-        mockWebKit.switchSessionIdentityGate = nil // the switch's own call runs ungated
+        mockWebKit.switchSessionIdentityGate = nil
         try await services.account.switchAccount(to: primary)
         await released.release()
 
@@ -1120,11 +1087,9 @@ struct AccountServiceTests {
         await Self.waitForSwitchSessionIdentityCompletions(mockWebKit, count: 1)
         mockWebKit.reset()
 
-        // Gate the FIRST switch (to A) so it is still verifying when B starts.
         let releaseA = AsyncReleaseGate()
         mockWebKit.switchSessionIdentityGateQueue = [{ await releaseA.wait() }, nil]
         async let firstSwitch: Void = services.account.switchAccount(to: brandA)
-        // Let the first switch reach the gate.
         for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount < 1 {
             await Task.yield()
         }
@@ -1135,16 +1100,12 @@ struct AccountServiceTests {
             return
         }
 
-        // Start the second switch (to B) ungated; it bumps the generation and
-        // commits B. Then release A — A must observe it was superseded and NOT
-        // overwrite currentAccount back to A.
         try await services.account.switchAccount(to: brandB)
         #expect(services.account.currentAccount?.id == brandB.id)
 
         await releaseA.release()
         try? await firstSwitch
 
-        // B remains the active account; the superseded A switch did not clobber it.
         #expect(services.account.currentAccount?.id == brandB.id)
     }
 
@@ -1159,12 +1120,10 @@ struct AccountServiceTests {
         let brand = MockUserAccountData.brandAccountWithSigninURL
         await Self.populateAccounts(services, accounts: [primary, brand], selectedIndex: 0)
 
-        // Gate the switch so it is still verifying when logout fires.
         let release = AsyncReleaseGate()
         let callsBeforeSwitch = mockWebKit.switchSessionIdentityCallCount
         mockWebKit.switchSessionIdentityGate = { await release.wait() }
         async let switching: Void = services.account.switchAccount(to: brand)
-        // Let this switch reach the gated session navigation before logging out.
         for _ in 0 ..< 100 where mockWebKit.switchSessionIdentityCallCount <= callsBeforeSwitch {
             await Task.yield()
         }
@@ -1175,8 +1134,6 @@ struct AccountServiceTests {
             return
         }
 
-        // Logout while the switch is in flight: it must invalidate the switch so
-        // the brand is never committed after the account data is cleared.
         services.account.clearAccounts()
         await release.release()
         try? await switching
@@ -1186,8 +1143,6 @@ struct AccountServiceTests {
     }
 
     @Test @MainActor func passiveFetchDoesNotAbandonInFlightSwitch() async throws {
-        // Regression guard: a background fetch (e.g. account-list refresh) must
-        // NOT supersede a user's manual switch — the switch should still commit.
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
 
@@ -1203,8 +1158,6 @@ struct AccountServiceTests {
         async let switching: Void = services.account.switchAccount(to: brand)
         await Task.yield()
 
-        // A passive fetch resolving to primary used to bump the generation and
-        // make the switch abandon; it must not.
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [primary, brand])
         await services.account.fetchAccounts()
         mockWebKit.switchSessionIdentityGate = nil
@@ -1247,8 +1200,6 @@ struct AccountServiceTests {
         services.client.accountsListResponse = AccountsListResponse(googleEmail: "t@gmail.com", accounts: [brandA, brandB])
         await services.account.fetchAccounts()
 
-        // A passive refresh that restores saved brand A must not start a second
-        // /signin while the user's manual switch to brand B owns the session.
         #expect(mockWebKit.switchSessionIdentityCallCount == 1)
 
         await switchGate.release()
@@ -1476,7 +1427,6 @@ struct AccountServiceTests {
         let services = Self.createService(webKitManager: mockWebKit)
 
         let primaryAccount = MockUserAccountData.primaryAccount
-        // Brand account lacking a signinURL cannot establish a verified session.
         let brandAccount = MockUserAccountData.brandAccount
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
@@ -1492,7 +1442,6 @@ struct AccountServiceTests {
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccountWithSigninURL
-        // Simulate a relaunch with the brand account previously selected.
         UserDefaults.standard.set(brandAccount.id, forKey: "selectedBrandId")
         defer { UserDefaults.standard.removeObject(forKey: "selectedBrandId") }
 
@@ -1502,11 +1451,8 @@ struct AccountServiceTests {
         )
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
-        // The pin runs off the fetch path; await it deterministically.
         await services.account.awaitRestoredSessionPinForTesting()
 
-        // The restored brand account must re-pin the WebView session so playback
-        // records to the brand, not the primary, after a cold launch.
         #expect(services.account.currentAccount?.id == brandAccount.id)
         #expect(mockWebKit.switchSessionIdentityCalled == true)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds == [brandAccount.brandId])
@@ -1615,7 +1561,6 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
 
-        // Primary carries a signinURL too (verified against live accounts_list).
         let primaryAccount = UserAccount.from(
             name: "Primary",
             handle: "@primary",
@@ -1628,8 +1573,6 @@ struct AccountServiceTests {
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount], selectedIndex: 1)
         #expect(services.account.currentAccount?.id == brandAccount.id)
 
-        // Switching back to primary must run a verified switch with nil brand
-        // expectation (the primary identity) and succeed.
         try await services.account.switchAccount(to: primaryAccount)
         #expect(services.account.currentAccount?.id == primaryAccount.id)
         #expect(mockWebKit.switchSessionIdentityExpectedBrandIds.last == .some(nil))
@@ -1649,7 +1592,6 @@ struct AccountServiceTests {
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
 
-        // Without a server-issued signin URL, there is no safe switch navigation to run.
         #expect(mockWebKit.switchSessionIdentityCalled == false)
     }
 
@@ -1698,9 +1640,6 @@ struct AccountServiceTests {
         let mockWebKit = MockWebKitManager()
         let services = Self.createService(webKitManager: mockWebKit)
 
-        // Saved a brand that is NO LONGER in the returned accounts list; fetch
-        // falls back to primary. The shared session may still be brand-delegated,
-        // so primary must be re-pinned (expectedBrandId nil).
         let primary = UserAccount.from(
             name: "Primary", handle: "@p", brandId: nil, thumbnailURL: nil, isSelected: true,
             signinURL: URL(string: "https://www.youtube.com/signin?authuser=0&next=%2F")
@@ -1725,18 +1664,13 @@ struct AccountServiceTests {
         let brandAccount = MockUserAccountData.brandAccount
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
-        // Primary account should have nil brandId
         #expect(services.account.currentBrandId == nil)
 
-        // Switch to brand account
         try await services.account.switchAccount(to: brandAccount)
 
-        // Brand account should have brandId
         #expect(services.account.currentBrandId == brandAccount.brandId)
         #expect(services.account.currentBrandId == "123456789012345678901")
     }
-
-    // MARK: - Persistence Tests
 
     @Test @MainActor func switchAccountPersistsSelection() async throws {
         let services = Self.createService()
@@ -1745,14 +1679,11 @@ struct AccountServiceTests {
         let brandAccount = MockUserAccountData.brandAccount
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
-        // Switch to brand account
         try await services.account.switchAccount(to: brandAccount)
 
-        // Verify UserDefaults was updated
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
         #expect(savedBrandId == brandAccount.id)
 
-        // Cleanup
         UserDefaults.standard.removeObject(forKey: "selectedBrandId")
     }
 
@@ -1761,21 +1692,15 @@ struct AccountServiceTests {
 
         let primaryAccount = MockUserAccountData.primaryAccount
         let brandAccount = MockUserAccountData.brandAccount
-        // First select the brand account via fetchAccounts
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount], selectedIndex: 1)
 
-        // Switch back to primary account
         try await services.account.switchAccount(to: primaryAccount)
 
-        // Verify UserDefaults has "primary" as the ID
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
         #expect(savedBrandId == "primary")
 
-        // Cleanup
         UserDefaults.standard.removeObject(forKey: "selectedBrandId")
     }
-
-    // MARK: - Clear Accounts Tests
 
     @Test @MainActor func clearAccountsResetsState() async {
         let services = Self.createService()
@@ -1784,10 +1709,8 @@ struct AccountServiceTests {
         let brandAccount = MockUserAccountData.brandAccount
         await Self.populateAccounts(services, accounts: [primaryAccount, brandAccount])
 
-        // Set a persisted selection
         UserDefaults.standard.set("primary", forKey: "selectedBrandId")
 
-        // Clear accounts
         services.account.clearAccounts()
 
         #expect(services.account.accounts.isEmpty)
@@ -1795,14 +1718,11 @@ struct AccountServiceTests {
         #expect(services.account.hasBrandAccounts == false)
         #expect(services.account.currentBrandId == nil)
 
-        // Verify persistence was cleared
         let savedBrandId = UserDefaults.standard.string(forKey: "selectedBrandId")
         #expect(savedBrandId == nil)
         #expect(SongLikeStatusManager.shared.activeAccountID == "primary")
         #expect(SongLikeStatusManager.shared.status(for: "cached-video") == nil)
     }
-
-    // MARK: - Error Handling Tests
 
     @Test @MainActor func cancelledAccountFetchDoesNotResolveOrPublishError() async {
         let services = Self.createService()
@@ -1819,7 +1739,6 @@ struct AccountServiceTests {
     @Test @MainActor func clearErrorResetsLastError() async {
         let services = Self.createService()
 
-        // Trigger an error by making fetchAccounts fail
         services.client.shouldThrowError = YTMusicError.apiError(message: "Test error", code: nil)
         services.auth.completeLogin(sapisid: "test-sapisid")
         await services.account.fetchAccounts()
@@ -1827,13 +1746,10 @@ struct AccountServiceTests {
         #expect(services.account.lastError != nil)
         #expect(services.account.didCompleteAccountResolution == true)
 
-        // Clear the error
         services.account.clearError()
 
         #expect(services.account.lastError == nil)
     }
-
-    // MARK: - Computed Properties Tests
 
     @Test @MainActor func currentBrandIdReturnsNilForPrimaryAccount() async {
         let services = Self.createService()
@@ -1848,13 +1764,10 @@ struct AccountServiceTests {
         let services = Self.createService()
 
         let brandAccount = MockUserAccountData.brandAccount
-        // Use brand account as selected
         await Self.populateAccounts(services, accounts: [brandAccount], selectedIndex: 0)
 
         #expect(services.account.currentBrandId == "123456789012345678901")
     }
-
-    // MARK: - Helper Methods
 
     @MainActor
     private static func createService(favoritesOwnerDefaults: UserDefaults? = nil) -> TestServices {
@@ -1900,14 +1813,12 @@ struct AccountServiceTests {
         Issue.record("Timed out waiting for switch session identity completions")
     }
 
-    /// Populates the AccountService with accounts by going through fetchAccounts().
     @MainActor
     private static func populateAccounts(
         _ services: TestServices,
         accounts: [UserAccount],
         selectedIndex: Int = 0
     ) async {
-        // Mark the desired account as selected
         let accountsWithSelection = accounts.enumerated().map { index, account in
             UserAccount(
                 id: account.id,
@@ -1920,7 +1831,6 @@ struct AccountServiceTests {
             )
         }
 
-        // Clear any saved brand ID to avoid stale state
         UserDefaults.standard.removeObject(forKey: "selectedBrandId")
 
         services.client.accountsListResponse = AccountsListResponse(
@@ -1933,21 +1843,12 @@ struct AccountServiceTests {
     }
 }
 
-// MARK: - TestServices
-
-/// Helper struct to avoid large tuple violation.
 private struct TestServices {
     let account: AccountService
     let client: MockYTMusicClient
     let auth: AuthService
 }
 
-// MARK: - AsyncReleaseGate
-
-/// A one-shot async gate: callers `await wait()` until `release()` is called or
-/// the awaiting task is cancelled. Cancellation-aware so a gated mock pin that
-/// `switchAccount` cancels+awaits resumes promptly instead of hanging the test.
-/// Used to hold a mocked session pin "in flight" while a concurrent switch runs.
 private actor AsyncReleaseGate {
     private var released = false
     private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]

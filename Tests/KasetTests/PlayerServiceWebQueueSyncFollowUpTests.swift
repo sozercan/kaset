@@ -1,5 +1,4 @@
 // swiftlint:disable file_length
-// Both merge sides add independent queue-sync regressions; keep them together in this follow-up suite.
 
 import Foundation
 import Testing
@@ -744,8 +743,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.shouldResumeAfterInterruption)
     }
 
-    // MARK: - Play From Queue Tests
-
     @Test("Play from queue valid index")
     func playFromQueueValidIndex() async {
         let songs = [
@@ -801,8 +798,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentTrack?.videoId == song.videoId)
         #expect(self.playerService.currentMusicPlaybackIntent == intent)
     }
-
-    // MARK: - Play With Radio Tests
 
     @Test("Play with radio starts playback immediately")
     func playWithRadioStartsPlaybackImmediately() async {
@@ -982,8 +977,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queue.count == 1)
         #expect(self.playerService.queue.first?.videoId == "lonely-video")
     }
-
-    // MARK: - Manual Seek to End Tests
 
     @Test("Manual seek to end of track advances to next queue song")
     func manualSeekToEndAdvancesQueue() async {
@@ -1521,9 +1514,6 @@ extension PlayerServiceWebQueueSyncTests {
         )
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)
 
-        // A verified-identity signal must NOT force-load a deferred restored
-        // session (which would clear the explicit-resume gate and load the
-        // playback page + stats before the user resumes).
         self.playerService.reloadCurrentTrackForIdentitySwitch()
 
         #expect(self.playerService.isPendingRestoredLoadDeferred == true)

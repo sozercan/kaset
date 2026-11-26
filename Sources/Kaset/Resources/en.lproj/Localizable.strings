@@ -12,7 +12,6 @@
 "Episode" = "Episode";
 "Chapter" = "Chapter";
 
-// Sign-out durability
 "Sign Out Incomplete" = "Sign Out Incomplete";
 "Kaset could not remove saved sign-in data. Try signing out again before quitting." = "Kaset could not remove saved sign-in data. Try signing out again before quitting.";
 "Sign-In Cleanup Required" = "Sign-In Cleanup Required";
@@ -20,7 +19,6 @@
 "Sign-In Temporarily Unavailable" = "Sign-In Temporarily Unavailable";
 "Kaset could not read saved sign-in data. Retry to restore your session." = "Kaset could not read saved sign-in data. Retry to restore your session.";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Ask Gemini";
 "Ask about this video..." = "Ask about this video...";
 "Ask anything about this video..." = "Ask anything about this video...";
@@ -41,7 +39,6 @@
 "Ask Gemini response ready" = "Ask Gemini response ready";
 "New Ask Gemini chat ready" = "New Ask Gemini chat ready";
 
-// Appearance
 "Appearance" = "Appearance";
 "App Appearance" = "App Appearance";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Choose light or dark mode for Kaset, or match the macOS setting";
@@ -49,7 +46,6 @@
 "Light Mode" = "Light Mode";
 "Dark Mode" = "Dark Mode";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Playing %@ by %@." = "Playing %1$@ by %2$@.";
 "Now playing %@ by %@." = "Now playing %1$@ by %2$@.";
 

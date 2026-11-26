@@ -2,12 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MixTracklistTests
-
 @Suite(.tags(.model))
 struct MixTracklistTests {
-    // MARK: - Artist/Title Parsing
-
     @Test("Chapter title splits into artist and title on the first ' - '")
     func parsesArtistAndTitle() {
         let parsed = MixTrackEntry.parseArtistTitle(from: "Deepbass - Canna (Luigi Tozzi rmx)")
@@ -170,12 +166,8 @@ struct MixTracklistTests {
     }
 }
 
-// MARK: - MixTracklistModelBehaviorTests
-
 @Suite(.tags(.model))
 struct MixTracklistModelBehaviorTests {
-    // MARK: - isMix Threshold
-
     @Test("Three or more entries is a mix; fewer is not")
     func isMixThreshold() {
         func tracklist(entryCount: Int) -> MixTracklist {
@@ -342,8 +334,6 @@ struct MixTracklistModelBehaviorTests {
         let list = MixTracklist(videoId: "v", entries: entries, source: .chapters)
         #expect(list.entries.map(\.title) == ["Actual Song"])
     }
-
-    // MARK: - entry(at:) Lookup
 
     @Test("entry(at:) returns the active sub-track and nil before the first entry")
     func entryLookupByProgress() {

@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarIconMenu
-
 struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
     var isSelected = false
     var accessibilityID: String?
@@ -29,11 +27,6 @@ struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
                 Label {
                     Text(self.accessibilityLabel ?? "")
                 } icon: {
-                    // A borderless menu is an AppKit pop-up button sized to its label
-                    // image. Arbitrary views such as a clear `Color` are not rendered
-                    // into that image, which collapses the button to a few points in
-                    // the middle of the 28pt slot. A transparent 28pt image keeps the
-                    // whole slot clickable, matching `PlayerBarIconButton`.
                     Image(size: CGSize(width: 28, height: 28)) { _ in }
                 }
                 .labelStyle(.iconOnly)
@@ -66,8 +59,6 @@ struct PlayerBarIconMenu<MenuContent: View, Icon: View>: View {
         return .clear
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

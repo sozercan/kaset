@@ -1,9 +1,5 @@
 import Foundation
 
-/// Parses YouTube channel pages (`browse` with a `UC…` browse ID).
-///
-/// Channel metadata comes from `metadata.channelMetadataRenderer` (stable
-/// across header redesigns); landing-tab videos are collected recursively.
 enum ChannelPageParser {
     static func parse(_ data: [String: Any], channelId fallbackChannelId: String) -> YouTubeChannelDetail? {
         let metadata = (data["metadata"] as? [String: Any])?["channelMetadataRenderer"]
@@ -39,9 +35,6 @@ enum ChannelPageParser {
         )
     }
 
-    // MARK: - Private
-
-    /// Extracts "@handle" from "http://www.youtube.com/@handle".
     private static func handle(fromVanityURL url: String?) -> String? {
         guard let last = url?.split(separator: "/").last, last.hasPrefix("@") else {
             return nil
@@ -49,14 +42,11 @@ enum ChannelPageParser {
         return String(last)
     }
 
-    /// Best-effort subscriber count from the page header
-    /// (e.g. "20.8M subscribers" somewhere in `header`).
     private static func subscriberCountText(of data: [String: Any]) -> String? {
         guard let header = data["header"] else { return nil }
         return Self.firstText(in: header) { $0.localizedCaseInsensitiveContains("subscriber") }
     }
 
-    /// Depth-first search for the first metadata text matching a predicate.
     private static func firstText(
         in value: Any,
         where predicate: (String) -> Bool

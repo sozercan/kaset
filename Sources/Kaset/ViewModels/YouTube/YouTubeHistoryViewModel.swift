@@ -1,33 +1,23 @@
 import Foundation
 import Observation
 
-/// View model for YouTube watch history.
 @MainActor
 @Observable
 final class YouTubeHistoryViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// History videos (most recent first, as served).
     private(set) var videos: [YouTubeVideo] = []
 
-    /// Continuation token for the next page.
     private var continuation: String?
 
-    /// Changes whenever pagination advances, even if the page adds no visible videos.
     private(set) var paginationTrigger = 0
 
     var hasMoreVideos: Bool {
         self.continuation != nil
     }
 
-    /// Invalidates stale in-flight loads when a newer one starts
-    /// (SwiftUI restarts .task during launch/layout churn; latest wins).
     private var loadGeneration = 0
 
-    /// The single in-flight load, shared by concurrent `load()` callers so
-    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
-    /// history request.
     private var loadTask: Task<Void, Never>?
 
     let client: any YouTubeClientProtocol
@@ -69,8 +59,6 @@ final class YouTubeHistoryViewModel {
             self.loadingState = .loaded
         } catch {
             guard runID == self.loadGeneration else { return }
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return
@@ -107,7 +95,6 @@ final class YouTubeHistoryViewModel {
             self.paginationTrigger += 1
             self.loadingState = .loaded
         } catch {
-            // A cancelled page load is not an error; allow retrying.
             if error is CancellationError {
                 self.loadingState = .loaded
                 return

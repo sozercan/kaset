@@ -1,26 +1,17 @@
 import FoundationModels
 import SwiftUI
 
-// MARK: - CommandBarView
-
-/// A floating command bar for natural language music control.
-/// Accessible via Cmd+K, allows users to control playback with voice-like commands.
 @available(macOS 26.0, *)
 struct CommandBarView: View {
-    /// The YTMusicClient for search operations.
     let client: any YTMusicClientProtocol
 
-    /// Playback service used for suggestions and command execution.
     let playerService: PlayerService
 
-    /// Binding to control visibility (used for dismiss).
     @Binding var isPresented: Bool
 
-    /// Shared search view model for routing search-only intents into the Search tab.
     let searchViewModel: SearchViewModel?
     @State private var viewModel: CommandBarViewModel
 
-    /// Focus state for the text field.
     @FocusState private var isInputFocused: Bool
 
     @Namespace private var commandBarNamespace
@@ -69,7 +60,6 @@ struct CommandBarView: View {
 
         CompatGlassContainer(spacing: 0) {
             VStack(spacing: 0) {
-                // Input field
                 HStack(spacing: 12) {
                     Image(systemName: "sparkles")
                         .font(.system(size: 16))
@@ -108,7 +98,6 @@ struct CommandBarView: View {
                 Divider()
                     .opacity(0.3)
 
-                // Status area
                 if let error = viewModel.errorMessage {
                     self.errorView(error)
                 } else if let result = viewModel.resultMessage {
@@ -124,7 +113,6 @@ struct CommandBarView: View {
         .compatGlassTransition(.materialize)
         .task {
             viewModel.handleAppear()
-            // Let the presented field join the focus hierarchy before requesting focus.
             await Task.yield()
             guard !Task.isCancelled else { return }
             self.isInputFocused = true
@@ -136,8 +124,6 @@ struct CommandBarView: View {
             viewModel.dismiss()
         }
     }
-
-    // MARK: - Subviews
 
     private func errorView(_ error: String) -> some View {
         HStack(spacing: 8) {
@@ -177,7 +163,6 @@ struct CommandBarView: View {
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
-            // First row: contextual suggestions based on playback state
             HStack(spacing: 8) {
                 ForEach(self.contextualSuggestions.prefix(3), id: \.self) { suggestion in
                     SuggestionChip(text: suggestion) {
@@ -186,7 +171,6 @@ struct CommandBarView: View {
                 }
             }
 
-            // Second row: discovery suggestions
             HStack(spacing: 8) {
                 ForEach(self.discoverySuggestions.prefix(3), id: \.self) { suggestion in
                     SuggestionChip(text: suggestion) {
@@ -201,7 +185,6 @@ struct CommandBarView: View {
         .disabled(isDisabled)
     }
 
-    /// Header text for suggestions, contextual based on playback state.
     private var suggestionsHeaderText: String {
         if self.playerService.currentTrack != nil {
             String(localized: "What would you like to do?")
@@ -212,7 +195,6 @@ struct CommandBarView: View {
         }
     }
 
-    /// Suggestions that adapt to current playback context.
     private var contextualSuggestions: [String] {
         var suggestions: [String] = []
 
@@ -244,7 +226,6 @@ struct CommandBarView: View {
         return suggestions
     }
 
-    /// Suggestions for discovering new music.
     private var discoverySuggestions: [String] {
         if self.playerService.currentTrack != nil {
             ["Add jazz to queue", "Skip this song", "What's in my queue?"]
@@ -255,8 +236,6 @@ struct CommandBarView: View {
         }
     }
 }
-
-// MARK: - SuggestionChip
 
 @available(macOS 26.0, *)
 private struct SuggestionChip: View {

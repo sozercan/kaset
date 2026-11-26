@@ -452,7 +452,6 @@ struct WebKitCookieRestoreTests {
             usesDebugFileStorage: true
         )
 
-        // Shipped builds already persist this key; renaming it would drop existing sign-outs.
         #expect(keychainKey == "authCookieBackupInvalidated")
         #expect(debugFileKey != keychainKey)
     }

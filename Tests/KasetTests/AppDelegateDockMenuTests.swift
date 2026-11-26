@@ -14,8 +14,6 @@ struct AppDelegateDockMenuTests {
     }
 
     init() {
-        // Neutralize the shared like-status singleton so the optimistic-update
-        // Task spawned by likeCurrentTrack() can't leak across tests.
         SongLikeStatusManager.shared.clearCache()
         SongLikeStatusManager.shared.setActiveAccountID(nil)
     }
@@ -31,16 +29,12 @@ struct AppDelegateDockMenuTests {
 
     private func likeItem(_ delegate: AppDelegate) -> NSMenuItem? {
         let menu = delegate.applicationDockMenu(NSApplication.shared)
-        // Locate structurally by action selector so the lookup is locale-independent
-        // (the title is localized); title equality is asserted separately.
         return menu?.items.first { $0.action == NSSelectorFromString("dockMenuToggleLike") }
     }
 
     @Test("Disabled and reads 'Like' for a live player with no current track")
     func disabledWithNoTrack() {
         let delegate = AppDelegate()
-        // playerService is a weak var; the strong local keeps the live player
-        // alive so we exercise the no-track path, not the nil-player path.
         let player = self.loggedInPlayer()
         delegate.playerService = player
         #expect(player.currentTrack == nil)
@@ -110,8 +104,6 @@ struct AppDelegateDockMenuTests {
         }
         _ = delegate.perform(action)
 
-        // The ObjC menu action can be delivered asynchronously on CI; wait for
-        // the same optimistic update that proves the item is wired to like.
         await self.waitUntil { player.currentTrackLikeStatus == .like }
         #expect(player.currentTrackLikeStatus == .like)
     }
@@ -131,8 +123,6 @@ struct AppDelegateDockMenuTests {
         }
         _ = delegate.perform(action)
 
-        // The optimistic toggle takes a liked track back to indifferent — the
-        // un-like direction that makes the "Unlike" title truthful.
         await self.waitUntil { player.currentTrackLikeStatus == .indifferent }
         #expect(player.currentTrackLikeStatus == .indifferent)
     }
@@ -144,9 +134,6 @@ struct AppDelegateDockMenuTests {
         delegate.playerService = player
         #expect(player.currentTrack == nil)
 
-        // autoenablesItems = false means each item manages its own isEnabled. The
-        // transport items rely on NSMenuItem's default (enabled); guard that the
-        // Like item's menu-wide switch never silently greys them out.
         let menu = delegate.applicationDockMenu(NSApplication.shared)
         for title in ["Play/Pause", "Next Track", "Previous Track"] {
             let item = menu?.items.first { $0.title == title }

@@ -1,9 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - MainWindowRegistrationView
-
-/// Reports the underlying AppKit window when SwiftUI attaches the main scene.
 struct MainWindowRegistrationView: NSViewRepresentable {
     let register: @MainActor (NSWindow) -> Void
     let unregister: @MainActor (NSWindow) -> Void
@@ -27,8 +24,6 @@ struct MainWindowRegistrationView: NSViewRepresentable {
         view.windowDidDetach = nil
     }
 }
-
-// MARK: - MainWindowRegistrationNSView
 
 @MainActor
 final class MainWindowRegistrationNSView: NSView {

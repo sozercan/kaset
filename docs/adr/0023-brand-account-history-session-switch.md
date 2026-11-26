@@ -65,6 +65,10 @@ and gate the switch on a verified `ytcfg.DATASYNC_ID` read.**
   (`PlayerService.reloadCurrentTrackForIdentitySwitch`,
   `forceFullPageWhenSameVideoId` + restored-session resume) so continued
   listening records to the new account.
+- Personalize API cache partitions by hashing an identity that includes the
+  account handle and name alongside its ID. The literal ID `primary` alone
+  cannot distinguish two Google accounts; do not expose the unhashed inputs
+  in cache keys.
 
 ## Consequences
 

@@ -1,11 +1,7 @@
 import Foundation
 
-/// A mock implementation of YTMusicClientProtocol for UI testing.
-/// Returns predictable data from environment variables or defaults.
 @MainActor
 final class MockUITestYTMusicClient: YTMusicClientProtocol {
-    // MARK: - Continuation State
-
     var hasMoreHomeSections: Bool {
         false
     }
@@ -42,8 +38,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         false
     }
 
-    // MARK: - Mock Data
-
     private let homeSections: [HomeSection]
     private let exploreSections: [HomeSection]
     private let searchResults: SearchResponse
@@ -51,7 +45,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
     private let likedSongs: [Song]
 
     init() {
-        // Parse mock data from environment variables, or use defaults
         self.homeSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
         self.exploreSections = Self.parseHomeSections() ?? Self.defaultHomeSections()
         self.searchResults = Self.parseSearchResults() ?? Self.defaultSearchResults()
@@ -59,10 +52,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         self.likedSongs = Self.defaultLikedSongs()
     }
 
-    // MARK: - Protocol Implementation
-
     func getHome(forceRefresh _: Bool) async throws -> HomeResponse {
-        // Simulate network delay
         try? await Task.sleep(for: .milliseconds(100))
         return HomeResponse(sections: self.homeSections)
     }
@@ -262,9 +252,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         ]
     }
 
-    func resetSessionStateForAccountSwitch() {
-        // No-op for UI test mock
-    }
+    func resetSessionStateForAccountSwitch() {}
 
     func getLibraryPlaylists() async throws -> [Playlist] {
         try? await Task.sleep(for: .milliseconds(100))
@@ -399,21 +387,13 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         return []
     }
 
-    func rateSong(videoId _: String, rating _: LikeStatus) async throws {
-        // No-op for UI tests
-    }
+    func rateSong(videoId _: String, rating _: LikeStatus) async throws {}
 
-    func editSongLibraryStatus(feedbackTokens _: [String]) async throws {
-        // No-op for UI tests
-    }
+    func editSongLibraryStatus(feedbackTokens _: [String]) async throws {}
 
-    func subscribeToPlaylist(playlistId _: String) async throws {
-        // No-op for UI tests
-    }
+    func subscribeToPlaylist(playlistId _: String) async throws {}
 
-    func deletePlaylist(playlistId _: String) async throws {
-        // No-op for UI tests
-    }
+    func deletePlaylist(playlistId _: String) async throws {}
 
     func getAddToPlaylistOptions(videoId _: String) async throws -> AddToPlaylistMenu {
         AddToPlaylistMenu(
@@ -441,33 +421,19 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         "PLMOCKCREATED"
     }
 
-    func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {
-        // No-op for UI tests
-    }
+    func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {}
 
-    func removeSongFromPlaylist(videoId _: String, setVideoId _: String, playlistId _: String) async throws {
-        // No-op for UI tests
-    }
+    func removeSongFromPlaylist(videoId _: String, setVideoId _: String, playlistId _: String) async throws {}
 
-    func unsubscribeFromPlaylist(playlistId _: String) async throws {
-        // No-op for UI tests
-    }
+    func unsubscribeFromPlaylist(playlistId _: String) async throws {}
 
-    func subscribeToPodcast(showId _: String) async throws {
-        // No-op for UI tests
-    }
+    func subscribeToPodcast(showId _: String) async throws {}
 
-    func unsubscribeFromPodcast(showId _: String) async throws {
-        // No-op for UI tests
-    }
+    func unsubscribeFromPodcast(showId _: String) async throws {}
 
-    func subscribeToArtist(channelId _: String) async throws {
-        // No-op for UI tests
-    }
+    func subscribeToArtist(channelId _: String) async throws {}
 
-    func unsubscribeFromArtist(channelId _: String) async throws {
-        // No-op for UI tests
-    }
+    func unsubscribeFromArtist(channelId _: String) async throws {}
 
     func getLyrics(videoId _: String) async throws -> Lyrics {
         try? await Task.sleep(for: .milliseconds(100))
@@ -494,7 +460,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getRadioQueue(videoId: String) async throws -> [Song] {
         try? await Task.sleep(for: .milliseconds(100))
-        // Return a radio queue based on the seed song
         return (0 ..< 25).map { index in
             Song(
                 id: "radio-\(videoId)-\(index)",
@@ -510,7 +475,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getMixQueue(playlistId: String, startVideoId _: String?) async throws -> RadioQueueResult {
         try? await Task.sleep(for: .milliseconds(100))
-        // Return a mix queue based on the playlist ID
         let songs = (0 ..< 50).map { index in
             Song(
                 id: "mix-\(playlistId)-\(index)",
@@ -527,7 +491,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getMixQueueContinuation(continuationToken _: String) async throws -> RadioQueueResult {
         try? await Task.sleep(for: .milliseconds(100))
-        // Return more songs for infinite mix
         let songs = (50 ..< 75).map { index in
             Song(
                 id: "mix-continuation-\(index)",
@@ -544,7 +507,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func getMoodCategory(browseId _: String, params _: String?) async throws -> HomeResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        // Return mock mood category content
         let songs = (0 ..< 10).map { index in
             Song(
                 id: "mood-song-\(index)",
@@ -569,7 +531,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
             return AccountsListResponse(googleEmail: "test@example.com", accounts: accounts)
         }
 
-        // Return default mock account for UI testing
         let primaryAccount = UserAccount(
             id: "primary",
             name: "Test User",
@@ -580,8 +541,6 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         )
         return AccountsListResponse(googleEmail: "test@example.com", accounts: [primaryAccount])
     }
-
-    // MARK: - Environment Parsing
 
     private static func parseHomeSections() -> [HomeSection]? {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockHomeSectionsKey),

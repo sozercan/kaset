@@ -1,14 +1,11 @@
 import SwiftUI
 
-// MARK: - PlayerBarNavigationAction
-
 struct PlayerBarNavigationAction: @unchecked Sendable {
     var openArtist: ((Artist) -> Void)?
     var openAlbum: ((Playlist) -> Void)?
 
     static let disabled = PlayerBarNavigationAction()
 
-    /// Opens artists and albums by pushing them onto `path`.
     static func appending(to path: Binding<NavigationPath>) -> PlayerBarNavigationAction {
         PlayerBarNavigationAction(
             openArtist: { path.wrappedValue.append($0) },
@@ -19,19 +16,13 @@ struct PlayerBarNavigationAction: @unchecked Sendable {
 
 extension EnvironmentValues {
     @Entry var playerBarNavigationAction: PlayerBarNavigationAction = .disabled
-    /// IDs of the album page hosting the player bar, including its OLAK/MPRE aliases.
     @Entry var playerBarCurrentAlbumIDs: Set<String> = []
     @Entry var playerBarCurrentArtistID: String?
 }
 
-// MARK: - PlayerBarCurrentRoute
-
-/// Matches player bar link targets against the album or artist page hosting the player bar,
-/// so links to the page already on screen stay inert.
 enum PlayerBarCurrentRoute {
     static func albumIDs(for playlist: Playlist, detail: PlaylistDetail?) -> Set<String> {
         guard playlist.isAlbum else { return [] }
-        // An album opened by its OLAK ID loads the album's playlist page, whose tracks name its MPRE ID.
         let trackAlbumIDs = detail?.tracks.compactMap(\.album).filter(\.hasNavigableId).map(\.id) ?? []
         return Set([playlist.id, playlist.libraryTargetId, detail?.libraryTargetId].compactMap(\.self) + trackAlbumIDs)
     }
@@ -46,8 +37,6 @@ enum PlayerBarCurrentRoute {
     }
 }
 
-// MARK: - PlayerBarMusicNavigationModifier
-
 private struct PlayerBarMusicNavigationModifier: ViewModifier {
     @Binding var navigationPath: NavigationPath
 
@@ -58,16 +47,10 @@ private struct PlayerBarMusicNavigationModifier: ViewModifier {
 }
 
 extension View {
-    /// Routes player bar artist/album links onto `path`.
-    ///
-    /// Apply this to the `NavigationStack` itself: views pushed through `navigationDestination`
-    /// inherit the stack's environment, not values set on the stack's root content.
     func playerBarMusicNavigation(path: Binding<NavigationPath>) -> some View {
         self.modifier(PlayerBarMusicNavigationModifier(navigationPath: path))
     }
 }
-
-// MARK: - SidebarReselectNavigationModifier
 
 private struct SidebarReselectNavigationModifier: ViewModifier {
     @Binding var navigationPath: NavigationPath

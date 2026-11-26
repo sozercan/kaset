@@ -3,8 +3,6 @@ import Testing
 import WebKit
 @testable import Kaset
 
-// MARK: - AirPlayPickerTests
-
 @Suite("AirPlay picker anchoring", .serialized, .tags(.service))
 @MainActor
 struct AirPlayPickerTests {
@@ -48,8 +46,6 @@ struct AirPlayPickerTests {
     }
 }
 
-// MARK: - PickerContentView
-
 @MainActor
 private final class PickerContentView: NSView {
     var usesFlippedCoordinates = false
@@ -57,8 +53,6 @@ private final class PickerContentView: NSView {
         self.usesFlippedCoordinates
     }
 }
-
-// MARK: - PickerWebView
 
 @MainActor
 private final class PickerWebView: WKWebView {

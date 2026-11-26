@@ -1,9 +1,7 @@
 import Foundation
 
-/// Queue and playback actions for album-backed tracks.
 @MainActor
 enum AlbumPlaybackActions {
-    /// Adds an album's songs to play next (immediately after current track).
     @discardableResult
     static func addAlbumToQueueNext(
         _ album: Album,
@@ -25,7 +23,6 @@ enum AlbumPlaybackActions {
         }
     }
 
-    /// Adds an album's songs to the end of the queue.
     @discardableResult
     static func addAlbumToQueueLast(
         _ album: Album,
@@ -47,9 +44,6 @@ enum AlbumPlaybackActions {
         }
     }
 
-    /// Plays an album immediately, replacing the current queue.
-    /// - Parameter onStart: Called once with whether the album started playing. False when it failed
-    ///   to load, had nothing playable, or newer playback replaced it.
     @discardableResult
     @MainActor
     static func playAlbum(
@@ -77,7 +71,6 @@ enum AlbumPlaybackActions {
                     album: album,
                     purpose: .playback(trackCount: response.detail.tracks.count)
                 )
-                // Unavailable tracks stay in the album queue, but playback starts at the first playable one.
                 guard let startIndex = songs.firstIndex(where: \.isPlayable) else { return }
                 await playerService.playQueue(
                     songs,

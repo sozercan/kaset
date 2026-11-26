@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Moods & Genres view for browsing music by mood or genre.
 struct MoodsAndGenresView: View {
     @State var viewModel: MoodsAndGenresViewModel
     @Environment(PlayerService.self) private var playerService
@@ -53,8 +52,6 @@ struct MoodsAndGenresView: View {
         .popsNavigationStackOnSidebarReselect(path: self.$navigationPath, for: .moodsAndGenres)
     }
 
-    // MARK: - Views
-
     @ViewBuilder
     private var contentView: some View {
         if self.viewModel.sections.isEmpty {
@@ -95,8 +92,6 @@ struct MoodsAndGenresView: View {
                         }
                     }
                 }
-                // Edge-to-edge so shelves slide under the glass sidebar;
-                // resting inset is restored per-shelf via contentInset.
                 .padding(.vertical, 20)
             }
         }
@@ -120,8 +115,6 @@ struct MoodsAndGenresView: View {
             }
         )
     }
-
-    // MARK: - Actions
 
     private func playlistPlayAction(for item: HomeSectionItem) -> (() -> Void)? {
         guard case let .playlist(playlist) = item,

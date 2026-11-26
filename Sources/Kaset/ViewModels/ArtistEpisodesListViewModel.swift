@@ -2,13 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// View model for `ArtistEpisodesListView` — loads the full artist-page subset
-/// behind a `MUSIC_PAGE_TYPE_ARTIST` "See all" destination (Latest episodes,
-/// Live performances, etc.).
-///
-/// The response mirrors the main artist-page shape but is filtered by the
-/// shelf's `params`. Whichever bucket the filter populates is what the view
-/// renders.
 @MainActor
 @Observable
 final class ArtistEpisodesListViewModel {

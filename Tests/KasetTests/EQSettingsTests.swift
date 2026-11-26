@@ -2,12 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for `EQSettings` (clamping, automatic headroom trim, JSON
-/// round-tripping through the persistence layer).
 @Suite(.tags(.model))
 struct EQSettingsTests {
-    // MARK: - Clamping
-
     @Test("clampGains caps every band at maxGainDB")
     func clampGainsCapsAtMax() {
         var settings = EQSettings.flat
@@ -37,8 +33,6 @@ struct EQSettingsTests {
         #expect(settings.bandGainsDB == [-3, 0, 5.5, 7, -7.5, 11])
         #expect(settings.preampDB == -2)
     }
-
-    // MARK: - autoTrimDB
 
     @Test("autoTrimDB is zero when net gain never boosts above unity")
     func autoTrimZeroWhenFlat() {
@@ -81,8 +75,6 @@ struct EQSettingsTests {
         #expect(abs(settings.autoTrimDB - -1.2) < 0.001)
     }
 
-    // MARK: - Codable round-trip
-
     @Test("EQSettings round-trips through JSON")
     func codableRoundTrip() throws {
         var settings = EQSettings.flat
@@ -96,8 +88,6 @@ struct EQSettingsTests {
 
         #expect(decoded == settings)
     }
-
-    // MARK: - Defaults
 
     @Test("EQSettings.flat starts disabled with neutral bands")
     func flatDefaults() {

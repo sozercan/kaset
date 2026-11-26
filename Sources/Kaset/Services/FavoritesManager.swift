@@ -1,9 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - FavoritesManager
-
-/// Manages Favorites persistence and state, scoped per account.
 @MainActor
 @Observable
 final class FavoritesManager { // swiftlint:disable:this type_body_length
@@ -20,9 +17,7 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
 
     private let skipPersistence: Bool
     let storageDirectory: URL
-    /// In-memory store for `skipPersistence` test instances.
     private var itemsByScope: [String: [FavoriteItem]] = [:]
-    /// Latest snapshots that could not be written during a scope transition.
     private var pendingItemsByScope: [String: [FavoriteItem]] = [:]
     private var preparedMergeItems: [ScopeMergeKey: [FavoriteItem]] = [:]
     private var mergeBaselineItems: [ScopeMergeKey: [FavoriteItem]] = [:]
@@ -32,7 +27,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     private var saveTask: Task<Void, Never>?
     var recoveryRetryTasks: [String: Task<Void, Never>] = [:]
     var legacyRecoveryScopeBySourceName: [String: String] = [:]
-    /// False when `items` is only an empty fallback after a failed scope load.
     var canPersistActiveSnapshot = false
 
     private init() {
@@ -45,26 +39,19 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         }
     }
 
-    /// Test/preview initializer — skips disk I/O when `skipLoad` is true.
     init(skipLoad: Bool) {
         self.skipPersistence = skipLoad
         self.storageDirectory = Self.defaultStorageDirectory
     }
 
-    /// Disk-backed initializer for persistence tests using an isolated directory.
     init(storageDirectory: URL) {
         self.skipPersistence = false
         self.storageDirectory = storageDirectory
     }
 
-    /// Switches the signed-in account scope. `nil` clears visible favorites without deleting files.
     func setActiveAccountScopeID(_ scopeID: String?, legacyAccountID: String? = nil) {
         self.setDeferredAccountScopeID(scopeID, legacyAccountID: legacyAccountID)
 
-        // Account selection can change while Guest Mode still owns the visible
-        // scope. Remember the next signed-in scope without exposing its items
-        // until AuthService exits Guest Mode. A nil scope still clears guest data
-        // at a real authentication boundary.
         if self.activeScopeID == Self.guestScopeID, scopeID != nil {
             return
         }
@@ -75,13 +62,11 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         )
     }
 
-    /// Updates the scope Guest Mode should restore without changing the visible guest scope.
     func setDeferredAccountScopeID(_ scopeID: String?, legacyAccountID: String? = nil) {
         self.lastAccountScopeID = scopeID
         self.lastLegacyAccountID = scopeID == nil ? nil : legacyAccountID
     }
 
-    /// Claims a prior account-ID-scoped favorites file for its resolved opaque scope.
     func recoverLegacyAccountFavorites(accountID: String, toScopeID scopeID: String) {
         guard !self.skipPersistence,
               let legacyURL = self.legacyAccountFavoritesURL(accountID: accountID),
@@ -419,8 +404,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         }
     }
 
-    // MARK: - Load & Save
-
     private func load(scopeID: String) {
         if self.skipPersistence {
             self.items = self.itemsByScope[scopeID] ?? []
@@ -563,8 +546,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
                 return .completed
             }
 
-            // Consume the globally discoverable name before changing an existing destination.
-            // A failed commit or cleanup can then only be resumed by this destination scope.
             try FileManager.default.moveItem(at: legacyURL, to: claimURL)
             return self.commitLegacyClaim(at: claimURL, to: targetURL)
         } catch {
@@ -645,8 +626,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
             }
         }
 
-        // Empty accounts legitimately have no source, prepared merge, claims, or
-        // target file. They must not block finalization of other migrated scopes.
         let recoveryURLs = [
             self.fileURL(for: sourceScopeID),
             self.preparedMergeURL(for: mergeKey),
@@ -701,7 +680,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
                 boundTo: sourceScopeID,
                 legacyAccountID: legacyAccountID
             ) where FileManager.default.fileExists(atPath: claimURL.path) {
-                // Claims remain source-owned until owner migration commits and finalizes.
                 let claimItems = try JSONDecoder().decode(
                     [FavoriteItem].self,
                     from: Data(contentsOf: claimURL)
@@ -827,8 +805,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
         )
     }
 
-    // MARK: - Actions
-
     func add(_ item: FavoriteItem) {
         guard self.canMutate else { return }
         guard !self.isPinned(contentId: item.contentId) else { return }
@@ -868,8 +844,6 @@ final class FavoritesManager { // swiftlint:disable:this type_body_length
     func isPinned(contentId: String) -> Bool {
         self.items.contains { $0.contentId == contentId }
     }
-
-    // MARK: - Testing Support
 
     private func loadMockData() {
         guard let jsonString = UITestConfig.environmentValue(for: UITestConfig.mockFavoritesKey),

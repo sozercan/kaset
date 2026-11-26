@@ -54,7 +54,7 @@ The fallback behavior must preserve these invariants:
 
 ### Playback Synchronization
 
-Keep playback inside the existing hidden `WKWebView`, but add a dedicated high-frequency `LYRICS_TIME` message path for synced lyrics. `LyricsView` starts and stops WebView lyrics polling based on whether the current result is `.synced`, and `PlayerService.currentTimeMs` drives `SyncedLyricsDisplayView` for highlighting, auto-scrolling, and tap-to-seek.
+Keep playback inside the existing hidden `WKWebView` and use a dedicated `LYRICS_LINE` message path. The lyrics view supplies compact line timing ranges while the result is synced. The bridge reports when playback crosses a line or gap boundary rather than sending raw time ten times per second: highlighting and auto-scroll do not change within a bucket. Playback transitions such as seeks resynchronize the display.
 
 ### User Control
 

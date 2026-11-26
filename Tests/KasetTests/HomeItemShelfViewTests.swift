@@ -3,8 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-// MARK: - HomeItemShelfViewTests
-
 @Suite(.tags(.model))
 @MainActor
 struct HomeItemShelfViewTests {
@@ -80,7 +78,6 @@ struct HomeItemShelfViewTests {
 
         Self.resize(shelf, to: 640)
         if itemCount > 2 {
-            // The first sized report shows the arrow without animating.
             #expect(right.isVisible && !right.isHidden)
             #expect(abs(right.alphaValue - 0.72) < 0.01)
         } else {
@@ -118,7 +115,6 @@ struct HomeItemShelfViewTests {
         } else {
             #expect(shelf.scrollView.contentView.bounds.minX == 0)
         }
-        // Arrows are physical: the trailing arrow sits on the left in right-to-left layouts.
         let trailingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .left : .right
         let leadingSide: HomeItemShelfContainerView.Side = layoutDirection == .rightToLeft ? .right : .left
         #expect(shelf.containerView.isShowingArrow(trailingSide))
@@ -129,14 +125,11 @@ struct HomeItemShelfViewTests {
     func arrowsPagePhysically(layoutDirection: LayoutDirection) {
         let shelf = Self.shelf(width: 320, layoutDirection: layoutDirection)
         defer { shelf.removeObservers() }
-        // The trailing arrow is the right one in LTR and the left one in RTL;
-        // either way pressing it moves the content toward the trailing edge.
         let isRightToLeft = layoutDirection == .rightToLeft
         let start = shelf.scrollView.contentView.bounds.minX
         #expect(shelf.containerView.arrow(isRightToLeft ? .left : .right).accessibilityPerformPress())
         let end = shelf.scrollView.contentView.bounds.minX
         #expect(isRightToLeft ? end < start : end > start)
-        // Leaving the leading edge reveals the leading arrow.
         #expect(shelf.containerView.isShowingArrow(isRightToLeft ? .right : .left))
     }
 
@@ -151,8 +144,6 @@ struct HomeItemShelfViewTests {
         #expect(right.hitTest(center) === right)
         #expect(right.hitTest(NSPoint(x: right.frame.minX + 2, y: right.frame.minY + 2)) == nil)
 
-        // Reaching the end starts the arrow's fade-out; it must stop
-        // intercepting the card beneath right away.
         shelf.containerView.setArrows(left: true, right: false, animated: true)
         #expect(right.hitTest(center) == nil)
         #expect(!right.accessibilityPerformPress())
@@ -262,8 +253,6 @@ struct HomeItemShelfViewTests {
         #expect(outer.scrollEvents.isEmpty)
     }
 
-    /// Places the shelf's container (scroll view and arrows) on a page inside
-    /// an outer scroll view, like the Home page's vertical `ScrollView`.
     private static func page(containing shelf: HomeItemShelfView) -> HomeItemTestScrollView {
         let outer = HomeItemTestScrollView(frame: NSRect(x: 0, y: 0, width: 320, height: 300))
         let page = NSView(frame: NSRect(x: 0, y: 0, width: 320, height: 1200))
@@ -331,8 +320,6 @@ struct HomeItemShelfViewTests {
         shelf.scrollView.documentView?.subviews.compactMap { $0 as? HomeItemCell } ?? []
     }
 
-    /// Sizes the container as SwiftUI would; its layout sizes the scroll view
-    /// and places the arrows.
     private static func resize(_ shelf: HomeItemShelfView, to width: CGFloat) {
         shelf.containerView.frame = NSRect(x: 0, y: 0, width: width, height: HomeItemCell.height)
         shelf.containerView.needsLayout = true
@@ -340,17 +327,12 @@ struct HomeItemShelfViewTests {
     }
 }
 
-// MARK: - HomeItemTestClipView
-
 @MainActor
 private final class HomeItemTestClipView: NSClipView {
-    /// Apply paging destinations without requiring an onscreen animation clock.
     override func animator() -> Self {
         self
     }
 }
-
-// MARK: - HomeItemTestScrollView
 
 @MainActor
 private final class HomeItemTestScrollView: NSScrollView {

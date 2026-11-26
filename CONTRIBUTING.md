@@ -32,9 +32,12 @@ KASET_SIGNING=adhoc ./Scripts/compile_and_run.sh
 
 # Lint & Format
 swiftlint --strict && swiftformat .
+python3 Scripts/comment_lint.py --base "$(git merge-base HEAD origin/main)"
 ```
 
 Or open `Package.swift` in Xcode to work in the IDE.
+
+CI rejects new or rewritten source comments, even when a change deletes more comments than it adds. Use descriptive code or an ADR for durable rationale. Run `python3 Scripts/comment_lint.py --inventory` to count the remaining comment-only lines, or invoke the repo's `delete-comment` skill for a cleanup pass. See [ADR-0042](docs/adr/0042-ratchet-source-comments.md) for the scope and exceptions.
 
 ## Project Structure
 

@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - WhatsNewVersionTests
-
 @Suite(.tags(.model))
 struct WhatsNewVersionTests {
     @Test("Parses full semver string")
@@ -102,14 +100,11 @@ struct WhatsNewVersionTests {
     }
 }
 
-// MARK: - WhatsNewVersionStoreTests
-
 @Suite(.serialized, .tags(.service))
 struct WhatsNewVersionStoreTests {
     private let defaults = UserDefaults(suiteName: "com.kaset.test.WhatsNewVersionStore")!
 
     init() {
-        // Clean up before each test suite run
         self.defaults.removePersistentDomain(forName: "com.kaset.test.WhatsNewVersionStore")
     }
 
@@ -166,8 +161,6 @@ struct WhatsNewVersionStoreTests {
         #expect(presented.count == 2)
     }
 }
-
-// MARK: - WhatsNewProviderTests
 
 @Suite(.serialized, .tags(.service))
 struct WhatsNewProviderTests {

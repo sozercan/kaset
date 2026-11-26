@@ -2,8 +2,6 @@ import Foundation
 
 extension SingletonPlayerWebView {
     // swiftlint:disable function_body_length
-    /// Retries an AirPlay handoff that leaves the requested player unstarted.
-    /// The retry stays inside the current document so WebKit can reuse its receiver.
     nonisolated static func routerNavigationScript(videoId: String, generation: Int) -> String {
         let videoIdLiteral = Self.javaScriptStringLiteral(videoId)
         return """
@@ -11,8 +9,6 @@ extension SingletonPlayerWebView {
             const previousRetry = window.__kasetAirPlayNavigationRetry;
             previousRetry?.cancel();
             const app = document.querySelector('ytmusic-app');
-            // YouTube Music moved `resolveCommand` off the element; the polymer controller's
-            // navigation handler drives the same in-document navigator.
             const controller = app && (app.polymerController || app.inst);
             const resolveCommand = app && typeof app.resolveCommand === 'function'
                 ? command => app.resolveCommand(command)
@@ -80,8 +76,6 @@ extension SingletonPlayerWebView {
             function handlePlayerError(event) {
                 const code = typeof event === 'number' ? event : event && event.data;
                 if (code !== 150 || !isCurrentRequest() || didRetry || !targetIsUnstarted()) return;
-                // In the failing AirPlay handoff, error 5 precedes 150. Let
-                // YouTube's final error handlers settle before the one retry.
                 if (confirmedFailureAt === null) confirmedFailureAt = performance.now();
                 observeTarget();
             }
@@ -104,8 +98,6 @@ extension SingletonPlayerWebView {
                     if (now >= retryAt) {
                         didRetry = true;
                         stopObservingPlayer();
-                        // Keep ownership until media confirmation so a rapid skip
-                        // can inherit the handoff while the wireless flag is false.
                         try {
                             resolveCommand({ watchEndpoint: { videoId: videoId } });
                         } catch (_) {
@@ -119,9 +111,6 @@ extension SingletonPlayerWebView {
                     confirmedFailureAt = null;
                 }
 
-                // YouTube can update track identity and media readiness after its
-                // state callback. Observe the pending target until confirmation,
-                // allowing normal loading a full second unless it reports failure.
                 observationTimer = setTimeout(observeTarget, nextObservationDelay);
             }
 
@@ -137,9 +126,6 @@ extension SingletonPlayerWebView {
                 observationTimer = setTimeout(observeTarget, 250);
             }
 
-            // Bluetooth outputs drop the opening of a freshly loaded track. Start the
-            // target muted and, once its audio is flowing, rewind to 0 and unmute: a seek
-            // inside running playback starts cleanly, like restarting a track.
             window.__kasetCleanStart?.finish();
             const mutedDescriptor = typeof HTMLMediaElement === 'function'
                 && Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'muted');
@@ -148,8 +134,6 @@ extension SingletonPlayerWebView {
                 const cleanStart = { finish: finishCleanStart };
                 window.__kasetCleanStart = cleanStart;
                 const cleanStartDeadline = setTimeout(finishCleanStart, 4000);
-                // YouTube re-applies its own mute state while loading the track. Hold the
-                // element muted and report the requested state back, so its UI is unaffected.
                 let requestedMuted = false;
                 Object.defineProperty(video, 'muted', {
                     configurable: true,
@@ -166,13 +150,11 @@ extension SingletonPlayerWebView {
                         currentId = data && (data.video_id || data.videoId);
                     } catch (_) {}
                     if (currentId !== videoId || isAdShowing() || video.currentTime < 0.25) return;
-                    // A later position means playback was moved on purpose (e.g. restored).
                     if (video.currentTime > 1.5) {
                         finishCleanStart();
                         return;
                     }
                     video.removeEventListener('timeupdate', rewindOnceAudible);
-                    // Unmute only once the seek lands, or the pre-seek position leaks through.
                     video.addEventListener('seeked', finishCleanStart, { once: true });
                     video.currentTime = 0;
                 }

@@ -2,19 +2,15 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for FavoritesManager using Swift Testing.
 @Suite(.serialized, .tags(.service), .timeLimit(.minutes(1)))
 @MainActor
 struct FavoritesManagerTests {
-    /// Use a fresh manager for each test (skipLoad to avoid disk state)
     var manager: FavoritesManager
 
     init() {
         self.manager = FavoritesManager(skipLoad: true)
         self.manager.setActiveAccountScopeID("test-scope")
     }
-
-    // MARK: - Basic Operations
 
     @Test("Initial state is empty")
     func initialState() {
@@ -104,8 +100,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items[1].title == "First Song")
     }
 
-    // MARK: - Remove Operations
-
     @Test("Remove by contentId succeeds")
     func removeByContentId() {
         let song = TestFixtures.makeSong(id: "remove-test")
@@ -128,18 +122,14 @@ struct FavoritesManagerTests {
         #expect(self.manager.items.count == 1)
     }
 
-    // MARK: - Toggle Operations
-
     @Test("Toggle adds then removes")
     func toggleAddsAndRemoves() {
         let song = TestFixtures.makeSong(id: "toggle-test")
 
-        // First toggle should add
         self.manager.toggle(song: song)
         #expect(self.manager.isPinned(song: song) == true)
         #expect(self.manager.items.count == 1)
 
-        // Second toggle should remove
         self.manager.toggle(song: song)
         #expect(self.manager.isPinned(song: song) == false)
         #expect(self.manager.items.isEmpty)
@@ -158,8 +148,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items.isEmpty)
     }
 
-    // MARK: - Move Operations
-
     @Test("Move item changes position")
     func moveItem() {
         let song1 = TestFixtures.makeSong(id: "move-1", title: "Song 1")
@@ -170,12 +158,10 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is now: song3, song2, song1 (newest first)
         #expect(self.manager.items[0].title == "Song 3")
         #expect(self.manager.items[1].title == "Song 2")
         #expect(self.manager.items[2].title == "Song 1")
 
-        // Move song1 (index 2) to index 0
         self.manager.move(from: IndexSet(integer: 2), to: 0)
 
         #expect(self.manager.items[0].title == "Song 1")
@@ -193,8 +179,6 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is: song3, song2, song1
-        // Move song1 to top
         self.manager.moveToTop(contentId: song1.videoId)
 
         #expect(self.manager.items[0].title == "Song 1")
@@ -210,14 +194,10 @@ struct FavoritesManagerTests {
         self.manager.add(.from(song2))
         self.manager.add(.from(song3))
 
-        // Order is: song3, song2, song1
-        // Move song3 to end
         self.manager.moveToEnd(contentId: song3.videoId)
 
         #expect(self.manager.items[2].title == "Song 3")
     }
-
-    // MARK: - isPinned Checks
 
     @Test("isPinned returns correct state")
     func isPinnedReturnsCorrectState() {
@@ -232,8 +212,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.isPinned(contentId: song.videoId) == true)
     }
 
-    // MARK: - Clear All
-
     @Test("Clear all removes all items")
     func clearAllRemovesAll() {
         self.manager.add(.from(TestFixtures.makeSong(id: "clear-1")))
@@ -247,8 +225,6 @@ struct FavoritesManagerTests {
         #expect(self.manager.items.isEmpty)
         #expect(self.manager.isVisible == false)
     }
-
-    // MARK: - Account Scope
 
     @Test("Switching accounts isolates favorites")
     func switchingAccountsIsolatesFavorites() {
@@ -754,8 +730,6 @@ struct FavoritesManagerTests {
         #expect(try Data(contentsOf: scopedURL) == unreadableData)
     }
 
-    // MARK: - FavoriteItem Model Tests
-
     @Test("FavoriteItem contentId returns correct value")
     func favoriteItemContentId() {
         let song = TestFixtures.makeSong(id: "content-id-test")
@@ -828,7 +802,6 @@ struct FavoritesManagerTests {
         let item1 = FavoriteItem.from(song)
         let item2 = FavoriteItem.from(song)
 
-        // Should be equal even though they have different UUIDs
         #expect(item1 == item2)
         #expect(item1.hashValue == item2.hashValue)
     }

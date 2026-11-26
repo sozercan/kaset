@@ -2,38 +2,25 @@ import AppKit
 import Foundation
 import os
 
-// MARK: - Constants
+private let errPlayerNotAvailable: Int = -1728
 
-/// AppleScript error code for when PlayerService is not available.
-private let errPlayerNotAvailable: Int = -1728 // errAENoSuchObject
-
-/// Error message when PlayerService is not available.
 private let playerNotAvailableMessage = "Player service not initialized. Please wait for the app to fully launch."
 
-/// Error message for a direct parameter that is not a video ID.
 private let invalidVideoIdMessage = "Video ID must be a non-empty string of letters, digits, - and _."
 
-/// Error message for a direct parameter that is not a list of video IDs.
 private let invalidVideoIdListMessage = "Video IDs must be a non-empty list of video IDs (letters, digits, - and _)."
 
-/// Shared logger for scripting commands.
 private let logger = DiagnosticsLogger.scripting
 
-// MARK: - Helper
-
-/// Checks if PlayerService.shared is available. Must be called from main thread.
 @MainActor
 private func getPlayerService() -> PlayerService? {
     PlayerService.shared
 }
 
-/// Characters a YouTube video ID can contain.
 private let videoIdCharacters = CharacterSet(
     charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
 )
 
-/// Reads a scripting value as a YouTube video ID, ignoring surrounding whitespace.
-/// Returns nil for anything that cannot be an ID, such as an empty string or a URL.
 private func scriptVideoId(from value: Any?) -> String? {
     guard let string = value as? String else { return nil }
     let videoId = string.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -43,8 +30,6 @@ private func scriptVideoId(from value: Any?) -> String? {
     return videoId
 }
 
-/// Reads a scripting parameter as a non-empty list of video IDs.
-/// A single string is accepted as a one-item list.
 private func videoIdList(from parameter: Any?) -> [String]? {
     let values: [Any]
     if let videoId = parameter as? String {
@@ -60,14 +45,11 @@ private func videoIdList(from parameter: Any?) -> [String]? {
 }
 
 private extension NSScriptCommand {
-    /// Reads an optional argument: `defaultValue` when it is absent, nil when it has the wrong type.
     func optionalArgument<T>(_ key: String, default defaultValue: T) -> T? {
         guard let value = self.evaluatedArguments?[key] else { return defaultValue }
         return value as? T
     }
 
-    /// Converts a 1-based AppleScript index into an index of a collection with `count` items, or sets
-    /// an out-of-bounds script error ending with `countDescription` and returns nil.
     func zeroBasedIndex(
         fromOneBased index: Int,
         count: Int,
@@ -77,7 +59,7 @@ private extension NSScriptCommand {
         let zeroBasedIndex = index - 1
         guard zeroBasedIndex >= 0, zeroBasedIndex < count else {
             logger.error("\(commandName) command failed: index \(index) out of bounds (1..\(count))")
-            self.scriptErrorNumber = -1728 // errAENoSuchObject
+            self.scriptErrorNumber = -1728
             self.scriptErrorString = "Index out of bounds. \(countDescription)"
             return nil
         }
@@ -85,13 +67,9 @@ private extension NSScriptCommand {
     }
 }
 
-// MARK: - PlayCommand
-
-/// Play command: start or resume playback.
 @objc(KasetPlayCommand)
 final class PlayCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
-        // AppleScript commands run on the main thread
         guard let playerService = MainActor.assumeIsolated({ getPlayerService() }) else {
             logger.error("Play command failed: PlayerService.shared is nil")
             scriptErrorNumber = errPlayerNotAvailable
@@ -100,7 +78,6 @@ final class PlayCommand: NSScriptCommand {
         }
         logger.info("Executing play command")
         Task { @MainActor in
-            // A queue built without playing (e.g. by `add to queue`) starts at its current position.
             if playerService.hasNoLoadedMusicPlayback, !playerService.queueEntries.isEmpty {
                 await playerService.playFromQueue(at: playerService.currentIndex)
             } else {
@@ -111,9 +88,6 @@ final class PlayCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PlayVideoCommand
-
-/// PlayVideo command: play a specific video by its YouTube video ID.
 @objc(KasetPlayVideoCommand)
 final class PlayVideoCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -131,7 +105,6 @@ final class PlayVideoCommand: NSScriptCommand {
             return nil
         }
         logger.info("Executing play video command with ID: \(videoId)")
-        // Begin the intent now so a later scripting command supersedes this one, not the reverse.
         let intent = MainActor.assumeIsolated { playerService.beginMusicPlaybackIntent() }
         Task { @MainActor in
             await playerService.playWithRadio(song: .placeholder(videoId: videoId), intent: intent)
@@ -140,9 +113,6 @@ final class PlayVideoCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PauseCommand
-
-/// Pause command: pause playback.
 @objc(KasetPauseCommand)
 final class PauseCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -160,9 +130,6 @@ final class PauseCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PlayPauseCommand
-
-/// PlayPause command: toggle play/pause state.
 @objc(KasetPlayPauseCommand)
 final class PlayPauseCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -180,9 +147,6 @@ final class PlayPauseCommand: NSScriptCommand {
     }
 }
 
-// MARK: - NextTrackCommand
-
-/// NextTrack command: skip to the next track.
 @objc(KasetNextTrackCommand)
 final class NextTrackCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -200,9 +164,6 @@ final class NextTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PreviousTrackCommand
-
-/// PreviousTrack command: go to the previous track.
 @objc(KasetPreviousTrackCommand)
 final class PreviousTrackCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -220,9 +181,6 @@ final class PreviousTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - SetVolumeCommand
-
-/// SetVolume command: set the playback volume (0-100).
 @objc(KasetSetVolumeCommand)
 final class SetVolumeCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -249,10 +207,6 @@ final class SetVolumeCommand: NSScriptCommand {
     }
 }
 
-// MARK: - ToggleShuffleCommand
-
-/// ToggleShuffle command: toggle shuffle mode.
-/// This is a synchronous operation.
 @objc(KasetToggleShuffleCommand)
 final class ToggleShuffleCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -270,10 +224,6 @@ final class ToggleShuffleCommand: NSScriptCommand {
     }
 }
 
-// MARK: - CycleRepeatCommand
-
-/// CycleRepeat command: cycle through repeat modes (off, all, one).
-/// This is a synchronous operation.
 @objc(KasetCycleRepeatCommand)
 final class CycleRepeatCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -291,9 +241,6 @@ final class CycleRepeatCommand: NSScriptCommand {
     }
 }
 
-// MARK: - ToggleMuteCommand
-
-/// ToggleMute command: toggle mute state.
 @objc(KasetToggleMuteCommand)
 final class ToggleMuteCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -311,14 +258,9 @@ final class ToggleMuteCommand: NSScriptCommand {
     }
 }
 
-// MARK: - GetPlayerInfoCommand
-
-/// GetPlayerInfo command: returns current player state as JSON.
-/// This is a synchronous operation that returns immediately.
 @objc(KasetGetPlayerInfoCommand)
 final class GetPlayerInfoCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
-        // AppleScript runs on main thread, so we can assume MainActor isolation
         let result = MainActor.assumeIsolated { () -> String in
             guard let playerService = getPlayerService() else {
                 logger.error("GetPlayerInfo command failed: PlayerService.shared is nil")
@@ -373,7 +315,6 @@ final class GetPlayerInfoCommand: NSScriptCommand {
             return "{}"
         }
 
-        // Set error if player wasn't available (check by looking at result)
         if result.hasPrefix("{\"error\"") {
             scriptErrorNumber = errPlayerNotAvailable
             scriptErrorString = playerNotAvailableMessage
@@ -383,10 +324,6 @@ final class GetPlayerInfoCommand: NSScriptCommand {
     }
 }
 
-// MARK: - LikeTrackCommand
-
-/// LikeTrack command: like/unlike the current track.
-/// This is a synchronous operation.
 @objc(KasetLikeTrackCommand)
 final class LikeTrackCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -404,10 +341,6 @@ final class LikeTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - DislikeTrackCommand
-
-/// DislikeTrack command: dislike/undislike the current track.
-/// This is a synchronous operation.
 @objc(KasetDislikeTrackCommand)
 final class DislikeTrackCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -425,10 +358,6 @@ final class DislikeTrackCommand: NSScriptCommand {
     }
 }
 
-// MARK: - GetPlayQueueCommand
-
-/// GetPlayQueue command: returns the current playback queue and active index as JSON.
-/// This is a synchronous operation that returns immediately.
 @objc(KasetGetPlayQueueCommand)
 final class GetPlayQueueCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -476,9 +405,6 @@ final class GetPlayQueueCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PlayTrackAtIndexCommand
-
-/// PlayTrackAtIndex command: plays a specific track from the queue by its 1-based index.
 @objc(KasetPlayTrackAtIndexCommand)
 final class PlayTrackAtIndexCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -521,10 +447,6 @@ final class PlayTrackAtIndexCommand: NSScriptCommand {
     }
 }
 
-// MARK: - PlayVideosCommand
-
-/// PlayVideos command: replaces the queue with videos by their YouTube video IDs and starts
-/// playback at an optional 1-based index.
 @objc(KasetPlayVideosCommand)
 final class PlayVideosCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -557,8 +479,6 @@ final class PlayVideosCommand: NSScriptCommand {
         }
 
         logger.info("Executing play videos command with \(videoIds.count) videos starting at \(startingAt)")
-        // Replace the queue before returning so later scripting commands act on the new queue,
-        // then start playback.
         let installedQueue = MainActor.assumeIsolated {
             playerService.installQueue(
                 videoIds.map(Song.placeholder(videoId:)),
@@ -575,11 +495,6 @@ final class PlayVideosCommand: NSScriptCommand {
     }
 }
 
-// MARK: - AddToQueueCommand
-
-/// AddToQueue command: appends videos by their YouTube video IDs to the queue, or inserts them
-/// after the current track when `next` is true. Never starts playback.
-/// This is a synchronous operation.
 @objc(KasetAddToQueueCommand)
 final class AddToQueueCommand: NSScriptCommand {
     override func performDefaultImplementation() -> Any? {
@@ -617,11 +532,6 @@ final class AddToQueueCommand: NSScriptCommand {
     }
 }
 
-// MARK: - RemoveFromQueueCommand
-
-/// RemoveFromQueue command: removes every queue entry whose video or audio recording has the given
-/// YouTube video ID, except the entry that is playing.
-/// This is a synchronous operation.
 @objc(KasetRemoveFromQueueCommand)
 final class RemoveFromQueueCommand: NSScriptCommand {
     private enum Outcome {
@@ -646,7 +556,6 @@ final class RemoveFromQueueCommand: NSScriptCommand {
         }
 
         let outcome = MainActor.assumeIsolated { () -> Outcome in
-            // Like the queue views, keep the playing entry: removing it detaches playback from the queue.
             let playingEntryID = playerService.queueEntryIDOwningCurrentPlayback
             var matchesPlayingEntry = false
             var entryIDs = Set<UUID>()
@@ -673,7 +582,7 @@ final class RemoveFromQueueCommand: NSScriptCommand {
             self.scriptErrorString = "Cannot remove the video that is playing."
         case .notFound:
             logger.error("RemoveFromQueue command failed: video \(videoId) is not in the queue")
-            self.scriptErrorNumber = -1728 // errAENoSuchObject
+            self.scriptErrorNumber = -1728
             self.scriptErrorString = "The queue does not contain a video with that ID."
         }
         return nil

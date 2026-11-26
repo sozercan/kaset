@@ -1,4 +1,3 @@
-/// Keeps WebKit's audio output open across short music playback transitions.
 enum WebPlaybackAudioOutput {
     nonisolated static let script = """
     (() => {
@@ -38,8 +37,6 @@ enum WebPlaybackAudioOutput {
                     output.source = source;
                     const gain = context.createGain();
                     output.gain = gain;
-                    // No media is routed through this graph. Zero gain keeps the
-                    // output active without altering DRM playback or its volume.
                     gain.gain.value = 0;
                     source.connect(gain);
                     gain.connect(context.destination);
@@ -56,8 +53,6 @@ enum WebPlaybackAudioOutput {
 
         function releaseAfterTransition() {
             if (!output || releaseTimer !== null) return;
-            // A failed load or the end of the queue must not leave silent output
-            // running indefinitely. Normal transitions finish well within this.
             releaseTimer = setTimeout(stop, 5000);
         }
 
@@ -99,8 +94,6 @@ enum WebPlaybackAudioOutput {
             const video = document.querySelector('video');
             if (video === currentVideo) return;
             currentVideo = video;
-            // Detached media no longer sends events through this document.
-            // Bound the wait for a replacement that has not started playing.
             if (video && !video.paused && !video.ended && video.readyState >= 3) start();
             else releaseAfterTransition();
         });

@@ -1,8 +1,6 @@
 import Testing
 @testable import Kaset
 
-// MARK: - CommandBarDiscoveryRoutingTests
-
 @Suite(.serialized)
 @MainActor
 struct CommandBarDiscoveryRoutingTests {

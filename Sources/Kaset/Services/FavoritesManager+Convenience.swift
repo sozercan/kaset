@@ -135,18 +135,15 @@ extension FavoritesManager {
         return legacyURLs.map { self.legacyClaimURL(for: $0, boundTo: scopeID) }
     }
 
-    /// Builds an opaque identifier for a provider identity or local alias.
     static func identityID(for identity: String) -> String {
         let data = Data(identity.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().utf8)
         return Self.hashID(for: data)
     }
 
-    /// Builds an opaque identifier without altering case-sensitive identity material.
     static func opaqueIdentityID(for identity: String) -> String {
         self.hashID(for: Data(identity.utf8))
     }
 
-    /// Builds an opaque persistence scope from a canonical owner ID and selected YouTube account.
     static func accountScopeID(ownerID: String, accountID: String) -> String {
         var data = Data(ownerID.utf8)
         data.append(0)

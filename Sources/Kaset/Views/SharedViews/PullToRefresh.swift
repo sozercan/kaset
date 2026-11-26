@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PullToRefreshState
-
 struct PullToRefreshState: Equatable {
     enum Phase: Equatable {
         case idle
@@ -76,12 +74,9 @@ struct PullToRefreshState: Equatable {
         }
     }
 
-    /// Returns `true` once when the user releases an armed pull.
     mutating func release(pullDistance: CGFloat) -> Bool {
         guard !self.isRefreshing else { return false }
 
-        // Apply the finger's final position before deciding whether the pull is
-        // still armed. This preserves hysteresis while allowing cancellation.
         self.update(pullDistance: pullDistance, isInteracting: true)
         guard self.phase == .armed else { return false }
 
@@ -101,8 +96,6 @@ struct PullToRefreshState: Equatable {
         self.phase = self.pullDistance <= Self.restTolerance ? .idle : .settling
     }
 }
-
-// MARK: - PullToRefreshModifier
 
 private struct PullToRefreshModifier: ViewModifier {
     @State private var state = PullToRefreshState()

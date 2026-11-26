@@ -2,8 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackObserverTestContext
-
 enum MusicPlaybackObserverTestContext {
     // swiftlint:disable:next function_body_length
     static func make(setup: String = "") throws -> JSContext {

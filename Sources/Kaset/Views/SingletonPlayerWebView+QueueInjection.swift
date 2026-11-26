@@ -3,7 +3,6 @@ import WebKit
 
 @MainActor
 extension SingletonPlayerWebView {
-    /// Cancels any page-side queue injection attempt that has not completed yet.
     func cancelQueueInjection() {
         guard let webView else { return }
         let script = """
@@ -20,16 +19,6 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Injects a song into YouTube Music's native "Up Next" queue.
-    ///
-    /// The player-bar **Play next** item already carries a `queueAddEndpoint`. Kaset
-    /// temporarily substitutes its queue-target video ID, invokes the menu item's
-    /// native click path, and immediately restores the endpoint. The attempt is
-    /// trusted only after the visible queue model confirms the expected target after
-    /// the source video captured by Swift.
-    ///
-    /// - Returns: `true` if the injection script was started. Completion is reported
-    ///   asynchronously through `QUEUE_INJECTION_RESULT`.
     @discardableResult
     func injectNextSong(
         videoId: String,
@@ -237,8 +226,6 @@ extension SingletonPlayerWebView {
                     currentIndex = index;
                 }
                 if (!isAmbiguous) return currentIndex;
-                // YouTube Music can leave a stale `selected` attribute on another row. The row
-                // whose play button shows playback is the real current one, when exactly one does.
                 let playingIndex = -1;
                 for (let index = 0; index < items.length; index += 1) {
                     if (!items[index].isPlaying) continue;
@@ -274,8 +261,6 @@ extension SingletonPlayerWebView {
             }
 
             function findPlayNextItem(menuItems) {
-                // Language- and icon-independent: "Play next" is the menu item whose queue
-                // endpoint inserts right after the current video ("Add to queue" appends).
                 const endpointItem = Array.from(menuItems).find(item => {
                     const data = item.data || item.__data || null;
                     const endpoint = data && (data.serviceEndpoint || data.navigationEndpoint || data.endpoint);
@@ -333,9 +318,6 @@ extension SingletonPlayerWebView {
                 }
                 const queueItemsBeforeClick = currentQueueItems();
                 const queueCurrentIndexBeforeClick = uniqueCurrentQueueIndex(queueItemsBeforeClick);
-                // With no rendered selected source, YouTube can take the queue endpoint's
-                // `onEmptyQueue` path and start the injected target immediately. Wait for
-                // the native queue model to confirm the source occurrence before clicking.
                 if (queueCurrentIndexBeforeClick < 0
                     || queueItemsBeforeClick[queueCurrentIndexBeforeClick].videoId !== sourceVideoId) {
                     dismissPlayerMenu();
@@ -426,7 +408,6 @@ extension SingletonPlayerWebView {
                 const menuButton = __kasetPlayerBarElement('menu', playerBar);
                 if (menuButton) return menuButton;
 
-                // Compatibility fallback for the newer player-bar button shape.
                 return Array.from(playerBar.querySelectorAll('button')).find(button =>
                     (button.getAttribute('aria-label') || '').toLowerCase() === 'action menu'
                 ) || null;
@@ -444,9 +425,6 @@ extension SingletonPlayerWebView {
                     return;
                 }
 
-                // Opening an already-mounted menu can trigger both the mutation callback
-                // and the zero-delay fallback. Inspect each opening only once so retries
-                // remain bounded rather than multiplying timers.
                 let didInspectOpenMenu = false;
                 function tryDispatchFromMenu() {
                     if (didReport || didDispatchCommand || didInspectOpenMenu
@@ -475,8 +453,6 @@ extension SingletonPlayerWebView {
                     report(false, 'menu-timeout');
                 }, 5000);
                 playerBarMenuButton.click();
-                // Menus can stay mounted between SPA navigations and only toggle
-                // visibility, producing no child-list mutation.
                 setTimeout(tryDispatchFromMenu, 0);
             }
 

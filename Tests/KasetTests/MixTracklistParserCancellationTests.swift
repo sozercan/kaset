@@ -158,7 +158,6 @@ struct MixTracklistParserCancellationTests {
             await Task.yield()
         }
 
-        // Cancel and retry in one MainActor turn, before the cancellation cleanup task can run.
         let retry = Task { @MainActor in
             first.cancel()
             return await parser.parseTracklist(videoId: "immediate-retry")

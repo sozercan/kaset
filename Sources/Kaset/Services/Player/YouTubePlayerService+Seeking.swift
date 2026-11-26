@@ -2,19 +2,10 @@ import Foundation
 
 @MainActor
 extension YouTubePlayerService {
-    /// Distance from the known duration at which a manual seek is treated as a
-    /// completed watch. Seeking a WebKit video element to exactly `duration`
-    /// does not reliably emit `ended`, so terminal seeks must not depend on the
-    /// page's natural ended event to refresh Continue Watching state.
     private static let seekToEndThreshold: TimeInterval = 0.5
 
-    /// Window during which repeated relative-seek button presses should build
-    /// from the last requested target instead of the last observer-reported
-    /// progress. YouTube's `STATE_UPDATE` observer is coarse and can briefly
-    /// report pre-seek progress after a button press.
     private static let relativeSeekTargetCoalescingWindow: Duration = .seconds(1)
 
-    /// Seeks to a position in seconds.
     func seek(to time: Double) {
         guard !self.isShowingAd else { return }
         self.beginYouTubePlaybackIntent()
@@ -37,10 +28,6 @@ extension YouTubePlayerService {
         guard time.isFinite else { return }
         self.invalidateExplicitStartTargetForUserSeek()
         let target = self.clampedSeekTarget(time)
-        // A live stream's duration is its DVR window, not a finish line, so
-        // seeking to the edge must not count as watching to the end. Runtime
-        // bridge state covers URL launches and SPA drift whose feed model did
-        // not carry liveness.
         if self.currentVideo?.isLive != true,
            !self.currentMediaIsLive,
            self.duration > 0,
@@ -78,18 +65,12 @@ extension YouTubePlayerService {
             self.userUpdatedPendingPausedIdentityReloadSeek = true
         }
 
-        // Fence native pause intent before any WebView command can synchronously
-        // publish a late playing sample, then cancel every older deferred seek so
-        // it cannot overwrite this terminal position after the command returns.
         self.activateExplicitPauseIntent()
         self.pendingPausedIdentityReloadVideoId = nil
         self.pendingPausedIdentityReloadResumeAt = nil
         self.userUpdatedPendingPausedIdentityReloadSeek = true
         self.playbackController.cancelPendingRecoverySeek()
         self.playbackController.markCurrentPlaybackOccurrenceEnded()
-        // Keep the WebView away from exact-duration seeks and pause it so a
-        // follow-up state update cannot look like a fresh replay of the just-
-        // concluded watch.
         self.playbackController.seek(to: terminalSeekTime)
         self.playbackController.pause()
         self.handleVideoEnded(
@@ -98,14 +79,12 @@ extension YouTubePlayerService {
         )
     }
 
-    /// Seeks backward by a fixed interval, clamping to the beginning.
     func seekBackward(by seconds: Double = 30) {
         guard !self.isShowingAd, seconds.isFinite, seconds > 0 else { return }
         self.beginYouTubePlaybackIntent()
         self.seekRelative(by: -seconds)
     }
 
-    /// Seeks forward by a fixed interval, clamping to the known duration.
     func seekForward(by seconds: Double = 30) {
         guard !self.isShowingAd, seconds.isFinite, seconds > 0 else { return }
         self.beginYouTubePlaybackIntent()
@@ -121,9 +100,6 @@ extension YouTubePlayerService {
         }
         self.lastRelativeSeekVideoId = currentVideoId
 
-        // Bridge progress can lag behind rapid button repeats. Briefly use the
-        // last command target so repeated clicks accumulate from user intent
-        // instead of from a stale 1 Hz observer tick.
         let baseProgress = if self.canCoalesceRelativeSeekTarget(at: now),
                               let lastRelativeSeekTarget = self.lastRelativeSeekTarget
         {

@@ -1,6 +1,5 @@
 import Foundation
 
-/// Recursive search helpers for YouTube Music response trees.
 enum ResponseTreeSearch {
     static func firstDictionary(named key: String, in value: Any) -> [String: Any]? {
         if let dictionary = value as? [String: Any] {

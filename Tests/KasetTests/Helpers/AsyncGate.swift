@@ -1,6 +1,5 @@
 import Foundation
 
-/// A one-shot async gate for tests: `wait()` suspends until `open()` is called.
 actor AsyncGate {
     private var isOpen = false
     private var waiters: [CheckedContinuation<Void, Never>] = []

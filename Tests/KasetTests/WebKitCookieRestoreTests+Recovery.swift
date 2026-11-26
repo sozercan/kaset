@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Login transactions share the process-wide restore-policy generation with
-/// quarantine tests, so keep recovery cases in the same serialized suite.
 extension WebKitCookieRestoreTests {
     @Test("Unavailable startup storage preserves authentication without requiring cleanup", arguments: [true, false])
     func unavailableStartupDoesNotRequireCleanup(policyUnavailable: Bool) async throws {
@@ -334,7 +332,6 @@ extension WebKitCookieRestoreTests {
         _ = await manager.clearAllData()
     }
 
-    /// Archive bytes are not stable across re-encoding, so compare decoded cookies.
     private static func archivedCookieKeys(_ archive: Data) -> [String] {
         KeychainCookieStorage.decodeCookies(from: archive)
             .map { "\($0.domain)|\($0.name)|\($0.value)" }
@@ -355,8 +352,6 @@ extension WebKitCookieRestoreTests {
         ]))
     }
 }
-
-// MARK: - CookieRecoveryStorage
 
 private final class CookieRecoveryStorage: @unchecked Sendable {
     struct State {

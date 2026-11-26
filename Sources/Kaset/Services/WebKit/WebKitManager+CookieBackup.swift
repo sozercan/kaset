@@ -1,13 +1,8 @@
 import Foundation
 import WebKit
 
-// MARK: - CookieArchiveBackupAction
-
 enum CookieArchiveBackupAction: Equatable, Sendable {
     case persist(data: Data, cookieCount: Int)
-    /// The live jar has no primary session. Explicit sign-out and failed-login
-    /// cleanup invalidate the archive themselves, so a missing cookie here is
-    /// not proof of a sign-out and must not become a durable one.
     case retainWithoutPrimarySession
     case retainExisting
 
@@ -22,8 +17,6 @@ enum CookieArchiveBackupAction: Equatable, Sendable {
         }
     }
 }
-
-// MARK: - CookieArchiveSnapshot
 
 struct CookieArchiveSnapshot: Equatable, Sendable {
     let data: Data
@@ -70,8 +63,6 @@ struct CookieArchiveSnapshot: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveVerificationState
-
 enum CookieArchiveVerificationState: Sendable {
     case noValidAuthCookies
     case snapshot(CookieArchiveSnapshot)
@@ -95,8 +86,6 @@ enum CookieArchiveVerificationState: Sendable {
         }
     }
 }
-
-// MARK: - CookieArchiveStabilityEntry
 
 private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     let name: String
@@ -126,8 +115,6 @@ private struct CookieArchiveStabilityEntry: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - LoginCookieVerificationState
-
 private struct LoginCookieVerificationState: Equatable, Sendable {
     let entries: [CookieArchiveStabilityEntry]
 
@@ -149,14 +136,10 @@ private struct LoginCookieVerificationState: Equatable, Sendable {
     }
 }
 
-// MARK: - CookieArchiveWriteAttempt
-
 struct CookieArchiveWriteAttempt: Sendable {
     let snapshot: CookieArchiveSnapshot
     let generation: UInt64
 }
-
-// MARK: - CookieBackupStabilizationResult
 
 enum CookieBackupStabilizationResult: Equatable {
     case persisted
@@ -164,8 +147,6 @@ enum CookieBackupStabilizationResult: Equatable {
     case cancelled
     case unstable
 }
-
-// MARK: - CookieBackupStabilizer
 
 @MainActor
 enum CookieBackupStabilizer {
@@ -209,9 +190,6 @@ enum CookieBackupStabilizer {
                 return operations.canContinue() ? .failed : .cancelled
             }
 
-            // Give already-enqueued observer callbacks a chance to mark the
-            // snapshot dirty, but verify freshness directly instead of treating
-            // observer delivery as a synchronization barrier.
             await Task.yield()
             guard operations.canContinue() else { return .cancelled }
 
@@ -247,15 +225,11 @@ enum CookieBackupStabilizer {
     }
 }
 
-// MARK: - LiveCookieRollbackResult
-
 private enum LiveCookieRollbackResult {
     case restored
     case superseded
     case failed
 }
-
-// MARK: - LoginCookieBackupBaseline
 
 private struct LoginCookieBackupBaseline {
     let liveBaseline: CookieArchiveLiveBaseline
@@ -263,11 +237,7 @@ private struct LoginCookieBackupBaseline {
     let loginCookies: [HTTPCookie]
 }
 
-// MARK: - Forced Cookie Backup
-
 extension WebKitManager {
-    /// Starts a rollback-safe persistence transaction before the login WebView
-    /// can change authentication cookies.
     func beginLoginCookieBackup() async -> CookieBackupTransaction? {
         switch await self.waitForInitialCookieRestore() {
         case .ready:
@@ -354,10 +324,6 @@ extension WebKitManager {
 
         let authCookies = allLiveCookies.filter(KeychainCookieStorage.isAuthCookie)
         let loginCookies = allLiveCookies.filter(KeychainCookieStorage.isLoginDomainCookie)
-        // A partial Google session cannot form a native API archive, but its
-        // complete cookie jar still provides a valid in-memory rollback baseline.
-        // The observer keeps the archive through a missing primary cookie, so
-        // rollback restores that archive rather than deleting it.
         if case .noPrimarySession = KeychainCookieStorage.makeArchiveResult(from: authCookies) {
             return LoginCookieBackupBaseline(
                 liveBaseline: .persistedArchive,
@@ -434,20 +400,13 @@ extension WebKitManager {
         return transaction.hasChangedFromPreviousLiveSnapshot(snapshot)
     }
 
-    /// Clears the live login session for a reauthentication attempt. The archive
-    /// and restore policy stay untouched, so cancelling the attempt rolls back to
-    /// the previous session instead of leaving the user durably signed out.
     func clearLiveLoginCookies(for transaction: CookieBackupTransaction) async -> Bool {
         guard await self.isLoginCookieBackupActive(transaction), !Task.isCancelled else { return false }
         self.logger.notice("Clearing live login cookies for reauthentication")
-        // Rollback restores only login-domain cookies, so never escalate to a
-        // store-wide removal here; a failed clear rolls the attempt back.
         let didClear = await self.deleteLiveLoginSessionCookies(allowsCookieStoreFallback: false)
         return didClear && self.isCurrentLoginCookieBackup(transaction)
     }
 
-    /// Captures and persists a fresh stable snapshot while the transaction keeps
-    /// startup restoration disabled.
     func refreshLoginCookieBackup(_ transaction: CookieBackupTransaction) async -> Bool {
         guard self.isCurrentLoginCookieBackup(transaction) else { return false }
         self.cookieDebounceTask?.cancel()
@@ -520,9 +479,6 @@ extension WebKitManager {
               !Task.isCancelled
         else { return nil }
 
-        // Persist and re-read one last stable snapshot while restoration remains
-        // disabled. Finalization enables restoration as its last atomic step, so
-        // cancellation can never make an unconfirmed login restorable.
         guard let postFinalizeSnapshot = await self.refreshPersistedSnapshot(),
               transaction.hasChangedFromPreviousLiveSnapshot(postFinalizeSnapshot),
               let postFinalizeSessionValue = postFinalizeSnapshot.primarySessionValue,
@@ -697,13 +653,10 @@ extension WebKitManager {
         self.activeLoginCookieBackupTransaction?.matches(transaction) == true
     }
 
-    /// Forces an immediate save of a stable YouTube/Google cookie snapshot.
     func forceBackupCookies() async -> Bool {
         guard self.canPersistAuthCookies else { return false }
 
         if let forcedCookieBackupTask {
-            // A later caller establishes a newer freshness boundary even if
-            // WebKit has not delivered its cookie-change callback yet.
             self.forcedCookieBackupDirty = true
             return await forcedCookieBackupTask.value
         }
@@ -740,8 +693,6 @@ extension WebKitManager {
 
             switch result {
             case .persisted:
-                // A callback that lands after the stabilizer's final read remains
-                // dirty; fail closed so the caller retries instead of erasing it.
                 return !self.forcedCookieBackupDirty
             case .cancelled:
                 return false
@@ -780,8 +731,6 @@ extension WebKitManager {
     }
 }
 
-// MARK: - WebKitManager + WKHTTPCookieStoreObserver
-
 extension WebKitManager: WKHTTPCookieStoreObserver {
     nonisolated func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
         Task { @MainActor in
@@ -801,7 +750,6 @@ extension WebKitManager: WKHTTPCookieStoreObserver {
             return
         }
 
-        // WebKit fires once per individual cookie change, so debounce the backup.
         self.cookieDebounceTask?.cancel()
         self.cookieDebounceTask = Task {
             do {

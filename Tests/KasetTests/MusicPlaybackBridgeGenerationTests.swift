@@ -3,8 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - MusicPlaybackBridgeGenerationTests
-
 @Suite("YouTube Music playback bridge generation", .tags(.service))
 @MainActor
 struct MusicPlaybackBridgeGenerationTests {
@@ -844,8 +842,6 @@ extension MusicPlaybackBridgeGenerationTests {
     }
 }
 
-// MARK: - PlaybackBridgeEventQueueTests
-
 @Suite("Playback bridge event queue", .tags(.service))
 @MainActor
 struct PlaybackBridgeEventQueueTests {
@@ -904,8 +900,6 @@ struct PlaybackBridgeEventQueueTests {
         #expect(SingletonPlayerWebView.playbackBridgeInt(from: oversizedGeneration) == nil)
     }
 }
-
-// MARK: - WebPlaybackTransitionFallbackPolicyTests
 
 @Suite("Web playback transition fallback policy", .tags(.service))
 struct WebPlaybackTransitionFallbackPolicyTests {

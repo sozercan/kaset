@@ -1,22 +1,14 @@
 import Foundation
 
-// MARK: - WhatsNew
-
-/// Represents a "What's New" entry for a specific app version.
 struct WhatsNew: Identifiable {
-    /// The app version this entry corresponds to.
     let version: Version
 
-    /// The headline title displayed at the top of the sheet.
     let title: String
 
-    /// The list of features to showcase (used for static/fallback entries).
     let features: [Feature]
 
-    /// Markdown body from release notes (used for dynamic entries from GitHub).
     let releaseNotes: String?
 
-    /// Optional URL to open when the user taps "Learn more".
     let learnMoreURL: URL?
 
     var id: Version {
@@ -38,10 +30,7 @@ struct WhatsNew: Identifiable {
     }
 }
 
-// MARK: WhatsNew.Version
-
 extension WhatsNew {
-    /// A semantic version with major, minor, and patch components.
     struct Version: Hashable, Comparable, Codable, CustomStringConvertible {
         let major: Int
         let minor: Int
@@ -55,12 +44,9 @@ extension WhatsNew {
             self.suffix = suffix
         }
 
-        /// Returns the minor-release version (patch set to 0).
         var minorRelease: Version {
             Version(major: self.major, minor: self.minor, patch: 0)
         }
-
-        // MARK: Comparable
 
         static func < (lhs: Version, rhs: Version) -> Bool {
             if lhs.major != rhs.major {
@@ -74,8 +60,6 @@ extension WhatsNew {
             }
             return self.compareSuffix(lhs.suffix, rhs.suffix)
         }
-
-        // MARK: CustomStringConvertible
 
         var description: String {
             "\(self.major).\(self.minor).\(self.patch)\(self.suffix)"
@@ -93,8 +77,6 @@ extension WhatsNew {
         }
     }
 }
-
-// MARK: - WhatsNew.Version + ExpressibleByStringLiteral
 
 extension WhatsNew.Version: ExpressibleByStringLiteral {
     private struct ParsedComponents {
@@ -147,28 +129,19 @@ extension WhatsNew.Version: ExpressibleByStringLiteral {
     }
 }
 
-// MARK: - Version+current
-
 extension WhatsNew.Version {
-    /// Retrieves the current app version from the main bundle's `CFBundleShortVersionString`.
     static func current(in bundle: Bundle = .main) -> WhatsNew.Version {
         let versionString = bundle.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
         return .init(stringLiteral: versionString)
     }
 }
 
-// MARK: - WhatsNew.Feature
-
 extension WhatsNew {
-    /// A single feature to display in the "What's New" sheet.
     struct Feature: Hashable {
-        /// SF Symbol name for the feature icon.
         let icon: String
 
-        /// Short feature title.
         let title: String
 
-        /// Longer description of the feature.
         let subtitle: String
     }
 }

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Replaces the content timeline while either playback WebView is showing an ad.
 struct PlayerBarAdIndicator: View {
     var body: some View {
         HStack(spacing: 8) {

@@ -2,8 +2,6 @@ import Foundation
 import os
 import SwiftUI
 
-// MARK: - PlaylistDetailLibraryMutationActivity
-
 struct PlaylistDetailLibraryMutationActivity {
     private(set) var operationID: UUID?
 

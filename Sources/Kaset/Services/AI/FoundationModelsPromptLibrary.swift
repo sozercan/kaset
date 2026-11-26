@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - FoundationModelsPromptVersion
-
 @available(macOS 26.0, *)
 enum FoundationModelsPromptVersion: Equatable {
     case legacy26_0To26_3
@@ -24,8 +22,6 @@ enum FoundationModelsPromptVersion: Equatable {
         }
     }
 }
-
-// MARK: - FoundationModelsPromptLibrary
 
 @available(macOS 26.0, *)
 enum FoundationModelsPromptLibrary {

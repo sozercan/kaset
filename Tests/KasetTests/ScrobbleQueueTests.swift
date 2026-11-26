@@ -5,7 +5,6 @@ import Testing
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct ScrobbleQueueTests {
-    /// Creates a temporary directory for queue file storage during tests.
     private func makeTemporaryDirectory() throws -> URL {
         let tempDir = FileManager.default.temporaryDirectory
             .appendingPathComponent("ScrobbleQueueTests-\(UUID().uuidString)")
@@ -13,12 +12,10 @@ struct ScrobbleQueueTests {
         return tempDir
     }
 
-    /// Cleans up a temporary directory after test use.
     private func cleanupDirectory(_ dir: URL) {
         try? FileManager.default.removeItem(at: dir)
     }
 
-    /// Creates a test ScrobbleTrack with sensible defaults.
     private func makeTrack(
         title: String = "Test Song",
         artist: String = "Test Artist",
@@ -36,8 +33,6 @@ struct ScrobbleQueueTests {
             videoId: videoId
         )
     }
-
-    // MARK: - Basic Operations
 
     @Test("Empty queue has zero count")
     func emptyQueue() throws {
@@ -85,8 +80,6 @@ struct ScrobbleQueueTests {
         #expect(queue.pendingTracks[2].title == "Song 3")
     }
 
-    // MARK: - Dequeue
-
     @Test("Dequeue returns items without removing them")
     func dequeueDoesNotRemove() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -100,7 +93,7 @@ struct ScrobbleQueueTests {
 
         #expect(batch.count == 1)
         #expect(batch.first?.title == "Song 1")
-        #expect(queue.count == 2) // Not removed
+        #expect(queue.count == 2)
     }
 
     @Test("Dequeue respects limit")
@@ -130,8 +123,6 @@ struct ScrobbleQueueTests {
         let batch = queue.dequeue(limit: 50)
         #expect(batch.count == 2)
     }
-
-    // MARK: - Mark Completed
 
     @Test("MarkCompleted removes specified tracks")
     func markCompletedRemovesTracks() throws {
@@ -166,19 +157,15 @@ struct ScrobbleQueueTests {
         #expect(queue.count == 1)
     }
 
-    // MARK: - Persistence
-
     @Test("Queue persists across instances")
     func persistenceRoundTrip() throws {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Write
         let queue1 = ScrobbleQueue(directory: dir)
         let track = self.makeTrack(title: "Persisted Song", artist: "Persisted Artist", album: "Persisted Album")
         queue1.enqueue(track)
 
-        // Read in new instance
         let queue2 = ScrobbleQueue(directory: dir)
 
         #expect(queue2.count == 1)
@@ -203,8 +190,6 @@ struct ScrobbleQueueTests {
         #expect(queue2.pendingTracks.first?.timestamp == timestamp)
     }
 
-    // MARK: - Pruning
-
     @Test("PruneExpired removes scrobbles older than 14 days")
     func pruneExpiredTracks() throws {
         let dir = try self.makeTemporaryDirectory()
@@ -212,14 +197,12 @@ struct ScrobbleQueueTests {
 
         let queue = ScrobbleQueue(directory: dir)
 
-        // Add an old track (15 days ago)
         let oldTrack = self.makeTrack(
             title: "Old Song",
             timestamp: Date().addingTimeInterval(-15 * 24 * 60 * 60)
         )
         queue.enqueue(oldTrack)
 
-        // Add a recent track
         let recentTrack = self.makeTrack(title: "Recent Song", timestamp: Date())
         queue.enqueue(recentTrack)
 
@@ -237,7 +220,6 @@ struct ScrobbleQueueTests {
 
         let queue = ScrobbleQueue(directory: dir)
 
-        // Add a track from 13 days ago (should survive)
         let track = self.makeTrack(
             title: "Almost Expired",
             timestamp: Date().addingTimeInterval(-13 * 24 * 60 * 60)
@@ -259,8 +241,6 @@ struct ScrobbleQueueTests {
         let pruned = queue.pruneExpired()
         #expect(pruned == 0)
     }
-
-    // MARK: - Clear
 
     @Test("Clear removes all items")
     func clearRemovesAll() throws {
@@ -291,8 +271,6 @@ struct ScrobbleQueueTests {
         #expect(queue2.isEmpty)
     }
 
-    // MARK: - ScrobbleTrack from Song
-
     @Test("ScrobbleTrack initializes from Song correctly")
     func scrobbleTrackFromSong() {
         let song = TestFixtures.makeSong(
@@ -311,14 +289,11 @@ struct ScrobbleQueueTests {
         #expect(track.timestamp == timestamp)
     }
 
-    // MARK: - Edge Cases
-
     @Test("Queue handles missing file gracefully")
     func missingFileGraceful() throws {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Queue should start empty when no file exists
         let queue = ScrobbleQueue(directory: dir)
         #expect(queue.isEmpty)
     }
@@ -328,11 +303,9 @@ struct ScrobbleQueueTests {
         let dir = try self.makeTemporaryDirectory()
         defer { self.cleanupDirectory(dir) }
 
-        // Write corrupt data
         let fileURL = dir.appendingPathComponent("scrobble-queue.json")
         try Data("not valid json {{[".utf8).write(to: fileURL)
 
-        // Queue should handle gracefully and start empty
         let queue = ScrobbleQueue(directory: dir)
         #expect(queue.isEmpty)
     }

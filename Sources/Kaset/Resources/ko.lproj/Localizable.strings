@@ -1,8 +1,6 @@
 "Ad" = "광고";
 "Advertisement" = "광고";
 
-// Localizable.strings
-
 "%lld songs" = "%lld곡";
 "%lld songs listened today" = "오늘 %lld곡 감상";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"실시간\"은 비디오 재생에 따라 색상이 변하고, 다른 옵션은 고정됩니다";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "YouTube 동영상";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Gemini에게 질문";
 "Ask about this video..." = "이 동영상에 대해 질문하세요...";
 "Ask anything about this video..." = "이 동영상에 대해 무엇이든 물어보세요...";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Gemini에게 질문 응답 준비됨";
 "New Ask Gemini chat ready" = "새 Gemini 채팅이 준비되었습니다";
 
-// Appearance
 "Appearance" = "모양";
 "App Appearance" = "앱 모양";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Kaset의 라이트 또는 다크 모드를 선택하거나 macOS 설정을 따르세요";
@@ -586,7 +582,6 @@
 "Light Mode" = "라이트 모드";
 "Dark Mode" = "다크 모드";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "음악 재생";
 "Play Song" = "노래 재생";
 "Play Playlist" = "재생목록 재생";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "“%@”을(를) 재생할 수 없습니다.";
 "Couldn't rate “%@”." = "“%@”을(를) 평가할 수 없습니다.";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "확장 프로그램을 읽을 수 없습니다. 제거한 후 다시 추가하세요.";
 "The extension's access changed. Review it again before enabling it." = "확장 프로그램의 액세스 권한이 변경되었습니다. 켜기 전에 다시 검토하세요.";
 "Extension Error" = "확장 프로그램 오류";

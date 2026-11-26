@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Unit tests for LikeStatus and FeedbackTokens.
 @Suite(.tags(.model))
 struct LikeStatusTests {
-    // MARK: - LikeStatus Tests
-
     @Test("Raw values are correct")
     func likeStatusRawValues() {
         #expect(LikeStatus.like.rawValue == "LIKE")
@@ -57,8 +54,6 @@ struct LikeStatusTests {
         #expect(LikeStatus.like != LikeStatus.indifferent)
         #expect(LikeStatus.dislike != LikeStatus.indifferent)
     }
-
-    // MARK: - FeedbackTokens Tests
 
     @Test("Initialization stores tokens correctly")
     func feedbackTokensInitialization() {

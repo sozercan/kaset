@@ -164,7 +164,6 @@ struct YouTubeAskViewModelTests {
         #expect(sut.messages.map(\.text) == ["Explain this"])
         if let firstMessage = sut.messages.first {
             if case .user = firstMessage.role {
-                // Expected visible optimistic user turn.
             } else {
                 Issue.record("The optimistic turn must be a user message")
             }

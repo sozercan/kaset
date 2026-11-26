@@ -52,8 +52,6 @@ extension CommandExecutor {
         searchTerms: [String],
         visitedCategories: Set<MoodCategoryEndpoint>
     ) async throws -> [Song]? {
-        // Mood/genre landing cards are represented as Playlist values for shared UI,
-        // but their IDs encode a category browse request rather than playlist tracks.
         if let category = playlist.resolvedMoodCategoryEndpoint {
             guard !visitedCategories.contains(category) else {
                 self.logger.warning("Skipping cyclic mood category: \(playlist.title)")

@@ -2,7 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- URL Scheme Registration -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -17,7 +16,6 @@
 		</dict>
 	</array>
 
-	<!-- Sparkle Auto-Update Configuration -->
 	<key>SUFeedURL</key>
 	<string>https://raw.githubusercontent.com/sozercan/kaset/main/appcast.xml</string>
 
@@ -36,15 +34,11 @@
 	<key>SUEnableInstallerLauncherService</key>
 	<true/>
 
-	<!-- AppleScript Support -->
 	<key>NSAppleScriptEnabled</key>
 	<true/>
 	<key>OSAScriptingDefinition</key>
 	<string>Kaset.sdef</string>
 
-	<!-- Core Audio Process Tap (Equalizer) -->
-	<!-- Process tap on macOS 14.2+ is gated by Screen Recording / System Audio Recording TCC, -->
-	<!-- not microphone TCC, despite what the dialog button text might suggest. -->
 	<key>NSAudioCaptureUsageDescription</key>
 	<string>Kaset processes its own music output through a built-in equalizer. This permission only covers Kaset's own playback — no other app's audio is captured.</string>
 	<key>NSScreenCaptureUsageDescription</key>

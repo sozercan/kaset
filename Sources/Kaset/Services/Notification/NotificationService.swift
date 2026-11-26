@@ -2,7 +2,6 @@ import Foundation
 import Observation
 import UserNotifications
 
-/// Posts silent local notifications when the current track changes.
 @MainActor
 final class NotificationService {
     private let playerService: PlayerService
@@ -10,20 +9,12 @@ final class NotificationService {
     private let logger = DiagnosticsLogger.notification
     private static let loadingResolutionCheckInterval: Duration = .milliseconds(10)
     private static let loadingResolutionMaxChecks = 50
-    /// Whether player observation is currently registered.
     private var isObservationActive = false
-    /// Monotonic token used to ignore stale one-shot observation callbacks after stopObserving().
     private var observationGeneration = 0
-    /// Bounded follow-up task used only while a current track has unresolved metadata.
     private var loadingResolutionTask: Task<Void, Never>?
-    /// Track ID currently being checked for loading-placeholder resolution.
     private var pendingLoadingTrackId: String?
-    /// Last player track ID observed by the event-driven watcher.
     private var previousObservedTrackId: String?
-    /// Last playback-active value observed by the event-driven watcher.
     private var previousObservedIsPlaying = false
-    /// Tracks the last notified track to prevent duplicate notifications.
-    /// Internal for testing.
     private(set) var lastNotifiedTrackId: String?
 
     init(playerService: PlayerService, settingsManager: SettingsManager = .shared) {
@@ -33,10 +24,7 @@ final class NotificationService {
         self.startObserving()
     }
 
-    // MARK: - Authorization
-
     private func requestAuthorization() {
-        // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)
         guard Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests else { return }
         Task {
             do {
@@ -49,8 +37,6 @@ final class NotificationService {
         }
     }
 
-    // MARK: - Observation
-
     private func startObserving() {
         guard !self.isObservationActive else { return }
 
@@ -58,8 +44,6 @@ final class NotificationService {
         self.observationGeneration += 1
         let generation = self.observationGeneration
 
-        // Match the former polling loop's first cycle: treat an already-current
-        // track as a change, while preserving the current playback-active edge.
         self.previousObservedTrackId = nil
         self.previousObservedIsPlaying = self.playerService.isPlaying
         let initialTrackToNotify = self.notificationCandidateForCurrentState()
@@ -94,8 +78,6 @@ final class NotificationService {
 
         let trackToNotify = self.notificationCandidateForCurrentState()
 
-        // Re-register before posting so changes that arrive while UserNotifications
-        // is awaiting do not get dropped.
         self.registerPlayerObservation(generation: generation)
 
         guard let trackToNotify, self.isObserving(generation: generation) else { return }
@@ -124,7 +106,6 @@ final class NotificationService {
             return nil
         }
 
-        // Notify once active playback starts for a new, fully resolved track.
         guard track.id != self.lastNotifiedTrackId else { return nil }
 
         let trackChanged = track.id != self.previousObservedTrackId
@@ -200,7 +181,6 @@ final class NotificationService {
         self.isObservationActive && self.observationGeneration == generation
     }
 
-    /// Whether the observation registration is active.
     var isObserving: Bool {
         self.isObservationActive
     }
@@ -214,12 +194,8 @@ final class NotificationService {
         self.clearLoadingResolutionCheck()
     }
 
-    // MARK: - Notification
-
     private func postTrackNotification(_ track: Song) async {
-        // UNUserNotificationCenter crashes without an app bundle (e.g., unit/performance tests)
         guard Bundle.main.bundleIdentifier != nil, !UITestConfig.isRunningUnitTests else { return }
-        // Check if notifications are enabled in settings
         guard self.settingsManager.showNowPlayingNotifications else {
             self.logger.debug("Notifications disabled in settings, skipping: \(track.title)")
             return
@@ -228,12 +204,12 @@ final class NotificationService {
         let content = UNMutableNotificationContent()
         content.title = track.title
         content.body = track.artistsDisplay.isEmpty ? "Unknown Artist" : track.artistsDisplay
-        content.sound = nil // Silent notification
+        content.sound = nil
 
         let request = UNNotificationRequest(
             identifier: "track-change-\(track.id)",
             content: content,
-            trigger: nil // Deliver immediately
+            trigger: nil
         )
 
         do {

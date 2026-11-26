@@ -22,9 +22,6 @@ struct YouTubeChaptersSectionLayoutTests {
         #expect(expanded - collapsed >= 80)
     }
 
-    /// The row is lazy and can size from its first card, so every card must
-    /// reserve the same height. Otherwise a wrapping title after the first card,
-    /// visible or still offscreen, is clipped.
     @Test("Shelf leaves room for a wrapping title on any card")
     func shelfHeightIsStableAcrossTitleLengths() throws {
         let wrappingFirst = try Self.renderedHeight(

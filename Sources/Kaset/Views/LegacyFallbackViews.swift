@@ -1,15 +1,5 @@
 import SwiftUI
 
-// Minimal fallback views used when the host OS is macOS 15 and the
-// Liquid-Glass / Apple-Intelligence-powered counterparts are unavailable.
-//
-// These intentionally provide a stripped-down but functional surface so the
-// app remains usable on Sequoia. On macOS 26+ the original full-featured
-// views are used instead.
-
-// MARK: - SimplePlaylistDetailView
-
-/// Minimal playlist view used on macOS 15 (no Liquid Glass, no AI refine).
 struct SimplePlaylistDetailView: View {
     let playlist: Playlist
     @State var viewModel: PlaylistDetailViewModel
@@ -54,9 +44,6 @@ struct SimplePlaylistDetailView: View {
                     )
             }
         }
-        // Keyed on `.idle` so the load re-runs when the view model drops back to it
-        // (e.g. a like-status scope change invalidates Liked Music pagination);
-        // a plain `.task` runs once and would leave the loading spinner up forever.
         .task(id: self.viewModel.loadingState == .idle) {
             guard self.viewModel.loadingState == .idle else { return }
             await self.viewModel.ensureLoaded()
@@ -226,10 +213,6 @@ struct SimplePlaylistDetailView: View {
     }
 }
 
-// MARK: - SimpleLyricsView
-
-/// Minimal lyrics panel used on macOS 15. Shows synced lyrics if available,
-/// without AI explanations.
 struct SimpleLyricsView: View {
     @Environment(PlayerService.self) private var playerService
     @Environment(SyncedLyricsService.self) private var syncedLyricsService
@@ -237,7 +220,6 @@ struct SimpleLyricsView: View {
     let client: any YTMusicClientProtocol
     var showsHeader = true
     var preferredWidth: CGFloat? = 280
-    /// Draws the glass panel behind the lyrics; the Now Playing view turns it off.
     var showsPanel = true
 
     @State private var lastLoadedVideoId: String?

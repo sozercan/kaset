@@ -1,8 +1,5 @@
 import Foundation
 
-// MARK: - QueueDisplayMode
-
-/// Display mode for the playback queue panel.
 enum QueueDisplayMode: String, Codable, CaseIterable {
     case popup
     case sidepanel

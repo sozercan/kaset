@@ -284,7 +284,6 @@ struct ExtensionsManagerTests {
         let ext = try #require(manager.extensions.first)
         let review = try await manager.permissionReview(id: ext.id)
 
-        // A directory where extensions.json belongs makes the atomic write fail.
         let persistenceURL = self.makePersistenceURL(in: rootDirectory)
         try FileManager.default.removeItem(at: persistenceURL)
         try FileManager.default.createDirectory(at: persistenceURL, withIntermediateDirectories: false)
@@ -340,7 +339,7 @@ struct ExtensionsManagerTests {
                 "optional_host_permissions": ["https://example.com/*"],
                 "content_scripts": [["matches": ["https://music.youtube.com/*"], "js": ["content.js"]]],
             ],
-            extraFiles: ["content.js": "// Test fixture"]
+            extraFiles: ["content.js": "\n"]
         )
         let manager = self.makeManager(in: rootDirectory)
         let id = try manager.addExtension(at: sourceURL)
@@ -399,7 +398,7 @@ struct ExtensionsManagerTests {
             in: rootDirectory,
             folderName: "PageAccess",
             manifest: manifest,
-            extraFiles: ["content.js": "// Test fixture"]
+            extraFiles: ["content.js": "\n"]
         )
         let manager = self.makeManager(in: rootDirectory)
         let id = try manager.addExtension(at: sourceURL)
@@ -416,7 +415,7 @@ struct ExtensionsManagerTests {
             in: rootDirectory,
             folderName: "ChangedAccess",
             manifest: ["name": "Changed Access", "manifest_version": change == "legacy_hosts" ? 2 : 3],
-            extraFiles: ["content.js": "// Test fixture"]
+            extraFiles: ["content.js": "\n"]
         )
         let manager = self.makeManager(in: rootDirectory)
         let id = try manager.addExtension(at: sourceURL)

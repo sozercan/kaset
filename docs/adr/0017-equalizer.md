@@ -43,11 +43,13 @@ Single clock domain (aggregate device clock-masters off the system default outpu
 ### DSP
 
 `BiquadFilter` is a hand-rolled RBJ-cookbook biquad in Transposed Direct Form II:
-- **Topology**: low-shelf @ 60 Hz, peaking @ 150 / 400 / 1 k / 2.4 k Hz, high-shelf @ 15 kHz — matches the standard six-band EQ frequency layout.
+- **Topology**: low-shelf @ 60 Hz, peaking @ 150 / 400 / 1 k / 2.4 k Hz, high-shelf @ 15 kHz. Shelves affect everything outside the edge frequencies; peaking filters at those edges would leave the sub-bass and upper treble largely untouched. The middle bands use individually tuned Q values for more localized adjustments.
 - **Coefficient slewing**: per-sample one-pole interpolation toward target coefficients (~5 ms time constant) prevents zipper noise on slider sweeps.
-- **Headroom**: `EQSettings.autoTrimDB` attenuates by 0.25× the peak positive band gain so boosted presets keep most of their loudness while staying off the limiter.
+- **Headroom**: `EQSettings.autoTrimDB` subtracts 20% of the positive combined preamp and peak band gain. This preserves the character of boosted presets while reducing sustained limiter engagement, which can produce audible pumping.
 - **Envelope-follower limiter**: stereo-linked peak follower with fast attack (~0.5 ms) and slower release (~150 ms), gain-slew smoothed. Produces no harmonic distortion, unlike a memoryless `tanh` saturator, so ±12 dB slider extremes stay transparent.
 - **Bypass crossfade**: the I/O proc always runs the filter chain and then mixes wet vs. dry by a slewed factor — toggling the EQ never clicks and re-enable doesn't trigger filter-warm-up transients.
+
+Persist gains in `EQBand.defaultBands` order. Clamp them to the supported range and normalize the stored array length so older settings still load after a band-count change. Presets approximate Spotify's mobile EQ rather than matching every gain exactly: the filter widths differ, and values must stay inside the ±12 dB slider range. The picker starts with Flat and only exposes Custom when the active gains have been edited.
 
 ### Why not `AVAudioUnitEQ` or `AVAudioEngine`?
 
