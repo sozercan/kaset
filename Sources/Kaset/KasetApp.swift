@@ -423,11 +423,13 @@ struct KasetApp: App {
                 Divider()
 
                 Button(self.playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
+                    guard self.settings.appSource == .music else { return }
                     withAnimation(.easeInOut(duration: 0.2)) {
                         self.playerService.showLyrics.toggle()
                     }
                 }
                 .keyboardShortcut("l", modifiers: .command)
+                .disabled(self.settings.appSource != .music)
             }
 
             CommandGroup(replacing: .sidebar) {
