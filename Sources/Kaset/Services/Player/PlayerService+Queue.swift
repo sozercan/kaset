@@ -357,6 +357,18 @@ extension PlayerService {
         self.resumeMixContinuationFetchWaiters()
     }
 
+    private func originalShuffleOrder(retaining entries: [QueueEntry]) -> [QueueEntry] {
+        let liveEntryIDs = Set(entries.map(\.id))
+        var originalEntries = (self.queueOrderBeforeShuffle ?? []).filter {
+            liveEntryIDs.contains($0.id)
+        }
+        let originalIDs = Set(originalEntries.map(\.id))
+        originalEntries.append(contentsOf: entries.filter {
+            !originalIDs.contains($0.id)
+        })
+        return originalEntries
+    }
+
     @discardableResult
     func fetchAndApplyRadioQueue(for videoId: String) async -> RadioQueueFetchOutcome {
         await self.fetchAndApplyRadioQueue(
@@ -455,18 +467,12 @@ extension PlayerService {
             if replacesUpcoming {
                 self.prepareForNewPlaybackContext()
                 self.mixContinuationToken = nil
-                self.queueOrderBeforeShuffle = self.shuffleEnabled ? mergedEntries : nil
+                self.queueOrderBeforeShuffle = self.shuffleEnabled
+                    ? self.originalShuffleOrder(retaining: existingEntries) + relatedEntries
+                    : nil
                 self.setQueue(entries: self.shuffleEnabled ? existingEntries + relatedEntries.shuffled() : mergedEntries)
             } else if self.shuffleEnabled {
-                let liveEntryIDs = Set(existingEntries.map(\.id))
-                var originalEntries = (self.queueOrderBeforeShuffle ?? []).filter {
-                    liveEntryIDs.contains($0.id)
-                }
-                let originalIDs = Set(originalEntries.map(\.id))
-                originalEntries.append(contentsOf: existingEntries.filter {
-                    !originalIDs.contains($0.id)
-                })
-                originalEntries.append(contentsOf: relatedEntries)
+                let originalEntries = self.originalShuffleOrder(retaining: existingEntries) + relatedEntries
                 let seedOriginalIndex = originalEntries.firstIndex(where: { $0.id == seedEntry.id }) ?? 0
                 self.materializeShuffleQueue(
                     entries: originalEntries,

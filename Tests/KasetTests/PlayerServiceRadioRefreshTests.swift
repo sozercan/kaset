@@ -177,6 +177,31 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         })
     }
 
+    @Test("A shuffled radio refresh keeps the original order of the retained songs")
+    func shuffledRadioRefreshKeepsOriginalOrder() async {
+        let songs = TestFixtures.makeSongs(count: 4)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let entries = self.playerService.queueEntries
+        self.playerService.shuffleMode = .on
+        self.playerService.queueOrderBeforeShuffle = entries
+        self.playerService.setQueue(entries: [entries[2], entries[1], entries[0], entries[3]])
+        self.playerService.currentIndex = 2
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+
+        await self.playerService.playWithRadio(song: songs[0])
+        #expect(self.playerService.queue.map(\.videoId) == [
+            songs[2].videoId, songs[1].videoId, songs[0].videoId, recommended.videoId,
+        ])
+
+        self.playerService.setShuffleMode(.off)
+
+        #expect(self.playerService.queue.map(\.videoId) == [
+            songs[0].videoId, songs[1].videoId, songs[2].videoId, recommended.videoId,
+        ])
+    }
+
     @Test("A mix continuation that lands during a radio refresh does not discard the refresh")
     func mixContinuationDuringRadioRefreshStillApplies() async {
         let songs = TestFixtures.makeSongs(count: 4)
