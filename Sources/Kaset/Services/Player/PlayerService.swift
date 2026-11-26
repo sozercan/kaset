@@ -391,6 +391,7 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
     var playbackNavigationGeneration = 0
     var queueMutationGeneration = 0
     var automaticQueueMutationCount = 0
+    var startRadioRefreshGeneration = 0
     var musicPlaybackIntentGeneration: UInt64 = 0
     var musicPlaybackReservationGeneration: UInt64 = 0
     var musicPlaybackIntentIssuedAtMilliseconds: Double = 0

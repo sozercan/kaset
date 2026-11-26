@@ -132,6 +132,8 @@ extension PlayerService {
         }
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.invalidatePendingPlaybackSelectionRequests()
+        self.startRadioRefreshGeneration &+= 1
+        let refreshGeneration = self.startRadioRefreshGeneration
         let navigationContext = self.playbackNavigationContext
         if self.state == .paused || self.state == .ended {
             await self.resume(intent: intent)
@@ -141,7 +143,8 @@ extension PlayerService {
             for: song.videoId,
             seedEntryID: self.queueEntryIDOwningCurrentPlayback,
             queueGeneration: self.queueLoadGeneration,
-            replacesUpcoming: true
+            replacesUpcoming: true,
+            isCurrentRequest: { refreshGeneration == self.startRadioRefreshGeneration }
         )
         guard outcome == .applied else { return }
         self.currentEpisode = nil
@@ -398,7 +401,8 @@ extension PlayerService {
         for videoId: String,
         seedEntryID: UUID?,
         queueGeneration: Int,
-        replacesUpcoming: Bool = false
+        replacesUpcoming: Bool = false,
+        isCurrentRequest: @MainActor () -> Bool = { true }
     ) async -> RadioQueueFetchOutcome {
         guard self.isCurrentQueueLoad(queueGeneration) else { return .superseded }
         guard let client = self.ytMusicClient else {
@@ -413,7 +417,8 @@ extension PlayerService {
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
             guard !Task.isCancelled,
-                  self.playbackNavigationContext == sourceNavigationContext
+                  self.playbackNavigationContext == sourceNavigationContext,
+                  isCurrentRequest()
             else {
                 self.logger.info("Discarding stale or cancelled radio queue")
                 return .superseded

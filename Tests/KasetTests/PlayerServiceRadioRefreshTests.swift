@@ -491,6 +491,44 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
     }
 
+    @Test("An older Start Radio response that lands first does not replace a newer refresh")
+    func olderStartRadioResponseYieldsToNewerRefresh() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let olderRecommendation = TestFixtures.makeSong(id: "rec-older")
+        let newerRecommendation = TestFixtures.makeSong(id: "rec-newer")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+
+        let olderGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = olderGate
+        let olderRefresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.count < 1 {
+            await Task.yield()
+        }
+
+        let newerGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = newerGate
+        let newerRefresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.count < 2 {
+            await Task.yield()
+        }
+        #expect(self.mockClient.getRadioQueueVideoIds.count == 2)
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], olderRecommendation]
+        await olderGate.open()
+        await olderRefresh.value
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], newerRecommendation]
+        await newerGate.open()
+        await newerRefresh.value
+
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, newerRecommendation.videoId])
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)
