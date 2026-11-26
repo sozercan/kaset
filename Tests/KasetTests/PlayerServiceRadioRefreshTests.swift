@@ -29,7 +29,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
             self.mockClient.radioQueueErrors[songs[0].videoId] = URLError(.timedOut)
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.isCurrentQueueLoad(generation))
         #expect(self.playerService.isQueueLoading)
@@ -43,7 +43,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         let generation = self.playerService.beginQueueLoading()
         self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[3]]
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
         #expect(!self.playerService.isCurrentQueueLoad(generation))
@@ -60,7 +60,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
             await playerService.appendOriginalTracks([songs[2]])
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
         #expect(!self.playerService.isCurrentQueueLoad(generation))
@@ -77,7 +77,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
             await playerService.appendToQueue([songs[2]])
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queue.map(\.videoId) == songs.prefix(3).map(\.videoId))
         #expect(self.playerService.isCurrentQueueLoad(generation))
@@ -95,7 +95,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
             await playerService.endQueueLoading(generation)
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[3].videoId])
         #expect(!self.playerService.isQueueLoading)
@@ -120,7 +120,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
 
         let userMutationGenerationBeforeFill = self.playerService.userQueueMutationGeneration
         let refreshTask = Task { @MainActor [playerService] in
-            await playerService.playWithRadio(song: songs[0])
+            await playerService.startRadio(song: songs[0])
         }
         for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
             await Task.yield()
@@ -166,7 +166,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
 
         self.mockClient.getRadioQueueGate = nil
         self.mockClient.radioQueueSongs[songs[0].videoId] = []
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], suggested]
         await fillGate.open()
@@ -190,7 +190,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
         self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
         #expect(self.playerService.queue.map(\.videoId) == [
             songs[2].videoId, songs[1].videoId, songs[0].videoId, recommended.videoId,
         ])
@@ -217,7 +217,7 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
 
         let userMutationGenerationBeforeAppend = self.playerService.userQueueMutationGeneration
         let refreshTask = Task { @MainActor [playerService] in
-            await playerService.playWithRadio(song: songs[0])
+            await playerService.startRadio(song: songs[0])
         }
         for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
             await Task.yield()
@@ -264,7 +264,7 @@ struct PlayerServiceRadioRefreshTests {
 
         for next in songs.suffix(2) {
             self.mockClient.radioQueueSongs[seed.videoId] = [seed, next]
-            await self.playerService.playWithRadio(song: seed)
+            await self.playerService.startRadio(song: seed)
 
             #expect(self.playerService.queueEntryIDs.prefix(2) == prefixIDs)
             #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, seed.videoId, next.videoId])
@@ -283,7 +283,7 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.state == .paused)
         self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.shouldResumeAfterInterruption)
         #expect(!self.playerService.isExplicitPauseIntentActive)
@@ -297,7 +297,7 @@ struct PlayerServiceRadioRefreshTests {
         await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
         self.mockClient.radioQueueSongs[songs[2].videoId] = Array(songs.suffix(2))
 
-        await self.playerService.playWithRadio(song: songs[2])
+        await self.playerService.startRadio(song: songs[2])
 
         #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
         #expect(self.playerService.pendingPlayVideoId == songs[2].videoId)
@@ -315,7 +315,7 @@ struct PlayerServiceRadioRefreshTests {
             self.mockClient.radioQueueErrors[songs[0].videoId] = URLError(.timedOut)
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queueEntryIDs == entryIDs)
         #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
@@ -343,7 +343,7 @@ struct PlayerServiceRadioRefreshTests {
         }
         let originalEntries = self.playerService.queueEntries
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queueEntries == originalEntries)
         #expect(self.mockClient.getRadioQueueVideoIds == [songs[0].videoId])
@@ -359,7 +359,7 @@ struct PlayerServiceRadioRefreshTests {
             await playerService.removeFromQueue(at: 2)
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.queueEntryIDs == retainedIDs)
     }
@@ -373,7 +373,7 @@ struct PlayerServiceRadioRefreshTests {
             await playerService.seek(to: 42)
         }
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
 
         #expect(self.playerService.progress == 42)
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
@@ -387,7 +387,7 @@ struct PlayerServiceRadioRefreshTests {
         let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
         self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
 
-        await self.playerService.playWithRadio(song: songs[0])
+        await self.playerService.startRadio(song: songs[0])
         let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
 
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
@@ -422,7 +422,7 @@ struct PlayerServiceRadioRefreshTests {
         let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
         self.mockClient.radioQueueSongs[songs[2].videoId] = [songs[2], songs[3]]
 
-        await self.playerService.playWithRadio(song: songs[2])
+        await self.playerService.startRadio(song: songs[2])
         let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
 
         #expect(!self.playerService.acceptsMusicTerminalBridgeEvent(
@@ -444,58 +444,19 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
     }
 
-    @Test("Claiming a radio reservation for the current song preserves prior terminal event admission")
-    func claimRadioPlaybackIntentForCurrentSongAdmitsPriorTerminalEvent() async throws {
-        let songs = TestFixtures.makeSongs(count: 2)
-        await self.playerService.playQueue(songs, startingAt: 0)
-        let priorIntent = self.playerService.currentMusicPlaybackIntent
-        let minimumGenerationBeforeClaim = self.playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration
-        let reservation = self.playerService.reserveMusicPlaybackIntent()
+    @Test("Playing the current song restarts it with a new radio queue")
+    func playingCurrentSongRestartsIt() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        await self.playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.playerService.pendingPlayVideoId = nil
+        let entryIDs = self.playerService.queueEntryIDs
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
 
-        let claimedIntent = try #require(self.playerService.claimRadioPlaybackIntent(reservation, for: songs[0]))
-        let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
+        await self.playerService.playWithRadio(song: songs[0])
 
-        #expect(claimedIntent.generation > priorIntent.generation)
-        #expect(self.playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
-        #expect(self.playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration == minimumGenerationBeforeClaim)
-        #expect(self.playerService.acceptsMusicTerminalBridgeEvent(
-            intent: priorIntent,
-            eventIssuedAtMilliseconds: emittedAt
-        ))
-    }
-
-    @Test("Claiming a radio reservation for a different song blocks prior terminal events")
-    func claimRadioPlaybackIntentForDifferentSongRejectsPriorTerminalEvent() async throws {
-        let songs = TestFixtures.makeSongs(count: 2)
-        await self.playerService.playQueue(songs, startingAt: 0)
-        let priorIntent = self.playerService.currentMusicPlaybackIntent
-        let reservation = self.playerService.reserveMusicPlaybackIntent()
-
-        let claimedIntent = try #require(self.playerService.claimRadioPlaybackIntent(reservation, for: songs[1]))
-        let emittedAt = self.playerService.musicPlaybackIntentIssuedAtMilliseconds - 1
-
-        #expect(claimedIntent.generation > priorIntent.generation)
-        #expect(!self.playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
-        #expect(self.playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration == claimedIntent.generation)
-        #expect(!self.playerService.acceptsMusicTerminalBridgeEvent(
-            intent: priorIntent,
-            eventIssuedAtMilliseconds: emittedAt
-        ))
-    }
-
-    @Test("Claiming a superseded radio reservation fails without altering terminal admission")
-    func claimSupersededRadioReservationReturnsNil() async {
-        let songs = TestFixtures.makeSongs(count: 2)
-        await self.playerService.playQueue(songs, startingAt: 0)
-        let older = self.playerService.reserveMusicPlaybackIntent()
-        let newer = self.playerService.reserveMusicPlaybackIntent()
-
-        #expect(self.playerService.claimRadioPlaybackIntent(older, for: songs[0]) == nil)
-        #expect(!self.playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
-
-        let playbackGenerationBeforeClaim = self.playerService.currentMusicPlaybackIntent.generation
-        await self.playerService.playQueue([songs[1]], startingAt: 0)
-        #expect(self.playerService.currentMusicPlaybackIntent.generation > playbackGenerationBeforeClaim)
-        #expect(self.playerService.claimRadioPlaybackIntent(newer, for: songs[1]) == nil)
+        #expect(self.playerService.pendingPlayVideoId == songs[0].videoId)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId])
+        #expect(self.playerService.queueEntryIDs.first != entryIDs.first)
     }
 }

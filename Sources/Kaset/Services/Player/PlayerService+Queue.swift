@@ -120,29 +120,40 @@ extension PlayerService {
         )
     }
 
-    func playWithRadio(song: Song) async {
+    func startRadio(song: Song) async {
         let intent = self.beginRadioPlaybackIntent(for: song)
+        await self.startRadio(song: song, intent: intent)
+    }
+
+    func startRadio(song: Song, intent: MusicPlaybackIntent) async {
+        guard self.currentTrack?.videoId == song.videoId else {
+            await self.playWithRadio(song: song, intent: intent)
+            return
+        }
+        guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        _ = self.beginPlaybackRequest()
+        if self.state == .paused || self.state == .ended {
+            await self.resume(intent: intent)
+            guard self.acceptsMusicPlaybackIntent(intent) else { return }
+        }
+        let outcome = await self.fetchAndApplyRadioQueue(
+            for: song.videoId,
+            seedEntryID: self.queueEntryIDOwningCurrentPlayback,
+            queueGeneration: self.queueLoadGeneration,
+            replacesUpcoming: true
+        )
+        guard outcome == .applied, self.acceptsMusicPlaybackIntent(intent) else { return }
+        await self.fillSmartShuffleWindow()
+    }
+
+    func playWithRadio(song: Song) async {
+        let intent = self.beginMusicPlaybackIntent()
         await self.playWithRadio(song: song, intent: intent)
     }
 
     func playWithRadio(song: Song, intent: MusicPlaybackIntent) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         let requestGeneration = self.beginPlaybackRequest()
-        if self.currentTrack?.videoId == song.videoId {
-            if self.state == .paused || self.state == .ended {
-                await self.resume(intent: intent)
-                guard self.acceptsMusicPlaybackIntent(intent) else { return }
-            }
-            let outcome = await self.fetchAndApplyRadioQueue(
-                for: song.videoId,
-                seedEntryID: self.queueEntryIDOwningCurrentPlayback,
-                queueGeneration: self.queueLoadGeneration,
-                replacesUpcoming: true
-            )
-            guard outcome == .applied, self.acceptsMusicPlaybackIntent(intent) else { return }
-            await self.fillSmartShuffleWindow()
-            return
-        }
         self.logger.info("Playing with radio: \(song.title)")
         self.clearForwardSkipNavigationStack()
         self.recordQueueStateForUndo()

@@ -44,7 +44,7 @@ struct QueueSidePanelView: View {
                     onStartRadio: { song in
                         let intent = self.playerService.beginRadioPlaybackIntent(for: song)
                         Task {
-                            await self.playerService.playWithRadio(song: song, intent: intent)
+                            await self.playerService.startRadio(song: song, intent: intent)
                         }
                     }
                 )

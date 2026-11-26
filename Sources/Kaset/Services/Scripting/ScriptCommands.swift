@@ -105,10 +105,9 @@ final class PlayVideoCommand: NSScriptCommand {
             return nil
         }
         logger.info("Executing play video command with ID: \(videoId)")
-        let song = Song.placeholder(videoId: videoId)
-        let intent = MainActor.assumeIsolated { playerService.beginRadioPlaybackIntent(for: song) }
+        let intent = MainActor.assumeIsolated { playerService.beginMusicPlaybackIntent() }
         Task { @MainActor in
-            await playerService.playWithRadio(song: song, intent: intent)
+            await playerService.playWithRadio(song: .placeholder(videoId: videoId), intent: intent)
         }
         return nil
     }

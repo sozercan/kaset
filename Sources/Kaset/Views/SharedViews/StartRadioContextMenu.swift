@@ -6,7 +6,7 @@ enum StartRadioContextMenu {
         Button {
             let intent = playerService.beginRadioPlaybackIntent(for: song)
             Task {
-                await playerService.playWithRadio(song: song, intent: intent)
+                await playerService.startRadio(song: song, intent: intent)
             }
         } label: {
             Label(String(localized: "Start Radio"), systemImage: "dot.radiowaves.left.and.right")

@@ -601,44 +601,4 @@ struct ScriptCommandsTests {
 
         PlayerService.shared = nil
     }
-
-    @Test("PlayVideo uses a radio-aware intent for same-song and different-song playback")
-    func playVideoUsesRadioAwareIntent() async {
-        let playerService = PlayerService()
-        let mockClient = MockYTMusicClient()
-        let songs = TestFixtures.makeSongs(count: 3)
-        mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
-        mockClient.radioQueueSongs[songs[1].videoId] = [songs[1], songs[2]]
-        playerService.setYTMusicClient(mockClient)
-        PlayerService.shared = playerService
-        defer { PlayerService.shared = nil }
-
-        await playerService.playQueue(Array(songs.prefix(2)), startingAt: 0)
-        let minimumGeneration = playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration
-
-        let sameSongCommand = PlayVideoCommand()
-        sameSongCommand.directParameter = songs[0].videoId as NSString
-        _ = sameSongCommand.performDefaultImplementation()
-
-        #expect(playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
-        #expect(playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration == minimumGeneration)
-        let refreshed = await self.waitUntil {
-            playerService.queue.map(\.videoId) == [songs[0].videoId, songs[2].videoId]
-        }
-        #expect(refreshed)
-
-        let differentSongCommand = PlayVideoCommand()
-        differentSongCommand.directParameter = songs[1].videoId as NSString
-        _ = differentSongCommand.performDefaultImplementation()
-
-        #expect(!playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
-        #expect(
-            playerService.musicPlaybackMinimumAcceptedTerminalIntentGeneration
-                == playerService.currentMusicPlaybackIntent.generation
-        )
-        let switched = await self.waitUntil {
-            playerService.currentTrack?.videoId == songs[1].videoId
-        }
-        #expect(switched)
-    }
 }

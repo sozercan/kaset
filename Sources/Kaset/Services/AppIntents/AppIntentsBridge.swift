@@ -172,7 +172,7 @@ final class AppIntentsBridge {
     func play(song: Song) async throws {
         guard song.isPlayable else { throw AppIntentsError.playbackFailed(title: song.title) }
         let (playerService, _) = try await self.preparePlayback()
-        let intent = playerService.beginRadioPlaybackIntent(for: song)
+        let intent = playerService.beginMusicPlaybackIntent()
         await self.startRadio(from: song, playerService: playerService, intent: intent)
     }
 
@@ -185,7 +185,7 @@ final class AppIntentsBridge {
         guard let song = try await Self.bestSong(in: client.searchSongs(query: trimmedQuery)) else {
             throw AppIntentsError.noResults(query: trimmedQuery)
         }
-        guard let intent = playerService.claimRadioPlaybackIntent(reservation, for: song) else {
+        guard let intent = playerService.claimMusicPlaybackIntent(reservation) else {
             throw AppIntentsError.playbackFailed(title: song.title)
         }
         await self.startRadio(from: song, playerService: playerService, intent: intent)

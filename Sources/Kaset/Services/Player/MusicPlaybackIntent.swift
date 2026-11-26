@@ -495,16 +495,6 @@ extension PlayerService {
         return self.beginMusicPlaybackIntent()
     }
 
-    func claimRadioPlaybackIntent(
-        _ reservation: MusicPlaybackReservation,
-        for song: Song
-    ) -> MusicPlaybackIntent? {
-        guard reservation.playbackGeneration == self.musicPlaybackIntentGeneration,
-              reservation.reservationGeneration == self.musicPlaybackReservationGeneration
-        else { return nil }
-        return self.beginRadioPlaybackIntent(for: song)
-    }
-
     func claimMusicPlaybackIntent(
         _ reservation: MusicPlaybackReservation,
         queueEntryID: UUID
