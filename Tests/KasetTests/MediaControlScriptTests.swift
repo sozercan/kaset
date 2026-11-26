@@ -2,7 +2,6 @@ import JavaScriptCore
 import Testing
 @testable import Kaset
 
-/// Tests for singleton media-control script generation and scheduling.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct MediaControlScriptTests {

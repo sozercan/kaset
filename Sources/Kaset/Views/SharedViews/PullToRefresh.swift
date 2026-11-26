@@ -74,12 +74,9 @@ struct PullToRefreshState: Equatable {
         }
     }
 
-    /// Returns `true` once when the user releases an armed pull.
     mutating func release(pullDistance: CGFloat) -> Bool {
         guard !self.isRefreshing else { return false }
 
-        // Apply the finger's final position before deciding whether the pull is
-        // still armed. This preserves hysteresis while allowing cancellation.
         self.update(pullDistance: pullDistance, isInteracting: true)
         guard self.phase == .armed else { return false }
 

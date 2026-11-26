@@ -20,7 +20,6 @@ struct LastFMServiceTests {
         let prefix = "test.lastfm.\(UUID().uuidString)"
         let store = KeychainCredentialStore(servicePrefix: prefix)
 
-        // Pre-populate credentials
         try store.saveLastFMSessionKey("test-session-key")
         try store.saveLastFMUsername("testuser")
 
@@ -32,7 +31,6 @@ struct LastFMServiceTests {
 
         #expect(service.authState == .connected(username: "testuser"))
 
-        // Cleanup
         store.removeLastFMCredentials()
     }
 
@@ -164,7 +162,6 @@ struct LastFMServiceTests {
         let results = try await service.scrobble([])
         #expect(results.isEmpty)
 
-        // Cleanup
         store.removeLastFMCredentials()
     }
 
@@ -285,7 +282,6 @@ struct LastFMServiceTests {
     func parseScrobbleResponseMissingScrobblesKey() {
         let track = ScrobbleTrack(title: "Song", artist: "Artist")
 
-        // Malformed response (e.g., worker error that passed checkForErrors)
         let response: [String: Any] = [
             "status": "ok",
         ]

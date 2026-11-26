@@ -26,8 +26,6 @@ extension RadioQueueLikeStatusParserTests {
 
     @Test("Parse radio queue leaves like status nil when the row carries no menu")
     func parseRadioQueueLikeStatusNilWithoutMenu() {
-        // Rows without a like menu must keep likeStatus == nil so the existing cache/song
-        // fallback still governs — the decode change must not fabricate a status.
         let renderer: [String: Any] = [
             "playlistPanelVideoRenderer": [
                 "videoId": "menu-less-video",

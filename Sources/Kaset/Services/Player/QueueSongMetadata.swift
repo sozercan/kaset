@@ -1,6 +1,5 @@
 import Foundation
 
-/// Prepares song metadata before inserting tracks into the native queue.
 enum QueueSongMetadata {
     enum AlbumSongPurpose {
         case queue

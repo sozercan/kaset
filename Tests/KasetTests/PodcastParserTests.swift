@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the PodcastParser.
 @Suite(.tags(.parser))
 struct PodcastParserTests {
     @Test("Parse empty response returns empty sections")
@@ -274,7 +273,6 @@ struct PodcastParserTests {
         ]
 
         if let token = continuationToken {
-            // Add continuation to the music shelf
             if var contents = data["contents"] as? [String: Any],
                var singleColumn = contents["singleColumnBrowseResultsRenderer"] as? [String: Any],
                var tabs = singleColumn["tabs"] as? [[String: Any]],
@@ -305,8 +303,6 @@ struct PodcastParserTests {
         return data
     }
 
-    /// Creates show detail data using the twoColumnBrowseResultsRenderer format
-    /// which is the current format the parser uses for subscription status.
     private func makeShowDetailDataTwoColumn(
         title: String,
         isSubscribed: Bool = false

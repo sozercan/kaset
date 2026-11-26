@@ -1,7 +1,6 @@
 import Foundation
 import Observation
 
-/// Manages playlist-like items pinned to the sidebar.
 @MainActor
 @Observable
 final class SidebarPinnedItemsManager {
@@ -37,7 +36,6 @@ final class SidebarPinnedItemsManager {
         }
     }
 
-    /// Internal initializer for tests that never reads or writes live user data.
     init(skipLoad: Bool) {
         self.skipPersistence = skipLoad
         if !skipLoad {

@@ -2,8 +2,6 @@ import AppKit
 import SwiftUI
 
 extension View {
-    /// Presents the volume capsule in a borderless child panel so it remains
-    /// interactive outside the player bar's compact safe-area inset.
     func playerBarVolumeOverlay(
         isPresented: Binding<Bool>,
         @ViewBuilder overlay: @escaping () -> some View

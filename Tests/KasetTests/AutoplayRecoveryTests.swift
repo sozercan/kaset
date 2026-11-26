@@ -6,8 +6,6 @@ import Testing
 struct AutoplayRecoveryJSTests {
     private func makeContext() -> JSContext {
         let ctx = JSContext()!
-        // JSCore has no DOM, so alias `window` onto the global object before
-        // loading the recovery function (which references `window.__kaset…`).
         ctx.evaluateScript("var window = globalThis;")
         ctx.evaluateScript(SingletonPlayerWebView.autoplayRecoveryFunctionJS)
         return ctx

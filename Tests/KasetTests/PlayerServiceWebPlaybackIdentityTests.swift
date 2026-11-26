@@ -66,7 +66,6 @@ extension PlayerServiceWebQueueSyncTests {
         ]
 
         if establishAcceptedBaseline {
-            // Exercise the common path after the outgoing occurrence has been accepted.
             await coordinator.handleStateUpdate(
                 body: staleSourceState,
                 observedVideoId: "v1",
@@ -82,15 +81,10 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.queueNavigationRecoveryVideoId == nil)
         let navigationGeneration = self.playerService.playbackNavigationGeneration
 
-        // Model a stale frame received during the grace period but processed
-        // later because it sat behind the serialized Next operation.
         let navigationStartedAt = ContinuousClock.now - .seconds(2)
         self.playerService.protectedQueueNavigationStartedAt = navigationStartedAt
         let staleObservationReceivedAt = navigationStartedAt + .milliseconds(100)
 
-        // The outgoing video can emit one final paused update after Next. Its
-        // unchanged media generation proves that it belongs to the prior queue
-        // occurrence, so it must not reach metadata reconciliation/recovery.
         await coordinator.handleStateUpdate(
             body: staleSourceState,
             observedVideoId: "v1",
@@ -105,9 +99,6 @@ extension PlayerServiceWebQueueSyncTests {
         #expect(self.playerService.currentIndex == 1)
         #expect(self.playerService.currentTrack?.videoId == "v2")
 
-        // The first outgoing frame gets a short navigation grace regardless of
-        // whether a baseline exists. A persistent mismatch must still reach the
-        // existing recovery path after that grace instead of being ignored forever.
         await coordinator.handleStateUpdate(
             body: staleSourceState,
             observedVideoId: "v1",

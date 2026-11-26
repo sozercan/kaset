@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Album playlist (OLAK) IDs load through their VL playlist page; a bare OLAK browse returns HTTP 400.
 @Suite(.tags(.parser))
 struct AlbumPlaylistBrowseTests {
     private static let albumPlaylistID = "OLAK5uy_lqcFZTOPHGwcnP0nYMzNuY0IES0fl7Fe4"
@@ -27,7 +26,6 @@ struct AlbumPlaylistBrowseTests {
 
         #expect(detail.isAlbum)
         #expect(detail.libraryTargetId == Self.albumPlaylistID)
-        // The VL page has no album header; PlaylistDetailViewModel fills it from the route.
         #expect(detail.title == "Unknown Playlist")
         #expect(detail.tracks.map(\.videoId) == ["wqaKHHxQFZc", "cNavPZ8GA6I", "3HuXFfq79I8"])
         #expect(detail.tracks.first?.title == "Come Together (2019 Mix)")

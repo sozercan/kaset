@@ -45,8 +45,6 @@ private final class CookieBackupCommitFence: @unchecked Sendable {
     }
 }
 
-/// In-memory rollback handle for one login-cookie persistence attempt.
-/// Its archive contents are intentionally inaccessible and unprintable.
 struct CookieBackupTransaction: Sendable {
     fileprivate let id: UInt64
     fileprivate let rollbackState: CookieArchiveRollbackState
@@ -164,10 +162,6 @@ enum CookieArchiveRestoreDecision: Equatable, Sendable {
 enum CookieArchiveRestorePolicy {
     private static let generationState = CookieArchiveRestoreGenerationState()
 
-    /// The tombstone must belong to the same backend as the archive it guards.
-    /// DEBUG file storage shares the app container's UserDefaults with release
-    /// builds, so a shared key would let a debug sign-out delete the release
-    /// Keychain archive on its next launch.
     static func invalidationTombstoneKey(usesDebugFileStorage: Bool) -> String {
         usesDebugFileStorage
             ? "authCookieBackupInvalidated.debugFileStorage"
@@ -308,7 +302,6 @@ extension WebKitManager {
     }
 }
 
-/// Backing store for `CookieArchiveStorage.inMemory()`.
 final class InMemoryCookieArchiveBox: @unchecked Sendable {
     private let lock = NSLock()
     private var archiveData: Data?
@@ -358,9 +351,6 @@ struct CookieArchiveStorage: Sendable {
         return data
     }
 
-    /// An archive that lives only for the lifetime of its queue. Keeps a manager's cookie
-    /// archive off the process-wide Keychain/`cookies.dat` store so parallel test suites
-    /// stay isolated from each other's invalidations.
     static func inMemory() -> CookieArchiveStorage {
         let box = InMemoryCookieArchiveBox()
         return CookieArchiveStorage(
@@ -419,9 +409,6 @@ enum CookieBackupTransactionOwnership: Equatable, Sendable {
     case none
 }
 
-/// Serializes live WebKit cookie snapshots and discards snapshots superseded
-/// before they reach storage. Blocking file/Keychain work runs on this actor,
-/// never on `MainActor`.
 actor CookieArchiveWriteQueue {
     static let shared = CookieArchiveWriteQueue(storage: .live)
 

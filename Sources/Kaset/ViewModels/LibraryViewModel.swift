@@ -2,11 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// Broadcasts library mutations to every active LibraryViewModel.
-///
-/// Context menus can be presented from views that do not reliably have the same
-/// LibraryViewModel instance as the Library tab. This keeps library mutations
-/// optimistic and app-wide instead of relying only on the local environment.
 @MainActor
 final class LibraryMutationBroadcaster {
     static let shared = LibraryMutationBroadcaster()
@@ -214,38 +209,27 @@ final class LibraryMutationBroadcaster {
     }
 }
 
-/// View model for the Library view.
 @MainActor
 @Observable
 final class LibraryViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// User's playlists.
     private(set) var playlists: [Playlist] = []
 
-    /// User's saved albums.
     private(set) var albums: [Album] = []
 
-    /// User's followed artists.
     private(set) var artists: [Artist] = []
 
-    /// User's subscribed podcast shows.
     private(set) var podcastShows: [PodcastShow] = []
 
-    /// Virtual playlist entry for user-uploaded songs, when available.
     private(set) var uploadedSongsPlaylist: Playlist?
 
-    /// Set of playlist IDs that are in the user's library (for quick lookup).
     private(set) var libraryPlaylistIds: Set<String> = []
 
-    /// Set of podcast show IDs that are in the user's library (for quick lookup).
     private(set) var libraryPodcastIds: Set<String> = []
 
-    /// Set of followed artist IDs normalized to channel IDs (for quick lookup).
     private(set) var libraryArtistIds: Set<String> = []
 
-    /// Account scope that produced the current Library snapshot.
     private var libraryAccountScope: String?
     private var accountScopeGeneration: UInt64 = 0
 
@@ -257,10 +241,8 @@ final class LibraryViewModel {
         self.accountScopeGeneration
     }
 
-    /// Strength of the response that produced the current album snapshot.
     private var libraryAlbumsSource: LibraryContentParser.LibraryAlbumsSource?
 
-    /// Monotonic revision for local library state mutations.
     private var libraryStateRevision: UInt64 = 0
     private var playlistMutationRevisionByID: [String: UInt64] = [:]
 
@@ -268,19 +250,14 @@ final class LibraryViewModel {
         self.playlistMutationRevisionByID[LibraryContentIdentity.playlistKey(for: playlistId)] ?? 0
     }
 
-    /// Whether a fresh load should run again after the current in-flight load completes.
     private var needsReloadAfterCurrentLoad = false
 
-    /// Whether the Library view should force a refresh when it becomes active again.
     private var needsReloadOnActivation = false
 
-    /// Bumps whenever a library mutation requests a refresh on next Library activation.
     private(set) var activationReloadGeneration: UInt64 = 0
 
-    /// Reconciles optimistic local Library mutations against backend snapshots.
     private var contentReconciler = LibraryContentReconciler()
 
-    /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
@@ -394,12 +371,10 @@ final class LibraryViewModel {
         await self.refresh()
     }
 
-    /// Checks if a playlist is in the user's library.
     func isInLibrary(playlistId: String) -> Bool {
         LibraryContentIdentity.containsPlaylist(playlistId, in: self.libraryPlaylistIds)
     }
 
-    /// Checks if an album is in the user's library.
     func isInLibrary(albumId: String, targetPlaylistId: String? = nil) -> Bool {
         self.albums.contains { album in
             if album.id == albumId {
@@ -410,22 +385,18 @@ final class LibraryViewModel {
         }
     }
 
-    /// Checks if a podcast show is in the user's library.
     func isInLibrary(podcastId: String) -> Bool {
         self.libraryPodcastIds.contains(podcastId)
     }
 
-    /// Checks if an artist is in the user's library.
     func isInLibrary(artistId: String) -> Bool {
         self.libraryArtistIds.contains(LibraryContentIdentity.artistKey(for: artistId))
     }
 
-    /// Whether artist library state still depends on optimistic local suppression/insertion.
     func needsArtistLibraryReconciliation(artistIds: [String], expectedInLibrary: Bool) -> Bool {
         self.contentReconciler.needsArtistReconciliation(artistIds: artistIds, expectedInLibrary: expectedInLibrary)
     }
 
-    /// Adds a playlist ID to the library set (called after successful add to library).
     func addToLibrarySet(playlistId: String) {
         self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
@@ -433,8 +404,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds a playlist to the library (called after successful add to library).
-    /// Updates both the ID set and the playlists array for immediate UI update.
     func addToLibrary(playlist: Playlist) {
         self.markPlaylistStateChanged(playlist.id)
         var snapshot = self.librarySnapshot
@@ -449,7 +418,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds a saved album to the visible library immediately.
     func addToLibrary(album: Album) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -457,8 +425,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds a podcast to the library (called after successful subscription).
-    /// Updates both the ID set and the shows array for immediate UI update.
     func addToLibrary(podcast: PodcastShow) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -466,7 +432,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds a podcast ID to the library set (called after successful subscription).
     func addToLibrarySet(podcastId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -474,8 +439,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds an artist to the library (called after successful subscription).
-    /// Updates both the ID set and the artists array for immediate UI update.
     func addToLibrary(artist: Artist, libraryArtistId: String? = nil) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -483,7 +446,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Adds an artist ID to the library set (called after successful subscription).
     func addToLibrarySet(artistId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -491,7 +453,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes a playlist ID from the library set (called after successful remove from library).
     func removeFromLibrarySet(playlistId: String) {
         self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
@@ -499,8 +460,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes a playlist from the library (called after successful remove from library).
-    /// Updates both the ID set and the playlists array for immediate UI update.
     func removeFromLibrary(playlistId: String) {
         self.markPlaylistStateChanged(playlistId)
         var snapshot = self.librarySnapshot
@@ -508,7 +467,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes a saved album from the visible library immediately.
     func removeFromLibrary(albumId: String, targetPlaylistId: String? = nil) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -520,8 +478,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes a podcast from the library (called after successful unsubscribe).
-    /// Updates both the ID set and the shows array for immediate UI update.
     func removeFromLibrary(podcastId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -529,7 +485,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes a podcast ID from the library set (called after successful unsubscribe).
     func removeFromLibrarySet(podcastId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -537,8 +492,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes an artist from the library (called after successful unsubscribe).
-    /// Updates both the ID set and the artists array for immediate UI update.
     func removeFromLibrary(artistId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -546,7 +499,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Removes an artist ID from the library set (called after successful unsubscribe).
     func removeFromLibrarySet(artistId: String) {
         self.markLibraryStateChanged()
         var snapshot = self.librarySnapshot
@@ -554,7 +506,6 @@ final class LibraryViewModel {
         self.librarySnapshot = snapshot
     }
 
-    /// Loads library content (playlists, albums, artists, and podcasts).
     func load() async {
         guard self.loadingState != .loading else { return }
 
@@ -585,7 +536,6 @@ final class LibraryViewModel {
                 await self.load()
             }
         } catch is CancellationError {
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Library load cancelled")
             self.loadingState = self.hasLibrarySnapshot ? .loaded : .idle
         } catch {
@@ -598,7 +548,6 @@ final class LibraryViewModel {
         }
     }
 
-    /// Refreshes library content.
     func refresh() async {
         self.markLibraryStateChanged()
 

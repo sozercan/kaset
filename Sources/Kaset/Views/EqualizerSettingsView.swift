@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Settings tab for the equalizer, styled after Spotify's mobile EQ:
-/// a curve overlay riding on top of six vertical band sliders, a preset
-/// picker, a preamp slider, and a master toggle.
 struct EqualizerSettingsView: View {
     @Environment(EqualizerService.self) private var service
 
@@ -114,24 +111,15 @@ struct EqualizerSettingsView: View {
         .localizedNavigationTitle("Equalizer")
     }
 
-    /// Renders a gain in dB with a leading sign so the UI never shows
-    /// `0.0 dB` as `−0.0` and a `+` is always shown for positive values.
     fileprivate static func formatGain(_ value: Float) -> String {
         let sign = value > 0 ? "+" : ""
         return "\(sign)\(String(format: "%.1f", value)) dB"
     }
 }
 
-/// Two-line status row matching the visual language of
-/// ``IntelligenceSettingsView`` — an icon, a headline, and a subtitle.
-/// When the failure suggests a permission denial, a deep-link button
-/// opens System Settings → Privacy & Security → Screen & System Audio
-/// Recording directly.
 private struct EQStatusRow: View {
     let status: EqualizerService.Status
 
-    /// Deep-link to "Screen & System Audio Recording" — the actual TCC
-    /// service that gates Core Audio process taps.
     private static let screenRecordingPaneURL = URL(
         string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture"
     )
@@ -216,8 +204,6 @@ private struct EQStatusRow: View {
     }
 }
 
-/// The visual heart of the EQ tab: a frequency-response curve drawn over a
-/// row of vertical band sliders.
 private struct EQCurveAndSlidersView: View {
     let bands: [EQBand]
     let gains: [Float]
@@ -256,8 +242,6 @@ private struct EQCurveAndSlidersView: View {
     }
 }
 
-/// Single band: vertical slider with frequency label below and live-updating
-/// gain label above.
 private struct EQBandSlider: View {
     let band: EQBand
     @Binding var gain: Float
@@ -269,7 +253,6 @@ private struct EQBandSlider: View {
                 .font(.caption2.monospacedDigit())
                 .foregroundStyle(.secondary)
 
-            // Vertical slider via rotation. macOS `Slider` is horizontal by default.
             Slider(value: self.$gain, in: self.range, step: 0.5)
                 .rotationEffect(.degrees(-90))
                 .frame(width: 140)
@@ -286,16 +269,10 @@ private struct EQBandSlider: View {
     }
 }
 
-/// Smooth frequency-response curve fitted through the current band gains.
-///
-/// Uses a Catmull-Rom spline between band centres so the curve reads as one
-/// continuous shape rather than a jagged polyline.
 private struct EQCurveShape: Shape {
     let gains: [Float]
     let range: ClosedRange<Float>
 
-    /// Vertical fill ratio — reserves a 15% margin top/bottom so the
-    /// stroked curve isn't clipped at extremes (±12 dB).
     private static let verticalFillRatio: CGFloat = 0.85
 
     func path(in rect: CGRect) -> Path {
@@ -315,7 +292,6 @@ private struct EQCurveShape: Shape {
         var path = Path()
         path.move(to: points[0])
 
-        // Catmull-Rom → Bezier conversion with tension 0.5.
         for index in 0 ..< points.count - 1 {
             let p0 = index == 0 ? points[0] : points[index - 1]
             let p1 = points[index]

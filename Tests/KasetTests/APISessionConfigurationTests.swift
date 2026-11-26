@@ -1,18 +1,8 @@
-// APISessionConfigurationTests.swift
-// KasetTests
-//
-// Tests for the shared API URLSession configuration using Swift Testing framework.
-
 import Foundation
 import Testing
 @testable import Kaset
 
 struct APISessionConfigurationTests {
-    /// Regression guard for the "Data Error" outage: the API session must NOT set an
-    /// `Accept-Encoding` header. Setting it manually disables URLSession's transparent
-    /// decompression, so responses YouTube serves compressed (Brotli behind the EU consent
-    /// redirect, gzip, etc.) arrive as raw bytes. The INNERTUBE key regex / JSON parsing then
-    /// fail and every request throws a parse error.
     @Test func doesNotSetManualAcceptEncoding() {
         let headers = APISessionConfiguration.make().httpAdditionalHeaders ?? [:]
 

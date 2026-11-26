@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the HomeResponseParser.
 @Suite(.tags(.parser))
 struct HomeResponseParserTests {
     @Test("Parse empty response returns empty sections")

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Home view displaying personalized content sections.
 struct HomeView: View {
     @State var viewModel: HomeViewModel
     @Environment(PlayerService.self) private var playerService
@@ -55,7 +54,6 @@ struct HomeView: View {
     private var contentView: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 32) {
-                // Favorites section (hidden when empty)
                 if self.authService.hasPersonalAccount, self.favoritesManager.isVisible {
                     FavoritesSection(
                         onNavigate: { destination in
@@ -72,7 +70,6 @@ struct HomeView: View {
                     .staggeredAppearance(index: 0)
                 }
 
-                // API sections
                 ForEach(self.viewModel.sections) { section in
                     self.sectionView(section)
                         .task {
@@ -84,10 +81,6 @@ struct HomeView: View {
                     self.loadMoreControl
                 }
             }
-            // The ScrollView fills the detail column edge-to-edge so shelves
-            // scroll under the floating glass sidebar; each shelf restores a
-            // resting inset via `contentInset`. Only the vertical inset stays
-            // on the stack.
             .padding(.vertical, 20)
         }
         .accessibilityIdentifier(AccessibilityID.Home.scrollView)
@@ -159,7 +152,6 @@ struct HomeView: View {
     private static let thumbnailDisplaySize = CGSize(width: 160, height: 160)
 
     private func prefetchImagesAsync(for section: HomeSection) async {
-        // Early exit if task is cancelled
         guard !Task.isCancelled else { return }
 
         let urls = section.items.prefix(6).compactMap { $0.thumbnailURL?.highQualityThumbnailURL }
@@ -175,16 +167,12 @@ struct HomeView: View {
     private func playItem(_ item: HomeSectionItem, in _: HomeSection, at _: Int) {
         switch item {
         case let .song(song):
-            // Play the song and fetch similar songs (radio queue) in the background
             Task {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .playlist(playlist):
-            // Navigate to playlist detail
             self.navigationPath.append(playlist)
         case let .album(album):
-            // For now, we'll create a playlist-like navigation for albums
-            // In a full implementation, we'd have an AlbumDetailView
             let playlist = Playlist(
                 id: album.id,
                 title: album.title,
@@ -195,7 +183,6 @@ struct HomeView: View {
             )
             self.navigationPath.append(playlist)
         case let .artist(artist):
-            // Navigate to artist detail
             self.navigationPath.append(artist)
         }
     }

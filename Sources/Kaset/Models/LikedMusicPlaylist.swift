@@ -1,6 +1,5 @@
 import Foundation
 
-/// Shared identifiers for the YouTube Music "Liked Music" playlist.
 enum LikedMusicPlaylist {
     static let id = "LM"
     static let browseID = "VLLM"

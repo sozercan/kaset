@@ -1,11 +1,5 @@
 import SwiftUI
 
-/// A single track row in a playlist or album detail view.
-///
-/// Shows track number/now-playing indicator, thumbnail (for non-album views),
-/// title, artist links or subtitle, like button, and duration.
-/// Artist names are rendered as clickable navigation links when they have
-/// navigable IDs; non-navigable artists fall back to plain text.
 @available(macOS 26.0, *)
 struct PlaylistTrackRow<Menu: View>: View {
     let track: Song
@@ -80,7 +74,6 @@ struct PlaylistTrackRow<Menu: View>: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            // Not nested: the row's play button sits in `.background`, not around this.
             LikeButton(
                 song: self.track,
                 isRowHovered: self.isHovered,
@@ -106,9 +99,6 @@ struct PlaylistTrackRow<Menu: View>: View {
             Color.clear
                 .contentShape(Rectangle())
         }
-        // The row's own `.onHover` drives the highlight: a second hover tracker per row
-        // is enough to push long playlists past the frame budget while scrolling.
-        // Unplayable rows never highlight, since their button is disabled.
         .buttonStyle(.interactiveRow(cornerRadius: 6, isHovered: self.isHovered && self.track.isPlayable))
         .disabled(!self.track.isPlayable)
         .accessibilityLabel(Text(verbatim: self.playbackAccessibilityLabel))

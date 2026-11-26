@@ -3,14 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-/// Smoke tests for the Liquid Glass macOS 15 compatibility shims.
-///
-/// These do not (and cannot) assert which branch of `#available(macOS 26.0, *)`
-/// was taken — that's purely a runtime property of the host. Their job is to
-/// make sure the helpers compile, accept the documented argument shapes, and
-/// return a non-nil view on whichever OS the tests are running. The macOS-15
-/// vs macOS-26 divergence is exercised end-to-end by running this same target
-/// on the matching CI matrix legs in `.github/workflows/tests.yml`.
 @MainActor
 @Suite(.tags(.model))
 struct LiquidGlassCompatTests {
@@ -19,19 +11,12 @@ struct LiquidGlassCompatTests {
         let base = Color.blue
         let nonInteractive = base.compatGlass(in: RoundedRectangle(cornerRadius: 8))
         let interactive = base.compatGlass(interactive: true, in: Capsule())
-        // Force the view trees to materialize so the underlying modifier
-        // chain is exercised even when ViewBuilder would otherwise lazily
-        // discard the result.
         #expect(String(describing: nonInteractive).isEmpty == false)
         #expect(String(describing: interactive).isEmpty == false)
     }
 
     @Test("compatGlassID is a no-op-shaped modifier on every supported OS")
     func compatGlassIDConstructs() {
-        // Namespace.ID is normally injected by SwiftUI via @Namespace, but the
-        // initializer is internal-by-convention. We can't easily synthesize
-        // one in unit tests, so we wrap the call in a host view that owns the
-        // namespace.
         struct Host: View {
             @Namespace private var ns
             var body: some View {
@@ -62,7 +47,6 @@ struct LiquidGlassCompatTests {
 
     @Test("compatTranslucentSidebar constructs when legacy macOS 15 UI is forced")
     func compatTranslucentSidebarConstructsWithLegacyEnvironment() {
-        // Exercises the .ultraThinMaterial fallback branch end-to-end.
         let view = List { Text("Home") }
             .compatTranslucentSidebar()
             .environment(\.usesLegacyMacOS15UI, true)
@@ -128,10 +112,6 @@ struct LiquidGlassCompatTests {
 
     @Test("Host OS routes to the expected branch")
     func hostOSReachableBranch() {
-        // This documents which branch the rest of the suite is running on. It
-        // is intentionally not a hard assertion — its value is in the test
-        // logs / CI output, where a maintainer can confirm both legs of the
-        // matrix actually hit different branches.
         if #available(macOS 26.0, *) {
             #expect(Bool(true), "Running on macOS 26+: Liquid Glass branch is live")
         } else {

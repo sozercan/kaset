@@ -1,7 +1,5 @@
 @preconcurrency import XCTest
 
-/// Accessibility identifiers matching those in AccessibilityID enum.
-/// Duplicated here to avoid import issues with the app target.
 enum TestAccessibilityID {
     enum Sidebar {
         static let container = "sidebar"
@@ -70,20 +68,15 @@ enum TestAccessibilityID {
     }
 }
 
-/// Base class for Kaset UI tests.
-/// Provides common setup, launch configuration, and helper methods.
 @MainActor
 class KasetUITestCase: XCTestCase {
-    /// The application under test.
     var app: XCUIApplication!
 
     override func setUpWithError() throws {
         try super.setUpWithError()
 
-        // Stop immediately when a failure occurs
         continueAfterFailure = false
 
-        // Create new app instance pointing to installed Kaset.app
         let appURL = URL(fileURLWithPath: "/Applications/Kaset.app")
         if FileManager.default.fileExists(atPath: appURL.path) {
             self.app = XCUIApplication(url: appURL)
@@ -91,15 +84,12 @@ class KasetUITestCase: XCTestCase {
             self.app = XCUIApplication(bundleIdentifier: "com.sertacozercan.Kaset")
         }
 
-        // Add UI test mode arguments
         self.app.launchArguments.append("-UITestMode")
         self.app.launchArguments.append("-SkipAuth")
 
-        // Also set via environment (more reliable with XCUIApplication(url:))
         self.app.launchEnvironment["UI_TEST_MODE"] = "1"
         self.app.launchEnvironment["SKIP_AUTH"] = "1"
 
-        // Disable animations for faster, more reliable tests
         self.app.launchArguments.append("-UIAnimationsDisabled")
     }
 
@@ -108,7 +98,6 @@ class KasetUITestCase: XCTestCase {
         try super.tearDownWithError()
     }
 
-    /// Launches the app with mock home sections.
     func launchWithMockHome(sectionCount: Int = 3, itemsPerSection: Int = 5) {
         let sections = (0 ..< sectionCount).map { sectionIndex in
             [
@@ -135,7 +124,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with mock search results.
     func launchWithMockSearch(songCount: Int = 5) {
         let songs = (0 ..< songCount).map { index in
             [
@@ -157,7 +145,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with mock library playlists.
     func launchWithMockLibrary(playlistCount: Int = 3) {
         let playlists = (0 ..< playlistCount).map { index in
             [
@@ -176,7 +163,6 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with a mock current track (player has something playing).
     func launchWithMockPlayer(isPlaying: Bool = true, hasVideo: Bool = false) {
         let track: [String: Any] = [
             "id": "current-track",
@@ -198,17 +184,14 @@ class KasetUITestCase: XCTestCase {
         self.app.launch()
     }
 
-    /// Launches the app with a mock current track that has video available.
     func launchWithMockPlayerWithVideo(isPlaying: Bool = true) {
         self.launchWithMockPlayer(isPlaying: isPlaying, hasVideo: true)
     }
 
-    /// Launches the app with default configuration (logged in, no specific mock data).
     func launchDefault() {
         self.app.launch()
     }
 
-    /// Waits for an element to exist with a timeout.
     @discardableResult
     func waitForElement(
         _ element: XCUIElement,
@@ -227,7 +210,6 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    /// Waits for an element to be hittable (visible and interactable).
     @discardableResult
     func waitForHittable(
         _ element: XCUIElement,
@@ -246,7 +228,6 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    /// Waits for an element to disappear with a timeout.
     @discardableResult
     func waitForElementToDisappear(
         _ element: XCUIElement,
@@ -265,16 +246,12 @@ class KasetUITestCase: XCTestCase {
         return true
     }
 
-    /// Navigates to a sidebar item by accessibility identifier.
     func navigateToSidebarItem(_ accessibilityID: String) {
-        // Find by accessibility identifier first, fall back to label
         var sidebarItem = self.app.buttons[accessibilityID].firstMatch
         if !sidebarItem.exists {
-            // Try other element types
             sidebarItem = self.app.cells[accessibilityID].firstMatch
         }
 
-        // First wait for element to exist
         let existsPredicate = NSPredicate(format: "exists == true")
         let existsExpectation = XCTNSPredicateExpectation(predicate: existsPredicate, object: sidebarItem)
         let existsResult = XCTWaiter().wait(for: [existsExpectation], timeout: 15)
@@ -284,33 +261,27 @@ class KasetUITestCase: XCTestCase {
             return
         }
 
-        // Then wait for it to be hittable (may need time for layout)
         if self.waitForHittable(sidebarItem, timeout: 10) {
             sidebarItem.click()
         }
     }
 
-    /// Navigates to Home via sidebar.
     func navigateToHome() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.homeItem)
     }
 
-    /// Navigates to Search via sidebar.
     func navigateToSearch() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.searchItem)
     }
 
-    /// Navigates to Explore via sidebar.
     func navigateToExplore() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.exploreItem)
     }
 
-    /// Navigates to Library via sidebar.
     func navigateToLibrary() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.libraryItem)
     }
 
-    /// Navigates to Liked Music via sidebar.
     func navigateToLikedMusic() {
         self.navigateToSidebarItem(TestAccessibilityID.Sidebar.likedMusicItem)
     }

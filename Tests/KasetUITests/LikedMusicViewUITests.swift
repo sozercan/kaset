@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the LikedMusicView.
 @MainActor
 final class LikedMusicViewUITests: KasetUITestCase {
     func testLikedMusicViewDisplaysTitle() {
@@ -17,7 +16,6 @@ final class LikedMusicViewUITests: KasetUITestCase {
 
         navigateToLikedMusic()
 
-        // With no liked songs, should show empty state or loading
         let title = app.staticTexts["Liked Music"]
         XCTAssertTrue(waitForElement(title, timeout: 10))
     }

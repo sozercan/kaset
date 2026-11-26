@@ -1,8 +1,6 @@
 "Ad" = "Annons";
 "Advertisement" = "Annons";
 
-// Localizable.strings
-
 "%lld songs" = "%lld låtar";
 "%lld songs listened today" = "%lld låtar lyssnade på idag";
 "\"Live\" shifts the colors as the video plays; the others stay constant" = "\"Live\" skiftar färgerna medan videon spelas; de andra förblir oförändrade";
@@ -557,7 +555,6 @@
 "YouTube" = "YouTube";
 "YouTube video" = "YouTube-video";
 
-// YouTube Ask Gemini
 "Ask Gemini" = "Fråga Gemini";
 "Ask about this video..." = "Fråga om den här videon…";
 "Ask anything about this video..." = "Fråga vad som helst om den här videon…";
@@ -578,7 +575,6 @@
 "Ask Gemini response ready" = "Svaret från Fråga Gemini är klart";
 "New Ask Gemini chat ready" = "Ny Fråga Gemini-chatt är klar";
 
-// Appearance
 "Appearance" = "Utseende";
 "App Appearance" = "Appens utseende";
 "Choose light or dark mode for Kaset, or match the macOS setting" = "Välj ljust eller mörkt läge för Kaset, eller följ inställningen i macOS";
@@ -586,7 +582,6 @@
 "Light Mode" = "Ljust läge";
 "Dark Mode" = "Mörkt läge";
 
-// App Intents (Shortcuts, Siri, Spotlight)
 "Play Music" = "Spela musik";
 "Play Song" = "Spela låt";
 "Play Playlist" = "Spela spellista";
@@ -633,7 +628,6 @@
 "Couldn't play “%@”." = "Kunde inte spela ”%@”.";
 "Couldn't rate “%@”." = "Kunde inte betygsätta ”%@”.";
 
-// Extension permission review
 "The extension could not be read. Remove it and add it again." = "Tillägget kunde inte läsas. Ta bort det och lägg till det igen.";
 "The extension's access changed. Review it again before enabling it." = "Tilläggets åtkomst har ändrats. Granska det igen innan du aktiverar det.";
 "Extension Error" = "Tilläggsfel";

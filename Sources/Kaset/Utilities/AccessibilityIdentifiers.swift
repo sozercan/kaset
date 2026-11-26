@@ -1,7 +1,5 @@
 import Foundation
 
-/// Centralized accessibility identifiers for UI testing.
-/// Using an enum namespace prevents typos and enables autocomplete.
 enum AccessibilityID {
     static func isAuxiliaryPlayerWindowIdentifier(_ identifier: String?) -> Bool {
         identifier == VideoWindow.container

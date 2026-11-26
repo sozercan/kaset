@@ -24,7 +24,6 @@ private struct ContextMenuNavigationButton<Value: Hashable>: View {
 }
 
 extension Album {
-    /// Albums open in the playlist detail view.
     func detailPlaylist(fallbackThumbnailURL: URL? = nil) -> Playlist {
         Playlist(
             id: self.id,
@@ -377,7 +376,6 @@ struct HomeSectionItemContextMenu: View {
         case let .album(album):
             AlbumContextMenu(album: album, client: self.client, navigate: self.navigate)
         case let .playlist(playlist):
-            // Mood and genre tiles arrive as playlists but open a category page.
             if playlist.resolvedMoodCategoryEndpoint == nil {
                 PlaylistContextMenu(playlist: playlist, client: self.client, navigate: self.navigate)
             }

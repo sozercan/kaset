@@ -1,10 +1,6 @@
 import Foundation
 import Testing
 
-/// Packaged builds compile `Localizable.xcstrings` directly, while SwiftPM and
-/// Xcode runtime builds ship the checked-in `.lproj` mirrors. An edit that only
-/// reaches one side is therefore visible in one build path but stale or missing
-/// in the other, so the two have to be checked against each other.
 @Suite("Localization catalog parity")
 struct LocalizationCatalogParityTests {
     @Test("Every .lproj value matches the string catalog")
@@ -24,8 +20,6 @@ struct LocalizationCatalogParityTests {
 
         var problems: [String] = []
 
-        // A language the catalog translates but the target never ships is the
-        // same drift, one level up.
         let shipped = Set(localizationDirectories.map { $0.deletingPathExtension().lastPathComponent })
         for language in catalog.keys.sorted() where !shipped.contains(language) {
             problems.append("\(language): translated in the catalog but has no .lproj directory")
@@ -41,16 +35,12 @@ struct LocalizationCatalogParityTests {
 
             let shippedStrings = try Self.loadStrings(at: stringsURL)
             let catalogEntries = catalog[language] ?? [:]
-            // A shipped language the catalog no longer translates would ship
-            // stale strings forever, and comparing an empty dictionary would
-            // silently pass.
             if catalogEntries.isEmpty, language != sourceLanguage {
                 problems.append("\(language): ships an .lproj but has no localizations in the catalog")
                 continue
             }
             for (key, expected) in catalogEntries.sorted(by: { $0.key < $1.key }) {
                 guard let actual = shippedStrings[key] else {
-                    // The source language needs no entry: the key is the value.
                     if language != sourceLanguage {
                         problems.append("\(language): \"\(key)\" is in the catalog but missing from .lproj")
                     }
@@ -63,10 +53,6 @@ struct LocalizationCatalogParityTests {
                 }
             }
 
-            // The other direction: a translated key dropped from this locale
-            // but left in its .strings file would silently ship a stale value.
-            // The source locale may intentionally override a subset of catalog
-            // keys because untranslated source keys are their own values.
             let expectedShippedKeys = language == sourceLanguage
                 ? catalogKeys
                 : Set(catalogEntries.keys)
@@ -89,25 +75,19 @@ struct LocalizationCatalogParityTests {
         )
     }
 
-    /// `Sources/Kaset/Resources`, resolved from this file rather than a bundle:
-    /// the catalog is deliberately excluded from the target's resources.
     static var resourcesDirectory: URL {
         URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent() // KasetTests
-            .deletingLastPathComponent() // Tests
-            .deletingLastPathComponent() // repo root
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
             .appendingPathComponent("Sources/Kaset/Resources")
     }
 
-    /// The catalog's source language, whose `.strings` needs no entry per key
-    /// because the key itself is the value.
     static func sourceLanguage(at url: URL) throws -> String {
         let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
         return (raw as? [String: Any])?["sourceLanguage"] as? String ?? "en"
     }
 
-    /// Every key the catalog defines, regardless of which languages translate
-    /// it. Used to spot `.strings` entries the catalog has dropped.
     static func catalogKeys(at url: URL) throws -> Set<String> {
         let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
         guard let strings = (raw as? [String: Any])?["strings"] as? [String: Any] else {
@@ -116,7 +96,6 @@ struct LocalizationCatalogParityTests {
         return Set(strings.keys)
     }
 
-    /// `[language: [key: value]]` from the string catalog.
     static func loadCatalog(at url: URL) throws -> [String: [String: String]] {
         let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: url))
         guard let root = raw as? [String: Any],
@@ -141,7 +120,6 @@ struct LocalizationCatalogParityTests {
         return catalog
     }
 
-    /// Parses a text-format `.strings` file (old-style property list).
     static func loadStrings(at url: URL) throws -> [String: String] {
         let parsed = try PropertyListSerialization.propertyList(
             from: Data(contentsOf: url),

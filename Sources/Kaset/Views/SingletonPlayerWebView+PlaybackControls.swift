@@ -1,7 +1,6 @@
 import WebKit
 
 extension SingletonPlayerWebView {
-    /// Enables/disables startup autoplay blocking inside the observer script.
     func setAutoplayBlocked(_ blocked: Bool) {
         guard let webView else { return }
         let script = """
@@ -59,7 +58,6 @@ extension SingletonPlayerWebView {
         })();
     """
 
-    /// Reads playback time from the live WebView video element.
     func currentPlaybackSnapshot() async -> PlaybackSnapshot? {
         guard let webView else { return nil }
 
@@ -152,7 +150,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Toggle play/pause.
     func playPause() {
         guard let webView else { return }
         let generation = self.documentGeneration.currentGeneration
@@ -193,7 +190,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Play (resume).
     func play() {
         guard let webView else { return }
         let generation = self.documentGeneration.currentGeneration
@@ -205,8 +201,6 @@ extension SingletonPlayerWebView {
         """, completionHandler: nil)
     }
 
-    /// During restored playback, a paused preroll ad must advance before the
-    /// content seek can be reconciled. Never unsuppress ordinary content here.
     func resumeReadyAdvertisementIfPresent() {
         guard let webView else { return }
         let generation = self.documentGeneration.currentGeneration
@@ -238,7 +232,6 @@ extension SingletonPlayerWebView {
         """, completionHandler: nil)
     }
 
-    /// Pause.
     func pause() {
         guard let webView else { return }
 
@@ -255,7 +248,6 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Skip to next track.
     func next() {
         guard let webView else { return }
 
@@ -274,7 +266,6 @@ extension SingletonPlayerWebView {
         }
     }
 
-    /// Go to previous track.
     func previous() {
         guard let webView else { return }
 
@@ -293,7 +284,6 @@ extension SingletonPlayerWebView {
         }
     }
 
-    /// Seek to a specific time in seconds.
     func seek(to time: Double) {
         guard let webView else { return }
 
@@ -307,7 +297,6 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Pure script for atomically pausing and seeking the underlying video.
     nonisolated static func seekAndPauseScript(to time: Double) -> String {
         let safeTime = time.isFinite ? max(time, 0) : 0
         return """
@@ -323,13 +312,11 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Atomically pause and seek the underlying video.
     func seekAndPause(to time: Double) {
         guard let webView else { return }
         webView.evaluateJavaScript(Self.seekAndPauseScript(to: time), completionHandler: nil)
     }
 
-    /// Seeks to the start and resumes playback without a full page load (repeat-one, same-URL recovery).
     func restartInPlaceFromBeginning() {
         guard let webView else { return }
         if let nativeGeneration = self.coordinator?.playerService.currentMusicPlaybackOccurrence?.nativeGeneration {
@@ -367,13 +354,10 @@ extension SingletonPlayerWebView {
         webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
-    /// Set volume (0.0 - 1.0).
     func setVolume(_ volume: Double) {
         guard let webView else { return }
         let clampedVolume = max(0, min(1, volume))
 
-        // Update target volume and set video volume directly
-        // Also try to set YouTube's internal player volume via their API
         let script = """
             (function() {
                 window.__kasetTargetVolume = \(clampedVolume);
@@ -381,7 +365,6 @@ extension SingletonPlayerWebView {
                 let result = [];
 
                 if (video) {
-                    // Set flag to prevent volumechange listener from reverting
                     window.__kasetIsSettingVolume = true;
                     video.volume = \(clampedVolume);
                     result.push('video.volume=' + video.volume);
@@ -390,7 +373,6 @@ extension SingletonPlayerWebView {
                     result.push('no-video');
                 }
 
-                // Also try YouTube Music's internal player API
                 const player = document.querySelector('ytmusic-player');
                 if (player && player.playerApi) {
                     const ytVolume = Math.round(\(clampedVolume) * 100);
@@ -398,7 +380,6 @@ extension SingletonPlayerWebView {
                     result.push('ytapi.setVolume=' + ytVolume);
                 }
 
-                // Try movie_player API as fallback
                 const moviePlayer = document.getElementById('movie_player');
                 if (moviePlayer && moviePlayer.setVolume) {
                     const ytVolume = Math.round(\(clampedVolume) * 100);
@@ -416,7 +397,6 @@ extension SingletonPlayerWebView {
         }
     }
 
-    /// Show the native AirPlay picker for the WebView's video element.
     func showAirPlayPicker(at screenPoint: CGPoint? = nil) {
         guard let webView else {
             DiagnosticsLogger.airplay.warning("showAirPlayPicker called but webView is nil")

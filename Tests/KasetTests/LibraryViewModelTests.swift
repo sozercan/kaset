@@ -3,7 +3,6 @@ import SwiftUI
 import Testing
 @testable import Kaset
 
-/// Tests for LibraryViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct LibraryViewModelTests {
@@ -194,7 +193,6 @@ struct LibraryViewModelTests {
         #expect(self.mockClient.getLibraryContentCalled == true)
         #expect(self.mockClient.getLibraryPlaylistsCalled == false)
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state")
         }
@@ -699,7 +697,6 @@ struct LibraryViewModelTests {
         self.viewModel.addToLibrary(podcast: podcast1)
         self.viewModel.addToLibrary(podcast: podcast2)
 
-        // Podcast B should be first (inserted at position 0)
         #expect(self.viewModel.podcastShows.first?.id == "MPSPPLB")
         #expect(self.viewModel.podcastShows[1].id == "MPSPPLA")
     }
@@ -719,7 +716,6 @@ struct LibraryViewModelTests {
 
     @Test("removeFromLibrary handles non-existent podcast gracefully")
     func removeFromLibraryNonExistent() {
-        // Should not crash when removing non-existent podcast
         self.viewModel.removeFromLibrary(podcastId: "nonexistent")
 
         #expect(self.viewModel.podcastShows.isEmpty)

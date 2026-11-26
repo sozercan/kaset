@@ -1,7 +1,5 @@
 import Foundation
 
-/// Romanizes Japanese text using macOS's built-in CFStringTokenizer.
-/// Handles kanji, hiragana, and katakana → romaji conversion.
 enum JapaneseRomanizer {
     static func romanize(_ text: String) -> String? {
         let cfText = text as CFString
@@ -47,7 +45,6 @@ enum JapaneseRomanizer {
                 }
                 result += latin
             } else {
-                // Preserve non-tokenizable characters (spaces, punctuation)
                 result += token
             }
             tokenType = CFStringTokenizerAdvanceToNextToken(tokenizer)

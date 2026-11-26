@@ -8,8 +8,6 @@ struct QueueSidePanelView: View {
     @Environment(SongLikeStatusManager.self) private var likeStatusManager
 
     var body: some View {
-        // Use regular material: GlassEffectContainer breaks NSTableView drag-and-drop
-        // (drop target gap and acceptDrop never fire when the table is inside glass).
         VStack(spacing: 0) {
             QueueSidePanelHeader()
 
@@ -92,7 +90,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let favoritesManager: FavoritesManager
     let likeStatusManager: SongLikeStatusManager
     let allowsLikeActions: Bool
-    /// Observed to refresh visible AppKit rows after optimistic like updates and rollbacks.
     let likeStatusEvent: LikeStatusEvent?
     let onSelect: (UUID) -> Void
     let onReorder: (UUID, UUID?) -> Void
@@ -125,7 +122,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             viewController.tableView?.normalizeVisibleRowFrames()
         }
 
-        // Update current track highlighting and waveform animation
         if let tableView = viewController.tableView {
             for row in 0 ..< self.entries.count {
                 if let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? QueueTableCellView {
@@ -167,8 +163,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             scrollView.borderType = .noBorder
             scrollView.backgroundColor = .clear
             scrollView.drawsBackground = false
-            scrollView.hasHorizontalScroller = false // Disable horizontal scrolling
-            scrollView.horizontalScrollElasticity = .none // No horizontal bounce
+            scrollView.hasHorizontalScroller = false
+            scrollView.horizontalScrollElasticity = .none
 
             let tableView = DraggableTableView()
             tableView.headerView = nil
@@ -184,13 +180,13 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             column.title = ""
             column.minWidth = 350
             column.maxWidth = 400
-            column.width = 350 // Matches container width minus scroll bar space
+            column.width = 350
             tableView.addTableColumn(column)
 
             let dragType = NSPasteboard.PasteboardType("com.kaset.queueitem")
             tableView.registerForDraggedTypes([dragType, .string])
             tableView.verticalMotionCanBeginDrag = true
-            tableView.draggingDestinationFeedbackStyle = .gap // Show gap where item will be dropped
+            tableView.draggingDestinationFeedbackStyle = .gap
 
             scrollView.documentView = tableView
             self.tableView = tableView
@@ -247,8 +243,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             super.init()
         }
 
-        /// Removes the displayed entry with slide-out animation, then calls onRemove.
-        /// - Parameter slideDirection: -1 = slide left, +1 = slide right (matches swipe direction).
         func removeRowWithAnimation(row: Int, slideDirection: CGFloat) {
             guard let entryID = self.entries[safe: row]?.id else { return }
             guard let tableView = self.viewController?.tableView else {
@@ -328,7 +322,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             }
         }
 
-        /// Drag Source
         func tableView(_: NSTableView, pasteboardWriterForRow row: Int) -> NSPasteboardWriting? {
             guard let entry = self.entries[safe: row], entry.id != self.currentEntryID else { return nil }
             let item = NSPasteboardItem()
@@ -337,9 +330,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             return item
         }
 
-        func tableView(_: NSTableView, draggingSession _: NSDraggingSession, willBeginAt _: NSPoint, forRowIndexes _: IndexSet) {
-            // Dragging session began
-        }
+        func tableView(_: NSTableView, draggingSession _: NSDraggingSession, willBeginAt _: NSPoint, forRowIndexes _: IndexSet) {}
 
         func tableView(_ tableView: NSTableView, draggingSession _: NSDraggingSession, endedAt _: NSPoint, operation _: NSDragOperation) {
             self.isDragging = false
@@ -348,7 +339,6 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
             (tableView as? DraggableTableView)?.normalizeVisibleRowFrames()
         }
 
-        /// Drop Destination
         func tableView(_: NSTableView, validateDrop info: NSDraggingInfo, proposedRow row: Int, proposedDropOperation dropOperation: NSTableView.DropOperation) -> NSDragOperation {
             guard dropOperation == .above,
                   let sourceEntryID = self.draggedEntryID(from: info),
@@ -483,22 +473,15 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 class DraggableTableView: NSTableView {
     weak var coordinator: QueueListControllerRepresentable.Coordinator?
 
-    /// Accumulated scroll deltas during the current gesture (used to detect swipe-to-remove).
     private var horizontalSwipeAccumulator: CGFloat = 0
     private var verticalSwipeAccumulator: CGFloat = 0
-    /// Row index under the cursor when the gesture *started* (.began), so we remove that row even if content scrolls by .ended.
     private var swipeRemoveTargetRow: Int = -1
     private var swipeRemoveTargetEntryID: UUID?
-    /// When non-nil, we're showing real-time slide feedback; value is the row view's initial origin.x to restore on cancel.
     private var swipeTrackedInitialOriginX: CGFloat?
-    /// Cooldown after a remove so we don't trigger again from leftover events.
     private var swipeRemoveCooldownUntil: CFAbsoluteTime = 0
-    /// Minimum horizontal delta to "commit" and start moving the row (avoids vertical scroll moving a row).
     private static let swipeCommitThreshold: CGFloat = 10
-    /// Horizontal swipe distance (pt) beyond which release counts as delete. Increase for a more deliberate confirm, decrease for quicker remove.
     private static let swipeRemoveDeltaThreshold: CGFloat = 100
     private static let swipeRemoveCooldown: CFAbsoluteTime = 0.5
-    /// Max horizontal drag (multiple of row width) for real-time feedback.
     private static let swipeMaxDragFactor: CGFloat = 1.2
 
     override func awakeFromNib() {
@@ -523,11 +506,9 @@ class DraggableTableView: NSTableView {
     }
 
     private func setupTable() {
-        // Enable gap feedback style for drag-and-drop
         self.draggingDestinationFeedbackStyle = .gap
     }
 
-    /// Resets row views that still carry a horizontal offset from swipe-to-remove feedback.
     func normalizeVisibleRowFrames() {
         let visibleRange = self.rows(in: self.visibleRect)
         guard visibleRange.length > 0 else { return }
@@ -548,7 +529,6 @@ class DraggableTableView: NSTableView {
         rowView.alphaValue = 1
     }
 
-    /// Two-finger horizontal trackpad swipe: row follows finger in real time; release past threshold to remove, or return to cancel.
     override func scrollWheel(with event: NSEvent) {
         let dx = event.scrollingDeltaX
         let dy = event.scrollingDeltaY
@@ -575,7 +555,6 @@ class DraggableTableView: NSTableView {
         super.scrollWheel(with: event)
     }
 
-    /// Handles the `.began` phase of a trackpad swipe gesture.
     private func handleSwipeBegan(dx: CGFloat, dy: CGFloat, event: NSEvent) {
         self.horizontalSwipeAccumulator = dx
         self.verticalSwipeAccumulator = dy
@@ -595,11 +574,9 @@ class DraggableTableView: NSTableView {
         }
     }
 
-    /// Handles the `.changed` phase of a trackpad swipe gesture, sliding the row in real time.
     private func handleSwipeChanged(dx: CGFloat, dy: CGFloat) {
         self.horizontalSwipeAccumulator += dx
         self.verticalSwipeAccumulator += dy
-        // Real-time row slide: once horizontal movement passes commit threshold, move the row with the finger.
         if let coord = coordinator,
            let swipeRemoveTargetEntryID,
            swipeRemoveTargetRow >= 0,
@@ -624,7 +601,6 @@ class DraggableTableView: NSTableView {
         }
     }
 
-    /// Handles the `.ended` / `.cancelled` phase of a trackpad swipe gesture. Returns `true` if the event was fully consumed.
     private func handleSwipeEnded(event: NSEvent) -> Bool {
         let accH = self.horizontalSwipeAccumulator
         let accV = self.verticalSwipeAccumulator
@@ -673,7 +649,6 @@ class DraggableTableView: NSTableView {
                 }
                 return true
             } else {
-                // Cancel: animate row back to initial position.
                 NSAnimationContext.runAnimationGroup { context in
                     context.duration = 0.2
                     context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)

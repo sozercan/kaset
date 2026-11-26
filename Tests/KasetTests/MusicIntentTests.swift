@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for MusicIntent query building and parsing logic.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))

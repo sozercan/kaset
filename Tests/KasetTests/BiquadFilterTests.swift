@@ -2,17 +2,10 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for `BiquadFilter`. These exercise the DSP path directly so we can
-/// verify coefficient correctness, parameter slewing and stability without
-/// involving Core Audio.
 @Suite(.tags(.service))
 struct BiquadFilterTests {
     private static let sampleRate: Float = 48000
 
-    /// Drives a freshly configured filter with `frameCount` samples of the
-    /// chosen test signal and returns the output, also reporting the peak
-    /// absolute value. Long-enough runs let the slewing one-pole settle and
-    /// give the steady-state response.
     private static func steadyStatePeak(
         configure: (BiquadFilter) -> Void,
         signal: (Int) -> Float,
@@ -28,8 +21,6 @@ struct BiquadFilterTests {
         }
         filter.processMono(samples: buffer, frameCount: frameCount)
 
-        // Inspect only the last quarter — by then the smoothing one-pole has
-        // settled and we're reading the genuine steady-state response.
         let analysisStart = frameCount * 3 / 4
         var peak: Float = 0
         for index in analysisStart ..< frameCount {
@@ -49,7 +40,6 @@ struct BiquadFilterTests {
             configure: { _ in },
             signal: Self.sine(frequencyHz: 1000, sampleRate: Self.sampleRate)
         )
-        // Allow a tiny bit of headroom for floating-point round-off.
         #expect(abs(peak - 1) < 0.01)
     }
 
@@ -61,7 +51,6 @@ struct BiquadFilterTests {
             },
             signal: Self.sine(frequencyHz: 1000, sampleRate: Self.sampleRate)
         )
-        // +6 dB is a 2x amplitude boost — within ±15% of expected after slew.
         #expect(peak > 1.7 && peak < 2.3)
     }
 
@@ -73,7 +62,6 @@ struct BiquadFilterTests {
             },
             signal: Self.sine(frequencyHz: 1000, sampleRate: Self.sampleRate)
         )
-        // −6 dB ≈ 0.5 amplitude.
         #expect(peak > 0.4 && peak < 0.6)
     }
 
@@ -85,8 +73,6 @@ struct BiquadFilterTests {
             },
             signal: Self.sine(frequencyHz: 8000, sampleRate: Self.sampleRate)
         )
-        // 8 kHz is 7 octaves above a 60 Hz peaking band — the boost should
-        // not noticeably reach it. Allow ~1 dB skirt residue.
         #expect(abs(peak - 1) < 0.15)
     }
 
@@ -98,8 +84,6 @@ struct BiquadFilterTests {
             },
             signal: Self.sine(frequencyHz: 60, sampleRate: Self.sampleRate)
         )
-        // 60 Hz is well below the 200 Hz shelf knee — should be boosted
-        // close to the full +6 dB (≈ 2.0×).
         #expect(peak > 1.6 && peak < 2.2)
     }
 
@@ -111,8 +95,6 @@ struct BiquadFilterTests {
             },
             signal: Self.sine(frequencyHz: 8000, sampleRate: Self.sampleRate)
         )
-        // The shelf transitions through its full +12 dB → 0 dB rolloff well
-        // before 8 kHz, but allow a ~1 dB residual ripple from the slope.
         #expect(abs(peak - 1) < 0.15)
     }
 
@@ -152,8 +134,6 @@ struct BiquadFilterTests {
         filter.setPeakingEQ(frequency: 1000, q: 1.0, gainDB: 12, sampleRate: Self.sampleRate)
         filter.processMono(samples: buffer, frameCount: frameCount)
 
-        // No NaN, no infinite — pole/zero placement remained inside the unit
-        // circle for the whole run.
         for index in 0 ..< frameCount {
             #expect(buffer[index].isFinite)
         }
@@ -171,7 +151,7 @@ struct BiquadFilterTests {
         let sineGen = Self.sine(frequencyHz: 1000, sampleRate: Self.sampleRate)
         for index in 0 ..< frameCount {
             leftBuffer[index] = sineGen(index)
-            rightBuffer[index] = 0 // silent right channel
+            rightBuffer[index] = 0
         }
 
         let filter = BiquadFilter()
@@ -182,11 +162,9 @@ struct BiquadFilterTests {
             frameCount: frameCount
         )
 
-        // Right channel was silent in, must stay silent out.
         let rightPeak = (0 ..< frameCount).map { abs(rightBuffer[$0]) }.max() ?? 0
         #expect(rightPeak < 1e-6)
 
-        // Left channel still produced output.
         let leftPeak = (frameCount * 3 / 4 ..< frameCount).map { abs(leftBuffer[$0]) }.max() ?? 0
         #expect(leftPeak > 1.5)
     }

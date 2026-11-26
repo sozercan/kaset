@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A YouTube channel page: header plus the landing-tab video grid.
 struct YouTubeChannelView: View {
     @State private var viewModel: YouTubeChannelViewModel
 
@@ -62,8 +61,6 @@ struct YouTubeChannelView: View {
                 }
             }
             .padding(.vertical, 20)
-            // Edge-to-edge with a resting inset so content extends under the
-            // floating glass sidebar.
             .detailScrollContentInset()
         }
     }

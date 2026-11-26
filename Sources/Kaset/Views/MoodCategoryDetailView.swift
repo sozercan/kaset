@@ -1,9 +1,5 @@
 import SwiftUI
 
-/// Detail view for a moods/genres category page.
-/// Displays sections of songs and playlists for the selected mood/genre.
-/// Note: This view is pushed onto an existing NavigationStack, so it uses NavigationLink
-/// to leverage the parent's navigation context.
 struct MoodCategoryDetailView: View {
     @State var viewModel: MoodCategoryViewModel
     @Environment(PlayerService.self) private var playerService
@@ -54,8 +50,6 @@ struct MoodCategoryDetailView: View {
                         self.sectionView(section)
                     }
                 }
-                // Edge-to-edge so shelves slide under the glass sidebar;
-                // resting inset is restored per-shelf via contentInset.
                 .padding(.vertical, 20)
             }
         }
@@ -76,13 +70,10 @@ struct MoodCategoryDetailView: View {
         }
     }
 
-    /// Creates navigation-aware item views.
-    /// Songs use Button (play action), other items use NavigationLink.
     @ViewBuilder
     private func itemView(_ item: HomeSectionItem) -> some View {
         switch item {
         case let .song(song):
-            // Songs play directly
             let play: () -> Void = {
                 Task {
                     await self.playerService.playWithRadio(song: song)
@@ -92,7 +83,6 @@ struct MoodCategoryDetailView: View {
                 .equatable()
                 .contextMenu { self.contextMenu(for: item, play: play) }
         case let .playlist(playlist):
-            // Playlists navigate using NavigationLink
             if let parsed = playlist.resolvedMoodCategoryEndpoint {
                 let category = MoodCategory(
                     browseId: parsed.browseId,
@@ -138,7 +128,6 @@ struct MoodCategoryDetailView: View {
     }
 }
 
-/// A non-button card view for use inside NavigationLink.
 private struct ItemCardContent: View {
     let item: HomeSectionItem
 

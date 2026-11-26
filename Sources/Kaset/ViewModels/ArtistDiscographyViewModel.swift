@@ -2,8 +2,6 @@ import Foundation
 import Observation
 import os
 
-/// View model for `ArtistDiscographyView` — loads the full album list behind
-/// an Albums-shelf "See all" on an artist page.
 @MainActor
 @Observable
 final class ArtistDiscographyViewModel {

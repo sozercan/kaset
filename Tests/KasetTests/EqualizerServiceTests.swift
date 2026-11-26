@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for `EqualizerService`. Uses a mock `EqualizerAudioEngineProtocol`
-/// so the real Core Audio process tap is never touched.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct EqualizerServiceTests {
@@ -27,9 +25,6 @@ struct EqualizerServiceTests {
         let defaults: UserDefaults
     }
 
-    /// Returns a service backed by a fresh mock engine, using an isolated
-    /// `UserDefaults` suite so tests never touch the shared production
-    /// defaults domain.
     private static func makeService(
         startResult: Result<Void, EqualizerAudioEngine.StartFailure> = .success(()),
         isPlaybackActive: @escaping @MainActor () -> Bool = { false },
@@ -82,8 +77,6 @@ struct EqualizerServiceTests {
     func applyPresetClamps() {
         let harness = Self.makeService()
         let service = harness.service
-        // Sanity: every preset already lives in range, so this verifies
-        // clampGains doesn't mutate values that are already legal.
         service.apply(preset: .classical)
         for gain in service.settings.bandGainsDB {
             #expect(gain >= EQSettings.minGainDB && gain <= EQSettings.maxGainDB)
@@ -137,7 +130,6 @@ struct EqualizerServiceTests {
         let service = harness.service
         service.apply(preset: .rock)
         service.setEnabled(true)
-        // Engine started successfully; reset should not flip enabled off.
         service.reset()
         #expect(service.settings.preset == .flat)
         #expect(service.settings.bandGainsDB.allSatisfy { $0 == 0 })
@@ -165,11 +157,8 @@ struct EqualizerServiceTests {
         service.setEnabled(true)
 
         #expect(mock.startCallCount == 1)
-        // User intent stays enabled so future playback changes or a
-        // relaunch can retry automatically once permission is restored.
         #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -216,7 +205,6 @@ struct EqualizerServiceTests {
         #expect(mock.startCallCount == 0)
         #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -249,7 +237,6 @@ struct EqualizerServiceTests {
         #expect(requestCount == 0)
         #expect(mock.startCallCount == 0)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -263,8 +250,6 @@ struct EqualizerServiceTests {
         service.setEnabled(true)
         #expect(service.settings.isEnabled == true)
 
-        // User grants permission; the next automatic retry should recover
-        // without losing the saved enabled preference.
         mock.startResult = .success(())
         service.retryStartIfEnabled()
         try? await Task.sleep(for: .milliseconds(700))
@@ -278,7 +263,6 @@ struct EqualizerServiceTests {
         let service = harness.service
         service.setEnabled(true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -347,7 +331,6 @@ struct EqualizerServiceTests {
         service.setEnabled(true)
         service.retryStartIfEnabled()
 
-        // The enable attempt, the playback retry, then five rescans.
         let exhausted = await self.waitUntil { mock.startCallCount == 7 }
         #expect(exhausted)
         try? await Task.sleep(for: .milliseconds(300))
@@ -368,7 +351,6 @@ struct EqualizerServiceTests {
         let mock = harness.mock
         service.setEnabled(true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -435,7 +417,6 @@ struct EqualizerServiceTests {
         service.setEnabled(true)
         let firstAttempt = mock.startCallCount
 
-        // Simulate playback starting: source becomes available.
         mock.startResult = .success(())
         service.retryStartIfEnabled()
         let didStart = await self.waitUntil {
@@ -470,19 +451,15 @@ struct EqualizerServiceTests {
 
         await service.awaitPendingPersistence()
 
-        // New service should load the same settings from the same suite.
         let mock = MockEqualizerAudioEngine()
         let revived = EqualizerService(engine: mock, defaults: defaults)
-        #expect(revived.settings.preset == .custom) // setGain snapped it
+        #expect(revived.settings.preset == .custom)
         #expect(revived.settings.preampDB == -2)
         #expect(revived.settings.bandGainsDB[1] == 3.5)
     }
 
     @Test("Decoded settings with a mismatched band-count are normalised to the default shape")
     func persistenceNormalisesBandCount() throws {
-        // Fresh defaults suite (discarding the makeService harness; we
-        // need a clean UserDefaults to pre-seed before the service init
-        // reads from it).
         let defaults = try #require(UserDefaults(suiteName: Self.suiteName))
         defaults.removePersistentDomain(forName: Self.suiteName)
         let shortPayload = EQSettings(
@@ -540,7 +517,6 @@ struct EqualizerServiceTests {
         #expect(mock.stopCallCount > baselineStopCount)
         #expect(service.settings.isEnabled == true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded, got \(service.status)")
         }
@@ -553,7 +529,6 @@ struct EqualizerServiceTests {
         let defaults = harness.defaults
         service.setEnabled(true)
         if case .permissionNeeded = service.status {
-            // expected
         } else {
             Issue.record("Expected .permissionNeeded status, got \(service.status)")
         }
@@ -579,8 +554,6 @@ struct EqualizerServiceTests {
         let baseline = mock.startCallCount
 
         mock.startResult = .success(())
-        // Five rapid calls should all cancel each other — only the final
-        // scheduled attempt runs.
         for _ in 0 ..< 5 {
             service.retryStartIfEnabled()
         }

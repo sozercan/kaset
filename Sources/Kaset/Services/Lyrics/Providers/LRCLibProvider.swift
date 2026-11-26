@@ -37,7 +37,6 @@ final class LRCLibProvider: LyricsProvider {
 
             let results = try JSONDecoder().decode([LRCLibModel].self, from: data)
 
-            // Filter out purely empty entries instrumentals
             let validParams = results.filter {
                 ($0.syncedLyrics != nil || $0.plainLyrics != nil) &&
                     ($0.instrumental == false || $0.instrumental == nil)
@@ -45,7 +44,6 @@ final class LRCLibProvider: LyricsProvider {
 
             guard !validParams.isEmpty else { return .unavailable }
 
-            // Find closest duration
             var bestMatch = validParams.first!
             if let targetDuration = info.duration {
                 bestMatch = validParams.min(by: { a, b in

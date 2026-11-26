@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Extended tests for YTMusicError.
 @Suite(.tags(.model))
 struct YTMusicErrorTests {
     @Test("authExpired has correct description")

@@ -39,7 +39,6 @@ extension WebKitManager {
         }
     }
 
-    /// Joins the current restore, or retries a previous non-destructive storage failure.
     func waitForInitialCookieRestore() async -> CookieRestoreResult {
         if self.initialCookieRestoreTask == nil, self.initialCookieRestoreResult == .unavailable {
             self.startInitialCookieRestore()
@@ -50,15 +49,12 @@ extension WebKitManager {
         return self.initialCookieRestoreResult
     }
 
-    /// Restores auth cookies from the configured archive storage to WebKit.
-    /// Handles migration from legacy file-based storage on first run.
     func restoreAuthCookiesFromBackup(expectedGeneration: UInt64) async -> CookieRestoreResult {
         self.isRestoringCookies = true
         defer { self.isRestoringCookies = false }
 
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return .failed }
 
-        // Wait a moment for WebKit to fully initialize
         try? await Task.sleep(for: .milliseconds(100))
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return .failed }
 
@@ -78,8 +74,6 @@ extension WebKitManager {
             return .unavailable
         }
 
-        // Migrate from legacy file-based storage if needed (one-time operation).
-        // Perform file I/O off the main actor.
         _ = await Task(priority: .utility) {
             LegacyCookieMigration.migrateIfNeeded()
         }.value
@@ -89,7 +83,6 @@ extension WebKitManager {
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return .failed }
         self.logger.info("WebKit has \(existingCookies.count) cookies on startup")
 
-        // Archive I/O runs on the injected storage queue, never on the main actor.
         let archiveResult = await self.cookieArchiveQueue.loadArchiveResult()
         guard self.canContinueAuthCookieOperation(expectedGeneration: expectedGeneration) else { return .failed }
 
@@ -98,14 +91,9 @@ extension WebKitManager {
             self.logger.error("Cookie backup storage could not be read; preserving live cookies and the archive for retry")
             return .unavailable
         case .notFound:
-            // Explicit invalidation persists a denied restore policy before it
-            // deletes the archive. An allowed policy with no archive is not an
-            // authoritative sign-out signal and may coexist with a live login.
             self.logger.info("No cookies found in archive storage; preserving the live WebKit session")
             return .ready
         case let .data(archiveData):
-            // The persisted archive is the source of truth for login-session
-            // state. Preserve unrelated Google/YouTube preference cookies.
             guard await self.clearLiveLoginSessionCookies(
                 expectedGeneration: expectedGeneration
             ) else { return .failed }

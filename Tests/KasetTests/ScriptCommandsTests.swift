@@ -2,13 +2,10 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for AppleScript ScriptCommands.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct ScriptCommandsTests {
-    /// Clears PlayerService.shared before each test.
     init() {
-        // Ensure clean state - no shared instance
         PlayerService.shared = nil
     }
 
@@ -49,7 +46,6 @@ struct ScriptCommandsTests {
 
         #expect(result != nil)
 
-        // Parse JSON to verify structure
         if let jsonData = result?.data(using: .utf8),
            let json = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any]
         {
@@ -64,7 +60,6 @@ struct ScriptCommandsTests {
             Issue.record("Failed to parse JSON response")
         }
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -100,7 +95,6 @@ struct ScriptCommandsTests {
             Issue.record("Failed to parse track info from JSON response")
         }
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -109,9 +103,8 @@ struct ScriptCommandsTests {
         let playerService = PlayerService()
         PlayerService.shared = playerService
 
-        // Test each repeat mode
         let repeatModes: [(action: () -> Void, expected: String)] = [
-            ({}, "off"), // Initial state
+            ({}, "off"),
             ({ playerService.cycleRepeatMode() }, "all"),
             ({ playerService.cycleRepeatMode() }, "one"),
             ({ playerService.cycleRepeatMode() }, "off"),
@@ -129,7 +122,6 @@ struct ScriptCommandsTests {
             }
         }
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -149,7 +141,6 @@ struct ScriptCommandsTests {
 
         #expect(playerService.shuffleEnabled == false)
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -160,7 +151,7 @@ struct ScriptCommandsTests {
         let command = ToggleShuffleCommand()
         _ = command.performDefaultImplementation()
 
-        #expect(command.scriptErrorNumber == -1728) // errAENoSuchObject
+        #expect(command.scriptErrorNumber == -1728)
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
 
@@ -182,7 +173,6 @@ struct ScriptCommandsTests {
         _ = command.performDefaultImplementation()
         #expect(playerService.repeatMode == .off)
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -220,7 +210,6 @@ struct ScriptCommandsTests {
         #expect(command.scriptErrorNumber == errAECoercionFail)
         #expect(command.scriptErrorString?.contains("Volume must be an integer") == true)
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -310,7 +299,6 @@ struct ScriptCommandsTests {
         #expect(mockClient.getRadioQueueCalled == true)
         #expect(mockClient.getRadioQueueVideoIds == ["first-video-id", "second-video-id", "third-video-id"])
 
-        // Cleanup
         PlayerService.shared = nil
     }
 
@@ -606,7 +594,7 @@ struct ScriptCommandsTests {
         PlayerService.shared = playerService
 
         let command = PlayTrackAtIndexCommand()
-        command.directParameter = 2 as NSNumber // Play 2nd track (1-based index)
+        command.directParameter = 2 as NSNumber
         _ = command.performDefaultImplementation()
 
         #expect(command.scriptErrorNumber == 0)

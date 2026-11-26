@@ -1,13 +1,10 @@
 import Foundation
 
-/// Parses YouTube `next` (watch-next) responses: primary video metadata
-/// plus the related-videos rail.
 enum WatchNextParser {
     static func parse(_ data: [String: Any]) -> WatchNextData {
         let results = (data["contents"] as? [String: Any])?["twoColumnWatchNextResults"]
             as? [String: Any]
 
-        // Primary metadata (title, view count, channel)
         var videoTitle: String?
         var viewCountText: String?
         var publishedText: String?
@@ -47,7 +44,6 @@ enum WatchNextParser {
             }
         }
 
-        // Related videos rail
         var related: [YouTubeVideo] = []
         var continuation: String?
         if let secondaryResults = results?["secondaryResults"] {
@@ -73,13 +69,6 @@ enum WatchNextParser {
         )
     }
 
-    /// Navigation chapters exposed by YouTube's watch-next response.
-    ///
-    /// Prefer the player bar's `chapterRenderer` markers because they are the
-    /// canonical watch-page timeline source. Fall back to
-    /// `macroMarkersListItemRenderer`, which can appear in the chapters panel,
-    /// structured description, and search previews, and therefore needs
-    /// de-duplication.
     static func chapters(of data: [String: Any]) -> [YouTubeChapter] {
         let videoId = self.currentVideoId(of: data)
         var chapterRenderers: [YouTubeChapter] = []
@@ -95,14 +84,11 @@ enum WatchNextParser {
         return self.mergingEndTimes(in: canonical, from: deduplicatedMacroMarkers)
     }
 
-    /// Full watch-page description carried by the structured-description engagement panel.
     static func descriptionText(of data: [String: Any]) -> String? {
         guard let panels = data["engagementPanels"] as? [Any] else { return nil }
         return self.findDescriptionText(in: panels)
     }
 
-    /// The continuation token for the watch page's comments section
-    /// (the `comment-item-section` item section).
     static func commentsContinuation(of data: [String: Any]) -> String? {
         self.findCommentsSectionToken(in: data)
     }

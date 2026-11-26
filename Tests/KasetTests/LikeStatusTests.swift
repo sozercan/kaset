@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Unit tests for LikeStatus and FeedbackTokens.
 @Suite(.tags(.model))
 struct LikeStatusTests {
     @Test("Raw values are correct")

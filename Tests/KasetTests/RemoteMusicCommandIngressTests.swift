@@ -28,8 +28,6 @@ struct RemoteMusicCommandIngressTests {
         ])
         #expect(firstBatch.map(\.issuedAtMilliseconds) == [1000, 1001])
 
-        // A callback arriving while the scheduled drain is handling its first
-        // batch must be consumed by that same drain, not schedule a competing task.
         #expect(!ingress.capture(
             .absoluteSeek(position: 42),
             issuedAtMilliseconds: 1002,
@@ -42,7 +40,6 @@ struct RemoteMusicCommandIngressTests {
         #expect(secondBatch.map(\.payload) == [.absoluteSeek(position: 42)])
         #expect(!ingress.finishDrainBatch())
 
-        // Once the drain atomically finishes, the next callback rearms it.
         #expect(ingress.capture(
             .pause,
             issuedAtMilliseconds: 1003,

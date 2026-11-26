@@ -3,7 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the PlaylistParser.
 @Suite(.tags(.parser))
 struct PlaylistParserTests { // swiftlint:disable:this type_body_length
 
@@ -1060,10 +1059,10 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
     @Test(
         "Album detection based on ID prefix",
         arguments: [
-            ("MPRE12345", true), // Album prefix
-            ("VL12345", false), // Playlist prefix
-            ("OLAK12345", true), // Another album prefix
-            ("RDCLAK", false), // Radio prefix
+            ("MPRE12345", true),
+            ("VL12345", false),
+            ("OLAK12345", true),
+            ("RDCLAK", false),
         ]
     )
     func isAlbumDetection(playlistId: String, expectedIsAlbum: Bool) {
@@ -1074,7 +1073,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
 
     @Test("Parse 2025 continuation format with onResponseReceivedActions")
     func parsePlaylistContinuation2025Format() {
-        // Create mock 2025 continuation response format
         var continuationItems: [[String: Any]] = []
 
         for i in 0 ..< 5 {
@@ -1092,7 +1090,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
             ])
         }
 
-        // Add continuation token at the end (for next page)
         continuationItems.append([
             "continuationItemRenderer": [
                 "continuationEndpoint": [
@@ -1138,8 +1135,6 @@ struct PlaylistParserTests { // swiftlint:disable:this type_body_length
                 ],
             ])
         }
-
-        // No continuationItemRenderer at the end - this is the last page
 
         let data: [String: Any] = [
             "onResponseReceivedActions": [[

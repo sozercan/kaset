@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Settings for the YouTube Music experience (distinct from the YouTube video
-/// experience). Hosts the playback, now-playing, audio-quality, and lyrics
-/// preferences that only apply when `appSource` is `.music`.
 struct MusicSettingsView: View {
     @State private var settings = SettingsManager.shared
 
@@ -84,7 +81,6 @@ struct MusicSettingsView: View {
         .localizedNavigationTitle("Music")
     }
 
-    /// A Form row with a leading label, a trailing numeric entry field, and an optional unit suffix.
     private func numberField(label: LocalizedStringKey, unit: LocalizedStringKey?, value: Binding<Int>) -> some View {
         HStack {
             Text(label)

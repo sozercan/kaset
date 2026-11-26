@@ -97,7 +97,6 @@ struct TopSongsViewModelTests {
 
         await viewModel.load()
 
-        // Should still be loaded with initial songs preserved
         #expect(viewModel.loadingState == .loaded)
         #expect(viewModel.songs.count == 2)
         #expect(viewModel.songs[0].title == "Initial 1")
@@ -139,12 +138,10 @@ struct TopSongsViewModelTests {
 
         mockClient.artistSongsResponse = [TestFixtures.makeSong(id: "song-1", title: "Song 1")]
 
-        // Start first load
         let task1 = Task {
             await viewModel.load()
         }
 
-        // Try to start another load immediately
         try? await Task.sleep(for: .milliseconds(20))
         let task2 = Task {
             await viewModel.load()

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Search view for finding music.
 struct SearchView: View {
     @State var viewModel: SearchViewModel
     @Environment(PlayerService.self) private var playerService
@@ -8,15 +7,12 @@ struct SearchView: View {
     @State private var navigationPath = NavigationPath()
     @State private var networkMonitor = NetworkMonitor.shared
 
-    /// External trigger for focusing the search field (from keyboard shortcut).
     @Binding var focusTrigger: Bool
 
     @FocusState private var isSearchFieldFocused: Bool
 
-    /// Index of currently selected suggestion for keyboard navigation.
     @State private var selectedSuggestionIndex: Int = -1
 
-    /// Initializes SearchView with optional focus trigger binding.
     init(viewModel: SearchViewModel, focusTrigger: Binding<Bool> = .constant(false)) {
         _viewModel = State(initialValue: viewModel)
         _focusTrigger = focusTrigger
@@ -25,13 +21,11 @@ struct SearchView: View {
     var body: some View {
         NavigationStack(path: self.$navigationPath) {
             VStack(spacing: 0) {
-                // Search bar
                 self.searchBar
                     .zIndex(1)
 
                 Divider()
 
-                // Content
                 self.contentView
             }
             .localizedNavigationTitle("Search")
@@ -57,20 +51,15 @@ struct SearchView: View {
 
     private var searchBar: some View {
         VStack(spacing: 12) {
-            // Keep suggestions as an overlay of the field itself. If the dropdown participates
-            // in the search bar's layout, macOS 26 glass materialization can render a
-            // second transient plate during updates. Anchoring it as an overlay gives the
-            // autocomplete menu a single visual owner and prevents duplicate dropdowns.
             self.searchField
                 .overlay(alignment: .top) {
                     if self.viewModel.showSuggestions {
                         self.suggestionsDropdown
-                            .padding(.top, 44) // Below search field
+                            .padding(.top, 44)
                     }
                 }
                 .zIndex(1)
 
-            // Filter chips
             if self.viewModel.shouldShowFilters {
                 self.filterChips
             }
@@ -288,7 +277,6 @@ struct SearchView: View {
                         .padding(.leading, 72)
                 }
 
-                // Load more indicator / button
                 if self.viewModel.hasMoreResults {
                     self.loadMoreView
                 }
@@ -297,7 +285,6 @@ struct SearchView: View {
         }
     }
 
-    /// Load more view that triggers pagination when visible.
     @ViewBuilder
     private var loadMoreView: some View {
         if self.viewModel.loadingState == .loadingMore {
@@ -322,7 +309,6 @@ struct SearchView: View {
             }
             .buttonStyle(.plain)
             .onAppear {
-                // Auto-load more when this view appears (infinite scroll)
                 Task { await self.viewModel.loadMore() }
             }
         }
@@ -334,7 +320,6 @@ struct SearchView: View {
                 self.handleItemTap(item)
             } label: {
                 HStack(spacing: 12) {
-                    // Thumbnail
                     CachedAsyncImage(url: item.thumbnailURL?.highQualityThumbnailURL, targetSize: CGSize(width: 48, height: 48)) { image in
                         image
                             .resizable()
@@ -350,7 +335,6 @@ struct SearchView: View {
                     .frame(width: 48, height: 48)
                     .clipShape(.rect(cornerRadius: item.usesCircularThumbnail ? 24 : 6))
 
-                    // Info
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
                             Text(item.title)
@@ -381,12 +365,10 @@ struct SearchView: View {
 
                     Spacer()
 
-                    // Favorite toggle for songs
                     if let song = self.songResultPayload(for: item) {
                         LikeButton(song: song, isRowHovered: isHovered, allowsActions: self.authService.hasPersonalAccount)
                     }
 
-                    // Play indicator for songs
                     if item.videoId != nil {
                         Image(systemName: "play.circle")
                             .font(.title2)
@@ -436,14 +418,12 @@ struct SearchView: View {
     private func handleItemTap(_ item: SearchResultItem) {
         switch item {
         case let .song(song), let .video(song):
-            // Play the song and fetch similar songs (radio queue) in the background
             Task {
                 await self.playerService.playWithRadio(song: song)
             }
         case let .artist(artist), let .profile(artist):
             self.navigationPath.append(artist)
         case let .album(album), let .audiobook(album):
-            // Navigate as playlist for now
             let playlist = Playlist(
                 id: album.id,
                 title: album.title,

@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for utility extensions.
 @Suite(.tags(.model))
 struct ExtensionsTests {
     @Test("Safe subscript returns value for valid indices")

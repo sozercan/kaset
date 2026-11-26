@@ -2,17 +2,13 @@ import Foundation
 import SwiftUI
 
 enum AppLocalization {
-    /// The base resource bundle discovered at launch.
     static let baseBundle = PackageResourceLookup.localizationBundle ?? Bundle.main
 
     // swiftformat:disable modifierOrder
-    /// Override bundle for a specific language, set via `setLanguage(_:)`.
     nonisolated(unsafe) static var overrideBundle: Bundle?
-    /// The selected language code, including development-region overrides.
     nonisolated(unsafe) static var overrideLanguageCode: String?
     // swiftformat:enable modifierOrder
 
-    /// The active localization bundle.
     static var bundle: Bundle {
         self.overrideBundle ?? self.baseBundle
     }
@@ -22,8 +18,6 @@ enum AppLocalization {
         Bundle.main.bundleURL.resolvingSymlinksInPath().standardizedFileURL,
     ]
 
-    /// Sets the active language by loading the corresponding `.lproj` bundle.
-    /// Pass `nil` to revert to the system default.
     static func setLanguage(_ languageCode: String?) {
         self.overrideLanguageCode = languageCode
 
@@ -35,8 +29,6 @@ enum AppLocalization {
         self.overrideBundle = Self.bundle(forLocalization: code)
     }
 
-    /// Finds a bundle for a specific localization, including development-region
-    /// localizations that may be emitted from `.xcstrings` resources.
     static func bundle(forLocalization localization: String) -> Bundle? {
         if let bundlePath = self.baseBundle.path(forResource: localization, ofType: "lproj"),
            let bundle = Bundle(path: bundlePath)
@@ -57,8 +49,6 @@ enum AppLocalization {
         return Bundle(url: localizationDirectory)
     }
 
-    /// Resolves an app-localized string while honoring development-region
-    /// overrides that may not emit a physical `.lproj` bundle in SwiftPM builds.
     static func localizedString(forKey key: String, value: String? = nil, table: String? = nil) -> String {
         if self.overrideBundle == nil,
            self.overrideLanguageCode == self.baseBundle.developmentLocalization
@@ -90,9 +80,6 @@ extension String {
     }
 }
 
-/// Re-evaluates the navigation title when the app language changes.
-/// Uses `Bundle.localizedString(forKey:value:table:)` because `AppLocalization.bundle`
-/// may be a resolved `.lproj` sub-bundle, and this method reads strings from it directly.
 private struct LocalizedNavigationTitleModifier: ViewModifier {
     let key: String
     @Environment(\.locale) private var locale
@@ -110,8 +97,6 @@ extension View {
 }
 
 extension Bundle {
-    /// Redirects SwiftUI views (`Text`, `Button`, `Label`, etc.) to use
-    /// `AppLocalization.overrideBundle` when a language override is active.
     static func enableAppLocalizationOverride() {
         let original = #selector(localizedString(forKey:value:table:))
         let swizzled = #selector(_appOverrideLocalizedString(forKey:value:table:))

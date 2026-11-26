@@ -41,8 +41,6 @@ struct AppDelegateWindowLifecycleTests {
         )
         windowReference.window = window
         window.title = "Home"
-        // Exercise the concrete NSView used by the SwiftUI representable. Its
-        // viewDidMoveToWindow callback is the registration timing boundary.
         window.contentView = registrationView
         defer {
             registrationView.unregisterCurrentWindow()

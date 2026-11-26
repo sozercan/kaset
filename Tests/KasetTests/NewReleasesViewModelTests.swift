@@ -44,7 +44,6 @@ struct NewReleasesViewModelTests {
         await self.viewModel.load()
 
         if case .error = self.viewModel.loadingState {
-            // Expected
         } else {
             Issue.record("Expected error state, got \(self.viewModel.loadingState)")
         }
@@ -56,12 +55,10 @@ struct NewReleasesViewModelTests {
             TestFixtures.makeHomeSection(title: "Section 1"),
         ])
 
-        // Start first load
         let task1 = Task {
             await self.viewModel.load()
         }
 
-        // Try to start another load immediately
         try? await Task.sleep(for: .milliseconds(20))
         let task2 = Task {
             await self.viewModel.load()
@@ -70,7 +67,6 @@ struct NewReleasesViewModelTests {
         await task1.value
         await task2.value
 
-        // Should complete without issues
         #expect(self.viewModel.loadingState == .loaded)
     }
 
@@ -119,7 +115,6 @@ struct NewReleasesViewModelTests {
         self.mockClient.newReleasesResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        // No continuation sections → hasMoreNewReleasesSections will be false
 
         await self.viewModel.load()
 
@@ -128,15 +123,12 @@ struct NewReleasesViewModelTests {
 
     @Test("Refresh clears sections and reloads")
     func refreshClearsAndReloads() async {
-        // Initial load
         self.mockClient.newReleasesResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Initial"),
         ])
-        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.sections.count == 1)
 
-        // Refresh with different data
         self.mockClient.newReleasesResponse = HomeResponse(sections: [
             TestFixtures.makeHomeSection(title: "Refreshed 1"),
             TestFixtures.makeHomeSection(title: "Refreshed 2"),
@@ -152,11 +144,9 @@ struct NewReleasesViewModelTests {
     @Test("Refresh resets hasMoreSections flag")
     func refreshResetsHasMoreSections() async {
         self.mockClient.newReleasesResponse = HomeResponse(sections: [])
-        // No continuation sections
         await self.viewModel.load()
         #expect(self.viewModel.hasMoreSections == false)
 
-        // Refresh - add continuation sections so hasMore becomes true
         self.mockClient.newReleasesContinuationSections = [
             [TestFixtures.makeHomeSection(title: "Continuation")],
         ]

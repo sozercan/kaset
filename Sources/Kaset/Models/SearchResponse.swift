@@ -1,16 +1,9 @@
 import Foundation
 
-/// Response from a YouTube Music search query.
-///
-/// `items` is the canonical representation so mixed search preserves YouTube
-/// Music's server ranking. Typed collections are projections used by filters and
-/// compatibility call sites.
 struct SearchResponse {
     let items: [SearchResultItem]
-    /// Continuation value for loading more results (only present for filtered searches).
     let continuationToken: String?
 
-    /// All results in server-provided order.
     var allItems: [SearchResultItem] {
         self.items
     }
@@ -78,12 +71,10 @@ struct SearchResponse {
         }
     }
 
-    /// Whether the search returned any results.
     var isEmpty: Bool {
         self.items.isEmpty
     }
 
-    /// Whether more results are available to load.
     var hasMore: Bool {
         self.continuationToken != nil
     }
@@ -95,8 +86,6 @@ struct SearchResponse {
         self.continuationToken = value
     }
 
-    /// Compatibility initializer for category-specific callers and tests.
-    /// Mixed API parsing should use `init(items:continuationToken:)` instead.
     init(
         songs: [Song] = [],
         videos: [Song] = [],
@@ -130,7 +119,6 @@ struct SearchResponse {
     }
 }
 
-/// A semantically typed YouTube Music search result.
 enum SearchResultItem: Identifiable, Hashable {
     case song(Song)
     case video(Song)
@@ -165,8 +153,6 @@ enum SearchResultItem: Identifiable, Hashable {
         }
     }
 
-    /// Cross-type identity used to deduplicate the same destination while
-    /// preserving the first server-ranked occurrence.
     var contentIdentity: String {
         switch self {
         case let .song(song), let .video(song):
@@ -267,7 +253,6 @@ enum SearchResultItem: Identifiable, Hashable {
         }
     }
 
-    /// Returns the playable video ID, when the result is directly playable.
     var videoId: String? {
         switch self {
         case let .song(song), let .video(song):
@@ -279,7 +264,6 @@ enum SearchResultItem: Identifiable, Hashable {
         }
     }
 
-    /// Song payload used by shared playback, queue, favorite, and share actions.
     var songPayload: Song? {
         switch self {
         case let .song(song), let .video(song):

@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for the ExploreView.
 @MainActor
 final class ExploreViewUITests: KasetUITestCase {
     func testExploreViewDisplaysTitle() {
@@ -13,7 +12,7 @@ final class ExploreViewUITests: KasetUITestCase {
     }
 
     func testExploreViewShowsContent() {
-        launchWithMockHome() // Explore uses same mock data format
+        launchWithMockHome()
 
         navigateToExplore()
 

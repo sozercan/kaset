@@ -1,10 +1,5 @@
 import Foundation
 
-/// Parses YouTube playlist pages (`browse` with a `VL…` browse ID).
-///
-/// Modern playlist pages render items as `lockupViewModel`s; the header
-/// lives in `pageHeaderRenderer` view models. Collection is recursive so
-/// both the legacy `playlistVideoRenderer` and lockup shapes work.
 enum YouTubePlaylistPageParser {
     static func parse(_ data: [String: Any], playlistId: String) -> YouTubePlaylistDetail {
         var videos: [YouTubeVideo] = []
@@ -31,7 +26,6 @@ enum YouTubePlaylistPageParser {
     }
 
     private static func title(of data: [String: Any]) -> String? {
-        // Microformat is the most stable source for the playlist title.
         let microformat = (
             (data["microformat"] as? [String: Any])?["microformatDataRenderer"]
                 as? [String: Any]
@@ -40,7 +34,6 @@ enum YouTubePlaylistPageParser {
             return microformat
         }
 
-        // Fall back to the page header view model.
         guard let header = data["header"] as? [String: Any] else { return nil }
         return Self.firstHeaderTitle(in: header)
     }

@@ -1,16 +1,12 @@
 import Foundation
 @testable import Kaset
 
-/// Configurable mock implementation of YouTubeClientProtocol for unit tests.
 @MainActor
 final class MockYouTubeClient: YouTubeClientProtocol {
     var homeFeed = YouTubeFeed.empty
     var homeFeedContinuation: YouTubeFeed?
     var homeChips: [YouTubeHomeChip] = []
     var homeShelves: [YouTubeHomeSection] = []
-    /// Topic feeds keyed by chip continuation; `getHomeTopicFeed` returns the
-    /// match (or `.empty`). Configure one or more continuation-specific errors
-    /// to exercise partial and batch-wide failures.
     var homeTopicFeeds: [String: YouTubeFeed] = [:]
     var homeTopicError: (continuation: String, error: Error)?
     var homeTopicErrors: [String: Error] = [:]
@@ -27,7 +23,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     var channelDetail: YouTubeChannelDetail?
     var playlistDetail: YouTubePlaylistDetail?
 
-    /// When set, every call throws this error.
     var error: Error?
 
     private(set) var homeFeedCallCount = 0
@@ -41,8 +36,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
     }
 
     var hasMoreHomeFeed: Bool {
-        // When a multi-page queue is configured it drives "has more"; otherwise
-        // fall back to the single-page `homeFeedContinuation`.
         if !self.homeContinuationPages.isEmpty {
             return true
         }
@@ -61,10 +54,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.continuedAskConversation = nil
     }
 
-    /// Optional queue of continuation pages, consumed front-to-back by
-    /// `getHomeFeedContinuation()`. Takes precedence over the single-page
-    /// `homeFeedContinuation` when non-empty. Lets tests exercise multi-page
-    /// pagination (e.g. a fully-filtered page followed by a page with videos).
     var homeContinuationPages: [YouTubeFeed] = []
 
     func getHomeFeed() async throws -> YouTubeFeed {
@@ -79,9 +68,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         if let error {
             throw error
         }
-        // One call stands in for the single coalesced fetch: count it like a
-        // home-feed fetch so call-count assertions read naturally, and assemble
-        // the bundle from the same fixtures the individual getters use.
         self.homeFeedCallCount += 1
         self.homeBundleForceRefreshes.append(forceRefresh)
         return YouTubeHomeBundle(
@@ -91,9 +77,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         )
     }
 
-    /// Awaited inside `getHomeFeedContinuation` before it returns, so a test can
-    /// hold a pagination request open and assert behaviour while the model sits
-    /// in `.loadingMore`.
     var beforeContinuationReturn: (@Sendable () async -> Void)?
 
     func getHomeFeedContinuation() async throws -> YouTubeFeed? {
@@ -130,9 +113,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeShelves
     }
 
-    /// Awaited inside `getHomeTopicFeed` before it returns, so a test can hold
-    /// a topic rail open and observe that the home grid already rendered
-    /// without waiting on the rail. Receives the chip continuation.
     var beforeTopicReturn: (@Sendable (String) async -> Void)?
 
     func getHomeTopicFeed(continuation: String, forceRefresh: Bool) async throws -> YouTubeFeed {
@@ -153,8 +133,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.homeTopicFeeds[continuation] ?? .empty
     }
 
-    /// Awaited inside `search` before it returns, so a test can hold one
-    /// search request open while a newer query/filter search completes first.
     var beforeSearchReturn: (@Sendable (String, YouTubeSearchFilter) async -> Void)?
 
     func search(query: String, filter: YouTubeSearchFilter) async throws -> YouTubeSearchResponse {
@@ -171,8 +149,6 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.searchResponsesByRequest[key] ?? self.searchResponse
     }
 
-    /// Awaited inside `getSearchContinuation` before it returns, so a test can
-    /// hold a pagination request open while a newer search replaces results.
     var beforeSearchContinuationReturn: (@Sendable () async -> Void)?
 
     func getSearchContinuation() async throws -> YouTubeSearchResponse? {
@@ -202,10 +178,8 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         self.getWatchNextCallCount
     }
 
-    /// Awaited before returning so tests can gate by requested video identity.
     var beforeWatchNextReturn: (@Sendable (String) async -> Void)?
 
-    /// Awaited before returning so playback tests can gate a specific call ordinal.
     var beforeWatchNextReturnByCallCount: (@Sendable (Int) async -> Void)?
 
     func getWatchNext(videoId: String) async throws -> WatchNextData {
@@ -449,25 +423,13 @@ final class MockYouTubeClient: YouTubeClientProtocol {
         return self.subscribedChannels
     }
 
-    /// Awaited inside `getHistory` before it returns, so a test can hold the
-    /// Continue Watching (history) request open and verify topic rails publish
-    /// without waiting for it.
     var beforeHistoryReturn: (@Sendable () async -> Void)?
 
-    /// Number of `getHistory` calls and how many requested a forced refresh,
-    /// so tests can assert the Continue Watching rebuild bypasses the cache.
     private(set) var getHistoryCallCount = 0
     private(set) var getHistoryForceRefreshCount = 0
 
-    /// When set, `getHistory(forceRefresh: true)` throws this — without failing
-    /// the cached (initial-load) path — so a test can simulate a transient
-    /// failure of only the post-watch refresh.
     var historyForceRefreshError: Error?
 
-    /// When set, `getHistory(forceRefresh: true)` returns this instead of
-    /// `historyFeed`, so a test can give the forced (post-watch) refresh
-    /// different data than the cached initial load — making the rebuild a
-    /// deterministic single `.updated` (no retry).
     var historyForceRefreshFeed: YouTubeFeed?
 
     func getHistory(forceRefresh: Bool) async throws -> YouTubeFeed {

@@ -1,4 +1,3 @@
-/// Ad signals shared by the YouTube and YouTube Music playback bridges.
 enum PlaybackAdDetectionScript {
     nonisolated static var detection: String {
         """
@@ -20,8 +19,6 @@ enum PlaybackAdDetectionScript {
             }
             for (const api of adPlayerAPIs()) {
                 try {
-                    // Player type 2 is ad media. Passing true also includes
-                    // server-stitched segments when supported by the player.
                     if (typeof api.getPresentingPlayerType === 'function'
                         && api.getPresentingPlayerType(true) === 2) {
                         return true;
@@ -39,7 +36,6 @@ enum PlaybackAdDetectionScript {
             } catch (e) {}
 
             let videoId = '';
-            // Match the bridges' metadata preference: Music API, then movie player.
             for (const api of adPlayerAPIs().reverse()) {
                 try {
                     const data = typeof api.getVideoData === 'function' ? api.getVideoData() : null;
@@ -53,13 +49,9 @@ enum PlaybackAdDetectionScript {
             if (isAd && contentVideoId && videoId && videoId !== contentVideoId) {
                 window.__kasetAdVideoId = videoId;
             }
-            // Ad-end signals can precede the return of content media. Share the
-            // known creative ID with end-event and recovery-seek scripts too.
             const adVideoId = window.__kasetAdVideoId || '';
             const video = document.querySelector('#movie_player video') || document.querySelector('video');
             const boundVideoId = video && video.__kasetBoundVideoId;
-            // An ad pod can change creatives while ad signals briefly clear.
-            // Wait for the requested content's metadata and physical media.
             const awaitingContent = adVideoId !== ''
                 && adVideoId !== contentVideoId
                 && (videoId !== contentVideoId
@@ -70,8 +62,6 @@ enum PlaybackAdDetectionScript {
         """
     }
 
-    /// Returns a refresh hook for the bridges' existing player-attachment paths.
-    /// Watches player class and ad events, retrying late API hookup for up to ten seconds.
     nonisolated static var observation: String {
         """
         function observeAdStateChanges(onChange) {
@@ -91,8 +81,6 @@ enum PlaybackAdDetectionScript {
             }
 
             function reportAdEvent() {
-                // Media events can report an ad between observer callbacks.
-                // Always sample explicit ad events so an end is not lost.
                 lastIsAd = isAdShowing();
                 onChange();
             }
@@ -115,8 +103,6 @@ enum PlaybackAdDetectionScript {
 
                 const candidates = adPlayerAPIs();
                 const apis = candidates.filter(function(api) {
-                    // A bare player div already has DOM addEventListener.
-                    // Wait for YouTube's API before subscribing to player events.
                     return typeof api.getPresentingPlayerType === 'function'
                         && typeof api.addEventListener === 'function';
                 });

@@ -1,7 +1,6 @@
 import Foundation
 
 struct QueueEntry: Identifiable, Hashable {
-    /// Where a queue entry came from. `suggested` marks Smart Shuffle recommendations.
     enum Source: String, Hashable, Codable {
         case queued
         case suggested
@@ -9,11 +8,9 @@ struct QueueEntry: Identifiable, Hashable {
 
     let id: UUID
     let song: Song
-    /// Defaulted so existing `QueueEntry(id:song:)` call sites compile unchanged.
     var source: Source = .queued
 }
 
-/// Identifies the queue occurrence and explicit playback generation that owns async navigation work.
 struct QueuePlaybackContext: Equatable {
     let entryID: UUID?
     let index: Int

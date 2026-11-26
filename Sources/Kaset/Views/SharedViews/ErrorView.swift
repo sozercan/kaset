@@ -1,7 +1,5 @@
 import SwiftUI
 
-/// Reusable error view with title, message, and optional retry action.
-/// Uses native `ContentUnavailableView` for platform-consistent styling.
 @available(macOS 14.0, *)
 struct ErrorView: View {
     let title: String
@@ -9,7 +7,6 @@ struct ErrorView: View {
     let isRetryable: Bool
     let retryAction: (() -> Void)?
 
-    /// Creates an ErrorView with explicit parameters.
     init(
         title: String = String(localized: "Unable to load content"),
         message: String,
@@ -22,7 +19,6 @@ struct ErrorView: View {
         self.retryAction = retryAction
     }
 
-    /// Creates an ErrorView from a LoadingError.
     init(
         error: LoadingError,
         retryAction: (() -> Void)? = nil
@@ -50,7 +46,5 @@ struct ErrorView: View {
 }
 
 #Preview {
-    ErrorView(message: "Something went wrong") {
-        // No-op for preview
-    }
+    ErrorView(message: "Something went wrong") {}
 }

@@ -1,11 +1,6 @@
 import AppKit
 import SwiftUI
 
-/// Native region that moves its containing window when dragged.
-///
-/// Use this only over noninteractive content. SwiftUI and WebKit views can
-/// consume mouse events before `isMovableByWindowBackground` sees them, so this
-/// view starts the AppKit window drag directly.
 struct WindowDragHandle: NSViewRepresentable {
     func makeNSView(context _: Context) -> NSView {
         WindowDragNSView()
@@ -19,7 +14,6 @@ private final class WindowDragNSView: NSView {
         false
     }
 
-    /// The first click can move a floating window without activating it first.
     override func acceptsFirstMouse(for _: NSEvent?) -> Bool {
         true
     }

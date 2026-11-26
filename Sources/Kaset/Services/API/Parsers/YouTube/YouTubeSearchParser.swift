@@ -1,14 +1,6 @@
 import Foundation
 
-/// Parses YouTube `search` responses.
-///
-/// June 2026 renderer mix (confirmed via api-explorer):
-/// - Videos: legacy `videoRenderer`
-/// - Channels: legacy `channelRenderer`
-/// - Playlists: new `lockupViewModel` (`LOCKUP_CONTENT_TYPE_PLAYLIST`)
-/// - Shorts shelves: `shortsLockupViewModel` (intentionally skipped)
 enum YouTubeSearchParser {
-    /// Parses a full search response.
     static func parse(_ data: [String: Any]) -> YouTubeSearchResponse {
         var response = YouTubeSearchResponse.empty
 
@@ -32,7 +24,6 @@ enum YouTubeSearchParser {
         return response
     }
 
-    /// Parses a search continuation response.
     static func parseContinuation(_ data: [String: Any]) -> YouTubeSearchResponse {
         var response = YouTubeSearchResponse.empty
         let actions = data["onResponseReceivedCommands"] as? [[String: Any]]
@@ -63,8 +54,6 @@ enum YouTubeSearchParser {
         return response
     }
 
-    /// The primary result sections
-    /// (`contents.twoColumnSearchResultsRenderer.primaryContents.sectionListRenderer.contents`).
     private static func primarySections(of data: [String: Any]) -> [[String: Any]] {
         let sectionList = (
             (
@@ -75,7 +64,6 @@ enum YouTubeSearchParser {
         return sectionList?["contents"] as? [[String: Any]] ?? []
     }
 
-    /// Dispatches one result item into the right bucket.
     private static func append(_ item: [String: Any], to response: inout YouTubeSearchResponse) {
         if let video = YouTubeItemParser.video(fromAnyItem: item) {
             response.videos.append(video)

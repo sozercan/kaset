@@ -90,8 +90,6 @@ struct ScrobblingCoordinatorMixPlaybackTests {
         await self.waitUntil { mockYouTube.getWatchNextCallCount == 1 }
         #expect(mockYouTube.requestedWatchNextVideoIds == ["mix1"])
 
-        // The first request remains suspended while playback moves to another long mix. The new
-        // track must start its own parse immediately rather than waiting for the stale request.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 0,
@@ -158,7 +156,6 @@ struct ScrobblingCoordinatorMixPlaybackTests {
         #expect(coordinator.mixEntryScrobbledIds.count == 1)
         let firstTimestamp = queue.pendingTracks.first?.timestamp
 
-        // Leaving the entry and seeking back into its middle preserves the original latch.
         playerService.progress = 110
         await self.waitUntil { mockService.nowPlayingTracks.count == 2 }
         #expect(coordinator.mixEntryScrobbledIds.count == 1)
@@ -171,7 +168,6 @@ struct ScrobblingCoordinatorMixPlaybackTests {
         #expect(queue.count == 1)
         #expect(mockService.nowPlayingTracks.count == 3)
 
-        // A forward seek within the already-scrobbled entry must not re-arm it.
         playerService.progress = 70
         try await Task.sleep(for: .milliseconds(20))
         playerService.progress = 71
@@ -179,7 +175,6 @@ struct ScrobblingCoordinatorMixPlaybackTests {
         #expect(queue.count == 1)
         #expect(mockService.nowPlayingTracks.count == 3)
 
-        // An ordinary rewind within the entry is still the same play and must preserve latches.
         playerService.progress = 40
         try await Task.sleep(for: .milliseconds(20))
         playerService.progress = 41
@@ -187,8 +182,6 @@ struct ScrobblingCoordinatorMixPlaybackTests {
         #expect(queue.count == 1)
         #expect(mockService.nowPlayingTracks.count == 3)
 
-        // Restarting near the entry's beginning is a real replay: it gets a fresh tracker/timestamp
-        // and may scrobble the entry once more after meeting the threshold again.
         playerService.progress = 1
         try await Task.sleep(for: .milliseconds(20))
         playerService.progress = 2

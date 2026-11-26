@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for MusicSearchTool output formatting and behavior.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api), .serialized)
@@ -132,7 +131,6 @@ struct MusicSearchToolTests {
     }
 }
 
-/// Tests for QueueTool output formatting and behavior.
 @available(macOS 26.0, *)
 
 @Suite(.tags(.api))

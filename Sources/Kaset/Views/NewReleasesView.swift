@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// New Releases view displaying recently released music.
 struct NewReleasesView: View {
     @State var viewModel: NewReleasesViewModel
     @Environment(PlayerService.self) private var playerService
@@ -72,8 +71,6 @@ struct NewReleasesView: View {
                     }
                 }
             }
-            // Edge-to-edge so shelves slide under the glass sidebar; resting
-            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
     }

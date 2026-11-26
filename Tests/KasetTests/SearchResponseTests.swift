@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SearchResponse and SearchResultItem.
 @Suite(.tags(.model))
 struct SearchResponseTests {
     @Test(
@@ -108,7 +107,6 @@ struct SearchResponseTests {
     func artistResultItemSubtitle() {
         let artist = Artist(id: "1", name: "Artist Name")
         let item = SearchResultItem.artist(artist)
-        // Artist subtitle is nil because resultType already shows "Artist"
         #expect(item.subtitle == nil)
     }
 
@@ -304,7 +302,6 @@ struct SearchResponseTests {
         let allItems = response.allItems
         #expect(allItems.count == 4)
 
-        // Check that items are in expected order: songs, albums, artists, playlists
         #expect(allItems[0].id == "song-s1")
         #expect(allItems[1].id == "album-a1")
         #expect(allItems[2].id == "artist-ar1")

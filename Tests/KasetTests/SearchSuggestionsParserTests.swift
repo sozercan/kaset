@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SearchSuggestionsParser.
 @Suite(.tags(.parser))
 struct SearchSuggestionsParserTests {
     @Test("Parse empty response returns empty array")

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Podcasts discovery view displaying podcast shows and episodes.
 struct PodcastsView: View {
     @State var viewModel: PodcastsViewModel
     @Environment(PlayerService.self) private var playerService
@@ -75,8 +74,6 @@ struct PodcastsView: View {
                     }
                 }
             }
-            // Edge-to-edge so shelves slide under the glass sidebar; resting
-            // inset is restored per-shelf via contentInset.
             .padding(.vertical, 20)
         }
     }
@@ -113,7 +110,6 @@ struct PodcastsView: View {
     }
 
     private func playEpisode(_ episode: PodcastEpisode) {
-        // Create a Song from the episode to play via WebView
         let song = Song(
             id: episode.id,
             title: episode.title,
@@ -136,7 +132,6 @@ private struct PodcastShowCard: View {
     var body: some View {
         Button(action: self.action) {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail
                 CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 160, height: 160)) { image in
                     image
                         .resizable()
@@ -145,14 +140,12 @@ private struct PodcastShowCard: View {
                 .frame(width: 160, height: 160)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                // Title
                 Text(self.show.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
-                // Author
                 if let author = show.author {
                     Text(author)
                         .font(.caption)
@@ -176,7 +169,6 @@ private struct PodcastEpisodeCard: View {
     var body: some View {
         Button(action: self.action) {
             VStack(alignment: .leading, spacing: 8) {
-                // Thumbnail with play indicator
                 ZStack(alignment: .bottomTrailing) {
                     CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 200, height: 112)) { image in
                         image
@@ -186,7 +178,6 @@ private struct PodcastEpisodeCard: View {
                     .frame(width: 200, height: 112)
                     .clipShape(RoundedRectangle(cornerRadius: 8))
 
-                    // Duration badge
                     if let duration = episode.formattedDuration {
                         Text(duration)
                             .font(.caption2)
@@ -199,14 +190,12 @@ private struct PodcastEpisodeCard: View {
                     }
                 }
 
-                // Title
                 Text(self.episode.title)
                     .font(.subheadline)
                     .fontWeight(.medium)
                     .lineLimit(2)
                     .multilineTextAlignment(.leading)
 
-                // Show name and date
                 HStack(spacing: 4) {
                     if let showTitle = episode.showTitle {
                         Text(showTitle)
@@ -222,7 +211,6 @@ private struct PodcastEpisodeCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-                // Progress bar (Apple Podcasts style)
                 if self.episode.playbackProgress > 0 {
                     ProgressView(value: self.episode.playbackProgress)
                         .tint(self.episode.isPlayed ? .secondary : .accentColor)
@@ -234,7 +222,6 @@ private struct PodcastEpisodeCard: View {
     }
 }
 
-/// Detail view for a podcast show with its episodes.
 struct PodcastShowView: View {
     let show: PodcastShow
     let client: any YTMusicClientProtocol
@@ -251,23 +238,18 @@ struct PodcastShowView: View {
     @State private var showAllEpisodes = false
     @State private var subscriptionError: String?
 
-    /// Number of episodes to show in the preview
     private let previewEpisodeCount = 5
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Header
                 self.headerView
 
                 Divider()
 
-                // Episodes list
                 self.episodesList
             }
             .padding(.vertical, 24)
-            // Inset resting content while the scroll view stays edge-to-edge so the
-            // accent backdrop refracts through the floating glass sidebar.
             .detailScrollContentInset()
         }
         .accentBackground(from: self.show.thumbnailURL)
@@ -313,7 +295,6 @@ struct PodcastShowView: View {
 
     private var headerView: some View {
         HStack(alignment: .top, spacing: 20) {
-            // Artwork
             CachedAsyncImage(url: self.show.thumbnailURL, targetSize: CGSize(width: 180, height: 180)) { image in
                 image
                     .resizable()
@@ -345,9 +326,7 @@ struct PodcastShowView: View {
 
                 Spacer()
 
-                // Action buttons
                 HStack(spacing: 12) {
-                    // Play button - plays from the first episode and queues the rest
                     if !self.episodes.isEmpty {
                         Button {
                             self.playEpisodeInQueue(at: 0)
@@ -359,7 +338,6 @@ struct PodcastShowView: View {
                     }
 
                     if self.authService.hasPersonalAccount {
-                        // Add to Library button
                         Button {
                             Task {
                                 await self.toggleSubscription()
@@ -386,7 +364,6 @@ struct PodcastShowView: View {
 
     private var episodesList: some View {
         VStack(alignment: .leading, spacing: 16) {
-            // Header with "Show All" button
             HStack {
                 Text(String(localized: "Episodes"))
                     .font(.title2)
@@ -431,7 +408,6 @@ struct PodcastShowView: View {
         }
     }
 
-    /// Episodes to show in the preview (limited to previewEpisodeCount)
     private var previewEpisodes: [PodcastEpisode] {
         Array(self.episodes.prefix(self.previewEpisodeCount))
     }
@@ -452,7 +428,6 @@ struct PodcastShowView: View {
         }
     }
 
-    /// Plays an episode and queues the remaining episodes from the show.
     private func playEpisodeInQueue(at index: Int) {
         let songs = self.episodes.map(\.playbackSong)
         Task {
@@ -501,7 +476,6 @@ struct PodcastEpisodeRow: View {
     var body: some View {
         Button(action: self.action) {
             HStack(alignment: .top, spacing: 12) {
-                // Thumbnail
                 CachedAsyncImage(url: self.episode.thumbnailURL, targetSize: CGSize(width: 80, height: 80)) { image in
                     image
                         .resizable()
@@ -511,7 +485,6 @@ struct PodcastEpisodeRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 6))
 
                 VStack(alignment: .leading, spacing: 4) {
-                    // Title
                     HStack {
                         Text(self.episode.title)
                             .font(.headline)
@@ -524,7 +497,6 @@ struct PodcastEpisodeRow: View {
                         }
                     }
 
-                    // Description
                     if let description = episode.description {
                         Text(description)
                             .font(.subheadline)
@@ -532,7 +504,6 @@ struct PodcastEpisodeRow: View {
                             .lineLimit(2)
                     }
 
-                    // Date and progress
                     HStack {
                         if let date = episode.publishedDate {
                             Text(date)
@@ -547,7 +518,6 @@ struct PodcastEpisodeRow: View {
                         }
                     }
 
-                    // Progress bar
                     if self.episode.playbackProgress > 0, !self.episode.isPlayed {
                         ProgressView(value: self.episode.playbackProgress)
                             .tint(.accentColor)
@@ -560,7 +530,6 @@ struct PodcastEpisodeRow: View {
     }
 }
 
-/// Navigation destination for the all episodes view.
 struct AllEpisodesDestination: Hashable {
     let show: PodcastShow
     let episodes: [PodcastEpisode]
@@ -575,7 +544,6 @@ struct AllEpisodesDestination: Hashable {
     }
 }
 
-/// View displaying all episodes of a podcast show with infinite scroll pagination.
 struct AllEpisodesView: View {
     let show: PodcastShow
     let initialEpisodes: [PodcastEpisode]
@@ -603,13 +571,10 @@ struct AllEpisodesView: View {
                     }
                     Divider()
 
-                    // Infinite scroll trigger - load more when near the end
                     if episode.id == self.episodes.last?.id, self.currentContinuationToken != nil {
                         ProgressView()
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding()
-                            // Keyed by token so a page that adds no new episodes
-                            // (all duplicates) still advances to the next page.
                             .task(id: self.currentContinuationToken) {
                                 await self.loadMoreEpisodes()
                             }
@@ -617,8 +582,6 @@ struct AllEpisodesView: View {
                 }
             }
             .padding(.vertical, 24)
-            // Inset resting content while the scroll view stays edge-to-edge so the
-            // accent backdrop refracts through the floating glass sidebar.
             .detailScrollContentInset()
         }
         .accentBackground(from: self.show.thumbnailURL)
@@ -627,7 +590,6 @@ struct AllEpisodesView: View {
             PlayerBar()
         }
         .onAppear {
-            // Initialize with episodes passed from parent
             if self.episodes.isEmpty {
                 self.episodes = self.initialEpisodes
                 self.currentContinuationToken = self.continuationToken
@@ -642,7 +604,6 @@ struct AllEpisodesView: View {
 
         do {
             let continuation = try await self.client.getPodcastEpisodesContinuation(token: token)
-            // Skip episodes already shown: the ForEach is keyed by episode ID.
             var seenIDs = Set(self.episodes.map(\.id))
             let newEpisodes = continuation.episodes.filter { seenIDs.insert($0.id).inserted }
             self.episodes.append(contentsOf: newEpisodes)
@@ -655,7 +616,6 @@ struct AllEpisodesView: View {
         }
     }
 
-    /// Plays an episode and queues the remaining episodes.
     private func playEpisodeInQueue(at index: Int) {
         let songs = self.episodes.map(\.playbackSong)
         Task {

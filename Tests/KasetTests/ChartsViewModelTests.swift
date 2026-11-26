@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for ChartsViewModel using mock client.
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct ChartsViewModelTests {
@@ -149,7 +148,6 @@ struct ChartsViewModelTests {
 
         #expect(self.viewModel.hasMoreSections == false)
 
-        // Reset continuation for refresh
         self.mockClient.chartsContinuationSections = [
             [TestFixtures.makeHomeSection(title: "Even More")],
         ]

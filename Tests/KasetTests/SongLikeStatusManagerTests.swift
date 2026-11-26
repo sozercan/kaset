@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for SongLikeStatusManager.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct SongLikeStatusManagerTests {
@@ -47,7 +46,7 @@ struct SongLikeStatusManagerTests {
 
         let status = self.manager.status(for: song)
 
-        #expect(status == .like) // Cache takes precedence
+        #expect(status == .like)
     }
 
     @Test("status for song falls back to song property")
@@ -60,7 +59,6 @@ struct SongLikeStatusManagerTests {
             videoId: videoID,
             likeStatus: .dislike
         )
-        // No cache set
 
         let status = self.manager.status(for: song)
 
@@ -451,19 +449,16 @@ struct SongLikeStatusManagerTests {
 
         await self.manager.like(song, client: self.mockClient)
 
-        // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .indifferent)
     }
 
     @Test("like removes cache entry on failure when no previous")
     func likeRemovesCacheOnFailureWhenNoPrevious() async {
         let song = TestFixtures.makeSong(id: "new-video")
-        // No previous status set
         self.mockClient.shouldThrowError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
 
         await self.manager.like(song, client: self.mockClient)
 
-        // Should remove the entry entirely
         #expect(self.manager.status(for: "new-video") == nil)
     }
 
@@ -689,7 +684,6 @@ struct SongLikeStatusManagerTests {
 
         await self.manager.dislike(song, client: self.mockClient)
 
-        // Should revert to previous status
         #expect(self.manager.status(for: "test-video") == .like)
     }
 
