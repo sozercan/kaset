@@ -131,7 +131,8 @@ extension PlayerService {
             return
         }
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        let requestGeneration = self.beginPlaybackRequest()
+        self.invalidatePendingPlaybackSelectionRequests()
+        let navigationContext = self.playbackNavigationContext
         if self.state == .paused || self.state == .ended {
             await self.resume(intent: intent)
             guard self.acceptsMusicPlaybackIntent(intent) else { return }
@@ -144,7 +145,7 @@ extension PlayerService {
         )
         guard outcome == .applied else { return }
         self.currentEpisode = nil
-        guard self.isCurrentPlaybackRequest(requestGeneration) else { return }
+        guard self.playbackNavigationContext == navigationContext else { return }
         await self.fillSmartShuffleWindow()
     }
 

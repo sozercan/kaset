@@ -454,6 +454,43 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == songs[2].videoId)
     }
 
+    @Test("Start Radio while a track end waits on queue maintenance still advances into the radio queue")
+    func startRadioDuringTrackEndMaintenanceAdvances() async throws {
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue([songs[0]], startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 239, duration: 240)
+        let priorIntent = self.playerService.currentMusicPlaybackIntent
+        let occurrence = try #require(self.playerService.currentMusicPlaybackOccurrence)
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[1]]
+
+        let maintenanceGate = AsyncGate()
+        let maintenanceTask = Task { @MainActor in await maintenanceGate.wait() }
+        self.playerService.nativeQueueMaintenanceTask = maintenanceTask
+
+        let trackEnd = Task { @MainActor [playerService] in
+            await playerService.handleTrackEnded(
+                observedVideoId: songs[0].videoId,
+                playbackOccurrence: occurrence,
+                intent: priorIntent
+            )
+        }
+        for _ in 0 ..< 1000 where self.playerService.nativeQueueMaintenanceWaiters.isEmpty {
+            await Task.yield()
+        }
+        #expect(!self.playerService.nativeQueueMaintenanceWaiters.isEmpty)
+
+        await self.playerService.startRadio(song: songs[0])
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId])
+
+        await maintenanceGate.open()
+        await maintenanceTask.value
+        self.playerService.clearNativeQueueMaintenance()
+        await trackEnd.value
+
+        #expect(self.playerService.currentIndex == 1)
+        #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)
