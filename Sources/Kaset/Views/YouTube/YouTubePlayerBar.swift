@@ -435,8 +435,6 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.captionsButton,
             accessibilityLabel: String(localized: "Closed captions")
         ) {
-            // An inline picker gives the active row the menu's own checkmark;
-            // a Label's icon is not drawn in macOS 26 menus.
             Picker(String(localized: "Closed captions"), selection: self.captionSelection) {
                 Text("Off", comment: "Captions off menu item")
                     .tag(String?.none)
@@ -478,7 +476,6 @@ struct YouTubePlayerBar: View {
         .disabled(self.youtubePlayer.qualityLevels.isEmpty)
     }
 
-    /// The active caption track; `nil` is Off.
     private var captionSelection: Binding<String?> {
         Binding(
             get: { self.youtubePlayer.activeCaptionLanguageCode },
@@ -486,7 +483,6 @@ struct YouTubePlayerBar: View {
         )
     }
 
-    /// The pinned quality level; Auto while none is pinned.
     private var qualitySelection: Binding<String> {
         Binding(
             get: { self.youtubePlayer.userPinnedQuality ?? "auto" },

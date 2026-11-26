@@ -244,9 +244,6 @@ struct PlayerBarMixTracksMenu: View {
             accessibilityLabel: String(localized: "Mix tracks")
         ) {
             ForEach(self.segments) { segment in
-                // A toggle marks the current track with the menu's own
-                // checkmark; a Label's icon is not drawn in macOS 26 menus.
-                // Choosing any track, the current one included, seeks to it.
                 Toggle(
                     segment.accessibilityDescription,
                     isOn: Binding(
