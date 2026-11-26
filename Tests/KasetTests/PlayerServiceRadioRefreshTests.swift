@@ -142,6 +142,41 @@ struct PlayerServiceRadioRefreshQueueLoadTests {
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, recommended.videoId])
     }
 
+    @Test("An unavailable radio refresh keeps an in-flight Smart Shuffle fill")
+    func unavailableRadioRefreshKeepsSmartShuffleFill() async {
+        let songs = TestFixtures.makeSongs(count: 3)
+        let suggested = TestFixtures.makeSong(id: "suggested-1")
+        self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
+        }
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.shuffleMode = .smart
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+
+        let fillGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = fillGate
+        let fillTask = Task { @MainActor [playerService] in
+            await playerService.fillSmartShuffleWindow()
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        #expect(self.mockClient.getRadioQueueVideoIds.count == 1)
+
+        self.mockClient.getRadioQueueGate = nil
+        self.mockClient.radioQueueSongs[songs[0].videoId] = []
+        await self.playerService.playWithRadio(song: songs[0])
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], suggested]
+        await fillGate.open()
+        await fillTask.value
+
+        #expect(self.playerService.queueEntries.contains {
+            $0.song.videoId == suggested.videoId && $0.source == .suggested
+        })
+    }
+
     @Test("A mix continuation that lands during a radio refresh does not discard the refresh")
     func mixContinuationDuringRadioRefreshStillApplies() async {
         let songs = TestFixtures.makeSongs(count: 4)
