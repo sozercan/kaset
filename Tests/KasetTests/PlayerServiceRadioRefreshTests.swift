@@ -529,6 +529,31 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, newerRecommendation.videoId])
     }
 
+    @Test("Selecting Start Radio again discards an older response before the new refresh runs")
+    func newStartRadioSelectionDiscardsOlderResponse() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let olderRecommendation = TestFixtures.makeSong(id: "rec-older")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        let entryIDs = self.playerService.queueEntryIDs
+
+        let olderGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = olderGate
+        let olderRefresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+
+        _ = self.playerService.beginRadioPlaybackIntent(for: songs[0])
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], olderRecommendation]
+        await olderGate.open()
+        await olderRefresh.value
+
+        #expect(self.playerService.queueEntryIDs == entryIDs)
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)

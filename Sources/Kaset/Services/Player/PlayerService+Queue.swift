@@ -115,7 +115,8 @@ extension PlayerService {
     }
 
     func beginRadioPlaybackIntent(for song: Song) -> MusicPlaybackIntent {
-        self.beginMusicPlaybackIntent(
+        self.startRadioRefreshGeneration &+= 1
+        return self.beginMusicPlaybackIntent(
             allowsPriorTerminalEvent: self.currentTrack?.videoId == song.videoId
         )
     }
@@ -132,7 +133,6 @@ extension PlayerService {
         }
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.invalidatePendingPlaybackSelectionRequests()
-        self.startRadioRefreshGeneration &+= 1
         let refreshGeneration = self.startRadioRefreshGeneration
         let navigationContext = self.playbackNavigationContext
         if self.state == .paused || self.state == .ended {
