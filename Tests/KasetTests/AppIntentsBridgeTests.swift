@@ -453,4 +453,144 @@ struct AppIntentsBridgeTests {
         #expect(library.playablePlaylists.map(\.id) == ["PL-mix"])
         #expect(library.playableAlbums.map(\.id) == ["MPREb_album"])
     }
+
+    @Test("Playing the current song via App Intents keeps admitting a prior terminal event")
+    func playSameSongAdmitsPriorTerminalEvent() async throws {
+        self.resetSingletonPlayer()
+        defer { self.resetSingletonPlayer() }
+        let client = MockYTMusicClient()
+        let songs = TestFixtures.makeSongs(count: 3)
+        client.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
+        let player = PlayerService()
+        player.setYTMusicClient(client)
+        let bridge = self.makeBridge(playerService: player, client: client)
+
+        await player.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = player.currentMusicPlaybackIntent
+        let minimumGeneration = player.musicPlaybackMinimumAcceptedTerminalIntentGeneration
+        let occurrence = try #require(player.currentMusicPlaybackOccurrence)
+
+        try await bridge.play(song: songs[0])
+        let emittedAt = player.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(player.musicPlaybackIntentAcceptsPriorTerminalEvent)
+        #expect(player.musicPlaybackMinimumAcceptedTerminalIntentGeneration == minimumGeneration)
+        #expect(player.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await player.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(player.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Playing a different song via App Intents rejects a prior terminal event")
+    func playDifferentSongRejectsPriorTerminalEvent() async throws {
+        self.resetSingletonPlayer()
+        defer { self.resetSingletonPlayer() }
+        let client = MockYTMusicClient()
+        let songs = TestFixtures.makeSongs(count: 4)
+        client.radioQueueSongs[songs[2].videoId] = [songs[2], songs[3]]
+        let player = PlayerService()
+        player.setYTMusicClient(client)
+        let bridge = self.makeBridge(playerService: player, client: client)
+
+        await player.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = player.currentMusicPlaybackIntent
+        let occurrence = try #require(player.currentMusicPlaybackOccurrence)
+
+        try await bridge.play(song: songs[2])
+        let emittedAt = player.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(!player.musicPlaybackIntentAcceptsPriorTerminalEvent)
+        #expect(player.musicPlaybackMinimumAcceptedTerminalIntentGeneration == player.currentMusicPlaybackIntent.generation)
+        #expect(!player.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await player.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(player.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Playing a search result matching the current song keeps admitting a prior terminal event")
+    func playSearchResultSameSongAdmitsPriorTerminalEvent() async throws {
+        self.resetSingletonPlayer()
+        defer { self.resetSingletonPlayer() }
+        let client = MockYTMusicClient()
+        let songs = TestFixtures.makeSongs(count: 3)
+        client.songsSearchResponse = SearchResponse(songs: [songs[0]])
+        client.radioQueueSongs[songs[0].videoId] = [songs[0], songs[2]]
+        let player = PlayerService()
+        player.setYTMusicClient(client)
+        let bridge = self.makeBridge(playerService: player, client: client)
+
+        await player.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = player.currentMusicPlaybackIntent
+        let minimumGeneration = player.musicPlaybackMinimumAcceptedTerminalIntentGeneration
+        let occurrence = try #require(player.currentMusicPlaybackOccurrence)
+
+        _ = try await bridge.playSearchResult(for: songs[0].title)
+        let emittedAt = player.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(player.musicPlaybackIntentAcceptsPriorTerminalEvent)
+        #expect(player.musicPlaybackMinimumAcceptedTerminalIntentGeneration == minimumGeneration)
+        #expect(player.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await player.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(player.currentTrack?.videoId == songs[2].videoId)
+    }
+
+    @Test("Playing a search result for a different song rejects a prior terminal event")
+    func playSearchResultDifferentSongRejectsPriorTerminalEvent() async throws {
+        self.resetSingletonPlayer()
+        defer { self.resetSingletonPlayer() }
+        let client = MockYTMusicClient()
+        let songs = TestFixtures.makeSongs(count: 4)
+        client.songsSearchResponse = SearchResponse(songs: [songs[2]])
+        client.radioQueueSongs[songs[2].videoId] = [songs[2], songs[3]]
+        let player = PlayerService()
+        player.setYTMusicClient(client)
+        let bridge = self.makeBridge(playerService: player, client: client)
+
+        await player.playQueue(Array(songs.prefix(2)), startingAt: 0)
+        let priorIntent = player.currentMusicPlaybackIntent
+        let occurrence = try #require(player.currentMusicPlaybackOccurrence)
+
+        _ = try await bridge.playSearchResult(for: songs[2].title)
+        let emittedAt = player.musicPlaybackIntentIssuedAtMilliseconds - 1
+
+        #expect(!player.musicPlaybackIntentAcceptsPriorTerminalEvent)
+        #expect(player.musicPlaybackMinimumAcceptedTerminalIntentGeneration == player.currentMusicPlaybackIntent.generation)
+        #expect(!player.acceptsMusicTerminalBridgeEvent(
+            intent: priorIntent,
+            eventIssuedAtMilliseconds: emittedAt
+        ))
+
+        await player.handleTrackEnded(
+            observedVideoId: songs[0].videoId,
+            playbackOccurrence: occurrence,
+            intent: priorIntent
+        )
+
+        #expect(player.currentTrack?.videoId == songs[2].videoId)
+    }
 }

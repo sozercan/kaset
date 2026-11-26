@@ -729,7 +729,7 @@ struct KasetApp: App {
         case let .song(videoId):
             DiagnosticsLogger.app.info("Playing song from URL: \(videoId)")
             let song = Song.placeholder(videoId: videoId)
-            let intent = self.playerService.beginMusicPlaybackIntent()
+            let intent = self.playerService.beginRadioPlaybackIntent(for: song)
             Task {
                 await self.playerService.playWithRadio(song: song, intent: intent)
             }
