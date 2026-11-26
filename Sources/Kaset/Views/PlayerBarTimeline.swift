@@ -244,15 +244,13 @@ struct PlayerBarMixTracksMenu: View {
             accessibilityLabel: String(localized: "Mix tracks")
         ) {
             ForEach(self.segments) { segment in
-                Button {
-                    self.seekController.seek(to: segment, playerService: self.playerService)
-                } label: {
-                    if segment.id == self.seekController.currentSegmentID {
-                        Label(segment.accessibilityDescription, systemImage: "checkmark")
-                    } else {
-                        Text(segment.accessibilityDescription)
-                    }
-                }
+                Toggle(
+                    segment.accessibilityDescription,
+                    isOn: Binding(
+                        get: { segment.id == self.seekController.currentSegmentID },
+                        set: { _ in self.seekController.seek(to: segment, playerService: self.playerService) }
+                    )
+                )
                 .disabled(!PlayerBarSeekController.canSeek(self.playerService))
             }
         } icon: {

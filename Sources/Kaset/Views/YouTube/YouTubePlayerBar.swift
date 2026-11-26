@@ -435,27 +435,16 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.captionsButton,
             accessibilityLabel: String(localized: "Closed captions")
         ) {
-            Button {
-                self.youtubePlayer.selectCaptionTrack(languageCode: nil)
-            } label: {
-                if self.youtubePlayer.activeCaptionLanguageCode == nil {
-                    Label(String(localized: "Off"), systemImage: "checkmark")
-                } else {
-                    Text("Off", comment: "Captions off menu item")
+            Picker(String(localized: "Closed captions"), selection: self.captionSelection) {
+                Text("Off", comment: "Captions off menu item")
+                    .tag(String?.none)
+                ForEach(self.youtubePlayer.captionTracks) { track in
+                    Text(track.displayName)
+                        .tag(String?.some(track.languageCode))
                 }
             }
-
-            ForEach(self.youtubePlayer.captionTracks) { track in
-                Button {
-                    self.youtubePlayer.selectCaptionTrack(languageCode: track.languageCode)
-                } label: {
-                    if self.youtubePlayer.activeCaptionLanguageCode == track.languageCode {
-                        Label(track.displayName, systemImage: "checkmark")
-                    } else {
-                        Text(track.displayName)
-                    }
-                }
-            }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: self.youtubePlayer.activeCaptionLanguageCode == nil ? "captions.bubble" : "captions.bubble.fill")
                 .font(.system(size: 16, weight: .regular))
@@ -470,17 +459,14 @@ struct YouTubePlayerBar: View {
             accessibilityID: AccessibilityID.YouTubeContent.qualityButton,
             accessibilityLabel: String(localized: "Video quality")
         ) {
-            ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
-                Button {
-                    self.youtubePlayer.selectQuality(level)
-                } label: {
-                    if (self.youtubePlayer.userPinnedQuality ?? "auto") == level {
-                        Label(YouTubeQuality.displayName(for: level), systemImage: "checkmark")
-                    } else {
-                        Text(YouTubeQuality.displayName(for: level))
-                    }
+            Picker(String(localized: "Video quality"), selection: self.qualitySelection) {
+                ForEach(self.youtubePlayer.qualityLevels, id: \.self) { level in
+                    Text(YouTubeQuality.displayName(for: level))
+                        .tag(level)
                 }
             }
+            .pickerStyle(.inline)
+            .labelsHidden()
         } icon: {
             Image(systemName: "gearshape")
                 .font(.system(size: 16, weight: .regular))
@@ -488,6 +474,20 @@ struct YouTubePlayerBar: View {
                 .foregroundStyle(.primary)
         }
         .disabled(self.youtubePlayer.qualityLevels.isEmpty)
+    }
+
+    private var captionSelection: Binding<String?> {
+        Binding(
+            get: { self.youtubePlayer.activeCaptionLanguageCode },
+            set: { self.youtubePlayer.selectCaptionTrack(languageCode: $0) }
+        )
+    }
+
+    private var qualitySelection: Binding<String> {
+        Binding(
+            get: { self.youtubePlayer.userPinnedQuality ?? "auto" },
+            set: { self.youtubePlayer.selectQuality($0) }
+        )
     }
 
     private var youtubeVolumeOverlay: some View {
