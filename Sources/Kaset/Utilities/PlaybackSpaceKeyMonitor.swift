@@ -1,8 +1,6 @@
 import AppKit
 import WebKit
 
-// MARK: - PlaybackSpaceKeyContext
-
 struct PlaybackSpaceKeyContext {
     let keyCode: UInt16
     let modifiers: NSEvent.ModifierFlags
@@ -14,24 +12,12 @@ struct PlaybackSpaceKeyContext {
     let isPlaybackCommandEnabled: Bool
 }
 
-// MARK: - PlaybackSpaceKeyMonitor
-
-/// Routes the modifier-less Space key to the Playback play/pause command.
-///
-/// AppKit does not route bare Space through Kaset's main-menu key equivalent when
-/// native navigation content holds focus, so the registered Playback menu shortcut
-/// is never dispatched (issue #405). A local key-down monitor bridges that gap.
-///
-/// Only the initial bare-Space event in the primary window is claimed. Text editors,
-/// WebKit content, and controls with standard Space activation retain the event;
-/// auxiliary windows and key-repeat events are also left alone.
 @MainActor
 final class PlaybackSpaceKeyMonitor {
     nonisolated static let spaceKeyCode: UInt16 = 49
 
     private var monitor: Any?
 
-    /// Whether Space should be claimed for play/pause instead of being delivered normally.
     nonisolated static func handlesSpaceKey(_ context: PlaybackSpaceKeyContext) -> Bool {
         guard context.keyCode == self.spaceKeyCode,
               !context.isRepeat,
@@ -48,7 +34,6 @@ final class PlaybackSpaceKeyMonitor {
             && context.isNativeBrowsingContentFocused
     }
 
-    /// Whether the responder is inside a WebKit view whose page handles Space itself.
     static func isWebContent(_ responder: NSResponder?) -> Bool {
         var currentResponder = responder
         while let current = currentResponder {
@@ -60,14 +45,10 @@ final class PlaybackSpaceKeyMonitor {
         return false
     }
 
-    /// Whether the responder is a text editor that must receive Space as typed input.
     static func isTextInput(_ responder: NSResponder?) -> Bool {
         responder is NSTextView || responder is NSTextField
     }
 
-    /// Whether the responder is the native browsing surface where Kaset assigns
-    /// Space to playback. Restricting interception to the table itself avoids
-    /// guessing about SwiftUI's private focus bridge types.
     static func isNativeBrowsingContent(_ responder: NSResponder?) -> Bool {
         responder is NSTableView
     }
