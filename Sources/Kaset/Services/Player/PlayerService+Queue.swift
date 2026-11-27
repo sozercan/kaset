@@ -142,6 +142,7 @@ extension PlayerService {
         self.invalidatePendingPlaybackSelectionRequests()
         let refreshGeneration = self.startRadioRefreshGeneration
         let navigationContext = self.playbackNavigationContext
+        let pauseGeneration = self.explicitPauseGeneration
         if self.state == .paused || self.state == .ended {
             await self.resume(intent: intent)
             guard self.acceptsMusicPlaybackIntent(intent) else { return }
@@ -156,7 +157,7 @@ extension PlayerService {
         guard outcome == .applied else { return }
         self.currentEpisode = nil
         if self.state == .ended {
-            guard self.acceptsMusicPlaybackIntent(intent) else { return }
+            guard self.explicitPauseGeneration == pauseGeneration else { return }
             await self.next()
             return
         }

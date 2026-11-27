@@ -1053,7 +1053,7 @@ extension PlayerService {
             self.shouldSuppressAutoplayAfterQueueEnd = true
             self.markPlaybackEnded()
             self.logger.info("Reached end of native queue; not yielding to YouTube autoplay")
-            await self.pause(intent: continuationIntent)
+            await self.pause(intent: continuationIntent, isQueueEndStop: true)
             return
         }
         self.shouldSuppressAutoplayAfterQueueEnd = false

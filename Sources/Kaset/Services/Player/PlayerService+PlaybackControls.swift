@@ -463,9 +463,12 @@ extension PlayerService {
         await self.pause(intent: intent)
     }
 
-    func pause(intent: MusicPlaybackIntent) async {
+    func pause(intent: MusicPlaybackIntent, isQueueEndStop: Bool = false) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("Pausing playback")
+        if !isQueueEndStop {
+            self.explicitPauseGeneration &+= 1
+        }
         self.clearQueueNavigationRecovery()
         self.shouldResumeAfterInterruption = false
         self.isAwaitingPlaybackConfirmation = false
