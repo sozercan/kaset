@@ -147,9 +147,10 @@ extension PlayerService {
             await self.resume(intent: intent)
             guard self.acceptsMusicPlaybackIntent(intent) else { return }
         }
+        let seedEntryID = self.queueEntryIDOwningCurrentPlayback
         let outcome = await self.fetchAndApplyRadioQueue(
             for: song.videoId,
-            seedEntryID: self.queueEntryIDOwningCurrentPlayback,
+            seedEntryID: seedEntryID,
             queueGeneration: self.queueLoadGeneration,
             replacesUpcoming: true,
             isCurrentRequest: { refreshGeneration == self.startRadioRefreshGeneration }
@@ -158,7 +159,9 @@ extension PlayerService {
         self.currentEpisode = nil
         if self.state == .ended {
             guard self.explicitPauseGeneration == pauseGeneration else { return }
-            await self.next()
+            let seedIndex = self.queueEntries.firstIndex { $0.id == seedEntryID } ?? self.currentIndex
+            guard let firstRecommendation = self.queueEntries[safe: max(seedIndex, self.currentIndex) + 1] else { return }
+            await self.playFromQueue(entryID: firstRecommendation.id)
             return
         }
         guard self.playbackNavigationContext.requestGeneration == navigationContext.requestGeneration else { return }
