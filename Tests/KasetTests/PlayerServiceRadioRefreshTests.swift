@@ -507,6 +507,12 @@ struct PlayerServiceRadioRefreshTests {
         for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.count < 1 {
             await Task.yield()
         }
+        guard self.mockClient.getRadioQueueVideoIds.count == 1 else {
+            await olderGate.open()
+            await olderRefresh.value
+            Issue.record("The older radio request never reached the mock client")
+            return
+        }
 
         let newerGate = AsyncGate()
         self.mockClient.getRadioQueueGate = newerGate
