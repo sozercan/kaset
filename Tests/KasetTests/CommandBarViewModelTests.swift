@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@available(macOS 26.0, *)
-
 @Suite(.serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct CommandBarViewModelTests {
@@ -37,6 +35,7 @@ struct CommandBarViewModelTests {
         }
     }
 
+    @available(macOS 26.0, *)
     private func makeViewModel(
         client: MockYTMusicClient = MockYTMusicClient(),
         playerService: MockPlayerService = MockPlayerService(),
@@ -84,6 +83,7 @@ struct CommandBarViewModelTests {
         )
     }
 
+    @available(macOS 26.0, *)
     nonisolated static func makeParsedCommand(
         action: CommandBarAction,
         subject: String = "",
@@ -108,6 +108,7 @@ struct CommandBarViewModelTests {
         )
     }
 
+    @available(macOS 26.0, *)
     nonisolated static func makeQueueAnalysis(
         opening: String = "Now you're in a reflective stretch.",
         vibe: String = "late-night and warm",
@@ -122,6 +123,7 @@ struct CommandBarViewModelTests {
         )
     }
 
+    @available(macOS 26.0, *)
     private func makeAIClient(
         isAvailable: Bool = true,
         supportsCurrentLocale: Bool = true,
@@ -160,6 +162,7 @@ struct CommandBarViewModelTests {
 
     @Test("Deterministic commands bypass Apple Intelligence")
     func deterministicCommandsBypassAI() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
         let aiCallCounter = Counter()
@@ -189,6 +192,7 @@ struct CommandBarViewModelTests {
 
     @Test("Single-flight ignores overlapping submissions")
     func singleFlightIgnoresOverlappingSubmissions() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
         let aiCallCounter = Counter()
@@ -220,6 +224,7 @@ struct CommandBarViewModelTests {
 
     @Test("Canceled request cleanup cannot release a newer single-flight request")
     func canceledCleanupCannotClearNewerRequest() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
         let firstStarted = AsyncGate()
@@ -272,6 +277,7 @@ struct CommandBarViewModelTests {
 
     @Test("Timeout falls back to deterministic search routing")
     func timeoutFallsBackToSearchRouting() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
 
@@ -300,6 +306,7 @@ struct CommandBarViewModelTests {
 
     @Test("Timeout does not await a cancellation-insensitive resolver")
     func hardTimeoutDoesNotAwaitResolver() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
         let resolverStarted = AsyncGate()
@@ -330,6 +337,7 @@ struct CommandBarViewModelTests {
 
     @Test("Dismiss cancels an in-flight request")
     func dismissCancelsInFlightRequest() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let recorder = Recorder()
         let wasCancelled = Flag()
@@ -369,12 +377,14 @@ struct CommandBarViewModelTests {
 
     @Test("Dismiss cancels an in-flight queue analysis")
     func dismissCancelsInFlightQueueAnalysis() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
             self.makeSong(title: "Pink + White", artist: "Frank Ocean", videoId: "song-2"),
         ]
         playerService.currentIndex = 0
+        playerService.currentTrack = playerService.queue[0]
         playerService.state = .playing
 
         let recorder = Recorder()
@@ -420,6 +430,7 @@ struct CommandBarViewModelTests {
 
     @Test("Queue inspection uses Apple Intelligence description without clearing the queue")
     func queueInspectionUsesAIDescription() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
@@ -427,6 +438,7 @@ struct CommandBarViewModelTests {
             self.makeSong(title: "Night Drive", artist: "Chromatics", videoId: "song-3"),
         ]
         playerService.currentIndex = 0
+        playerService.currentTrack = playerService.queue[0]
         playerService.state = .playing
 
         let recorder = Recorder()
@@ -477,12 +489,14 @@ struct CommandBarViewModelTests {
 
     @Test("AI stage-1 inspect-queue action routes into queue analysis")
     func aiInspectQueueActionRoutesIntoQueueAnalysis() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
             self.makeSong(title: "Pink + White", artist: "Frank Ocean", videoId: "song-2"),
         ]
         playerService.currentIndex = 0
+        playerService.currentTrack = playerService.queue[0]
         playerService.state = .playing
 
         let recorder = Recorder()
@@ -521,6 +535,7 @@ struct CommandBarViewModelTests {
 
     @Test("Queue inspection falls back to a local summary when Apple Intelligence is unavailable")
     func queueInspectionFallsBackLocally() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
@@ -529,6 +544,7 @@ struct CommandBarViewModelTests {
             self.makeSong(title: "Roads", artist: "Portishead", videoId: "song-4"),
         ]
         playerService.currentIndex = 1
+        playerService.currentTrack = playerService.queue[1]
         playerService.state = .paused
 
         let recorder = Recorder()
@@ -566,6 +582,7 @@ struct CommandBarViewModelTests {
 
     @Test("AI clear-queue action no longer depends on the old queue sentinel")
     func aiClearQueueActionUsesDedicatedParseAction() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),

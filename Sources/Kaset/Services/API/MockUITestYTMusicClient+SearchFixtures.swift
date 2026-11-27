@@ -18,26 +18,26 @@ extension MockUITestYTMusicClient {
             )
         }
 
-        return SearchResponse(
-            songs: Self.parseSearchArray(dict["songs"]) {
-                Self.parseSearchSong($0)
-            },
-            videos: Self.parseSearchArray(dict["videos"]) {
-                Self.parseSearchSong($0, defaultMusicVideoType: .omv)
-            },
-            albums: Self.parseSearchArray(dict["albums"], using: Self.parseSearchAlbum),
-            audiobooks: Self.parseSearchArray(dict["audiobooks"], using: Self.parseSearchAlbum),
-            artists: Self.parseSearchArray(dict["artists"]) {
-                Self.parseSearchArtist($0, profileKind: .artist)
-            },
-            profiles: Self.parseSearchArray(dict["profiles"]) {
-                Self.parseSearchArtist($0, profileKind: .profile)
-            },
-            playlists: Self.parseSearchArray(dict["playlists"], using: Self.parseSearchPlaylist),
-            podcastShows: Self.parseSearchArray(dict["podcastShows"], using: Self.parseSearchPodcastShow),
-            podcastEpisodes: Self.parseSearchArray(dict["podcastEpisodes"], using: Self.parseSearchPodcastEpisode),
-            continuationToken: continuationToken
-        )
+        var items: [SearchResultItem] = []
+        items.append(contentsOf: Self.parseSearchArray(dict["songs"]) {
+            Self.parseSearchSong($0)
+        }.map(SearchResultItem.song))
+        items.append(contentsOf: Self.parseSearchArray(dict["videos"]) {
+            Self.parseSearchSong($0, defaultMusicVideoType: .omv)
+        }.map(SearchResultItem.video))
+        items.append(contentsOf: Self.parseSearchArray(dict["albums"], using: Self.parseSearchAlbum).map(SearchResultItem.album))
+        items.append(contentsOf: Self.parseSearchArray(dict["audiobooks"], using: Self.parseSearchAlbum).map(SearchResultItem.audiobook))
+        items.append(contentsOf: Self.parseSearchArray(dict["artists"]) {
+            Self.parseSearchArtist($0, profileKind: .artist)
+        }.map(SearchResultItem.artist))
+        items.append(contentsOf: Self.parseSearchArray(dict["profiles"]) {
+            Self.parseSearchArtist($0, profileKind: .profile)
+        }.map(SearchResultItem.profile))
+        items.append(contentsOf: Self.parseSearchArray(dict["playlists"], using: Self.parseSearchPlaylist).map(SearchResultItem.playlist))
+        items.append(contentsOf: Self.parseSearchArray(dict["podcastShows"], using: Self.parseSearchPodcastShow).map(SearchResultItem.podcastShow))
+        items.append(contentsOf: Self.parseSearchArray(dict["podcastEpisodes"], using: Self.parseSearchPodcastEpisode).map(SearchResultItem.podcastEpisode))
+
+        return SearchResponse(items: items, continuationToken: continuationToken)
     }
 
     static func parseSearchArray<Value>(

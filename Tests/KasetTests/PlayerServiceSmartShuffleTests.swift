@@ -23,6 +23,13 @@ struct PlayerServiceSmartShuffleTests {
         self.mockClient = MockYTMusicClient()
         self.playerService = PlayerService()
         self.playerService.smartShuffleFeatureEnabled = { true }
+        self.playerService.smartShuffleConfigProvider = {
+            PlayerService.SmartShuffleConfig(
+                suggestEveryN: SettingsManager.smartShuffleSuggestEveryNDefault,
+                burst: SettingsManager.smartShuffleBurstDefault,
+                suggestionsAhead: SettingsManager.smartShuffleSuggestionsAheadDefault
+            )
+        }
         self.playerService.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         self.playerService.clearSavedQueue()
         self.playerService.setYTMusicClient(self.mockClient)
@@ -593,32 +600,12 @@ struct PlayerServiceSmartShuffleTests {
     }
 
     @Test("clamped Smart Shuffle numeric settings persist the corrected values")
-    func clampedSmartShuffleSettingsPersist() {
-        let settings = SettingsManager.shared
-        let defaults = UserDefaults.standard
-        let savedEveryN = settings.smartShuffleSuggestEveryN
-        let savedBurst = settings.smartShuffleBurst
-        let savedAhead = settings.smartShuffleSuggestionsAhead
-        let savedEveryNObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleSuggestEveryN)
-        let savedBurstObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleBurst)
-        let savedAheadObject = defaults.object(forKey: SettingsManager.Keys.smartShuffleSuggestionsAhead)
-
-        func restore(_ value: Any?, forKey key: String) {
-            if let value {
-                defaults.set(value, forKey: key)
-            } else {
-                defaults.removeObject(forKey: key)
-            }
-        }
-
-        defer {
-            settings.smartShuffleSuggestEveryN = savedEveryN
-            settings.smartShuffleBurst = savedBurst
-            settings.smartShuffleSuggestionsAhead = savedAhead
-            restore(savedEveryNObject, forKey: SettingsManager.Keys.smartShuffleSuggestEveryN)
-            restore(savedBurstObject, forKey: SettingsManager.Keys.smartShuffleBurst)
-            restore(savedAheadObject, forKey: SettingsManager.Keys.smartShuffleSuggestionsAhead)
-        }
+    func clampedSmartShuffleSettingsPersist() throws {
+        let suiteName = "PlayerServiceSmartShuffleTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsManager(defaults: defaults)
 
         settings.smartShuffleSuggestEveryN = SettingsManager.smartShuffleSuggestEveryNRange.upperBound + 10
         settings.smartShuffleBurst = SettingsManager.smartShuffleBurstRange.lowerBound - 10

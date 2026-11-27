@@ -8,8 +8,6 @@ final class MockURLProtocol: URLProtocol {
     // swiftlint:disable:next modifier_order
     private nonisolated(unsafe) static var handlersBySessionID: [String: RequestHandler] = [:]
 
-    nonisolated(unsafe) static var requestHandler: RequestHandler?
-
     override static func canInit(with _: URLRequest) -> Bool {
         true
     }
@@ -59,7 +57,6 @@ final class MockURLProtocol: URLProtocol {
     static func setRequestHandler(for session: URLSession, _ handler: @escaping RequestHandler) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
-                Self.requestHandler = handler
                 return
             }
             Self.handlersBySessionID[sessionID] = handler
@@ -69,26 +66,18 @@ final class MockURLProtocol: URLProtocol {
     static func reset(session: URLSession) {
         self.handlersLock.withLock {
             guard let sessionID = session.configuration.httpAdditionalHeaders?[Self.sessionIDHeader] as? String else {
-                Self.requestHandler = nil
                 return
             }
             Self.handlersBySessionID.removeValue(forKey: sessionID)
         }
     }
 
-    static func reset() {
-        self.handlersLock.withLock {
-            Self.requestHandler = nil
-        }
-    }
-
     private static func handler(for request: URLRequest) -> RequestHandler? {
-        let sessionID = request.value(forHTTPHeaderField: Self.sessionIDHeader)
+        guard let sessionID = request.value(forHTTPHeaderField: sessionIDHeader) else {
+            return nil
+        }
         return Self.handlersLock.withLock {
-            let sessionHandler = sessionID.flatMap { id in
-                Self.handlersBySessionID[id]
-            }
-            return sessionHandler ?? Self.requestHandler
+            Self.handlersBySessionID[sessionID]
         }
     }
 }

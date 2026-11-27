@@ -10,18 +10,14 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
     init() {
         self.mockClient = MockYouTubeClient()
-        self.sut = YouTubeHomeViewModel(client: self.mockClient)
-        Self.resetRefreshDelays()
+        self.sut = YouTubeHomeViewModel(
+            client: self.mockClient,
+            continueWatchingRefreshDelay: .zero,
+            continueWatchingRefreshRetryDelay: .zero
+        )
     }
 
-    private static func resetRefreshDelays() {
-        YouTubeHomeViewModel.continueWatchingRefreshDelay = .zero
-        YouTubeHomeViewModel.continueWatchingRefreshRetryDelay = .zero
-    }
-
-    private func makeRefreshDelaysInstant() {
-        Self.resetRefreshDelays()
-    }
+    private func makeRefreshDelaysInstant() {}
 
     private func waitForCondition(_ condition: () -> Bool) async {
         for _ in 0 ..< 200 {
@@ -277,8 +273,8 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
     @Test("Cancelling the refresh mid-delay does not advance the watermark")
     func cancelledRefreshLeavesWatermarkRetryable() async {
-        YouTubeHomeViewModel.continueWatchingRefreshDelay = .seconds(60)
-        YouTubeHomeViewModel.continueWatchingRefreshRetryDelay = .zero
+        self.sut.continueWatchingRefreshDelayOverride = .seconds(60)
+        self.sut.continueWatchingRefreshRetryDelayOverride = .zero
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
             continuation: nil
@@ -290,7 +286,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
 
-        YouTubeHomeViewModel.continueWatchingRefreshDelay = .zero
+        self.sut.continueWatchingRefreshDelayOverride = .zero
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 80)],
             continuation: nil
@@ -416,8 +412,8 @@ struct YouTubeHomeContinueWatchingRefreshTests {
 
     @Test("refresh() preserves a still-delayed post-watch refresh so the reload reflects it")
     func refreshPreservesInFlightPostWatchRefresh() async {
-        YouTubeHomeViewModel.continueWatchingRefreshDelay = .seconds(60)
-        YouTubeHomeViewModel.continueWatchingRefreshRetryDelay = .zero
+        self.sut.continueWatchingRefreshDelayOverride = .seconds(60)
+        self.sut.continueWatchingRefreshRetryDelayOverride = .zero
         self.mockClient.historyFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 30)],
             continuation: nil
@@ -428,7 +424,7 @@ struct YouTubeHomeContinueWatchingRefreshTests {
         await Task.yield()
         #expect(self.mockClient.getHistoryForceRefreshCount == 0)
 
-        YouTubeHomeViewModel.continueWatchingRefreshDelay = .zero
+        self.sut.continueWatchingRefreshDelayOverride = .zero
         self.mockClient.historyForceRefreshFeed = YouTubeFeed(
             videos: [MockYouTubeClient.makeVideo(videoId: "resume", watchedPercent: 75)],
             continuation: nil

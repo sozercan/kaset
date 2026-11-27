@@ -94,13 +94,7 @@ struct CommandBarDiscoveryRoutingTests {
         let fallbackSong = Self.makeSong(title: "Fallback Jazz", videoId: "fallback-jazz")
         client.moodsAndGenresResponse = Self.categoryLanding(title: "Jazz", params: "jazz-params")
         client.moodCategoryResponse = HomeResponse(sections: [])
-        client.songsSearchResponse = SearchResponse(
-            songs: [fallbackSong],
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: nil
-        )
+        client.songsSearchResponse = SearchResponse(items: [.song(fallbackSong)])
 
         let outcome = await CommandExecutor(client: client, playerService: player).execute(
             .musicIntent(Self.jazzIntent(), originalQuery: "add jazz to queue")
@@ -418,13 +412,7 @@ struct CommandBarDiscoveryRoutingTests {
         let client = MockYTMusicClient()
         let player = MockPlayerService()
         let song = Self.makeSong(title: "90s Rock", videoId: "90s-rock")
-        client.songsSearchResponse = SearchResponse(
-            songs: [song],
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: nil
-        )
+        client.songsSearchResponse = SearchResponse(items: [.song(song)])
         let intent = MusicIntent(
             action: .play,
             query: "rock",
@@ -587,13 +575,7 @@ extension CommandBarDiscoveryRoutingTests {
             HomeSection(id: "moods", title: "Moods", items: [.playlist(wrongCategory)]),
         ])
         let fallbackSong = Self.makeSong(title: "Fallback Chill", videoId: "fallback-chill")
-        client.songsSearchResponse = SearchResponse(
-            songs: [fallbackSong],
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: nil
-        )
+        client.songsSearchResponse = SearchResponse(items: [.song(fallbackSong)])
         let intent = MusicIntent(
             action: .play,
             query: "chill & noise",

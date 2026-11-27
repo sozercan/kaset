@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-@available(macOS 26.0, *)
-
 @Suite(.serialized, .timeLimit(.minutes(1)))
 @MainActor
 struct CommandExecutorTests {
@@ -18,6 +16,7 @@ struct CommandExecutorTests {
 
     @Test("Local queue description calls out the end of a multi-item queue")
     func localQueueDescriptionAtEndOfMultiItemQueue() {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         playerService.queue = [
             self.makeSong(title: "Dreams", artist: "Fleetwood Mac", videoId: "song-1"),
@@ -25,6 +24,7 @@ struct CommandExecutorTests {
             self.makeSong(title: "Night Drive", artist: "Chromatics", videoId: "song-3"),
         ]
         playerService.currentIndex = 2
+        playerService.currentTrack = playerService.queue[2]
         playerService.state = .playing
 
         let executor = CommandExecutor(
@@ -44,6 +44,7 @@ struct CommandExecutorTests {
 
     @Test("A cancelled command cannot claim or exercise playback ownership")
     func cancelledCommandCannotClaimPlayback() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = MockPlayerService()
         let executor = CommandExecutor(client: MockYTMusicClient(), playerService: playerService)
         let reservation = playerService.reserveMusicPlaybackIntent()
@@ -64,15 +65,13 @@ struct CommandExecutorTests {
 
     @Test("A delayed command search cannot resurrect playback after stop")
     func delayedPlaySearchCannotResurrectAfterStop() async {
+        guard #available(macOS 26.0, *) else { return }
         let playerService = PlayerService()
         let client = MockYTMusicClient()
         let searchStarted = AsyncGate()
         let releaseSearch = AsyncGate()
         client.songsSearchResponse = SearchResponse(
-            songs: [self.makeSong(title: "Stale", artist: "Artist", videoId: "stale")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(self.makeSong(title: "Stale", artist: "Artist", videoId: "stale"))]
         )
         client.beforeSearchReturn = { _, endpoint in
             guard endpoint == .songs else { return }
@@ -100,8 +99,13 @@ struct CommandExecutorTests {
     }
 
     @Test("A parsed queue command cannot acquire ownership after queue replacement")
-    func parsedQueueCommandCannotAdoptReplacementQueue() async {
+    func parsedQueueCommandCannotAdoptReplacementQueue() async throws {
+        guard #available(macOS 26.0, *) else { return }
+        let suiteName = "CommandExecutorTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let playerService = PlayerService()
+        playerService.queuePersistenceDefaults = defaults
         let client = MockYTMusicClient()
         let executor = CommandExecutor(client: client, playerService: playerService)
         let initial = self.makeSong(title: "Initial", artist: "Artist", videoId: "initial")
@@ -115,10 +119,7 @@ struct CommandExecutorTests {
         await playerService.playQueue([replacement], startingAt: 0)
         let replacementEntryIDs = playerService.queueEntryIDs
         client.songsSearchResponse = SearchResponse(
-            songs: [self.makeSong(title: "Stale", artist: "Artist", videoId: "stale")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(self.makeSong(title: "Stale", artist: "Artist", videoId: "stale"))]
         )
 
         let outcome = await executor.execute(
@@ -133,16 +134,18 @@ struct CommandExecutorTests {
     }
 
     @Test("A delayed queue command cannot append into a replacement queue")
-    func delayedQueueSearchCannotAppendToReplacement() async {
+    func delayedQueueSearchCannotAppendToReplacement() async throws {
+        guard #available(macOS 26.0, *) else { return }
+        let suiteName = "CommandExecutorTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
         let playerService = PlayerService()
+        playerService.queuePersistenceDefaults = defaults
         let client = MockYTMusicClient()
         let searchStarted = AsyncGate()
         let releaseSearch = AsyncGate()
         client.songsSearchResponse = SearchResponse(
-            songs: [self.makeSong(title: "Stale", artist: "Artist", videoId: "stale")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(self.makeSong(title: "Stale", artist: "Artist", videoId: "stale"))]
         )
         client.beforeSearchReturn = { _, endpoint in
             guard endpoint == .songs else { return }

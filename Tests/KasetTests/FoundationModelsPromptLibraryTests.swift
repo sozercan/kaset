@@ -1,12 +1,11 @@
 import Testing
 @testable import Kaset
 
-@available(macOS 26.0, *)
-
 @Suite(.tags(.model))
 struct FoundationModelsPromptLibraryTests {
     @Test("26.4 command prompt is shorter than legacy prompt")
     func optimizedCommandPromptIsShorter() {
+        guard #available(macOS 26.0, *) else { return }
         let legacy = FoundationModelsPromptLibrary.commandBarInstructions(
             version: .legacy26_0To26_3
         )
@@ -23,6 +22,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("26.4 lyrics prompt keeps the structured output guidance")
     func optimizedLyricsPromptIncludesStructuredGuidance() {
+        guard #available(macOS 26.0, *) else { return }
         let prompt = FoundationModelsPromptLibrary.lyricsExplanationPrompt(
             trackTitle: "Nights",
             artistsDisplay: "Frank Ocean",
@@ -37,6 +37,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("26.4 queue prompt asks for vivid analysis instead of a dry listing")
     func optimizedQueuePromptPrefersAnalysis() {
+        guard #available(macOS 26.0, *) else { return }
         let instructions = FoundationModelsPromptLibrary.queueDescriptionInstructions(
             version: .optimized26_4AndLater
         )
@@ -57,6 +58,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("queue track lines keep the current song inside the visible window")
     func queueTrackLinesCenterOnCurrentSong() {
+        guard #available(macOS 26.0, *) else { return }
         let songs = (1 ... 10).map { index in
             Song(
                 id: "video-\(index)",
@@ -81,6 +83,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("middleTruncate preserves both ends of long text")
     func middleTruncatePreservesLeadingAndTrailingContext() {
+        guard #available(macOS 26.0, *) else { return }
         let text = "abcdefghij1234567890klmnopqrst"
         let truncated = FoundationModelsPromptLibrary.middleTruncate(
             text,
@@ -96,6 +99,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("middleTruncate can drop content entirely")
     func middleTruncateAllowsEmptyFallback() {
+        guard #available(macOS 26.0, *) else { return }
         let truncated = FoundationModelsPromptLibrary.middleTruncate(
             "abcdefghij",
             targetLength: 0,
@@ -107,6 +111,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("playlist track list truncates titles and artists for prompt safety")
     func playlistTrackListTruncatesFields() {
+        guard #available(macOS 26.0, *) else { return }
         let song = Song(
             id: "video-1",
             title: String(repeating: "T", count: 60),
@@ -129,6 +134,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("26.4 playlist prompt asks for minimal changes only")
     func optimizedPlaylistPromptNarrowsTheTask() {
+        guard #available(macOS 26.0, *) else { return }
         let prompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
             trackList: "1. Song - Artist (video ID: abc)",
             totalTracks: 10,
@@ -143,6 +149,7 @@ struct FoundationModelsPromptLibraryTests {
 
     @Test("26.4 playlist prompt includes zero-track fallback guidance")
     func optimizedPlaylistPromptHandlesZeroTrackFallback() {
+        guard #available(macOS 26.0, *) else { return }
         let prompt = FoundationModelsPromptLibrary.playlistRefinementPrompt(
             trackList: "",
             totalTracks: 10,

@@ -582,7 +582,7 @@ struct YTMusicAPIKeyResolverTests {
         nonisolated(unsafe) var observedCookieHeader: String?
         nonisolated(unsafe) var observedUserAgent: String?
 
-        MockURLProtocol.requestHandler = { request in
+        MockURLProtocol.setRequestHandler(for: session) { request in
             observedShouldHandleCookies = request.httpShouldHandleCookies
             observedCookieHeader = request.value(forHTTPHeaderField: "Cookie")
             observedUserAgent = request.value(forHTTPHeaderField: "User-Agent")
@@ -601,7 +601,7 @@ struct YTMusicAPIKeyResolverTests {
             return (response, Data(html.utf8))
         }
         defer {
-            MockURLProtocol.reset()
+            MockURLProtocol.reset(session: session)
         }
 
         let resolver = YTMusicAPIKeyResolver(session: session, environment: { _ in nil })

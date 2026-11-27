@@ -218,64 +218,67 @@ final class SettingsManager {
         }
     }
 
+    private let defaults: UserDefaults
+    private let applyLocalization: (String?) -> Void
+
     var appearance: AppAppearance {
         didSet {
             guard self.appearance != oldValue else { return }
-            UserDefaults.standard.set(self.appearance.rawValue, forKey: Keys.appearance)
+            self.defaults.set(self.appearance.rawValue, forKey: Keys.appearance)
             self.appearance.apply()
         }
     }
 
     var appSource: AppSource {
         didSet {
-            UserDefaults.standard.set(self.appSource.rawValue, forKey: Keys.appSource)
+            self.defaults.set(self.appSource.rawValue, forKey: Keys.appSource)
         }
     }
 
     var showNowPlayingNotifications: Bool {
         didSet {
-            UserDefaults.standard.set(self.showNowPlayingNotifications, forKey: Keys.showNowPlayingNotifications)
+            self.defaults.set(self.showNowPlayingNotifications, forKey: Keys.showNowPlayingNotifications)
         }
     }
 
     var defaultLaunchPage: LaunchPage {
         didSet {
-            UserDefaults.standard.set(self.defaultLaunchPage.rawValue, forKey: Keys.defaultLaunchPage)
+            self.defaults.set(self.defaultLaunchPage.rawValue, forKey: Keys.defaultLaunchPage)
         }
     }
 
     var hapticFeedbackEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(self.hapticFeedbackEnabled, forKey: Keys.hapticFeedbackEnabled)
+            self.defaults.set(self.hapticFeedbackEnabled, forKey: Keys.hapticFeedbackEnabled)
         }
     }
 
     var rememberPlaybackSettings: Bool {
         didSet {
-            UserDefaults.standard.set(self.rememberPlaybackSettings, forKey: Keys.rememberPlaybackSettings)
+            self.defaults.set(self.rememberPlaybackSettings, forKey: Keys.rememberPlaybackSettings)
             if !self.rememberPlaybackSettings {
-                UserDefaults.standard.removeObject(forKey: "playerShuffleEnabled")
-                UserDefaults.standard.removeObject(forKey: "playerShuffleMode")
-                UserDefaults.standard.removeObject(forKey: "playerRepeatMode")
+                self.defaults.removeObject(forKey: "playerShuffleEnabled")
+                self.defaults.removeObject(forKey: "playerShuffleMode")
+                self.defaults.removeObject(forKey: "playerRepeatMode")
             }
         }
     }
 
     var mediaControlStyle: MediaControlStyle {
         didSet {
-            UserDefaults.standard.set(self.mediaControlStyle.rawValue, forKey: Keys.mediaControlStyle)
+            self.defaults.set(self.mediaControlStyle.rawValue, forKey: Keys.mediaControlStyle)
         }
     }
 
     var playbackAudioQuality: PlaybackAudioQuality {
         didSet {
-            UserDefaults.standard.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
+            self.defaults.set(self.playbackAudioQuality.rawValue, forKey: Keys.playbackAudioQuality)
         }
     }
 
     private var enabledServices: [String: Bool] {
         didSet {
-            UserDefaults.standard.set(self.enabledServices, forKey: Keys.enabledServices)
+            self.defaults.set(self.enabledServices, forKey: Keys.enabledServices)
         }
     }
 
@@ -294,13 +297,13 @@ final class SettingsManager {
 
     var scrobblePercentThreshold: Double {
         didSet {
-            UserDefaults.standard.set(self.scrobblePercentThreshold, forKey: Keys.scrobblePercentThreshold)
+            self.defaults.set(self.scrobblePercentThreshold, forKey: Keys.scrobblePercentThreshold)
         }
     }
 
     var scrobbleMinSeconds: TimeInterval {
         didSet {
-            UserDefaults.standard.set(self.scrobbleMinSeconds, forKey: Keys.scrobbleMinSeconds)
+            self.defaults.set(self.scrobbleMinSeconds, forKey: Keys.scrobbleMinSeconds)
         }
     }
 
@@ -308,25 +311,25 @@ final class SettingsManager {
 
     var syncedLyricsEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(self.syncedLyricsEnabled, forKey: Keys.syncedLyricsEnabled)
+            self.defaults.set(self.syncedLyricsEnabled, forKey: Keys.syncedLyricsEnabled)
         }
     }
 
     var romanizationEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(self.romanizationEnabled, forKey: Keys.romanizationEnabled)
+            self.defaults.set(self.romanizationEnabled, forKey: Keys.romanizationEnabled)
         }
     }
 
     var keepMiniPlayerOnTop: Bool {
         didSet {
-            UserDefaults.standard.set(self.keepMiniPlayerOnTop, forKey: Keys.keepMiniPlayerOnTop)
+            self.defaults.set(self.keepMiniPlayerOnTop, forKey: Keys.keepMiniPlayerOnTop)
         }
     }
 
     var keepYouTubeVideoOnTop: Bool {
         didSet {
-            UserDefaults.standard.set(self.keepYouTubeVideoOnTop, forKey: Keys.keepYouTubeVideoOnTop)
+            self.defaults.set(self.keepYouTubeVideoOnTop, forKey: Keys.keepYouTubeVideoOnTop)
         }
     }
 
@@ -343,7 +346,7 @@ final class SettingsManager {
 
     var smartShuffleEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(self.smartShuffleEnabled, forKey: Keys.smartShuffleEnabled)
+            self.defaults.set(self.smartShuffleEnabled, forKey: Keys.smartShuffleEnabled)
         }
     }
 
@@ -353,7 +356,7 @@ final class SettingsManager {
             if clamped != self.smartShuffleSuggestEveryN {
                 self.smartShuffleSuggestEveryN = clamped
             }
-            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleSuggestEveryN)
+            self.defaults.set(clamped, forKey: Keys.smartShuffleSuggestEveryN)
         }
     }
 
@@ -363,7 +366,7 @@ final class SettingsManager {
             if clamped != self.smartShuffleBurst {
                 self.smartShuffleBurst = clamped
             }
-            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleBurst)
+            self.defaults.set(clamped, forKey: Keys.smartShuffleBurst)
         }
     }
 
@@ -373,31 +376,31 @@ final class SettingsManager {
             if clamped != self.smartShuffleSuggestionsAhead {
                 self.smartShuffleSuggestionsAhead = clamped
             }
-            UserDefaults.standard.set(clamped, forKey: Keys.smartShuffleSuggestionsAhead)
+            self.defaults.set(clamped, forKey: Keys.smartShuffleSuggestionsAhead)
         }
     }
 
     var ambientBackdropEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(self.ambientBackdropEnabled, forKey: Keys.ambientBackdropEnabled)
+            self.defaults.set(self.ambientBackdropEnabled, forKey: Keys.ambientBackdropEnabled)
         }
     }
 
     var ambientBackdropStyle: AmbientBackdropStyle {
         didSet {
-            UserDefaults.standard.set(self.ambientBackdropStyle.rawValue, forKey: Keys.ambientBackdropStyle)
+            self.defaults.set(self.ambientBackdropStyle.rawValue, forKey: Keys.ambientBackdropStyle)
         }
     }
 
     var popOutVideoOnNavigateAway: Bool {
         didSet {
-            UserDefaults.standard.set(self.popOutVideoOnNavigateAway, forKey: Keys.popOutVideoOnNavigateAway)
+            self.defaults.set(self.popOutVideoOnNavigateAway, forKey: Keys.popOutVideoOnNavigateAway)
         }
     }
 
     var showYouTubeControlsOnVideo: Bool {
         didSet {
-            UserDefaults.standard.set(self.showYouTubeControlsOnVideo, forKey: Keys.showYouTubeControlsOnVideo)
+            self.defaults.set(self.showYouTubeControlsOnVideo, forKey: Keys.showYouTubeControlsOnVideo)
         }
     }
 
@@ -418,8 +421,8 @@ final class SettingsManager {
 
     var contentLanguage: ContentLanguage {
         didSet {
-            UserDefaults.standard.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
-            AppLocalization.setLanguage(self.contentLanguage.languageCode)
+            self.defaults.set(self.contentLanguage.rawValue, forKey: Keys.contentLanguage)
+            self.applyLocalization(self.contentLanguage.languageCode)
             APICache.shared.invalidateAll()
         }
     }
@@ -427,7 +430,7 @@ final class SettingsManager {
     #if DEBUG
         var useLegacyMacOS15UI: Bool {
             didSet {
-                UserDefaults.standard.set(self.useLegacyMacOS15UI, forKey: Keys.useLegacyMacOS15UI)
+                self.defaults.set(self.useLegacyMacOS15UI, forKey: Keys.useLegacyMacOS15UI)
             }
         }
     #else
@@ -446,46 +449,55 @@ final class SettingsManager {
         defaults.string(forKey: Keys.appearance).flatMap(AppAppearance.init(rawValue:)) ?? .system
     }
 
-    private init() {
-        self.appearance = Self.loadAppearance(from: UserDefaults.standard)
-        self.showNowPlayingNotifications = UserDefaults.standard.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
-        self.hapticFeedbackEnabled = UserDefaults.standard.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
-        self.rememberPlaybackSettings = UserDefaults.standard.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
+    init(
+        defaults: UserDefaults = .standard,
+        applyLocalization: ((String?) -> Void)? = nil
+    ) {
+        self.defaults = defaults
+        self.applyLocalization = applyLocalization ?? { languageCode in
+            if defaults === UserDefaults.standard {
+                AppLocalization.setLanguage(languageCode)
+            }
+        }
+        self.appearance = Self.loadAppearance(from: defaults)
+        self.showNowPlayingNotifications = defaults.object(forKey: Keys.showNowPlayingNotifications) as? Bool ?? true
+        self.hapticFeedbackEnabled = defaults.object(forKey: Keys.hapticFeedbackEnabled) as? Bool ?? true
+        self.rememberPlaybackSettings = defaults.object(forKey: Keys.rememberPlaybackSettings) as? Bool ?? false
 
-        if let stored = UserDefaults.standard.dictionary(forKey: Keys.enabledServices) as? [String: Bool] {
+        if let stored = defaults.dictionary(forKey: Keys.enabledServices) as? [String: Bool] {
             self.enabledServices = stored
-        } else if let legacyEnabled = UserDefaults.standard.object(forKey: Keys.lastFMEnabled) as? Bool {
+        } else if let legacyEnabled = defaults.object(forKey: Keys.lastFMEnabled) as? Bool {
             self.enabledServices = ["Last.fm": legacyEnabled]
         } else {
             self.enabledServices = [:]
         }
-        self.scrobblePercentThreshold = UserDefaults.standard.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
-        self.scrobbleMinSeconds = UserDefaults.standard.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
-        self.syncedLyricsEnabled = UserDefaults.standard.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
-        self.romanizationEnabled = UserDefaults.standard.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
-        self.keepMiniPlayerOnTop = UserDefaults.standard.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
-        self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: UserDefaults.standard)
-        self.smartShuffleEnabled = UserDefaults.standard.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
+        self.scrobblePercentThreshold = defaults.object(forKey: Keys.scrobblePercentThreshold) as? Double ?? 0.5
+        self.scrobbleMinSeconds = defaults.object(forKey: Keys.scrobbleMinSeconds) as? Double ?? 240
+        self.syncedLyricsEnabled = defaults.object(forKey: Keys.syncedLyricsEnabled) as? Bool ?? true
+        self.romanizationEnabled = defaults.object(forKey: Keys.romanizationEnabled) as? Bool ?? true
+        self.keepMiniPlayerOnTop = defaults.object(forKey: Keys.keepMiniPlayerOnTop) as? Bool ?? false
+        self.keepYouTubeVideoOnTop = Self.loadKeepYouTubeVideoOnTop(from: defaults)
+        self.smartShuffleEnabled = defaults.object(forKey: Keys.smartShuffleEnabled) as? Bool ?? true
         self.smartShuffleSuggestEveryN = Self.clamp(
-            UserDefaults.standard.object(forKey: Keys.smartShuffleSuggestEveryN) as? Int ?? Self.smartShuffleSuggestEveryNDefault,
+            defaults.object(forKey: Keys.smartShuffleSuggestEveryN) as? Int ?? Self.smartShuffleSuggestEveryNDefault,
             to: Self.smartShuffleSuggestEveryNRange
         )
         self.smartShuffleBurst = Self.clamp(
-            UserDefaults.standard.object(forKey: Keys.smartShuffleBurst) as? Int ?? Self.smartShuffleBurstDefault,
+            defaults.object(forKey: Keys.smartShuffleBurst) as? Int ?? Self.smartShuffleBurstDefault,
             to: Self.smartShuffleBurstRange
         )
         self.smartShuffleSuggestionsAhead = Self.clamp(
-            UserDefaults.standard.object(forKey: Keys.smartShuffleSuggestionsAhead) as? Int ?? Self.smartShuffleSuggestionsAheadDefault,
+            defaults.object(forKey: Keys.smartShuffleSuggestionsAhead) as? Int ?? Self.smartShuffleSuggestionsAheadDefault,
             to: Self.smartShuffleSuggestionsAheadRange
         )
-        self.ambientBackdropEnabled = UserDefaults.standard.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
-        self.popOutVideoOnNavigateAway = UserDefaults.standard.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
-        self.showYouTubeControlsOnVideo = Self.loadShowYouTubeControlsOnVideo(from: UserDefaults.standard)
+        self.ambientBackdropEnabled = defaults.object(forKey: Keys.ambientBackdropEnabled) as? Bool ?? true
+        self.popOutVideoOnNavigateAway = defaults.object(forKey: Keys.popOutVideoOnNavigateAway) as? Bool ?? true
+        self.showYouTubeControlsOnVideo = Self.loadShowYouTubeControlsOnVideo(from: defaults)
         #if DEBUG
-            self.useLegacyMacOS15UI = UserDefaults.standard.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
+            self.useLegacyMacOS15UI = defaults.object(forKey: Keys.useLegacyMacOS15UI) as? Bool ?? false
         #endif
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.mediaControlStyle),
+        if let rawValue = defaults.string(forKey: Keys.mediaControlStyle),
            let style = MediaControlStyle(rawValue: rawValue)
         {
             self.mediaControlStyle = style
@@ -493,7 +505,7 @@ final class SettingsManager {
             self.mediaControlStyle = .nextPreviousTrack
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.playbackAudioQuality),
+        if let rawValue = defaults.string(forKey: Keys.playbackAudioQuality),
            let quality = PlaybackAudioQuality(rawValue: rawValue)
         {
             self.playbackAudioQuality = quality
@@ -501,7 +513,7 @@ final class SettingsManager {
             self.playbackAudioQuality = .auto
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.ambientBackdropStyle),
+        if let rawValue = defaults.string(forKey: Keys.ambientBackdropStyle),
            let style = AmbientBackdropStyle(rawValue: rawValue),
            style != .off
         {
@@ -510,7 +522,7 @@ final class SettingsManager {
             self.ambientBackdropStyle = Self.defaultAmbientBackdropStyle
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.defaultLaunchPage),
+        if let rawValue = defaults.string(forKey: Keys.defaultLaunchPage),
            let page = LaunchPage(rawValue: rawValue)
         {
             self.defaultLaunchPage = page
@@ -518,7 +530,7 @@ final class SettingsManager {
             self.defaultLaunchPage = .home
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.contentLanguage),
+        if let rawValue = defaults.string(forKey: Keys.contentLanguage),
            let language = ContentLanguage(rawValue: rawValue)
         {
             self.contentLanguage = language
@@ -526,7 +538,7 @@ final class SettingsManager {
             self.contentLanguage = .system
         }
 
-        if let rawValue = UserDefaults.standard.string(forKey: Keys.appSource),
+        if let rawValue = defaults.string(forKey: Keys.appSource),
            let source = AppSource(rawValue: rawValue)
         {
             self.appSource = source
@@ -534,13 +546,13 @@ final class SettingsManager {
             self.appSource = .music
         }
 
-        AppLocalization.setLanguage(self.contentLanguage.languageCode)
+        self.applyLocalization(self.contentLanguage.languageCode)
 
-        if UserDefaults.standard.object(forKey: Keys.enabledServices) == nil,
-           UserDefaults.standard.object(forKey: Keys.lastFMEnabled) != nil
+        if defaults.object(forKey: Keys.enabledServices) == nil,
+           defaults.object(forKey: Keys.lastFMEnabled) != nil
         {
-            UserDefaults.standard.set(self.enabledServices, forKey: Keys.enabledServices)
-            UserDefaults.standard.removeObject(forKey: Keys.lastFMEnabled)
+            defaults.set(self.enabledServices, forKey: Keys.enabledServices)
+            defaults.removeObject(forKey: Keys.lastFMEnabled)
         }
     }
 

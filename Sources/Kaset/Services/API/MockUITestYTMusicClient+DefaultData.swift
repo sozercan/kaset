@@ -31,61 +31,62 @@ extension MockUITestYTMusicClient {
             episodeCount: 24
         )
 
-        return SearchResponse(
-            songs: self.defaultSongs(count: 5),
-            videos: [
-                Song(
-                    id: "search-video-result",
-                    title: "Search Video",
-                    artists: [Artist(id: "UCSearchVideoArtist", name: "Video Artist")],
-                    thumbnailURL: nil,
-                    videoId: "search-video-result",
-                    hasVideo: true,
-                    musicVideoType: .omv
-                ),
-            ],
-            albums: self.defaultAlbums(count: 2),
-            audiobooks: [
-                Album(
-                    id: "MPREbMockAudiobook",
-                    title: "Search Audiobook",
-                    artists: [Artist.inline(name: "Audiobook Author", namespace: "mock-search-audiobook")],
-                    thumbnailURL: nil,
-                    year: "2026",
-                    trackCount: 18
-                ),
-            ],
-            artists: [
-                Artist(id: "artist-1", name: "Search Artist 1", thumbnailURL: nil),
-                Artist(id: "artist-2", name: "Search Artist 2", thumbnailURL: nil),
-            ],
-            profiles: [
-                Artist(
-                    id: "UCMockSearchProfile",
-                    name: "Search Profile",
-                    thumbnailURL: nil,
-                    subtitle: "@searchprofile",
-                    profileKind: .profile
-                ),
-            ],
-            playlists: self.defaultPlaylists(),
-            podcastShows: [podcastShow],
-            podcastEpisodes: [
-                PodcastEpisode(
-                    id: "mock-search-episode",
-                    title: "Search Podcast Episode",
-                    showTitle: podcastShow.title,
-                    showBrowseId: podcastShow.id,
-                    description: "A representative podcast episode search result",
-                    thumbnailURL: nil,
-                    publishedDate: "Jul 19, 2026",
-                    duration: "32 min",
-                    durationSeconds: 1920,
-                    playbackProgress: 0,
-                    isPlayed: false
-                ),
-            ]
-        )
+        var items: [SearchResultItem] = []
+        let songs = self.defaultSongs(count: 5)
+        let albums = self.defaultAlbums(count: 2)
+        let playlists = self.defaultPlaylists()
+
+        if let firstSong = songs.first {
+            items.append(.song(firstSong))
+        }
+        items.append(.artist(Artist(id: "artist-1", name: "Search Artist 1", thumbnailURL: nil)))
+        if let firstAlbum = albums.first {
+            items.append(.album(firstAlbum))
+        }
+        items.append(contentsOf: songs.dropFirst().map(SearchResultItem.song))
+        items.append(.video(Song(
+            id: "search-video-result",
+            title: "Search Video",
+            artists: [Artist(id: "UCSearchVideoArtist", name: "Video Artist")],
+            thumbnailURL: nil,
+            videoId: "search-video-result",
+            hasVideo: true,
+            musicVideoType: .omv
+        )))
+        items.append(contentsOf: albums.dropFirst().map(SearchResultItem.album))
+        items.append(.audiobook(Album(
+            id: "MPREbMockAudiobook",
+            title: "Search Audiobook",
+            artists: [Artist.inline(name: "Audiobook Author", namespace: "mock-search-audiobook")],
+            thumbnailURL: nil,
+            year: "2026",
+            trackCount: 18
+        )))
+        items.append(.artist(Artist(id: "artist-2", name: "Search Artist 2", thumbnailURL: nil)))
+        items.append(.profile(Artist(
+            id: "UCMockSearchProfile",
+            name: "Search Profile",
+            thumbnailURL: nil,
+            subtitle: "@searchprofile",
+            profileKind: .profile
+        )))
+        items.append(contentsOf: playlists.map(SearchResultItem.playlist))
+        items.append(.podcastShow(podcastShow))
+        items.append(.podcastEpisode(PodcastEpisode(
+            id: "mock-search-episode",
+            title: "Search Podcast Episode",
+            showTitle: podcastShow.title,
+            showBrowseId: podcastShow.id,
+            description: "A representative podcast episode search result",
+            thumbnailURL: nil,
+            publishedDate: "Jul 19, 2026",
+            duration: "32 min",
+            durationSeconds: 1920,
+            playbackProgress: 0,
+            isPlayed: false
+        )))
+
+        return SearchResponse(items: items)
     }
 
     static func defaultPlaylists() -> [Playlist] {

@@ -235,7 +235,7 @@ struct SearchResponseTests {
             trackCount: 20
         )
         let item = SearchResultItem.audiobook(audiobook)
-        let response = SearchResponse(audiobooks: [audiobook])
+        let response = SearchResponse(items: [item])
 
         #expect(item.id == "audiobook-MPREb_audiobook")
         #expect(item.title == "Fixture Audiobook")
@@ -258,35 +258,35 @@ struct SearchResponseTests {
 
     @Test("SearchResponse isEmpty")
     func searchResponseIsEmpty() {
-        let empty = SearchResponse(songs: [], albums: [], artists: [], playlists: [])
+        let empty = SearchResponse(items: [])
         #expect(empty.isEmpty)
     }
 
     @Test("SearchResponse not empty with songs")
     func searchResponseNotEmptyWithSongs() {
         let song = Song(id: "1", title: "Song", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "1")
-        let response = SearchResponse(songs: [song], albums: [], artists: [], playlists: [])
+        let response = SearchResponse(items: [.song(song)])
         #expect(!response.isEmpty)
     }
 
     @Test("SearchResponse not empty with albums")
     func searchResponseNotEmptyWithAlbums() {
         let album = Album(id: "1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
-        let response = SearchResponse(songs: [], albums: [album], artists: [], playlists: [])
+        let response = SearchResponse(items: [.album(album)])
         #expect(!response.isEmpty)
     }
 
     @Test("SearchResponse not empty with artists")
     func searchResponseNotEmptyWithArtists() {
         let artist = Artist(id: "1", name: "Artist")
-        let response = SearchResponse(songs: [], albums: [], artists: [artist], playlists: [])
+        let response = SearchResponse(items: [.artist(artist)])
         #expect(!response.isEmpty)
     }
 
     @Test("SearchResponse not empty with playlists")
     func searchResponseNotEmptyWithPlaylists() {
         let playlist = Playlist(id: "1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
-        let response = SearchResponse(songs: [], albums: [], artists: [], playlists: [playlist])
+        let response = SearchResponse(items: [.playlist(playlist)])
         #expect(!response.isEmpty)
     }
 
@@ -297,7 +297,7 @@ struct SearchResponseTests {
         let artist = Artist(id: "ar1", name: "Artist")
         let playlist = Playlist(id: "p1", title: "Playlist", description: nil, thumbnailURL: nil, trackCount: nil, author: nil)
 
-        let response = SearchResponse(songs: [song], albums: [album], artists: [artist], playlists: [playlist])
+        let response = SearchResponse(items: [.song(song), .album(album), .artist(artist), .playlist(playlist)])
 
         let allItems = response.allItems
         #expect(allItems.count == 4)
@@ -314,7 +314,7 @@ struct SearchResponseTests {
         let song2 = Song(id: "s2", title: "Song 2", artists: [], album: nil, duration: nil, thumbnailURL: nil, videoId: "s2")
         let album = Album(id: "a1", title: "Album", artists: nil, thumbnailURL: nil, year: nil, trackCount: nil)
 
-        let response = SearchResponse(songs: [song1, song2], albums: [album], artists: [], playlists: [])
+        let response = SearchResponse(items: [.song(song1), .song(song2), .album(album)])
 
         #expect(response.allItems.count == 3)
     }

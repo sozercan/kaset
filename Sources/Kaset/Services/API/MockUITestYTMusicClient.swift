@@ -158,89 +158,60 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
 
     func searchSongsWithPagination(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: self.searchResults.songs,
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: nil
-        )
+        return SearchResponse(items: self.searchResults.songs.map(SearchResultItem.song), continuationToken: nil)
     }
 
     func searchVideos(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(videos: self.searchResults.videos)
+        return SearchResponse(items: self.searchResults.videos.map(SearchResultItem.video))
     }
 
     func searchAlbums(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: self.searchResults.albums,
-            audiobooks: self.searchResults.audiobooks,
-            artists: [],
-            playlists: [],
-            continuationToken: nil
-        )
+        let items = self.searchResults.allItems.filter {
+            switch $0 {
+            case .album, .audiobook:
+                true
+            default:
+                false
+            }
+        }
+        return SearchResponse(items: items, continuationToken: nil)
     }
 
     func searchArtists(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: self.searchResults.artists,
-            playlists: [],
-            continuationToken: nil
-        )
+        return SearchResponse(items: self.searchResults.artists.map(SearchResultItem.artist), continuationToken: nil)
     }
 
     func searchProfiles(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(profiles: self.searchResults.profiles)
+        return SearchResponse(items: self.searchResults.profiles.map(SearchResultItem.profile))
     }
 
     func searchPlaylists(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: self.searchResults.playlists,
-            continuationToken: nil
-        )
+        return SearchResponse(items: self.searchResults.playlists.map(SearchResultItem.playlist), continuationToken: nil)
     }
 
     func searchFeaturedPlaylists(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: self.searchResults.playlists,
-            continuationToken: nil
-        )
+        return SearchResponse(items: self.searchResults.playlists.map(SearchResultItem.playlist), continuationToken: nil)
     }
 
     func searchCommunityPlaylists(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: self.searchResults.playlists,
-            continuationToken: nil
-        )
+        return SearchResponse(items: self.searchResults.playlists.map(SearchResultItem.playlist), continuationToken: nil)
     }
 
     func searchPodcasts(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(podcastShows: self.searchResults.podcastShows)
+        return SearchResponse(items: self.searchResults.podcastShows.map(SearchResultItem.podcastShow))
     }
 
     func searchEpisodes(query _: String) async throws -> SearchResponse {
         try? await Task.sleep(for: .milliseconds(100))
-        return SearchResponse(podcastEpisodes: self.searchResults.podcastEpisodes)
+        return SearchResponse(items: self.searchResults.podcastEpisodes.map(SearchResultItem.podcastEpisode))
     }
 
     func getSearchContinuation(token _: String) async throws -> SearchResponse {

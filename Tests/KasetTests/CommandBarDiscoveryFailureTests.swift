@@ -24,11 +24,7 @@ struct CommandBarDiscoveryFailureTests {
         ])
         client.moodCategoryError = YTMusicError.networkError(underlying: URLError(.notConnectedToInternet))
         client.songsSearchResponse = SearchResponse(
-            songs: [Self.makeSong(title: "Fallback", videoId: "fallback")],
-            albums: [],
-            artists: [],
-            playlists: [],
-            continuationToken: nil
+            items: [.song(Self.makeSong(title: "Fallback", videoId: "fallback"))]
         )
 
         _ = await CommandExecutor(client: client, playerService: player).execute(

@@ -237,7 +237,7 @@ struct AppIntentsBridgeTests {
         defer { self.resetSingletonPlayer() }
         let client = MockYTMusicClient()
         let match = TestFixtures.makeSong(id: "match", title: "Get Lucky")
-        client.songsSearchResponse = SearchResponse(songs: [match])
+        client.songsSearchResponse = SearchResponse(items: [.song(match)])
         let player = PlayerService()
         player.setYTMusicClient(client)
         let environment = Environment()
@@ -256,7 +256,7 @@ struct AppIntentsBridgeTests {
         self.resetSingletonPlayer()
         defer { self.resetSingletonPlayer() }
         let client = MockYTMusicClient()
-        client.songsSearchResponse = SearchResponse(songs: [TestFixtures.makeSong(id: "match", title: "Get Lucky")])
+        client.songsSearchResponse = SearchResponse(items: [.song(TestFixtures.makeSong(id: "match", title: "Get Lucky"))])
         let searchStarted = AsyncGate()
         let releaseSearch = AsyncGate()
         client.beforeSearchReturn = { _, _ in

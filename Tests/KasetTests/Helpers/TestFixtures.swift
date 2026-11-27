@@ -174,18 +174,18 @@ enum TestFixtures {
         artistCount: Int = 2,
         playlistCount: Int = 2
     ) -> SearchResponse {
-        SearchResponse(
-            songs: self.makeSongs(count: songCount),
-            albums: (0 ..< albumCount).map { index in
-                self.makeAlbum(id: "MPRE-search-\(index)", title: "Search Album \(index)")
-            },
-            artists: (0 ..< artistCount).map { index in
-                self.makeArtist(id: "UC-search-\(index)", name: "Search Artist \(index)")
-            },
-            playlists: (0 ..< playlistCount).map { index in
-                self.makePlaylist(id: "VL-search-\(index)", title: "Search Playlist \(index)")
-            }
-        )
+        let items: [SearchResultItem] =
+            self.makeSongs(count: songCount).map(SearchResultItem.song)
+                + (0 ..< albumCount).map { index in
+                    SearchResultItem.album(self.makeAlbum(id: "MPRE-search-\(index)", title: "Search Album \(index)"))
+                }
+                + (0 ..< artistCount).map { index in
+                    SearchResultItem.artist(self.makeArtist(id: "UC-search-\(index)", name: "Search Artist \(index)"))
+                }
+                + (0 ..< playlistCount).map { index in
+                    SearchResultItem.playlist(self.makePlaylist(id: "VL-search-\(index)", title: "Search Playlist \(index)"))
+                }
+        return SearchResponse(items: items)
     }
 
     static func makePodcastShow(

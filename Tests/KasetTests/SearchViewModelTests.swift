@@ -245,12 +245,7 @@ struct SearchViewModelTests {
 
     @Test("Filter chips remain visible after empty filtered search")
     func filterChipsRemainVisibleAfterEmptyFilteredSearch() async {
-        self.mockClient.searchResponse = SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: []
-        )
+        self.mockClient.searchResponse = .empty
         self.viewModel.query = "Versus Music Official"
         self.viewModel.selectedFilter = .artists
 
@@ -291,26 +286,19 @@ struct SearchViewModelTests {
             artistCount: 0,
             playlistCount: 1
         )
-        let podcastsResponse = SearchResponse(
-            songs: [],
-            albums: [],
-            artists: [],
-            playlists: [],
-            podcastShows: [TestFixtures.makePodcastShow()],
-            continuationToken: nil
-        )
-        let videosResponse = SearchResponse(videos: [Song(
+        let podcastsResponse = SearchResponse(items: [.podcastShow(TestFixtures.makePodcastShow())])
+        let videosResponse = SearchResponse(items: [.video(Song(
             id: "video",
             title: "Video",
             artists: [],
             videoId: "video",
             musicVideoType: .ugc
-        )])
-        let profilesResponse = SearchResponse(profiles: [Artist(
+        ))])
+        let profilesResponse = SearchResponse(items: [.profile(Artist(
             id: "UCprofile",
             name: "Profile",
             profileKind: .profile
-        )])
+        ))])
         let episode = PodcastEpisode(
             id: "episode",
             title: "Episode",
@@ -324,7 +312,7 @@ struct SearchViewModelTests {
             playbackProgress: 0,
             isPlayed: false
         )
-        let episodesResponse = SearchResponse(podcastEpisodes: [episode])
+        let episodesResponse = SearchResponse(items: [.podcastEpisode(episode)])
 
         self.mockClient.mixedSearchResponse = .empty
         self.mockClient.songsSearchResponse = songsResponse
@@ -372,23 +360,12 @@ struct SearchViewModelTests {
     @Test("All filter uses mixed response without category fanout when mixed has results")
     func allFilterUsesMixedResponseWithoutCategoryFanout() async {
         let mixedSong = TestFixtures.makeSong(id: "mixed-song", title: "Mixed Song")
-        self.mockClient.mixedSearchResponse = SearchResponse(
-            songs: [mixedSong],
-            albums: [],
-            artists: [],
-            playlists: []
-        )
+        self.mockClient.mixedSearchResponse = SearchResponse(items: [.song(mixedSong)])
         self.mockClient.songsSearchResponse = SearchResponse(
-            songs: [TestFixtures.makeSong(id: "category-song", title: "Category Song")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(TestFixtures.makeSong(id: "category-song", title: "Category Song"))]
         )
         self.mockClient.albumsSearchResponse = SearchResponse(
-            songs: [],
-            albums: [TestFixtures.makeAlbum(id: "MPRE-category", title: "Category Album")],
-            artists: [],
-            playlists: []
+            items: [.album(TestFixtures.makeAlbum(id: "MPRE-category", title: "Category Album"))]
         )
 
         self.viewModel.query = "lofi"
@@ -416,10 +393,7 @@ struct SearchViewModelTests {
         }
         self.mockClient.mixedSearchResponse = .empty
         self.mockClient.songsSearchResponse = SearchResponse(
-            songs: [TestFixtures.makeSong(id: "old-category", title: "Old Category")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(TestFixtures.makeSong(id: "old-category", title: "Old Category"))]
         )
 
         self.viewModel.query = "old"
@@ -431,10 +405,7 @@ struct SearchViewModelTests {
         )
 
         self.mockClient.mixedSearchResponse = SearchResponse(
-            songs: [TestFixtures.makeSong(id: "new-mixed", title: "New Mixed")],
-            albums: [],
-            artists: [],
-            playlists: []
+            items: [.song(TestFixtures.makeSong(id: "new-mixed", title: "New Mixed"))]
         )
         self.viewModel.query = "new"
         self.viewModel.searchImmediately()
@@ -494,11 +465,11 @@ struct SearchViewModelTests {
         let newSong = TestFixtures.makeSong(id: "new", title: "New")
 
         self.mockClient.songsSearchResponse = SearchResponse(
-            songs: [oldSong],
+            items: [.song(oldSong)],
             continuationToken: "old-page-two"
         )
         self.mockClient.searchContinuationResponses["old-page-two"] = SearchResponse(
-            songs: [staleSong],
+            items: [.song(staleSong)],
             continuationToken: nil
         )
         self.mockClient.beforeSearchContinuationReturn = { token in
@@ -522,7 +493,7 @@ struct SearchViewModelTests {
         #expect(self.viewModel.loadingState == .loadingMore)
         #expect(self.viewModel.results.allItems.map(\.id) == ["song-old"])
 
-        self.mockClient.songsSearchResponse = SearchResponse(songs: [newSong])
+        self.mockClient.songsSearchResponse = SearchResponse(items: [.song(newSong)])
         self.viewModel.query = "new"
         self.viewModel.searchImmediately()
         await self.waitUntil(
@@ -542,11 +513,11 @@ struct SearchViewModelTests {
         let first = TestFixtures.makeSong(id: "first", title: "First")
         let second = TestFixtures.makeSong(id: "second", title: "Second")
         self.mockClient.songsSearchResponse = SearchResponse(
-            songs: [first],
+            items: [.song(first)],
             continuationToken: "page-two"
         )
         self.mockClient.searchContinuationResponses["page-two"] = SearchResponse(
-            songs: [first, second],
+            items: [.song(first), .song(second)],
             continuationToken: nil
         )
 

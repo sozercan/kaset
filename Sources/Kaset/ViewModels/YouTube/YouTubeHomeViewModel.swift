@@ -44,6 +44,9 @@ final class YouTubeHomeViewModel {
 
     static var continueWatchingRefreshRetryDelay: Duration = .seconds(2)
 
+    var continueWatchingRefreshDelayOverride: Duration?
+    var continueWatchingRefreshRetryDelayOverride: Duration?
+
     private var loadGeneration = 0
 
     private var loadTask: Task<Void, Never>?
@@ -63,8 +66,14 @@ final class YouTubeHomeViewModel {
     let client: any YouTubeClientProtocol
     private let logger = DiagnosticsLogger.api
 
-    init(client: any YouTubeClientProtocol) {
+    init(
+        client: any YouTubeClientProtocol,
+        continueWatchingRefreshDelay: Duration? = nil,
+        continueWatchingRefreshRetryDelay: Duration? = nil
+    ) {
         self.client = client
+        self.continueWatchingRefreshDelayOverride = continueWatchingRefreshDelay
+        self.continueWatchingRefreshRetryDelayOverride = continueWatchingRefreshRetryDelay
     }
 
     func load() async {
@@ -522,7 +531,7 @@ final class YouTubeHomeViewModel {
             }
         }
         do {
-            try await Task.sleep(for: Self.continueWatchingRefreshDelay)
+            try await Task.sleep(for: self.continueWatchingRefreshDelayOverride ?? Self.continueWatchingRefreshDelay)
         } catch {
             return
         }
@@ -530,7 +539,7 @@ final class YouTubeHomeViewModel {
         var outcome = await self.rebuildContinueWatchingRail()
         if !Task.isCancelled, outcome != .updated {
             do {
-                try await Task.sleep(for: Self.continueWatchingRefreshRetryDelay)
+                try await Task.sleep(for: self.continueWatchingRefreshRetryDelayOverride ?? Self.continueWatchingRefreshRetryDelay)
                 if !Task.isCancelled {
                     outcome = await self.rebuildContinueWatchingRail()
                 }

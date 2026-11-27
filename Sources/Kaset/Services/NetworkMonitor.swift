@@ -49,36 +49,57 @@ final class NetworkMonitor {
         }
     }
 
-    private let monitor: NWPathMonitor
-    private let queue: DispatchQueue
+    private let monitor: NWPathMonitor?
+    private let queue: DispatchQueue?
     private let logger = DiagnosticsLogger.network
 
     private init() {
-        self.monitor = NWPathMonitor()
-        self.queue = DispatchQueue(label: "com.kaset.networkMonitor", qos: .utility)
-        self.startMonitoring()
+        let pathMonitor = NWPathMonitor()
+        let monitorQueue = DispatchQueue(label: "com.kaset.networkMonitor", qos: .utility)
+        self.monitor = pathMonitor
+        self.queue = monitorQueue
+        self.startMonitoring(pathMonitor: pathMonitor, queue: monitorQueue)
+    }
+
+    init(
+        isConnected: Bool = true,
+        isExpensive: Bool = false,
+        isConstrained: Bool = false,
+        interfaceType: InterfaceType = .unknown
+    ) {
+        self.monitor = nil
+        self.queue = nil
+        self.isConnected = isConnected
+        self.isExpensive = isExpensive
+        self.isConstrained = isConstrained
+        self.interfaceType = interfaceType
     }
 
     deinit {
-        self.monitor.cancel()
+        self.monitor?.cancel()
     }
 
-    private func startMonitoring() {
-        self.monitor.pathUpdateHandler = { [weak self] path in
+    private func startMonitoring(pathMonitor: NWPathMonitor, queue: DispatchQueue) {
+        pathMonitor.pathUpdateHandler = { [weak self] path in
             Task { @MainActor [weak self] in
                 self?.updatePath(path)
             }
         }
-        self.monitor.start(queue: self.queue)
+        pathMonitor.start(queue: queue)
         self.logger.info("Network monitoring started")
     }
 
-    private func updatePath(_ path: NWPath) {
+    func applyPathState(
+        isConnected: Bool,
+        isExpensive: Bool,
+        isConstrained: Bool,
+        interfaceType: InterfaceType
+    ) {
         let wasConnected = self.isConnected
-        self.isConnected = path.status == .satisfied
-        self.isExpensive = path.isExpensive
-        self.isConstrained = path.isConstrained
-        self.interfaceType = Self.mapInterfaceType(path)
+        self.isConnected = isConnected
+        self.isExpensive = isExpensive
+        self.isConstrained = isConstrained
+        self.interfaceType = interfaceType
 
         if wasConnected != self.isConnected {
             if self.isConnected {
@@ -87,6 +108,15 @@ final class NetworkMonitor {
                 self.logger.warning("Network disconnected")
             }
         }
+    }
+
+    private func updatePath(_ path: NWPath) {
+        self.applyPathState(
+            isConnected: path.status == .satisfied,
+            isExpensive: path.isExpensive,
+            isConstrained: path.isConstrained,
+            interfaceType: Self.mapInterfaceType(path)
+        )
     }
 
     private static func mapInterfaceType(_ path: NWPath) -> InterfaceType {

@@ -6,19 +6,21 @@ import Testing
 @Suite(.tags(.service))
 @MainActor
 struct NetworkMonitorTests {
-    @Test("Shared instance is stable")
-    func sharedInstanceIsStable() {
-        let first = NetworkMonitor.shared
-        let second = NetworkMonitor.shared
-
-        #expect(first === second)
-        #expect(!first.statusDescription.isEmpty)
-    }
-
-    @Test("Initial state defaults to connected")
-    func initialStateDefaults() {
-        let monitor = NetworkMonitor.shared
+    @Test("Isolated monitor starts connected and updates status transitions deterministically")
+    func isolatedMonitorTransitions() {
+        let monitor = NetworkMonitor()
         #expect(monitor.isConnected == true)
+        #expect(monitor.statusDescription == "Unknown")
+
+        monitor.applyPathState(isConnected: true, isExpensive: true, isConstrained: true, interfaceType: .cellular)
+        #expect(monitor.isConnected == true)
+        #expect(monitor.isExpensive == true)
+        #expect(monitor.isConstrained == true)
+        #expect(monitor.statusDescription == "Cellular (expensive) (low data mode)")
+
+        monitor.applyPathState(isConnected: false, isExpensive: false, isConstrained: false, interfaceType: .unknown)
+        #expect(monitor.isConnected == false)
+        #expect(monitor.statusDescription == "No internet connection")
     }
 
     @Test("Interface type has description")
@@ -33,23 +35,14 @@ struct NetworkMonitorTests {
 
     @Test("Status description when connected shows interface type")
     func statusDescriptionWhenConnected() {
-        let monitor = NetworkMonitor.shared
-        if monitor.isConnected {
-            #expect(!monitor.statusDescription.isEmpty)
-            #expect(monitor.statusDescription != "No internet connection")
-        }
+        let monitor = NetworkMonitor(isConnected: true, interfaceType: .wifi)
+        #expect(monitor.statusDescription == "Wi-Fi")
     }
 
     @Test("Status description when disconnected shows no internet")
     func statusDescriptionFormat() {
-        let monitor = NetworkMonitor.shared
-        let description = monitor.statusDescription
-
-        #expect(!description.isEmpty)
-
-        if !monitor.isConnected {
-            #expect(description == "No internet connection")
-        }
+        let monitor = NetworkMonitor(isConnected: false, interfaceType: .unknown)
+        #expect(monitor.statusDescription == "No internet connection")
     }
 
     @Test("Interface type is Sendable")
@@ -62,13 +55,13 @@ struct NetworkMonitorTests {
 
     @Test("Expensive connection flag is available")
     func expensiveConnectionFlag() {
-        let monitor = NetworkMonitor.shared
-        _ = monitor.isExpensive
+        let monitor = NetworkMonitor(isExpensive: true)
+        #expect(monitor.isExpensive == true)
     }
 
     @Test("Constrained connection flag is available")
     func constrainedConnectionFlag() {
-        let monitor = NetworkMonitor.shared
-        _ = monitor.isConstrained
+        let monitor = NetworkMonitor(isConstrained: true)
+        #expect(monitor.isConstrained == true)
     }
 }
