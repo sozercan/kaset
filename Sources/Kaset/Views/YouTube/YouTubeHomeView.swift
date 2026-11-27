@@ -119,7 +119,7 @@ struct YouTubeHomeView: View {
                     ProgressView()
                         .controlSize(.small)
                         .gridCellColumns(1)
-                        .task(id: self.viewModel.videos.count) {
+                        .task(id: "\(self.viewModel.videos.count)-\(self.viewModel.paginationCursorGeneration)") {
                             await self.viewModel.loadMore()
                         }
                 }

@@ -135,13 +135,13 @@ struct HistoryViewModelTests {
 
         #expect(changed == false)
         #expect(self.viewModel.loadingState == .loaded)
-        #expect(self.viewModel.hasMoreSections == true)
+        #expect(self.viewModel.hasMoreSections == false)
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday"])
         #expect(self.mockClient.getHistoryContinuationCallCount == 1)
     }
 
-    @Test("Load more after unchanged refresh skips preserved cursor pages")
-    func loadMoreAfterUnchangedRefreshSkipsPreservedCursorPages() async {
+    @Test("Load more after unchanged refresh resumes next page without replaying visible pages")
+    func loadMoreAfterUnchangedRefreshResumesWithoutReplayingVisiblePages() async {
         let initialSection = TestFixtures.makeHomeSection(id: "today", title: "Today")
         let yesterdaySection = TestFixtures.makeHomeSection(id: "yesterday", title: "Yesterday")
         let olderSection = TestFixtures.makeHomeSection(id: "older", title: "Older")
@@ -164,7 +164,7 @@ struct HistoryViewModelTests {
 
         #expect(self.viewModel.sections.map(\.title) == ["Today", "Yesterday", "Older"])
         #expect(self.viewModel.hasMoreSections == false)
-        #expect(self.mockClient.getHistoryContinuationCallCount == 3)
+        #expect(self.mockClient.getHistoryContinuationCallCount == 2)
     }
 
     @Test("Load more is blocked while refresh rewinds the history cursor")

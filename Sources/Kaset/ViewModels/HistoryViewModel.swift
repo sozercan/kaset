@@ -21,8 +21,6 @@ final class HistoryViewModel {
 
     private var continuationsLoaded = 0
 
-    private var pendingContinuationSkips = 0
-
     private var isLoadingMoreSections = false
 
     private(set) var isRefreshingHistory = false
@@ -64,7 +62,6 @@ final class HistoryViewModel {
             self.hasMoreSections = self.client.hasMoreHistorySections
             self.loadingState = .loaded
             self.continuationsLoaded = 0
-            self.pendingContinuationSkips = 0
             let sectionCount = self.sections.count
             self.logger.info("History content loaded: \(sectionCount) sections")
         } catch is CancellationError {
@@ -89,7 +86,6 @@ final class HistoryViewModel {
         self.initialSections = []
         self.hasMoreSections = true
         self.continuationsLoaded = 0
-        self.pendingContinuationSkips = 0
         self.isLoadingMoreSections = false
         self.isRefreshingHistory = false
         self.lastSeenPlaybackVideoId = nil
@@ -154,22 +150,6 @@ final class HistoryViewModel {
         }
 
         do {
-            var skipsRemaining = self.pendingContinuationSkips
-            while skipsRemaining > 0 {
-                guard generation == self.loadGeneration, !Task.isCancelled else { return }
-                guard let skippedSections = try await self.client.getHistoryContinuation() else {
-                    guard generation == self.loadGeneration else { return }
-                    self.pendingContinuationSkips = 0
-                    self.hasMoreSections = false
-                    return
-                }
-                guard generation == self.loadGeneration else { return }
-                skipsRemaining -= 1
-                self.pendingContinuationSkips = skipsRemaining
-                self.hasMoreSections = self.client.hasMoreHistorySections
-                self.logger.debug("Skipped \(skippedSections.count) preserved history sections")
-            }
-
             if let additionalSections = try await self.client.getHistoryContinuation() {
                 guard generation == self.loadGeneration else { return }
                 self.sections.append(contentsOf: additionalSections)
@@ -198,27 +178,32 @@ final class HistoryViewModel {
         let generation = self.loadGeneration
 
         do {
+            let previousContinuationsLoaded = self.continuationsLoaded
+            let hasPaginatedSections = previousContinuationsLoaded > 0 && self.sections.count > self.initialSections.count
+
+            if hasPaginatedSections {
+                let snapshot = try await self.client.getHistoryFirstPageSnapshot()
+                guard generation == self.loadGeneration else { return false }
+
+                if !self.sectionsChanged(self.initialSections, comparedTo: snapshot.sections) {
+                    self.initialSections = snapshot.sections
+                    self.hasMoreSections = self.client.hasMoreHistorySections
+                    self.loadingState = .loaded
+                    self.logger.debug("History first page unchanged, preserving paginated sections and continuation cursor")
+                    return false
+                }
+            }
+
             let response = try await self.client.getHistory()
             guard generation == self.loadGeneration else { return false }
-            let previousContinuationsLoaded = self.continuationsLoaded
-            let shouldPreservePaginatedSections =
-                previousContinuationsLoaded > 0 && self.sections.count > response.sections.count
 
             if !self.sectionsChanged(self.initialSections, comparedTo: response.sections) {
                 self.initialSections = response.sections
+                self.sections = response.sections
                 self.hasMoreSections = self.client.hasMoreHistorySections
                 self.loadingState = .loaded
-
-                if shouldPreservePaginatedSections {
-                    self.logger.debug("History first page unchanged, preserving paginated sections")
-                } else {
-                    self.sections = response.sections
-                    self.continuationsLoaded = 0
-                    self.pendingContinuationSkips = 0
-                    self.logger.debug("History unchanged, skipping update")
-                }
-
-                self.pendingContinuationSkips = shouldPreservePaginatedSections ? previousContinuationsLoaded : 0
+                self.continuationsLoaded = 0
+                self.logger.debug("History unchanged, skipping update")
                 return false
             }
 
@@ -227,7 +212,6 @@ final class HistoryViewModel {
             self.hasMoreSections = self.client.hasMoreHistorySections
             self.loadingState = .loaded
             self.continuationsLoaded = 0
-            self.pendingContinuationSkips = 0
             self.logger.info("History refreshed: \(response.sections.count) sections")
             return true
         } catch is CancellationError {

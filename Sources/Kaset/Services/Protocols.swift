@@ -100,6 +100,8 @@ protocol YTMusicClientProtocol: Sendable {
 
     func getHistory() async throws -> HomeResponse
 
+    func getHistoryFirstPageSnapshot() async throws -> HomeResponse
+
     func getHistoryContinuation() async throws -> [HomeSection]?
 
     var hasMoreHistorySections: Bool { get }

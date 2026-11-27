@@ -483,6 +483,23 @@ final class MockYTMusicClient: YTMusicClientProtocol { // swiftlint:disable:this
         return self.historyResponse
     }
 
+    func getHistoryFirstPageSnapshot() async throws -> HomeResponse {
+        self.getHistoryCallCount += 1
+        if self.shouldWaitForGetHistoryResponse {
+            await withCheckedContinuation { continuation in
+                self.getHistoryResponseContinuations.append(continuation)
+            }
+        }
+        if let getHistoryDelay {
+            try? await Task.sleep(for: getHistoryDelay)
+        }
+        try Task.checkCancellation()
+        if let error = shouldThrowError {
+            throw error
+        }
+        return self.historyResponse
+    }
+
     func getHistoryContinuation() async throws -> [HomeSection]? {
         self.getHistoryContinuationCallCount += 1
         if let error = shouldThrowError {

@@ -60,8 +60,29 @@ final class YouTubeWatchContainerView: NSView {
 
     override func layout() {
         super.layout()
+        let alignedFrame = self.alignedWebViewFrame()
         for subview in self.subviews where subview is WKWebView {
-            subview.frame = self.bounds.insetBy(dx: -1.5, dy: -1.5)
+            subview.frame = alignedFrame
         }
+    }
+
+    func alignedWebViewFrame() -> NSRect {
+        guard self.bounds.width > 0, self.bounds.height > 0 else { return .zero }
+        if self.window != nil {
+            return self.backingAlignedRect(self.bounds, options: .alignAllEdgesInward)
+        }
+        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        return Self.pixelAlignedBounds(self.bounds, backingScaleFactor: scale)
+    }
+
+    static func pixelAlignedBounds(_ bounds: NSRect, backingScaleFactor: CGFloat) -> NSRect {
+        let scale = max(backingScaleFactor, 1.0)
+        guard bounds.width > 0, bounds.height > 0 else { return .zero }
+        let minX = ceil(bounds.minX * scale) / scale
+        let minY = ceil(bounds.minY * scale) / scale
+        let maxX = floor(bounds.maxX * scale) / scale
+        let maxY = floor(bounds.maxY * scale) / scale
+        guard maxX > minX, maxY > minY else { return .zero }
+        return NSRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
     }
 }
