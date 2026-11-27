@@ -95,6 +95,7 @@ struct QueueView: View {
                 ForEach(Array(self.playerService.queueEntries.enumerated()), id: \.element.id) { index, entry in
                     QueueRowView(
                         song: entry.song,
+                        entryID: entry.id,
                         isCurrentTrack: index == self.playerService.activePlaybackQueueIndex,
                         index: index,
                         isSuggested: entry.source == .suggested,
@@ -125,6 +126,7 @@ struct QueueView: View {
 
 private struct QueueRowView: View {
     let song: Song
+    let entryID: UUID
     let isCurrentTrack: Bool
     let index: Int
     let isSuggested: Bool
@@ -182,6 +184,7 @@ private struct QueueRowView: View {
         .contextMenu {
             SongContextMenu(
                 song: self.song,
+                queueEntryID: self.entryID,
                 client: self.playerService.ytMusicClient,
                 play: self.isCurrentTrack ? nil : self.onTap,
                 showsGoToArtist: false,

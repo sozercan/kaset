@@ -56,6 +56,7 @@ struct SongLibraryToggle {
 
 struct SongContextMenu: View {
     let song: Song
+    var queueEntryID: UUID?
     let client: (any YTMusicClientProtocol)?
     var play: (() -> Void)?
     var libraryToggle: SongLibraryToggle?
@@ -83,7 +84,7 @@ struct SongContextMenu: View {
             Divider()
         }
 
-        StartRadioContextMenu.menuItem(for: self.song, playerService: self.playerService)
+        StartRadioContextMenu.menuItem(for: self.song, queueEntryID: self.queueEntryID, playerService: self.playerService)
 
         if self.authService.hasPersonalAccount {
             self.libraryButton
