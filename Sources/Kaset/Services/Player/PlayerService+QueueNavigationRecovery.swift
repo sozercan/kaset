@@ -14,7 +14,7 @@ extension PlayerService {
         self.logger.info(
             "Ending playback after failed queue advance: \(reason), retryable continuation: \(hasRetryableMixContinuation)"
         )
-        await self.pause()
+        await self.pause(isAutomaticStop: true)
     }
 
     func clearQueueNavigationRecovery() {

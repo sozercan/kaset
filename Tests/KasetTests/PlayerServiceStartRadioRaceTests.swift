@@ -592,4 +592,50 @@ struct PlayerServiceStartRadioRaceTests {
         #expect(self.playerService.queue.map(\.videoId) == [songs[1].videoId, songs[0].videoId, recommended.videoId])
         #expect(self.playerService.currentTrack?.videoId == recommended.videoId)
     }
+
+    @Test("An automatic stop after a failed queue advance still lets Start Radio continue")
+    func failedQueueAdvanceStopDuringStartRadioContinues() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        let recommended = TestFixtures.makeSong(id: "rec-1")
+        await self.playerService.playQueue(songs, startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 239, duration: 240)
+
+        let radioGate = AsyncGate()
+        self.mockClient.getRadioQueueGate = radioGate
+        let refresh = Task { @MainActor [playerService] in
+            await playerService.startRadio(song: songs[0])
+        }
+        for _ in 0 ..< 1000 where self.mockClient.getRadioQueueVideoIds.isEmpty {
+            await Task.yield()
+        }
+        guard self.mockClient.getRadioQueueVideoIds.count == 1 else {
+            await radioGate.open()
+            await refresh.value
+            Issue.record("The Start Radio request never reached the mock client")
+            return
+        }
+
+        self.mockClient.getRadioQueueGate = nil
+        await self.playerService.finishPlaybackAfterFailedQueueAdvance(reason: "test")
+        #expect(self.playerService.state == .ended)
+
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], recommended]
+        await radioGate.open()
+        await refresh.value
+
+        #expect(self.playerService.currentTrack?.videoId == recommended.videoId)
+    }
+
+    @Test("Only explicit pauses advance the explicit pause generation")
+    func automaticStopsDoNotCountAsExplicitPauses() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        await self.playerService.playQueue(songs, startingAt: 0)
+        let generation = self.playerService.explicitPauseGeneration
+
+        await self.playerService.pause(isAutomaticStop: true)
+        #expect(self.playerService.explicitPauseGeneration == generation)
+
+        await self.playerService.pause()
+        #expect(self.playerService.explicitPauseGeneration == generation + 1)
+    }
 }
