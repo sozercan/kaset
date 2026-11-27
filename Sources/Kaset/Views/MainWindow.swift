@@ -23,9 +23,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         isLoggedIn: Bool,
         pendingVideoId: String?,
         isPendingRestoredLoadDeferred: Bool,
-        showVideo: Bool
+        showVideo: Bool,
+        includesMusic: Bool = true
     ) -> Bool {
-        !showVideo && (isLoggedIn || (!isPendingRestoredLoadDeferred && pendingVideoId != nil))
+        includesMusic && !showVideo && (isLoggedIn || (!isPendingRestoredLoadDeferred && pendingVideoId != nil))
     }
 
     @Environment(AuthService.self) private var authService
@@ -182,7 +183,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
 
     private var appIntentsLibrary: AppIntentsLibrary? {
         guard !self.authService.state.isInitializing else { return nil }
-        guard self.authService.hasPersonalAccount else { return .empty }
+        guard self.settings.appExperience.includesMusic, self.authService.hasPersonalAccount else { return .empty }
         guard let libraryViewModel = self.libraryViewModel, libraryViewModel.loadingState == .loaded else {
             return nil
         }
@@ -222,7 +223,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                    isLoggedIn: self.authService.state.isLoggedIn,
                    pendingVideoId: self.playerService.pendingPlayVideoId,
                    isPendingRestoredLoadDeferred: self.playerService.isPendingRestoredLoadDeferred,
-                   showVideo: self.playerService.showVideo
+                   showVideo: self.playerService.showVideo,
+                   includesMusic: self.settings.appExperience.includesMusic
                )
             {
                 PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
@@ -274,7 +276,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private var podcastsProbeTaskID: PodcastsProbeTaskID? {
-        guard self.authService.hasPersonalAccount,
+        guard self.settings.appExperience.includesMusic,
+              self.authService.hasPersonalAccount,
               self.accountService.didCompleteAccountResolution
         else { return nil }
         return PodcastsProbeTaskID(
@@ -340,8 +343,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             }
             .onChange(of: self.authService.loginCleanupRequired) { _, cleanupRequired in
                 guard cleanupRequired else { return }
-                self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: true)
-                self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
+                if self.settings.appExperience.includesMusic {
+                    self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: true)
+                }
+                if self.settings.appExperience.includesVideo {
+                    self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
+                }
             }
             .onChange(of: self.settings.appSource) { _, source in
                 guard source == .video else { return }
@@ -370,8 +377,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             .onChange(of: self.accountService.verifiedIdentitySequence) { _, _ in
                 guard let verifiedAccountId = self.accountService.verifiedAccountId else { return }
                 let isReverification = self.accountService.currentAccount?.id == verifiedAccountId
-                self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
-                if self.youtubePlayerService.currentVideo != nil {
+                if self.settings.appExperience.includesMusic {
+                    self.playerService.reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: !isReverification)
+                }
+                if self.settings.appExperience.includesVideo, self.youtubePlayerService.currentVideo != nil {
                     self.youtubePlayerService.reloadCurrentVideoForIdentitySwitch()
                 }
             }
@@ -415,7 +424,8 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         }
         Task { @MainActor in
             if isInitialScopeResolution {
-                guard self.authService.hasPersonalAccount,
+                guard self.settings.appExperience.includesMusic,
+                      self.authService.hasPersonalAccount,
                       self.accountService.currentAccountScopeID == newAccountScope
                 else { return }
 
@@ -444,7 +454,9 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     await self.refreshAllContent()
                 }
 
-                if let currentVideoId = self.playerService.currentTrack?.videoId {
+                if self.settings.appExperience.includesMusic,
+                   let currentVideoId = self.playerService.currentTrack?.videoId
+                {
                     group.addTask {
                         await self.playerService.fetchSongMetadata(videoId: currentVideoId)
                     }
@@ -610,8 +622,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var commandBar: some View {
+    @ViewBuilder private var commandBar: some View {
         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
             CommandBarView(
                 client: self.client,
@@ -801,8 +812,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                 self.youtubeClient.resetSessionStateForAccountSwitch()
                 self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
                 self.youtubeStore.resetForAccountChange()
-                self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
-                self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+                if self.settings.appExperience.includesMusic {
+                    self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+                }
+                if self.settings.appExperience.includesVideo {
+                    self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+                }
             }
             self.showLoginSheet = false
             if self.whatsNewToPresent == nil {
@@ -861,8 +876,12 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             self.client.resetSessionStateForAccountSwitch()
             self.youtubeClient.resetSessionStateForAccountSwitch()
             self.rebuildMusicViewModels(accountId: self.accountService.currentAccount?.id)
-            self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
-            self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            if self.settings.appExperience.includesMusic {
+                self.playerService.reloadCurrentTrackForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            }
+            if self.settings.appExperience.includesVideo {
+                self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: false)
+            }
             Task { @MainActor in
                 await self.accountService.fetchAccounts()
                 await self.refreshAuthenticatedContent()
@@ -919,6 +938,7 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func refreshAuthenticatedContent() async {
+        guard self.settings.appExperience.includesMusic else { return }
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }
             group.addTask { await self.exploreViewModel?.refresh() }
@@ -949,19 +969,24 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
     }
 
     private func refreshGuestContent() async {
-        await self.homeViewModel?.refresh()
-        await self.exploreViewModel?.refresh()
-        await self.chartsViewModel?.refresh()
-        await self.moodsAndGenresViewModel?.refresh()
-        await self.newReleasesViewModel?.refresh()
-        await self.youtubeStore.refreshGuestContent()
-        self.podcastsAvailability.activateAccount(nil)
-        if self.podcastsAvailability.availability != .unavailable {
-            await self.podcastsViewModel?.refresh()
+        if self.settings.appExperience.includesMusic {
+            await self.homeViewModel?.refresh()
+            await self.exploreViewModel?.refresh()
+            await self.chartsViewModel?.refresh()
+            await self.moodsAndGenresViewModel?.refresh()
+            await self.newReleasesViewModel?.refresh()
+            self.podcastsAvailability.activateAccount(nil)
+            if self.podcastsAvailability.availability != .unavailable {
+                await self.podcastsViewModel?.refresh()
+            }
+        }
+        if self.settings.appExperience.includesVideo {
+            await self.youtubeStore.refreshGuestContent()
         }
     }
 
     private func refreshAllContent() async {
+        guard self.settings.appExperience.includesMusic else { return }
         let podcastsAvailable = self.podcastsAvailability.availability != .unavailable
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await self.homeViewModel?.refresh() }

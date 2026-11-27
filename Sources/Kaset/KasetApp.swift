@@ -264,10 +264,10 @@ struct KasetApp: App {
                     DiagnosticsLogger.app.info("KasetApp: Root task started")
                     let signOutSequence = self.authService.signOutSequence
                     guard await self.authService.checkLoginStatusForStartup(
-                        expectedState: startupState
-                    ), !Task.isCancelled,
-                    self.authService.startupState == startupState,
-                    self.authService.signOutSequence == signOutSequence
+                              expectedState: startupState
+                          ), !Task.isCancelled,
+                          self.authService.startupState == startupState,
+                          self.authService.signOutSequence == signOutSequence
                     else { return }
                     DiagnosticsLogger.app.info("KasetApp: Login status check complete")
                     if !self.didCompleteStartupPlaybackCleanup {
@@ -288,7 +288,8 @@ struct KasetApp: App {
                     self.accountService?.authenticationIdentityDidChange()
                     await self.accountService?.fetchAccounts()
 
-                    if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *),
+                    if self.settings.appExperience.includesMusic,
+                       !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *),
                        !FoundationModelsService.shared.isWarmedUp
                     {
                         await FoundationModelsService.shared.warmup()
@@ -306,8 +307,15 @@ struct KasetApp: App {
                 }
                 .onChange(of: self.youtubePlayerService.popInRequest) { _, request in
                     guard request != nil else { return }
+                    guard self.settings.appExperience.includesVideo else {
+                        self.youtubePlayerService.consumePopInRequest()
+                        return
+                    }
                     self.settings.appSource = .video
                     self.showMainWindow()
+                }
+                .onChange(of: self.settings.appExperience) { _, experience in
+                    self.handleAppExperienceChange(experience)
                 }
                 .task {
                     NowPlayingManager.shared.configureYouTubeRouting(
@@ -389,47 +397,59 @@ struct KasetApp: App {
                 Divider()
 
                 Button(String(localized: "Volume Up")) {
-                    Task {
-                        await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
+                    if self.playbackArbiter.routesMediaKeysToVideo {
+                        self.youtubePlayerService.volume = min(1.0, self.youtubePlayerService.volume + 0.1)
+                    } else {
+                        Task {
+                            await self.playerService.setVolume(min(1.0, self.playerService.volume + 0.1))
+                        }
                     }
                 }
                 .keyboardShortcut(self.playbackShortcut(.upArrow, modifiers: .command))
 
                 Button(String(localized: "Volume Down")) {
-                    Task {
-                        await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
+                    if self.playbackArbiter.routesMediaKeysToVideo {
+                        self.youtubePlayerService.volume = max(0.0, self.youtubePlayerService.volume - 0.1)
+                    } else {
+                        Task {
+                            await self.playerService.setVolume(max(0.0, self.playerService.volume - 0.1))
+                        }
                     }
                 }
                 .keyboardShortcut(self.playbackShortcut(.downArrow, modifiers: .command))
 
-                Button(self.playerService.isMuted ? "Unmute" : "Mute") {
-                    Task {
-                        await self.playerService.toggleMute()
+                if self.settings.appExperience.includesMusic {
+                    Button(self.playerService.isMuted ? "Unmute" : "Mute") {
+                        Task {
+                            await self.playerService.toggleMute()
+                        }
                     }
                 }
 
-                Divider()
+                if self.settings.appExperience.includesMusic {
+                    Divider()
 
-                Button(self.playerService.shuffleEnabled ? "Shuffle Off" : "Shuffle On") {
-                    self.playerService.toggleShuffle()
-                }
-                .keyboardShortcut("s", modifiers: .command)
-
-                Button(self.repeatModeLabel) {
-                    self.playerService.cycleRepeatMode()
-                }
-                .keyboardShortcut("r", modifiers: .command)
-
-                Divider()
-
-                Button(self.playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
-                    guard self.settings.appSource == .music else { return }
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        self.playerService.showLyrics.toggle()
+                    Button(self.playerService.shuffleEnabled ? "Shuffle Off" : "Shuffle On") {
+                        self.playerService.toggleShuffle()
                     }
+                    .keyboardShortcut("s", modifiers: .command)
+
+                    Button(self.repeatModeLabel) {
+                        self.playerService.cycleRepeatMode()
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
+
+                    Divider()
+
+                    Button(self.playerService.showLyrics ? "Hide Lyrics" : "Show Lyrics") {
+                        guard self.settings.appSource == .music else { return }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            self.playerService.showLyrics.toggle()
+                        }
+                    }
+                    .keyboardShortcut("l", modifiers: .command)
+                    .disabled(self.settings.appSource != .music)
                 }
-                .keyboardShortcut("l", modifiers: .command)
-                .disabled(self.settings.appSource != .music)
             }
 
             CommandGroup(replacing: .sidebar) {
@@ -468,17 +488,19 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut("3", modifiers: .command)
 
-                Divider()
+                if self.settings.appExperience.showsSourceToggle {
+                    Divider()
 
-                Button(self.settings.appSource == .music ? "Switch to YouTube" : "Switch to Music") {
-                    if self.settings.appSource == .video {
-                        self.youtubePlayerService.prepareForSourceSwitch()
+                    Button(self.settings.appSource == .music ? "Switch to YouTube" : "Switch to Music") {
+                        if self.settings.appSource == .video {
+                            self.youtubePlayerService.prepareForSourceSwitch()
+                        }
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            self.settings.appSource = self.settings.appSource == .music ? .video : .music
+                        }
                     }
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        self.settings.appSource = self.settings.appSource == .music ? .video : .music
-                    }
+                    .keyboardShortcut("y", modifiers: [.command, .shift])
                 }
-                .keyboardShortcut("y", modifiers: [.command, .shift])
 
                 Divider()
 
@@ -491,20 +513,24 @@ struct KasetApp: App {
                 }
                 .keyboardShortcut("f", modifiers: .command)
 
-                if PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.settings.useLegacyMacOS15UI) {
+                if self.settings.appExperience.includesMusic,
+                   PlatformCapabilities.supportsCommandBar(usesLegacyMacOS15UI: self.settings.useLegacyMacOS15UI)
+                {
                     Button(String(localized: "Command Bar")) {
                         self.showCommandBar = true
                     }
                     .keyboardShortcut("k", modifiers: .command)
                 }
 
-                Divider()
+                if self.settings.appExperience.includesVideo {
+                    Divider()
 
-                Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
-                    .disabled(!YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
-                        isFloating: self.youtubePlayerService.surfaceLocation == .floating,
-                        isFullscreenOrTransitioning: self.youtubePlayerService.isWindowFullscreen
-                    ))
+                    Toggle(String(localized: "Float on Top"), isOn: self.$settings.keepYouTubeVideoOnTop)
+                        .disabled(!YouTubeVideoWindowLevelPolicy.canToggleFloatOnTop(
+                            isFloating: self.youtubePlayerService.surfaceLocation == .floating,
+                            isFullscreenOrTransitioning: self.youtubePlayerService.isWindowFullscreen
+                        ))
+                }
 
                 Divider()
 
@@ -515,18 +541,20 @@ struct KasetApp: App {
             }
 
             CommandGroup(after: .windowArrangement) {
-                Button(String(localized: "Switch to Mini Player")) {
-                    if self.playerService.isMiniPlayerVisible,
-                       self.playerService.miniPlayerMode == .switchFromMainWindow
-                    {
-                        _ = self.playerService.closeMiniPlayer()
-                    } else {
-                        self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+                if self.settings.appExperience.includesMusic {
+                    Button(String(localized: "Switch to Mini Player")) {
+                        if self.playerService.isMiniPlayerVisible,
+                           self.playerService.miniPlayerMode == .switchFromMainWindow
+                        {
+                            _ = self.playerService.closeMiniPlayer()
+                        } else {
+                            self.playerService.openMiniPlayer(mode: .switchFromMainWindow)
+                        }
                     }
-                }
-                .keyboardShortcut("m", modifiers: [.command, .shift])
+                    .keyboardShortcut("m", modifiers: [.command, .shift])
 
-                Divider()
+                    Divider()
+                }
 
                 Button(String(localized: "Kaset")) {
                     self.showMainWindow()
@@ -540,6 +568,21 @@ struct KasetApp: App {
                     self.showWhatsNew = true
                 }
             }
+        }
+    }
+
+    private func handleAppExperienceChange(_ experience: AppExperience) {
+        if !experience.includesVideo {
+            self.youtubePlayerService.stop()
+            YouTubeVideoWindowController.shared.close()
+        }
+        if !experience.includesMusic {
+            self.playerService.tearDownForExperienceChange()
+            self.playerService.showFullScreenPlayer = false
+            MiniPlayerWindowController.shared.close()
+            VideoWindowController.shared.close()
+            self.showCommandBar = false
+            AppIntentsBridge.shared.updateLibrary(.empty)
         }
     }
 
@@ -735,6 +778,11 @@ struct KasetApp: App {
     }
 
     private func handleParsedContent(_ content: URLHandler.ParsedContent) {
+        guard self.settings.appExperience.allows(content) else {
+            DiagnosticsLogger.app.info("Ignoring incoming URL disabled by app experience mode")
+            return
+        }
+
         self.showMainWindow()
 
         switch content {
@@ -773,32 +821,38 @@ struct SettingsView: View {
                     Label(String(localized: "General"), systemImage: "gearshape")
                 }
 
-            MusicSettingsView()
-                .tabItem {
-                    Label(String(localized: "Music"), systemImage: "music.note")
-                }
-
-            YouTubeSettingsView()
-                .tabItem {
-                    Label(String(localized: "YouTube"), systemImage: "play.rectangle.fill")
-                }
-
-            EqualizerSettingsView()
-                .tabItem {
-                    Label(String(localized: "Equalizer"), systemImage: "slider.vertical.3")
-                }
-
-            ScrobblingSettingsView()
-                .environment(self.scrobblingCoordinator)
-                .tabItem {
-                    Label(String(localized: "Scrobbling"), systemImage: "music.note.list")
-                }
-
-            if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
-                IntelligenceSettingsView()
+            if self.settings.appExperience.includesMusic {
+                MusicSettingsView()
                     .tabItem {
-                        Label(String(localized: "Intelligence"), systemImage: "sparkles")
+                        Label(String(localized: "Music"), systemImage: "music.note")
                     }
+            }
+
+            if self.settings.appExperience.includesVideo {
+                YouTubeSettingsView()
+                    .tabItem {
+                        Label(String(localized: "YouTube"), systemImage: "play.rectangle.fill")
+                    }
+            }
+
+            if self.settings.appExperience.includesMusic {
+                EqualizerSettingsView()
+                    .tabItem {
+                        Label(String(localized: "Equalizer"), systemImage: "slider.vertical.3")
+                    }
+
+                ScrobblingSettingsView()
+                    .environment(self.scrobblingCoordinator)
+                    .tabItem {
+                        Label(String(localized: "Scrobbling"), systemImage: "music.note.list")
+                    }
+
+                if !self.settings.useLegacyMacOS15UI, #available(macOS 26.0, *) {
+                    IntelligenceSettingsView()
+                        .tabItem {
+                            Label(String(localized: "Intelligence"), systemImage: "sparkles")
+                        }
+                }
             }
 
             ExtensionsSettingsView()

@@ -27,6 +27,11 @@ extension PlayerService {
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
+    func tearDownForExperienceChange() {
+        self.logger.info("Tearing down music playback for experience mode change")
+        self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
+    }
+
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
         self.accountSessionGeneration &+= 1
         self.songLikeStatusManager.invalidateSession()

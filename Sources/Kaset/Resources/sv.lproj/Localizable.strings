@@ -683,3 +683,9 @@
 "Talk to a companion app" = "Kommunicera med en tillhörande app";
 "Request a connection to its companion app." = "Begära en anslutning till sin tillhörande app.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Det kan läsa och dela information som visas medan du är inloggad. Aktivera det bara om du litar på det.";
+
+"App Mode" = "Appläge";
+"Choose whether to show YouTube Music, YouTube, or both" = "Välj om YouTube Music, YouTube eller båda ska visas";
+"Music & YouTube" = "Musik och YouTube";
+"Music Only" = "Endast musik";
+"YouTube Only" = "Endast YouTube";

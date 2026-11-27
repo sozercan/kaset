@@ -683,3 +683,9 @@
 "Talk to a companion app" = "Comunicarse con una app complementaria";
 "Request a connection to its companion app." = "Solicitar una conexión con su app complementaria.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Podría leer y compartir la información que se muestra mientras tienes la sesión iniciada. Actívala solo si confías en ella.";
+
+"App Mode" = "Modo de la app";
+"Choose whether to show YouTube Music, YouTube, or both" = "Elige si mostrar YouTube Music, YouTube o ambos";
+"Music & YouTube" = "Música y YouTube";
+"Music Only" = "Solo música";
+"YouTube Only" = "Solo YouTube";

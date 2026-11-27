@@ -683,3 +683,9 @@
 "Talk to a companion app" = "Зв’язуватися із супутньою програмою";
 "Request a connection to its companion app." = "Запитувати з’єднання зі своєю супутньою програмою.";
 "It could read and share information shown while you’re signed in. Only turn it on if you trust it." = "Воно зможе читати й передавати інформацію, яка відображається, поки ви ввійшли в обліковий запис. Вмикайте його, лише якщо довіряєте йому.";
+
+"App Mode" = "Режим додатка";
+"Choose whether to show YouTube Music, YouTube, or both" = "Виберіть, чи показувати YouTube Music, YouTube або обидва";
+"Music & YouTube" = "Музика та YouTube";
+"Music Only" = "Лише музика";
+"YouTube Only" = "Лише YouTube";
