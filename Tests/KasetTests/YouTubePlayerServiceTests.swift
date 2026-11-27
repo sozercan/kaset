@@ -1571,7 +1571,8 @@ extension YouTubePlayerServiceTests {
 
         self.sut.play(video: MockYouTubeClient.makeVideo(videoId: "xyz"))
         #expect(self.sut.playbackRate == 2)
-        #expect(YouTubePlayerService.playbackRateDisplayName(2) == "2×")
+        #expect(YouTubePlayerService.playbackRateDisplayName(2, locale: Locale(identifier: "en_US_POSIX")) == "2×")
+        #expect(YouTubePlayerService.playbackRateDisplayName(1.25, locale: Locale(identifier: "en_US_POSIX")) == "1.25×")
     }
 
     @Test("Playback options do not duplicate Auto and remain unavailable when empty")

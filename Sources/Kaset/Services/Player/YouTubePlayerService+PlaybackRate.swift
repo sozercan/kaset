@@ -8,8 +8,8 @@ extension YouTubePlayerService {
         HapticService.toggle()
     }
 
-    static func playbackRateDisplayName(_ rate: Double) -> String {
-        let formatted = rate.formatted(.number.precision(.fractionLength(0 ... 2)))
+    static func playbackRateDisplayName(_ rate: Double, locale: Locale = .autoupdatingCurrent) -> String {
+        let formatted = rate.formatted(.number.precision(.fractionLength(0 ... 2)).locale(locale))
         return "\(formatted)×"
     }
 }
