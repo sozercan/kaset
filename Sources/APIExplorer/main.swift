@@ -319,15 +319,13 @@ func loadCookiesFromAppBackup(from cookieFile: URL? = selectedCookieBackupFile()
     return decodeCookies(at: cookieFile)
 }
 
-func filterCookiesForAPIHost(_ cookies: [HTTPCookie]) -> [HTTPCookie] {
-    let host = activeAPIHost
+func filterCookiesForAPIHost(_ cookies: [HTTPCookie], host: String = activeAPIHost) -> [HTTPCookie] {
+    let normalizedHost = host.lowercased()
     return cookies.filter { cookie in
-        let domain = cookie.domain.lowercased()
-        if domain.hasPrefix(".") {
-            let withoutDot = String(domain.dropFirst())
-            return host.hasSuffix(withoutDot) || withoutDot == host
-        }
-        return domain == host || host.hasSuffix("." + domain)
+        let rawDomain = cookie.domain.lowercased()
+        let normalizedDomain = rawDomain.hasPrefix(".") ? String(rawDomain.dropFirst()) : rawDomain
+        guard !normalizedDomain.isEmpty else { return false }
+        return normalizedHost == normalizedDomain || normalizedHost.hasSuffix("." + normalizedDomain)
     }
 }
 
@@ -1023,7 +1021,7 @@ func rendererHistogram(_ data: [String: Any], limit: Int = 25) -> String {
 
     var output = "\n📊 Renderer histogram (top \(min(limit, sorted.count)) of \(sorted.count)):\n"
     for (key, count) in sorted.prefix(limit) {
-        output += "  \(String(format: "%4d", count))× \(key)\n"
+        output += "  \(String(format: "%4d", count))× \(DiscoveryAudit.schemaKey(key))\n"
     }
     return output
 }
@@ -1349,8 +1347,19 @@ private func firstFeedbackToken(in value: Any) -> String? {
     return nil
 }
 
-private func isLibraryFeedbackIcon(_ iconType: String) -> Bool {
-    iconType.contains("LIBRARY") || iconType.contains("BOOKMARK")
+private func normalizedLibraryFeedbackIcon(_ iconType: String) -> String? {
+    switch iconType {
+    case "LIBRARY_ADD", "LIBRARY_SAVED", "LIBRARY_REMOVE", "BOOKMARK_BORDER", "BOOKMARK":
+        return iconType
+    default:
+        if iconType.contains("LIBRARY") {
+            return "LIBRARY_OTHER"
+        }
+        if iconType.contains("BOOKMARK") {
+            return "BOOKMARK_OTHER"
+        }
+        return nil
+    }
 }
 
 private func collectLibraryFeedbackProbeItems(
@@ -1362,11 +1371,11 @@ private func collectLibraryFeedbackProbeItems(
             let token = firstFeedbackToken(in: renderer["serviceEndpoint"] as Any)
             if token != nil {
                 let icon = renderer["icon"] as? [String: Any]
-                let iconType = icon?["iconType"] as? String ?? "unknown"
-                if isLibraryFeedbackIcon(iconType) {
+                let rawIconType = icon?["iconType"] as? String ?? ""
+                if let normalizedIcon = normalizedLibraryFeedbackIcon(rawIconType) {
                     items.append(LibraryFeedbackProbeItem(
                         kind: .single,
-                        iconType: iconType,
+                        iconType: normalizedIcon,
                         hasPrimaryToken: true,
                         hasToggledToken: false,
                         tokensAreDistinct: nil
@@ -1385,8 +1394,8 @@ private func collectLibraryFeedbackProbeItems(
                 return
             }
             let icon = renderer["defaultIcon"] as? [String: Any]
-            let iconType = icon?["iconType"] as? String ?? "unknown"
-            if isLibraryFeedbackIcon(iconType) {
+            let rawIconType = icon?["iconType"] as? String ?? ""
+            if let normalizedIcon = normalizedLibraryFeedbackIcon(rawIconType) {
                 let tokensAreDistinct: Bool? = if let defaultToken, let toggledToken {
                     defaultToken != toggledToken
                 } else {
@@ -1394,7 +1403,7 @@ private func collectLibraryFeedbackProbeItems(
                 }
                 items.append(LibraryFeedbackProbeItem(
                     kind: .toggle,
-                    iconType: iconType,
+                    iconType: normalizedIcon,
                     hasPrimaryToken: defaultToken != nil,
                     hasToggledToken: toggledToken != nil,
                     tokensAreDistinct: tokensAreDistinct
@@ -2834,6 +2843,162 @@ func checkAuthStatus() {
     }
 }
 
+enum AccountSlotProbeResult: Equatable {
+    case found(name: String, handle: String?)
+    case unavailable
+    case unknownResponse(String)
+    case transientFailure(String)
+}
+
+struct DiscoveredAccountSlot: Equatable {
+    let index: Int
+    let name: String
+    let handle: String?
+}
+
+struct AccountSlotDiagnostic: Equatable {
+    let index: Int
+    let reason: String
+}
+
+struct AccountDiscoveryOutcome: Equatable {
+    let accounts: [DiscoveredAccountSlot]
+    let transientFailures: [AccountSlotDiagnostic]
+    let unknownResponses: [AccountSlotDiagnostic]
+}
+
+enum SessionIdentityClassification: Equatable {
+    case primary
+    case requestedBrand
+    case otherBrand(length: Int)
+    case absent
+    case malformed
+}
+
+func classifyDataSyncId(
+    _ dataSyncId: String?,
+    expectedBrandId: String?
+) -> SessionIdentityClassification {
+    guard let dataSyncId, !dataSyncId.isEmpty else {
+        return .absent
+    }
+    let parts = dataSyncId.components(separatedBy: "||")
+    guard parts.count == 2, !parts[0].isEmpty else {
+        return .malformed
+    }
+    let firstHalf = parts[0]
+    let hasUserSessionSuffix = !parts[1].isEmpty
+    guard hasUserSessionSuffix else {
+        return .primary
+    }
+    if let expectedBrandId, firstHalf == expectedBrandId {
+        return .requestedBrand
+    }
+    return .otherBrand(length: firstHalf.count)
+}
+
+func classifyAccountMenuHTTPStatus(_ statusCode: Int) -> AccountSlotProbeResult? {
+    if statusCode == 200 {
+        return nil
+    }
+    if statusCode == 401 || statusCode == 403 || statusCode == 404 {
+        return .unavailable
+    }
+    if statusCode == 408 || statusCode == 429 || (500 ... 599).contains(statusCode) {
+        return .transientFailure("HTTP \(statusCode)")
+    }
+    return .unknownResponse("Unexpected HTTP \(statusCode)")
+}
+
+func parseAccountMenuProbeResponse(_ data: Data) -> AccountSlotProbeResult {
+    guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        return .unknownResponse("Invalid or non-object JSON response")
+    }
+
+    if let error = json["error"] as? [String: Any] {
+        if let code = error["code"] as? Int {
+            if code == 401 || code == 403 || code == 404 {
+                return .unavailable
+            }
+            if code == 408 || code == 429 || (500 ... 599).contains(code) {
+                return .transientFailure("API error \(code)")
+            }
+            return .unknownResponse("API error \(code)")
+        }
+        return .unknownResponse("API error without status code")
+    }
+
+    guard let actions = json["actions"] as? [[String: Any]],
+          let firstAction = actions.first,
+          let openPopupAction = firstAction["openPopupAction"] as? [String: Any],
+          let popup = openPopupAction["popup"] as? [String: Any],
+          let multiPageMenuRenderer = popup["multiPageMenuRenderer"] as? [String: Any],
+          let header = multiPageMenuRenderer["header"] as? [String: Any],
+          let activeAccountHeaderRenderer = header["activeAccountHeaderRenderer"]
+          as? [String: Any]
+    else {
+        return .unknownResponse("Unrecognized account_menu response shape")
+    }
+
+    var accountName: String?
+    if let accountNameObj = activeAccountHeaderRenderer["accountName"] as? [String: Any],
+       let runs = accountNameObj["runs"] as? [[String: Any]],
+       let firstRun = runs.first,
+       let text = firstRun["text"] as? String
+    {
+        accountName = text
+    }
+
+    guard let name = accountName, !name.isEmpty else {
+        return .unknownResponse("Missing or empty accountName in account_menu header")
+    }
+
+    var channelHandle: String?
+    if let channelHandleObj = activeAccountHeaderRenderer["channelHandle"] as? [String: Any],
+       let runs = channelHandleObj["runs"] as? [[String: Any]],
+       let firstRun = runs.first,
+       let text = firstRun["text"] as? String
+    {
+        channelHandle = text
+    }
+
+    return .found(name: name, handle: channelHandle)
+}
+
+func discoverAccountSlots(
+    maxAttempts: Int = 10,
+    probe: (Int) async -> AccountSlotProbeResult
+) async -> AccountDiscoveryOutcome {
+    var accounts: [DiscoveredAccountSlot] = []
+    var transientFailures: [AccountSlotDiagnostic] = []
+    var unknownResponses: [AccountSlotDiagnostic] = []
+
+    for index in 0 ..< maxAttempts {
+        switch await probe(index) {
+        case let .found(name, handle):
+            accounts.append(DiscoveredAccountSlot(index: index, name: name, handle: handle))
+        case .unavailable:
+            if !accounts.isEmpty {
+                return AccountDiscoveryOutcome(
+                    accounts: accounts,
+                    transientFailures: transientFailures,
+                    unknownResponses: unknownResponses
+                )
+            }
+        case let .unknownResponse(reason):
+            unknownResponses.append(AccountSlotDiagnostic(index: index, reason: reason))
+        case let .transientFailure(reason):
+            transientFailures.append(AccountSlotDiagnostic(index: index, reason: reason))
+        }
+    }
+
+    return AccountDiscoveryOutcome(
+        accounts: accounts,
+        transientFailures: transientFailures,
+        unknownResponses: unknownResponses
+    )
+}
+
 func discoverAccounts(verbose: Bool) async {
     print("🔍 Discovering Accounts")
     print("=======================\n")
@@ -2843,35 +3008,32 @@ func discoverAccounts(verbose: Bool) async {
         return
     }
 
-    var accounts: [(index: Int, name: String, handle: String?)] = []
-    let maxAttempts = 10
-
-    for index in 0 ..< maxAttempts {
+    let outcome = await discoverAccountSlots { index in
         if verbose {
             print("  Probing authuser=\(index)...")
         }
-
-        if let accountInfo = await fetchAccountInfo(authUserIndex: index, verbose: verbose) {
-            accounts.append((index: index, name: accountInfo.name, handle: accountInfo.handle))
-            if verbose {
-                print("    ✅ Found: \(accountInfo.name)")
-            }
-        } else {
-            if verbose {
+        let result = await fetchAccountInfo(authUserIndex: index, verbose: verbose)
+        if verbose {
+            switch result {
+            case let .found(name, _):
+                print("    ✅ Found: \(name)")
+            case .unavailable:
                 print("    ❌ No account at index \(index)")
-            }
-            if !accounts.isEmpty {
-                break
+            case let .unknownResponse(reason):
+                print("    ❓ Unrecognized response at index \(index): \(reason)")
+            case let .transientFailure(reason):
+                print("    ⚠️ Transient failure at index \(index): \(reason)")
             }
         }
+        return result
     }
 
     print()
-    if accounts.isEmpty {
+    if outcome.accounts.isEmpty {
         print("❌ No accounts found. Make sure you're signed in.")
     } else {
-        print("📋 Found \(accounts.count) account(s):\n")
-        for account in accounts {
+        print("📋 Found \(outcome.accounts.count) account(s):\n")
+        for account in outcome.accounts {
             let handleStr = account.handle.map { " (\($0))" } ?? ""
             let typeStr = account.index == 0 ? " [Primary]" : " [Brand Account]"
             print("  \(account.index): \(account.name)\(handleStr)\(typeStr)")
@@ -2880,24 +3042,36 @@ func discoverAccounts(verbose: Bool) async {
         print("💡 Use --authuser N to make requests as a specific account")
         print("   Example: swift run api-explorer browse FEmusic_liked_playlists --authuser 1")
     }
+    if !outcome.unknownResponses.isEmpty {
+        print()
+        print("❓ Unrecognized responses encountered on \(outcome.unknownResponses.count) slot(s):")
+        for unknown in outcome.unknownResponses {
+            print("  authuser=\(unknown.index): \(unknown.reason)")
+        }
+    }
+    if !outcome.transientFailures.isEmpty {
+        print()
+        print("⚠️ Transient failures encountered on \(outcome.transientFailures.count) slot(s):")
+        for failure in outcome.transientFailures {
+            print("  authuser=\(failure.index): \(failure.reason)")
+        }
+    }
 }
 
-private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
-    name: String, handle: String?
-)? {
+private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> AccountSlotProbeResult {
     let apiKey: String
     do {
         apiKey = try await resolveAPIKey(authenticated: true)
     } catch let error as ResponseSizeLimitError {
         print("⚠️ Account discovery skipped: \(error.localizedDescription)")
-        return nil
+        return .transientFailure(error.localizedDescription)
     } catch {
-        return nil
+        return .transientFailure(error.localizedDescription)
     }
     var components = URLComponents(string: "\(activeBaseURL)/account/account_menu")
     components?.queryItems = [URLQueryItem(name: "key", value: apiKey)]
     guard let url = components?.url else {
-        return nil
+        return .transientFailure("Invalid account_menu URL")
     }
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
@@ -2922,69 +3096,23 @@ private func fetchAccountInfo(authUserIndex: Int, verbose: Bool) async -> (
         let (data, response) = try await URLSession.shared.data(for: request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
-            return nil
+            return .transientFailure("Non-HTTP response")
         }
 
-        if httpResponse.statusCode == 401 || httpResponse.statusCode == 403 {
-            return nil
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            if verbose {
+        if let statusResult = classifyAccountMenuHTTPStatus(httpResponse.statusCode) {
+            if verbose, httpResponse.statusCode != 401, httpResponse.statusCode != 403, httpResponse.statusCode != 404 {
                 print("    HTTP \(httpResponse.statusCode)")
             }
-            return nil
+            return statusResult
         }
 
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return nil
-        }
-
-        if json["error"] != nil {
-            return nil
-        }
-
-        guard let actions = json["actions"] as? [[String: Any]],
-              let firstAction = actions.first,
-              let openPopupAction = firstAction["openPopupAction"] as? [String: Any],
-              let popup = openPopupAction["popup"] as? [String: Any],
-              let multiPageMenuRenderer = popup["multiPageMenuRenderer"] as? [String: Any],
-              let header = multiPageMenuRenderer["header"] as? [String: Any],
-              let activeAccountHeaderRenderer = header["activeAccountHeaderRenderer"]
-              as? [String: Any]
-        else {
-            return nil
-        }
-
-        var accountName: String?
-        if let accountNameObj = activeAccountHeaderRenderer["accountName"] as? [String: Any],
-           let runs = accountNameObj["runs"] as? [[String: Any]],
-           let firstRun = runs.first,
-           let text = firstRun["text"] as? String
-        {
-            accountName = text
-        }
-
-        guard let name = accountName, !name.isEmpty else {
-            return nil
-        }
-
-        var channelHandle: String?
-        if let channelHandleObj = activeAccountHeaderRenderer["channelHandle"] as? [String: Any],
-           let runs = channelHandleObj["runs"] as? [[String: Any]],
-           let firstRun = runs.first,
-           let text = firstRun["text"] as? String
-        {
-            channelHandle = text
-        }
-
-        return (name: name, handle: channelHandle)
+        return parseAccountMenuProbeResponse(data)
 
     } catch {
         if verbose {
             print("    Error: \(error.localizedDescription)")
         }
-        return nil
+        return .transientFailure(error.localizedDescription)
     }
 }
 
@@ -3048,19 +3176,24 @@ func probeSigninSwitch(brandId: String, authUserIndex: Int, nextURLString: Strin
         print("✅ HTTP \(status), landed on \(landedHostPath), \(data.count) bytes\n")
 
         let dataSyncId = extractConfigValue(named: "DATASYNC_ID", from: html)
-        guard let ds = dataSyncId else {
+        switch classifyDataSyncId(dataSyncId, expectedBrandId: brandId) {
+        case .absent:
             print("DATASYNC_ID: (absent) — likely a consent/login interstitial, not a watch/home page.")
             print("→ INCONCLUSIVE. The live WebView (Stage 2) is the authority; URLSession can hit challenge pages a browser would not.")
-            return
-        }
-        let firstHalf = ds.components(separatedBy: "||").first ?? ""
-        let flipped = firstHalf == brandId
-        print("DATASYNC_ID first half: \(firstHalf.isEmpty ? "(empty → primary)" : "<\(firstHalf.count) chars>")")
-        if flipped {
+        case .malformed:
+            print("DATASYNC_ID: (malformed) — missing expected two-half format.")
+            print("→ INCONCLUSIVE. The live WebView (Stage 2) is the authority.")
+        case .requestedBrand:
+            print("DATASYNC_ID identity: requested brand")
             print("→ ✅ FLIPPED to brand: the signin navigation re-points session identity at the cookie level.")
             print("   (History WRITE still requires the live WebView's videostats pings — verify in Stage 2.)")
-        } else {
+        case .primary:
+            print("DATASYNC_ID identity: primary")
             print("→ ❌ NOT flipped (still primary). Either URLSession hit an interstitial, or the switch needs the JS/browser context.")
+            print("   This is INFORMATIVE, not disqualifying — Stage 2 (live WebView) is authoritative.")
+        case let .otherBrand(length):
+            print("DATASYNC_ID identity: other brand (<\(length) chars>)")
+            print("→ ❌ NOT flipped to requested brand (resolved to a different delegated brand session).")
             print("   This is INFORMATIVE, not disqualifying — Stage 2 (live WebView) is authoritative.")
         }
     } catch {
@@ -3152,16 +3285,20 @@ func probeSigninSwitchReal(nextURLString: String) async {
             return
         }
         print("✅ HTTP \(httpStatus), landed on \(landed), \(data.count) bytes\n")
-        guard let ds = extractConfigValue(named: "DATASYNC_ID", from: html) else {
+        let dataSyncId = extractConfigValue(named: "DATASYNC_ID", from: html)
+        switch classifyDataSyncId(dataSyncId, expectedBrandId: brand) {
+        case .absent:
             print("DATASYNC_ID: (absent) — interstitial/challenge page. INCONCLUSIVE; Stage 2 (live WebView) is authoritative.")
-            return
-        }
-        let firstHalf = ds.components(separatedBy: "||").first ?? ""
-        if firstHalf == brand {
-            print("DATASYNC_ID first half == brand pageId → ✅ FLIPPED at the cookie level.")
+        case .malformed:
+            print("DATASYNC_ID: (malformed) — unexpected format. INCONCLUSIVE; Stage 2 (live WebView) is authoritative.")
+        case .requestedBrand:
+            print("DATASYNC_ID identity == requested brand pageId → ✅ FLIPPED at the cookie level.")
             print("   (History WRITE still requires the live WebView's videostats pings — Stage 2.)")
-        } else {
-            print("DATASYNC_ID first half: \(firstHalf.isEmpty ? "(empty → primary)" : "<\(firstHalf.count) chars>") → ❌ not flipped.")
+        case .primary:
+            print("DATASYNC_ID identity: primary → ❌ not flipped.")
+            print("   INFORMATIVE, not disqualifying — URLSession can't run the JS the switch may rely on; Stage 2 decides.")
+        case let .otherBrand(length):
+            print("DATASYNC_ID identity: other brand (<\(length) chars>) → ❌ not flipped to requested brand.")
             print("   INFORMATIVE, not disqualifying — URLSession can't run the JS the switch may rely on; Stage 2 decides.")
         }
     } catch {
@@ -3275,12 +3412,21 @@ func probeYtcfg(pageURLString: String?, verbose: Bool) async {
         }
 
         print("DATASYNC_ID:           \(redact(dataSyncId))")
-        if let brandId = globalBrandAccountId, let ds = dataSyncId,
-           let pipe = ds.range(of: "||")
-        {
-            let first = String(ds[ds.startIndex ..< pipe.lowerBound])
-            let matches = first == brandId
-            print("  → first half == requested brand pageId? \(matches ? "✅ YES (brand session)" : "❌ NO (still primary)")")
+        switch classifyDataSyncId(dataSyncId, expectedBrandId: globalBrandAccountId) {
+        case .requestedBrand:
+            print("  → session identity: ✅ requested brand")
+        case .primary:
+            print("  → session identity: primary")
+        case let .otherBrand(length):
+            if globalBrandAccountId != nil {
+                print("  → session identity: ❌ different brand (<\(length) chars>)")
+            } else {
+                print("  → session identity: brand (<\(length) chars>)")
+            }
+        case .absent:
+            print("  → session identity: unknown (DATASYNC_ID absent)")
+        case .malformed:
+            print("  → session identity: unknown (DATASYNC_ID malformed)")
         }
         print("DELEGATED_SESSION_ID:  \(redact(delegated))")
         print("SESSION_INDEX:         \(sessionIndex ?? "(absent)")")
@@ -3792,6 +3938,46 @@ func showHelp() {
     )
 }
 
+func summarizeSavedResponse(_ data: [String: Any]) -> String {
+    var output = ""
+
+    let keys = data.keys.map(DiscoveryAudit.schemaKey).sorted()
+    output += "📋 Top-level keys (\(keys.count)): \(keys.joined(separator: ", "))\n"
+
+    if let error = data["error"] as? [String: Any] {
+        let errorKeys = error.keys.map(DiscoveryAudit.schemaKey).sorted().joined(separator: ", ")
+        output += "❌ Error object keys: {\(errorKeys)} (values redacted)\n"
+        return output
+    }
+
+    if let contents = data["contents"] as? [String: Any] {
+        output += "\n📦 Contents structure:\n"
+        for (key, value) in contents.sorted(by: { $0.key < $1.key }) {
+            let safeKey = DiscoveryAudit.schemaKey(key)
+            if let dict = value as? [String: Any] {
+                let nestedKeys = dict.keys.map(DiscoveryAudit.schemaKey).sorted().joined(separator: ", ")
+                output += "  • \(safeKey): {\(nestedKeys)}\n"
+            } else if let array = value as? [Any] {
+                output += "  • \(safeKey): [\(array.count) items]\n"
+            } else {
+                output += "  • \(safeKey): \(type(of: value))\n"
+            }
+        }
+    }
+
+    if let header = data["header"] as? [String: Any] {
+        let headerKeys = header.keys.map(DiscoveryAudit.schemaKey).sorted().joined(separator: ", ")
+        output += "\n🏷️ Header keys: \(headerKeys)\n"
+    }
+
+    output += playlistSetVideoIdSourceSummary(data)
+    output += albumLibraryTargetSummary(data)
+    output += libraryFeedbackProbeSummary(data)
+    output += rendererHistogram(data)
+
+    return output
+}
+
 func analyzeSavedResponse(at path: String) {
     let url = URL(fileURLWithPath: path)
     do {
@@ -3803,7 +3989,7 @@ func analyzeSavedResponse(at path: String) {
         print("📄 Analyzing saved response: \(url.lastPathComponent)")
         print("   Raw JSON and token values remain hidden")
         print()
-        print(analyzeResponse(response))
+        print(summarizeSavedResponse(response))
     } catch {
         print("❌ Failed to analyze saved response: \(error.localizedDescription)")
     }
