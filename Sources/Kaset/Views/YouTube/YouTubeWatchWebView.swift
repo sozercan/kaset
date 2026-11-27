@@ -803,6 +803,13 @@ extension YouTubeWatchWebView {
         )
         contentController.addUserScript(blackout)
 
+        let fullscreenRedirect = WKUserScript(
+            source: Self.fullscreenRedirectScript,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+        contentController.addUserScript(fullscreenRedirect)
+
         let observer = WKUserScript(
             source: Self.observerScript,
             injectionTime: .atDocumentEnd,

@@ -669,15 +669,7 @@ struct YouTubePlayerBar: View {
 
     private func openYouTubeFullView() {
         HapticService.toggle()
-        if self.youtubePlayer.surfaceLocation == .inline {
-            self.youtubePlayer.popOutToWindow()
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(250))
-                YouTubeVideoWindowController.shared.toggleFullscreen(returnInlineOnExit: true)
-            }
-        } else {
-            YouTubeVideoWindowController.shared.toggleFullscreen()
-        }
+        YouTubeVideoWindowController.shared.toggleFullView(for: self.youtubePlayer)
     }
 
     private func toggleYouTubePictureInPicture() {

@@ -60,6 +60,14 @@ enum YouTubeVideoWindowFullscreenPhase: Equatable {
     var blocksWindowedControls: Bool {
         self != .windowed
     }
+
+    var isTransitioning: Bool {
+        self == .entering || self == .exiting
+    }
+
+    static func settled(isFullScreen: Bool) -> Self {
+        isFullScreen ? .fullscreen : .windowed
+    }
 }
 
 @MainActor
@@ -70,6 +78,7 @@ final class YouTubeVideoWindowController {
     private var hostingView: NSHostingView<AnyView>?
     private weak var youtubePlayerService: YouTubePlayerService?
     private var isClosing = false
+    private var isPoppingOutToFullView = false
     private let frameAutosaveKey = "KasetYouTubeVideoWindow"
 
     private static let minContentSize = NSSize(width: 512, height: 288)
@@ -118,6 +127,9 @@ final class YouTubeVideoWindowController {
             minContentSize: Self.minContentSize,
             onDidFailToEnterFullScreen: { [weak self] window in
                 self?.handleFailedFullscreenEntry(window)
+            },
+            onDidFailToExitFullScreen: { [weak self] window in
+                self?.handleFailedFullscreenExit(window)
             }
         )
         self.resizeGuard = resizeGuard
@@ -227,6 +239,12 @@ final class YouTubeVideoWindowController {
         self.youtubePlayerService?.windowFullscreenPhase = .windowed
     }
 
+    private func handleFailedFullscreenExit(_ window: NSWindow) {
+        self.youtubePlayerService?.windowFullscreenPhase = .settled(
+            isFullScreen: window.styleMask.contains(.fullScreen)
+        )
+    }
+
     private func applyFrameAutosaveTransition(
         _ transition: YouTubeVideoWindowFrameAutosaveState.Transition,
         to window: NSWindow
@@ -250,6 +268,23 @@ final class YouTubeVideoWindowController {
             }
         }
         window.toggleFullScreen(nil)
+    }
+
+    func toggleFullView(for player: YouTubePlayerService) {
+        guard !self.isPoppingOutToFullView,
+              !player.windowFullscreenPhase.isTransitioning
+        else { return }
+        if player.surfaceLocation == .inline {
+            player.popOutToWindow()
+            self.isPoppingOutToFullView = true
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                self.isPoppingOutToFullView = false
+                self.toggleFullscreen(returnInlineOnExit: true)
+            }
+        } else {
+            self.toggleFullscreen()
+        }
     }
 
     func setWindowChromeVisible(_ visible: Bool) {
@@ -385,22 +420,30 @@ struct YouTubeVideoWindowFrameAutosaveState: Equatable {
 final class YouTubeVideoWindowResizeGuard: NSObject, NSWindowDelegate {
     private let minContentSize: NSSize
     private var onDidFailToEnterFullScreen: ((NSWindow) -> Void)?
+    private var onDidFailToExitFullScreen: ((NSWindow) -> Void)?
 
     init(
         minContentSize: NSSize,
-        onDidFailToEnterFullScreen: ((NSWindow) -> Void)? = nil
+        onDidFailToEnterFullScreen: ((NSWindow) -> Void)? = nil,
+        onDidFailToExitFullScreen: ((NSWindow) -> Void)? = nil
     ) {
         self.minContentSize = minContentSize
         self.onDidFailToEnterFullScreen = onDidFailToEnterFullScreen
+        self.onDidFailToExitFullScreen = onDidFailToExitFullScreen
         super.init()
     }
 
     func invalidate() {
         self.onDidFailToEnterFullScreen = nil
+        self.onDidFailToExitFullScreen = nil
     }
 
     func windowDidFailToEnterFullScreen(_ window: NSWindow) {
         self.onDidFailToEnterFullScreen?(window)
+    }
+
+    func windowDidFailToExitFullScreen(_ window: NSWindow) {
+        self.onDidFailToExitFullScreen?(window)
     }
 
     static func normalizedContentSize(
