@@ -79,15 +79,18 @@ Supporting decisions:
 - **Resume only when the lost device comes back.** Each route event records the default device
   after the change, and a disappearance also records the device that was lost. When a pause
   claims a disappearance, the claim remembers that lost device, keyed by the pause's admission
-  instant. A later event counts as a restoration only if it is not itself a disappearance and its
-  new default is the lost device. A manual switch to another output, or a second notification
-  for the fallback output the system chose, therefore never resumes playback. Devices are
+  instant. A later event counts as a restoration only if its new default is the lost device,
+  including when that happens because the fallback output itself disappeared. A manual switch to
+  another output, or a second notification for the fallback output the system chose, therefore
+  never resumes playback. The same test decides whether output came back between a
+  disappearance and a pause, so a repeated fallback notification does not turn a route-loss
+  pause into the user's. Devices are
   identified by `kAudioDevicePropertyDeviceUID`, captured while the device is the default and
   falling back to the `AudioDeviceID` when the UID is unavailable, because a reconnected
   Bluetooth device can come back under a new object ID and a vanished device may no longer
   answer property queries.
 - **Make the disappearance one-shot.** A disappearance explains at most one pause. Only the
-  newest disappearance before a command can explain it, and output that came back between the
+  newest disappearance before a command can explain it, and the lost device coming back between the
   disappearance and the command makes the pause the user's. Otherwise a user pressing Pause right
   after the system already paused for the same disconnect would also read as system-driven and a
   later reconnect would resume against it.

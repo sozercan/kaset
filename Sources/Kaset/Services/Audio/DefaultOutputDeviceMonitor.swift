@@ -7,6 +7,11 @@ struct RouteChangeEvent: Equatable {
     var lostDevice: String?
     var defaultDevice: String?
     var isConsumed = false
+
+    func restores(_ device: String?) -> Bool {
+        guard let device else { return false }
+        return self.defaultDevice == device
+    }
 }
 
 final class RouteChangeRecord: @unchecked Sendable {
@@ -106,7 +111,7 @@ final class DefaultOutputDeviceMonitor {
 
         let disappearance = events[index]
         let restoredBeforeCommand = events.contains { event in
-            !event.isDisappearance && event.at > disappearance.at && event.at <= instant
+            event.at > disappearance.at && event.at <= instant && event.restores(disappearance.lostDevice)
         }
         return restoredBeforeCommand ? nil : index
     }
@@ -120,10 +125,8 @@ final class DefaultOutputDeviceMonitor {
         since instant: ContinuousClock.Instant,
         lostDevice: String?
     ) -> Bool {
-        guard let lostDevice,
-              let latest = events.last(where: { $0.at > instant })
-        else { return false }
-        return !latest.isDisappearance && latest.defaultDevice == lostDevice
+        guard let latest = events.last(where: { $0.at > instant }) else { return false }
+        return latest.restores(lostDevice)
     }
 
     func start(onChange handler: @escaping () -> Void) {

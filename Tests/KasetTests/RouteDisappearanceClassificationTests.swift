@@ -77,6 +77,13 @@ struct RouteDisappearanceClassificationTests {
         #expect(self.routeLossIndex(in: events, admittedAt: 950) == nil)
     }
 
+    @Test("A repeated notification for the fallback output before the pause leaves it route-driven")
+    func fallbackNotificationBeforeTheCommandStillQualifies() {
+        let events = [self.disappearance(at: 0), self.restoration(at: 20, to: Self.speakers)]
+
+        #expect(self.routeLossIndex(in: events, admittedAt: 60) == 0)
+    }
+
     @Test("Route changes that never removed a device do not qualify")
     func changeWithoutDisappearanceDoesNotQualify() {
         let events = [self.restoration(at: 0)]
@@ -127,6 +134,21 @@ struct RouteDisappearanceClassificationTests {
         ]
 
         #expect(self.routeRestored(in: events, since: 60) == false)
+    }
+
+    @Test("The lost device becoming the default as the fallback disappears counts as restored")
+    func lostDeviceReturningThroughFallbackDisappearanceQualifies() {
+        let events = [
+            self.disappearance(at: 0),
+            RouteChangeEvent(
+                at: self.base + .milliseconds(400),
+                isDisappearance: true,
+                lostDevice: Self.speakers,
+                defaultDevice: Self.headphones
+            ),
+        ]
+
+        #expect(self.routeRestored(in: events, since: 60))
     }
 
     @Test("Without a known lost device nothing counts as restored")
