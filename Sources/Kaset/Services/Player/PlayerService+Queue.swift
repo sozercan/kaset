@@ -156,10 +156,11 @@ extension PlayerService {
         guard outcome == .applied else { return }
         self.currentEpisode = nil
         if self.state == .ended {
+            guard self.acceptsMusicPlaybackIntent(intent) else { return }
             await self.next()
             return
         }
-        guard self.playbackNavigationContext == navigationContext else { return }
+        guard self.playbackNavigationContext.requestGeneration == navigationContext.requestGeneration else { return }
         await self.fillSmartShuffleWindow()
     }
 
@@ -424,6 +425,14 @@ extension PlayerService {
         let sourceNavigationContext = self.playbackNavigationContext
         let sourceQueueMutationGeneration = self.queueMutationGeneration
         let sourceUserQueueMutationGeneration = self.userQueueMutationGeneration
+        let entryIDsAfterSeed: Set<UUID> = if replacesUpcoming,
+                                              let seedEntryID,
+                                              let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID })
+        {
+            Set(self.queueEntries[(seedIndex + 1)...].map(\.id))
+        } else {
+            []
+        }
 
         do {
             let radioSongs = try await client.getRadioQueue(videoId: videoId)
@@ -470,8 +479,8 @@ extension PlayerService {
                       let seedIndex = self.queueEntries.firstIndex(where: { $0.id == seedEntryID }),
                       self.queueEntries[seedIndex].song.videoId == videoId,
                       let anchorID = self.queueEntryIDOwningCurrentPlayback,
-                      let anchorIndex = self.queueEntries.firstIndex(where: { $0.id == anchorID }),
-                      anchorIndex >= seedIndex
+                      anchorID == seedEntryID || entryIDsAfterSeed.contains(anchorID),
+                      let anchorIndex = self.queueEntries.firstIndex(where: { $0.id == anchorID })
                 else {
                     self.logger.info("Playback left the radio seed, discarding radio queue")
                     return .superseded
