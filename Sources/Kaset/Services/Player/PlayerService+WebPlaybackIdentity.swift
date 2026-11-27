@@ -398,7 +398,7 @@ extension PlayerService {
             self.logger.warning("Native queue advance fallback has no remaining target: \(reason)")
             self.shouldSuppressAutoplayAfterQueueEnd = true
             self.markPlaybackEnded()
-            await self.pause()
+            await self.pause(isAutomaticStop: true)
             return
         }
 

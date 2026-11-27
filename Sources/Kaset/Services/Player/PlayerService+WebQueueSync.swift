@@ -379,7 +379,7 @@ extension PlayerService {
         self.logger.info("Suppressing unexpected autoplay after native queue ended")
         self.keepQueueSongVisible(currentQueueSong, thumbnailUrl: thumbnailUrl)
         self.scheduleMusicPlaybackIntentTask(expectedQueueEntryID: self.currentQueueEntryID) { service, intent in
-            await service.pause(intent: intent)
+            await service.pause(intent: intent, isAutomaticStop: true)
         }
         return true
     }
@@ -590,7 +590,7 @@ extension PlayerService {
         self.markPlaybackEnded()
         self.logger.info("Unexpected autoplay detected at end of native queue; pausing playback")
         self.scheduleMusicPlaybackIntentTask(expectedQueueEntryID: self.currentQueueEntryID) { service, intent in
-            await service.pause(intent: intent)
+            await service.pause(intent: intent, isAutomaticStop: true)
         }
         return true
     }
@@ -866,7 +866,12 @@ extension PlayerService {
         shouldContinue: @MainActor () -> Bool = { true }
     ) async {
         let intent = suppliedIntent ?? self.currentMusicPlaybackIntent
-        guard shouldContinue(), self.acceptsMusicPlaybackIntent(intent) else { return }
+        guard shouldContinue(),
+              self.acceptedTrackEndContinuationIntent(
+                  originalIntent: intent,
+                  occurrence: playbackOccurrence ?? self.currentMusicPlaybackOccurrence
+              ) != nil
+        else { return }
         if identityResolutionTimedOut {
             guard observedVideoId == nil,
                   playbackOccurrence?.documentGeneration != nil,
@@ -1048,7 +1053,7 @@ extension PlayerService {
             self.shouldSuppressAutoplayAfterQueueEnd = true
             self.markPlaybackEnded()
             self.logger.info("Reached end of native queue; not yielding to YouTube autoplay")
-            await self.pause(intent: continuationIntent)
+            await self.pause(intent: continuationIntent, isAutomaticStop: true)
             return
         }
         self.shouldSuppressAutoplayAfterQueueEnd = false
