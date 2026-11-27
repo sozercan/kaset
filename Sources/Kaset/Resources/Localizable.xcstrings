@@ -73304,6 +73304,118 @@
           }
         }
       }
+    },
+    "YouTube Music is disabled in Kaset's App Mode settings.": {
+      "localizations": {
+        "ar": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "تم تعطيل YouTube Music في إعدادات وضع التطبيق في Kaset."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music ist in den App-Modus-Einstellungen von Kaset deaktiviert."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music is disabled in Kaset's App Mode settings."
+          }
+        },
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music está desactivado en los ajustes de Modo de la app de Kaset."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music est désactivé dans les réglages Mode de l'app de Kaset."
+          }
+        },
+        "id": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music dinonaktifkan di pengaturan Mode Aplikasi Kaset."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music è disattivato nelle impostazioni Modalità app di Kaset."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset のアプリモード設定で YouTube Music が無効になっています。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kaset의 앱 모드 설정에서 YouTube Music이 비활성화되어 있습니다."
+          }
+        },
+        "nl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music is uitgeschakeld in de App-modus-instellingen van Kaset."
+          }
+        },
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music jest wyłączone w ustawieniach trybu aplikacji Kaset."
+          }
+        },
+        "pt": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "O YouTube Music está desativado nos ajustes de Modo do app do Kaset."
+          }
+        },
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music отключён в настройках режима приложения Kaset."
+          }
+        },
+        "sv": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music är inaktiverat i Kasets applägesinställningar."
+          }
+        },
+        "tr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music, Kaset'in Uygulama Modu ayarlarında devre dışı bırakıldı."
+          }
+        },
+        "uk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YouTube Music вимкнено в налаштуваннях режиму додатка Kaset."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在 Kaset 的应用模式设置中停用 YouTube Music。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已在 Kaset 的應用程式模式設定中停用 YouTube Music。"
+          }
+        }
+      }
     }
   },
   "version": "1.1"

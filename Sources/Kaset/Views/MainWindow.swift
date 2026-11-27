@@ -350,6 +350,23 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
                     self.youtubePlayerService.reloadCurrentVideoForAuthDataStoreChange(usesCookieFreeDataStore: true)
                 }
             }
+            .onChange(of: self.settings.appExperience) { oldExperience, newExperience in
+                guard !oldExperience.includesMusic, newExperience.includesMusic else { return }
+                let expectedScope = self.accountService.currentAccountScopeID
+                Task { @MainActor in
+                    guard self.settings.appExperience.includesMusic,
+                          self.authService.hasPersonalAccount,
+                          self.accountService.currentAccountScopeID == expectedScope
+                    else { return }
+                    async let likedMusicLoad: Void? = self.likedMusicViewModel?.ensureLoaded()
+                    if let libraryViewModel = self.libraryViewModel,
+                       libraryViewModel.loadingState == .idle
+                    {
+                        await libraryViewModel.load()
+                    }
+                    _ = await likedMusicLoad
+                }
+            }
             .onChange(of: self.settings.appSource) { _, source in
                 guard source == .video else { return }
                 self.playerService.showLyrics = false

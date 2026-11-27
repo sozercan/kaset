@@ -551,8 +551,10 @@ final class SettingsManager {
         }
 
         let experience = Self.loadAppExperience(from: UserDefaults.standard)
+        let source = Self.loadAppSource(from: UserDefaults.standard, experience: experience)
         self.appExperience = experience
-        self.appSource = Self.loadAppSource(from: UserDefaults.standard, experience: experience)
+        self.appSource = source
+        UserDefaults.standard.set(source.rawValue, forKey: Keys.appSource)
 
         AppLocalization.setLanguage(self.contentLanguage.languageCode)
 

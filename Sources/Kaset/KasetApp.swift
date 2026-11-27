@@ -397,7 +397,7 @@ struct KasetApp: App {
                 Divider()
 
                 Button(String(localized: "Volume Up")) {
-                    if self.playbackArbiter.routesMediaKeysToVideo {
+                    if !self.settings.appExperience.includesMusic || self.playbackArbiter.routesMediaKeysToVideo {
                         self.youtubePlayerService.volume = min(1.0, self.youtubePlayerService.volume + 0.1)
                     } else {
                         Task {
@@ -408,7 +408,7 @@ struct KasetApp: App {
                 .keyboardShortcut(self.playbackShortcut(.upArrow, modifiers: .command))
 
                 Button(String(localized: "Volume Down")) {
-                    if self.playbackArbiter.routesMediaKeysToVideo {
+                    if !self.settings.appExperience.includesMusic || self.playbackArbiter.routesMediaKeysToVideo {
                         self.youtubePlayerService.volume = max(0.0, self.youtubePlayerService.volume - 0.1)
                     } else {
                         Task {
@@ -576,10 +576,18 @@ struct KasetApp: App {
             self.youtubePlayerService.stop()
             YouTubeVideoWindowController.shared.close()
         }
-        if !experience.includesMusic {
+        if experience.includesMusic {
+            self.playerService.resumeAfterExperienceChange()
+        } else {
+            let shouldRestoreMainWindow = self.playerService.isMiniPlayerVisible
+                && self.playerService.closeMiniPlayer()
             self.playerService.tearDownForExperienceChange()
             self.playerService.showFullScreenPlayer = false
             MiniPlayerWindowController.shared.close()
+            if shouldRestoreMainWindow {
+                _ = self.playerService.consumeMiniPlayerMainWindowRestoreRequest()
+                self.showMainWindow()
+            }
             VideoWindowController.shared.close()
             self.showCommandBar = false
             AppIntentsBridge.shared.updateLibrary(.empty)

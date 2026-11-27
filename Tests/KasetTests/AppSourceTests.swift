@@ -142,4 +142,26 @@ struct AppSourceTests {
         manager.appSource = .music
         #expect(manager.appSource == .music)
     }
+
+    @Test("Tearing down for experience change preserves saved queue across repeated empty saves")
+    func experienceTeardownPreservesSavedSessionAcrossRepeatedSaves() {
+        let player = PlayerService()
+        let song = TestFixtures.makeSong(id: "preserve-session-song")
+        player.setQueue([song])
+        player.saveQueueForPersistence()
+        defer {
+            player.clearPlaybackForSignOut()
+        }
+
+        player.tearDownForExperienceChange()
+        #expect(player.preservesSavedSessionWhileDisabled)
+        #expect(player.queue.isEmpty)
+
+        player.saveQueueForPersistence()
+        player.saveQueueForPersistence()
+
+        player.resumeAfterExperienceChange()
+        #expect(!player.preservesSavedSessionWhileDisabled)
+        #expect(player.queue.map(\.videoId) == ["preserve-session-song"])
+    }
 }

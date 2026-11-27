@@ -4,6 +4,7 @@ enum AppIntentsError: Error, Equatable, CustomLocalizedStringResourceConvertible
     case notReady
     case nothingPlaying
     case signInRequired
+    case musicDisabled
     case noResults(query: String)
     case playbackFailed(title: String)
     case ratingFailed(title: String)
@@ -16,6 +17,8 @@ enum AppIntentsError: Error, Equatable, CustomLocalizedStringResourceConvertible
             "Nothing is playing in Kaset."
         case .signInRequired:
             "Sign in to YouTube Music in Kaset first."
+        case .musicDisabled:
+            "YouTube Music is disabled in Kaset's App Mode settings."
         case let .noResults(query):
             "No songs found for “\(query)”."
         case let .playbackFailed(title):
@@ -58,6 +61,7 @@ final class AppIntentsBridge {
 
     private var isAuthInitializing: () -> Bool = { true }
     private var hasPersonalAccount: () -> Bool = { false }
+    private var isMusicEnabled: () -> Bool = { true }
     private var isStartupComplete = false
     private var showMainWindowHandler: (() -> Void)?
     private var transportHandler: (RemoteMusicCommandPayload) -> Bool = { _ in false }
@@ -69,6 +73,7 @@ final class AppIntentsBridge {
         client: any YTMusicClientProtocol,
         isAuthInitializing: @escaping () -> Bool,
         hasPersonalAccount: @escaping () -> Bool,
+        isMusicEnabled: @escaping () -> Bool = { true },
         transportHandler: @escaping (RemoteMusicCommandPayload) -> Bool,
         libraryDidChange: @escaping (AppIntentsLibrary) -> Void = { _ in }
     ) {
@@ -76,6 +81,7 @@ final class AppIntentsBridge {
         self.client = client
         self.isAuthInitializing = isAuthInitializing
         self.hasPersonalAccount = hasPersonalAccount
+        self.isMusicEnabled = isMusicEnabled
         self.transportHandler = transportHandler
         self.libraryDidChange = libraryDidChange
     }
@@ -93,6 +99,7 @@ final class AppIntentsBridge {
             client: client,
             isAuthInitializing: { [authService] in authService.state.isInitializing },
             hasPersonalAccount: { [authService] in authService.hasPersonalAccount },
+            isMusicEnabled: { SettingsManager.shared.appExperience.includesMusic },
             transportHandler: { NowPlayingManager.shared.handleAppIntentCommand($0) },
             libraryDidChange: { library in
                 spotlightIndexer?.update(library)
@@ -162,8 +169,14 @@ final class AppIntentsBridge {
     }
 
     private func preparePlayback() async throws -> (PlayerService, any YTMusicClientProtocol) {
+        guard self.isMusicEnabled() else {
+            throw AppIntentsError.musicDisabled
+        }
         guard await self.waitUntilReady(), let playerService, let client else {
             throw AppIntentsError.notReady
+        }
+        guard self.isMusicEnabled() else {
+            throw AppIntentsError.musicDisabled
         }
         self.showMainWindowHandler?()
         return (playerService, client)
@@ -185,6 +198,9 @@ final class AppIntentsBridge {
         guard let song = try await Self.bestSong(in: client.searchSongs(query: trimmedQuery)) else {
             throw AppIntentsError.noResults(query: trimmedQuery)
         }
+        guard self.isMusicEnabled() else {
+            throw AppIntentsError.musicDisabled
+        }
         guard let intent = playerService.claimMusicPlaybackIntent(reservation) else {
             throw AppIntentsError.playbackFailed(title: song.title)
         }
@@ -198,8 +214,10 @@ final class AppIntentsBridge {
     }
 
     func play(playlist: Playlist) async throws {
+        guard self.isMusicEnabled() else { throw AppIntentsError.musicDisabled }
         if LikedMusicPlaylist.matches(id: playlist.id) {
             guard await self.waitUntilReady() else { throw AppIntentsError.notReady }
+            guard self.isMusicEnabled() else { throw AppIntentsError.musicDisabled }
             guard self.isSignedIn else { throw AppIntentsError.signInRequired }
         }
         let (playerService, client) = try await self.preparePlayback()
@@ -228,24 +246,28 @@ final class AppIntentsBridge {
     }
 
     func searchSongs(matching query: String) async throws -> [Song] {
+        guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
         return try await client.searchSongs(query: trimmedQuery).filter(\.isPlayable)
     }
 
     func searchPlaylists(matching query: String) async throws -> [Playlist] {
+        guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
         return try await client.searchPlaylists(query: trimmedQuery).playlists
     }
 
     func searchAlbums(matching query: String) async throws -> [Album] {
+        guard self.isMusicEnabled() else { return [] }
         let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedQuery.isEmpty, let client else { return [] }
         return try await client.searchAlbums(query: trimmedQuery).albums.filter(\.hasNavigableId)
     }
 
     func song(videoId: String) async -> Song? {
+        guard self.isMusicEnabled() else { return nil }
         if let queued = self.playerService?.queue.first(where: { $0.videoId == videoId }) {
             return queued
         }

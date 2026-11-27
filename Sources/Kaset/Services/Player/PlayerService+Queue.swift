@@ -615,8 +615,7 @@ extension PlayerService {
     }
 
     func playFromQueue(at index: Int, intent: MusicPlaybackIntent) async {
-        guard self.acceptsMusicPlaybackIntent(intent) else { return }
-        guard index >= 0, index < self.queueEntries.count else { return }
+        guard self.acceptsMusicPlaybackIntent(intent), index >= 0, index < self.queueEntries.count else { return }
         let queueGeneration = self.queueLoadGeneration
         self.clearForwardSkipNavigationStack()
         self.currentIndex = index
@@ -1109,6 +1108,10 @@ extension PlayerService {
             if shouldSyncWebQueue {
                 self.clearWebQueueInjectionState()
             }
+            if self.preservesSavedSessionWhileDisabled {
+                self.logger.info("Skipped clearing saved playback session while Music is disabled")
+                return
+            }
             if self.suppressNextEmptyQueuePersistence {
                 self.suppressNextEmptyQueuePersistence = false
                 self.logger.info("Skipped clearing saved playback session after guest-startup cleanup")
@@ -1120,6 +1123,7 @@ extension PlayerService {
         }
 
         self.suppressNextEmptyQueuePersistence = false
+        self.preservesSavedSessionWhileDisabled = false
 
         let activeQueueEntryID = self.queueEntryIDOwningCurrentPlayback
         let persistedEntries: [QueueEntry]

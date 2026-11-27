@@ -23,13 +23,23 @@ extension PlayerService {
 
     func clearPlaybackForSignOut() {
         self.hasResolvedStartupPlaybackOwnership = true
+        self.preservesSavedSessionWhileDisabled = false
         self.logger.info("Clearing playback state for sign-out")
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: true)
     }
 
     func tearDownForExperienceChange() {
         self.logger.info("Tearing down music playback for experience mode change")
+        self.preservesSavedSessionWhileDisabled = true
         self.clearPlaybackForPrivacyBoundary(persistEmptyQueue: false)
+    }
+
+    func resumeAfterExperienceChange() {
+        guard self.preservesSavedSessionWhileDisabled else { return }
+        self.preservesSavedSessionWhileDisabled = false
+        if self.queue.isEmpty, self.currentTrack == nil {
+            _ = self.restoreQueueFromPersistence()
+        }
     }
 
     private func clearPlaybackForPrivacyBoundary(persistEmptyQueue: Bool) {
