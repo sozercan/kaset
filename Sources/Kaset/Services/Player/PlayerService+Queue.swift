@@ -114,22 +114,27 @@ extension PlayerService {
         return loadGeneration
     }
 
-    func beginRadioPlaybackIntent(for song: Song) -> MusicPlaybackIntent {
+    func beginRadioPlaybackIntent(for song: Song, queueEntryID: UUID? = nil) -> MusicPlaybackIntent {
         self.startRadioRefreshGeneration &+= 1
         return self.beginMusicPlaybackIntent(
-            allowsPriorTerminalEvent: self.currentTrack?.videoId == song.videoId
+            allowsPriorTerminalEvent: self.startRadioKeepsCurrentPlayback(for: song, queueEntryID: queueEntryID)
         )
     }
 
-    func startRadio(song: Song) async {
-        let intent = self.beginRadioPlaybackIntent(for: song)
-        await self.startRadio(song: song, intent: intent)
+    func startRadio(song: Song, queueEntryID: UUID? = nil) async {
+        let intent = self.beginRadioPlaybackIntent(for: song, queueEntryID: queueEntryID)
+        await self.startRadio(song: song, queueEntryID: queueEntryID, intent: intent)
     }
 
-    func startRadio(song: Song, intent: MusicPlaybackIntent) async {
+    private func startRadioKeepsCurrentPlayback(for song: Song, queueEntryID: UUID?) -> Bool {
         guard self.currentTrack?.videoId == song.videoId,
-              self.queueEntryIDOwningCurrentPlayback != nil
-        else {
+              let owningEntryID = self.queueEntryIDOwningCurrentPlayback
+        else { return false }
+        return queueEntryID == nil || queueEntryID == owningEntryID
+    }
+
+    func startRadio(song: Song, queueEntryID: UUID? = nil, intent: MusicPlaybackIntent) async {
+        guard self.startRadioKeepsCurrentPlayback(for: song, queueEntryID: queueEntryID) else {
             await self.playWithRadio(song: song, intent: intent)
             return
         }

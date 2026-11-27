@@ -730,6 +730,31 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == recommended.videoId)
     }
 
+    @Test("Start Radio on a later duplicate of the playing song restarts from that row")
+    func startRadioOnDuplicateRowRestarts() async {
+        let songs = TestFixtures.makeSongs(count: 2)
+        await self.playerService.playQueue([songs[0], songs[1], songs[0]], startingAt: 0)
+        self.playerService.updatePlaybackState(isPlaying: true, progress: 42, duration: 240)
+        self.playerService.pendingPlayVideoId = nil
+        let duplicateEntryID = self.playerService.queueEntryIDs[2]
+        self.mockClient.radioQueueSongs[songs[0].videoId] = [songs[0], songs[1]]
+
+        await self.playerService.startRadio(song: songs[0], queueEntryID: duplicateEntryID)
+
+        #expect(self.playerService.pendingPlayVideoId == songs[0].videoId)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId])
+    }
+
+    @Test("Start Radio on detached playback keeps prior track-end events blocked")
+    func detachedStartRadioIntentBlocksPriorTerminalEvents() async {
+        let songs = TestFixtures.makeSongs(count: 1)
+        await self.playerService.play(videoId: songs[0].videoId)
+
+        _ = self.playerService.beginRadioPlaybackIntent(for: songs[0])
+
+        #expect(!self.playerService.musicPlaybackIntentAcceptsPriorTerminalEvent)
+    }
+
     @Test("Different-song radio rejects a prior track-end event")
     func differentSongRadioRejectsPriorTrackEnd() async throws {
         let songs = TestFixtures.makeSongs(count: 4)
