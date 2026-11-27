@@ -15,6 +15,27 @@ extension ScriptCommandsTests {
         #expect(command.scriptErrorString?.contains("Player service not initialized") == true)
     }
 
+    @Test("PlayCommand reports App Mode when Music is disabled")
+    func playCommandReportsMusicDisabledInVideoOnly() {
+        let settings = SettingsManager.shared
+        let originalExperience = settings.appExperience
+        let originalSource = settings.appSource
+        let playerService = PlayerService()
+        PlayerService.shared = playerService
+        defer {
+            PlayerService.shared = nil
+            settings.appExperience = originalExperience
+            settings.appSource = originalSource
+        }
+
+        settings.appExperience = .videoOnly
+        let command = PlayCommand()
+        _ = command.performDefaultImplementation()
+
+        #expect(command.scriptErrorNumber == -1728)
+        #expect(command.scriptErrorString?.contains("App Mode") == true)
+    }
+
     @Test("PlayVideos rejects missing, empty, or non-string video IDs", arguments: InvalidScriptParameter.allCases)
     func playVideosRejectsInvalidVideoIds(parameter: InvalidScriptParameter) {
         let playerService = PlayerService()

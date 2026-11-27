@@ -425,6 +425,10 @@ struct MainWindow: View { // swiftlint:disable:this type_body_length
             self.youtubeClient.resetSessionStateForAccountSwitch()
             self.likeStatusManager.clearCache()
             LibraryMutationActions.cancelAllPendingLibraryMutations()
+            if !self.settings.appExperience.includesMusic {
+                self.playerService.clearPlaybackForSignOut()
+                self.playerService.preservesSavedSessionWhileDisabled = true
+            }
         }
         self.libraryViewModel?.activateAccountScope(
             newAccountScope,
