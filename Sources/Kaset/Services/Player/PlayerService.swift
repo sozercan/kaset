@@ -104,6 +104,13 @@ final class PlayerService: NSObject, PlayerServiceProtocol {
         DefaultOutputDeviceMonitor.shared.routeRestored(since: $0)
     }
 
+    @ObservationIgnored var claimsRouteLossPause: @MainActor (ContinuousClock.Instant) -> Bool = {
+        DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
+            admittedAt: $0,
+            within: NowPlayingManager.routeLossPauseWindow
+        )
+    }
+
     var currentTrack: Song? {
         didSet {
             self.driveNowPlayingTracklistProvider()

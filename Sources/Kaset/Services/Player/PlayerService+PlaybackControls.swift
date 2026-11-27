@@ -547,6 +547,9 @@ extension PlayerService {
     }
 
     func resumeAfterRouteRestored() async {
+        if let pendingRemoteCommands = self.remoteMusicTransportTask {
+            await pendingRemoteCommands.value
+        }
         guard self.routeLossPauseAt.map({ self.hasAudioRouteReturned($0) }) == true,
               !self.isPlaying,
               !self.isExplicitPauseIntentActive,

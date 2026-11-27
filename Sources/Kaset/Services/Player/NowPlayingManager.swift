@@ -302,12 +302,7 @@ final class NowPlayingManager {
 
     func attributeRouteLossPauseIfPending() {
         guard let playerService = self.playerService else { return }
-        playerService.reattributeRemotePauseToRouteLoss { admittedAt in
-            DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
-                admittedAt: admittedAt,
-                within: Self.routeLossPauseWindow
-            )
-        }
+        playerService.reattributeRemotePauseToRouteLoss(claim: playerService.claimsRouteLossPause)
         guard playerService.routeLossPauseAt != nil else { return }
         self.resumeAfterRouteRestoredSoon()
     }
@@ -330,6 +325,7 @@ final class NowPlayingManager {
                       let self,
                       self.routeRestoreGeneration == generation
                 else { return }
+                self.drainRemoteMusicCommandIngress()
                 await self.playerService?.resumeAfterRouteRestored()
             }
         }
@@ -512,11 +508,8 @@ final class NowPlayingManager {
                     issuedAtMilliseconds: capturedCommand.issuedAtMilliseconds
                 )
             } else {
-                let command: MusicRemoteTransportCommand = Self.isRouteChangePause(capturedCommand)
-                    ? .pauseForRouteChange(admittedAt: capturedCommand.admittedAt)
-                    : .pause(admittedAt: capturedCommand.admittedAt)
                 self.enqueueMusicRemoteCommand(
-                    command,
+                    .pause(admittedAt: capturedCommand.admittedAt),
                     capturedCommand: capturedCommand,
                     player: player
                 )
@@ -577,14 +570,7 @@ final class NowPlayingManager {
         }
     }
 
-    private static func isRouteChangePause(_ capturedCommand: CapturedRemoteMusicCommand) -> Bool {
-        DefaultOutputDeviceMonitor.shared.claimRouteLossPause(
-            admittedAt: capturedCommand.admittedAt,
-            within: self.routeLossPauseWindow
-        )
-    }
-
-    private static let routeLossPauseWindow = Duration.milliseconds(1500)
+    nonisolated static let routeLossPauseWindow = Duration.milliseconds(1500)
 
     private func handleNextPreviousMediaKey(
         direction: RemoteMusicCommandDirection,

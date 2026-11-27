@@ -217,6 +217,63 @@ struct PlayerServiceRouteChangePauseTests {
         #expect(playerService.state == .paused)
     }
 
+    @Test("A stale remote pause refused at admission leaves the disappearance for the next pause")
+    func refusedPauseDoesNotConsumeTheDisappearance() async {
+        let playerService = self.makePlayingService()
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        var isDisappearanceUnclaimed = true
+        playerService.claimsRouteLossPause = { _ in
+            defer { isDisappearanceUnclaimed = false }
+            return isDisappearanceUnclaimed
+        }
+        let admittedAt = ContinuousClock.now
+
+        playerService.enqueueRemoteMusicTransportCommand(.pause(admittedAt: admittedAt), issuedAtMilliseconds: 999)
+        #expect(playerService.remoteMusicTransportTask == nil)
+        #expect(isDisappearanceUnclaimed)
+
+        playerService.enqueueRemoteMusicTransportCommand(.pause(admittedAt: admittedAt), issuedAtMilliseconds: 1001)
+        await playerService.remoteMusicTransportTask?.value
+
+        #expect(playerService.state == .paused)
+        #expect(playerService.routeLossPauseAt == admittedAt)
+        #expect(playerService.isExplicitPauseIntentActive == false)
+    }
+
+    @Test("A remote pause discarded by a newer intent does not consume the disappearance")
+    func discardedPauseDoesNotConsumeTheDisappearance() async {
+        let playerService = self.makePlayingService()
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        var claimCount = 0
+        playerService.claimsRouteLossPause = { _ in
+            claimCount += 1
+            return true
+        }
+
+        playerService.enqueueRemoteMusicTransportCommand(.pause(admittedAt: .now), issuedAtMilliseconds: 1001)
+        let remoteTask = playerService.remoteMusicTransportTask
+        playerService.beginMusicPlaybackIntent()
+        await remoteTask?.value
+
+        #expect(claimCount == 0)
+        #expect(playerService.state == .playing)
+    }
+
+    @Test("A remote pause queued before route recovery reaches the player instead of being discarded")
+    func queuedPauseWinsOverRouteRecovery() async {
+        let playerService = self.makeRouteLossPausedService(routeReturned: true)
+        playerService.musicPlaybackIntentIssuedAtMilliseconds = 1000
+        playerService.claimsRouteLossPause = { _ in false }
+
+        playerService.enqueueRemoteMusicTransportCommand(.pause(admittedAt: .now), issuedAtMilliseconds: 1001)
+        await playerService.resumeAfterRouteRestored()
+
+        #expect(playerService.isExplicitPauseIntentActive)
+        #expect(playerService.routeLossPauseAt == nil)
+        #expect(playerService.isAwaitingPlaybackConfirmation == false)
+        #expect(playerService.state == .paused)
+    }
+
     private func makeRouteLossPausedService(routeReturned: Bool) -> PlayerService {
         let playerService = self.makePlayingService()
         playerService.hasAudioRouteReturned = { _ in routeReturned }

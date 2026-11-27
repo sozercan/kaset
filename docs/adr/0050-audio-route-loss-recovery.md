@@ -93,7 +93,10 @@ Supporting decisions:
   newest disappearance before a command can explain it, and the lost device coming back between the
   disappearance and the command makes the pause the user's. Otherwise a user pressing Pause right
   after the system already paused for the same disconnect would also read as system-driven and a
-  later reconnect would resume against it.
+  later reconnect would resume against it. The claim happens when the player executes the pause,
+  not when the command is admitted, so a stale pause refused at admission or discarded with a
+  superseded batch leaves the disappearance for the pause that actually lands. The claim still
+  uses the captured admission instant.
 - **Keep a log, not the latest pair.** Classification runs after an unbounded hop, so a
   disconnect, reconnect, and second disconnect can all land before a queued pause is judged. The
   route timeline is reconstructed as of the admission instant, bounded to 30 seconds and 32
@@ -108,7 +111,14 @@ Supporting decisions:
   marker itself schedules a resume check in case the reconnect was handled first.
 - **Retry the resume.** A returning device is not usable the instant Core Audio reports it, and
   WebKit settles route changes in stages, so the resume is attempted at 500 ms and 2 s after the
-  latest route event. Bursts of notifications collapse into the latest request.
+  latest route event. Bursts of notifications collapse into the latest request. Each attempt first
+  drains captured remote commands and waits for the queued transport batch, because the resume
+  starts a new playback intent that would discard a pause the user pressed just before it.
+- **Treat a route-loss pause as explicit for Start Radio.** A refresh that lands after the queue
+  ended advances to the first recommendation only if no explicit pause happened meanwhile. A
+  route-loss pause counts, so a disconnect never starts a new track on the fallback output. A
+  route-loss pause during playback leaves the player paused rather than ended, so the refresh
+  still applies its queue and recovery resumes on reconnect.
 - **Keep the monitor independent of the equalizer.** `EqualizerService` has its own device
   listener, but it only runs while the equalizer is enabled; playback correctness must not depend
   on that setting.
