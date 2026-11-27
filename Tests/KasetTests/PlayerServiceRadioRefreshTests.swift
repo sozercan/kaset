@@ -664,8 +664,8 @@ struct PlayerServiceRadioRefreshTests {
         #expect(self.playerService.currentTrack?.videoId == songs[1].videoId)
     }
 
-    @Test("Going back to an earlier song during Start Radio discards the refresh")
-    func previousDuringStartRadioDiscardsRefresh() async {
+    @Test("Going back to an earlier song during Start Radio keeps the radio after the seed")
+    func previousDuringStartRadioKeepsRadioAfterSeed() async {
         let songs = TestFixtures.makeSongs(count: 2)
         let recommended = TestFixtures.makeSong(id: "rec-1")
         await self.playerService.playQueue(songs, startingAt: 1)
@@ -695,7 +695,9 @@ struct PlayerServiceRadioRefreshTests {
         await radioGate.open()
         await refresh.value
 
-        #expect(self.playerService.queueEntryIDs == entryIDs)
+        #expect(Array(self.playerService.queueEntryIDs.prefix(2)) == entryIDs)
+        #expect(self.playerService.queue.map(\.videoId) == [songs[0].videoId, songs[1].videoId, recommended.videoId])
+        #expect(self.playerService.currentTrack?.videoId == songs[0].videoId)
     }
 
     @Test("Different-song radio rejects a prior track-end event")
