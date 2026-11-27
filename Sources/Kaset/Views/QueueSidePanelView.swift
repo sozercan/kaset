@@ -41,10 +41,10 @@ struct QueueSidePanelView: View {
                     onRemove: { entryID in
                         self.playerService.removeFromQueue(entryIDs: [entryID])
                     },
-                    onStartRadio: { song in
-                        let intent = self.playerService.beginMusicPlaybackIntent()
+                    onStartRadio: { entry in
+                        let intent = self.playerService.beginRadioPlaybackIntent(for: entry.song, queueEntryID: entry.id)
                         Task {
-                            await self.playerService.playWithRadio(song: song, intent: intent)
+                            await self.playerService.startRadio(song: entry.song, queueEntryID: entry.id, intent: intent)
                         }
                     }
                 )
@@ -94,7 +94,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
     let onSelect: (UUID) -> Void
     let onReorder: (UUID, UUID?) -> Void
     let onRemove: (UUID) -> Void
-    let onStartRadio: (Song) -> Void
+    let onStartRadio: (QueueEntry) -> Void
 
     func makeNSViewController(context: Context) -> QueueListViewController {
         let viewController = QueueListViewController()
@@ -217,7 +217,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         let onSelect: (UUID) -> Void
         let onReorder: (UUID, UUID?) -> Void
         let onRemove: (UUID) -> Void
-        let onStartRadio: (Song) -> Void
+        let onStartRadio: (QueueEntry) -> Void
         weak var viewController: QueueListViewController?
         var isDragging = false
         var pendingEntries: [QueueEntry]?
@@ -228,7 +228,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         init(entries: [QueueEntry], currentIndex: Int, isPlaying: Bool, favoritesManager: FavoritesManager,
              likeStatusManager: SongLikeStatusManager,
              allowsLikeActions: Bool,
-             onSelect: @escaping (UUID) -> Void, onReorder: @escaping (UUID, UUID?) -> Void, onRemove: @escaping (UUID) -> Void, onStartRadio: @escaping (Song) -> Void)
+             onSelect: @escaping (UUID) -> Void, onReorder: @escaping (UUID, UUID?) -> Void, onRemove: @escaping (UUID) -> Void, onStartRadio: @escaping (QueueEntry) -> Void)
         {
             self.entries = entries
             self.currentIndex = currentIndex
@@ -413,7 +413,7 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
 
             let startRadioItem = NSMenuItem(title: "Start Radio", action: #selector(Coordinator.contextMenuStartRadio(_:)), keyEquivalent: "")
             startRadioItem.target = self
-            startRadioItem.representedObject = song
+            startRadioItem.representedObject = entry
             startRadioItem.image = NSImage(systemSymbolName: "dot.radiowaves.left.and.right", accessibilityDescription: nil)
             menu.addItem(startRadioItem)
 
@@ -449,8 +449,8 @@ struct QueueListControllerRepresentable: NSViewControllerRepresentable {
         }
 
         @objc private func contextMenuStartRadio(_ sender: NSMenuItem) {
-            guard let song = sender.representedObject as? Song else { return }
-            self.onStartRadio(song)
+            guard let entry = sender.representedObject as? QueueEntry else { return }
+            self.onStartRadio(entry)
         }
 
         @objc private func contextMenuShare(_ sender: NSMenuItem) {

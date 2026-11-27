@@ -461,13 +461,24 @@ extension PlayerService {
     }
 
     func pause() async {
-        let intent = self.beginMusicPlaybackIntent()
-        await self.pause(intent: intent)
+        await self.pause(isAutomaticStop: false)
     }
 
-    func pause(intent: MusicPlaybackIntent, origin: MusicPauseOrigin = .user) async {
+    func pause(isAutomaticStop: Bool) async {
+        let intent = self.beginMusicPlaybackIntent()
+        await self.pause(intent: intent, isAutomaticStop: isAutomaticStop)
+    }
+
+    func pause(
+        intent: MusicPlaybackIntent,
+        origin: MusicPauseOrigin = .user,
+        isAutomaticStop: Bool = false
+    ) async {
         guard self.acceptsMusicPlaybackIntent(intent) else { return }
         self.logger.debug("Pausing playback (origin: \(String(describing: origin)))")
+        if !isAutomaticStop {
+            self.explicitPauseGeneration &+= 1
+        }
         self.clearQueueNavigationRecovery()
         let stopsPlayback = self.isPlaying || self.isAwaitingPlaybackConfirmation
         self.isAwaitingPlaybackConfirmation = false

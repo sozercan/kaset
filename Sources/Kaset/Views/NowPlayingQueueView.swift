@@ -187,6 +187,7 @@ struct NowPlayingQueueRow: View {
         .contextMenu {
             SongContextMenu(
                 song: self.entry.song,
+                queueEntryID: self.entry.id,
                 client: self.playerService.ytMusicClient,
                 play: self.position == .current ? nil : self.onPlay,
                 showsGoToArtist: false,
