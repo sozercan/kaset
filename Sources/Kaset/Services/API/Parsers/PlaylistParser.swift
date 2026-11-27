@@ -970,7 +970,7 @@ enum PlaylistParser {
             description: nil,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: ParsingHelpers.extractSubtitle(from: data).map { Artist.inline(name: $0, namespace: "playlist-author") },
+            author: ParsingHelpers.extractPlaylistAuthor(from: data),
             canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
     }
@@ -993,7 +993,7 @@ enum PlaylistParser {
             description: nil,
             thumbnailURL: thumbnailURL,
             trackCount: nil,
-            author: ParsingHelpers.extractSubtitleFromFlexColumns(data).map { Artist.inline(name: $0, namespace: "playlist-author") },
+            author: ParsingHelpers.extractPlaylistAuthorFromFlexColumns(data),
             canDelete: PlaylistEditability.canDeletePlaylist(from: data)
         )
     }

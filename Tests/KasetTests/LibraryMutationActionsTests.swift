@@ -69,8 +69,7 @@ extension LibraryMutationSerialTests {
             #expect(self.mockClient.addSongToPlaylistCalls == [
                 MockYTMusicClient.AddSongToPlaylistCall(
                     videoId: "song-1",
-                    playlistId: "VL-target",
-                    allowDuplicate: false
+                    playlistId: "VL-target"
                 ),
             ])
         }

@@ -421,7 +421,7 @@ final class MockUITestYTMusicClient: YTMusicClientProtocol {
         "PLMOCKCREATED"
     }
 
-    func addSongToPlaylist(videoId _: String, playlistId _: String, allowDuplicate _: Bool) async throws {}
+    func addSongToPlaylist(videoId _: String, playlistId _: String) async throws {}
 
     func removeSongFromPlaylist(videoId _: String, setVideoId _: String, playlistId _: String) async throws {}
 

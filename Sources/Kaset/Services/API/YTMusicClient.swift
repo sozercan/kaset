@@ -1397,7 +1397,7 @@ final class YTMusicClient: YTMusicClientProtocol {
         return playlistId
     }
 
-    func addSongToPlaylist(videoId: String, playlistId: String, allowDuplicate _: Bool = false) async throws {
+    func addSongToPlaylist(videoId: String, playlistId: String) async throws {
         self.logger.info("Adding song \(videoId) to playlist \(playlistId)")
 
         let cleanPlaylistId = playlistId.hasPrefix("VL") ? String(playlistId.dropFirst(2)) : playlistId
@@ -1750,15 +1750,21 @@ final class YTMusicClient: YTMusicClientProtocol {
 
         let cacheScope = self.cacheScope(authenticated: requestAuth.authenticated)
         let cacheKey = APICache.stableCacheKey(endpoint: endpoint, body: fullBody, brandId: cacheScope)
-        self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
+        if let cacheKey {
+            self.logger.debug("Request \(endpoint): cacheKey=\(cacheKey)")
+        } else {
+            self.logger.debug("Request \(endpoint): skipping cache due to unstable cache key")
+        }
 
-        if ttl != nil, !bypassCache, let cached = self.cache.get(key: cacheKey) {
+        if ttl != nil, !bypassCache, let cacheKey, let cached = self.cache.get(key: cacheKey) {
             self.logger.debug("Cache hit for \(endpoint)")
             return cached
         }
 
-        let cacheWrite = cacheWriteTicket.flatMap {
-            self.cache.beginWrite(for: cacheKey, ticket: $0)
+        let cacheWrite: APICache.WriteReservation? = if let cacheKey, let cacheWriteTicket {
+            self.cache.beginWrite(for: cacheKey, ticket: cacheWriteTicket)
+        } else {
+            nil
         }
 
         let json = try await RetryPolicy.default.execute { [self] in
@@ -1769,7 +1775,7 @@ final class YTMusicClient: YTMusicClientProtocol {
             )
         }
 
-        if let ttl, let cacheWrite {
+        if let ttl, let cacheKey, let cacheWrite {
             self.cache.setIfCurrent(
                 key: cacheKey,
                 data: json,

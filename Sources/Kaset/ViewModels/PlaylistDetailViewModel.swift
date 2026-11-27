@@ -136,29 +136,6 @@ final class PlaylistDetailViewModel {
         }
     }
 
-    private func stripSongCountAuthor(from author: Artist?) -> Artist? {
-        guard let author else { return nil }
-        var result = author.name
-        result = result.replacingOccurrences(
-            of: #" • [\d,]+ (?:songs?|tracks?)"#,
-            with: "",
-            options: .regularExpression
-        )
-        if result.hasPrefix(" • ") {
-            result = String(result.dropFirst(3))
-        }
-        result = result.trimmingCharacters(in: .whitespaces)
-        return result.isEmpty
-            ? nil
-            : Artist(
-                id: author.id,
-                name: result,
-                thumbnailURL: author.thumbnailURL,
-                subtitle: author.subtitle,
-                profileKind: author.profileKind
-            )
-    }
-
     @ObservationIgnored private var loadTask: Task<Void, Never>?
     @ObservationIgnored private var fullLoadTask: Task<Void, Never>?
     @ObservationIgnored private var pagingTask: Task<Bool, Never>?
@@ -348,13 +325,33 @@ extension PlaylistDetailViewModel {
             detail.tracks.count,
             max(detail.trackCount ?? 0, self.playlist.trackCount ?? 0)
         )
+        let resolvedAuthor: Artist? = if let detailAuthor = detail.author {
+            detailAuthor
+        } else if let fallbackAuthor = self.playlist.author {
+            if fallbackAuthor.hasNavigableId {
+                fallbackAuthor
+            } else if let normalizedName = ParsingHelpers.normalizedLegacyPlaylistAuthorName(fallbackAuthor.name) {
+                Artist(
+                    id: fallbackAuthor.id,
+                    name: normalizedName,
+                    thumbnailURL: fallbackAuthor.thumbnailURL,
+                    subtitle: fallbackAuthor.subtitle,
+                    profileKind: fallbackAuthor.profileKind
+                )
+            } else {
+                nil
+            }
+        } else {
+            nil
+        }
+
         let playlist = Playlist(
             id: self.playlist.id,
             title: needsMerge ? self.playlist.title : detail.title,
             description: detail.description ?? self.playlist.description,
             thumbnailURL: resolvedThumbnailURL,
             trackCount: mergedTrackCount,
-            author: detail.author ?? self.stripSongCountAuthor(from: self.playlist.author),
+            author: resolvedAuthor,
             canDelete: detail.canDelete || self.playlist.canDelete
         )
         return PlaylistDetail(

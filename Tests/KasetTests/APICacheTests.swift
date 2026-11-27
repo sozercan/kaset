@@ -244,7 +244,31 @@ struct APICacheTests {
         let englishKey = APICache.stableCacheKey(endpoint: "browse", body: englishBody)
         let koreanKey = APICache.stableCacheKey(endpoint: "browse", body: koreanBody)
 
+        #expect(englishKey != nil)
+        #expect(koreanKey != nil)
         #expect(englishKey != koreanKey)
+    }
+
+    @Test("Non-serializable request bodies return nil cache keys across scopes")
+    func stableCacheKeySkipsNonSerializableBodies() throws {
+        let url = try #require(URL(string: "https://music.youtube.com"))
+        let firstInvalidBody: [String: Any] = ["browseId": url]
+        let secondInvalidBody: [String: Any] = ["browseId": Date(timeIntervalSince1970: 1_700_000_000)]
+
+        #expect(APICache.stableCacheKey(endpoint: "browse", body: firstInvalidBody, brandId: "account-a") == nil)
+        #expect(APICache.stableCacheKey(endpoint: "browse", body: secondInvalidBody, brandId: "account-b") == nil)
+    }
+
+    @Test("Distinct account scopes produce distinct stable cache keys")
+    func stableCacheKeyIncludesAccountScope() {
+        let body: [String: Any] = ["browseId": "FEmusic_home"]
+
+        let primaryKey = APICache.stableCacheKey(endpoint: "browse", body: body, brandId: "account-a")
+        let brandKey = APICache.stableCacheKey(endpoint: "browse", body: body, brandId: "account-b")
+
+        #expect(primaryKey != nil)
+        #expect(brandKey != nil)
+        #expect(primaryKey != brandKey)
     }
 
     @Test("Lyrics cache not invalidated by mutations")

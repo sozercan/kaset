@@ -556,7 +556,7 @@ enum LibraryContentParser {
             description: nil,
             thumbnailURL: candidate.thumbnailURL,
             trackCount: nil,
-            author: candidate.subtitle.map { Artist.inline(name: $0, namespace: "playlist-author") },
+            author: ParsingHelpers.extractPlaylistAuthor(from: candidate.subtitleRuns),
             canDelete: PlaylistEditability.canDeletePlaylist(from: candidate.renderer)
         )
     }

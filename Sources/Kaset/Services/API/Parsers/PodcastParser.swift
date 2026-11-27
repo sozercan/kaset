@@ -219,18 +219,52 @@ enum PodcastParser {
 
         var playbackProgress: Double = 0
         var isPlayed = false
+        var hasExplicitPlayedStatus = false
 
-        if let playbackProgressPercent = data["playbackProgress"] as? [String: Any],
-           let percentage = playbackProgressPercent["playbackProgressPercentage"] as? Int
-        {
+        let progressRenderer = (data["playbackProgress"] as? [String: Any])?["musicPlaybackProgressRenderer"] as? [String: Any]
+            ?? (data["playbackProgress"] as? [String: Any])
+
+        if let percentage = progressRenderer?["playbackProgressPercentage"] as? Int {
             playbackProgress = Double(percentage) / 100.0
             isPlayed = percentage >= 95
+            hasExplicitPlayedStatus = true
         }
 
-        if let playedTextRuns = data["playedText"] as? [String: Any],
+        var hasExplicitIsPlayed = false
+        if let explicitPlayed = data["isPlayed"] as? Bool {
+            isPlayed = explicitPlayed
+            hasExplicitIsPlayed = true
+            hasExplicitPlayedStatus = true
+            if explicitPlayed {
+                playbackProgress = 1.0
+            }
+        } else if let explicitPlayed = progressRenderer?["isPlayed"] as? Bool {
+            isPlayed = explicitPlayed
+            hasExplicitIsPlayed = true
+            hasExplicitPlayedStatus = true
+            if explicitPlayed {
+                playbackProgress = 1.0
+            }
+        }
+
+        if !hasExplicitIsPlayed,
+           let playbackState = (data["playbackState"] as? String)
+           ?? (progressRenderer?["playbackState"] as? String)
+        {
+            hasExplicitPlayedStatus = true
+            if !isPlayed, playbackState == "PLAYBACK_STATE_PLAYED" || playbackState == "PLAYED" {
+                isPlayed = true
+                playbackProgress = 1.0
+            }
+        }
+
+        if !isPlayed,
+           !hasExplicitPlayedStatus,
+           progressRenderer == nil,
+           let playedTextRuns = data["playedText"] as? [String: Any],
            let runs = playedTextRuns["runs"] as? [[String: Any]],
            let text = runs.first?["text"] as? String,
-           text.lowercased() == "played"
+           !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
             isPlayed = true
             playbackProgress = 1.0

@@ -154,13 +154,18 @@ final class APICache {
 
     private static let logger = DiagnosticsLogger.api
 
-    static func stableCacheKey(endpoint: String, body: [String: Any], brandId: String = "") -> String {
+    static func stableCacheKey(endpoint: String, body: [String: Any], brandId: String = "") -> String? {
+        guard JSONSerialization.isValidJSONObject(body) else {
+            self.logger.error("APICache: Skipping cache key for non-JSON-serializable body on \(endpoint)")
+            return nil
+        }
+
         let jsonData: Data
         do {
             jsonData = try JSONSerialization.data(withJSONObject: body, options: [.sortedKeys])
         } catch {
             Self.logger.error("APICache: Failed to serialize body for cache key: \(error.localizedDescription)")
-            return "\(endpoint):serialization_error_\(body.count)"
+            return nil
         }
 
         var hashData = jsonData
