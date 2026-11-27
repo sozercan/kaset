@@ -62,6 +62,8 @@ struct KasetApp: App {
 
     @State private var textInputFocusState = TextInputFocusState()
 
+    @State private var playbackSpaceKeyMonitor = PlaybackSpaceKeyMonitor()
+
     @State private var sidebarNavigationReselectGenerations: [NavigationItem: Int] = [:]
 
     @State private var navigationSelection: NavigationItem? = SettingsManager.shared.launchNavigationItem
@@ -194,7 +196,7 @@ struct KasetApp: App {
     }
 
     var body: some Scene {
-        Window("Kaset", id: "main") {
+        Window("Kaset", id: MainWindowLayout.sceneIdentifier) {
             if UITestConfig.isRunningUnitTests, !UITestConfig.isUITestMode {
                 Color.clear
                     .frame(width: 1, height: 1)
@@ -242,6 +244,10 @@ struct KasetApp: App {
                 .onAppear {
                     DiagnosticsLogger.app.info("KasetApp: App content appeared")
                     self.textInputFocusState.startMonitoring()
+                    self.playbackSpaceKeyMonitor.start(
+                        isPlaybackCommandEnabled: { !self.shouldDisablePlaybackCommand },
+                        onPlayPause: { self.performPlayPause() }
+                    )
                     self.appDelegate.playerService = self.playerService
                     self.appDelegate.beginOpenURLDelivery()
                     AppIntentsBridge.shared.setShowMainWindowHandler { self.showMainWindow() }
@@ -347,13 +353,7 @@ struct KasetApp: App {
 
             CommandMenu("Playback") {
                 Button(self.activePlayerIsPlaying ? "Pause" : "Play") {
-                    if self.playbackArbiter.routesMediaKeysToVideo {
-                        self.youtubePlayerService.playPause()
-                    } else {
-                        Task {
-                            await self.playerService.playPause()
-                        }
-                    }
+                    self.performPlayPause()
                 }
                 .keyboardShortcut(self.playbackShortcut(.space, modifiers: []))
                 .disabled(self.shouldDisablePlaybackCommand)
@@ -591,7 +591,7 @@ struct KasetApp: App {
     private func showMainWindow() {
         guard !self.focusExistingMainWindow() else { return }
 
-        self.openWindow(id: "main")
+        self.openWindow(id: MainWindowLayout.sceneIdentifier)
         NSApplication.shared.activate(ignoringOtherApps: true)
 
         Task { @MainActor in
@@ -644,6 +644,16 @@ struct KasetApp: App {
             }
             window.orderOut(nil)
             return
+        }
+    }
+
+    private func performPlayPause() {
+        if self.playbackArbiter.routesMediaKeysToVideo {
+            self.youtubePlayerService.playPause()
+        } else {
+            Task {
+                await self.playerService.playPause()
+            }
         }
     }
 

@@ -1,6 +1,7 @@
 import AppKit
 
 enum MainWindowLayout {
+    static let sceneIdentifier = "main"
     static let autosaveName = "KasetMainWindow"
     static let windowTitle = "Kaset"
     static let minimumWidth: CGFloat = 980
@@ -13,13 +14,24 @@ enum MainWindowLayout {
         NSSize(width: minimumWidth, height: minimumHeight)
     }
 
-    static func isPrimaryWindowIdentity(title: String, frameAutosaveName: String) -> Bool {
-        frameAutosaveName == self.autosaveName || title == self.windowTitle
+    static func isPrimaryWindowIdentity(
+        title: String,
+        frameAutosaveName: String,
+        identifier: String? = nil
+    ) -> Bool {
+        identifier == self.sceneIdentifier
+            || frameAutosaveName == self.sceneIdentifier
+            || frameAutosaveName == self.autosaveName
+            || title == self.windowTitle
     }
 
     @MainActor
     static func isPrimaryWindow(_ window: NSWindow) -> Bool {
-        self.isPrimaryWindowIdentity(title: window.title, frameAutosaveName: window.frameAutosaveName)
+        self.isPrimaryWindowIdentity(
+            title: window.title,
+            frameAutosaveName: window.frameAutosaveName,
+            identifier: window.identifier?.rawValue
+        )
     }
 
     @MainActor
