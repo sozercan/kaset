@@ -1,3 +1,4 @@
+import CoreAudio
 import Foundation
 import Testing
 @testable import Kaset
@@ -167,5 +168,221 @@ struct BiquadFilterTests {
 
         let leftPeak = (frameCount * 3 / 4 ..< frameCount).map { abs(leftBuffer[$0]) }.max() ?? 0
         #expect(leftPeak > 1.5)
+    }
+
+    @Test("Concurrent parameter updates and rendering stay finite and coherent")
+    func concurrentParameterUpdatesAndRendering() async {
+        struct UncheckedEngineBox: @unchecked Sendable {
+            let engine: EqualizerAudioEngine
+        }
+
+        let box = UncheckedEngineBox(engine: EqualizerAudioEngine())
+        let frames = 256
+
+        await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                for step in 0 ..< 120 {
+                    let gain: Float = step.isMultiple(of: 2) ? 6 : -6
+                    var settings = EQSettings.flat
+                    settings.isEnabled = step % 3 != 0
+                    settings.preampDB = step.isMultiple(of: 2) ? 2 : -2
+                    settings.bandGainsDB = Array(repeating: gain, count: EQBand.defaultBands.count)
+                    box.engine.apply(settings: settings)
+                    await Task.yield()
+                }
+                return true
+            }
+
+            group.addTask {
+                var inLeft = [Float](repeating: 0, count: frames)
+                var inRight = [Float](repeating: 0, count: frames)
+                var outLeft = [Float](repeating: 0, count: frames)
+                var outRight = [Float](repeating: 0, count: frames)
+                let sineGen = Self.sine(frequencyHz: 1000, sampleRate: Self.sampleRate)
+                for i in 0 ..< frames {
+                    inLeft[i] = sineGen(i) * 0.5
+                    inRight[i] = sineGen(i) * 0.5
+                }
+
+                for _ in 0 ..< 120 {
+                    inLeft.withUnsafeMutableBufferPointer { inL in
+                        inRight.withUnsafeMutableBufferPointer { inR in
+                            outLeft.withUnsafeMutableBufferPointer { outL in
+                                outRight.withUnsafeMutableBufferPointer { outR in
+                                    let byteCount = UInt32(frames * MemoryLayout<Float>.size)
+                                    let inABL = AudioBufferList.allocate(maximumBuffers: 2)
+                                    let outABL = AudioBufferList.allocate(maximumBuffers: 2)
+                                    defer {
+                                        free(inABL.unsafeMutablePointer)
+                                        free(outABL.unsafeMutablePointer)
+                                    }
+                                    inABL[0] = AudioBuffer(mNumberChannels: 1, mDataByteSize: byteCount, mData: inL.baseAddress)
+                                    inABL[1] = AudioBuffer(mNumberChannels: 1, mDataByteSize: byteCount, mData: inR.baseAddress)
+                                    outABL[0] = AudioBuffer(mNumberChannels: 1, mDataByteSize: byteCount, mData: outL.baseAddress)
+                                    outABL[1] = AudioBuffer(mNumberChannels: 1, mDataByteSize: byteCount, mData: outR.baseAddress)
+                                    box.engine.performRender(
+                                        inputBuffers: inABL.unsafePointer,
+                                        frameCount: UInt32(frames),
+                                        outputBuffers: outABL.unsafeMutablePointer
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    guard outLeft.allSatisfy(\.isFinite), outRight.allSatisfy(\.isFinite) else {
+                        return false
+                    }
+                }
+                return true
+            }
+
+            var allFinite = true
+            for await result in group {
+                allFinite = allFinite && result
+            }
+            #expect(allFinite)
+        }
+
+        #expect(box.engine.hasObservedAudio == true)
+    }
+
+    @Test("Published filter coefficients and render parameters stay snapshot-coherent and converge")
+    func publishedSnapshotsStayCoherentAndConverge() async {
+        struct UncheckedFilterBox: @unchecked Sendable {
+            let filter: BiquadFilter
+        }
+        struct UncheckedEngineBox: @unchecked Sendable {
+            let engine: EqualizerAudioEngine
+        }
+
+        let referenceA = BiquadFilter()
+        referenceA.setPeakingEQ(frequency: 1000, q: 1.4, gainDB: 6, sampleRate: Self.sampleRate)
+        let expectedA = referenceA.readPublishedTargets()
+
+        let referenceB = BiquadFilter()
+        referenceB.setPeakingEQ(frequency: 1000, q: 1.4, gainDB: -6, sampleRate: Self.sampleRate)
+        let expectedB = referenceB.readPublishedTargets()
+
+        let filterBox = UncheckedFilterBox(filter: BiquadFilter())
+        let validFilterSnapshots: Set<[Double]> = [
+            [1, 0, 0, 0, 0],
+            [expectedA.b0, expectedA.b1, expectedA.b2, expectedA.a1, expectedA.a2],
+            [expectedB.b0, expectedB.b1, expectedB.b2, expectedB.a1, expectedB.a2],
+        ]
+
+        let engineBox = UncheckedEngineBox(engine: EqualizerAudioEngine())
+        var mutableSettingsA = EQSettings.flat
+        mutableSettingsA.isEnabled = true
+        mutableSettingsA.preampDB = 3
+        mutableSettingsA.bandGainsDB = Array(repeating: 6, count: EQBand.defaultBands.count)
+        let settingsA = mutableSettingsA
+        var mutableSettingsB = EQSettings.flat
+        mutableSettingsB.isEnabled = false
+        mutableSettingsB.preampDB = -4
+        mutableSettingsB.bandGainsDB = Array(repeating: -6, count: EQBand.defaultBands.count)
+        let settingsB = mutableSettingsB
+        let expectedParamsA = EqualizerAudioEngine.RenderParameters(
+            preampLinear: powf(10, (settingsA.preampDB + settingsA.autoTrimDB) / 20),
+            wetMixTarget: 1
+        )
+        let expectedParamsB = EqualizerAudioEngine.RenderParameters(
+            preampLinear: powf(10, (settingsB.preampDB + settingsB.autoTrimDB) / 20),
+            wetMixTarget: 0
+        )
+
+        let coherent = await withTaskGroup(of: Bool.self) { group in
+            group.addTask {
+                for step in 0 ..< 200 {
+                    let useA = step.isMultiple(of: 2)
+                    filterBox.filter.setPeakingEQ(
+                        frequency: 1000,
+                        q: 1.4,
+                        gainDB: useA ? 6 : -6,
+                        sampleRate: Self.sampleRate
+                    )
+                    engineBox.engine.apply(settings: useA ? settingsA : settingsB)
+                    if step.isMultiple(of: 10) {
+                        await Task.yield()
+                    }
+                }
+                filterBox.filter.setPeakingEQ(frequency: 1000, q: 1.4, gainDB: -6, sampleRate: Self.sampleRate)
+                engineBox.engine.apply(settings: settingsB)
+                return true
+            }
+
+            group.addTask {
+                for step in 0 ..< 400 {
+                    let coeffs = filterBox.filter.readPublishedTargets()
+                    let tuple = [coeffs.b0, coeffs.b1, coeffs.b2, coeffs.a1, coeffs.a2]
+                    guard validFilterSnapshots.contains(tuple) else { return false }
+
+                    let params = engineBox.engine.readPublishedRenderParameters()
+                    let matchesValid = params == .unity || params == expectedParamsA || params == expectedParamsB
+                    guard matchesValid else { return false }
+                    if step.isMultiple(of: 10) {
+                        await Task.yield()
+                    }
+                }
+                return true
+            }
+
+            var ok = true
+            for await result in group {
+                ok = ok && result
+            }
+            return ok
+        }
+
+        #expect(coherent)
+        #expect(filterBox.filter.readPublishedTargets() == expectedB)
+        #expect(engineBox.engine.readPublishedRenderParameters() == expectedParamsB)
+    }
+
+    @Test("Reserved reader slot survives writer wraparound without tearing")
+    func reservedSlotSurvivesWriterWraparound() {
+        let referenceA = BiquadFilter()
+        referenceA.setPeakingEQ(frequency: 1000, q: 1.4, gainDB: 6, sampleRate: Self.sampleRate)
+        let expectedA = referenceA.readPublishedTargets()
+
+        let reservedFilter = BiquadFilter()
+        reservedFilter.setPeakingEQ(frequency: 1000, q: 1.4, gainDB: 6, sampleRate: Self.sampleRate)
+        let reservedFilterSnapshot = reservedFilter.readPublishedTargets {
+            for step in 0 ..< 6 {
+                reservedFilter.setPeakingEQ(
+                    frequency: 1000,
+                    q: 1.4,
+                    gainDB: step.isMultiple(of: 2) ? -6 : -3,
+                    sampleRate: Self.sampleRate
+                )
+            }
+        }
+        #expect(reservedFilterSnapshot == expectedA)
+
+        var settingsA = EQSettings.flat
+        settingsA.isEnabled = true
+        settingsA.preampDB = 3
+        settingsA.bandGainsDB = Array(repeating: 6, count: EQBand.defaultBands.count)
+        var settingsB = EQSettings.flat
+        settingsB.isEnabled = false
+        settingsB.preampDB = -4
+        settingsB.bandGainsDB = Array(repeating: -6, count: EQBand.defaultBands.count)
+        let expectedParamsA = EqualizerAudioEngine.RenderParameters(
+            preampLinear: powf(10, (settingsA.preampDB + settingsA.autoTrimDB) / 20),
+            wetMixTarget: 1
+        )
+        let expectedParamsB = EqualizerAudioEngine.RenderParameters(
+            preampLinear: powf(10, (settingsB.preampDB + settingsB.autoTrimDB) / 20),
+            wetMixTarget: 0
+        )
+
+        let reservedEngine = EqualizerAudioEngine()
+        reservedEngine.apply(settings: settingsA)
+        let reservedEngineSnapshot = reservedEngine.readPublishedRenderParameters {
+            for _ in 0 ..< 6 {
+                reservedEngine.apply(settings: settingsB)
+            }
+        }
+        #expect(reservedEngineSnapshot == expectedParamsA)
+        #expect(reservedEngine.readPublishedRenderParameters() == expectedParamsB)
     }
 }
