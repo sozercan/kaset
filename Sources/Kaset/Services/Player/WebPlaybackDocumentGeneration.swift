@@ -1,8 +1,6 @@
 import CoreFoundation
 import Foundation
 
-// MARK: - WebPlaybackTrackedNavigation
-
 struct WebPlaybackTrackedNavigation: Equatable {
     let generation: UInt64
     var pendingSeek: Double?
@@ -15,14 +13,10 @@ struct WebPlaybackTrackedNavigation: Equatable {
     }
 }
 
-// MARK: - WebPlaybackCancelledNavigation
-
 struct WebPlaybackCancelledNavigation {
     let generation: UInt64
     let shouldReportFailure: Bool
 }
-
-// MARK: - WebPlaybackNavigationFailure
 
 enum WebPlaybackNavigationFailure {
     private static let webKitErrorDomain = "WebKitErrorDomain"
@@ -38,14 +32,6 @@ enum WebPlaybackNavigationFailure {
     }
 }
 
-// MARK: - WebPlaybackDocumentGeneration
-
-/// Tracks which WebView document is allowed to mutate native playback state.
-///
-/// Reserving or starting a navigation suppresses bridge events from the outgoing
-/// document. The new generation becomes current only after WebKit commits that
-/// document. Cancelling or failing before commit restores the last committed
-/// document. Teardown invalidates every previously issued generation.
 struct WebPlaybackDocumentGeneration: Equatable {
     static let urlQueryKey = "kasetDocumentGeneration"
     static let blankURLFragmentKey = "kasetBlankGeneration"
@@ -88,13 +74,10 @@ struct WebPlaybackDocumentGeneration: Equatable {
         let videoID: String
     }
 
-    /// Generation that should be injected into the next document-start scripts.
     var userScriptGeneration: UInt64 {
         self.pendingGeneration ?? self.inFlightGeneration ?? self.currentGeneration
     }
 
-    /// Reserves a generation for the next document and suppresses the currently
-    /// committed document until this request commits, fails, or is cancelled.
     mutating func beginNavigation() -> UInt64 {
         self.nextGeneration &+= 1
         self.pendingGeneration = self.nextGeneration
@@ -104,9 +87,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return self.nextGeneration
     }
 
-    /// Marks a still-current reserved generation as provisionally loading.
-    /// This intentionally does not replace `currentGeneration`; WebKit may keep
-    /// the previous document alive if the provisional navigation is cancelled.
     @discardableResult
     mutating func startNavigation(_ generation: UInt64) -> Bool {
         guard self.pendingGeneration == generation else { return false }
@@ -116,7 +96,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return true
     }
 
-    /// Promotes a provisionally loading generation after WebKit commits it.
     @discardableResult
     mutating func commitNavigation(
         _ generation: UInt64,
@@ -143,8 +122,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return didAdvance || didCommitCurrentProvisional
     }
 
-    /// Records a committed trusted auth/consent document as the explicit owner
-    /// of subsequent tokenless continuations for this one in-flight generation.
     @discardableResult
     mutating func commitIntermediaryNavigation(_ generation: UInt64) -> Bool {
         guard self.startedGenerations.contains(generation),
@@ -156,7 +133,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return true
     }
 
-    /// Records the successful expected playback response observed before commit.
     @discardableResult
     mutating func recordSuccessfulPlaybackResponse(
         url: URL?,
@@ -178,17 +154,12 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return true
     }
 
-    /// Cancels a request before `WKWebView.load` starts, allowing the existing
-    /// committed document to publish bridge events again.
     mutating func cancelPendingNavigation() {
         self.pendingGeneration = nil
         self.committedIntermediaryGeneration = nil
         self.validatedPlaybackResponse = nil
     }
 
-    /// Cancels or fails a tracked provisional navigation before commit. Returns
-    /// `true` only when it was the newest provisional navigation whose failure
-    /// changes which generation should be installed for the next document.
     @discardableResult
     mutating func cancelInFlightNavigation(_ generation: UInt64) -> Bool {
         guard self.startedGenerations.remove(generation) != nil else { return false }
@@ -201,7 +172,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return didCancelCurrentProvisional
     }
 
-    /// Invalidates all documents issued before teardown or WebView replacement.
     mutating func invalidate() {
         self.nextGeneration &+= 1
         self.currentGeneration = self.nextGeneration
@@ -213,8 +183,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         self.validatedPlaybackResponse = nil
     }
 
-    /// Invalidates playback documents and grants one exact internal blank URL
-    /// permission for explicit teardown/recovery blanking.
     mutating func beginBlankNavigation() -> UInt64 {
         self.invalidate()
         self.blankNavigationGeneration = self.currentGeneration
@@ -226,19 +194,12 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return Self.blankGeneration(from: url) == blankNavigationGeneration
     }
 
-    /// Returns whether a bridge payload belongs to the one committed document.
-    /// While a newer navigation is reserved or provisionally loading, all
-    /// outgoing-document messages are suppressed.
     func accepts(generation: UInt64) -> Bool {
         self.pendingGeneration == nil
             && self.inFlightGeneration == nil
             && generation == self.currentGeneration
     }
 
-    /// Media-key commands may arrive from the still-current committed document
-    /// while its replacement is pending/provisional. Accept only commands issued
-    /// after that replacement began; a delayed older event must not overwrite the
-    /// newer native selection intent.
     func acceptsUserCommand(
         generation: UInt64,
         issuedAtMilliseconds: Double?,
@@ -256,9 +217,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return issuedAtMilliseconds >= navigationStartedAtMilliseconds
     }
 
-    /// Returns whether post-load work still belongs to the active document.
-    /// A committed navigation may finish after a newer selection has already
-    /// reserved, started, or committed another generation.
     func canFinishNavigation(_ generation: UInt64) -> Bool {
         self.pendingGeneration == nil
             && self.inFlightGeneration == nil
@@ -320,10 +278,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         return (requestGeneration ?? mainDocumentGeneration) == generation
     }
 
-    /// Returns whether a main-frame navigation can host the expected playback
-    /// bridge. Generation association alone is insufficient: redirects to
-    /// consent, captive-portal, or error origins cannot run Kaset's trusted
-    /// bridge and would otherwise leave native playback stuck in loading.
     static func isExpectedPlaybackURL(_ url: URL?, host expectedHost: String) -> Bool {
         guard let components = url.flatMap({
             URLComponents(url: $0, resolvingAgainstBaseURL: false)
@@ -353,14 +307,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
         else { return false }
         return host == playbackHost.lowercased() || Self.trustedRedirectHosts.contains(host)
     }
-
-    // Google's "unusual traffic" challenge (`www.google.com/sorry/…`) is
-    // deliberately NOT trusted here. Allowing the URL alone does not make it
-    // reachable: the challenge is commonly served as HTTP 429, which
-    // `acceptsMainFrameResponse` rejects before commit, and clearing it posts
-    // `g-recaptcha-response` as a form body that `requestByBindingGeneration`
-    // cannot carry across a generation rebind. Supporting it needs both of
-    // those handled together.
 
     static func isTrustedIntermediaryURL(_ url: URL?) -> Bool {
         guard let url,
@@ -394,10 +340,6 @@ struct WebPlaybackDocumentGeneration: Equatable {
             && Self.isAllowedPlaybackNavigationURL(currentURL, playbackHost: playbackHost)
     }
 
-    /// A form submission from a committed trusted intermediary must keep the
-    /// original WebKit navigation so its HTTP body is preserved. GET
-    /// continuations can be rebound with a generation token, but WebKit omits
-    /// form bodies from the navigation-policy request used to reconstruct them.
     static func shouldAllowTrustedIntermediaryFormSubmission(
         _ request: URLRequest,
         currentURL: URL?,

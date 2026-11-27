@@ -1,8 +1,6 @@
 import Foundation
 import Observation
 
-// MARK: - CommandBarTimeoutRace
-
 @available(macOS 26.0, *)
 @MainActor
 private final class CommandBarTimeoutRace<Value: Sendable> {
@@ -31,8 +29,6 @@ private final class CommandBarTimeoutRace<Value: Sendable> {
         continuation.resume(with: result)
     }
 }
-
-// MARK: - CommandBarViewModel
 
 @available(macOS 26.0, *)
 @MainActor

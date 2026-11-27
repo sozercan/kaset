@@ -1,8 +1,6 @@
 import Foundation
 import SwiftUI
 
-// MARK: - YouTubeAskMarkdown
-
 enum YouTubeAskMarkdown {
     struct OrderedListItem: Equatable {
         let number: Int
@@ -206,8 +204,6 @@ enum YouTubeAskMarkdown {
         return stripped.allSatisfy { $0 == first }
     }
 }
-
-// MARK: - YouTubeAskMarkdownView
 
 struct YouTubeAskMarkdownView: View {
     let markdown: String

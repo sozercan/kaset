@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - SmartShuffleFeatureGate
-
 @MainActor
 private final class SmartShuffleFeatureGate {
     var isEnabled: Bool
@@ -12,8 +10,6 @@ private final class SmartShuffleFeatureGate {
         self.isEnabled = isEnabled
     }
 }
-
-// MARK: - PlayerServiceSmartShuffleTests
 
 @Suite(.serialized, .tags(.service))
 @MainActor
@@ -52,10 +48,9 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("entering smart mode fills the window with deduped radio suggestions")
     func smartFillsWindowWithSuggestions() async {
-        let songs = TestFixtures.makeSongs(count: 6) // video-0...video-5
+        let songs = TestFixtures.makeSongs(count: 6)
         await self.playerService.playQueue(songs, startingAt: 0)
 
-        // Radio for any seed returns two fresh songs plus one that duplicates an original.
         let fresh = [TestFixtures.makeSong(id: "rec-1"), TestFixtures.makeSong(id: "rec-2")]
         let withDup = fresh + [TestFixtures.makeSong(id: "video-3")]
         for index in 0 ..< 6 {
@@ -63,23 +58,15 @@ struct PlayerServiceSmartShuffleTests {
         }
 
         self.playerService.setShuffleMode(.smart)
-        // Drive the fill deterministically instead of racing the fire-and-forget phase-2 Task;
-        // its re-entrancy guard makes this explicit call the one that does the work.
         await self.playerService.fillSmartShuffleWindow()
 
         let videoIds = self.playerService.queue.map(\.videoId)
         #expect(self.playerService.queue.count > 6)
         #expect(videoIds.contains("rec-1"))
-        #expect(videoIds.count(where: { $0 == "video-3" }) == 1) // duplicate not re-added
+        #expect(videoIds.count(where: { $0 == "video-3" }) == 1)
         #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
     }
 
-    /// Regression guard for a cross-suite flake: the fill loop used to read `SettingsManager.shared`
-    /// directly, so a parallel suite mutating those settings changed suggestion output here. Two
-    /// instances given OPPOSITE per-instance configs on identical queues must diverge — which can
-    /// only happen if each honors its own provider. Reading the shared singleton would make both
-    /// read the same value and behave identically, so this asserts the fix independently of whatever
-    /// the ambient global cadence happens to be.
     @Test("Smart Shuffle fill honors the injected config, not the shared settings singleton")
     func fillHonorsInjectedConfigOverGlobalSettings() async {
         func makeService() -> (PlayerService, MockYTMusicClient) {
@@ -95,12 +82,10 @@ struct PlayerServiceSmartShuffleTests {
 
         let songs = TestFixtures.makeSongs(count: 4)
 
-        // Suppressing config: a cadence far larger than the queue leaves no slot to fill.
         let (suppressed, suppressedClient) = makeService()
         suppressed.smartShuffleConfigProvider = {
             PlayerService.SmartShuffleConfig(suggestEveryN: 1000, burst: 1, suggestionsAhead: 1)
         }
-        // Enabling config: suggest after every track.
         let (enabled, enabledClient) = makeService()
         enabled.smartShuffleConfigProvider = {
             PlayerService.SmartShuffleConfig(suggestEveryN: 1, burst: 1, suggestionsAhead: 1)
@@ -286,8 +271,6 @@ struct PlayerServiceSmartShuffleTests {
         await self.playerService.pause()
         await releaseMetadata.open()
         await playTask.value
-        // Drive the single-flight fill explicitly so the assertion does not
-        // depend on executor timing after the metadata gate is released.
         await self.playerService.fillSmartShuffleWindow()
 
         #expect(self.playerService.queueEntries.contains { $0.source == .suggested })
@@ -354,9 +337,6 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("advancing near the end of a smart queue tops up with fresh suggestions")
     func smartTopUp() async {
-        // Force lazy top-up: a small look-ahead window (min 5) with one slot per original means
-        // the engine cannot place every possible suggestion up front, so advancing past them must
-        // trigger additional radio fetches.
         self.playerService.smartShuffleConfigProvider = {
             PlayerService.SmartShuffleConfig(
                 suggestEveryN: 1,
@@ -365,9 +345,8 @@ struct PlayerServiceSmartShuffleTests {
             )
         }
 
-        let songs = TestFixtures.makeSongs(count: 10) // video-0...video-9
+        let songs = TestFixtures.makeSongs(count: 10)
         await self.playerService.playQueue(songs, startingAt: 0)
-        // Distinct radio per seed so re-seeding yields new songs each top-up.
         for index in 0 ..< 10 {
             self.mockClient.radioQueueSongs["video-\(index)"] = [
                 TestFixtures.makeSong(id: "rec-\(index)-a"),
@@ -379,7 +358,6 @@ struct PlayerServiceSmartShuffleTests {
         let countAfterEnter = self.playerService.queue.count
         let radioCallsAfterEntry = self.mockClient.getRadioQueueVideoIds.count
 
-        // Drain toward the end. Each next() awaits its own fill, so no sleep is needed.
         for _ in 0 ..< (self.playerService.queue.count - 1) {
             await self.playerService.next()
         }
@@ -602,9 +580,6 @@ struct PlayerServiceSmartShuffleTests {
 
         self.playerService.saveQueueForPersistence()
 
-        // A fresh service restoring from the same UserDefaults gets only the originals back — no
-        // suggestions. They are regenerated from live playback context, never persisted. (No client
-        // is attached and we assert synchronously, so no top-up can run before the checks.)
         let restored = PlayerService()
         restored.useQueuePersistenceNamespaceForTesting(self.persistenceNamespace)
         #expect(restored.restoreQueueFromPersistence())
@@ -617,10 +592,6 @@ struct PlayerServiceSmartShuffleTests {
         #expect(PlayerService.resolvedShuffleMode(.smart, smartShuffleEnabled: false) == .on)
     }
 
-    /// This is the only test that still mutates the shared SettingsManager Smart Shuffle values.
-    /// It MUST stay synchronous: with no `await` between the mutation and the `defer` restore it runs
-    /// atomically on the main actor, so it cannot interleave with a parallel suite's default-provider
-    /// fill and clobber it. Do not make it `async` or add an `await` inside the mutation window.
     @Test("clamped Smart Shuffle numeric settings persist the corrected values")
     func clampedSmartShuffleSettingsPersist() {
         let settings = SettingsManager.shared
@@ -663,12 +634,8 @@ struct PlayerServiceSmartShuffleTests {
 
     @Test("playing while loading defers the fill; it dedups against late-loaded tracks (#1)")
     func deferredFillDedupsAgainstFullPlaylist() async {
-        // Production order: smart mode is active first, THEN a large playlist starts playing while
-        // still loading. The premature fill must be suppressed by the deferral, not run on the
-        // initial batch (the bug the load-coordination subsystem exists to prevent).
         self.playerService.setShuffleMode(.smart)
-        let initial = TestFixtures.makeSongs(count: 4) // video-0...video-3
-        // Each seed's radio offers a fresh rec plus video-5, which loads later as an original.
+        let initial = TestFixtures.makeSongs(count: 4)
         for index in 0 ..< 6 {
             self.mockClient.radioQueueSongs["video-\(index)"] = [
                 TestFixtures.makeSong(id: "rec-\(index)"),
@@ -680,7 +647,6 @@ struct PlayerServiceSmartShuffleTests {
         #expect(loadGeneration != nil)
         #expect(!self.playerService.queueEntries.contains { $0.source == .suggested })
 
-        // The rest of the playlist pages in (including video-5).
         self.playerService.appendOriginalTracks([
             TestFixtures.makeSong(id: "video-4"),
             TestFixtures.makeSong(id: "video-5"),
@@ -691,9 +657,9 @@ struct PlayerServiceSmartShuffleTests {
 
         let videoIds = self.playerService.queue.map(\.videoId)
         let suggested = self.playerService.queueEntries.filter { $0.source == .suggested }.map(\.song.videoId)
-        #expect(!suggested.isEmpty) // suggestions generated once fully loaded
+        #expect(!suggested.isEmpty)
         #expect(suggested.allSatisfy { $0.hasPrefix("rec-") })
-        #expect(!suggested.contains("video-5")) // late-loaded original not duplicated as a suggestion
+        #expect(!suggested.contains("video-5"))
         #expect(videoIds.count(where: { $0 == "video-5" }) == 1)
     }
 
@@ -731,7 +697,6 @@ struct PlayerServiceSmartShuffleTests {
         let originalOrder = (0 ..< 24).map { "video-\($0)" }
         #expect(Set(self.playerService.queue.map(\.videoId)) == Set(originalOrder))
 
-        // Turning shuffle off restores the COMPLETE playlist order (snapshot grew with the queue).
         self.playerService.setShuffleMode(.off)
         #expect(self.playerService.queue.map(\.videoId) == originalOrder)
     }
@@ -757,18 +722,14 @@ struct PlayerServiceSmartShuffleTests {
         guard let loadGeneration else { return }
         #expect(self.playerService.isCurrentQueueLoad(loadGeneration))
 
-        // Shuffling reorders the same entries — the load stays current.
         self.playerService.setShuffleMode(.on)
         #expect(self.playerService.isCurrentQueueLoad(loadGeneration))
 
-        // Removing a track is a user edit, not a new playback — the load stays current (#8).
         self.playerService.removeFromQueue(at: 5)
         #expect(self.playerService.isCurrentQueueLoad(loadGeneration))
 
-        // Starting a different playback supersedes it (#5).
         await self.playerService.playQueue(TestFixtures.makeSongs(count: 3), startingAt: 0)
         #expect(!self.playerService.isCurrentQueueLoad(loadGeneration))
-        // A stale finish is a no-op: it must not re-shuffle or touch the new playback's queue.
         await self.playerService.endQueueLoading(loadGeneration)
         #expect(self.playerService.queue.count == 3)
     }
@@ -781,11 +742,9 @@ struct PlayerServiceSmartShuffleTests {
         guard let loadGeneration else { return }
         #expect(self.playerService.isCurrentQueueLoad(loadGeneration))
 
-        // A standalone episode replaces the queue and must supersede the deferred load.
         await self.playerService.playEpisode(ArtistEpisode(videoId: "live-1", title: "Live Stream", isLive: true))
         #expect(!self.playerService.isCurrentQueueLoad(loadGeneration))
 
-        // A stale finish must not resurrect the playlist behind the episode.
         await self.playerService.endQueueLoading(loadGeneration)
         #expect(self.playerService.queue.isEmpty)
     }
@@ -800,7 +759,6 @@ struct PlayerServiceSmartShuffleTests {
             )
         }
 
-        // Playlist A: every seed's radio offers the same "shared-rec".
         let aSongs = (0 ..< 4).map { TestFixtures.makeSong(id: "a-\($0)") }
         for song in aSongs {
             self.mockClient.radioQueueSongs[song.videoId] = [TestFixtures.makeSong(id: "shared-rec")]
@@ -810,8 +768,6 @@ struct PlayerServiceSmartShuffleTests {
         await self.playerService.fillSmartShuffleWindow()
         #expect(self.playerService.queue.contains { $0.videoId == "shared-rec" })
 
-        // Playlist B (still smart): same shared-rec available. Without the reset, A's seen set would
-        // exclude "shared-rec" and B would get no suggestions.
         let bSongs = (0 ..< 4).map { TestFixtures.makeSong(id: "b-\($0)") }
         for song in bSongs {
             self.mockClient.radioQueueSongs[song.videoId] = [TestFixtures.makeSong(id: "shared-rec")]
@@ -834,7 +790,6 @@ struct PlayerServiceSmartShuffleTests {
 
         let songs = TestFixtures.makeSongs(count: 6)
         await self.playerService.playQueue(songs, startingAt: 0)
-        // The current track's seed (video-0, kept at the front) throws; the rest return a fresh rec.
         self.mockClient.radioQueueErrors["video-0"] = URLError(.timedOut)
         for index in 1 ..< 6 {
             self.mockClient.radioQueueSongs["video-\(index)"] = [TestFixtures.makeSong(id: "rec-\(index)")]
@@ -844,7 +799,7 @@ struct PlayerServiceSmartShuffleTests {
         await self.playerService.fillSmartShuffleWindow()
 
         let suggested = self.playerService.queueEntries.filter { $0.source == .suggested }.map(\.song.videoId)
-        #expect(!suggested.isEmpty) // later seeds still filled despite the nearest seed throwing
+        #expect(!suggested.isEmpty)
         #expect(suggested.allSatisfy { $0.hasPrefix("rec-") })
     }
 
@@ -852,9 +807,9 @@ struct PlayerServiceSmartShuffleTests {
     func resetVersusCancelOnApplyingHint() {
         self.playerService.isApplyingSmartShuffle = true
         self.playerService.resetSmartShuffleState()
-        #expect(self.playerService.isApplyingSmartShuffle) // reset must NOT clear a running fill's hint
+        #expect(self.playerService.isApplyingSmartShuffle)
         self.playerService.cancelSmartShuffleFill()
-        #expect(!self.playerService.isApplyingSmartShuffle) // cancel owns teardown of the hint
+        #expect(!self.playerService.isApplyingSmartShuffle)
     }
 
     @Test("legacy playerShuffleEnabled migrates to .on on launch")
@@ -866,7 +821,6 @@ struct PlayerServiceSmartShuffleTests {
         let service = PlayerService()
         #expect(service.shuffleMode == .on)
 
-        // cleanup
         UserDefaults.standard.removeObject(forKey: "playerShuffleEnabled")
         SettingsManager.shared.rememberPlaybackSettings = false
     }

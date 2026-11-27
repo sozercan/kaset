@@ -169,7 +169,6 @@ struct PlaybackAdDetectionTests {
         #expect(context.evaluateScript("stateCount()").toInt32() == 1)
         #expect(!context.evaluateScript("lastState().isAd").toBool())
 
-        // Class observation must still follow the current movie-player element.
         try self.evaluate(
             "postedMessages = []; moviePlayer.classes['ad-showing'] = true; notifyClassChange(moviePlayer);",
             in: context
@@ -590,7 +589,6 @@ struct PlaybackAdDetectionTests {
             var console = { log: function() {} };
             window.__kasetDocumentGeneration = 7;
             window.location = { href: 'https://\(isMusic ? "music" : "www").youtube.com/watch?v=content' };
-            // JavaScriptCore has no browser URL API.
             var URL = function(value) { this.searchParams = { get: key => value.match(new RegExp('[?&]' + key + '=([^&]*)'))?.[1] || null }; };
             var bridge = { postMessage: function(message) { postedMessages.push(message); } };
             window.webkit = { messageHandlers: { singletonPlayer: bridge, youtubePlayer: bridge } };

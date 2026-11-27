@@ -1,13 +1,6 @@
 import Foundation
 
-/// Parses YouTube comments continuation responses (`next` with the
-/// comments section's continuation token).
-///
-/// Modern responses deliver comment data as `commentEntityPayload`
-/// mutations in `frameworkUpdates`; older ones inline `commentRenderer`s.
-/// Both are handled.
 enum YouTubeCommentsParser {
-    /// Like/dislike action tokens from a comment's toolbar surface payload.
     private struct ToolbarSurface {
         let like: String?
         let unlike: String?
@@ -28,15 +21,11 @@ enum YouTubeCommentsParser {
         )
     }
 
-    // MARK: - Entity Payloads (2024+ format)
-
     private static func commentsFromEntityPayloads(_ data: [String: Any]) -> [YouTubeComment] {
         let updates = data["frameworkUpdates"] as? [String: Any]
         let batch = updates?["entityBatchUpdate"] as? [String: Any]
         let mutations = batch?["mutations"] as? [[String: Any]] ?? []
 
-        // Entity payloads are flat; the thread structure and ordering come
-        // from the comment view models in the continuation items.
         var commentsByKey: [String: [String: Any]] = [:]
         var orderedPayloads: [[String: Any]] = []
         var surfacesByKey: [String: ToolbarSurface] = [:]
@@ -63,8 +52,6 @@ enum YouTubeCommentsParser {
             }
         }
 
-        // Preferred path: walk the view models for order, thread replies,
-        // and the toolbar-surface linkage.
         var viewModels: [(vm: [String: Any], replies: String?)] = []
         Self.collectCommentViewModels(in: data, into: &viewModels)
 
@@ -89,20 +76,14 @@ enum YouTubeCommentsParser {
             }
         }
 
-        // Fallback: mutation order without thread/action linkage.
         return orderedPayloads.compactMap { Self.comment(fromEntityPayload: $0) }
     }
 
-    /// Extracts the `performCommentActionEndpoint.action` token from a
-    /// toolbar command container.
     private static func actionToken(of command: Any?) -> String? {
         guard let command else { return nil }
         return Self.firstString(forKey: "action", in: command)
     }
 
-    /// Collects comment view models in display order, with each thread's
-    /// replies continuation. Handles top-level threads
-    /// (`commentThreadRenderer`) and bare view models (reply pages).
     private static func collectCommentViewModels(
         in value: Any,
         into results: inout [(vm: [String: Any], replies: String?)]
@@ -132,7 +113,6 @@ enum YouTubeCommentsParser {
         }
     }
 
-    /// `commentViewModel` sometimes wraps another `commentViewModel` level.
     private static func innerCommentViewModel(of value: Any?) -> [String: Any]? {
         guard let dict = value as? [String: Any] else { return nil }
         if let inner = dict["commentViewModel"] as? [String: Any] {
@@ -164,8 +144,6 @@ enum YouTubeCommentsParser {
             authorChannelId: author?["channelId"] as? String
         )
     }
-
-    // MARK: - Legacy Renderers
 
     private static func commentsFromLegacyRenderers(_ data: [String: Any]) -> [YouTubeComment] {
         var comments: [YouTubeComment] = []
@@ -209,10 +187,6 @@ enum YouTubeCommentsParser {
         )
     }
 
-    // MARK: - Continuation & Create Params
-
-    /// The next comments page token: the last continuation among the
-    /// appended items (reply continuations come earlier within threads).
     private static func nextPageToken(of data: [String: Any]) -> String? {
         let endpoints = data["onResponseReceivedEndpoints"] as? [[String: Any]]
             ?? data["onResponseReceivedActions"] as? [[String: Any]]
@@ -236,7 +210,6 @@ enum YouTubeCommentsParser {
         return token
     }
 
-    /// Depth-first search for a string value under the given key.
     static func firstString(forKey key: String, in value: Any) -> String? {
         if let dict = value as? [String: Any] {
             if let match = dict[key] as? String {

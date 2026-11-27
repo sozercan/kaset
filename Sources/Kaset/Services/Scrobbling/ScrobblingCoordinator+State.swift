@@ -62,9 +62,6 @@ extension ScrobblingCoordinator {
         return tracklist.effectiveDuration(for: entry, videoDuration: self.videoDuration(for: song))
     }
 
-    /// Accepts playback values only after their provenance belongs to the tracked metadata identity.
-    /// Same-video metadata transitions set a minimum observation sequence so stale progress and
-    /// duration cannot cross the transition boundary.
     func acceptPlaybackState(for track: Song) -> Bool {
         guard self.playerService.playbackStateVideoId == track.videoId else { return false }
         if let requiredPlaybackStateSequence = self.requiredPlaybackStateSequence {
@@ -80,10 +77,6 @@ extension ScrobblingCoordinator {
         tracklist.knownDurationLowerBound.map { $0 > Self.mixMinimumVideoDuration } == true
     }
 
-    /// Applies one duration-evidence precedence rule everywhere mix classification can finish:
-    /// authoritative Song duration, definitely-long player duration, then (after the grace period)
-    /// tracklist lower bounds before a provisional short player duration. At track exit, a parsed
-    /// mix with no duration evidence is accepted rather than dropped.
     static func mixDurationDecision(
         for tracklist: MixTracklist,
         songDuration: TimeInterval?,
@@ -144,9 +137,6 @@ extension ScrobblingCoordinator {
         self.commitPendingWholeTrackScrobbles()
     }
 
-    /// Commits a provisional parsed tracklist when playback ends. A reliable song duration wins;
-    /// otherwise tracklist bounds can prove a long mix, a current player duration can prove a short
-    /// regular track, and a completely duration-less parse falls back to its tracklist result.
     func resolveAwaitingDurationForFinalization() {
         guard case let .awaitingDuration(tracklist) = self.mixDetectionState else { return }
         let decision = Self.mixDurationDecision(

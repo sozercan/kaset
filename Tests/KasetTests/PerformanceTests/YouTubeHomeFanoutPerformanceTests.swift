@@ -1,7 +1,6 @@
 import XCTest
 @testable import Kaset
 
-/// Performance coverage for YouTube Home cold-load topic rail fanout.
 final class YouTubeHomeFanoutPerformanceTests: XCTestCase {
     func testColdLoadWithEightTopicChipsPerformance() {
         let options = XCTMeasureOptions()

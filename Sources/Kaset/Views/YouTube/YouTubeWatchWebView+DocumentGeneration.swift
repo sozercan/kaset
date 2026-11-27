@@ -1,13 +1,6 @@
 import Foundation
 
 extension YouTubeWatchWebView {
-    /// Document-start state handed to each new watch page.
-    ///
-    /// `documentGeneration` scopes bridge messages to this page. `pendingSeek`,
-    /// when present, is a resume position (seconds) applied by the observer once
-    /// the `<video>` element exists and is seekable (see `applyPendingSeek` in the
-    /// observer script). Injected at document start so both values are in place
-    /// before the player boots and naturally scoped to this one navigation.
     nonisolated static func pageBootstrapScript(
         targetVolume: Double,
         documentGeneration _: UInt64,
@@ -52,13 +45,6 @@ extension YouTubeWatchWebView {
     }
 
     // swiftlint:disable function_body_length
-    /// Installs an audio gate before YouTube creates or autoplays its media.
-    ///
-    /// Merely storing `__kasetTargetVolume` at document start leaves a race: a
-    /// newly created video can begin at YouTube's persisted volume before the
-    /// document-end observer attaches. This gate applies the target at the
-    /// `HTMLMediaElement.play()` boundary, covers native autoplay via capture
-    /// listeners, and immediately protects replacement media elements.
     nonisolated static func documentStartAudioGuardScript(targetVolume: Double) -> String {
         let clamped = targetVolume.isFinite ? min(max(targetVolume, 0), 1) : 1.0
         return """
@@ -118,11 +104,9 @@ extension YouTubeWatchWebView {
                 const target = resolvedTarget();
                 try {
                     if (target <= 0) {
-                        // Mute first so lowering volume can never expose an audible frame.
                         if (!media.muted) { media.muted = true; }
                         if (Math.abs(media.volume) > 0.001) { media.volume = 0; }
                     } else {
-                        // Set the requested level before unmuting for the same reason.
                         if (Math.abs(media.volume - target) > 0.001) { media.volume = target; }
                         if (media.muted) { media.muted = false; }
                     }

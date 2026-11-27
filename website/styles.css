@@ -1,21 +1,14 @@
-/* ============================================================
-   Kaset — tokens
-   ============================================================ */
-
 :root {
   --bg: #000;
   --ink: #f5f5f7;
   --ink-2: #a1a1a6;
   --ink-3: #86868b;
 
-  /* Side A: YouTube Music (a1/b1 keep white button text at 4.5:1 or better) */
   --a1: #e0144d;
   --a2: #a33cff;
-  /* Side B: YouTube */
   --b1: #e60a2a;
   --b2: #ff8a1e;
 
-  /* Live accent, follows the active side */
   --c1: var(--a1);
   --c2: var(--a2);
 
@@ -59,10 +52,6 @@ code, pre { font-family: var(--mono); }
   outline-offset: 3px;
   border-radius: 6px;
 }
-
-/* ============================================================
-   Type
-   ============================================================ */
 
 h1 {
   font-size: clamp(2.75rem, 7vw, 5rem);
@@ -121,10 +110,6 @@ h3 {
 .wide { display: none; }
 @media (min-width: 700px) { .wide { display: inline; } }
 
-/* ============================================================
-   Liquid Glass
-   ============================================================ */
-
 .glass {
   --r: 28px;
   border-radius: var(--r);
@@ -139,10 +124,6 @@ h3 {
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -1px 0 rgba(0, 0, 0, 0.3);
 }
-
-/* ============================================================
-   Nav
-   ============================================================ */
 
 .nav {
   position: sticky;
@@ -193,10 +174,6 @@ h3 {
   transition: background-color 1s var(--ease-out);
 }
 
-/* ============================================================
-   Buttons and links
-   ============================================================ */
-
 .cta-row {
   display: flex;
   justify-content: center;
@@ -232,10 +209,6 @@ h3 {
 html[data-side="b"] .link { color: #ff6b5e; }
 .link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
-/* ============================================================
-   Sections
-   ============================================================ */
-
 main > section {
   position: relative;
   max-width: var(--page);
@@ -245,14 +218,9 @@ main > section {
 
 .head { text-align: center; max-width: 46rem; margin: 0 auto; }
 
-/* ============================================================
-   Hero
-   ============================================================ */
-
 .hero {
   text-align: center;
   padding-top: clamp(72px, 10vw, 120px) !important;
-  /* The glow is wider than phones; clip it sideways only */
   overflow-x: clip;
 }
 
@@ -277,10 +245,6 @@ main > section {
   transition: background 1.4s var(--ease-out);
   pointer-events: none;
 }
-
-/* ============================================================
-   Cassette
-   ============================================================ */
 
 .cassette-scene {
   position: relative;
@@ -341,7 +305,6 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
 .screw.bl { bottom: 3.4cqw; left: 3.4cqw; }
 .screw.br { bottom: 3.4cqw; right: 3.4cqw; }
 
-/* Window: an SVG with exact reel geometry so the tape stays tangent to both spools */
 .window {
   position: absolute;
   left: 11cqw;
@@ -416,8 +379,6 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
   clip-path: polygon(0 100%, 14% 0, 86% 0, 100% 100%);
 }
 
-/* Segmented control */
-
 .segmented {
   --r: 999px;
   display: inline-flex;
@@ -445,10 +406,6 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 4px 12px -4px rgba(0, 0, 0, 0.6);
 }
 
-/* ============================================================
-   Screenshot
-   ============================================================ */
-
 .shot { margin-top: clamp(48px, 7vw, 80px) !important; text-align: center; }
 
 .shot-frame {
@@ -466,10 +423,6 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
 }
 
 .caption { margin-top: 22px; font-size: 0.92rem; color: var(--ink-3); }
-
-/* ============================================================
-   Feature sections
-   ============================================================ */
 
 .feature { padding-top: clamp(100px, 14vw, 180px) !important; }
 
@@ -514,8 +467,6 @@ html[data-side="b"] .cassette { transform: rotateY(180deg); }
 .tile p { margin-top: 8px; color: var(--ink-2); font-size: 0.97rem; }
 .tile p code { white-space: nowrap; }
 .demo { margin-top: auto; padding-top: 26px; }
-
-/* Demos */
 
 .lyrics { display: grid; gap: 6px; font-weight: 600; font-size: 1.1rem; letter-spacing: -0.015em; }
 .lyrics span { opacity: 0.3; }
@@ -635,10 +586,6 @@ pre.demo {
   overflow-x: auto;
 }
 
-/* ============================================================
-   Install
-   ============================================================ */
-
 .cmds {
   display: grid;
   gap: 12px;
@@ -676,10 +623,6 @@ pre.demo {
 
 .fine { max-width: 560px; margin: 18px auto 0; font-size: 0.85rem; color: var(--ink-3); }
 
-/* ============================================================
-   Footer
-   ============================================================ */
-
 .footer {
   max-width: 980px;
   margin: clamp(80px, 12vw, 140px) auto 0;
@@ -695,10 +638,6 @@ pre.demo {
 .footer-links { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 10px; }
 .disclaimer { margin-top: 14px; max-width: 70ch; }
 
-/* ============================================================
-   Motion preferences
-   ============================================================ */
-
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .window .hub { animation: none; }
@@ -706,11 +645,6 @@ pre.demo {
   .button { transition: none; }
 }
 
-/* ============================================================
-   Responsive
-   ============================================================ */
-
-/* Four columns get too narrow for the AppleScript sample a bit before 960px */
 @media (max-width: 1040px) {
   .tiles.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
@@ -726,6 +660,5 @@ pre.demo {
   .tile { min-height: 0; }
   .shot-frame { border-radius: 10px; }
   .glow { opacity: 0.5; }
-  /* Wrap long commands at spaces instead of cutting them off */
   .cmd code { white-space: normal; overflow-wrap: anywhere; }
 }

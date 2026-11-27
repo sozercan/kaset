@@ -1,7 +1,6 @@
 import XCTest
 @testable import Kaset
 
-/// Performance tests for app data-flow helpers that are hot during large library/playlist loads.
 final class DataFlowPerformanceTests: XCTestCase {
     @MainActor
     func testLikeStatusSingleWritePerformance() {

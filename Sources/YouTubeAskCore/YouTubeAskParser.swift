@@ -1,8 +1,6 @@
 import Foundation
 
 package enum YouTubeAskParser {
-    /// Parses a watch `next` response. `nil` means the response did not expose a
-    /// usable YouChat panel bootstrap or direct server-issued suggestions.
     package static func parseBootstrap(
         from envelope: YouTubeAskWireEnvelope
     ) throws -> YouTubeAskParsedBootstrap? {
@@ -59,10 +57,6 @@ package enum YouTubeAskParser {
                 guard existingContent.suggestions.map(\.label) == panelSuggestions.map(\.label) else {
                     throw YouTubeAskCoreError.malformedChip
                 }
-                // Responsive surfaces can mirror the same visible panel with
-                // different opaque commands. Keep one panel atomic: retain the
-                // first complete panel, or replace an earlier chips-only mirror
-                // with the first later mirror that also owns the composer.
                 if existingContent.freeTextCommand == nil, panelFreeTextCommand != nil {
                     canonicalContent = (
                         suggestions: panelSuggestions,
@@ -85,9 +79,6 @@ package enum YouTubeAskParser {
         } catch YouTubeAskCoreError.ambiguousBootstrap
             where !suggestions.isEmpty || freeTextCommand != nil
         {
-            // Direct chip continuations are independently validated capabilities.
-            // Do not guess among unrelated panel-bootstrap commands when the
-            // panel can already be presented without materialization.
             panelContinuation = nil
         }
         guard panelContinuation != nil
@@ -103,8 +94,6 @@ package enum YouTubeAskParser {
         )
     }
 
-    /// Parses assistant messages and server-issued follow-up suggestions from a
-    /// materialized panel or direct-chip response.
     package static func parseConversation(
         from envelope: YouTubeAskWireEnvelope
     ) throws -> YouTubeAskParsedConversation {
@@ -317,8 +306,6 @@ package enum YouTubeAskParser {
         }
     }
 
-    /// Accept only the response path observed for YouChat panel materialization:
-    /// `onResponseReceivedCommands[].appendContinuationItemsAction.continuationItems[]`.
     private static func parseConfirmedConversationResponse(
         _ response: [String: YouTubeAskJSONValue],
         content: inout ConversationAccumulator
@@ -584,11 +571,6 @@ package enum YouTubeAskParser {
         }
     }
 
-    /// Current YouChat chips may carry a local `listMutationCommand` that
-    /// inserts the already-visible chip label as the pending user turn and
-    /// scrolls the panel. Kaset performs those UI updates itself and never
-    /// executes or preserves this callback. Accept only the exact observed
-    /// schema and reject every other command or field.
     private static func isSupportedOnClickDecorator(
         _ value: YouTubeAskJSONValue,
         expectedVisibleText: String

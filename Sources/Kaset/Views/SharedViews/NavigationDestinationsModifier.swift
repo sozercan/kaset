@@ -1,9 +1,5 @@
 import SwiftUI
 
-// MARK: - NavigationDestinationsModifier
-
-/// View modifier that adds common navigation destinations for Playlist, Artist, MoodCategory, and TopSongsDestination.
-/// Note: Lyrics sidebar is handled globally in MainWindow, outside the NavigationSplitView.
 struct NavigationDestinationsModifier: ViewModifier {
     let client: any YTMusicClientProtocol
     @Environment(\.libraryViewModel) private var libraryViewModel: LibraryViewModel?
@@ -13,7 +9,6 @@ struct NavigationDestinationsModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .navigationDestination(for: Playlist.self) { playlist in
-                // Check if this is a mood/genre category disguised as a playlist
                 if playlist.resolvedMoodCategoryEndpoint != nil {
                     if let parsed = playlist.resolvedMoodCategoryEndpoint {
                         let category = MoodCategory(
@@ -29,7 +24,6 @@ struct NavigationDestinationsModifier: ViewModifier {
                         )
                         .environment(\.libraryViewModel, self.libraryViewModel)
                     } else {
-                        // Fallback - shouldn't happen
                         if !self.usesLegacyMacOS15UI, #available(macOS 26.0, *) {
                             PlaylistDetailView(
                                 playlist: playlist,
@@ -115,9 +109,6 @@ struct NavigationDestinationsModifier: ViewModifier {
                         client: self.client
                     ))
                 case .playlist:
-                    // Playlist destinations route through the `Playlist` value
-                    // instead of `ArtistSeeAllDestination`, so this branch is
-                    // structurally unreachable. Fall back gracefully.
                     EmptyView()
                 }
             }
@@ -125,7 +116,6 @@ struct NavigationDestinationsModifier: ViewModifier {
 }
 
 extension View {
-    /// Adds common navigation destinations for Playlist, Artist, MoodCategory, and TopSongsDestination.
     func navigationDestinations(client: any YTMusicClientProtocol) -> some View {
         modifier(NavigationDestinationsModifier(client: client))
     }

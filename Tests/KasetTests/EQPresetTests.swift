@@ -2,8 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for `EQPreset` (band-count alignment, picker ordering, display
-/// names, special-cased presets).
 @Suite(.tags(.model))
 struct EQPresetTests {
     @Test("Every preset's gain table matches the band layout")

@@ -13,16 +13,12 @@ struct PodcastsViewModelTests {
         self.viewModel = PodcastsViewModel(client: self.mockClient)
     }
 
-    // MARK: - Initial State
-
     @Test
     func initialStateIsIdleWithEmptySections() {
         #expect(self.viewModel.loadingState == .idle)
         #expect(self.viewModel.sections.isEmpty)
         #expect(self.viewModel.hasMoreSections == true)
     }
-
-    // MARK: - Load
 
     @Test
     func loadSuccessSetsSections() async {
@@ -59,7 +55,6 @@ struct PodcastsViewModelTests {
         await self.viewModel.load()
 
         if case .error = self.viewModel.loadingState {
-            // Expected error state
         } else {
             Issue.record("Expected error state but got \(self.viewModel.loadingState)")
         }
@@ -74,7 +69,6 @@ struct PodcastsViewModelTests {
         )
         self.mockClient.podcastsSections = [testSection]
 
-        // Start two loads concurrently - second should be blocked
         let task1 = Task {
             await self.viewModel.load()
         }
@@ -85,12 +79,9 @@ struct PodcastsViewModelTests {
         await task1.value
         await task2.value
 
-        // Should complete without issues
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.first?.title == "Original")
     }
-
-    // MARK: - Refresh
 
     @Test
     func refreshClearsSectionsAndReloads() async {
@@ -104,7 +95,6 @@ struct PodcastsViewModelTests {
         await self.viewModel.load()
         #expect(self.viewModel.sections.first?.title == "Initial")
 
-        // Update mock data
         let refreshedSection = PodcastSection(
             id: UUID().uuidString,
             title: "Refreshed",
@@ -117,8 +107,6 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.first?.title == "Refreshed")
     }
-
-    // MARK: - Continuation Loading
 
     @Test
     func initialLoadDoesNotDrainContinuations() async {
@@ -170,8 +158,6 @@ struct PodcastsViewModelTests {
         #expect(self.mockClient.getPodcastsContinuationCallCount == 0)
     }
 
-    // MARK: - Empty State
-
     @Test
     func loadWithEmptySectionsShowsLoaded() async {
         self.mockClient.podcastsSections = []
@@ -182,8 +168,6 @@ struct PodcastsViewModelTests {
         #expect(self.viewModel.sections.isEmpty)
     }
 
-    // MARK: - Region availability integration
-
     @Test
     func loadHTTP404MarksAvailabilityUnavailableAndLandsLoaded() async {
         let availability = PodcastsAvailabilityService()
@@ -192,9 +176,6 @@ struct PodcastsViewModelTests {
 
         await self.viewModel.load()
 
-        // Lands on .loaded with empty sections rather than .error so the
-        // user doesn't see a generic "Server Error 404" toast while the
-        // sidebar row is being torn down by the availability service.
         #expect(self.viewModel.loadingState == .loaded)
         #expect(self.viewModel.sections.isEmpty)
         #expect(availability.availability == .unavailable)
@@ -227,8 +208,6 @@ struct PodcastsViewModelTests {
 
         await self.viewModel.load()
 
-        // User-initiated empty payload is treated as authoritative — the
-        // sidebar row should disappear.
         #expect(availability.availability == .unavailable)
     }
 
@@ -254,10 +233,8 @@ struct PodcastsViewModelTests {
 
         await self.viewModel.load()
 
-        // Transient errors must not flip a known-good state.
         #expect(availability.availability == .available)
         if case .error = self.viewModel.loadingState {
-            // Expected — generic error UI for transient failures.
         } else {
             Issue.record("Expected error state but got \(self.viewModel.loadingState)")
         }

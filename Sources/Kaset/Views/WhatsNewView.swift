@@ -1,10 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - WhatsNewView
-
-/// Sheet view that showcases new features for the current app version.
-/// Displays either structured feature rows (static fallback) or markdown release notes (from GitHub).
 struct WhatsNewView: View {
     private enum Layout {
         static let sheetWidth: CGFloat = 640
@@ -167,9 +163,6 @@ struct WhatsNewView: View {
     }
 }
 
-// MARK: - MarkdownContentView
-
-/// Renders GitHub-flavored markdown into native SwiftUI views.
 private struct MarkdownContentView: View {
     let markdown: String
 
@@ -182,7 +175,6 @@ private struct MarkdownContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// Parses markdown into an array of block-level views.
     private var blocks: [AnyView] {
         let lines = Self.normalizedLines(from: self.markdown)
         var result: [AnyView] = []
@@ -203,7 +195,6 @@ private struct MarkdownContentView: View {
             let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
 
             if trimmed.isEmpty {
-                // Skip blank lines — VStack spacing handles gaps between blocks
                 flushParagraph()
                 i += 1
             } else if trimmed.hasPrefix("<!--") {
@@ -234,7 +225,6 @@ private struct MarkdownContentView: View {
                 i += 1
             } else if let firstItem = Self.listItemText(from: trimmed) {
                 flushParagraph()
-                // Collect consecutive list items
                 var items = [firstItem]
                 i += 1
                 while i < lines.count {
@@ -249,7 +239,6 @@ private struct MarkdownContentView: View {
                 result.append(AnyView(Self.list(items)))
             } else if trimmed.hasPrefix("```") {
                 flushParagraph()
-                // Code block — collect until closing ```
                 i += 1
                 var codeLines: [String] = []
                 while i < lines.count, !lines[i].trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("```") {
@@ -258,11 +247,10 @@ private struct MarkdownContentView: View {
                 }
                 if i < lines.count {
                     i += 1
-                } // skip closing ```
+                }
                 let code = codeLines.joined(separator: "\n")
                 result.append(AnyView(Self.codeBlock(code)))
             } else {
-                // Merge wrapped markdown lines into a single paragraph block.
                 paragraphLines.append(trimmed)
                 i += 1
             }
@@ -272,9 +260,7 @@ private struct MarkdownContentView: View {
         return result
     }
 
-    /// Parses inline markdown (bold, italic, code, links) into an AttributedString.
     private static func inlineMarkdown(_ text: String) -> AttributedString {
-        // Use Foundation's markdown parser for inline formatting
         if let attributed = try? AttributedString(markdown: text, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
             return attributed
         }
@@ -372,9 +358,6 @@ private struct MarkdownContentView: View {
     }
 }
 
-// MARK: - WhatsNewFeatureRow
-
-/// A row displaying a single feature with icon, title, and subtitle.
 private struct WhatsNewFeatureRow: View {
     @Environment(\.colorScheme) private var colorScheme
 

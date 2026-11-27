@@ -1,6 +1,5 @@
 import XCTest
 
-/// UI tests for Video functionality.
 @MainActor
 final class VideoUITests: KasetUITestCase {
     private var videoWindow: XCUIElement {
@@ -17,26 +16,20 @@ final class VideoUITests: KasetUITestCase {
         }
     }
 
-    // MARK: - Video Button Visibility
-
     func testVideoButtonVisibleWhenNoVideo() {
-        // Launch with player but no video support
         launchWithMockPlayer(isPlaying: true, hasVideo: false)
 
         navigateToHome()
 
-        // Video button should stay visible even when availability detection reports no video.
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should stay visible when track has no video")
     }
 
     func testVideoButtonVisibleWhenTrackHasVideo() {
-        // Launch with player that has video
         launchWithMockPlayerWithVideo(isPlaying: true)
 
         navigateToHome()
 
-        // Video button should be visible when track has video
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should exist when track has video")
     }
@@ -49,8 +42,6 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForElement(videoButton, timeout: 10), "Video button should have 'Video' accessibility label")
     }
-
-    // MARK: - Video Button Interaction
 
     func testVideoButtonIsClickable() {
         launchWithMockPlayerWithVideo(isPlaying: true)
@@ -71,28 +62,21 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForHittable(videoButton))
 
-        // Check initial accessibility value
         let initialValue = videoButton.value as? String ?? ""
         XCTAssertEqual(initialValue, "Off", "Video should initially be off")
 
-        // Click to open video
         videoButton.click()
         Thread.sleep(forTimeInterval: 0.5)
 
-        // Value should change to "Playing"
         let afterClickValue = videoButton.value as? String ?? ""
         XCTAssertEqual(afterClickValue, "Playing", "Video should be playing after click")
 
-        // Click again to close video
         videoButton.click()
         Thread.sleep(forTimeInterval: 0.5)
 
-        // Value should change back to "Off"
         let afterSecondClickValue = videoButton.value as? String ?? ""
         XCTAssertEqual(afterSecondClickValue, "Off", "Video should be off after second click")
     }
-
-    // MARK: - Video Window Tests
 
     func testVideoWindowOpensOnButtonClick() throws {
         try self.skipVideoWindowAssertionsOnMacOS15()
@@ -104,10 +88,8 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForHittable(videoButton))
 
-        // Click video button
         videoButton.click()
 
-        // Wait for video window to appear
         let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5), "Video window should appear after clicking video button")
     }
@@ -127,7 +109,6 @@ final class VideoUITests: KasetUITestCase {
         let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
-        // Window title should be "Video"
         XCTAssertEqual(videoWindow.title, "Video", "Video window should have title 'Video'")
     }
 
@@ -141,22 +122,18 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForHittable(videoButton))
 
-        // Open video window
         videoButton.click()
 
         let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
-        // Close button (red button)
         let closeButton = videoWindow.buttons[XCUIIdentifierCloseWindow]
         if closeButton.exists {
             closeButton.click()
             Thread.sleep(forTimeInterval: 0.5)
 
-            // Video window should be gone
             XCTAssertFalse(videoWindow.exists, "Video window should close when close button clicked")
 
-            // Video button state should be "Off"
             let videoButtonValue = videoButton.value as? String ?? ""
             XCTAssertEqual(videoButtonValue, "Off", "Video button should show Off after window closed")
         }
@@ -172,26 +149,19 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForHittable(videoButton))
 
-        // Open video window
         videoButton.click()
 
         let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5))
 
-        // Click video button again to close
         videoButton.click()
         Thread.sleep(forTimeInterval: 0.5)
 
-        // Video window should be gone
         XCTAssertFalse(videoWindow.exists, "Video window should close when video button clicked again")
     }
 
-    // MARK: - Video Button State Persistence
-
     func testVideoButtonPersistsAcrossNavigation() {
         launchWithMockPlayerWithVideo(isPlaying: true)
-
-        // Navigate to different views and verify video button is present
 
         navigateToHome()
         var videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
@@ -206,8 +176,6 @@ final class VideoUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(videoButton), "Video button should be visible on Explore")
     }
 
-    // MARK: - Video Primary Action
-
     func testVideoPrimaryActionOpensWindow() throws {
         try self.skipVideoWindowAssertionsOnMacOS15()
 
@@ -218,20 +186,14 @@ final class VideoUITests: KasetUITestCase {
         let videoButton = app.buttons[TestAccessibilityID.PlayerBar.videoButton]
         XCTAssertTrue(waitForHittable(videoButton))
 
-        // Initial state should be Off
         let initialValue = videoButton.value as? String ?? ""
         XCTAssertEqual(initialValue, "Off")
 
-        // XCUITest synthetic key events do not reliably reach SwiftUI
-        // keyboardShortcut modifiers on macOS 26. Cover the same video
-        // action through the accessible player control instead.
         videoButton.click()
 
-        // Wait for video window to appear as confirmation the primary action worked.
         let videoWindow = self.videoWindow
         XCTAssertTrue(waitForElement(videoWindow, timeout: 5), "Video window should open from the player control")
 
-        // Video button should now show Playing.
         let afterClickValue = videoButton.value as? String ?? ""
         XCTAssertEqual(afterClickValue, "Playing", "Video should be playing after clicking the player control")
     }

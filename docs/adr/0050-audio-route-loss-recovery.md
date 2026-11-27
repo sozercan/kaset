@@ -1,4 +1,4 @@
-# ADR-0043: Audio Route Loss Recovery and Now Playing Ownership
+# ADR-0050: Audio Route Loss Recovery and Now Playing Ownership
 
 ## Status
 
@@ -72,8 +72,37 @@ Supporting decisions:
   exactly what the route loss interrupted, so reconnecting an hour later is still the same
   interrupted song. It deliberately survives *issuing* a resume so the second attempt can retry
   while the route is still settling.
+- **Arm recovery only for playback the pause stopped.** macOS can send its route-loss `pause` to
+  an app that is already paused (by the user, by WebKit handling a media key, by the page's own
+  controls, or at the end of a track). Arming then would resume music nobody was listening to.
+  Only a pause that took the player out of playing or awaiting-confirmation leaves a marker.
+- **Make the disappearance one-shot.** A disappearance explains at most one pause. Only the
+  newest disappearance before a command can explain it, and output that came back between the
+  disappearance and the command makes the pause the user's. Otherwise a user pressing Pause right
+  after the system already paused for the same disconnect would also read as system-driven and a
+  later reconnect would resume against it.
+- **Keep a log, not the latest pair.** Classification runs after an unbounded hop, so a
+  disconnect, reconnect, and second disconnect can all land before a queued pause is judged. The
+  route timeline is reconstructed as of the admission instant, bounded to 30 seconds and 32
+  events. The listener stamps arrival before taking the record's lock, runs its Core Audio
+  queries under that lock (a `nil` listener queue delivers callbacks unserialized), and clamps a
+  stamp that predates the previous event forward so the log stays ordered with the baseline it
+  was compared against.
+- **Order the late attribution.** The re-attribution checks for a pending unattributed pause
+  before claiming the disappearance, so a route event handled before the pause drains does not
+  consume the disappearance that the admission classification still needs. Whichever of the
+  route event and the pause lands second performs the attribution, and installing a route-loss
+  marker itself schedules a resume check in case the reconnect was handled first.
+- **Retry the resume.** A returning device is not usable the instant Core Audio reports it, and
+  WebKit settles route changes in stages, so the resume is attempted at 500 ms and 2 s after the
+  latest route event. Bursts of notifications collapse into the latest request.
+- **Keep the monitor independent of the equalizer.** `EqualizerService` has its own device
+  listener, but it only runs while the equalizer is enabled; playback correctness must not depend
+  on that setting.
 - **Release the native claim whenever WebKit owns the card**, since the event it was waiting for
-  does not exist.
+  does not exist. WebKit's Now Playing client and Kaset's `MPNowPlayingInfoCenter` entry are
+  separate clients, so a claim left in place survives as a competing entry and the most recently
+  updated one owns the media keys. Only metadata carrying Kaset's service identifier is cleared.
 
 ## Consequences
 

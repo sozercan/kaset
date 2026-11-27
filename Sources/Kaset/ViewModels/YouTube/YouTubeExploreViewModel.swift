@@ -1,18 +1,13 @@
 import Foundation
 import Observation
 
-/// View model for the YouTube Explore surface (public destination feeds —
-/// the successors to the retired Trending page).
 @MainActor
 @Observable
 final class YouTubeExploreViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Videos for the selected destination.
     private(set) var videos: [YouTubeVideo] = []
 
-    /// The selected destination category.
     var selectedDestination: YouTubeDestination = .gaming {
         didSet {
             guard oldValue != self.selectedDestination else { return }
@@ -29,12 +24,8 @@ final class YouTubeExploreViewModel {
         self.client = client
     }
 
-    /// Invalidates stale in-flight loads when a newer one starts.
     private var loadGeneration = 0
 
-    /// The single in-flight load, shared by concurrent `load()` callers so
-    /// SwiftUI `.task` restarts coalesce onto one run instead of duplicating the
-    /// destination feed request.
     private var loadTask: Task<Void, Never>?
 
     func load() async {
@@ -63,7 +54,6 @@ final class YouTubeExploreViewModel {
         let destination = self.selectedDestination
         do {
             let feed = try await self.client.getDestinationFeed(destination)
-            // Ignore stale results (superseded load or switched category).
             guard runID == self.loadGeneration,
                   destination == self.selectedDestination else { return }
             self.videos = feed.videos
@@ -71,8 +61,6 @@ final class YouTubeExploreViewModel {
         } catch {
             guard runID == self.loadGeneration,
                   destination == self.selectedDestination else { return }
-            // A cancelled load (view went away mid-flight) is not an
-            // error; reset so the next task run reloads.
             if error is CancellationError {
                 self.loadingState = .idle
                 return

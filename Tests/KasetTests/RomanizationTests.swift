@@ -1,11 +1,7 @@
 import Testing
 @testable import Kaset
 
-// MARK: - ScriptDetectorTests
-
 struct ScriptDetectorTests {
-    // MARK: isLatinOnly
-
     @Test("Latin-only text is detected correctly")
     func latinOnly() {
         #expect(ScriptDetector.isLatinOnly("Hello world") == true)
@@ -22,8 +18,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.isLatinOnly("নমস্কার") == false)
         #expect(ScriptDetector.isLatinOnly("नमस्ते") == false)
     }
-
-    // MARK: hasJapanese
 
     @Test("Hiragana is detected as Japanese")
     func hiraganaIsJapanese() {
@@ -45,8 +39,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.hasJapanese("안녕하세요") == false)
     }
 
-    // MARK: hasKorean
-
     @Test("Hangul syllables are detected as Korean")
     func hangulIsKorean() {
         #expect(ScriptDetector.hasKorean("안녕하세요") == true)
@@ -58,8 +50,6 @@ struct ScriptDetectorTests {
         #expect(ScriptDetector.hasKorean("こんにちは") == false)
     }
 
-    // MARK: hasChinese
-
     @Test("CJK without kana is detected as Chinese")
     func cjkWithoutKanaIsChinese() {
         #expect(ScriptDetector.hasChinese("你好世界") == true)
@@ -67,12 +57,8 @@ struct ScriptDetectorTests {
 
     @Test("CJK with kana is not Chinese (it's Japanese)")
     func cjkWithKanaIsNotChinese() {
-        // Mixed kanji + hiragana → Japanese, not Chinese
-        // "日本語の" = "日本語" (kanji) + "の" (hiragana) — presence of kana marks it Japanese
         #expect(ScriptDetector.hasChinese("日本語の") == false)
     }
-
-    // MARK: dominantScript
 
     @Test("dominantScript returns .japanese for kana text")
     func dominantJapanese() {
@@ -100,19 +86,15 @@ struct ScriptDetectorTests {
     }
 }
 
-// MARK: - KoreanRomanizerTests
-
 struct KoreanRomanizerTests {
     @Test("Simple Korean syllable romanizes correctly")
     func simpleKorean() throws {
-        // 가 = g + a → "ga"
         let result = try #require(KoreanRomanizer.romanize("가"))
         #expect(result == "ga")
     }
 
     @Test("Common Korean word romanizes")
     func koreanWord() throws {
-        // 나 = "na", 라 = "ra" → but full words vary; just check non-empty
         let result = try #require(KoreanRomanizer.romanize("안녕"))
         #expect(!result.isEmpty)
         #expect(result != "안녕")
@@ -120,7 +102,6 @@ struct KoreanRomanizerTests {
 
     @Test("Latin passthrough is preserved")
     func latinPassthrough() throws {
-        // Non-Hangul characters pass through unchanged
         let result = try #require(KoreanRomanizer.romanize("hey 안녕"))
         #expect(result.contains("hey"))
         #expect(!result.contains("안"))
@@ -134,7 +115,6 @@ struct KoreanRomanizerTests {
 
     @Test("Known syllable decomposition: 한 → han")
     func hangulDecomposition() throws {
-        // 한: initial h(18), medial a(0), final n(4) → "han"
         let result = try #require(KoreanRomanizer.romanize("한"))
         #expect(result == "han")
     }
@@ -147,13 +127,10 @@ struct KoreanRomanizerTests {
 
     @Test("Syllable with ng final: 방 → bang")
     func syllableWithNgFinal() throws {
-        // 방: b(7) + a(0) + ng(21 final index) → "bang"
         let result = try #require(KoreanRomanizer.romanize("방"))
         #expect(result == "bang")
     }
 }
-
-// MARK: - ThaiRomanizerTests
 
 struct ThaiRomanizerTests {
     @Test("Thai romanizer safely handles clustered characters")
@@ -162,8 +139,6 @@ struct ThaiRomanizerTests {
         #expect(!result.isEmpty)
     }
 }
-
-// MARK: - JapaneseRomanizerTests
 
 struct JapaneseRomanizerTests {
     @Test("Latin tokens are preserved inside mixed Japanese text")
@@ -174,52 +149,27 @@ struct JapaneseRomanizerTests {
     }
 }
 
-// MARK: - BengaliRomanizerTests
-
 struct BengaliRomanizerTests {
     @Test("Pure Bengali romanizes to non-empty text")
     func pureBengali() throws {
-        // Control: the fix only touches the no-transcription fallback branch, so a
-        // pure-Bengali input (which is fully transcribed) must keep working. Keep
-        // the assertion as weak as the sibling romanizer tests (non-empty) so it
-        // does not depend on per-OS tokenizer transcription data.
         let result = try #require(BengaliRomanizer.romanize("নমস্কার"))
         #expect(!result.isEmpty)
     }
 
     @Test("Mixed Bengali and another non-Latin script does not crash")
     func crossScriptDoesNotCrash() throws {
-        // A non-Latin character the Bengali-locale tokenizer cannot transcribe
-        // (here Thai "ก") is emitted as a token with no Latin transcription, so it
-        // reaches the fallback branch. Before the fix, that branch indexed the
-        // Swift String by grapheme cluster while the token range is measured in
-        // UTF-16 code units; the Bengali matras (combining marks) before the token
-        // make those units diverge, throwing the offset out of bounds and trapping
-        // with "String index is out of bounds". NSString indexing shares the
-        // UTF-16 unit, mirroring the Thai/Japanese romanizers.
-        //
-        // Across macOS versions the tokenizer may transcribe "ก" instead of
-        // passing it through, so this only asserts the crash contract — no trap —
-        // plus an intact Bengali run (verified to crash at HEAD on macOS 26).
         let bengali = try #require(BengaliRomanizer.romanize("বাংলা"))
         let mixed = try #require(BengaliRomanizer.romanize("বাংলা ก"))
 
-        // The Bengali portion is still romanized (control is a substring).
         #expect(mixed.contains(bengali))
     }
 
     @Test("Emoji after Bengali text is passed through")
     func emojiPassthrough() throws {
-        // Regression guard: an emoji after Bengali text must survive in the output.
-        // On macOS 26 the emoji takes the transcription branch (its LatinTranscription
-        // equals itself); should that ever differ on another OS, the now-fixed
-        // fallback branch preserves it too — so the assertion holds either way.
         let result = try #require(BengaliRomanizer.romanize("নমস্কার❤️"))
         #expect(result.contains("❤️"))
     }
 }
-
-// MARK: - TextCanonicalizerTests
 
 struct TextCanonicalizerTests {
     @Test("Collapses multiple spaces")
@@ -265,14 +215,11 @@ struct TextCanonicalizerTests {
 
     @Test("NBSP and thin spaces are normalized to regular space")
     func normalizeUnicodeSpaces() {
-        // U+00A0 non-breaking space
         let input = "hello\u{00A0}world"
         let result = TextCanonicalizer.canonicalize(input)
         #expect(result == "hello world")
     }
 }
-
-// MARK: - RomanizationServiceTests
 
 @Suite(.tags(.model))
 @MainActor
@@ -316,7 +263,6 @@ struct RomanizationServiceTests {
         let service = RomanizationService()
         let results = service.romanizeAll(lyrics)
 
-        // Only the Korean line should have a result
         #expect(results[lines[0].id] == nil)
         #expect(results[lines[1].id] != nil)
     }
@@ -332,8 +278,6 @@ struct RomanizationServiceTests {
         #expect(service.romanizeAll(lyrics).isEmpty)
     }
 }
-
-// MARK: - SyncedLyricLineRomanizationTests
 
 @Suite(.tags(.model))
 struct SyncedLyricLineRomanizationTests {
@@ -356,7 +300,6 @@ struct SyncedLyricLineRomanizationTests {
         var lineB = SyncedLyricLine(timeInMs: 0, duration: 1000, text: "안녕", words: nil)
         lineA.romanizedText = "annyeong"
         lineB.romanizedText = nil
-        // UUIDs differ, so they're always unequal — confirm the field is settable
         #expect(lineA.romanizedText != lineB.romanizedText)
     }
 }

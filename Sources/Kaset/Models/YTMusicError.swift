@@ -1,24 +1,13 @@
 import Foundation
 
-// MARK: - YTMusicError
-
-/// Unified error type for YouTube Music operations.
 enum YTMusicError: LocalizedError {
-    /// Authentication has expired or is invalid.
     case authExpired
-    /// No authentication credentials available.
     case notAuthenticated
-    /// Network request failed.
     case networkError(underlying: Error)
-    /// Failed to parse API response.
     case parseError(message: String)
-    /// API returned an error.
     case apiError(message: String, code: Int?)
-    /// Playback error.
     case playbackError(message: String)
-    /// Invalid input provided to an operation.
     case invalidInput(String)
-    /// Unknown error.
     case unknown(message: String)
 
     var errorDescription: String? {
@@ -62,7 +51,6 @@ enum YTMusicError: LocalizedError {
         }
     }
 
-    /// Whether this error should trigger a re-authentication flow.
     var requiresReauth: Bool {
         switch self {
         case .authExpired, .notAuthenticated:
@@ -72,39 +60,28 @@ enum YTMusicError: LocalizedError {
         }
     }
 
-    /// Whether this error can be resolved by retrying the operation.
-    /// Retryable errors are typically transient (network, server issues).
-    /// Non-retryable errors require user action (auth) or indicate permanent failure (parse errors).
     var isRetryable: Bool {
         switch self {
         case .authExpired, .notAuthenticated:
-            // Auth errors need user to re-login, not retry
             return false
         case .networkError:
-            // Network issues are often transient
             return true
         case let .apiError(_, code):
-            // Server errors (5xx) are retryable, client errors (4xx) usually aren't
             if let code {
                 return code >= 500
             }
             return true
         case .parseError:
-            // Parse errors won't be fixed by retrying
             return false
         case .playbackError:
-            // Playback errors might be transient
             return true
         case .invalidInput:
-            // Invalid input won't be fixed by retrying
             return false
         case .unknown:
-            // Unknown errors might be transient
             return true
         }
     }
 
-    /// User-friendly title for displaying in error UI.
     var userFriendlyTitle: String {
         switch self {
         case .authExpired, .notAuthenticated:
@@ -124,7 +101,6 @@ enum YTMusicError: LocalizedError {
         }
     }
 
-    /// User-friendly message for displaying in error UI.
     var userFriendlyMessage: String {
         switch self {
         case .authExpired:
@@ -151,9 +127,6 @@ enum YTMusicError: LocalizedError {
     }
 }
 
-// MARK: CustomDebugStringConvertible
-
-/// Make the underlying error's description accessible for logging
 extension YTMusicError: CustomDebugStringConvertible {
     var debugDescription: String {
         switch self {

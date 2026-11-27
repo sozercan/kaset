@@ -2,11 +2,8 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for Podcast model types.
 @Suite(.tags(.model))
 struct PodcastModelTests {
-    // MARK: - PodcastShow Tests
-
     struct PodcastShowTests {
         @Test("hasNavigableId returns true for MPSPP prefix")
         func hasNavigableIdWithMPSPPPrefix() {
@@ -80,18 +77,16 @@ struct PodcastModelTests {
         }
     }
 
-    // MARK: - PodcastEpisode Tests
-
     struct PodcastEpisodeTests {
         @Test("formattedDuration returns MM:SS for short duration")
         func formattedDurationShort() {
-            let episode = Self.makeEpisode(durationSeconds: 125) // 2:05
+            let episode = Self.makeEpisode(durationSeconds: 125)
             #expect(episode.formattedDuration == "2:05")
         }
 
         @Test("formattedDuration returns HH:MM:SS for long duration")
         func formattedDurationLong() {
-            let episode = Self.makeEpisode(durationSeconds: 3725) // 1:02:05
+            let episode = Self.makeEpisode(durationSeconds: 3725)
             #expect(episode.formattedDuration == "1:02:05")
         }
 
@@ -115,13 +110,13 @@ struct PodcastModelTests {
 
         @Test("formattedDuration handles exactly one hour")
         func formattedDurationOneHour() {
-            let episode = Self.makeEpisode(durationSeconds: 3600) // 1:00:00
+            let episode = Self.makeEpisode(durationSeconds: 3600)
             #expect(episode.formattedDuration == "1:00:00")
         }
 
         @Test("formattedDuration handles 59 minutes 59 seconds")
         func formattedDurationUnderOneHour() {
-            let episode = Self.makeEpisode(durationSeconds: 3599) // 59:59
+            let episode = Self.makeEpisode(durationSeconds: 3599)
             #expect(episode.formattedDuration == "59:59")
         }
 
@@ -152,8 +147,6 @@ struct PodcastModelTests {
         }
     }
 
-    // MARK: - PodcastSection Tests
-
     struct PodcastSectionTests {
         @Test("PodcastSection is Identifiable with id")
         func identifiableById() {
@@ -165,8 +158,6 @@ struct PodcastModelTests {
             #expect(section.id == "section1")
         }
     }
-
-    // MARK: - PodcastSectionItem Tests
 
     struct PodcastSectionItemTests {
         @Test("show case returns show id")
@@ -214,7 +205,7 @@ struct PodcastModelTests {
             )
             let show2 = PodcastShow(
                 id: "MPSPP123",
-                title: "Show B", // Different title, same id
+                title: "Show B",
                 author: nil,
                 description: nil,
                 thumbnailURL: nil,
@@ -223,12 +214,9 @@ struct PodcastModelTests {
             let item1 = PodcastSectionItem.show(show1)
             let item2 = PodcastSectionItem.show(show2)
 
-            // Should be equal because IDs match
             #expect(item1 == item2)
         }
     }
-
-    // MARK: - PodcastShowDetail Tests
 
     struct PodcastShowDetailTests {
         @Test("hasMore returns true when continuationToken exists")
@@ -264,8 +252,6 @@ struct PodcastModelTests {
             )
         }
     }
-
-    // MARK: - PodcastEpisodesContinuation Tests
 
     struct PodcastEpisodesContinuationTests {
         @Test("hasMore returns true when continuationToken exists")

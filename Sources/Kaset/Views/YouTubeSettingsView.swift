@@ -1,8 +1,5 @@
 import SwiftUI
 
-/// Settings for the regular YouTube video experience (distinct from the Music
-/// experience). Currently hosts the ambient backdrop controls; a natural home
-/// for future video-only preferences.
 struct YouTubeSettingsView: View {
     @State private var settings = SettingsManager.shared
 

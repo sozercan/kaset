@@ -2,55 +2,38 @@ import Foundation
 import Observation
 import os
 
-/// View model for the Home view.
 @MainActor
 @Observable
 final class HomeViewModel {
-    /// Current loading state.
     private(set) var loadingState: LoadingState = .idle
 
-    /// Home sections to display.
     private(set) var sections: [HomeSection] = []
 
-    /// Whether more sections are available to load.
     private(set) var hasMoreSections: Bool = true
 
-    /// The API client (exposed for navigation to detail views).
     let client: any YTMusicClientProtocol
     private let logger = DiagnosticsLogger.api
 
-    /// Whether a user-visible continuation load is currently in flight.
     private var isLoadingMoreSections = false
 
-    /// Whether the initial Home request is in flight.
     private var isLoadingHome = false
 
-    /// Shared refresh operation so concurrent callers join the same wait-and-reload
-    /// sequence even when the API response completes without suspending.
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
 
-    /// Whether the current refresh cycle has issued its Home request. A refresh
-    /// arriving after this point represents newer state and needs one follow-up.
     @ObservationIgnored private var refreshRequestIssued = false
 
-    /// Coalesces any number of refreshes that arrive during one issued request
-    /// into a single follow-up cycle using the latest client/account state.
     @ObservationIgnored private var refreshNeedsFollowUp = false
 
-    /// Waiters that should resume once the current initial Home request finishes.
     @ObservationIgnored private var loadWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Waiters that should resume once the current continuation request finishes.
     @ObservationIgnored private var continuationWaiters: [CheckedContinuation<Void, Never>] = []
 
-    /// Monotonic token used to discard stale continuation loads after refreshes.
     private var loadGeneration = 0
 
     init(client: any YTMusicClientProtocol) {
         self.client = client
     }
 
-    /// Loads home content with fast initial load.
     func load() async {
         guard !self.isLoadingHome, !self.isLoadingMoreSections else { return }
         await self.performLoad(forceRefresh: false)
@@ -81,7 +64,6 @@ final class HomeViewModel {
             self.logger.debug("Home sections: [\(sectionSummary)]")
         } catch is CancellationError {
             guard generation == self.loadGeneration else { return }
-            // Task was cancelled (e.g., user navigated away) — reset to idle so it can retry
             self.logger.debug("Home load cancelled")
             self.loadingState = .idle
         } catch {
@@ -91,8 +73,6 @@ final class HomeViewModel {
         }
     }
 
-    /// Loads one additional home continuation on demand, typically from the bottom-of-scroll sentinel.
-    /// Avoids the previous initial background drain of up to four pages for users who never scroll.
     func loadMore() async {
         guard self.hasMoreSections,
               !self.isLoadingMoreSections,
@@ -127,7 +107,6 @@ final class HomeViewModel {
         }
     }
 
-    /// Refreshes home content.
     func refresh() async {
         if let refreshTask = self.refreshTask {
             if self.refreshRequestIssued {

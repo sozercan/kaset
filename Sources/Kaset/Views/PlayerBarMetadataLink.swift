@@ -1,7 +1,5 @@
 import SwiftUI
 
-// MARK: - PlayerBarMetadataButton
-
 struct PlayerBarMetadataButton: View {
     let text: String
     let isEnabled: Bool
@@ -11,7 +9,6 @@ struct PlayerBarMetadataButton: View {
 
     var body: some View {
         if self.isEnabled {
-            // A real Button: the player bar's interactive glass swallows plain tap gestures.
             Button(action: self.action) {
                 PlayerBarMetadataLinkLabel(text: self.text, isLoading: self.isLoading)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -25,8 +22,6 @@ struct PlayerBarMetadataButton: View {
         }
     }
 }
-
-// MARK: - PlayerBarMetadataLinkLabel
 
 private struct PlayerBarMetadataLinkLabel: View {
     let text: String
@@ -61,8 +56,6 @@ private struct PlayerBarMetadataLinkLabel: View {
         }
     }
 }
-
-// MARK: - Accessibility Helpers
 
 private extension View {
     @ViewBuilder

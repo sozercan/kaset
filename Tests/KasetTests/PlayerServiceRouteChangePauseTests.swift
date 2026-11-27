@@ -2,10 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Losing an audio route (Bluetooth disconnecting, headphones unplugged) reaches the app as an
-/// ordinary `pause` remote command. Recording it as a deliberate user pause is what broke media
-/// keys after reconnecting: `isExplicitPauseIntentActive` makes the observer re-pause the page
-/// the moment a WebKit-handled media key resumes it, so playback starts and dies immediately.
 @Suite("Player service route-change pause", .serialized, .tags(.service))
 @MainActor
 struct PlayerServiceRouteChangePauseTests {
@@ -30,7 +26,6 @@ struct PlayerServiceRouteChangePauseTests {
         )
 
         #expect(playerService.state == .paused)
-        // The two flags that would otherwise fight the next resume.
         #expect(playerService.isExplicitPauseIntentActive == false)
         #expect(playerService.shouldResumeAfterInterruption)
     }
@@ -43,7 +38,6 @@ struct PlayerServiceRouteChangePauseTests {
             origin: .routeLoss(at: .now)
         )
 
-        // A media key handled by WebKit resumes the page; the observer reports it.
         playerService.updatePlaybackState(
             isPlaying: true,
             progress: 137,
@@ -80,8 +74,6 @@ struct PlayerServiceRouteChangePauseTests {
 
     @Test("The recovery marker survives an unconfirmed resume so the retry can act")
     func markerSurvivesUntilPlaybackConfirms() async {
-        // A route needs a moment to become usable, so the first attempt can be rejected while
-        // it settles. Retiring the marker on issue would leave the retry nothing to act on.
         let playerService = self.makeRouteLossPausedService(routeReturned: true)
 
         await playerService.resumeAfterRouteRestored()
@@ -93,9 +85,6 @@ struct PlayerServiceRouteChangePauseTests {
 
     @Test("The disconnect's own reconciliation does not resume")
     func disconnectDoesNotResumeItself() async {
-        // Losing the route schedules the same reconciliation the reconnect uses, and its route
-        // change predates the pause. Mistaking it for a reconnect would restart the music the
-        // system just stopped.
         let playerService = self.makeRouteLossPausedService(routeReturned: false)
 
         await playerService.resumeAfterRouteRestored()
@@ -117,9 +106,6 @@ struct PlayerServiceRouteChangePauseTests {
 
     @Test("A pause that beat the route event is re-attributed once it lands")
     func lateRouteEventReattributesThePause() async {
-        // The Core Audio listener publishes only after several synchronous device queries, so a
-        // genuine route-loss pause can drain first and look deliberate. Classifying at admission
-        // alone would leave the explicit pause intent set and recovery permanently disabled.
         let playerService = self.makePlayingService()
         let admittedAt = ContinuousClock.now
         await playerService.pause(
@@ -143,7 +129,6 @@ struct PlayerServiceRouteChangePauseTests {
             origin: .unattributedRemote(admittedAt: .now)
         )
 
-        // No disappearance can account for it, so the claim is refused.
         playerService.reattributeRemotePauseToRouteLoss { _ in false }
 
         #expect(playerService.isExplicitPauseIntentActive)
@@ -152,9 +137,6 @@ struct PlayerServiceRouteChangePauseTests {
 
     @Test("A late route event does not undo a pause the user already made")
     func lateRouteEventKeepsAnEarlierUserPause() async {
-        // The system can still send its route-loss `pause` to an app the user already paused.
-        // When that pause also beats the route event, re-attributing it must not clear the
-        // user's intent, or reconnecting would resume music the user chose to stop.
         let playerService = self.makePlayingService()
         await playerService.pause(intent: playerService.currentMusicPlaybackIntent)
         let admittedAt = ContinuousClock.now
@@ -176,8 +158,6 @@ struct PlayerServiceRouteChangePauseTests {
 
     @Test("A route-loss pause on playback that was already stopped does not arm recovery")
     func routeLossWhileAlreadyPausedDoesNotResume() async {
-        // Paused without a Kaset pause command (WebKit handled the media key, or the page's own
-        // controls), so no explicit pause intent was recorded.
         let playerService = self.makePlayingService()
         playerService.state = .paused
 

@@ -3,8 +3,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-// MARK: - AppDelegateWindowLifecycleTests
-
 @Suite("AppDelegate window lifecycle", .serialized)
 @MainActor
 struct AppDelegateWindowLifecycleTests {
@@ -43,8 +41,6 @@ struct AppDelegateWindowLifecycleTests {
         )
         windowReference.window = window
         window.title = "Home"
-        // Exercise the concrete NSView used by the SwiftUI representable. Its
-        // viewDidMoveToWindow callback is the registration timing boundary.
         window.contentView = registrationView
         defer {
             registrationView.unregisterCurrentWindow()
@@ -91,14 +87,10 @@ struct AppDelegateWindowLifecycleTests {
     }
 }
 
-// MARK: - WeakWindowReference
-
 @MainActor
 private final class WeakWindowReference {
     weak var window: NSWindow?
 }
-
-// MARK: - MainWindowLifecycleSpy
 
 @MainActor
 private final class MainWindowLifecycleSpy: NSWindow {

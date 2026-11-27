@@ -1,8 +1,6 @@
 import AppKit
 import SwiftUI
 
-// MARK: - QueueFooterIconButton
-
 struct QueueFooterIconButton: View {
     let systemImage: String
     let helpText: String
@@ -28,8 +26,6 @@ struct QueueFooterIconButton: View {
         .accessibilityLabel(self.accessibilityLabel)
     }
 }
-
-// MARK: - QueueFooterActions
 
 struct QueueFooterActions: View {
     @Environment(PlayerService.self) private var playerService

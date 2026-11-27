@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for AuthService.
 @Suite(.serialized, .tags(.service))
 @MainActor
 struct AuthServiceTests {

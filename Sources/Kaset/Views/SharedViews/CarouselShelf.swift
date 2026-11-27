@@ -1,10 +1,5 @@
 import SwiftUI
 
-// MARK: - CarouselShelf
-
-/// A native horizontal shelf with glass paging controls. The scroll track runs
-/// edge-to-edge so items scroll under the floating Liquid Glass sidebar on
-/// macOS 26 (Apple's "Extending horizontal scrolling under a sidebar" pattern).
 struct CarouselShelf<Content: View>: View {
     let accessibilityLabel: String
     let pageFraction: CGFloat
@@ -16,9 +11,6 @@ struct CarouselShelf<Content: View>: View {
 
     @State private var scrollPosition = ScrollPosition(edge: .leading)
     @State private var hover = CarouselShelfHover()
-    /// Raw geometry lives in a plain reference box so per-pixel horizontal
-    /// scroll updates don't invalidate the shelf body; only the derived
-    /// overflow flags below are SwiftUI state, and they change rarely.
     @State private var metricsStore = CarouselShelfMetricsStore()
     @State private var overflow = CarouselShelfOverflow()
 
@@ -40,13 +32,6 @@ struct CarouselShelf<Content: View>: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            // Apple's "Extending horizontal scrolling under a sidebar" pattern:
-            // the ScrollView track must reach the leading/trailing edges so the
-            // system auto-scrolls items UNDER the floating glass sidebar. The
-            // resting insets are therefore Spacers INSIDE the content (leading
-            // and trailing), never `.contentMargins`/`.padding` on the
-            // ScrollView (which would stop the track short of the sidebar and
-            // defeat the effect).
             HStack(spacing: 0) {
                 if self.contentInset > 0 {
                     Spacer()
@@ -100,23 +85,12 @@ struct CarouselShelf<Content: View>: View {
     }
 }
 
-// MARK: - CarouselShelfHover
-
-/// Whether the pointer is over a ``CarouselShelf``, set by its `.onHover`.
-/// Observable, so a change re-renders only the paging controls, not the shelf
-/// content. (``HomeItemCollectionShelf`` tracks hover natively for its own
-/// AppKit arrows.)
 @MainActor
 @Observable
 final class CarouselShelfHover {
     var isHovering = false
 }
 
-// MARK: - CarouselShelfPagingControls
-
-/// The glass paging arrows of ``CarouselShelf``, their hover/focus prominence,
-/// and the shelf's accessibility container. ``HomeItemCollectionShelf`` draws
-/// native equivalents (`HomeItemShelfArrowView`) that share these labels.
 struct CarouselShelfPagingControls: ViewModifier {
     let accessibilityLabel: String
     let showsLeading: Bool
@@ -134,8 +108,6 @@ struct CarouselShelfPagingControls: ViewModifier {
             .overlay(alignment: Alignment(horizontal: .leading, vertical: self.controlVerticalAlignment)) {
                 if self.showsLeading {
                     self.controlButton(for: .leading)
-                        // Sit at the resting inset (not the column edge) so the
-                        // button clears the floating-sidebar band on macOS 26.
                         .padding(.leading, self.contentInset + 4)
                         .transition(.opacity.combined(with: .scale(scale: 0.9)))
                 }
@@ -183,7 +155,6 @@ struct CarouselShelfPagingControls: ViewModifier {
         .accessibilityHint(Self.accessibilityHint)
     }
 
-    /// Label for the arrow on the left (or right) of a shelf.
     static func accessibilityLabel(shelf: String, isLeft: Bool) -> String {
         if isLeft {
             String(localized: "Scroll \(shelf) left")
@@ -197,9 +168,6 @@ struct CarouselShelfPagingControls: ViewModifier {
     }
 }
 
-// MARK: - CarouselShelfSection
-
-/// A reusable section that renders a header and a horizontal ``CarouselShelf`` of items.
 struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header: View, ItemContent: View>: View {
     let accessibilityLabel: String
     let items: Items
@@ -246,11 +214,6 @@ struct CarouselShelfSection<Items: RandomAccessCollection, ID: Hashable, Header:
     var body: some View {
         VStack(alignment: .leading, spacing: self.sectionSpacing) {
             self.header()
-                // Inset the header on both edges so the title stays clear of the
-                // floating glass sidebar and any trailing header content (e.g. a
-                // "See all" link) keeps its margin. The shelf below reaches
-                // edge-to-edge and insets its own resting content via
-                // `contentInset`.
                 .padding(.horizontal, self.contentInset)
 
             CarouselShelf(
@@ -301,8 +264,6 @@ extension CarouselShelfSection where Items.Element: Identifiable, ID == Items.El
     }
 }
 
-// MARK: - CarouselShelfScrollMetrics
-
 private struct CarouselShelfScrollMetrics: Equatable {
     var contentOffsetX: CGFloat = 0
     var viewportWidth: CGFloat = 0
@@ -325,18 +286,11 @@ private struct CarouselShelfScrollMetrics: Equatable {
     }
 }
 
-// MARK: - CarouselShelfMetricsStore
-
-/// Holds the latest scroll geometry without participating in SwiftUI
-/// invalidation (deliberately not `@Observable`).
 @MainActor
 private final class CarouselShelfMetricsStore {
     var metrics = CarouselShelfScrollMetrics()
 }
 
-// MARK: - CarouselShelfOverflow
-
-/// The only geometry-derived facts the shelf body renders from.
 struct CarouselShelfOverflow: Equatable {
     var leading = false
     var trailing = false
@@ -349,13 +303,10 @@ struct CarouselShelfOverflow: Equatable {
     }
 }
 
-// MARK: - CarouselShelfDirection
-
 enum CarouselShelfDirection: Hashable {
     case leading
     case trailing
 
-    /// The direction whose control sits on the left (or right) in `layoutDirection`.
     init(isLeft: Bool, in layoutDirection: LayoutDirection) {
         self = isLeft == (layoutDirection == .leftToRight) ? .leading : .trailing
     }

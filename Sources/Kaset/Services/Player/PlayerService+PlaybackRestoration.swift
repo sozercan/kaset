@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: - Playback Restoration
-
 @MainActor
 extension PlayerService {
     func updateAdPlaybackState(
@@ -51,9 +49,6 @@ extension PlayerService {
         return self.pendingRestoredSeek
     }
 
-    /// Whether a newly committed ordinary playback document should retain an
-    /// autoplay request. Restored/repoint loads deliberately stay paused until
-    /// native seek reconciliation completes.
     var shouldAutoplayPlaybackDocument: Bool {
         guard !self.isRestoringPlaybackSession,
               !self.isPendingRestoredLoadDeferred
@@ -65,7 +60,6 @@ extension PlayerService {
         self.isRestoringPlaybackSession && self.shouldAutoResumeAfterRestoredLoad
     }
 
-    /// Updates playback state from the persistent WebView observer.
     func updatePlaybackState(isPlaying: Bool, progress: Double, duration: Double) {
         self.updatePlaybackState(
             isPlaying: isPlaying,
@@ -75,17 +69,12 @@ extension PlayerService {
         )
     }
 
-    /// Updates playback state from an identity-bearing WebView observation.
-    /// State from an earlier/out-of-order video must not overwrite the current
-    /// queue target's progress, duration, or near-end flag.
     func updatePlaybackState(
         isPlaying: Bool,
         progress: Double,
         duration: Double,
         observedVideoId: String?
     ) {
-        // Preserve bridge-observation provenance for consumers such as mix
-        // scrobbling even when this sample is stale for PlayerService state.
         self.recordPlaybackStateObservation(videoId: observedVideoId)
         guard self.observedPlaybackMatchesCurrentTarget(videoId: observedVideoId) else {
             self.logger.debug(
@@ -154,8 +143,6 @@ extension PlayerService {
         }
     }
 
-    /// Updates only play/pause transport while deliberately preserving the
-    /// canonical content clock (used for ready advertisement media).
     func updatePlaybackTransportState(isPlaying: Bool) {
         if isPlaying {
             guard self.shouldResumeAfterInterruption
@@ -178,7 +165,6 @@ extension PlayerService {
         }
     }
 
-    /// Applies a previously persisted playback session in a paused, resume-ready state.
     func applyRestoredPlaybackSession(
         queue: [Song],
         entrySources: [QueueEntry.Source]? = nil,
@@ -235,20 +221,15 @@ extension PlayerService {
             self.resetTrackStatus()
         }
 
-        // Seed the SongLikeStatusManager cache from the persisted song's likeStatus
-        // so that fetchSongMetadata won't overwrite it with a parsed .indifferent default.
         if let persistedLikeStatus = currentSong.likeStatus, persistedLikeStatus != .indifferent {
             self.songLikeStatusManager.setStatus(persistedLikeStatus, for: currentSong.videoId)
             self.currentTrackLikeStatus = persistedLikeStatus
         }
 
-        // SongLikeStatusManager cache is the most up-to-date source for like status
         if let cachedStatus = self.songLikeStatusManager.status(for: currentSong.videoId) {
             self.currentTrackLikeStatus = cachedStatus
         }
 
-        // At app launch the cache may be empty and the persisted song may lack likeStatus.
-        // Fetch immediately; queue ownership ensures the result only applies to this persisted occurrence.
         let queueEntryID = self.currentQueueEntryID
         Task { [videoId = currentSong.videoId] in
             await self.fetchSongMetadata(
@@ -257,8 +238,6 @@ extension PlayerService {
             )
         }
 
-        // Give YT Music a chance to restore its server-synced track first.
-        // If no track arrives from the web page in time, fall back to the persisted one.
         Task {
             try? await Task.sleep(for: .seconds(8))
             guard self.restoredPlaybackSessionGeneration == restoreGeneration,
@@ -273,7 +252,6 @@ extension PlayerService {
         }
     }
 
-    /// Clears one-shot state used while reconciling a restored playback session.
     func clearRestoredPlaybackSessionState() {
         self.pendingRestoredSeek = nil
         self.isPendingRestoredLoadDeferred = false
@@ -286,9 +264,6 @@ extension PlayerService {
         self.isAwaitingWebRestoredTrack = false
     }
 
-    /// Reconciles an undo/redo clock against physical media before resuming playback.
-    /// The observer owns retries until it sees the target, so a navigation or a
-    /// same-document restore cannot be overwritten by the outgoing media clock.
     @discardableResult
     func beginPlaybackClockRestoration(
         _ restoreClock: MusicPlaybackRestoreClock,
@@ -319,9 +294,6 @@ extension PlayerService {
         self.shouldResumeAfterInterruption = !startsPaused
         self.isAwaitingPlaybackConfirmation = !startsPaused
         self.isExplicitPauseIntentActive = startsPaused
-        // This load replaces whatever an earlier remote pause stopped. A late route event must
-        // not re-attribute that pause and clear the intent set here, or reconnecting the output
-        // would resume a paused load nobody asked to play.
         self.unattributedRemotePauseAt = nil
         self.state = startsPaused ? .paused : .loading
         return targetProgress
@@ -356,7 +328,6 @@ extension PlayerService {
         return true
     }
 
-    /// Starts loading a restored session into the WebView without discarding the saved seek target.
     func beginRestoredPlaybackLoad(autoResumeAfterSeek: Bool) {
         self.isPendingRestoredLoadDeferred = false
         self.isRestoringPlaybackSession = true
@@ -367,9 +338,6 @@ extension PlayerService {
         }
     }
 
-    /// Converts an interrupted restored/repoint load into a retryable paused
-    /// state without discarding its saved seek. A later explicit resume starts a
-    /// fresh full-page navigation and reuses the same restoration target.
     func deferRestoredPlaybackAfterNavigationFailure() {
         if self.pendingPlayVideoId == nil {
             self.pendingPlayVideoId = self.currentTrack?.videoId
@@ -396,7 +364,6 @@ extension PlayerService {
         }
     }
 
-    /// Whether the pending track must be loaded into the WebView before playback can resume.
     var shouldLoadPendingVideoBeforePlayback: Bool {
         guard let pendingPlayVideoId = self.pendingPlayVideoId else { return false }
         return self.shouldForcePendingRestoredLoad || self.currentWebPlaybackVideoId() != pendingPlayVideoId
@@ -438,27 +405,8 @@ extension PlayerService {
         )
     }
 
-    /// Re-loads the currently playing track so it is served under the WebView
-    /// session's current (just-switched) delegated identity.
-    ///
-    /// History is recorded by the playback page's own stats pings, which inherit
-    /// the identity of the document that was loaded. After an account switch the
-    /// in-flight page is still the previous identity's document, so a full-page
-    /// reload is required for subsequent listening to record to the new account.
-    /// Playback position and play/pause intent are preserved across the reload
-    /// via the existing restored-session machinery.
-    ///
-    /// - Parameter invalidatesLikeSession: Pass `false` when the account already in use is
-    ///   re-verified: an account switch invalidates like state through the account-scope
-    ///   change, and bumping the like scope here only makes Liked Music discard its loaded
-    ///   pages mid-scroll.
     func reloadCurrentTrackForIdentitySwitch(invalidatesLikeSession: Bool = true) {
         self.accountSessionGeneration &+= 1
-        // Do NOT wipe the like cache here. On launch this fires AFTER the Liked Music page
-        // seeds its first page (rows 1-100), and the paging re-seed only covers pages 2+,
-        // so clearing permanently drops the top ~100 liked tracks from the cache — the songs
-        // shown first read "not liked". Bump the session generation but keep the cache;
-        // account scoping + the reactive now-playing resolver keep it correct.
         if invalidatesLikeSession {
             self.songLikeStatusManager.invalidateSession(clearsActiveCache: false)
         }
@@ -480,18 +428,10 @@ extension PlayerService {
             return
         }
 
-        // Skip if a restored session is still deferred (cold launch, paused, not
-        // yet loaded into the WebView). There is no previous-identity document to
-        // re-point, and force-navigating here would clear the explicit-resume gate
-        // and load the playback page (and its history stats) before the user
-        // chooses to resume. The eventual user-initiated load already uses the
-        // now-verified session identity.
         if self.isPendingRestoredLoadDeferred {
             self.logger.debug("Identity switch: restored session still deferred; skipping re-point")
             return
         }
-        // If the current track was never actually loaded into the WebView, there
-        // is likewise nothing to re-point under the old identity.
         if self.currentWebPlaybackVideoId() != currentTrack.videoId {
             self.logger.debug("Identity switch: current track not loaded in WebView; skipping re-point")
             return
@@ -514,9 +454,6 @@ extension PlayerService {
         }
         self.beginRestoredPlaybackLoad(autoResumeAfterSeek: shouldAutoResumeAfterReload)
 
-        // Force a full navigation even though the videoId is unchanged: the
-        // identity lives in the served document, so an in-place restart would
-        // keep recording to the previous account.
         SingletonPlayerWebView.shared.loadVideo(
             videoId: currentTrack.videoId,
             strategy: .forceFullPageWhenSameVideoId
@@ -555,8 +492,6 @@ private extension PlayerService {
             }
         }
 
-        // Detect when song is about to end (within last 2 seconds)
-        // This helps us prepare to play the next track from our queue.
         if duration > 0, progress >= duration - 2, previousProgress < duration - 2 {
             self.songNearingEnd = true
         }

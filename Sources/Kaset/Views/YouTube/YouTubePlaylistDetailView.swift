@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// A YouTube playlist page: header plus its video rows.
 struct YouTubePlaylistDetailView: View {
     @State private var viewModel: YouTubePlaylistViewModel
 
@@ -74,8 +73,6 @@ struct YouTubePlaylistDetailView: View {
                 }
             }
             .padding(.vertical, 20)
-            // Edge-to-edge with a resting inset so content extends under the
-            // floating glass sidebar.
             .detailScrollContentInset()
         }
     }

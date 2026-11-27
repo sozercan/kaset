@@ -1,11 +1,7 @@
-# SwiftFormat configuration for YouTube Music
-# Matches AGENTS.md coding style requirements
 
-# File options
 --swiftversion 6.0
 --exclude .build,DerivedData,Packages
 
-# Format options
 --allman false
 --binarygrouping 4,8
 --closingparen balanced
@@ -53,7 +49,6 @@
 --xcodeindentation disabled
 --yodaswap always
 
-# Rules
 --enable isEmpty
 --enable redundantSelf
 --enable trailingSpace
@@ -62,7 +57,6 @@
 --enable sortImports
 --enable unusedArguments
 --enable wrapMultilineStatementBraces
---enable markTypes
 --enable extensionAccessControl
 --enable redundantParens
 --enable redundantReturn

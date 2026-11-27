@@ -1,18 +1,13 @@
 import AppKit
 import SwiftUI
 
-// MARK: - PersistentPlayerView
-
-/// A SwiftUI anchor for the singleton WebView.
-/// The WebView is created once, kept attached while audio playback is pending,
-/// and normally rendered as a hidden 1×1 view.
 struct PersistentPlayerView: NSViewRepresentable {
     @Environment(WebKitManager.self) private var webKitManager
     @Environment(PlayerService.self) private var playerService
     @Environment(AuthService.self) private var authService
 
     let videoId: String?
-    let isExpanded: Bool // Retained for compatibility; audio playback keeps this hidden.
+    let isExpanded: Bool
 
     private let logger = DiagnosticsLogger.player
 
@@ -33,7 +28,6 @@ struct PersistentPlayerView: NSViewRepresentable {
         webView.autoresizingMask = [.width, .height]
         container.addSubview(webView)
 
-        // Restored sessions keep the hidden WebView inert until the user explicitly resumes.
         if let videoId = self.videoId,
            self.playerService.shouldAutoloadPendingVideo,
            SingletonPlayerWebView.shared.currentVideoId != videoId
@@ -71,8 +65,6 @@ struct PersistentPlayerView: NSViewRepresentable {
     }
 }
 
-// MARK: - MiniPlayerWindow
-
 struct MiniPlayerWindow: View {
     private enum Layout {
         static let chromeTopInset: CGFloat = 12
@@ -92,7 +84,6 @@ struct MiniPlayerWindow: View {
     let client: any YTMusicClientProtocol
 
     @State private var settings = SettingsManager.shared
-    /// Shared by the per-layout seek sections; `body` must not read its properties.
     @State private var seekState = MiniPlayerSeekState()
     @State private var volumeValue: Double = 1
     @State private var isAdjustingVolume = false
@@ -110,8 +101,6 @@ struct MiniPlayerWindow: View {
             self.hoverChrome
         }
         .background(alignment: .bottomTrailing) {
-            // The picker needs the playback WebView in a visible window. Move
-            // the same WebView here while the main window is hidden.
             if self.playerService.shouldHostPlaybackInMiniPlayer {
                 PersistentPlayerView(videoId: self.playerService.pendingPlayVideoId, isExpanded: false)
                     .frame(width: 1, height: 1)

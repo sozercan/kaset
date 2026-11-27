@@ -5,8 +5,6 @@ import Testing
 @Suite(.serialized, .tags(.viewModel), .timeLimit(.minutes(1)))
 @MainActor
 struct TopSongsViewModelTests {
-    // MARK: - Initial State Tests
-
     @Test("Initial state includes songs from destination")
     func initialStateIncludesSongsFromDestination() {
         let mockClient = MockYTMusicClient()
@@ -30,8 +28,6 @@ struct TopSongsViewModelTests {
         #expect(viewModel.songs[1].title == "Song 2")
     }
 
-    // MARK: - Load Without Browse ID Tests
-
     @Test("Load without browse ID immediately sets loaded state")
     func loadWithoutBrowseIdSetsLoadedImmediately() async {
         let mockClient = MockYTMusicClient()
@@ -51,8 +47,6 @@ struct TopSongsViewModelTests {
         #expect(viewModel.songs.count == 1)
         #expect(mockClient.getArtistSongsCalled == false)
     }
-
-    // MARK: - Load With Browse ID Tests
 
     @Test("Load with browse ID fetches all songs")
     func loadWithBrowseIdFetchesAllSongs() async {
@@ -103,7 +97,6 @@ struct TopSongsViewModelTests {
 
         await viewModel.load()
 
-        // Should still be loaded with initial songs preserved
         #expect(viewModel.loadingState == .loaded)
         #expect(viewModel.songs.count == 2)
         #expect(viewModel.songs[0].title == "Initial 1")
@@ -145,12 +138,10 @@ struct TopSongsViewModelTests {
 
         mockClient.artistSongsResponse = [TestFixtures.makeSong(id: "song-1", title: "Song 1")]
 
-        // Start first load
         let task1 = Task {
             await viewModel.load()
         }
 
-        // Try to start another load immediately
         try? await Task.sleep(for: .milliseconds(20))
         let task2 = Task {
             await viewModel.load()
@@ -161,8 +152,6 @@ struct TopSongsViewModelTests {
 
         #expect(viewModel.loadingState == .loaded)
     }
-
-    // MARK: - Client Exposure Tests
 
     @Test("Client is exposed for playback")
     func clientIsExposed() {

@@ -2,12 +2,7 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for the queue-by-ID AppleScript commands (`play videos`, `add to queue`,
-/// `remove from queue`). Kept in the serialized `ScriptCommandsTests` suite because every
-/// test swaps `PlayerService.shared`.
 extension ScriptCommandsTests {
-    // MARK: - PlayVideosCommand Tests
-
     @Test("PlayVideos sets error when PlayerService is nil")
     func playVideosSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -117,7 +112,6 @@ extension ScriptCommandsTests {
         let command = PlayVideosCommand()
         command.directParameter = ["v1", "v2"] as NSArray
         _ = command.performDefaultImplementation()
-        // Newer playback begins before the scripting task runs on the main actor.
         _ = playerService.beginMusicPlaybackIntent()
 
         let started = await self.waitUntil(timeout: .milliseconds(200)) {
@@ -138,8 +132,6 @@ extension ScriptCommandsTests {
         PlayerService.shared = playerService
         defer { PlayerService.shared = nil }
 
-        // Nothing suspends between these commands, as when a client sends them without waiting
-        // for replies, so the later commands run before `play videos` starts playback.
         let playVideos = PlayVideosCommand()
         playVideos.directParameter = ["v1", "v2", "v3"] as NSArray
         playVideos.arguments = ["startingAt": 2 as NSNumber]
@@ -224,8 +216,6 @@ extension ScriptCommandsTests {
         #expect(command.scriptErrorNumber == 0)
         #expect(playerService.queue.map(\.videoId) == ["v1", "v2"])
     }
-
-    // MARK: - AddToQueueCommand Tests
 
     @Test("AddToQueue sets error when PlayerService is nil")
     func addToQueueSetsErrorWhenNil() {
@@ -357,8 +347,6 @@ extension ScriptCommandsTests {
         #expect(playerService.queue.map(\.videoId) == ["v1", "n1", "v2"])
     }
 
-    // MARK: - RemoveFromQueueCommand Tests
-
     @Test("RemoveFromQueue sets error when PlayerService is nil")
     func removeFromQueueSetsErrorWhenNil() {
         PlayerService.shared = nil
@@ -487,9 +475,6 @@ extension ScriptCommandsTests {
     }
 }
 
-// MARK: - InvalidScriptParameter
-
-/// Invalid direct parameters for the queue-by-ID scripting commands.
 enum InvalidScriptParameter: CaseIterable {
     case missing
     case emptyList

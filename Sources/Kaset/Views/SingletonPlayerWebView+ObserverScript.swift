@@ -1,10 +1,6 @@
 // swiftlint:disable file_length
 
-// MARK: - SingletonPlayerWebView Observer Script Extension
-
 extension SingletonPlayerWebView {
-    /// Returns a wall-clock timestamp with sub-millisecond precision when WebKit exposes it.
-    /// Native intent fences use the same epoch, while `Date.now()` remains a safe fallback.
     nonisolated static var eventTimestampFunctionJS: String {
         """
         function __kasetEventTimestampMilliseconds() {
@@ -18,9 +14,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Selects the authoritative playback clock for bridge state updates.
-    /// The hidden player bar can lag or stop updating while its media element
-    /// continues playing, so a ready media element wins over DOM attributes.
     nonisolated static var playbackClockFunctionJS: String {
         """
         function __kasetPlaybackClock(mediaElement, progressBar, hasReadyMedia) {
@@ -49,7 +42,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Pure occurrence-binding decisions shared by the observer and JS tests.
     nonisolated static var playbackOccurrenceFunctionJS: String {
         """
         function __kasetShouldBindMediaOccurrence(
@@ -72,9 +64,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Pure JS function used by the observer script's `canplay` handler.
-    /// Exposed as a named function so unit tests can exercise the branching
-    /// inside a `JSContext` without standing up a real `WKWebView`.
     nonisolated static var autoplayRecoveryFunctionJS: String {
         """
         function __kasetAttemptAutoplayRecovery(video, playBtn) {
@@ -207,10 +196,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Locates YouTube Music's player bar and its parts. The legacy `ytmusic-player-bar`
-    /// and the redesigned `ytmusic-miniplayer` both mount in the app's `player-bar` slot;
-    /// the redesigned player page also renders an unslotted miniplayer, so every lookup
-    /// stays scoped to the slotted bar.
     nonisolated static var playerBarLookupFunctionJS: String {
         """
         const __kasetPlayerBarSelectors = {
@@ -235,7 +220,6 @@ extension SingletonPlayerWebView {
         """
     }
 
-    /// Observer script for playback state.
     nonisolated static var observerScript: String {
         """
         (function() {
@@ -275,20 +259,16 @@ extension SingletonPlayerWebView {
             let trailingUpdateTimeoutId = null;
             let lastAirPlayVideo;
             let lastAirPlayConnected;
-            const UPDATE_THROTTLE_MS = 500; // Throttle updates to max 2/sec
-            const POLL_INTERVAL_MS = 1000; // Poll at 1Hz during playback (reduced from 250ms)
+            const UPDATE_THROTTLE_MS = 500;
+            const POLL_INTERVAL_MS = 1000;
             const TRACK_ENDED_IDENTITY_RETRY_INTERVAL_MS = 100;
             const TRACK_ENDED_IDENTITY_RETRY_WINDOW_MS = 5000;
             \(PlaybackAdDetectionScript.detection)
             \(PlaybackAdDetectionScript.observation)
             const refreshAdObserver = observeAdStateChanges(() => sendUpdate(true));
 
-            // Volume enforcement: track target volume set by Swift
-            // Don't set a default - only enforce when explicitly set by Swift
-            // window.__kasetTargetVolume is set by volume init script at document start
-            let isEnforcingVolume = false; // Prevent feedback loops
+            let isEnforcingVolume = false;
 
-            // Reusable 3-way volume enforcement (video element + YouTube APIs)
             function enforceVolumeNow() {
                 const targetVol = window.__kasetTargetVolume;
                 const v = document.querySelector('video');
@@ -328,7 +308,6 @@ extension SingletonPlayerWebView {
             }
 
             function setupVideoListeners() {
-                // Watch for video element to attach play/pause listeners
                 function attachVideoListeners() {
                     refreshAdObserver();
                     const video = document.querySelector('video');
@@ -340,9 +319,6 @@ extension SingletonPlayerWebView {
                     if (video.__kasetListenersAttached) return;
                     video.__kasetListenersAttached = true;
 
-                    // If metadata is already loaded, establish the current media
-                    // immediately. Otherwise the first `loadedmetadata` event owns
-                    // the initial bind and must not look like a second transition.
                     if (video.readyState >= 1) {
                         bindMediaIdentity(video, true, false);
                     }
@@ -359,8 +335,6 @@ extension SingletonPlayerWebView {
                     }
                     video.addEventListener('play', handlePlaybackStarted);
                     video.addEventListener('playing', handlePlaybackStarted);
-                    // Enforce volume on playing event to catch all track changes
-                    // (auto-advance, SPA navigation, button clicks)
                     video.addEventListener('playing', () => {
                         confirmMediaIdentityOnPlaying(video);
                         bindMediaIdentity(video, false, false);
@@ -402,34 +376,24 @@ extension SingletonPlayerWebView {
                         }
                         stopPolling();
                     });
-                    video.addEventListener('waiting', () => sendUpdate(true)); // Buffer state
+                    video.addEventListener('waiting', () => sendUpdate(true));
                     video.addEventListener('seeked', () => {
-                        sendUpdate(true); // Seek completed
+                        sendUpdate(true);
                         restartLyricsPoll(true);
                     });
-                    // Media events keep advancing when hidden-page JavaScript
-                    // timers are throttled, so use them as the primary progress
-                    // heartbeat and retain the interval only as a fallback.
                     video.addEventListener('timeupdate', () => sendUpdate());
 
-                    // AirPlay state tracking
                     video.addEventListener('webkitcurrentplaybacktargetiswirelesschanged', () => {
                         if (video !== document.querySelector('video')) return;
                         sendAirPlayStatus();
                     });
 
-                    // Volume enforcement: immediately revert external volume changes
-                    // No debounce — the isEnforcingVolume flag prevents feedback loops.
-                    // A debounce allowed YouTube's rapid-fire init events to keep pushing
-                    // enforcement later, leaving wrong volume audible for 1-2 seconds.
                     video.addEventListener('volumechange', () => {
                         if (isEnforcingVolume) return;
                         if (window.__kasetIsSettingVolume) return;
                         enforceVolumeNow();
                     });
 
-                    // Enforce volume at media lifecycle events where YouTube resets volume.
-                    // YouTube's player often restores its stored volume at these points.
                     video.addEventListener('loadedmetadata', () => {
                         bindMediaIdentity(video, true, true);
                         enforceVolumeNow();
@@ -443,39 +407,29 @@ extension SingletonPlayerWebView {
                             try { video.pause(); } catch (_) {}
                             return;
                         }
-                        // Autoplay recovery: YTM sometimes leaves the video paused
-                        // after navigation even with the WebKit autoplay allowance.
                         __kasetAttemptAutoplayRecovery(video, __kasetPlayerBarElement('playPause'));
                     }
 
                     video.addEventListener('canplay', recoverAutoplayIfNeeded);
 
-                    // Apply target volume immediately when video element is first detected
                     enforceVolumeNow();
 
-                    // If the media was already ready before this listener attached,
-                    // there may not be another `canplay` event to drive recovery.
                     if (video.readyState >= 3) {
                         recoverAutoplayIfNeeded();
                     }
 
-                    // Startup enforcement burst: YouTube may reset volume up to ~2s after
-                    // playback starts (via internal player init, quality switching, etc.).
-                    // Enforce every 200ms for the first 3 seconds to catch delayed resets.
                     let burstCount = 0;
                     const burstInterval = setInterval(() => {
                         enforceVolumeNow();
                         if (++burstCount >= 15) clearInterval(burstInterval);
                     }, 200);
 
-                    // Start polling if already playing
                     if (!video.paused) {
                         startPolling();
                     }
                 }
                 attachVideoListeners();
 
-                // Also watch for video element replacement (YouTube may recreate it)
                 const videoObserver = new MutationObserver(() => {
                     refreshAdObserver();
                     sendAirPlayStatus();
@@ -762,11 +716,8 @@ extension SingletonPlayerWebView {
                 if (isPollingActive) return;
                 isPollingActive = true;
 
-                // Don't apply volume here - let volume enforcement handle it
-                // Applying volume on every startPolling causes volume jumps
 
-                sendUpdate(true); // Immediate update
-                // Poll at 1Hz during playback for progress updates (reduced CPU usage)
+                sendUpdate(true);
                 pollIntervalId = setInterval(sendUpdate, POLL_INTERVAL_MS);
             }
 
@@ -776,11 +727,10 @@ extension SingletonPlayerWebView {
                     clearInterval(pollIntervalId);
                     pollIntervalId = null;
                 }
-                sendUpdate(true); // Final state update
+                sendUpdate(true);
             }
 
             function setupObserver(playerBar) {
-                // Debounced mutation observer - only triggers on significant changes
                 let mutationTimeout = null;
                 const observer = new MutationObserver(() => {
                     if (mutationTimeout) return;
@@ -862,9 +812,6 @@ extension SingletonPlayerWebView {
             }
 
             function sendUpdate(force = false) {
-                // Throttle non-forced updates across polling and mutation paths.
-                // If an update is skipped, keep one trailing send so paused/setup
-                // mutations that are not followed by a polling tick still reach Swift.
                 const now = __kasetEventTimestampMilliseconds();
                 if (!force) {
                     const elapsed = now - lastUpdateTime;
@@ -884,15 +831,12 @@ extension SingletonPlayerWebView {
                 lastUpdateTime = now;
 
                 try {
-                    // Use video element's paused property for language-agnostic detection
-                    // Previously checked button title/aria-label which fails for non-English locales
                     const video = document.querySelector('video');
                     let isPlaying = video ? !video.paused : false;
 
                     const progressBar = document.querySelector('#progress-bar');
                     const mediaTiming = __kasetMediaTiming(video, progressBar);
 
-                    // Extract track metadata
                     const playerBar = __kasetPlayerBar();
                     const titleEl = __kasetPlayerBarElement('title', playerBar);
                     const artistEl = __kasetPlayerBarElement('byline', playerBar);
@@ -974,27 +918,17 @@ extension SingletonPlayerWebView {
                     }
                     let thumbnailUrl = '';
 
-                    // Prefer player API title metadata when the DOM appears to be lagging behind the actual video.
-                    // Artist selection already prefers the structured author, which is locale-independent and
-                    // excludes volatile DOM byline metadata such as localized view counts.
                     if (playerTitle && title && playerTitle !== title) {
                         title = playerTitle;
                     } else {
                         if (!title && playerTitle) title = playerTitle;
                     }
 
-                    // Get the thumbnail URL from the image element
                     if (thumbEl) {
-                        // `img.src` resolves against the document base URL, so an empty or
-                        // missing attribute reports the YouTube Music page URL instead of ''.
-                        // Gate on the literal attribute before trusting the resolved value.
                         const rawThumbSrc = (thumbEl.getAttribute('src') || '').trim();
                         thumbnailUrl = rawThumbSrc ? (thumbEl.src || rawThumbSrc) : '';
                     }
 
-                    // Extract like status from the player bar. The bar re-renders after the
-                    // player switches videos, so its like state is only trusted once it shows
-                    // the title the player reports; until then the status is unknown ('').
                     let likeStatus = '';
                     if (barTitle && barTitle === playerTitle) {
                         const likeRenderer = __kasetPlayerBarElement('likeRenderer', playerBar);
@@ -1004,8 +938,6 @@ extension SingletonPlayerWebView {
                             const status = likeRenderer.getAttribute('like-status');
                             likeStatus = status === 'LIKE' || status === 'DISLIKE' ? status : 'INDIFFERENT';
                         } else if (likeButton || dislikeButton) {
-                            // Redesigned player: like/dislike are toggle buttons that
-                            // report their state through `aria-pressed`.
                             if (likeButton && likeButton.getAttribute('aria-pressed') === 'true') {
                                 likeStatus = 'LIKE';
                             } else if (dislikeButton && dislikeButton.getAttribute('aria-pressed') === 'true') {
@@ -1016,10 +948,8 @@ extension SingletonPlayerWebView {
                         }
                     }
 
-                    // Check if track changed
                     const metadataChanged = title !== '' && (title !== lastTitle || artist !== lastArtist);
                     const videoIdChanged = videoId !== '' && videoId !== lastVideoId;
-                    // Keep content metadata pending while ad media remains exposed.
                     const trackChanged = !isAd && (metadataChanged || videoIdChanged);
                     if (trackChanged) {
                         if (title !== '') {
@@ -1031,13 +961,8 @@ extension SingletonPlayerWebView {
                         }
                     }
 
-                    // Detect if actual video content is available
-                    // This is a quick DOM check for initial detection.
-                    // The API-based musicVideoType detection in fetchSongMetadata
-                    // will provide the authoritative value once metadata is loaded.
                     let hasVideo = false;
 
-                    // Quick check: Look for Song/Video toggle buttons
                     const toggleButtons = document.querySelectorAll('tp-yt-paper-button, button, [role="button"]');
                     for (const btn of toggleButtons) {
                         const text = (btn.textContent || btn.innerText || '').trim().toLowerCase();
@@ -1072,15 +997,11 @@ extension SingletonPlayerWebView {
                 } catch (e) {}
             }
 
-            // Playback state comes from the <video> element, so its listeners never
-            // wait for the player bar; the bar observer only adds paused-state updates.
             function start() {
                 setupVideoListeners();
                 waitForPlayerBar();
             }
 
-            // Report initial state even before YouTube creates its player bar
-            // or media element.
             sendAirPlayStatus();
             if (document.readyState === 'loading') {
                 document.addEventListener('DOMContentLoaded', start);

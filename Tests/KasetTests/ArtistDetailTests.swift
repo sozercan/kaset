@@ -2,7 +2,6 @@ import Foundation
 import Testing
 @testable import Kaset
 
-/// Tests for ArtistDetail.
 @Suite(.tags(.viewModel))
 struct ArtistDetailTests {
     @Test("ArtistDetail initialization")

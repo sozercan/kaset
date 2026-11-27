@@ -1,24 +1,17 @@
 import XCTest
 
-/// UI tests for the PlayerBar.
 @MainActor
 final class PlayerBarUITests: KasetUITestCase {
-    // MARK: - Player Bar Visibility
-
     func testPlayerBarVisibleWithCurrentTrack() {
         launchWithMockPlayer(isPlaying: true)
 
         navigateToHome()
 
-        // Player bar should be visible when there's a current track
-        // Look for the play/pause button
         let playPauseButton = app.buttons.matching(
             NSPredicate(format: "label CONTAINS 'Play' OR label CONTAINS 'Pause'")
         ).firstMatch
         XCTAssertTrue(waitForElement(playPauseButton, timeout: 10))
     }
-
-    // MARK: - Playback Controls
 
     func testPlayPauseButtonExists() {
         launchWithMockPlayer(isPlaying: true)
@@ -67,8 +60,6 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertTrue(waitForElement(repeatButton, timeout: 10), "Repeat button should exist")
     }
 
-    // MARK: - Like/Dislike Buttons
-
     func testLikeButtonExists() {
         launchWithMockPlayer(isPlaying: true)
 
@@ -86,8 +77,6 @@ final class PlayerBarUITests: KasetUITestCase {
         let dislikeButton = app.buttons["Dislike"]
         XCTAssertTrue(waitForElement(dislikeButton, timeout: 10), "Dislike button should exist")
     }
-
-    // MARK: - Lyrics Button
 
     func testLyricsButtonExists() {
         launchWithMockPlayer(isPlaying: true)
@@ -135,8 +124,6 @@ final class PlayerBarUITests: KasetUITestCase {
         let miniPlayerButton = app.buttons[TestAccessibilityID.PlayerBar.miniPlayerButton]
         XCTAssertTrue(waitForElement(miniPlayerButton, timeout: 10), "Mini player button should exist")
     }
-
-    // MARK: - Button Interactions
 
     func testLyricsButtonToggles() {
         launchWithMockPlayer(isPlaying: true)
@@ -225,12 +212,8 @@ final class PlayerBarUITests: KasetUITestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [valueChanged], timeout: 5), .completed)
     }
 
-    // MARK: - Player Bar Persistence Across Views
-
     func testPlayerBarPersistsAcrossNavigation() {
         launchWithMockPlayer(isPlaying: true)
-
-        // Navigate to different views and verify player bar is present
 
         navigateToHome()
         var playPause = app.buttons.matching(

@@ -1,6 +1,5 @@
 import SwiftUI
 
-/// Watch history: a paged list of video rows.
 struct YouTubeHistoryView: View {
     let viewModel: YouTubeHistoryViewModel
 
@@ -32,9 +31,6 @@ struct YouTubeHistoryView: View {
             }
         }
         .navigationTitle(Text("History", comment: "YouTube history title"))
-        // Keyed on the view-model identity so a cold-launch account swap (which
-        // rebuilds the model) re-fires the load instead of leaving the fresh,
-        // idle model stuck. See YouTubeHomeView for the full rationale.
         .task(id: ObjectIdentifier(self.viewModel)) {
             await self.viewModel.load()
         }
@@ -63,8 +59,6 @@ struct YouTubeHistoryView: View {
                 }
             }
             .padding(.vertical, 20)
-            // Edge-to-edge with a resting inset so the grid extends under the
-            // floating glass sidebar.
             .detailScrollContentInset()
         }
     }
