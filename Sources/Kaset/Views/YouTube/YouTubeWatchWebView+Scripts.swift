@@ -482,6 +482,10 @@ extension YouTubeWatchWebView {
             'use strict';
             const bridge = window.webkit.messageHandlers.youtubePlayer;
             function redirect() {
+                const activation = window.navigator && window.navigator.userActivation;
+                if (activation && !activation.isActive) {
+                    return Promise.reject(new TypeError('Full screen requires a user gesture'));
+                }
                 bridge.postMessage({
                     type: 'TOGGLE_FULLSCREEN',
                     documentGeneration: window.__kasetDocumentGeneration
